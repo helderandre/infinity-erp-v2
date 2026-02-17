@@ -70,20 +70,83 @@ export function useUser() {
           throw new Error('Utilizador não encontrado')
         }
 
-        // Extrair o primeiro role (assumindo 1 role por utilizador por agora)
+        // Combinar permissões de todos os roles (OR lógico)
         const userData = devUser as unknown as DevUserWithRoles
 
         console.log('userData:', userData)
         console.log('user_roles:', userData.user_roles)
 
-        const role = userData.user_roles?.[0]?.role || null
+        // Se tiver role admin ou Broker/CEO, dar todas as permissões
+        const hasAdminRole = userData.user_roles?.some(
+          (ur) =>
+            ur.role.name?.toLowerCase() === 'admin' ||
+            ur.role.name?.toLowerCase() === 'broker/ceo'
+        )
+
+        // Combinar permissões de todas as roles (qualquer role que tenha a permissão = true)
+        const mergedPermissions: Record<string, boolean> = {}
+
+        if (hasAdminRole) {
+          // Admin tem todas as permissões
+          const allModules = [
+            'dashboard',
+            'properties',
+            'leads',
+            'processes',
+            'documents',
+            'consultants',
+            'owners',
+            'teams',
+            'commissions',
+            'marketing',
+            'templates',
+            'settings',
+            'goals',
+            'store',
+            'users',
+            'buyers',
+            'credit',
+            'calendar',
+            'pipeline',
+            'financial',
+            'integration',
+            'recruitment',
+          ]
+          allModules.forEach((module) => {
+            mergedPermissions[module] = true
+          })
+        } else {
+          // Combinar permissões de todos os roles
+          userData.user_roles?.forEach((userRole) => {
+            const permissions = userRole.role.permissions as Record<
+              string,
+              boolean
+            >
+            if (permissions) {
+              Object.keys(permissions).forEach((key) => {
+                if (permissions[key] === true) {
+                  mergedPermissions[key] = true
+                }
+              })
+            }
+          })
+        }
+
+        // Usar o primeiro role como base, mas com permissões combinadas
+        const baseRole = userData.user_roles?.[0]?.role || null
+        const combinedRole = baseRole
+          ? {
+              ...baseRole,
+              permissions: mergedPermissions,
+            }
+          : null
 
         // Criar objeto sem user_roles para o estado
         const { user_roles, ...userDataWithoutRoles } = userData
 
         setUser({
           ...userDataWithoutRoles,
-          role: role as Role | null,
+          role: combinedRole as Role | null,
           auth_user: authUser,
         })
       } catch (err) {
