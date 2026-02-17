@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronDown,
   Zap,
+  ClipboardCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -68,6 +69,12 @@ const menuItems = [
     icon: Zap,
     href: '/dashboard/leads',
     permission: 'leads',
+  },
+  {
+    title: 'Angariação',
+    icon: ClipboardCheck,
+    href: '/dashboard/angariacao',
+    permission: 'properties',
   },
   {
     title: 'Processos',
