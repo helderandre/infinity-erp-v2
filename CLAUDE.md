@@ -697,8 +697,13 @@ src/
 │   │   │       ├── route.ts
 │   │   │       └── activities/route.ts
 │   │   ├── processes/
-│   │   │   ├── instantiate/route.ts
-│   │   │   └── [id]/tasks/route.ts
+│   │   │   ├── route.ts                  ← GET (list), POST (create)
+│   │   │   └── [id]/
+│   │   │       ├── route.ts              ← GET (detail)
+│   │   │       ├── approve/route.ts      ← POST (aprovar com template)
+│   │   │       ├── reject/route.ts       ← POST (rejeitar)
+│   │   │       ├── return/route.ts       ← POST (devolver)
+│   │   │       └── hold/route.ts         ← POST (pausar/reactivar)
 │   │   ├── templates/route.ts
 │   │   ├── owners/route.ts
 │   │   ├── libraries/
@@ -1012,21 +1017,41 @@ Módulos do sidebar (respeitar permissões do role):
 - [ ] **FRONT:** Formulário de nova actividade (call, email, whatsapp, nota)
 - [ ] **FRONT:** Score visual (barra/círculo de 0-100)
 
-### M06 — Processos (Instâncias)
-- [x] **BACK:** `POST /api/processes/instantiate` — instanciar template para imóvel
+### ✅ M06 — Processos (Instâncias) (CONCLUÍDA)
+- [x] **BACK:** `POST /api/processes` — criar instância de processo (via acquisitions)
 - [x] **BACK:** `GET /api/processes` — listar instâncias activas
-- [x] **BACK:** `GET /api/processes/[id]` — detalhe com tarefas
+- [x] **BACK:** `GET /api/processes/[id]` — detalhe com tarefas, owners, documentos
+- [x] **BACK:** `POST /api/processes/[id]/approve` — aprovar com selecção de template
+- [x] **BACK:** `POST /api/processes/[id]/reject` — rejeitar com motivo
+- [x] **BACK:** `POST /api/processes/[id]/return` — devolver com motivo
+- [x] **BACK:** `POST /api/processes/[id]/hold` — pausar/reactivar processo
 - [x] **BACK:** `PUT /api/processes/[id]/tasks/[taskId]` — actualizar status de tarefa
 - [x] **BACK:** Lógica de bypass de tarefa (is_bypassed, bypass_reason, bypassed_by)
 - [x] **BACK:** Cálculo de `percent_complete` e avanço de `current_stage_id`
+- [x] **BACK:** `autoCompleteTasks()` — completar tarefas UPLOAD com docs existentes
+- [x] **BACK:** `recalculateProgress()` — recalcular percentagem e fase actual
 - [x] **FRONT:** Stepper visual por fases (progress horizontal)
-- [ ] **FRONT:** Lista de tarefas por fase com status e acções
+- [x] **FRONT:** Lista de tarefas por fase com status e acções
 - [x] **FRONT:** Acções por tipo: UPLOAD → file picker, EMAIL → preview/enviar, MANUAL → marcar concluído
 - [x] **FRONT:** Dialog de bypass com motivo obrigatório
 - [x] **FRONT:** Barra de progresso geral
 - [x] **FRONT:** Referência PROC-YYYY-XXXX visível
+- [x] **FRONT:** Selecção de template na aprovação (Select com templates activos)
+- [x] **FRONT:** Atribuição de tarefas a consultores
+- [x] **FRONT:** Pausa/reactivação de processos
 
-### M07 — Templates de Processo `docs/FASE 07 PROCESSOS`
+**📄 Documentação:** [FASE 06 - PROCESSOS/](docs/FASE%2006%20-%20PROCESSOS/)
+- [SPEC-M06-PROCESSOS.md](docs/FASE%2006%20-%20PROCESSOS/SPEC-M06-PROCESSOS.md)
+- [SPEC-SELECCAO-TEMPLATE-APROVACAO.md](docs/FASE%2006%20-%20PROCESSOS/SPEC-SELECCAO-TEMPLATE-APROVACAO.md)
+
+**Nota importante sobre APIs de processo:**
+- Todas as acções de estado (approve, reject, return, hold) usam **POST** (não PUT)
+- A aprovação requer `tpl_process_id` no body — o template é seleccionado pelo aprovador
+- A criação de angariação (`POST /api/acquisitions`) cria `proc_instances` **sem template** (`tpl_process_id = null`)
+- As tarefas são populadas apenas após aprovação (via `populate_process_tasks()`)
+- Validação de UUID usa regex (não `z.uuid()`) para aceitar IDs com bits de versão zero
+
+### ✅ M07 — Templates de Processo (CONCLUÍDA) `docs/FASE 07 TEMPLATES DE PROCESSOS`
 - [x] **BACK:** `GET /api/templates` — listar templates activos
 - [x] **BACK:** `POST /api/templates` — criar template com fases e tarefas
 - [x] **BACK:** `PUT /api/templates/[id]` — editar
@@ -1146,6 +1171,9 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 5. **Permissões** — respeitar `roles.permissions` para esconder/mostrar módulos
 6. **58 propriedades existentes** em `dev_properties`, **292 media** em `dev_property_media`, **10 leads**, **4 owners**
 7. **Todas as labels, mensagens e textos da UI em PT-PT**
+8. **Rotas duplicadas** — existem páginas em `app/dashboard/` (pasta real, URL `/dashboard/...`) e `app/(dashboard)/` (route group). As páginas activas são as de `app/dashboard/`. Editar sempre os ficheiros em `app/dashboard/`.
+9. **APIs de processo usam POST** — approve, reject, return, hold usam método POST (não PUT). Usar `z.string().regex()` para validar UUIDs (não `z.uuid()` que rejeita IDs com bits de versão zero).
+10. **Fluxo de aprovação de processos** — A angariação cria `proc_instances` sem template (`tpl_process_id = null`). O aprovador selecciona o template na UI e envia-o via `POST /api/processes/[id]/approve`. Só após aprovação é que as tarefas são populadas.
 
 ---
 
