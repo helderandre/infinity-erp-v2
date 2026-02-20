@@ -10,7 +10,7 @@ interface ProcessStepperProps {
 export function ProcessStepper({ stages, className }: ProcessStepperProps) {
   return (
     <nav aria-label="Progresso" className={className}>
-      <ol className="flex items-center justify-between">
+      <ol className="flex items-center justify-between overflow-x-auto pb-2 min-w-0 gap-2">
         {stages.map((stage, index) => {
           const isCompleted = stage.status === 'completed'
           const isInProgress = stage.status === 'in_progress'
@@ -18,7 +18,7 @@ export function ProcessStepper({ stages, className }: ProcessStepperProps) {
           const isLast = index === stages.length - 1
 
           return (
-            <li key={index} className="relative flex-1">
+            <li key={index} className="relative flex-1 min-w-[100px]">
               {/* Linha de conexão */}
               {!isLast && (
                 <div

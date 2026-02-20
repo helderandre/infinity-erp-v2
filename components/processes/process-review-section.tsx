@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -12,16 +13,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Check, X, Undo2, AlertCircle } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Check, X, Undo2, AlertCircle, FileStack, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import type { ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
+
+interface TemplateOption {
+  id: string
+  name: string
+  description: string | null
+  stages_count: number
+  tasks_count: number
+}
 
 interface ProcessReviewSectionProps {
-  process: any
-  property: any
-  owners: any[]
-  documents: any[]
-  onApprove: () => Promise<void>
+  process: ProcessInstance
+  property: ProcessInstance['property']
+  owners: ProcessOwner[]
+  documents: ProcessDocument[]
+  onApprove: (tplProcessId: string) => Promise<void>
   onReturn: (reason: string) => Promise<void>
   onReject: (reason: string) => Promise<void>
 }
@@ -41,10 +57,46 @@ export function ProcessReviewSection({
   const [rejectReason, setRejectReason] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
+  // Estado do template
+  const [templates, setTemplates] = useState<TemplateOption[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
+
+  // Carregar templates activos ao montar
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  const loadTemplates = async () => {
+    setIsLoadingTemplates(true)
+    try {
+      const res = await fetch('/api/templates')
+      if (!res.ok) throw new Error('Erro ao carregar templates')
+      const data = await res.json()
+      // Filtrar apenas templates activos
+      const activeTemplates = data.filter((t: any) => t.is_active !== false)
+      setTemplates(activeTemplates)
+
+      // Se só houver 1 template activo, pré-seleccionar
+      if (activeTemplates.length === 1) {
+        setSelectedTemplateId(activeTemplates[0].id)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar templates:', error)
+      setTemplates([])
+    } finally {
+      setIsLoadingTemplates(false)
+    }
+  }
+
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
+
   const handleApproveClick = async () => {
+    if (!selectedTemplateId) return
+
     setIsProcessing(true)
     try {
-      await onApprove()
+      await onApprove(selectedTemplateId)
     } finally {
       setIsProcessing(false)
     }
@@ -92,8 +144,8 @@ export function ProcessReviewSection({
           </CardTitle>
           <CardDescription>
             {isReturned
-              ? 'Este processo foi devolvido e aguarda correções'
-              : 'Reveja as informações e aprove ou devolva o processo'}
+              ? 'Este processo foi devolvido e aguarda correcções'
+              : 'Reveja as informações, seleccione o template e aprove ou devolva o processo'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -107,13 +159,70 @@ export function ProcessReviewSection({
             </Alert>
           )}
 
+          {/* Selecção de Template */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <FileStack className="h-4 w-4" />
+              Template de Processo *
+            </Label>
+            {isLoadingTemplates ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                A carregar templates...
+              </div>
+            ) : templates.length === 0 ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum template de processo activo encontrado.
+                  Crie um template antes de aprovar.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={setSelectedTemplateId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar template de processo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{tpl.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Info do template seleccionado */}
+                {selectedTemplate && selectedTemplate.description && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTemplate.description}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Botões de acção */}
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={handleApproveClick}
-              disabled={isProcessing}
+              disabled={isProcessing || !selectedTemplateId || templates.length === 0}
               className="flex-1 min-w-[120px]"
             >
-              <Check className="mr-2 h-4 w-4" />
+              {isProcessing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
               Aprovar Processo
             </Button>
 
@@ -142,7 +251,9 @@ export function ProcessReviewSection({
 
           <div className="text-sm text-muted-foreground space-y-1 pt-2 border-t">
             <p><strong>Consultor:</strong> {process.requested_by_user?.commercial_name || '—'}</p>
-            <p><strong>Data de Criação:</strong> {new Date(process.created_at).toLocaleDateString('pt-PT')}</p>
+            {process.started_at && (
+              <p><strong>Data de Início:</strong> {new Date(process.started_at).toLocaleDateString('pt-PT')}</p>
+            )}
             {owners?.length > 0 && (
               <p><strong>Proprietários:</strong> {owners.length}</p>
             )}

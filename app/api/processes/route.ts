@@ -43,6 +43,10 @@ export async function GET(request: Request) {
         tpl_processes (
           id,
           name
+        ),
+        requested_by_user:dev_users!proc_instances_requested_by_fkey(
+          id,
+          commercial_name
         )
       `)
       .order('updated_at', { ascending: false, nullsFirst: false })
@@ -69,7 +73,8 @@ export async function GET(request: Request) {
         (p: any) =>
           p.external_ref?.toLowerCase().includes(term) ||
           p.dev_properties?.title?.toLowerCase().includes(term) ||
-          p.dev_properties?.city?.toLowerCase().includes(term)
+          p.dev_properties?.city?.toLowerCase().includes(term) ||
+          p.requested_by_user?.commercial_name?.toLowerCase().includes(term)
       )
     }
 

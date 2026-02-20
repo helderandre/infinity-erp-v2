@@ -14,6 +14,8 @@ import {
   Mail,
   Upload,
   MoreHorizontal,
+  UserPlus,
+  ExternalLink,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -32,10 +34,12 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import { ProcessTaskAssignDialog } from './process-task-assign-dialog'
+import type { ProcessStageWithTasks, ProcessTask } from '@/types/process'
 
 interface ProcessTasksSectionProps {
   processId: string
-  stages: any[]
+  stages: ProcessStageWithTasks[]
   onTaskUpdate: () => void
 }
 
@@ -48,6 +52,8 @@ export function ProcessTasksSection({
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [bypassReason, setBypassReason] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [assignTask, setAssignTask] = useState<ProcessTask | null>(null)
 
   const handleTaskAction = async (taskId: string, action: string) => {
     setIsProcessing(true)
@@ -165,11 +171,27 @@ export function ProcessTasksSection({
                             Obrigatória
                           </Badge>
                         )}
+                        {task.assigned_to_user && (
+                          <span className="text-xs text-muted-foreground">
+                            ({task.assigned_to_user.commercial_name})
+                          </span>
+                        )}
                       </div>
                       {task.is_bypassed && task.bypass_reason && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                           Dispensada: {task.bypass_reason}
                         </p>
+                      )}
+                      {/* Documento linkado em tarefas UPLOAD completadas */}
+                      {task.action_type === 'UPLOAD' && task.status === 'completed' && task.task_result?.doc_registry_id && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <ExternalLink className="h-3 w-3 text-emerald-600" />
+                          <span className="text-xs text-emerald-700">
+                            {task.task_result.auto_completed
+                              ? 'Documento auto-detectado'
+                              : 'Documento anexado'}
+                          </span>
+                        </div>
                       )}
                     </div>
 
@@ -189,6 +211,22 @@ export function ProcessTasksSection({
                             <PlayCircle className="mr-2 h-4 w-4" />
                             Iniciar
                           </DropdownMenuItem>
+                        )}
+
+                        {/* Atribuir a utilizador */}
+                        {['pending', 'in_progress'].includes(task.status) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setAssignTask(task)
+                                setAssignDialogOpen(true)
+                              }}
+                            >
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Atribuir a Utilizador
+                            </DropdownMenuItem>
+                          </>
                         )}
 
                         {['pending', 'in_progress'].includes(task.status) && (
@@ -276,6 +314,19 @@ export function ProcessTasksSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Atribuição */}
+      {assignTask && (
+        <ProcessTaskAssignDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          taskId={assignTask.id}
+          taskTitle={assignTask.title}
+          processId={processId}
+          currentAssignedTo={assignTask.assigned_to}
+          onAssigned={onTaskUpdate}
+        />
+      )}
     </>
   )
 }

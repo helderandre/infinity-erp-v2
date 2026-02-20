@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
-import { autoCompleteTasks, recalculateProgress } from '@/lib/process-engine'
 
 export async function POST(request: Request) {
   try {
@@ -197,33 +196,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Obter template activo (o mais recente se houver múltiplos)
-    const { data: templates, error: templateError } = await supabase
-      .from('tpl_processes')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    if (templateError || !templates || templates.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'Nenhum template de processo activo encontrado',
-          details: templateError?.message,
-        },
-        { status: 500 }
-      )
-    }
-
-    const template = templates[0]
-    console.log(`Template seleccionado: ${template.name} (${template.id})`)
-
-    // 7. Criar instância de processo
+    // 6. Criar instância de processo (SEM template — será seleccionado na aprovação)
     const { data: procInstance, error: procError } = await supabase
       .from('proc_instances')
       .insert({
         property_id: property.id,
-        tpl_process_id: template.id,
+        tpl_process_id: null,
         current_status: 'pending_approval',
         requested_by: user.id,
         percent_complete: 0,
@@ -237,23 +215,6 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-
-    // 8. Popular tarefas do template (callable function)
-    const { error: populateError } = await (supabase as any).rpc('populate_process_tasks', {
-      p_instance_id: procInstance.id,
-    })
-
-    if (populateError) {
-      console.error('Erro ao popular tarefas:', populateError)
-    }
-
-    // 9. Auto-completar tarefas com documentos existentes
-    const autoCompleteResult = await autoCompleteTasks(procInstance.id, property.id)
-    console.log('Auto-complete result:', autoCompleteResult)
-
-    // 10. Recalcular progresso
-    const progressResult = await recalculateProgress(procInstance.id)
-    console.log('Progress result:', progressResult)
 
     return NextResponse.json({
       success: true,

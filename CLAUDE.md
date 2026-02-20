@@ -1013,18 +1013,18 @@ Módulos do sidebar (respeitar permissões do role):
 - [ ] **FRONT:** Score visual (barra/círculo de 0-100)
 
 ### M06 — Processos (Instâncias)
-- [ ] **BACK:** `POST /api/processes/instantiate` — instanciar template para imóvel
-- [ ] **BACK:** `GET /api/processes` — listar instâncias activas
-- [ ] **BACK:** `GET /api/processes/[id]` — detalhe com tarefas
-- [ ] **BACK:** `PUT /api/processes/[id]/tasks/[taskId]` — actualizar status de tarefa
-- [ ] **BACK:** Lógica de bypass de tarefa (is_bypassed, bypass_reason, bypassed_by)
-- [ ] **BACK:** Cálculo de `percent_complete` e avanço de `current_stage_id`
-- [ ] **FRONT:** Stepper visual por fases (progress horizontal)
+- [x] **BACK:** `POST /api/processes/instantiate` — instanciar template para imóvel
+- [x] **BACK:** `GET /api/processes` — listar instâncias activas
+- [x] **BACK:** `GET /api/processes/[id]` — detalhe com tarefas
+- [x] **BACK:** `PUT /api/processes/[id]/tasks/[taskId]` — actualizar status de tarefa
+- [x] **BACK:** Lógica de bypass de tarefa (is_bypassed, bypass_reason, bypassed_by)
+- [x] **BACK:** Cálculo de `percent_complete` e avanço de `current_stage_id`
+- [x] **FRONT:** Stepper visual por fases (progress horizontal)
 - [ ] **FRONT:** Lista de tarefas por fase com status e acções
-- [ ] **FRONT:** Acções por tipo: UPLOAD → file picker, EMAIL → preview/enviar, MANUAL → marcar concluído
-- [ ] **FRONT:** Dialog de bypass com motivo obrigatório
-- [ ] **FRONT:** Barra de progresso geral
-- [ ] **FRONT:** Referência PROC-YYYY-XXXX visível
+- [x] **FRONT:** Acções por tipo: UPLOAD → file picker, EMAIL → preview/enviar, MANUAL → marcar concluído
+- [x] **FRONT:** Dialog de bypass com motivo obrigatório
+- [x] **FRONT:** Barra de progresso geral
+- [x] **FRONT:** Referência PROC-YYYY-XXXX visível
 
 ### M07 — Templates de Processo `docs/FASE 07 PROCESSOS`
 - [x] **BACK:** `GET /api/templates` — listar templates activos

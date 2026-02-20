@@ -129,19 +129,58 @@ export async function recalculateProgress(procInstanceId: string) {
     ).length
     const percentComplete = Math.round((completed / total) * 100)
 
-    // 3. Determinar fase atual (primeira fase com tarefas pendentes)
-    const pendingTasks = tasks
-      .filter((t: any) => t.status === 'pending' && !t.is_bypassed)
-      .sort((a: any, b: any) => a.stage_order_index - b.stage_order_index)
+    // 3. Determinar a fase actual (primeira fase não-completa)
+    const stageProgress = new Map<number, { total: number; completed: number }>()
+    for (const t of tasks) {
+      const stageIdx = (t as any).stage_order_index ?? 0
+      if (!stageProgress.has(stageIdx)) {
+        stageProgress.set(stageIdx, { total: 0, completed: 0 })
+      }
+      const sp = stageProgress.get(stageIdx)!
+      sp.total++
+      if ((t as any).status === 'completed' || (t as any).is_bypassed) {
+        sp.completed++
+      }
+    }
 
-    const currentStageIndex = pendingTasks[0]?.stage_order_index
+    // Encontrar a primeira fase não-completa
+    const sortedStages = Array.from(stageProgress.entries()).sort(([a], [b]) => a - b)
+    let currentStageIdx: number | null = null
+    for (const [idx, progress] of sortedStages) {
+      if (progress.completed < progress.total) {
+        currentStageIdx = idx
+        break
+      }
+    }
 
     // 4. Verificar se está completo
     const isCompleted = percentComplete === 100
 
-    // 5. Atualizar processo
+    // 5. Buscar stage_id real da tpl_stages (se tivermos o index)
+    let currentStageId: string | null = null
+    if (currentStageIdx !== null && !isCompleted) {
+      const { data: inst } = await supabase
+        .from('proc_instances')
+        .select('tpl_process_id')
+        .eq('id', procInstanceId)
+        .single()
+
+      if (inst?.tpl_process_id) {
+        const { data: stage } = await supabase
+          .from('tpl_stages')
+          .select('id')
+          .eq('tpl_process_id', inst.tpl_process_id)
+          .eq('order_index', currentStageIdx)
+          .single()
+
+        currentStageId = stage?.id || null
+      }
+    }
+
+    // 6. Atualizar processo
     const updates: any = {
       percent_complete: percentComplete,
+      current_stage_id: currentStageId,
       updated_at: new Date().toISOString(),
     }
 
@@ -159,7 +198,8 @@ export async function recalculateProgress(procInstanceId: string) {
 
     return {
       percent_complete: percentComplete,
-      current_stage_index: currentStageIndex,
+      current_stage_index: currentStageIdx,
+      current_stage_id: currentStageId,
       is_completed: isCompleted,
     }
   } catch (error) {

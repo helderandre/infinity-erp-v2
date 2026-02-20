@@ -6,7 +6,7 @@ const returnSchema = z.object({
   reason: z.string().min(10, 'O motivo deve ter pelo menos 10 caracteres'),
 })
 
-export async function PUT(
+export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -37,8 +37,12 @@ export async function PUT(
       .eq('id', user.id)
       .single()
 
-    const roleName = (devUser as any)?.user_roles?.[0]?.role?.name
-    const canReturn = ['Broker/CEO', 'Gestora Processual'].includes(roleName)
+    const userRoles = ((devUser as any)?.user_roles || []).map(
+      (ur: any) => ur.role?.name
+    ) as string[]
+    const canReturn = userRoles.some((role) =>
+      ['Broker/CEO', 'Gestora Processual', 'admin'].includes(role)
+    )
 
     if (!canReturn) {
       return NextResponse.json(

@@ -12,6 +12,8 @@ export interface ProcessInstance extends ProcInstance {
   >
   requested_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   approved_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
+  returned_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
+  rejected_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
 }
 
 export interface ProcessTask extends ProcTask {
@@ -27,23 +29,29 @@ export interface ProcessStageWithTasks {
   tasks: ProcessTask[]
 }
 
+export interface ProcessOwner {
+  id: string
+  name: string
+  nif: string | null
+  person_type: 'singular' | 'coletiva'
+  ownership_percentage: number
+  is_main_contact: boolean
+}
+
+export interface ProcessDocument {
+  id: string
+  doc_type: { id: string; name: string; category: string }
+  file_name: string
+  file_url: string
+  status: string
+  created_at: string
+}
+
 export interface ProcessDetail {
   instance: ProcessInstance
   stages: ProcessStageWithTasks[] | null
-  owners: Array<{
-    id: string
-    name: string
-    nif: string | null
-    person_type: string
-    existing_documents: any[]
-  }>
-  documents: Array<{
-    id: string
-    doc_type: { name: string; category: string }
-    file_name: string
-    file_url: string
-    status: string
-  }>
+  owners: ProcessOwner[]
+  documents: ProcessDocument[]
 }
 
 export type ProcessStatus =
@@ -63,3 +71,5 @@ export type TaskAction =
   | 'assign'
   | 'start'
   | 'reset'
+
+export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL'

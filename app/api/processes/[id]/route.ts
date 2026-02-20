@@ -30,6 +30,14 @@ export async function GET(
         approved_by_user:dev_users!proc_instances_approved_by_fkey(
           id,
           commercial_name
+        ),
+        returned_by_user:dev_users!proc_instances_returned_by_fkey(
+          id,
+          commercial_name
+        ),
+        rejected_by_user:dev_users!proc_instances_rejected_by_fkey(
+          id,
+          commercial_name
         )
       `
       )
@@ -50,7 +58,7 @@ export async function GET(
       .select(
         `
         *,
-        assigned_to_user:dev_users(id, commercial_name)
+        assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
       `
       )
       .eq('proc_instance_id', id)
@@ -125,7 +133,7 @@ export async function GET(
         file_url,
         status,
         created_at,
-        doc_type:doc_types(name, category)
+        doc_type:doc_types(id, name, category)
       `
       )
       .eq('property_id', data.property?.id)

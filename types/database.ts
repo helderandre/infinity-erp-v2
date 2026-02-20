@@ -819,42 +819,79 @@ export type Database = {
       }
       proc_instances: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           completed_at: string | null
           current_stage_id: string | null
           current_status: string | null
           external_ref: string | null
           id: string
+          notes: string | null
           percent_complete: number | null
           property_id: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          requested_by: string | null
+          returned_at: string | null
+          returned_by: string | null
+          returned_reason: string | null
           started_at: string | null
           tpl_process_id: string | null
           updated_at: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           completed_at?: string | null
           current_stage_id?: string | null
           current_status?: string | null
           external_ref?: string | null
           id?: string
+          notes?: string | null
           percent_complete?: number | null
           property_id: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
           started_at?: string | null
           tpl_process_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           completed_at?: string | null
           current_stage_id?: string | null
           current_status?: string | null
           external_ref?: string | null
           id?: string
+          notes?: string | null
           percent_complete?: number | null
           property_id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
           started_at?: string | null
           tpl_process_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "proc_instances_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proc_instances_current_stage_id_fkey"
             columns: ["current_stage_id"]
@@ -870,6 +907,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proc_instances_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proc_instances_tpl_process_id_fkey"
             columns: ["tpl_process_id"]
             isOneToOne: false
@@ -880,14 +938,18 @@ export type Database = {
       }
       proc_tasks: {
         Row: {
+          action_type: string | null
+          assigned_role: string | null
           assigned_to: string | null
           bypass_reason: string | null
           bypassed_by: string | null
           completed_at: string | null
+          config: Json | null
           due_date: string | null
           id: string
           is_bypassed: boolean | null
           is_mandatory: boolean | null
+          order_index: number | null
           proc_instance_id: string
           stage_name: string | null
           stage_order_index: number | null
@@ -897,14 +959,18 @@ export type Database = {
           tpl_task_id: string | null
         }
         Insert: {
+          action_type?: string | null
+          assigned_role?: string | null
           assigned_to?: string | null
           bypass_reason?: string | null
           bypassed_by?: string | null
           completed_at?: string | null
+          config?: Json | null
           due_date?: string | null
           id?: string
           is_bypassed?: boolean | null
           is_mandatory?: boolean | null
+          order_index?: number | null
           proc_instance_id: string
           stage_name?: string | null
           stage_order_index?: number | null
@@ -914,14 +980,18 @@ export type Database = {
           tpl_task_id?: string | null
         }
         Update: {
+          action_type?: string | null
+          assigned_role?: string | null
           assigned_to?: string | null
           bypass_reason?: string | null
           bypassed_by?: string | null
           completed_at?: string | null
+          config?: Json | null
           due_date?: string | null
           id?: string
           is_bypassed?: boolean | null
           is_mandatory?: boolean | null
+          order_index?: number | null
           proc_instance_id?: string
           stage_name?: string | null
           stage_order_index?: number | null
