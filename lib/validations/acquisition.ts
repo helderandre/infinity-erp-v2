@@ -51,6 +51,41 @@ export const acquisitionSchema = z.object({
         // Campos para pessoa coletiva
         legal_representative_name: z.string().optional(),
         legal_representative_nif: z.string().optional(),
+        // KYC Singular
+        birth_date: z.string().optional(),
+        id_doc_type: z.string().optional(),
+        id_doc_number: z.string().optional(),
+        id_doc_expiry: z.string().optional(),
+        id_doc_issued_by: z.string().optional(),
+        is_pep: z.boolean().default(false),
+        pep_position: z.string().optional(),
+        funds_origin: z.array(z.string()).default([]),
+        profession: z.string().optional(),
+        last_profession: z.string().optional(),
+        is_portugal_resident: z.boolean().default(true),
+        residence_country: z.string().optional(),
+        postal_code: z.string().optional(),
+        city: z.string().optional(),
+        marital_regime: z.string().optional(),
+        legal_rep_id_doc: z.string().optional(),
+        // KYC Colectiva
+        company_object: z.string().optional(),
+        company_branches: z.string().optional(),
+        legal_nature: z.string().optional(),
+        country_of_incorporation: z.string().default('Portugal'),
+        cae_code: z.string().optional(),
+        rcbe_code: z.string().optional(),
+        // Beneficiarios (apenas para colectiva sem rcbe_code)
+        beneficiaries: z.array(z.object({
+          full_name: z.string().min(2, 'Nome obrigatorio'),
+          position: z.string().optional(),
+          share_percentage: z.string().optional(),
+          id_doc_type: z.string().optional(),
+          id_doc_number: z.string().optional(),
+          id_doc_expiry: z.string().optional(),
+          id_doc_issued_by: z.string().optional(),
+          nif: z.string().optional(),
+        })).optional().default([]),
       })
     )
     .min(1, 'Deve ter pelo menos um proprietário'),
@@ -83,15 +118,18 @@ export const acquisitionSchema = z.object({
     })
     .optional(),
 
-  // Step 5: Documentos Iniciais (opcional - array de file IDs ou URLs)
+  // Step 5: Documentos (podem ser uploaded OU deferred)
   documents: z
     .array(
       z.object({
-        doc_type_id: z.string().uuid(),
-        file_url: z.string().optional(), // Se já foi feito upload
-        file_name: z.string().optional(),
+        doc_type_id: z.string(),
+        file_url: z.string().optional(),     // Preenchido se upload imediato
+        file_name: z.string().optional(),    // Sempre presente
+        file_size: z.number().optional(),    // Presente no deferred
+        file_type: z.string().optional(),    // Presente no deferred
         valid_until: z.string().optional(),
         metadata: z.record(z.string(), z.any()).optional(),
+        owner_id: z.string().optional(),
       })
     )
     .optional(),

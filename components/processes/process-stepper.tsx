@@ -1,6 +1,14 @@
-import { Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { ProcessStageWithTasks } from '@/types/process'
+import {
+  Stepper,
+  StepperDescription,
+  StepperIndicator,
+  StepperItem,
+  StepperList,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+} from '@/components/ui/stepper'
 
 interface ProcessStepperProps {
   stages: ProcessStageWithTasks[]
@@ -8,70 +16,40 @@ interface ProcessStepperProps {
 }
 
 export function ProcessStepper({ stages, className }: ProcessStepperProps) {
+  // Encontrar o passo activo (in_progress) ou o último se todos completos
+  const activeStage = stages.find((s) => s.status === 'in_progress')
+  const activeValue = activeStage
+    ? activeStage.name
+    : stages.every((s) => s.status === 'completed')
+      ? stages[stages.length - 1]?.name ?? ''
+      : stages[0]?.name ?? ''
+
   return (
-    <nav aria-label="Progresso" className={className}>
-      <ol className="flex items-center justify-between overflow-x-auto pb-2 min-w-0 gap-2">
-        {stages.map((stage, index) => {
-          const isCompleted = stage.status === 'completed'
-          const isInProgress = stage.status === 'in_progress'
-          const isPending = stage.status === 'pending'
-          const isLast = index === stages.length - 1
-
-          return (
-            <li key={index} className="relative flex-1 min-w-[100px]">
-              {/* Linha de conexão */}
-              {!isLast && (
-                <div
-                  className={cn(
-                    'absolute top-4 left-1/2 h-0.5 w-full -translate-y-1/2',
-                    isCompleted ? 'bg-emerald-500' : 'bg-slate-200'
-                  )}
-                  aria-hidden="true"
-                />
-              )}
-
-              <div className="group relative flex flex-col items-center">
-                {/* Círculo */}
-                <span
-                  className={cn(
-                    'relative z-10 flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                    isCompleted &&
-                      'bg-emerald-500 text-white',
-                    isInProgress &&
-                      'border-2 border-blue-500 bg-white text-blue-500',
-                    isPending && 'border-2 border-slate-300 bg-white text-slate-400'
-                  )}
-                >
-                  {isCompleted ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <span className="text-xs font-semibold">
-                      {index + 1}
-                    </span>
-                  )}
-                </span>
-
-                {/* Nome da fase */}
-                <span
-                  className={cn(
-                    'mt-2 text-xs font-medium text-center max-w-[120px]',
-                    isCompleted && 'text-emerald-700',
-                    isInProgress && 'text-blue-700',
-                    isPending && 'text-slate-500'
-                  )}
-                >
-                  {stage.name}
-                </span>
-
-                {/* Progresso */}
-                <span className="mt-0.5 text-xs text-slate-400">
-                  {stage.tasks_completed}/{stage.tasks_total}
-                </span>
+    <Stepper
+      value={activeValue}
+      nonInteractive
+      className={className}
+    >
+      <StepperList>
+        {stages.map((stage) => (
+          <StepperItem
+            key={stage.name}
+            value={stage.name}
+            completed={stage.status === 'completed'}
+          >
+            <StepperTrigger>
+              <StepperIndicator />
+              <div className="flex flex-col gap-px">
+                <StepperTitle>{stage.name}</StepperTitle>
+                <StepperDescription>
+                  {stage.tasks_completed}/{stage.tasks_total} tarefas
+                </StepperDescription>
               </div>
-            </li>
-          )
-        })}
-      </ol>
-    </nav>
+            </StepperTrigger>
+            <StepperSeparator />
+          </StepperItem>
+        ))}
+      </StepperList>
+    </Stepper>
   )
 }

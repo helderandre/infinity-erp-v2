@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { OwnerKycSingular } from './owner-kyc-singular'
+import { OwnerKycColetiva } from './owner-kyc-coletiva'
+import { OwnerBeneficiariesList } from './owner-beneficiaries-list'
 
 interface StepOwnersProps {
   form: UseFormReturn<any>
@@ -96,7 +99,7 @@ export function StepOwners({ form }: StepOwnersProps) {
 
       {owners.map((owner: any, index: number) => (
         <Card key={index}>
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Badge variant="outline">Proprietário {index + 1}</Badge>
@@ -238,6 +241,20 @@ export function StepOwners({ form }: StepOwnersProps) {
                   </FormItem>
                 )}
               />
+
+              {/* KYC Condicional */}
+              {form.watch(`owners.${index}.person_type`) === 'singular' && (
+                <OwnerKycSingular form={form} index={index} />
+              )}
+
+              {form.watch(`owners.${index}.person_type`) === 'coletiva' && (
+                <>
+                  <OwnerKycColetiva form={form} index={index} />
+                  {!form.watch(`owners.${index}.rcbe_code`) && (
+                    <OwnerBeneficiariesList form={form} ownerIndex={index} />
+                  )}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

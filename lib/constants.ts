@@ -495,6 +495,59 @@ export const ROLES = {
 } as const
 
 // Formatadores
+// Labels de Documentos (PT-PT)
+export const DOC_LABELS = {
+  upload: 'Carregar documento',
+  archive: 'Arquivar',
+  replace: 'Substituir documento',
+  use_existing: 'Usar este documento',
+  select_file: 'Seleccionar ficheiro',
+  drag_drop: 'Arraste ficheiros ou clique para seleccionar',
+  valid_until: 'Valido ate',
+  issued_by: 'Emitido por',
+  doc_type: 'Tipo de documento',
+  already_exists_valid: 'Ja existe (valido)',
+  already_exists_expired: 'Ja existe (expirado)',
+  no_documents: 'Nenhum documento encontrado',
+  max_size: 'Tamanho maximo: 20MB',
+  format_error: 'Formato nao permitido',
+  upload_success: 'Documento carregado com sucesso',
+  upload_error: 'Erro ao carregar documento',
+  archive_confirm: 'Tem a certeza de que pretende arquivar este documento?',
+} as const
+
+export const DOC_CATEGORIES: Record<string, string> = {
+  'Contratual': 'Contratual',
+  'Imóvel': 'Imóvel',
+  'Jurídico': 'Jurídico',
+  'Jurídico Especial': 'Jurídico Especial',
+  'Proprietário': 'Proprietário',
+  'Proprietário Empresa': 'Proprietário Empresa',
+}
+
+export const KYC_LABELS = {
+  birth_date: 'Data de Nascimento',
+  id_doc_type: 'Tipo de Documento',
+  id_doc_number: 'Numero do Documento',
+  id_doc_expiry: 'Data de Validade',
+  id_doc_issued_by: 'Emitido por',
+  is_pep: 'Pessoa Politicamente Exposta (PEP)',
+  pep_position: 'Cargo PEP',
+  funds_origin: 'Origem dos Fundos',
+  profession: 'Profissao',
+  last_profession: 'Ultima Profissao',
+  is_portugal_resident: 'Residente em Portugal',
+  residence_country: 'Pais de Residencia',
+  marital_regime: 'Regime Matrimonial',
+  company_object: 'Objecto Social',
+  company_branches: 'Estabelecimentos',
+  legal_nature: 'Natureza Juridica',
+  country_of_incorporation: 'Pais de Constituicao',
+  cae_code: 'Codigo CAE',
+  rcbe_code: 'Codigo RCBE',
+} as const
+
+// Formatadores
 export const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
   return new Intl.NumberFormat('pt-PT', {

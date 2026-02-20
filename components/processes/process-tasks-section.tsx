@@ -35,17 +35,22 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { ProcessTaskAssignDialog } from './process-task-assign-dialog'
+import { TaskUploadAction } from './task-upload-action'
 import type { ProcessStageWithTasks, ProcessTask } from '@/types/process'
 
 interface ProcessTasksSectionProps {
   processId: string
+  propertyId: string
   stages: ProcessStageWithTasks[]
+  processDocuments?: any[]
   onTaskUpdate: () => void
 }
 
 export function ProcessTasksSection({
   processId,
+  propertyId,
   stages,
+  processDocuments = [],
   onTaskUpdate,
 }: ProcessTasksSectionProps) {
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
@@ -146,8 +151,8 @@ export function ProcessTasksSection({
             <CardContent>
               <div className="space-y-2">
                 {stage.tasks.map((task: any) => (
+                  <div key={task.id} className="space-y-2">
                   <div
-                    key={task.id}
                     className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
                   >
                     <div className="shrink-0">
@@ -264,6 +269,23 @@ export function ProcessTasksSection({
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  </div>
+
+                  {/* Upload inline para tarefas UPLOAD pendentes */}
+                  {task.action_type === 'UPLOAD' &&
+                    ['pending', 'in_progress'].includes(task.status) &&
+                    task.config?.doc_type_id && (
+                      <TaskUploadAction
+                        taskId={task.id}
+                        processId={processId}
+                        propertyId={propertyId}
+                        docTypeId={task.config.doc_type_id}
+                        docTypeName={task.title}
+                        allowedExtensions={task.config?.allowed_extensions || ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']}
+                        existingDocs={processDocuments}
+                        onCompleted={onTaskUpdate}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -14,6 +14,70 @@ export type Database = {
   }
   public: {
     Tables: {
+      consultant_documents: {
+        Row: {
+          consultant_id: string
+          created_at: string | null
+          doc_type_id: string | null
+          file_name: string
+          file_url: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          status: string | null
+          uploaded_by: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          status?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          status?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_documents_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_documents_doc_type_id_fkey"
+            columns: ["doc_type_id"]
+            isOneToOne: false
+            referencedRelation: "doc_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_form_submissions: {
         Row: {
           created_at: string | null
@@ -433,8 +497,11 @@ export type Database = {
           file_url: string
           id: string
           metadata: Json | null
+          notes: string | null
+          owner_id: string | null
           property_id: string | null
           status: string | null
+          updated_at: string | null
           uploaded_by: string | null
           valid_until: string | null
         }
@@ -445,8 +512,11 @@ export type Database = {
           file_url: string
           id?: string
           metadata?: Json | null
+          notes?: string | null
+          owner_id?: string | null
           property_id?: string | null
           status?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
           valid_until?: string | null
         }
@@ -457,8 +527,11 @@ export type Database = {
           file_url?: string
           id?: string
           metadata?: Json | null
+          notes?: string | null
+          owner_id?: string | null
           property_id?: string | null
           status?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
           valid_until?: string | null
         }
@@ -468,6 +541,13 @@ export type Database = {
             columns: ["doc_type_id"]
             isOneToOne: false
             referencedRelation: "doc_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doc_registry_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
             referencedColumns: ["id"]
           },
           {
@@ -534,44 +614,31 @@ export type Database = {
         }
         Relationships: []
       }
-      lead_activities: {
+      lead_attachments: {
         Row: {
-          activity_type: string
-          agent_id: string | null
-          created_at: string
-          description: string | null
+          created_at: string | null
           id: string
           lead_id: string
-          metadata: Json | null
+          name: string | null
+          url: string
         }
         Insert: {
-          activity_type: string
-          agent_id?: string | null
-          created_at?: string
-          description?: string | null
+          created_at?: string | null
           id?: string
           lead_id: string
-          metadata?: Json | null
+          name?: string | null
+          url: string
         }
         Update: {
-          activity_type?: string
-          agent_id?: string | null
-          created_at?: string
-          description?: string | null
+          created_at?: string | null
           id?: string
           lead_id?: string
-          metadata?: Json | null
+          name?: string | null
+          url?: string
         }
         Relationships: [
           {
-            foreignKeyName: "lead_activities_agent_id_fkey"
-            columns: ["agent_id"]
-            isOneToOne: false
-            referencedRelation: "dev_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lead_activities_lead_id_fkey"
+            foreignKeyName: "lead_attachments_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -581,96 +648,152 @@ export type Database = {
       }
       leads: {
         Row: {
-          archived_reason: string | null
-          assigned_agent_id: string | null
-          business_type: string | null
+          agent_id: string | null
+          codigo_postal: string | null
+          concelho: string | null
+          consentimento_contacto: boolean | null
+          consentimento_webmarketing: boolean | null
           created_at: string
-          created_at_origin: string | null
+          data: string | null
+          data_contacto: string | null
+          data_nascimento: string | null
+          data_validade_documento: string | null
+          distrito: string | null
+          documento_identificacao_frente_url: string | null
+          documento_identificacao_url: string | null
+          documento_identificacao_verso_url: string | null
           email: string | null
-          expires_at: string | null
-          first_contacted_at: string | null
+          email_empresa: string | null
+          empresa: string | null
+          estado: string | null
+          forma_contacto: string | null
+          freguesia: string | null
+          full_name: string | null
+          genero: string | null
           id: string
-          language: string | null
-          lead_type: string
-          name: string
-          phone_primary: string | null
-          phone_secondary: string | null
-          priority: string
-          property_id: string | null
-          property_reference: string | null
-          qualified_at: string | null
-          score: number | null
-          source: string
-          source_detail: string | null
-          source_message: string | null
-          status: string
-          updated_at: string
+          localidade: string | null
+          meio_contacto_preferencial: string | null
+          morada: string | null
+          morada_empresa: string | null
+          nacionalidade: string | null
+          nif: string | null
+          nipc: string | null
+          nome: string
+          numero_documento: string | null
+          observacoes: string | null
+          origem: string | null
+          pais: string | null
+          pais_emissor: string | null
+          telefone: string | null
+          telefone_empresa: string | null
+          telefone_fixo: string | null
+          telemovel: string | null
+          tem_empresa: boolean | null
+          temperatura: string | null
+          tipo_documento: string | null
+          website_empresa: string | null
+          zona: string | null
         }
         Insert: {
-          archived_reason?: string | null
-          assigned_agent_id?: string | null
-          business_type?: string | null
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
           created_at?: string
-          created_at_origin?: string | null
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
           email?: string | null
-          expires_at?: string | null
-          first_contacted_at?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
           id?: string
-          language?: string | null
-          lead_type?: string
-          name: string
-          phone_primary?: string | null
-          phone_secondary?: string | null
-          priority?: string
-          property_id?: string | null
-          property_reference?: string | null
-          qualified_at?: string | null
-          score?: number | null
-          source: string
-          source_detail?: string | null
-          source_message?: string | null
-          status?: string
-          updated_at?: string
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome: string
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
         }
         Update: {
-          archived_reason?: string | null
-          assigned_agent_id?: string | null
-          business_type?: string | null
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
           created_at?: string
-          created_at_origin?: string | null
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
           email?: string | null
-          expires_at?: string | null
-          first_contacted_at?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
           id?: string
-          language?: string | null
-          lead_type?: string
-          name?: string
-          phone_primary?: string | null
-          phone_secondary?: string | null
-          priority?: string
-          property_id?: string | null
-          property_reference?: string | null
-          qualified_at?: string | null
-          score?: number | null
-          source?: string
-          source_detail?: string | null
-          source_message?: string | null
-          status?: string
-          updated_at?: string
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome?: string
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "leads_assigned_agent_id_fkey"
-            columns: ["assigned_agent_id"]
+            foreignKeyName: "leads_agent_id_fkey"
+            columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "dev_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -760,59 +883,366 @@ export type Database = {
           },
         ]
       }
+      negocios: {
+        Row: {
+          aceita_animais: boolean | null
+          area_m2: number | null
+          area_min_m2: number | null
+          capital_proprio: number | null
+          casas_banho: number | null
+          caucao_rendas: number | null
+          classe_imovel: string | null
+          concelho: string | null
+          created_at: string | null
+          credito_pre_aprovado: boolean | null
+          distrito: string | null
+          duracao_minima_contrato: string | null
+          estado: string | null
+          estado_imovel: string | null
+          estado_imovel_venda: string | null
+          financiamento_necessario: boolean | null
+          freguesia: string | null
+          id: string
+          lead_id: string
+          localizacao: string | null
+          localizacao_venda: string | null
+          mobilado: boolean | null
+          motivacao_compra: string | null
+          num_wc: number | null
+          observacoes: string | null
+          orcamento: number | null
+          orcamento_max: number | null
+          prazo_compra: string | null
+          preco_venda: number | null
+          quartos: number | null
+          quartos_min: number | null
+          renda_max_mensal: number | null
+          renda_pretendida: number | null
+          rendimento_mensal: number | null
+          situacao_profissional: string | null
+          tem_arrumos: boolean | null
+          tem_arrumos_venda: boolean | null
+          tem_elevador: boolean | null
+          tem_elevador_venda: boolean | null
+          tem_estacionamento: boolean | null
+          tem_estacionamento_venda: boolean | null
+          tem_exterior: boolean | null
+          tem_exterior_venda: boolean | null
+          tem_fiador: boolean | null
+          tem_garagem: boolean | null
+          tem_garagem_venda: boolean | null
+          tem_piscina: boolean | null
+          tem_piscina_venda: boolean | null
+          tem_porteiro: boolean | null
+          tem_porteiro_venda: boolean | null
+          tem_varanda: boolean | null
+          tem_varanda_venda: boolean | null
+          tipo: string
+          tipo_imovel: string | null
+          tipo_imovel_venda: string | null
+          total_divisoes: number | null
+          valor_credito: number | null
+        }
+        Insert: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          id?: string
+          lead_id: string
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          quartos?: number | null
+          quartos_min?: number | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          tipo: string
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          valor_credito?: number | null
+        }
+        Update: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          id?: string
+          lead_id?: string
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          quartos?: number | null
+          quartos_min?: number | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          tipo?: string
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          valor_credito?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negocios_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_beneficiaries: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          id_doc_expiry: string | null
+          id_doc_issued_by: string | null
+          id_doc_number: string | null
+          id_doc_type: string | null
+          nif: string | null
+          owner_id: string
+          position: string | null
+          share_percentage: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_name: string
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          nif?: string | null
+          owner_id: string
+          position?: string | null
+          share_percentage?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          nif?: string | null
+          owner_id?: string
+          position?: string | null
+          share_percentage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_beneficiaries_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owners: {
         Row: {
           address: string | null
+          beneficiaries_json: Json | null
+          birth_date: string | null
+          cae_code: string | null
+          city: string | null
+          company_branches: string | null
           company_cert_url: string | null
+          company_object: string | null
+          country_of_incorporation: string | null
           created_at: string | null
           email: string | null
+          funds_origin: string[] | null
           id: string
+          id_doc_expiry: string | null
+          id_doc_issued_by: string | null
+          id_doc_number: string | null
+          id_doc_type: string | null
+          is_pep: boolean | null
+          is_portugal_resident: boolean | null
+          last_profession: string | null
+          legal_nature: string | null
+          legal_rep_id_doc: string | null
           legal_representative_name: string | null
           legal_representative_nif: string | null
+          marital_regime: string | null
           marital_status: string | null
           name: string
           nationality: string | null
           naturality: string | null
           nif: string | null
           observations: string | null
+          pep_position: string | null
           person_type: string
           phone: string | null
+          postal_code: string | null
+          profession: string | null
+          rcbe_code: string | null
+          residence_country: string | null
           updated_at: string | null
         }
         Insert: {
           address?: string | null
+          beneficiaries_json?: Json | null
+          birth_date?: string | null
+          cae_code?: string | null
+          city?: string | null
+          company_branches?: string | null
           company_cert_url?: string | null
+          company_object?: string | null
+          country_of_incorporation?: string | null
           created_at?: string | null
           email?: string | null
+          funds_origin?: string[] | null
           id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          is_pep?: boolean | null
+          is_portugal_resident?: boolean | null
+          last_profession?: string | null
+          legal_nature?: string | null
+          legal_rep_id_doc?: string | null
           legal_representative_name?: string | null
           legal_representative_nif?: string | null
+          marital_regime?: string | null
           marital_status?: string | null
           name: string
           nationality?: string | null
           naturality?: string | null
           nif?: string | null
           observations?: string | null
+          pep_position?: string | null
           person_type: string
           phone?: string | null
+          postal_code?: string | null
+          profession?: string | null
+          rcbe_code?: string | null
+          residence_country?: string | null
           updated_at?: string | null
         }
         Update: {
           address?: string | null
+          beneficiaries_json?: Json | null
+          birth_date?: string | null
+          cae_code?: string | null
+          city?: string | null
+          company_branches?: string | null
           company_cert_url?: string | null
+          company_object?: string | null
+          country_of_incorporation?: string | null
           created_at?: string | null
           email?: string | null
+          funds_origin?: string[] | null
           id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          is_pep?: boolean | null
+          is_portugal_resident?: boolean | null
+          last_profession?: string | null
+          legal_nature?: string | null
+          legal_rep_id_doc?: string | null
           legal_representative_name?: string | null
           legal_representative_nif?: string | null
+          marital_regime?: string | null
           marital_status?: string | null
           name?: string
           nationality?: string | null
           naturality?: string | null
           nif?: string | null
           observations?: string | null
+          pep_position?: string | null
           person_type?: string
           phone?: string | null
+          postal_code?: string | null
+          profession?: string | null
+          rcbe_code?: string | null
+          residence_country?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1459,6 +1889,38 @@ export type Database = {
           },
         ]
       }
+      user_contracts: {
+        Row: {
+          created_at: string | null
+          file_url: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_contracts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -1532,6 +1994,7 @@ export type Database = {
           iban: string | null
           id: string
           identity_card: string | null
+          identity_card_url: string | null
           identity_card_validity: string | null
           instagram_handle: string | null
           is_active: boolean | null
@@ -1587,6 +2050,7 @@ export type Database = {
           iban?: string | null
           id?: string
           identity_card?: string | null
+          identity_card_url?: string | null
           identity_card_validity?: string | null
           instagram_handle?: string | null
           is_active?: boolean | null
@@ -1642,6 +2106,7 @@ export type Database = {
           iban?: string | null
           id?: string
           identity_card?: string | null
+          identity_card_url?: string | null
           identity_card_validity?: string | null
           instagram_handle?: string | null
           is_active?: boolean | null
@@ -1675,6 +2140,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      populate_process_tasks: {
+        Args: { p_instance_id: string }
+        Returns: undefined
+      }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {

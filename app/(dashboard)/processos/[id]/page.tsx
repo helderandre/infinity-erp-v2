@@ -382,7 +382,9 @@ export default function ProcessoDetailPage() {
       {['active', 'on_hold', 'completed'].includes(instance.current_status ?? '') && stages && (
         <ProcessTasksSection
           processId={instance.id}
+          propertyId={instance.property_id}
           stages={stages}
+          processDocuments={documents}
           onTaskUpdate={loadProcess}
         />
       )}

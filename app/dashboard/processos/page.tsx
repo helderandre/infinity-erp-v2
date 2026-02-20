@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,6 +13,7 @@ import { FileText, Plus, Search, Building2, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { BUSINESS_TYPES, PROPERTY_TYPES } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
 
 export default function ProcessosPage() {
@@ -112,62 +115,90 @@ export default function ProcessosPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {processes.map((proc) => (
             <Link key={proc.id} href={`/dashboard/processos/${proc.id}`}>
-              <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-sm">
+              <Card className="h-full cursor-pointer transition-colors hover:bg-accent/50 hover:border-border">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-semibold text-foreground">
                         {proc.external_ref || 'Sem referência'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
+                      </p>
+                      <h3 className="text-base font-bold text-foreground tracking-tight line-clamp-1">
                         {proc.dev_properties?.title || 'Imóvel sem título'}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {proc.dev_properties?.business_type
+                          ? (BUSINESS_TYPES as Record<string, string>)[proc.dev_properties.business_type] || proc.dev_properties.business_type
+                          : proc.tpl_processes?.name || 'Sem template'}
                       </p>
                     </div>
                     <StatusBadge status={proc.current_status} type="process" showDot={false} />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Info do imóvel */}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  {/* Linha de metadados */}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {proc.dev_properties?.property_type && (
+                      <span className="flex items-center gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {(PROPERTY_TYPES as Record<string, string>)[proc.dev_properties.property_type] || proc.dev_properties.property_type}
+                      </span>
+                    )}
                     {proc.dev_properties?.city && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
                         {proc.dev_properties.city}
                       </span>
                     )}
-                    {proc.dev_properties?.property_type && (
-                      <span className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />
-                        {proc.dev_properties.property_type}
+                    {proc.requested_by_user?.commercial_name && (
+                      <span className="ml-auto flex items-center gap-1.5">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={proc.requested_by_user?.avatar_url} />
+                          <AvatarFallback className="text-[9px]">
+                            {proc.requested_by_user.commercial_name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate max-w-[120px]">
+                          {proc.requested_by_user.commercial_name}
+                        </span>
                       </span>
                     )}
                   </div>
 
+                  <Separator />
+
                   {/* Barra de progresso */}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-medium">{proc.percent_complete}%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${proc.percent_complete}%` }}
-                    />
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-muted-foreground">Progresso</span>
+                      {proc.percent_complete === 0 ? (
+                        <span className="text-muted-foreground">Não iniciado</span>
+                      ) : (
+                        <span className="text-foreground font-semibold">{proc.percent_complete}%</span>
+                      )}
+                    </div>
+                    <div className="h-[3px] rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${proc.percent_complete === 100 ? 'bg-emerald-500' : 'bg-foreground'}`}
+                        style={{ width: `${proc.percent_complete}%` }}
+                      />
+                    </div>
                   </div>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
                       {proc.started_at
                         ? formatDate(proc.started_at)
                         : proc.updated_at
                           ? formatDate(proc.updated_at)
                           : '—'}
                     </span>
-                    {proc.dev_properties?.listing_price && (
-                      <span className="font-medium text-foreground">
+                    {proc.dev_properties?.listing_price ? (
+                      <span className="text-sm font-bold text-foreground tracking-tight">
                         {formatCurrency(Number(proc.dev_properties.listing_price))}
                       </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Preço não definido</span>
                     )}
                   </div>
                 </CardContent>

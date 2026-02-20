@@ -142,6 +142,30 @@ export async function POST(request: Request) {
               observations: ownerData.observations || null,
               legal_representative_name: ownerData.legal_representative_name || null,
               legal_representative_nif: ownerData.legal_representative_nif || null,
+              // KYC Singular
+              birth_date: ownerData.birth_date || null,
+              id_doc_type: ownerData.id_doc_type || null,
+              id_doc_number: ownerData.id_doc_number || null,
+              id_doc_expiry: ownerData.id_doc_expiry || null,
+              id_doc_issued_by: ownerData.id_doc_issued_by || null,
+              is_pep: ownerData.is_pep ?? false,
+              pep_position: ownerData.pep_position || null,
+              funds_origin: ownerData.funds_origin || null,
+              profession: ownerData.profession || null,
+              last_profession: ownerData.last_profession || null,
+              is_portugal_resident: ownerData.is_portugal_resident ?? true,
+              residence_country: ownerData.residence_country || null,
+              postal_code: ownerData.postal_code || null,
+              city: ownerData.city || null,
+              marital_regime: ownerData.marital_regime || null,
+              legal_rep_id_doc: ownerData.legal_rep_id_doc || null,
+              // KYC Colectiva
+              company_object: ownerData.company_object || null,
+              company_branches: ownerData.company_branches || null,
+              legal_nature: ownerData.legal_nature || null,
+              country_of_incorporation: ownerData.country_of_incorporation || 'Portugal',
+              cae_code: ownerData.cae_code || null,
+              rcbe_code: ownerData.rcbe_code || null,
             })
             .select('id')
             .single()
@@ -156,6 +180,29 @@ export async function POST(request: Request) {
       }
 
       ownerIds.push(ownerId)
+
+      // Inserir beneficiarios se for colectiva com beneficiarios
+      if (ownerData.person_type === 'coletiva' && ownerData.beneficiaries && ownerData.beneficiaries.length > 0) {
+        const beneficiariesToInsert = ownerData.beneficiaries.map((b: any) => ({
+          owner_id: ownerId,
+          full_name: b.full_name,
+          position: b.position || null,
+          share_percentage: b.share_percentage || null,
+          id_doc_type: b.id_doc_type || null,
+          id_doc_number: b.id_doc_number || null,
+          id_doc_expiry: b.id_doc_expiry || null,
+          id_doc_issued_by: b.id_doc_issued_by || null,
+          nif: b.nif || null,
+        }))
+
+        const { error: benError } = await supabase
+          .from('owner_beneficiaries')
+          .insert(beneficiariesToInsert)
+
+        if (benError) {
+          console.error('Erro ao inserir beneficiarios:', benError)
+        }
+      }
 
       // Criar ligação property_owners
       const { error: linkError } = await supabase.from('property_owners').insert({
@@ -176,6 +223,7 @@ export async function POST(request: Request) {
         .filter((doc) => doc.file_url && doc.file_name) // Só documentos com URL e nome
         .map((doc) => ({
           property_id: property.id,
+          owner_id: doc.owner_id || null,
           doc_type_id: doc.doc_type_id,
           file_url: doc.file_url!,
           file_name: doc.file_name!,
@@ -220,6 +268,7 @@ export async function POST(request: Request) {
       success: true,
       property_id: property.id,
       proc_instance_id: procInstance.id,
+      owner_ids: ownerIds,
       message: 'Angariação criada com sucesso',
     })
   } catch (error) {

@@ -1,17 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
 import type { z } from 'zod'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
 import { Loader2, ChevronLeft, ChevronRight, Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import {
+  Stepper,
+  StepperContent,
+  StepperDescription,
+  StepperIndicator,
+  StepperItem,
+  StepperList,
+  StepperNext,
+  StepperPrev,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+  type StepperProps,
+} from '@/components/ui/stepper'
 import { StepProperty } from './step-1-property'
 import { StepLocation } from './step-2-location'
 import { StepOwners } from './step-3-owners'
@@ -21,17 +34,43 @@ import { StepDocuments } from './step-5-documents'
 type AcquisitionFormData = z.infer<typeof acquisitionSchema>
 
 const STEPS = [
-  { id: 1, title: 'Dados do Imóvel', description: 'Informações gerais' },
-  { id: 2, title: 'Localização', description: 'Morada e coordenadas' },
-  { id: 3, title: 'Proprietários', description: 'Dados dos proprietários' },
-  { id: 4, title: 'Contrato', description: 'Comissões e termos' },
-  { id: 5, title: 'Documentos', description: 'Upload opcional' },
+  {
+    value: 'property',
+    title: 'Dados do Imóvel',
+    description: 'Informações gerais',
+    fields: ['title', 'property_type', 'business_type', 'listing_price'] as const,
+  },
+  {
+    value: 'location',
+    title: 'Localização',
+    description: 'Morada e coordenadas',
+    fields: ['city', 'address_street', 'postal_code'] as const,
+  },
+  {
+    value: 'owners',
+    title: 'Proprietários',
+    description: 'Dados dos proprietários',
+    fields: ['owners'] as const,
+  },
+  {
+    value: 'contract',
+    title: 'Contrato',
+    description: 'Comissões e termos',
+    fields: ['contract_regime', 'commission_agreed'] as const,
+  },
+  {
+    value: 'documents',
+    title: 'Documentos',
+    description: 'Upload opcional',
+    fields: [] as const,
+  },
 ]
 
 export function AcquisitionForm() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(1)
+  const [step, setStep] = useState('property')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
 
   const form = useForm({
     resolver: zodResolver(acquisitionSchema) as any,
@@ -74,14 +113,47 @@ export function AcquisitionForm() {
     },
   })
 
+  const stepIndex = STEPS.findIndex((s) => s.value === step)
+
+  const onValidate: NonNullable<StepperProps['onValidate']> = useCallback(
+    async (_value, direction) => {
+      if (direction === 'prev') return true
+
+      const currentStepData = STEPS.find((s) => s.value === step)
+      if (!currentStepData || currentStepData.fields.length === 0) return true
+
+      const isValid = await form.trigger(currentStepData.fields as any)
+      if (!isValid) {
+        toast.error('Por favor, preencha todos os campos obrigatórios')
+      }
+      return isValid
+    },
+    [form, step],
+  )
+
   const onSubmit = async (data: any) => {
     console.log('[AcquisitionForm] onSubmit chamado — dados validados:', data)
     setIsSubmitting(true)
     try {
+      // 1. Extrair ficheiros pendentes do form data
+      const pendingFiles: Array<{ file: File; doc_type_id: string }> = []
+      const jsonDocuments: typeof data.documents = []
+
+      for (const doc of (data.documents || [])) {
+        if (doc.file instanceof File) {
+          pendingFiles.push({ file: doc.file, doc_type_id: doc.doc_type_id })
+        } else if (doc.file_url) {
+          jsonDocuments.push(doc)
+        }
+      }
+
+      // 2. Enviar JSON sem File objects
+      const payload = { ...data, documents: jsonDocuments }
+
       const response = await fetch('/api/acquisitions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       const result = await response.json()
@@ -91,6 +163,45 @@ export function AcquisitionForm() {
         throw new Error(result.error || 'Erro ao criar angariação')
       }
 
+      // 3. Upload dos ficheiros pendentes (com property_id real)
+      if (pendingFiles.length > 0) {
+        let uploaded = 0
+        let failed = 0
+
+        for (const pending of pendingFiles) {
+          setUploadProgress(`A carregar documentos... (${uploaded + 1}/${pendingFiles.length})`)
+
+          try {
+            const formData = new FormData()
+            formData.append('file', pending.file)
+            formData.append('doc_type_id', pending.doc_type_id)
+            formData.append('property_id', result.property_id)
+
+            const uploadRes = await fetch('/api/documents/upload', {
+              method: 'POST',
+              body: formData,
+            })
+
+            if (!uploadRes.ok) {
+              const err = await uploadRes.json()
+              console.error(`Erro no upload de ${pending.file.name}:`, err)
+              failed++
+            } else {
+              uploaded++
+            }
+          } catch (err) {
+            console.error(`Erro no upload de ${pending.file.name}:`, err)
+            failed++
+          }
+        }
+
+        if (failed > 0) {
+          toast.warning(
+            `${failed} documento(s) não carregado(s). Pode adicioná-los depois na página do processo.`
+          )
+        }
+      }
+
       toast.success('Angariação criada com sucesso!')
       router.push(`/dashboard/processos/${result.proc_instance_id}`)
     } catch (error: any) {
@@ -98,6 +209,7 @@ export function AcquisitionForm() {
       toast.error(error.message || 'Erro ao criar angariação')
     } finally {
       setIsSubmitting(false)
+      setUploadProgress(null)
     }
   }
 
@@ -105,7 +217,6 @@ export function AcquisitionForm() {
     console.error('[AcquisitionForm] Erros de validação Zod:', errors)
     console.error('[AcquisitionForm] Valores actuais do form:', form.getValues())
 
-    // Mostrar os campos com erro
     const fieldNames = Object.keys(errors)
     const errorMessages = fieldNames.map((field) => {
       const err = errors[field]
@@ -117,139 +228,89 @@ export function AcquisitionForm() {
     toast.error(`Erros de validação em ${fieldNames.length} campo(s):\n${fieldNames.join(', ')}`)
   }
 
-  const handleNext = async () => {
-    const fields = getFieldsForStep(currentStep)
-    const isValid = await form.trigger(fields as any)
-
-    if (isValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length))
-    } else {
-      toast.error('Por favor, preencha todos os campos obrigatórios')
-    }
-  }
-
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1))
-  }
-
-  const getFieldsForStep = (step: number): string[] => {
-    switch (step) {
-      case 1:
-        return ['title', 'property_type', 'business_type', 'listing_price']
-      case 2:
-        return ['city', 'address_street', 'postal_code']
-      case 3:
-        return ['owners']
-      case 4:
-        return ['contract_regime', 'commission_agreed']
-      case 5:
-        return []
-      default:
-        return []
-    }
-  }
-
   return (
     <div className="container max-w-4xl mx-auto py-8">
-      {/* Stepper */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {STEPS.map((step, index) => (
-            <div key={step.id} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors',
-                    currentStep > step.id &&
-                      'border-emerald-500 bg-emerald-500 text-white',
-                    currentStep === step.id &&
-                      'border-blue-500 bg-blue-500 text-white',
-                    currentStep < step.id && 'border-slate-300 bg-white text-slate-400'
-                  )}
-                >
-                  {currentStep > step.id ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <span className="text-sm font-semibold">{step.id}</span>
-                  )}
-                </div>
-                <div className="mt-2 text-center">
-                  <div
-                    className={cn(
-                      'text-sm font-medium',
-                      currentStep >= step.id ? 'text-slate-900' : 'text-slate-400'
-                    )}
-                  >
-                    {step.title}
-                  </div>
-                  <div className="text-xs text-slate-500">{step.description}</div>
-                </div>
-              </div>
-              {index < STEPS.length - 1 && (
-                <div
-                  className={cn(
-                    'h-0.5 w-full transition-colors',
-                    currentStep > step.id ? 'bg-emerald-500' : 'bg-slate-200'
-                  )}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit, onSubmitError)} className="space-y-6">
+          <Stepper value={step} onValueChange={setStep} onValidate={onValidate}>
+            {/* Header do Stepper */}
+            <StepperList>
+              {STEPS.map((s) => (
+                <StepperItem key={s.value} value={s.value}>
+                  <StepperTrigger>
+                    <StepperIndicator />
+                    <div className="flex flex-col gap-px">
+                      <StepperTitle>{s.title}</StepperTitle>
+                      <StepperDescription className="hidden sm:block">
+                        {s.description}
+                      </StepperDescription>
+                    </div>
+                  </StepperTrigger>
+                  <StepperSeparator />
+                </StepperItem>
+              ))}
+            </StepperList>
 
-      {/* Formulário */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{STEPS[currentStep - 1].title}</CardTitle>
-          <CardDescription>{STEPS[currentStep - 1].description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, onSubmitError)} className="space-y-6">
-              {currentStep === 1 && <StepProperty form={form} />}
-              {currentStep === 2 && <StepLocation form={form} />}
-              {currentStep === 3 && <StepOwners form={form} />}
-              {currentStep === 4 && <StepContract form={form} />}
-              {currentStep === 5 && <StepDocuments form={form} />}
+            {/* Conteúdo de cada passo */}
+            <Card>
+              <CardContent>
+                <StepperContent value="property">
+                  <StepProperty form={form} />
+                </StepperContent>
+                <StepperContent value="location">
+                  <StepLocation form={form} />
+                </StepperContent>
+                <StepperContent value="owners">
+                  <StepOwners form={form} />
+                </StepperContent>
+                <StepperContent value="contract">
+                  <StepContract form={form} />
+                </StepperContent>
+                <StepperContent value="documents">
+                  <StepDocuments form={form} />
+                </StepperContent>
+              </CardContent>
+            </Card>
 
-              {/* Navegação */}
-              <div className="flex items-center justify-between pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={currentStep === 1 || isSubmitting}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-2" />
+            {/* Navegação */}
+            <div className="flex items-center justify-between pt-4">
+              <StepperPrev asChild>
+                <Button type="button" variant="outline" disabled={isSubmitting}>
+                  <ChevronLeft className="mr-1 h-4 w-4" />
                   Voltar
                 </Button>
+              </StepperPrev>
 
-                {currentStep < STEPS.length ? (
-                  <Button type="button" onClick={handleNext} disabled={isSubmitting}>
+              <span className="text-sm text-muted-foreground">
+                Passo {stepIndex + 1} de {STEPS.length}
+              </span>
+
+              {stepIndex === STEPS.length - 1 ? (
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {uploadProgress || 'A criar angariação...'}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Criar Angariação
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <StepperNext asChild>
+                  <Button type="button" disabled={isSubmitting}>
                     Avançar
-                    <ChevronRight className="h-4 w-4 ml-2" />
+                    <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
-                ) : (
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        A criar...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Criar Angariação
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                </StepperNext>
+              )}
+            </div>
+          </Stepper>
+        </form>
+      </Form>
     </div>
   )
 }
