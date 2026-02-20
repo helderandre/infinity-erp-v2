@@ -1026,15 +1026,15 @@ Módulos do sidebar (respeitar permissões do role):
 - [ ] **FRONT:** Barra de progresso geral
 - [ ] **FRONT:** Referência PROC-YYYY-XXXX visível
 
-### M07 — Templates de Processo
-- [ ] **BACK:** `GET /api/templates` — listar templates activos
-- [ ] **BACK:** `POST /api/templates` — criar template com fases e tarefas
-- [ ] **BACK:** `PUT /api/templates/[id]` — editar
-- [ ] **BACK:** `DELETE /api/templates/[id]` — desactivar (is_active = false)
-- [ ] **FRONT:** Template builder visual (arrastar fases e tarefas)
-- [ ] **FRONT:** Configuração de tarefa por action_type (selector de doc_type, email template, etc.)
-- [ ] **FRONT:** Preview do template antes de guardar
-- [ ] **FRONT:** Listagem de templates com badge activo/inactivo
+### M07 — Templates de Processo `docs/FASE 07 PROCESSOS`
+- [x] **BACK:** `GET /api/templates` — listar templates activos
+- [x] **BACK:** `POST /api/templates` — criar template com fases e tarefas
+- [x] **BACK:** `PUT /api/templates/[id]` — editar
+- [x] **BACK:** `DELETE /api/templates/[id]` — desactivar (is_active = false)
+- [x] **FRONT:** Template builder visual (arrastar fases e tarefas)
+- [x] **FRONT:** Configuração de tarefa por action_type (selector de doc_type, email template, etc.)
+- [x] **FRONT:** Preview do template antes de guardar
+- [x] **FRONT:** Listagem de templates com badge activo/inactivo
 
 ### M08 — Documentos
 - [ ] **BACK:** `GET /api/libraries/doc-types` — tipos de documento

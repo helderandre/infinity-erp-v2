@@ -19,6 +19,7 @@ const pathTranslations: Record<string, string> = {
   editar: 'Editar',
   leads: 'Leads',
   processos: 'Processos',
+  angariacao: 'Angariação',
   templates: 'Templates',
   documentos: 'Documentos',
   proprietarios: 'Proprietários',
@@ -36,7 +37,11 @@ export function Breadcrumbs() {
     return null
   }
 
-  const segments = pathname.split('/').filter(Boolean)
+  const segments = pathname
+    .split('/')
+    .filter(Boolean)
+    // Remover segmentos UUID (IDs) — não têm página própria
+    .filter((s) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s))
 
   // Não mostrar breadcrumbs para rotas de autenticação
   if (segments[0] === 'login') {
@@ -49,11 +54,7 @@ export function Breadcrumbs() {
         {segments.map((segment, index) => {
           const href = '/' + segments.slice(0, index + 1).join('/')
           const isLast = index === segments.length - 1
-          const label = pathTranslations[segment] || segment
-
-          // Se for um UUID (ID), mostrar apenas "Detalhe"
-          const isId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)
-          const displayLabel = isId ? 'Detalhe' : label
+          const displayLabel = pathTranslations[segment] || segment
 
           return (
             <Fragment key={href}>

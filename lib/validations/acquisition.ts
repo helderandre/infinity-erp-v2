@@ -17,8 +17,8 @@ export const acquisitionSchema = z.object({
   address_parish: z.string().optional(),
   postal_code: z.string().optional(),
   zone: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 
   // Step 3: Proprietários (array de IDs ou novos)
   owners: z
@@ -39,7 +39,8 @@ export const acquisitionSchema = z.object({
           .string()
           .min(9, 'NIF inválido')
           .max(9, 'NIF inválido')
-          .optional(),
+          .optional()
+          .or(z.literal('')),
         nationality: z.string().optional(),
         naturality: z.string().optional(),
         marital_status: z.string().optional(),
@@ -74,7 +75,7 @@ export const acquisitionSchema = z.object({
       bathrooms: z.number().int().nonnegative().optional(),
       area_gross: z.number().nonnegative().optional(),
       area_util: z.number().nonnegative().optional(),
-      construction_year: z.number().int().optional(),
+      construction_year: z.number().int().nullable().optional(),
       parking_spaces: z.number().int().nonnegative().optional(),
       garage_spaces: z.number().int().nonnegative().optional(),
       has_elevator: z.boolean().optional(),

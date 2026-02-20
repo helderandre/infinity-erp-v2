@@ -75,6 +75,7 @@ export function AcquisitionForm() {
   })
 
   const onSubmit = async (data: any) => {
+    console.log('[AcquisitionForm] onSubmit chamado — dados validados:', data)
     setIsSubmitting(true)
     try {
       const response = await fetch('/api/acquisitions', {
@@ -84,19 +85,36 @@ export function AcquisitionForm() {
       })
 
       const result = await response.json()
+      console.log('[AcquisitionForm] Resposta da API:', { status: response.status, result })
 
       if (!response.ok) {
         throw new Error(result.error || 'Erro ao criar angariação')
       }
 
       toast.success('Angariação criada com sucesso!')
-      router.push(`/processos/${result.proc_instance_id}`)
+      router.push(`/dashboard/processos/${result.proc_instance_id}`)
     } catch (error: any) {
-      console.error('Erro:', error)
+      console.error('[AcquisitionForm] Erro no submit:', error)
       toast.error(error.message || 'Erro ao criar angariação')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const onSubmitError = (errors: any) => {
+    console.error('[AcquisitionForm] Erros de validação Zod:', errors)
+    console.error('[AcquisitionForm] Valores actuais do form:', form.getValues())
+
+    // Mostrar os campos com erro
+    const fieldNames = Object.keys(errors)
+    const errorMessages = fieldNames.map((field) => {
+      const err = errors[field]
+      const msg = err?.message || err?.root?.message || JSON.stringify(err)
+      return `• ${field}: ${msg}`
+    })
+
+    console.error('[AcquisitionForm] Campos com erro:\n' + errorMessages.join('\n'))
+    toast.error(`Erros de validação em ${fieldNames.length} campo(s):\n${fieldNames.join(', ')}`)
   }
 
   const handleNext = async () => {
@@ -188,7 +206,7 @@ export function AcquisitionForm() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit, onSubmitError)} className="space-y-6">
               {currentStep === 1 && <StepProperty form={form} />}
               {currentStep === 2 && <StepLocation form={form} />}
               {currentStep === 3 && <StepOwners form={form} />}

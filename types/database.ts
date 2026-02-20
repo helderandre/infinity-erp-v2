@@ -1307,6 +1307,7 @@ export type Database = {
       tpl_stages: {
         Row: {
           created_at: string | null
+          description: string | null
           id: string
           name: string
           order_index: number
@@ -1314,6 +1315,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           id?: string
           name: string
           order_index: number
@@ -1321,6 +1323,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           id?: string
           name?: string
           order_index?: number
@@ -1339,6 +1342,7 @@ export type Database = {
       tpl_tasks: {
         Row: {
           action_type: string
+          assigned_role: string | null
           config: Json | null
           dependency_task_id: string | null
           description: string | null
@@ -1351,6 +1355,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          assigned_role?: string | null
           config?: Json | null
           dependency_task_id?: string | null
           description?: string | null
@@ -1363,6 +1368,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          assigned_role?: string | null
           config?: Json | null
           dependency_task_id?: string | null
           description?: string | null

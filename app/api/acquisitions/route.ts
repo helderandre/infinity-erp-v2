@@ -94,37 +94,66 @@ export async function POST(request: Request) {
       console.error('Erro ao criar internal data:', internalError)
     }
 
-    // 4. Processar owners
+    // 4. Processar owners (reutilizar existente por NIF ou email)
     const ownerIds: string[] = []
     for (const ownerData of data.owners) {
       let ownerId = ownerData.id
 
       if (!ownerId) {
-        // Criar novo owner
-        const { data: newOwner, error: ownerError } = await supabase
-          .from('owners')
-          .insert({
-            person_type: ownerData.person_type,
-            name: ownerData.name,
-            email: ownerData.email,
-            phone: ownerData.phone,
-            nif: ownerData.nif,
-            nationality: ownerData.nationality,
-            marital_status: ownerData.marital_status,
-            address: ownerData.address,
-            observations: ownerData.observations,
-            legal_representative_name: ownerData.legal_representative_name,
-            legal_representative_nif: ownerData.legal_representative_nif,
-          })
-          .select('id')
-          .single()
+        // Verificar se já existe owner com mesmo NIF ou email
+        if (ownerData.nif && ownerData.nif.length === 9) {
+          const { data: existingByNif } = await supabase
+            .from('owners')
+            .select('id')
+            .eq('nif', ownerData.nif)
+            .maybeSingle()
 
-        if (ownerError || !newOwner) {
-          console.error('Erro ao criar owner:', ownerError)
-          continue
+          if (existingByNif) {
+            ownerId = existingByNif.id
+            console.log(`Owner reutilizado por NIF ${ownerData.nif}: ${ownerId}`)
+          }
         }
 
-        ownerId = newOwner.id
+        if (!ownerId && ownerData.email && ownerData.email !== '') {
+          const { data: existingByEmail } = await supabase
+            .from('owners')
+            .select('id')
+            .eq('email', ownerData.email)
+            .maybeSingle()
+
+          if (existingByEmail) {
+            ownerId = existingByEmail.id
+            console.log(`Owner reutilizado por email ${ownerData.email}: ${ownerId}`)
+          }
+        }
+
+        // Se não existe, criar novo
+        if (!ownerId) {
+          const { data: newOwner, error: ownerError } = await supabase
+            .from('owners')
+            .insert({
+              person_type: ownerData.person_type,
+              name: ownerData.name,
+              email: ownerData.email || null,
+              phone: ownerData.phone || null,
+              nif: ownerData.nif || null,
+              nationality: ownerData.nationality || null,
+              marital_status: ownerData.marital_status || null,
+              address: ownerData.address || null,
+              observations: ownerData.observations || null,
+              legal_representative_name: ownerData.legal_representative_name || null,
+              legal_representative_nif: ownerData.legal_representative_nif || null,
+            })
+            .select('id')
+            .single()
+
+          if (ownerError || !newOwner) {
+            console.error('Erro ao criar owner:', ownerError)
+            continue
+          }
+
+          ownerId = newOwner.id
+        }
       }
 
       ownerIds.push(ownerId)
@@ -168,14 +197,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Obter template activo
-    const { data: template, error: templateError } = await supabase
+    // 6. Obter template activo (o mais recente se houver múltiplos)
+    const { data: templates, error: templateError } = await supabase
       .from('tpl_processes')
-      .select('id')
+      .select('id, name')
       .eq('is_active', true)
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-    if (templateError || !template) {
+    if (templateError || !templates || templates.length === 0) {
       return NextResponse.json(
         {
           error: 'Nenhum template de processo activo encontrado',
@@ -184,6 +214,9 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    const template = templates[0]
+    console.log(`Template seleccionado: ${template.name} (${template.id})`)
 
     // 7. Criar instância de processo
     const { data: procInstance, error: procError } = await supabase

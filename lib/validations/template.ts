@@ -16,21 +16,16 @@ export const taskSchema = z
   })
   .refine(
     (task) => {
-      // Validar config baseado no action_type
+      // UPLOAD: doc_type_id obrigatório
       if (task.action_type === 'UPLOAD') {
         return !!task.config?.doc_type_id
       }
-      if (task.action_type === 'EMAIL') {
-        return !!task.config?.email_library_id
-      }
-      if (task.action_type === 'GENERATE_DOC') {
-        return !!task.config?.doc_library_id
-      }
+      // EMAIL e GENERATE_DOC: config opcional no MVP (bibliotecas vazias)
+      // Será obrigatório quando M13 estiver implementado
       return true
     },
     {
-      message:
-        'Config inválido para o tipo de acção (falta doc_type_id, email_library_id ou doc_library_id)',
+      message: 'Config inválido para o tipo de acção (falta doc_type_id)',
       path: ['config'],
     }
   )

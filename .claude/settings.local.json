@@ -11,7 +11,24 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(npx next build)",
+      "Bash(npx skills:*)",
+      "mcp__claude_ai_SupabaseInfinity__list_tables",
+      "mcp__claude_ai_SupabaseInfinity__list_migrations",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.dndkit.com)",
+      "WebFetch(domain:marmelab.com)",
+      "WebFetch(domain:itnext.io)",
+      "WebFetch(domain:dndkit.com)",
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:radzion.com)",
+      "WebFetch(domain:www.diceui.com)",
+      "WebFetch(domain:plaintext-engineering.com)",
+      "WebFetch(domain:www.chetanverma.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "mcp__shadcn__search_items_in_registries",
+      "Bash(npm install:*)"
     ]
   }
 }
