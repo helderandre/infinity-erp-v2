@@ -1062,13 +1062,13 @@ Módulos do sidebar (respeitar permissões do role):
 - [x] **FRONT:** Listagem de templates com badge activo/inactivo
 
 ### M08 — Documentos
-- [ ] **BACK:** `GET /api/libraries/doc-types` — tipos de documento
-- [ ] **BACK:** `POST /api/libraries/doc-types` — criar tipo
-- [ ] **BACK:** `GET /api/properties/[id]/documents` — documentos do imóvel
-- [ ] **FRONT:** Listagem de documentos por imóvel com status (recebido, validado, rejeitado)
-- [ ] **FRONT:** Upload com validação de extensão no frontend
-- [ ] **FRONT:** Preview de PDF inline
-- [ ] **FRONT:** Gestão de tipos de documento (admin)
+- [x] **BACK:** `GET /api/libraries/doc-types` — tipos de documento
+- [x] **BACK:** `POST /api/libraries/doc-types` — criar tipo
+- [x] **BACK:** `GET /api/properties/[id]/documents` — documentos do imóvel
+- [x] **FRONT:** Listagem de documentos por imóvel com status (recebido, validado, rejeitado)
+- [x] **FRONT:** Upload com validação de extensão no frontend
+- [x] **FRONT:** Preview de PDF inline
+- [x] **FRONT:** Gestão de tipos de documento (admin)
 
 ### M09 — Consultores
 - [ ] **BACK:** `GET /api/consultants` — listar (profile + user data)

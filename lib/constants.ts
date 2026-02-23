@@ -547,6 +547,136 @@ export const KYC_LABELS = {
   rcbe_code: 'Codigo RCBE',
 } as const
 
+// --- LEADS ---
+
+export const LEAD_ESTADOS = [
+  'Novo',
+  'Em contacto',
+  'Qualificado',
+  'Em negociação',
+  'Convertido',
+  'Perdido',
+] as const
+
+export const LEAD_TEMPERATURAS = [
+  { value: 'Quente', label: 'Quente', color: 'text-red-600 bg-red-50' },
+  { value: 'Morno', label: 'Morno', color: 'text-amber-600 bg-amber-50' },
+  { value: 'Frio', label: 'Frio', color: 'text-blue-600 bg-blue-50' },
+] as const
+
+export const LEAD_ORIGENS = [
+  'Idealista',
+  'Imovirtual',
+  'Casa Sapo',
+  'Website',
+  'Referência',
+  'Walk-in',
+  'Telefone',
+  'Redes Sociais',
+  'Outro',
+] as const
+
+export const LEAD_FORMAS_CONTACTO = [
+  'Telefone',
+  'Email',
+  'WhatsApp',
+  'Presencial',
+  'Redes Sociais',
+  'Outro',
+] as const
+
+export const LEAD_MEIOS_CONTACTO = [
+  'Telefone',
+  'Email',
+  'WhatsApp',
+  'SMS',
+] as const
+
+export const LEAD_GENEROS = ['Masculino', 'Feminino'] as const
+
+export const LEAD_TIPOS_DOCUMENTO = [
+  'Cartão de Cidadão',
+  'Passaporte',
+  'Bilhete de Identidade',
+  'Autorização de Residência',
+] as const
+
+// --- NEGOCIOS ---
+
+export const NEGOCIO_TIPOS = [
+  'Compra',
+  'Venda',
+  'Compra e Venda',
+  'Arrendatário',
+  'Arrendador',
+  'Outro',
+] as const
+
+export const NEGOCIO_ESTADOS = [
+  'Aberto',
+  'Em progresso',
+  'Fechado',
+  'Cancelado',
+] as const
+
+export const NEGOCIO_TIPOS_IMOVEL = [
+  'Apartamento',
+  'Moradia',
+  'Terreno',
+  'Escritório',
+  'Loja',
+  'Armazém',
+  'Outro',
+] as const
+
+export const NEGOCIO_ESTADOS_IMOVEL = [
+  'Novo',
+  'Em construção',
+  'Usado',
+  'Para recuperação',
+] as const
+
+export const NEGOCIO_MOTIVACOES = [
+  'Primeira habitação',
+  'Investimento',
+  'Upgrade',
+  'Downsize',
+  'Relocalização',
+  'Outro',
+] as const
+
+export const NEGOCIO_PRAZOS = [
+  'Imediato',
+  'Até 3 meses',
+  '3 a 6 meses',
+  '6 a 12 meses',
+  'Mais de 1 ano',
+] as const
+
+export const NEGOCIO_CLASSES_IMOVEL = [
+  'Habitação',
+  'Comercial',
+  'Misto',
+  'Rústico',
+  'Outro',
+] as const
+
+export const NEGOCIO_SITUACOES_PROFISSIONAIS = [
+  'Empregado por conta de outrem',
+  'Trabalhador independente',
+  'Empresário',
+  'Reformado',
+  'Estudante',
+  'Outro',
+] as const
+
+export const NEGOCIO_DURACOES_CONTRATO = [
+  'Sem mínimo',
+  '1 ano',
+  '2 anos',
+  '3 anos',
+] as const
+
 // Formatadores
 export const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
