@@ -18,6 +18,12 @@ export interface ProcessInstance extends ProcInstance {
 
 export interface ProcessTask extends ProcTask {
   assigned_to_user?: Pick<DevUser, 'id' | 'commercial_name'>
+  owner_id?: string | null
+  owner?: {
+    id: string
+    name: string
+    person_type: 'singular' | 'coletiva'
+  } | null
 }
 
 export interface ProcessStageWithTasks {

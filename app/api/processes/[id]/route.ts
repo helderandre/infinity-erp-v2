@@ -58,7 +58,8 @@ export async function GET(
       .select(
         `
         *,
-        assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
+        assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name),
+        owner:owners!proc_tasks_owner_id_fkey(id, name, person_type)
       `
       )
       .eq('proc_instance_id', id)

@@ -17,6 +17,7 @@ interface TaskUploadActionProps {
   docTypeName: string
   allowedExtensions: string[]
   existingDocs?: any[]
+  ownerId?: string
   onCompleted: () => void
 }
 
@@ -28,6 +29,7 @@ export function TaskUploadAction({
   docTypeName,
   allowedExtensions,
   existingDocs = [],
+  ownerId,
   onCompleted,
 }: TaskUploadActionProps) {
   const [isCompleting, setIsCompleting] = useState(false)
@@ -122,6 +124,7 @@ export function TaskUploadAction({
           docTypeId={docTypeId}
           allowedExtensions={allowedExtensions}
           propertyId={propertyId}
+          ownerId={ownerId}
           onUploaded={handleUploaded}
         />
       </CardContent>

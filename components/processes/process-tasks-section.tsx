@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,8 @@ import {
   MoreHorizontal,
   UserPlus,
   ExternalLink,
+  User,
+  Building2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -38,11 +40,18 @@ import { ProcessTaskAssignDialog } from './process-task-assign-dialog'
 import { TaskUploadAction } from './task-upload-action'
 import type { ProcessStageWithTasks, ProcessTask } from '@/types/process'
 
+interface ProcessOwner {
+  id: string
+  name: string
+  is_main_contact?: boolean
+}
+
 interface ProcessTasksSectionProps {
   processId: string
   propertyId: string
   stages: ProcessStageWithTasks[]
   processDocuments?: any[]
+  owners?: ProcessOwner[]
   onTaskUpdate: () => void
 }
 
@@ -51,8 +60,15 @@ export function ProcessTasksSection({
   propertyId,
   stages,
   processDocuments = [],
+  owners = [],
   onTaskUpdate,
 }: ProcessTasksSectionProps) {
+  // Proprietário principal — usado para associar docs de proprietário
+  const mainOwnerId = useMemo(() => {
+    const main = owners.find((o) => o.is_main_contact)
+    return main?.id || owners[0]?.id || undefined
+  }, [owners])
+
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [bypassReason, setBypassReason] = useState('')
@@ -176,6 +192,16 @@ export function ProcessTasksSection({
                             Obrigatória
                           </Badge>
                         )}
+                        {task.owner && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            {task.owner.person_type === 'coletiva' ? (
+                              <Building2 className="h-3 w-3" />
+                            ) : (
+                              <User className="h-3 w-3" />
+                            )}
+                            {task.owner.name}
+                          </Badge>
+                        )}
                         {task.assigned_to_user && (
                           <span className="text-xs text-muted-foreground">
                             ({task.assigned_to_user.commercial_name})
@@ -283,6 +309,7 @@ export function ProcessTasksSection({
                         docTypeName={task.title}
                         allowedExtensions={task.config?.allowed_extensions || ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']}
                         existingDocs={processDocuments}
+                        ownerId={task.owner_id || mainOwnerId}
                         onCompleted={onTaskUpdate}
                       />
                     )}

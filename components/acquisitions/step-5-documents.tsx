@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DocumentsSection } from '@/components/documents/DocumentsSection'
@@ -13,9 +13,10 @@ const ACQUISITION_DOC_CATEGORIES = [
   'Imóvel',
   'Jurídico',
   'Jurídico Especial',
-  'Proprietário',
-  'Proprietário Empresa',
 ]
+
+// Categorias cujos documentos devem ter owner_id
+const OWNER_DOC_CATEGORIES = ['Proprietário', 'Proprietário Empresa']
 
 interface StepDocumentsProps {
   form: UseFormReturn<any>
@@ -24,6 +25,22 @@ interface StepDocumentsProps {
 export function StepDocuments({ form }: StepDocumentsProps) {
   const [docTypes, setDocTypes] = useState<DocType[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // Owners do Step 3 (disponíveis no form state)
+  const ownersRaw = form.watch('owners')
+  const owners = useMemo(
+    () => (Array.isArray(ownersRaw) ? ownersRaw : []) as Array<{ is_main_contact?: boolean }>,
+    [ownersRaw]
+  )
+
+  // Mapa de docTypeId → category para lookup rápido
+  const docTypeCategoryMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const dt of docTypes) {
+      map[dt.id] = dt.category
+    }
+    return map
+  }, [docTypes])
 
   // 1. Carregar doc_types
   useEffect(() => {
@@ -45,21 +62,39 @@ export function StepDocuments({ form }: StepDocumentsProps) {
   // 2. Handler de ficheiro seleccionado (modo deferred)
   const handleFileSelected = useCallback(
     (file: File, docTypeId: string) => {
+      const category = docTypeCategoryMap[docTypeId] || ''
+      const isOwnerDoc = OWNER_DOC_CATEGORIES.some((c) => category.startsWith(c))
+
+      // Resolver owner_index: se é doc de proprietário, associar ao owner
+      let ownerIndex: number | undefined
+      if (isOwnerDoc && owners.length > 0) {
+        // Se só há 1 proprietário, usar automaticamente
+        // Se há múltiplos, usar o primeiro marcado como main_contact ou index 0
+        if (owners.length === 1) {
+          ownerIndex = 0
+        } else {
+          const mainIdx = owners.findIndex((o) => o.is_main_contact)
+          ownerIndex = mainIdx >= 0 ? mainIdx : 0
+        }
+      }
+
       const currentDocs = form.getValues('documents') || []
       form.setValue('documents', [
         ...currentDocs,
         {
           doc_type_id: docTypeId,
+          doc_type_category: category,
           file: file,
           file_name: file.name,
           file_size: file.size,
           file_type: file.type,
+          owner_index: ownerIndex,
           metadata: {},
         },
       ])
       toast.success(`Ficheiro "${file.name}" seleccionado`)
     },
-    [form]
+    [form, docTypeCategoryMap, owners]
   )
 
   if (isLoading) {

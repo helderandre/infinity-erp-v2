@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     // 4. Validar extensao contra doc_types.allowed_extensions
     const { data: docType, error: dtError } = await supabase
       .from('doc_types')
-      .select('allowed_extensions, name')
+      .select('allowed_extensions, name, category')
       .eq('id', docTypeId)
       .single()
 
@@ -67,12 +67,42 @@ export async function POST(request: Request) {
       )
     }
 
+    // 4b. Inferir owner_id quando é doc de proprietário sem owner_id explícito
+    let resolvedOwnerId = ownerId
+    if (
+      !resolvedOwnerId &&
+      propertyId &&
+      docType.category?.startsWith('Proprietário')
+    ) {
+      const { data: mainOwner } = await supabase
+        .from('property_owners')
+        .select('owner_id')
+        .eq('property_id', propertyId)
+        .eq('is_main_contact', true)
+        .maybeSingle()
+
+      if (mainOwner) {
+        resolvedOwnerId = mainOwner.owner_id
+      } else {
+        const { data: firstOwner } = await supabase
+          .from('property_owners')
+          .select('owner_id')
+          .eq('property_id', propertyId)
+          .limit(1)
+          .maybeSingle()
+
+        if (firstOwner) {
+          resolvedOwnerId = firstOwner.owner_id
+        }
+      }
+    }
+
     // 5. Determinar contexto de upload (path no R2)
     let ctx: DocumentContext
     if (propertyId) {
       ctx = { type: 'property', propertyId }
-    } else if (ownerId) {
-      ctx = { type: 'owner', ownerId }
+    } else if (resolvedOwnerId) {
+      ctx = { type: 'owner', ownerId: resolvedOwnerId }
     } else if (consultantId) {
       ctx = { type: 'consultant', consultantId }
     } else {
@@ -130,7 +160,7 @@ export async function POST(request: Request) {
       .from('doc_registry')
       .insert({
         property_id: propertyId || null,
-        owner_id: ownerId || null,
+        owner_id: resolvedOwnerId || null,
         doc_type_id: docTypeId,
         file_url: url,
         file_name: file.name,

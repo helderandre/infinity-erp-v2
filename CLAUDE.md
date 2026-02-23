@@ -2,7 +2,7 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-02-17
+**Última actualização:** 2026-02-23
 
 ### ✅ FASE 1 — Fundação (CONCLUÍDA)
 - ✅ Estrutura de pastas completa
@@ -16,10 +16,25 @@
 
 **📄 Documentação detalhada:** [FASE-01-IMPLEMENTACAO.md](docs/FASE-01-IMPLEMENTACAO.md)
 
+### 🟡 FASE 5 — Leads (PARCIAL)
+- ✅ CRUD completo de Leads (listagem com filtros, criação, detalhe com 6 tabs)
+- ✅ CRUD completo de Negócios (formulário dinâmico por tipo, 5 tabs)
+- ✅ APIs de IA: chat GPT-4o, fill-from-text, transcribe (Whisper), analyze-document, summary
+- ✅ APIs utilitárias: código postal (geoapi.pt), NIPC (nif.pt)
+- ✅ Componentes: lead-filters, lead-form, document-analyzer
+- ✅ Componentes: negocio-form, negocio-chat, negocio-matches, negocio-interessados, negocio-summary, quick-fill
+- ✅ Types, validações Zod e constantes PT-PT para leads e negócios
+- ✅ Dependência `openai` instalada para APIs de IA
+- ❌ API de actividades (registar + histórico)
+- ❌ Vista Kanban com drag-and-drop + toggle Kanban/Lista
+- ❌ Timeline de actividades no detalhe do lead
+- ❌ Score visual (0-100)
+
+**📄 Especificação:** [SPEC-M05-LEADS.md](docs/FASE%2005%20-%20LEADES/SPEC-M05-LEADS.md)
+
 ### 🟠 FASE 2 — Módulos Core (PRÓXIMA)
 - [ ] Módulo Imóveis completo
 - [ ] Módulo Proprietários
-- [ ] Módulo Documentos
 - [ ] Dashboard completo (gráficos, actividade)
 
 ---
@@ -60,9 +75,10 @@ date-fns zustand
 react-hook-form @hookform/resolvers zod
 mapbox-gl @types/mapbox-gl
 class-variance-authority clsx tailwind-merge
+openai                          # ← adicionado na FASE 5 (APIs de IA)
 ```
 
-**17 componentes shadcn/ui instalados** (sidebar, form, sonner, skeleton, avatar, etc.)
+**34 componentes shadcn/ui instalados** (sidebar, form, sonner, skeleton, avatar, table, tabs, badge, dialog, select, etc.)
 
 ---
 
@@ -1003,19 +1019,49 @@ Módulos do sidebar (respeitar permissões do role):
 - [ ] **FRONT:** Detalhe com imóveis associados
 - [ ] **FRONT:** Componente `<OwnerSearch>` reutilizável (autocomplete) para formulário de imóvel
 
-### M05 — Leads
-- [ ] **BACK:** `GET /api/leads` — listagem com filtros (status, source, priority, agent)
-- [ ] **BACK:** `POST /api/leads` — criar lead
-- [ ] **BACK:** `PUT /api/leads/[id]` — actualizar (status, assignment, etc.)
-- [ ] **BACK:** `POST /api/leads/[id]/activities` — registar actividade
-- [ ] **BACK:** `GET /api/leads/[id]/activities` — histórico
+### 🟡 M05 — Leads (PARCIAL)
+
+**✅ Implementado:**
+- [x] **BACK:** `GET /api/leads` — listagem com filtros (estado, temperatura, origem, agent_id, nome) + paginação
+- [x] **BACK:** `POST /api/leads` — criar lead com validação Zod
+- [x] **BACK:** `GET/PUT/DELETE /api/leads/[id]` — detalhe, actualização e eliminação
+- [x] **BACK:** `GET/POST /api/leads/[id]/attachments` — gestão de anexos
+- [x] **BACK:** `DELETE /api/leads/attachments/[attachmentId]` — eliminar anexo
+- [x] **BACK:** `POST /api/leads/[id]/analyze-document` — análise OCR com GPT-4o-mini
+- [x] **BACK:** `GET/POST /api/negocios` — CRUD de negócios com filtros
+- [x] **BACK:** `GET/PUT/DELETE /api/negocios/[id]` — detalhe, actualização e eliminação
+- [x] **BACK:** `GET /api/negocios/[id]/matches` — matching de propriedades com flags de preço
+- [x] **BACK:** `GET /api/negocios/[id]/interessados` — compradores interessados
+- [x] **BACK:** `POST /api/negocios/[id]/chat` — assistente IA com GPT-4o
+- [x] **BACK:** `POST /api/negocios/[id]/fill-from-text` — extracção de dados de texto
+- [x] **BACK:** `POST /api/negocios/[id]/transcribe` — transcrição áudio com Whisper
+- [x] **BACK:** `GET /api/negocios/[id]/summary` — resumo IA do negócio
+- [x] **BACK:** `GET /api/postal-code/[cp]` — lookup código postal (geoapi.pt)
+- [x] **BACK:** `GET /api/nipc/[nipc]` — lookup empresa por NIPC (nif.pt)
+- [x] **FRONT:** Listagem de leads com tabela, filtros, paginação e confirmação de eliminação
+- [x] **FRONT:** Formulário de criação de lead (nome, email, telemóvel, origem, consultor)
+- [x] **FRONT:** Detalhe de lead com 6 tabs (Dados Pessoais, Identificação, Morada, Empresa, Negócios, Anexos)
+- [x] **FRONT:** Detalhe de negócio com 5 tabs (Detalhes, Assistente IA, Preenchimento Rápido, Matching, Interessados)
+- [x] **FRONT:** Formulário dinâmico de negócio por tipo (Compra/Venda/Arrendatário/Arrendador)
+- [x] **FRONT:** Componentes IA: chat, quick-fill (texto + áudio), document-analyzer, summary
+
+**❌ Por implementar:**
+- [ ] **BACK:** `POST /api/leads/[id]/activities` — registar actividade (call, email, whatsapp, sms, visit, note)
+- [ ] **BACK:** `GET /api/leads/[id]/activities` — histórico de actividades do lead
 - [ ] **FRONT:** Vista Kanban (colunas por status) com drag-and-drop
-- [ ] **FRONT:** Vista Lista/Tabela alternativa
-- [ ] **FRONT:** Toggle entre vistas
-- [ ] **FRONT:** Card de lead com prioridade (cor), source, agente atribuído
-- [ ] **FRONT:** Detalhe com timeline de actividades
-- [ ] **FRONT:** Formulário de nova actividade (call, email, whatsapp, nota)
-- [ ] **FRONT:** Score visual (barra/círculo de 0-100)
+- [ ] **FRONT:** Toggle entre vistas (Kanban / Lista)
+- [ ] **FRONT:** Card de lead para Kanban com prioridade (cor), source, agente atribuído
+- [ ] **FRONT:** Timeline de actividades no detalhe do lead
+- [ ] **FRONT:** Formulário de nova actividade (call, email, whatsapp, nota, visita)
+- [ ] **FRONT:** Score visual (barra/círculo de 0-100) no detalhe do lead
+
+**📄 Especificação:** [SPEC-M05-LEADS.md](docs/FASE%2005%20-%20LEADES/SPEC-M05-LEADS.md)
+
+**Nota sobre Leads:**
+- Tabelas: `leads`, `negocios`, `lead_attachments` (nomes PT no schema)
+- APIs de IA requerem `OPENAI_API_KEY` e `NIF_PT_API_KEY` no `.env.local`
+- Negócios têm formulário dinâmico: campos mudam conforme o tipo (Compra, Venda, Arrendatário, Arrendador)
+- Matching de propriedades compara tipo_imovel, localização, preço e quartos contra `dev_properties`
 
 ### ✅ M06 — Processos (Instâncias) (CONCLUÍDA)
 - [x] **BACK:** `POST /api/processes` — criar instância de processo (via acquisitions)
@@ -1174,6 +1220,9 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 8. **Rotas duplicadas** — existem páginas em `app/dashboard/` (pasta real, URL `/dashboard/...`) e `app/(dashboard)/` (route group). As páginas activas são as de `app/dashboard/`. Editar sempre os ficheiros em `app/dashboard/`.
 9. **APIs de processo usam POST** — approve, reject, return, hold usam método POST (não PUT). Usar `z.string().regex()` para validar UUIDs (não `z.uuid()` que rejeita IDs com bits de versão zero).
 10. **Fluxo de aprovação de processos** — A angariação cria `proc_instances` sem template (`tpl_process_id = null`). O aprovador selecciona o template na UI e envia-o via `POST /api/processes/[id]/approve`. Só após aprovação é que as tarefas são populadas.
+11. **Tabelas de leads usam nomes PT** — `leads` (nome, telemovel, estado, temperatura, origem), `negocios` (tipo, estado, localizacao, orcamento, preco_venda), `lead_attachments`
+12. **APIs de IA requerem chaves** — `OPENAI_API_KEY` para chat/fill-from-text/transcribe/summary/analyze-document, `NIF_PT_API_KEY` para lookup de NIPC
+13. **Negócios têm formulário dinâmico** — Os campos mudam conforme o tipo (Compra, Venda, Arrendatário, Arrendador, Compra e Venda). Tipo "Compra e Venda" mostra campos duplicados com sufixo `_venda`
 
 ---
 
@@ -1181,11 +1230,8 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 
 ### Documentação Criada
 - **[FASE-01-IMPLEMENTACAO.md](docs/FASE-01-IMPLEMENTACAO.md)** — Documentação completa da Fase 1
-  - O que foi implementado
-  - Como funciona cada componente
-  - Fluxos de autenticação
-  - Guia de teste
-  - Próximos passos
+- **[SPEC-M05-LEADS.md](docs/FASE%2005%20-%20LEADES/SPEC-M05-LEADS.md)** — Especificação completa do módulo de Leads
+- **[FASE 06 - PROCESSOS/](docs/FASE%2006%20-%20PROCESSOS/)** — Documentação de Processos
 
 ### Ficheiros Chave Criados (FASE 1)
 
@@ -1208,11 +1254,47 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 - `app/(dashboard)/page.tsx` — Dashboard principal
 
 **Configuração:**
-- `lib/constants.ts` — STATUS_COLORS + labels PT-PT + formatadores
-- `lib/validations/` — Schemas Zod (property, lead, owner)
+- `lib/constants.ts` — STATUS_COLORS + labels PT-PT + constantes leads/negócios + formatadores
+- `lib/validations/` — Schemas Zod (property, lead, owner, negocio)
 - `types/database.ts` — Types do Supabase (auto-gerado)
+- `types/lead.ts` — Types de Leads e Negócios
 
-**Total:** 30+ ficheiros criados | 17 componentes shadcn instalados
+### Ficheiros Chave Criados (FASE 5 — Leads)
+
+**API Routes:**
+- `app/api/leads/route.ts` — GET (listagem + filtros) + POST (criar)
+- `app/api/leads/[id]/route.ts` — GET + PUT + DELETE
+- `app/api/leads/[id]/attachments/route.ts` — GET + POST anexos
+- `app/api/leads/[id]/analyze-document/route.ts` — OCR com GPT-4o-mini
+- `app/api/negocios/route.ts` — GET + POST negócios
+- `app/api/negocios/[id]/route.ts` — GET + PUT + DELETE
+- `app/api/negocios/[id]/chat/route.ts` — Assistente IA
+- `app/api/negocios/[id]/fill-from-text/route.ts` — Extracção de texto
+- `app/api/negocios/[id]/transcribe/route.ts` — Transcrição áudio
+- `app/api/negocios/[id]/summary/route.ts` — Resumo IA
+- `app/api/negocios/[id]/matches/route.ts` — Matching propriedades
+- `app/api/negocios/[id]/interessados/route.ts` — Interessados
+- `app/api/postal-code/[cp]/route.ts` — Lookup código postal
+- `app/api/nipc/[nipc]/route.ts` — Lookup NIPC empresa
+
+**Páginas:**
+- `app/dashboard/leads/page.tsx` — Listagem com filtros e paginação
+- `app/dashboard/leads/novo/page.tsx` — Criação de lead
+- `app/dashboard/leads/[id]/page.tsx` — Detalhe com 6 tabs
+- `app/dashboard/leads/[id]/negocios/[negocioId]/page.tsx` — Detalhe negócio com 5 tabs
+
+**Componentes:**
+- `components/leads/lead-filters.tsx` — Barra de filtros
+- `components/leads/lead-form.tsx` — Formulário de criação
+- `components/leads/document-analyzer.tsx` — Análise OCR de documentos
+- `components/negocios/negocio-form.tsx` — Formulário dinâmico por tipo
+- `components/negocios/negocio-chat.tsx` — Chat IA
+- `components/negocios/negocio-matches.tsx` — Matching de propriedades
+- `components/negocios/negocio-interessados.tsx` — Lista de interessados
+- `components/negocios/negocio-summary.tsx` — Resumo IA
+- `components/negocios/quick-fill.tsx` — Preenchimento rápido (texto + áudio)
+
+**Total:** 65+ ficheiros criados | 34 componentes shadcn instalados
 
 ---
 
@@ -1233,6 +1315,9 @@ Criar utilizador no Supabase Dashboard (Authentication → Users) e adicionar re
 - ✅ Sidebar navegação
 - ✅ Breadcrumbs
 - ✅ Sistema de permissões
+- ✅ Leads: listagem, criação, detalhe, edição, eliminação
+- ✅ Negócios: criação, formulário dinâmico, matching, interessados
+- ✅ IA: chat, preenchimento rápido, análise de documentos, resumo (requer OPENAI_API_KEY)
 
 ### 4. Próximos Passos
 Consultar [FASE-01-IMPLEMENTACAO.md](docs/FASE-01-IMPLEMENTACAO.md) para roadmap da **FASE 2 — Módulos Core**.

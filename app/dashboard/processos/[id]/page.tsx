@@ -261,6 +261,7 @@ export default function ProcessoDetailPage() {
           propertyId={instance.property_id}
           stages={stages}
           processDocuments={documents}
+          owners={owners}
           onTaskUpdate={loadProcess}
         />
       )}

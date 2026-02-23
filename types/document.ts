@@ -54,11 +54,13 @@ export interface DeferredDocument {
   id: string                    // crypto.randomUUID() — key React
   doc_type_id: string
   doc_type_name: string
+  doc_type_category: string     // Categoria do doc_type (ex: "Proprietário")
   file: File                    // Objecto nativo do browser
   file_name: string
   file_size: number
   file_type: string
-  owner_id?: string
+  owner_id?: string             // UUID do proprietário (preenchido para docs de proprietário)
+  owner_index?: number          // Índice do owner no array de owners do form
 }
 
 // Para o Step 5 — documento pendente de upload no formulario

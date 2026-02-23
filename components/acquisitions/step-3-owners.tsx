@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { OwnerKycSingular } from './owner-kyc-singular'
 import { OwnerKycColetiva } from './owner-kyc-coletiva'
 import { OwnerBeneficiariesList } from './owner-beneficiaries-list'
+import { OwnerDocumentsInline } from './owner-documents-inline'
 
 interface StepOwnersProps {
   form: UseFormReturn<any>
@@ -254,6 +255,15 @@ export function StepOwners({ form }: StepOwnersProps) {
                     <OwnerBeneficiariesList form={form} ownerIndex={index} />
                   )}
                 </>
+              )}
+
+              {/* Documentos do Proprietário */}
+              {form.watch(`owners.${index}.person_type`) && (
+                <OwnerDocumentsInline
+                  form={form}
+                  ownerIndex={index}
+                  personType={form.watch(`owners.${index}.person_type`)}
+                />
               )}
             </div>
           </CardContent>

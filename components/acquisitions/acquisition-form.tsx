@@ -136,12 +136,20 @@ export function AcquisitionForm() {
     setIsSubmitting(true)
     try {
       // 1. Extrair ficheiros pendentes do form data
-      const pendingFiles: Array<{ file: File; doc_type_id: string }> = []
+      const pendingFiles: Array<{
+        file: File
+        doc_type_id: string
+        owner_index?: number
+      }> = []
       const jsonDocuments: typeof data.documents = []
 
       for (const doc of (data.documents || [])) {
         if (doc.file instanceof File) {
-          pendingFiles.push({ file: doc.file, doc_type_id: doc.doc_type_id })
+          pendingFiles.push({
+            file: doc.file,
+            doc_type_id: doc.doc_type_id,
+            owner_index: doc.owner_index,
+          })
         } else if (doc.file_url) {
           jsonDocuments.push(doc)
         }
@@ -176,6 +184,14 @@ export function AcquisitionForm() {
             formData.append('file', pending.file)
             formData.append('doc_type_id', pending.doc_type_id)
             formData.append('property_id', result.property_id)
+
+            // Resolver owner_id a partir do índice do owner no formulário
+            if (
+              pending.owner_index !== undefined &&
+              result.owner_ids?.[pending.owner_index]
+            ) {
+              formData.append('owner_id', result.owner_ids[pending.owner_index])
+            }
 
             const uploadRes = await fetch('/api/documents/upload', {
               method: 'POST',
