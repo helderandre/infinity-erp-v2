@@ -50,8 +50,8 @@ export async function GET(
     const parentIds = Array.from(
       new Set(
         (data || [])
-          .map((msg) => (msg as { parent_message_id: string | null }).parent_message_id)
-          .filter((id): id is string => Boolean(id))
+          .map((msg: { parent_message_id: string | null }) => msg.parent_message_id)
+          .filter((id: string | null): id is string => Boolean(id))
       )
     )
 
@@ -62,12 +62,12 @@ export async function GET(
         .in('id', parentIds)
 
       if (!parentError && parents) {
-        parents.forEach((p) => parentMap.set(p.id, p as { id: string; content: string; sender_id: string; sender?: { id: string; commercial_name: string } }))
+        parents.forEach((p: { id: string; content: string; sender_id: string; sender?: { id: string; commercial_name: string } }) => parentMap.set(p.id, p))
       }
     }
 
-    const normalized = (data || []).map((msg) => {
-      const parentId = (msg as { parent_message_id: string | null }).parent_message_id
+    const normalized = (data || []).map((msg: Record<string, unknown> & { parent_message_id?: string | null }) => {
+      const parentId = msg.parent_message_id
       return {
         ...msg,
         parent_message: parentId ? parentMap.get(parentId) || null : null,

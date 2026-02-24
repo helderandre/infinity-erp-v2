@@ -41,7 +41,7 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
           </div>
         )}
         <div className="absolute top-2 left-2">
-          <StatusBadge status={property.status || 'pending_approval'} type="property" />
+          <StatusBadge status={property.status || 'pending_approval'} type="property" className="!bg-background/80 backdrop-blur-sm" />
         </div>
         {businessTypeLabel && (
           <div className="absolute top-2 right-2">
