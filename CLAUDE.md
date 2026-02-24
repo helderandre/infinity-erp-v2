@@ -2,7 +2,7 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-02-23
+**Última actualização:** 2026-02-24
 
 ### ✅ FASE 1 — Fundação (CONCLUÍDA)
 - ✅ Estrutura de pastas completa
@@ -32,8 +32,22 @@
 
 **📄 Especificação:** [SPEC-M05-LEADS.md](docs/FASE%2005%20-%20LEADES/SPEC-M05-LEADS.md)
 
+### ✅ FASE 3 — Imóveis (CONCLUÍDA)
+- ✅ CRUD completo de Imóveis (listagem com filtros, criação, detalhe com 6 tabs, edição)
+- ✅ API Routes: GET/POST /api/properties, GET/PUT/DELETE /api/properties/[id]
+- ✅ API Media: POST/GET /api/properties/[id]/media, PUT/DELETE /api/properties/[id]/media/[mediaId], PUT reorder
+- ✅ Hooks: useProperties, useProperty, usePropertyMedia, useImageCompress
+- ✅ Componentes: property-filters, property-card, property-form, property-image-cropper, property-media-upload, property-media-gallery
+- ✅ Páginas: listagem (tabela/grid), detalhe (6 tabs), criação, edição
+- ✅ Upload de imagens com compressão WebP, crop (16:9, 1:1, livre), drag-to-reorder, marcação de capa
+- ✅ Mapa Mapbox interactivo na página de detalhe
+- ✅ Status badge com cores para todos os estados (including `available`)
+- ✅ Dependências: browser-image-compression, react-easy-crop, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+
+**📄 Especificação:** [SPEC-M03-IMOVEIS.md](docs/FASE%2003%20-%20IMÓVEIS/SPEC-M03-IMOVEIS.md)
+
 ### 🟠 FASE 2 — Módulos Core (PRÓXIMA)
-- [ ] Módulo Imóveis completo
+- [x] Módulo Imóveis completo
 - [ ] Módulo Proprietários
 - [ ] Dashboard completo (gráficos, actividade)
 
@@ -991,24 +1005,26 @@ Módulos do sidebar (respeitar permissões do role):
 - [ ] **FRONT:** Actividade recente (últimos leads, tarefas pendentes reais)
 - [x] **FRONT:** Skeleton loading completo
 
-### M03 — Imóveis (Propriedades)
-- [ ] **BACK:** `GET /api/properties` — listagem com filtros (status, tipo, cidade, preço)
-- [ ] **BACK:** `POST /api/properties` — criação com owners, specs, internal
-- [ ] **BACK:** `GET /api/properties/[id]` — detalhe com todas as relações
-- [ ] **BACK:** `PUT /api/properties/[id]` — edição parcial
-- [ ] **BACK:** `DELETE /api/properties/[id]` — soft delete (status → cancelled)
-- [ ] **BACK:** `POST /api/properties/[id]/documents/upload` — upload com validação
-- [ ] **BACK:** `POST /api/r2/upload` — upload genérico ao R2
-- [ ] **BACK:** `DELETE /api/properties/[id]/media` — eliminar media
-- [ ] **FRONT:** Listagem com cards ou tabela, filtros laterais, search
-- [ ] **FRONT:** Formulário multi-step (dados gerais → specs → internos → proprietários → media)
-- [ ] **FRONT:** Componente `<PropertyAddressMapPicker>` com autocomplete Mapbox + mapa interactivo + marcador arrastável
-- [ ] **FRONT:** Geocodificação inversa ao arrastar marcador (preenche morada, código postal, cidade, zona)
-- [ ] **FRONT:** Página de detalhe com tabs (Geral, Especificações, Documentos, Media, Processo)
-- [ ] **FRONT:** Galeria de imagens com drag-to-reorder e marcação de capa
-- [ ] **FRONT:** Upload drag-and-drop com preview e progress bar
-- [ ] **FRONT:** Status badge com cores
-- [ ] **FRONT:** Skeleton, empty states, confirmação de eliminação
+### ✅ M03 — Imóveis (Propriedades) (CONCLUÍDA)
+- [x] **BACK:** `GET /api/properties` — listagem com filtros (status, tipo, cidade, preço, consultor, search) + paginação
+- [x] **BACK:** `POST /api/properties` — criação com specs e internal
+- [x] **BACK:** `GET /api/properties/[id]` — detalhe com todas as relações (specs, internal, media, owners, consultant)
+- [x] **BACK:** `PUT /api/properties/[id]` — edição parcial com upsert de specs/internal
+- [x] **BACK:** `DELETE /api/properties/[id]` — soft delete (status → cancelled)
+- [x] **BACK:** `POST /api/properties/[id]/media` — upload de imagens ao R2 com is_cover e order_index
+- [x] **BACK:** `PUT /api/properties/[id]/media/[mediaId]` — definir capa
+- [x] **BACK:** `DELETE /api/properties/[id]/media/[mediaId]` — eliminar media (R2 + DB)
+- [x] **BACK:** `PUT /api/properties/[id]/media/reorder` — reordenar imagens
+- [x] **FRONT:** Listagem com tabela/grid toggle, filtros (PropertyFilters), search, paginação
+- [x] **FRONT:** Formulário completo (PropertyForm) com 4 secções: Dados Gerais, Localização (Mapbox), Especificações, Dados Internos
+- [x] **FRONT:** Componente `<PropertyAddressMapPicker>` com autocomplete Mapbox + mapa interactivo + marcador arrastável
+- [x] **FRONT:** Geocodificação inversa ao arrastar marcador (preenche morada, código postal, cidade, zona)
+- [x] **FRONT:** Página de detalhe com 6 tabs controladas (Geral, Especificações, Media, Documentos, Proprietários, Processo)
+- [x] **FRONT:** Galeria de imagens com drag-to-reorder (@dnd-kit) e marcação de capa
+- [x] **FRONT:** Upload com preview, crop (16:9, 1:1, livre), compressão WebP e progress bar
+- [x] **FRONT:** Status badge com cores para todos os estados (incluindo `available`)
+- [x] **FRONT:** Skeleton, empty states, confirmação de eliminação (AlertDialog)
+- [x] **FRONT:** Hooks: useProperties, useProperty, usePropertyMedia, useImageCompress
 
 ### M04 — Proprietários
 - [ ] **BACK:** `GET /api/owners` — listagem com imóveis associados
@@ -1294,7 +1310,44 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 - `components/negocios/negocio-summary.tsx` — Resumo IA
 - `components/negocios/quick-fill.tsx` — Preenchimento rápido (texto + áudio)
 
-**Total:** 65+ ficheiros criados | 34 componentes shadcn instalados
+### Ficheiros Chave Criados (FASE 3 — Imóveis)
+
+**Types & Infra:**
+- `types/property.ts` — PropertyWithRelations, PropertyDetail, re-exports
+- `lib/r2/images.ts` — uploadImageToR2, deleteImageFromR2
+- `lib/crop-image.ts` — Canvas crop → WebP Blob
+- `lib/validations/property.ts` — (actualizado) updatePropertySchema, filtersSchema
+
+**API Routes:**
+- `app/api/properties/route.ts` — GET (listagem + filtros + paginação) + POST (criação)
+- `app/api/properties/[id]/route.ts` — GET (detalhe) + PUT (edição) + DELETE (soft delete)
+- `app/api/properties/[id]/media/route.ts` — GET (listar) + POST (upload ao R2)
+- `app/api/properties/[id]/media/[mediaId]/route.ts` — PUT (set cover) + DELETE (eliminar)
+- `app/api/properties/[id]/media/reorder/route.ts` — PUT (reordenar)
+
+**Hooks:**
+- `hooks/use-properties.ts` — Listagem com filtros e debounce
+- `hooks/use-property.ts` — Detalhe de imóvel
+- `hooks/use-property-media.ts` — Upload, delete, setCover, reorder (optimistic)
+- `hooks/use-image-compress.ts` — Compressão WebP (0.3MB, 1920px)
+
+**Componentes:**
+- `components/properties/property-filters.tsx` — Filtros (status, tipo, negócio, consultor)
+- `components/properties/property-card.tsx` — Card de imóvel com imagem, specs, preço
+- `components/properties/property-form.tsx` — Formulário completo (4 secções)
+- `components/properties/property-image-cropper.tsx` — Crop com 3 aspect ratios
+- `components/properties/property-media-upload.tsx` — Upload multi-ficheiro com preview e crop
+- `components/properties/property-media-gallery.tsx` — Galeria drag-to-reorder com @dnd-kit
+
+**Páginas:**
+- `app/dashboard/imoveis/page.tsx` — Listagem com tabela/grid, filtros, paginação
+- `app/dashboard/imoveis/[id]/page.tsx` — Detalhe com 6 tabs controladas
+- `app/dashboard/imoveis/novo/page.tsx` — Criação de imóvel
+- `app/dashboard/imoveis/[id]/editar/page.tsx` — Edição de imóvel
+
+**Dependências adicionadas:** browser-image-compression, react-easy-crop, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+
+**Total:** 85+ ficheiros criados | 35 componentes shadcn instalados
 
 ---
 
@@ -1318,6 +1371,8 @@ Criar utilizador no Supabase Dashboard (Authentication → Users) e adicionar re
 - ✅ Leads: listagem, criação, detalhe, edição, eliminação
 - ✅ Negócios: criação, formulário dinâmico, matching, interessados
 - ✅ IA: chat, preenchimento rápido, análise de documentos, resumo (requer OPENAI_API_KEY)
+- ✅ Imóveis: listagem, criação, detalhe (6 tabs), edição, eliminação
+- ✅ Media: upload com crop e compressão, galeria drag-to-reorder, marcação de capa
 
 ### 4. Próximos Passos
 Consultar [FASE-01-IMPLEMENTACAO.md](docs/FASE-01-IMPLEMENTACAO.md) para roadmap da **FASE 2 — Módulos Core**.

@@ -151,6 +151,12 @@ export const PROPERTY_STATUS = {
     dot: 'bg-yellow-500',
     label: 'Em Processo',
   },
+  available: {
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
+    dot: 'bg-emerald-500',
+    label: 'Disponível',
+  },
   active: {
     bg: 'bg-emerald-500/15',
     text: 'text-emerald-500',

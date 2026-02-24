@@ -1,3 +1,41 @@
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; messageId: string }> }
+) {
+  try {
+    const { messageId } = await params
+    const supabase = await createClient()
+    const db = supabase as unknown as {
+      from: (table: string) => ReturnType<typeof supabase.from>
+      auth: typeof supabase.auth
+    }
+
+    const { data: { user }, error: authError } = await db.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
+    const { data, error } = await (db.from('proc_chat_messages') as ReturnType<typeof supabase.from>)
+      .select(`
+        *,
+        sender:dev_users(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
+        parent_message:proc_chat_messages!parent_message_id(id, content, sender_id, sender:dev_users(id, commercial_name)),
+        attachments:proc_chat_attachments(*),
+        reactions:proc_chat_reactions(id, emoji, user_id, user:dev_users(commercial_name))
+      `)
+      .eq('id', messageId)
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: error?.message || 'Mensagem não encontrada' }, { status: 404 })
+    }
+
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'

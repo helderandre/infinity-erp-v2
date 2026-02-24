@@ -12,6 +12,33 @@ export function useChatMessages(processId: string) {
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const initialLoadRef = useRef(true)
 
+  const upsertMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) => {
+      const existingIndex = prev.findIndex((m) => m.id === message.id)
+      if (existingIndex >= 0) {
+        const next = [...prev]
+        next[existingIndex] = message
+        return next
+      }
+
+      const next = [...prev, message]
+      next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      return next
+    })
+  }, [])
+
+  const fetchMessageById = useCallback(async (messageId: string) => {
+    if (!processId || !messageId) return
+    try {
+      const res = await fetch(`/api/processes/${processId}/chat/${messageId}`)
+      if (!res.ok) return
+      const data = await res.json()
+      upsertMessage(data)
+    } catch {
+      // silently fail
+    }
+  }, [processId, upsertMessage])
+
   const fetchMessages = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!processId) return
     const showLoading = options?.showLoading ?? false
@@ -69,8 +96,13 @@ export function useChatMessages(processId: string) {
           table: 'proc_chat_messages',
           filter: `proc_instance_id=eq.${processId}`,
         },
-        () => {
-          fetchMessages()
+        (payload) => {
+          const messageId = (payload.new as { id?: string })?.id
+          if (messageId) {
+            fetchMessageById(messageId)
+          } else {
+            fetchMessages()
+          }
         }
       )
       .on(
@@ -81,8 +113,13 @@ export function useChatMessages(processId: string) {
           table: 'proc_chat_messages',
           filter: `proc_instance_id=eq.${processId}`,
         },
-        () => {
-          fetchMessages()
+        (payload) => {
+          const messageId = (payload.new as { id?: string })?.id
+          if (messageId) {
+            fetchMessageById(messageId)
+          } else {
+            fetchMessages()
+          }
         }
       )
       .on(
@@ -92,8 +129,15 @@ export function useChatMessages(processId: string) {
           schema: 'public',
           table: 'proc_chat_reactions',
         },
-        () => {
-          fetchMessages()
+        (payload) => {
+          const messageId =
+            (payload.new as { message_id?: string })?.message_id ||
+            (payload.old as { message_id?: string })?.message_id
+          if (messageId) {
+            fetchMessageById(messageId)
+          } else {
+            fetchMessages()
+          }
         }
       )
       .on(

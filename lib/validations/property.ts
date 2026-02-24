@@ -79,3 +79,29 @@ export type PropertyFormData = z.infer<typeof propertySchema>
 export type PropertySpecsFormData = z.infer<typeof propertySpecsSchema>
 export type PropertyInternalFormData = z.infer<typeof propertyInternalSchema>
 export type PropertyMediaFormData = z.infer<typeof propertyMediaSchema>
+
+// Schema para actualização parcial (PUT)
+export const updatePropertySchema = propertySchema.partial()
+
+export const updatePropertySpecsSchema = propertySpecsSchema.omit({ property_id: true }).partial()
+
+export const updatePropertyInternalSchema = propertyInternalSchema.omit({ property_id: true }).partial()
+
+// Schema de filtros da listagem
+export const propertyFiltersSchema = z.object({
+  search: z.string().optional(),
+  status: z.string().optional(),
+  property_type: z.string().optional(),
+  business_type: z.string().optional(),
+  city: z.string().optional(),
+  consultant_id: z.string().uuid().optional(),
+  price_min: z.number().nonnegative().optional(),
+  price_max: z.number().nonnegative().optional(),
+  page: z.number().int().positive().default(1),
+  per_page: z.number().int().min(1).max(100).default(20),
+})
+
+export type UpdatePropertyFormData = z.infer<typeof updatePropertySchema>
+export type UpdatePropertySpecsFormData = z.infer<typeof updatePropertySpecsSchema>
+export type UpdatePropertyInternalFormData = z.infer<typeof updatePropertyInternalSchema>
+export type PropertyFilters = z.infer<typeof propertyFiltersSchema>
