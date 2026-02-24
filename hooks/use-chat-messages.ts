@@ -10,10 +10,12 @@ export function useChatMessages(processId: string) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const initialLoadRef = useRef(true)
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!processId) return
-    setIsLoading(true)
+    const showLoading = options?.showLoading ?? false
+    if (showLoading) setIsLoading(true)
     try {
       const res = await fetch(`/api/processes/${processId}/chat`)
       if (!res.ok) throw new Error('Erro ao carregar mensagens')
@@ -22,7 +24,7 @@ export function useChatMessages(processId: string) {
     } catch {
       // silently fail
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }, [processId])
 
@@ -51,8 +53,10 @@ export function useChatMessages(processId: string) {
       return
     }
 
-    fetchMessages()
+    const showLoading = initialLoadRef.current
+    fetchMessages({ showLoading })
     fetchReadReceipts()
+    initialLoadRef.current = false
 
     const supabase = createClient()
     const channel = supabase
@@ -76,6 +80,17 @@ export function useChatMessages(processId: string) {
           schema: 'public',
           table: 'proc_chat_messages',
           filter: `proc_instance_id=eq.${processId}`,
+        },
+        () => {
+          fetchMessages()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'proc_chat_reactions',
         },
         () => {
           fetchMessages()

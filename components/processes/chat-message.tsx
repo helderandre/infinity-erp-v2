@@ -110,12 +110,20 @@ export function ChatMessageItem({
     }
   }
 
-  const hasParentMessage = message.parent_message && !Array.isArray(message.parent_message) && message.parent_message.content
+  const parentMessage = message.parent_message_id
+    ? Array.isArray(message.parent_message)
+      ? message.parent_message.find((item) => item?.id === message.parent_message_id) || null
+      : message.parent_message?.id === message.parent_message_id
+        ? message.parent_message
+        : null
+    : null
+
+  const hasParentMessage = Boolean(parentMessage?.content)
 
   const parentContentPreview = hasParentMessage
-    ? message.parent_message!.content.length > 10
-      ? message.parent_message!.content.slice(0, 10) + '…'
-      : message.parent_message!.content
+    ? parentMessage!.content.length > 80
+      ? parentMessage!.content.slice(0, 80) + '…'
+      : parentMessage!.content
     : ''
 
   const readReceiptEl = readers && readers.length > 0
@@ -149,12 +157,12 @@ export function ChatMessageItem({
                 {/* Reply quote */}
                 {hasParentMessage && (
                   <div className="bg-primary-foreground/15 rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 border-primary-foreground/40">
-                    <span className="text-[11px] font-semibold">
-                      {message.parent_message!.sender?.commercial_name || 'Utilizador'}
-                    </span>
-                    <span className="text-[11px] opacity-80 ml-1.5">
+                    <p className="text-[11px] font-semibold">
+                      A responder a {parentMessage!.sender?.commercial_name || 'Utilizador'}
+                    </p>
+                    <p className="text-[11px] opacity-80 truncate">
                       {parentContentPreview}
-                    </span>
+                    </p>
                   </div>
                 )}
 
@@ -297,12 +305,12 @@ export function ChatMessageItem({
               {/* Reply quote */}
               {hasParentMessage && (
                 <div className="bg-primary/5 rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 border-primary/30">
-                  <span className="text-[11px] font-semibold text-primary">
-                    {message.parent_message!.sender?.commercial_name || 'Utilizador'}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground ml-1.5">
+                  <p className="text-[11px] font-semibold text-primary">
+                    A responder a {parentMessage!.sender?.commercial_name || 'Utilizador'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {parentContentPreview}
-                  </span>
+                  </p>
                 </div>
               )}
 

@@ -47,7 +47,34 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    const parentIds = Array.from(
+      new Set(
+        (data || [])
+          .map((msg) => (msg as { parent_message_id: string | null }).parent_message_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+
+    let parentMap = new Map<string, { id: string; content: string; sender_id: string; sender?: { id: string; commercial_name: string } }>()
+    if (parentIds.length > 0) {
+      const { data: parents, error: parentError } = await (db.from('proc_chat_messages') as ReturnType<typeof supabase.from>)
+        .select('id, content, sender_id, sender:dev_users(id, commercial_name)')
+        .in('id', parentIds)
+
+      if (!parentError && parents) {
+        parents.forEach((p) => parentMap.set(p.id, p as { id: string; content: string; sender_id: string; sender?: { id: string; commercial_name: string } }))
+      }
+    }
+
+    const normalized = (data || []).map((msg) => {
+      const parentId = (msg as { parent_message_id: string | null }).parent_message_id
+      return {
+        ...msg,
+        parent_message: parentId ? parentMap.get(parentId) || null : null,
+      }
+    })
+
+    return NextResponse.json(normalized)
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
@@ -135,7 +162,20 @@ export async function POST(
       console.error('[Chat] Erro ao enviar notificações:', notifError)
     }
 
-    return NextResponse.json(message, { status: 201 })
+    let responseMessage = message as any
+    if (validation.data.parent_message_id) {
+      const { data: parent } = await (db.from('proc_chat_messages') as ReturnType<typeof supabase.from>)
+        .select('id, content, sender_id, sender:dev_users(id, commercial_name)')
+        .eq('id', validation.data.parent_message_id)
+        .single()
+
+      responseMessage = {
+        ...responseMessage,
+        parent_message: parent || null,
+      }
+    }
+
+    return NextResponse.json(responseMessage, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

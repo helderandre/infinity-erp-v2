@@ -32,6 +32,7 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
   const { onlineUsers, typingUsers, setTyping } = useChatPresence(processId, currentUser)
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const firstRenderRef = useRef(true)
 
   // Build a map of messageId -> readers for read receipt display
   const messageReadersMap = useMemo(() => {
@@ -64,10 +65,14 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
     return map
   }, [messages, readReceipts])
 
-  // Auto-scroll when new messages arrive
+  // Auto-scroll when new messages arrive (smooth after first render)
   useEffect(() => {
     if (scrollRef.current && messages.length > 0) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: firstRenderRef.current ? 'auto' : 'smooth',
+      })
+      firstRenderRef.current = false
     }
   }, [messages.length])
 
