@@ -162,6 +162,7 @@ export interface ChatReaction {
   id: string
   emoji: string
   user_id: string
+  user?: { commercial_name: string } | null
 }
 
 export interface ChatAttachment {
