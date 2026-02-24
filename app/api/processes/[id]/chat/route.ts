@@ -30,7 +30,7 @@ export async function GET(
         sender:dev_users(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
         parent_message:proc_chat_messages!parent_message_id(id, content, sender_id, sender:dev_users(id, commercial_name)),
         attachments:proc_chat_attachments(*),
-        reactions:proc_chat_reactions(id, emoji, user_id)
+        reactions:proc_chat_reactions(id, emoji, user_id, user:dev_users(commercial_name))
       `)
       .eq('proc_instance_id', processId)
       .eq('is_deleted', false)
