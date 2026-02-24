@@ -30,11 +30,16 @@ export function useChatMessages(processId: string) {
     if (!processId) return
     try {
       const res = await fetch(`/api/processes/${processId}/chat/read`)
-      if (!res.ok) return
+      console.log('[DEBUG read-receipts] GET /chat/read status:', res.status)
+      if (!res.ok) {
+        console.warn('[DEBUG read-receipts] GET failed:', res.status, res.statusText)
+        return
+      }
       const data = await res.json()
+      console.log('[DEBUG read-receipts] Receipts fetched:', data)
       setReadReceipts(data)
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error('[DEBUG read-receipts] Fetch error:', err)
     }
   }, [processId])
 
@@ -179,11 +184,21 @@ export function useChatMessages(processId: string) {
 
   const markAsRead = useCallback(
     async (messageId: string) => {
-      await fetch(`/api/processes/${processId}/chat/read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ last_read_message_id: messageId }),
-      })
+      console.log('[DEBUG markAsRead] Marking message as read:', messageId, 'for process:', processId)
+      try {
+        const res = await fetch(`/api/processes/${processId}/chat/read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ last_read_message_id: messageId }),
+        })
+        const result = await res.json()
+        console.log('[DEBUG markAsRead] POST response:', res.status, result)
+        if (!res.ok) {
+          console.error('[DEBUG markAsRead] POST failed:', result)
+        }
+      } catch (err) {
+        console.error('[DEBUG markAsRead] Error:', err)
+      }
     },
     [processId]
   )
