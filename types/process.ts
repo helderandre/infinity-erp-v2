@@ -102,6 +102,7 @@ export interface TaskComment {
   user?: {
     id: string
     commercial_name: string
+    profile?: { profile_photo_url: string | null } | null
   }
 }
 
@@ -119,3 +120,82 @@ export interface TaskActivityEntry {
   metadata?: Record<string, unknown>
   created_at: string
 }
+
+// ── Chat de Processo ──
+
+export interface ChatMessage {
+  id: string
+  proc_instance_id: string
+  sender_id: string
+  content: string
+  parent_message_id: string | null
+  mentions: ChatMention[]
+  has_attachments: boolean
+  is_deleted: boolean
+  deleted_at: string | null
+  is_edited: boolean
+  edited_at: string | null
+  created_at: string
+  updated_at: string
+  // Joins
+  sender?: {
+    id: string
+    commercial_name: string
+    profile?: { profile_photo_url: string | null } | null
+  }
+  parent_message?: {
+    id: string
+    content: string
+    sender_id: string
+    sender?: { id: string; commercial_name: string }
+  } | null
+  attachments?: ChatAttachment[]
+  reactions?: ChatReaction[]
+}
+
+export interface ChatMention {
+  user_id: string
+  display_name: string
+}
+
+export interface ChatReaction {
+  id: string
+  emoji: string
+  user_id: string
+}
+
+export interface ChatAttachment {
+  id: string
+  message_id: string
+  file_name: string
+  file_url: string
+  file_size: number | null
+  mime_type: string | null
+  attachment_type: 'image' | 'document' | 'audio' | 'video' | 'file'
+  storage_key: string
+  uploaded_by: string
+  created_at: string
+}
+
+export interface ChatPresenceUser {
+  user_id: string
+  user_name: string
+  typing: boolean
+  online_at: string
+}
+
+export interface ChatReadReceipt {
+  proc_instance_id: string
+  user_id: string
+  last_read_message_id: string | null
+  last_read_at: string
+  user?: {
+    id: string
+    commercial_name: string
+    profile?: { profile_photo_url: string | null } | null
+  }
+}
+
+// ── Notificações ──
+
+export type { Notification, NotificationType, NotificationEntityType } from '@/lib/notifications/types'

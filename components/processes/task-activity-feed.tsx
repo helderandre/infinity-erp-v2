@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { MessageSquare } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -63,9 +64,17 @@ export function TaskActivityFeed({ comments, isLoading }: TaskActivityFeedProps)
         <div className="space-y-4">
           {comments.map((comment) => (
             <div key={comment.id} className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium shrink-0">
-                {comment.user?.commercial_name?.[0]?.toUpperCase() || '?'}
-              </div>
+              <Avatar>
+                {comment.user?.profile?.profile_photo_url && (
+                  <AvatarImage
+                    src={comment.user.profile.profile_photo_url}
+                    alt={comment.user.commercial_name || ''}
+                  />
+                )}
+                <AvatarFallback>
+                  {comment.user?.commercial_name?.[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </Avatar>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

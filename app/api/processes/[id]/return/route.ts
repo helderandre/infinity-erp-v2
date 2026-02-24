@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { notificationService } from '@/lib/notifications/service'
 
 const returnSchema = z.object({
   reason: z.string().min(10, 'O motivo deve ter pelo menos 10 caracteres'),
@@ -66,7 +67,7 @@ export async function POST(
     // Verificar se o processo existe e está em pending_approval
     const { data: proc, error: procError } = await supabase
       .from('proc_instances')
-      .select('current_status')
+      .select('current_status, requested_by, external_ref')
       .eq('id', id)
       .single()
 
@@ -101,6 +102,28 @@ export async function POST(
         { error: 'Erro ao devolver processo', details: updateError.message },
         { status: 500 }
       )
+    }
+
+    // Notificar consultor que criou o processo
+    try {
+      if ((proc as any).requested_by && (proc as any).requested_by !== user.id) {
+        await notificationService.create({
+          recipientId: (proc as any).requested_by,
+          senderId: user.id,
+          notificationType: 'process_returned',
+          entityType: 'proc_instance',
+          entityId: id,
+          title: 'Processo devolvido',
+          body: `O processo ${(proc as any).external_ref || ''} foi devolvido: ${reason}`,
+          actionUrl: `/dashboard/processos/${id}`,
+          metadata: {
+            process_ref: (proc as any).external_ref,
+            reason,
+          },
+        })
+      }
+    } catch (notifError) {
+      console.error('[RETURN] Erro ao enviar notificação:', notifError)
     }
 
     return NextResponse.json({

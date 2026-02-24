@@ -14,6 +14,8 @@ import {
   Loader2,
   Mail,
   FileText,
+  ExternalLink,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -78,7 +80,57 @@ export function TaskDetailActions({
       case 'UPLOAD': {
         const config = task.config as Record<string, unknown> | null
         const docTypeId = config?.doc_type_id as string | undefined
-        if (!docTypeId || !['pending', 'in_progress'].includes(task.status ?? '')) return null
+
+        // Completed/skipped: show the uploaded document
+        if (['completed', 'skipped'].includes(task.status ?? '')) {
+          const taskResult = task.task_result as Record<string, unknown> | null
+          const docRegistryId = taskResult?.doc_registry_id as string | undefined
+          const linkedDoc = docRegistryId
+            ? processDocuments.find((d) => d.id === docRegistryId)
+            : undefined
+
+          if (!linkedDoc) return null
+
+          return (
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-emerald-600" />
+                <span className="font-medium">Documento Associado</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 rounded-md border bg-muted/40">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{linkedDoc.file_name}</p>
+                    <p className="text-xs text-muted-foreground">{linkedDoc.doc_type?.name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                  >
+                    <a href={linkedDoc.file_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                  >
+                    <a href={linkedDoc.file_url} download={linkedDoc.file_name}>
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        if (!docTypeId) return null
 
         return (
           <TaskUploadAction

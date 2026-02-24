@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { notificationService } from '@/lib/notifications/service'
 
 const rejectSchema = z.object({
   reason: z.string().min(10, 'O motivo deve ter pelo menos 10 caracteres'),
@@ -66,7 +67,7 @@ export async function POST(
     // Verificar se o processo existe e está em pending_approval
     const { data: proc, error: procError } = await supabase
       .from('proc_instances')
-      .select('current_status, property:dev_properties(id)')
+      .select('current_status, requested_by, external_ref, property:dev_properties(id)')
       .eq('id', id)
       .single()
 
@@ -111,6 +112,28 @@ export async function POST(
 
     if (propertyError) {
       console.error('Erro ao actualizar status do imóvel:', propertyError)
+    }
+
+    // Notificar consultor que criou o processo
+    try {
+      if ((proc as any).requested_by && (proc as any).requested_by !== user.id) {
+        await notificationService.create({
+          recipientId: (proc as any).requested_by,
+          senderId: user.id,
+          notificationType: 'process_rejected',
+          entityType: 'proc_instance',
+          entityId: id,
+          title: 'Processo rejeitado',
+          body: `O processo ${(proc as any).external_ref || ''} foi rejeitado: ${reason}`,
+          actionUrl: `/dashboard/processos/${id}`,
+          metadata: {
+            process_ref: (proc as any).external_ref,
+            reason,
+          },
+        })
+      }
+    } catch (notifError) {
+      console.error('[REJECT] Erro ao enviar notificação:', notifError)
     }
 
     return NextResponse.json({

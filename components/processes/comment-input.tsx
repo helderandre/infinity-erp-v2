@@ -62,6 +62,7 @@ export function CommentInput({
           placeholder="Escrever comentário... Use @ para mencionar"
           style={mentionsInputStyle}
           a11ySuggestionsListLabel="Utilizadores sugeridos"
+          forceSuggestionsAboveCursor
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()

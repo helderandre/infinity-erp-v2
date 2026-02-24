@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { autoCompleteTasks, recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
+import { notificationService } from '@/lib/notifications/service'
 
 const approveSchema = z.object({
   tpl_process_id: z.string().min(1, 'Template obrigatório').regex(
@@ -229,6 +230,29 @@ export async function POST(
     }
 
     console.log('[APPROVE] Aprovação concluída com sucesso!')
+
+    // Notificar consultor que criou o processo (evento #2)
+    try {
+      if (proc.requested_by && proc.requested_by !== user.id) {
+        await notificationService.create({
+          recipientId: proc.requested_by,
+          senderId: user.id,
+          notificationType: 'process_approved',
+          entityType: 'proc_instance',
+          entityId: id,
+          title: 'Processo aprovado',
+          body: `O processo ${proc.external_ref || ''} foi aprovado com o template "${template.name}"`,
+          actionUrl: `/dashboard/processos/${id}`,
+          metadata: {
+            process_ref: proc.external_ref,
+            template_name: template.name,
+          },
+        })
+      }
+    } catch (notifError) {
+      console.error('[APPROVE] Erro ao enviar notificação:', notifError)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Processo aprovado com sucesso',

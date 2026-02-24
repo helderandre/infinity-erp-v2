@@ -634,6 +634,62 @@ export const KYC_LABELS = {
   rcbe_code: 'Codigo RCBE',
 } as const
 
+// --- CHAT ---
+
+export const CHAT_LABELS = {
+  title: 'Chat do Processo',
+  placeholder: 'Escrever mensagem... Use @ para mencionar',
+  send: 'Enviar',
+  no_messages: 'Sem mensagens. Inicie a conversa.',
+  typing_one: 'está a escrever...',
+  typing_many: 'estão a escrever...',
+  online: 'online',
+  edited: '(editado)',
+  deleted_message: 'Esta mensagem foi eliminada.',
+  reply_to: 'A responder a',
+  reactions: 'Reações',
+  attach_file: 'Anexar ficheiro',
+  uploading: 'A enviar...',
+  upload_error: 'Erro ao enviar ficheiro',
+  upload_success: 'Ficheiro enviado com sucesso',
+  max_file_size: 'Tamanho máximo: 20MB',
+  edit_message: 'Editar mensagem',
+  delete_message: 'Eliminar mensagem',
+  delete_confirm: 'Tem a certeza de que pretende eliminar esta mensagem?',
+} as const
+
+export const CHAT_EMOJI_QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅'] as const
+
+// --- NOTIFICAÇÕES ---
+
+export const NOTIFICATION_TYPE_CONFIG: Record<string, {
+  icon: string
+  label: string
+  color: string
+}> = {
+  process_created:  { icon: 'FilePlus2',     label: 'Novo Processo',        color: 'amber' },
+  process_approved: { icon: 'CheckCircle2',   label: 'Processo Aprovado',    color: 'emerald' },
+  process_rejected: { icon: 'XCircle',        label: 'Processo Rejeitado',   color: 'red' },
+  process_returned: { icon: 'Undo2',          label: 'Processo Devolvido',   color: 'orange' },
+  task_assigned:    { icon: 'UserCheck',      label: 'Tarefa Atribuída',     color: 'blue' },
+  task_completed:   { icon: 'CircleCheckBig', label: 'Tarefa Concluída',     color: 'emerald' },
+  task_comment:     { icon: 'MessageSquare',  label: 'Comentário',           color: 'slate' },
+  chat_message:     { icon: 'MessageCircle',  label: 'Mensagem no Chat',     color: 'indigo' },
+  comment_mention:  { icon: 'AtSign',         label: 'Menção em Comentário', color: 'amber' },
+  chat_mention:     { icon: 'AtSign',         label: 'Menção no Chat',       color: 'amber' },
+  task_updated:     { icon: 'RefreshCw',      label: 'Tarefa Actualizada',   color: 'orange' },
+  task_overdue:     { icon: 'AlertTriangle',  label: 'Tarefa Vencida',       color: 'red' },
+}
+
+export const NOTIFICATION_LABELS = {
+  title: 'Notificações',
+  no_notifications: 'Sem notificações',
+  mark_all_read: 'Marcar tudo como lido',
+  mark_as_read: 'Marcar como lido',
+  mark_as_unread: 'Marcar como não lido',
+  delete: 'Eliminar',
+} as const
+
 // --- LEADS ---
 
 export const LEAD_ESTADOS = [

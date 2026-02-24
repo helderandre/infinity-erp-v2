@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
+import { notificationService } from '@/lib/notifications/service'
 
 const taskUpdateSchema = z.object({
   action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset', 'update_priority', 'update_due_date']),
@@ -44,7 +45,7 @@ export async function PUT(
     // Obter tarefa
     const { data: task, error: taskError } = await supabase
       .from('proc_tasks')
-      .select('*, proc_instance:proc_instances(current_status)')
+      .select('*, proc_instance:proc_instances(current_status, external_ref, requested_by)')
       .eq('id', taskId)
       .eq('proc_instance_id', id)
       .single()
@@ -178,6 +179,63 @@ export async function PUT(
     if (['complete', 'bypass', 'reset'].includes(action)) {
       const progressResult = await recalculateProgress(id)
       console.log('Progress recalculated:', progressResult)
+    }
+
+    // --- Notificações ---
+    try {
+      const procRef = (task as any).proc_instance?.external_ref || ''
+
+      if (action === 'assign' && assigned_to && assigned_to !== user.id) {
+        // #3: Tarefa atribuída
+        await notificationService.create({
+          recipientId: assigned_to,
+          senderId: user.id,
+          notificationType: 'task_assigned',
+          entityType: 'proc_task',
+          entityId: taskId,
+          title: 'Tarefa atribuída',
+          body: `A tarefa "${task.title}" foi-lhe atribuída no processo ${procRef}`,
+          actionUrl: `/dashboard/processos/${id}?task=${taskId}`,
+          metadata: { process_ref: procRef, task_title: task.title },
+        })
+      }
+
+      if (action === 'complete') {
+        // #4: Tarefa concluída — notificar Gestora Processual
+        const gestoraIds = await notificationService.getUserIdsByRoles(['Gestora Processual'])
+        if (gestoraIds.length > 0) {
+          await notificationService.createBatch(gestoraIds, {
+            senderId: user.id,
+            notificationType: 'task_completed',
+            entityType: 'proc_task',
+            entityId: taskId,
+            title: 'Tarefa concluída',
+            body: `A tarefa "${task.title}" foi concluída no processo ${procRef}`,
+            actionUrl: `/dashboard/processos/${id}?task=${taskId}`,
+            metadata: { process_ref: procRef, task_title: task.title },
+          })
+        }
+      }
+
+      if ((action === 'update_priority' || action === 'update_due_date') && task.assigned_to && task.assigned_to !== user.id) {
+        // #9: Tarefa actualizada
+        const detail = action === 'update_priority'
+          ? `prioridade alterada para ${priority}`
+          : `data limite alterada`
+        await notificationService.create({
+          recipientId: task.assigned_to,
+          senderId: user.id,
+          notificationType: 'task_updated',
+          entityType: 'proc_task',
+          entityId: taskId,
+          title: 'Tarefa actualizada',
+          body: `A tarefa "${task.title}" foi actualizada: ${detail}`,
+          actionUrl: `/dashboard/processos/${id}?task=${taskId}`,
+          metadata: { process_ref: procRef, task_title: task.title, change: action },
+        })
+      }
+    } catch (notifError) {
+      console.error('[TaskUpdate] Erro ao enviar notificações:', notifError)
     }
 
     return NextResponse.json({

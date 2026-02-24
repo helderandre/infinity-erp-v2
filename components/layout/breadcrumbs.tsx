@@ -28,6 +28,7 @@ const pathTranslations: Record<string, string> = {
   comissoes: 'Comissões',
   marketing: 'Marketing',
   definicoes: 'Definições',
+  notificacoes: 'Notificações',
 }
 
 export function Breadcrumbs() {

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -41,6 +41,8 @@ import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
+import { ProcessChat } from '@/components/processes/process-chat'
+import { useUser } from '@/hooks/use-user'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -52,6 +54,8 @@ type ViewMode = 'kanban' | 'list'
 export default function ProcessoDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useUser()
   const [process, setProcess] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -261,6 +265,22 @@ export default function ProcessoDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [process?.stages])
 
+  // Deep-link: abrir tarefa via ?task=<taskId> (apenas na primeira carga)
+  const deepLinkHandled = useRef(false)
+  useEffect(() => {
+    const taskParam = searchParams.get('task')
+    if (taskParam && process?.stages && !deepLinkHandled.current) {
+      const allTasks: ProcessTask[] = process.stages.flatMap(
+        (s: ProcessStageWithTasks) => s.tasks
+      )
+      const target = allTasks.find((t: ProcessTask) => t.id === taskParam)
+      if (target) {
+        setSelectedTask(target)
+        deepLinkHandled.current = true
+      }
+    }
+  }, [searchParams, process?.stages])
+
   // Compute stats and filtered stages
   const { filteredStages, totalTasks, completedTasks, overdueTasks, assignees } = useMemo(() => {
     if (!process?.stages) {
@@ -362,7 +382,7 @@ export default function ProcessoDetailPage() {
         <>
           {/* Global progress card */}
           <Card>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="px-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Progresso Global</span>
                 <span className="text-sm font-bold tabular-nums">{progressPercent}%</span>
@@ -429,9 +449,11 @@ export default function ProcessoDetailPage() {
               <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
                 <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
                   <LayoutGrid className="h-4 w-4" />
+                  Kanban
                 </ToggleGroupItem>
                 <ToggleGroupItem value="list" aria-label="Vista Lista">
                   <List className="h-4 w-4" />
+                  Lista
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
@@ -548,6 +570,21 @@ export default function ProcessoDetailPage() {
         </Card>
       )}
 
+      {/* Chat do Processo */}
+      {isActive && user && (
+        <Card className="overflow-hidden py-0">
+          <div className="h-[500px]">
+            <ProcessChat
+              processId={instance.id}
+              currentUser={{
+                id: user.id,
+                name: user.commercial_name || 'Utilizador',
+              }}
+            />
+          </div>
+        </Card>
+      )}
+
       {/* Task Detail Sheet */}
       <TaskDetailSheet
         task={selectedTask}
@@ -557,7 +594,17 @@ export default function ProcessoDetailPage() {
         owners={owners}
         open={selectedTask !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedTask(null)
+          if (!open) {
+            setSelectedTask(null)
+            // Limpar ?task= da URL para evitar reabertura
+            const taskParam = searchParams.get('task')
+            if (taskParam) {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('task')
+              router.replace(url.pathname + url.search, { scroll: false })
+              deepLinkHandled.current = false
+            }
+          }
         }}
         onTaskUpdate={loadProcess}
       />

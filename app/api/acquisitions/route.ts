@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
+import { notificationService } from '@/lib/notifications/service'
 
 export async function POST(request: Request) {
   try {
@@ -262,6 +263,25 @@ export async function POST(request: Request) {
         { error: 'Erro ao criar processo', details: procError?.message },
         { status: 500 }
       )
+    }
+
+    // Notificar Gestora Processual + Broker/CEO (evento #1)
+    try {
+      const approverIds = await notificationService.getUserIdsByRoles(['Broker/CEO', 'Gestora Processual'])
+      if (approverIds.length > 0) {
+        await notificationService.createBatch(approverIds, {
+          senderId: user.id,
+          notificationType: 'process_created',
+          entityType: 'proc_instance',
+          entityId: procInstance.id,
+          title: 'Nova angariação submetida',
+          body: `${data.title} — aguarda aprovação`,
+          actionUrl: `/dashboard/processos/${procInstance.id}`,
+          metadata: { property_title: data.title },
+        })
+      }
+    } catch (notifError) {
+      console.error('[Acquisitions] Erro ao enviar notificações:', notifError)
     }
 
     return NextResponse.json({
