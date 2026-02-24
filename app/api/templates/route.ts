@@ -133,6 +133,44 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
+
+      // 5. Inserir subtarefas (3º nível)
+      // Cast para aceder a tpl_subtasks (tabela não presente no database.ts gerado)
+      const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
+
+      const { data: insertedTasks } = await supabase
+        .from('tpl_tasks')
+        .select('id, order_index')
+        .eq('tpl_stage_id', insertedStage.id)
+        .order('order_index')
+
+      if (insertedTasks) {
+        for (let i = 0; i < stage.tasks.length; i++) {
+          const task = stage.tasks[i] as Record<string, unknown>
+          const subtasks = task.subtasks as Array<Record<string, unknown>> | undefined
+          if (subtasks && subtasks.length > 0 && insertedTasks[i]) {
+            const subtasksToInsert = subtasks.map((st, idx) => ({
+              tpl_task_id: insertedTasks[i].id,
+              title: st.title,
+              description: st.description || null,
+              is_mandatory: st.is_mandatory,
+              order_index: idx,
+              config: st.config || {},
+            }))
+
+            const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+              .insert(subtasksToInsert)
+
+            if (subtasksError) {
+              await supabase.from('tpl_processes').delete().eq('id', process.id)
+              return NextResponse.json(
+                { error: `Erro ao criar subtarefas: ${subtasksError.message}` },
+                { status: 500 }
+              )
+            }
+          }
+        }
+      }
     }
 
     return NextResponse.json({ id: process.id }, { status: 201 })

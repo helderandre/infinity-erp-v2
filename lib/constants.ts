@@ -3,136 +3,136 @@
 export const STATUS_COLORS = {
   // Propriedades
   pending_approval: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-800',
+    bg: 'bg-amber-500/15',
+    text: 'text-amber-500',
     dot: 'bg-amber-500',
     label: 'Pendente Aprovação',
   },
   active: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Activo',
   },
   sold: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     dot: 'bg-blue-500',
     label: 'Vendido',
   },
   rented: {
-    bg: 'bg-indigo-100',
-    text: 'text-indigo-800',
+    bg: 'bg-indigo-500/15',
+    text: 'text-indigo-500',
     dot: 'bg-indigo-500',
     label: 'Arrendado',
   },
   suspended: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-500',
     label: 'Suspenso',
   },
   cancelled: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     dot: 'bg-red-500',
     label: 'Cancelado',
   },
 
   // Leads
   new: {
-    bg: 'bg-sky-100',
-    text: 'text-sky-800',
+    bg: 'bg-sky-500/15',
+    text: 'text-sky-500',
     dot: 'bg-sky-500',
     label: 'Novo',
   },
   contacted: {
-    bg: 'bg-yellow-100',
-    text: 'text-yellow-800',
+    bg: 'bg-yellow-500/15',
+    text: 'text-yellow-500',
     dot: 'bg-yellow-500',
     label: 'Contactado',
   },
   qualified: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Qualificado',
   },
   archived: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-500',
     label: 'Arquivado',
   },
   expired: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     dot: 'bg-red-500',
     label: 'Expirado',
   },
 
   // Tarefas de Processo
   pending: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-400',
     label: 'Pendente',
   },
   in_progress: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     dot: 'bg-blue-500',
     label: 'Em Progresso',
   },
   completed: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Concluído',
   },
   skipped: {
-    bg: 'bg-orange-100',
-    text: 'text-orange-800',
+    bg: 'bg-orange-500/15',
+    text: 'text-orange-500',
     dot: 'bg-orange-500',
     label: 'Ignorado',
   },
 
   // Prioridade Leads
   low: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-600',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     label: 'Baixa',
   },
   medium: {
-    bg: 'bg-yellow-100',
-    text: 'text-yellow-700',
+    bg: 'bg-yellow-500/15',
+    text: 'text-yellow-500',
     label: 'Média',
   },
   high: {
-    bg: 'bg-orange-100',
-    text: 'text-orange-700',
+    bg: 'bg-orange-500/15',
+    text: 'text-orange-500',
     label: 'Alta',
   },
   urgent: {
-    bg: 'bg-red-100',
-    text: 'text-red-700',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     label: 'Urgente',
   },
 
   // Documentos
   received: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     label: 'Recebido',
   },
   validated: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     label: 'Validado',
   },
   rejected: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     label: 'Rejeitado',
   },
 } as const
@@ -140,50 +140,50 @@ export const STATUS_COLORS = {
 // Status de Propriedades (Visibilidade e Ciclo de Vida)
 export const PROPERTY_STATUS = {
   pending_approval: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-800',
+    bg: 'bg-amber-500/15',
+    text: 'text-amber-500',
     dot: 'bg-amber-500',
     label: 'Pendente Aprovação',
   },
   in_process: {
-    bg: 'bg-yellow-100',
-    text: 'text-yellow-800',
+    bg: 'bg-yellow-500/15',
+    text: 'text-yellow-500',
     dot: 'bg-yellow-500',
     label: 'Em Processo',
   },
   active: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Activo',
   },
   reserved: {
-    bg: 'bg-purple-100',
-    text: 'text-purple-800',
+    bg: 'bg-purple-500/15',
+    text: 'text-purple-500',
     dot: 'bg-purple-500',
     label: 'Reservado',
   },
   sold: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     dot: 'bg-blue-500',
     label: 'Vendido',
   },
   rented: {
-    bg: 'bg-indigo-100',
-    text: 'text-indigo-800',
+    bg: 'bg-indigo-500/15',
+    text: 'text-indigo-500',
     dot: 'bg-indigo-500',
     label: 'Arrendado',
   },
   suspended: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-500',
     label: 'Suspenso',
   },
   cancelled: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     dot: 'bg-red-500',
     label: 'Cancelado',
   },
@@ -192,44 +192,44 @@ export const PROPERTY_STATUS = {
 // Status de Processos (Workflow)
 export const PROCESS_STATUS = {
   pending_approval: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-800',
+    bg: 'bg-amber-500/15',
+    text: 'text-amber-500',
     dot: 'bg-amber-500',
     label: 'Pendente Aprovação',
   },
   returned: {
-    bg: 'bg-orange-100',
-    text: 'text-orange-800',
+    bg: 'bg-orange-500/15',
+    text: 'text-orange-500',
     dot: 'bg-orange-500',
     label: 'Devolvido',
   },
   active: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     dot: 'bg-blue-500',
     label: 'Em Andamento',
   },
   on_hold: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-500',
     label: 'Pausado',
   },
   completed: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Concluído',
   },
   rejected: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     dot: 'bg-red-500',
     label: 'Rejeitado',
   },
   cancelled: {
-    bg: 'bg-red-100',
-    text: 'text-red-800',
+    bg: 'bg-red-500/15',
+    text: 'text-red-500',
     dot: 'bg-red-500',
     label: 'Cancelado',
   },
@@ -238,26 +238,26 @@ export const PROCESS_STATUS = {
 // Status de Tarefas (Execução)
 export const TASK_STATUS = {
   pending: {
-    bg: 'bg-slate-100',
-    text: 'text-slate-800',
+    bg: 'bg-slate-500/15',
+    text: 'text-slate-500',
     dot: 'bg-slate-400',
     label: 'Pendente',
   },
   in_progress: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-500',
     dot: 'bg-blue-500',
     label: 'Em Progresso',
   },
   completed: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-800',
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-500',
     dot: 'bg-emerald-500',
     label: 'Concluída',
   },
   skipped: {
-    bg: 'bg-orange-100',
-    text: 'text-orange-800',
+    bg: 'bg-orange-500/15',
+    text: 'text-orange-500',
     dot: 'bg-orange-500',
     label: 'Dispensada',
   },
@@ -383,7 +383,94 @@ export const ACTION_TYPES = {
   EMAIL: 'Envio de Email',
   GENERATE_DOC: 'Gerar Documento',
   MANUAL: 'Tarefa Manual',
+  FORM: 'Preencher Formulário',
 } as const
+
+// Labels de Prioridade de Tarefa (PT-PT)
+export const TASK_PRIORITY_LABELS = {
+  urgent: 'Urgente',
+  normal: 'Normal',
+  low: 'Baixa',
+} as const
+
+// Labels de Status de Tarefa (PT-PT)
+export const TASK_STATUS_LABELS = {
+  pending: 'Pendente',
+  in_progress: 'Em Progresso',
+  completed: 'Concluída',
+  skipped: 'Dispensada',
+} as const
+
+// Labels de Tipo de Acção (PT-PT)
+export const ACTION_TYPE_LABELS = {
+  UPLOAD: 'Upload',
+  EMAIL: 'Email',
+  GENERATE_DOC: 'Documento',
+  MANUAL: 'Manual',
+  FORM: 'Formulário',
+} as const
+
+// Labels de Tipo de Actividade (PT-PT)
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  comment: 'Comentário',
+  status_change: 'Alteração de estado',
+  assignment: 'Atribuição',
+  priority_change: 'Alteração de prioridade',
+  due_date_change: 'Alteração de data limite',
+  bypass: 'Dispensa de tarefa',
+}
+
+// Labels de Tipo de Verificação de Subtarefa (PT-PT)
+export const CHECK_TYPE_LABELS = {
+  field: 'Campo do proprietário',
+  document: 'Documento',
+  manual: 'Verificação manual',
+} as const
+
+// Campos do proprietário singular
+export const OWNER_FIELDS_SINGULAR = [
+  { value: 'name', label: 'Nome completo' },
+  { value: 'nif', label: 'NIF' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'birth_date', label: 'Data de nascimento' },
+  { value: 'nationality', label: 'Nacionalidade' },
+  { value: 'naturality', label: 'Naturalidade' },
+  { value: 'id_doc_type', label: 'Tipo de documento' },
+  { value: 'id_doc_number', label: 'Número do documento' },
+  { value: 'id_doc_expiry', label: 'Validade do documento' },
+  { value: 'id_doc_issued_by', label: 'Emitido por' },
+  { value: 'address', label: 'Morada' },
+  { value: 'postal_code', label: 'Código postal' },
+  { value: 'city', label: 'Localidade' },
+  { value: 'marital_status', label: 'Estado civil' },
+  { value: 'marital_regime', label: 'Regime matrimonial' },
+  { value: 'profession', label: 'Profissão actual' },
+  { value: 'last_profession', label: 'Última profissão' },
+  { value: 'is_portugal_resident', label: 'Residente em Portugal' },
+  { value: 'residence_country', label: 'País de residência' },
+  { value: 'is_pep', label: 'Pessoa politicamente exposta' },
+  { value: 'pep_position', label: 'Cargo PEP' },
+  { value: 'funds_origin', label: 'Origem dos fundos' },
+] as const
+
+// Campos do proprietário empresa (pessoa colectiva)
+export const OWNER_FIELDS_COLETIVA = [
+  { value: 'name', label: 'Nome da empresa' },
+  { value: 'nif', label: 'NIF/NIPC' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'address', label: 'Sede / Morada' },
+  { value: 'legal_representative_name', label: 'Nome do representante legal' },
+  { value: 'legal_representative_nif', label: 'NIF do representante legal' },
+  { value: 'legal_rep_id_doc', label: 'Documento do representante legal' },
+  { value: 'company_object', label: 'Objecto social' },
+  { value: 'company_branches', label: 'Sucursais' },
+  { value: 'legal_nature', label: 'Natureza jurídica' },
+  { value: 'country_of_incorporation', label: 'País de constituição' },
+  { value: 'cae_code', label: 'Código CAE' },
+  { value: 'rcbe_code', label: 'Código RCBE' },
+] as const
 
 // Orientação Solar
 export const SOLAR_ORIENTATIONS = [

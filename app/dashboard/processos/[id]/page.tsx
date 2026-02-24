@@ -1,24 +1,78 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Building2, MapPin, Users } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  ArrowLeft,
+  Building2,
+  MapPin,
+  Users,
+  LayoutGrid,
+  List,
+  Ban,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { ProcessStepper } from '@/components/processes/process-stepper'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
-import { ProcessTasksSection } from '@/components/processes/process-tasks-section'
+import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
+import { ProcessListView } from '@/components/processes/process-list-view'
+import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
+import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
+
+type ViewMode = 'kanban' | 'list'
 
 export default function ProcessoDetailPage() {
   const params = useParams()
   const router = useRouter()
   const [process, setProcess] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterPriority, setFilterPriority] = useState<string>('all')
+  const [filterAssignee, setFilterAssignee] = useState<string>('all')
+
+  // Bypass dialog
+  const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
+  const [bypassTask, setBypassTask] = useState<ProcessTask | null>(null)
+  const [bypassReason, setBypassReason] = useState('')
+
+  // Assign dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [assignTask, setAssignTask] = useState<ProcessTask | null>(null)
+
+  // Task detail sheet
+  const [selectedTask, setSelectedTask] = useState<ProcessTask | null>(null)
 
   useEffect(() => {
     loadProcess()
@@ -33,9 +87,9 @@ export default function ProcessoDetailPage() {
       }
       const data = await response.json()
       setProcess(data)
-    } catch (error: any) {
-      console.error('Erro ao carregar processo:', error)
-      toast.error(error.message || 'Erro ao carregar processo')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar processo'
+      toast.error(message)
       router.push('/dashboard/processos')
     } finally {
       setIsLoading(false)
@@ -71,8 +125,9 @@ export default function ProcessoDetailPage() {
           : 'Processo aprovado com sucesso!'
       )
       loadProcess()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao aprovar processo'
+      toast.error(message)
     }
   }
 
@@ -91,8 +146,9 @@ export default function ProcessoDetailPage() {
 
       toast.success('Processo devolvido com sucesso!')
       loadProcess()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao devolver processo'
+      toast.error(message)
     }
   }
 
@@ -111,10 +167,147 @@ export default function ProcessoDetailPage() {
 
       toast.success('Processo rejeitado com sucesso!')
       loadProcess()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao rejeitar processo'
+      toast.error(message)
     }
   }
+
+  const handleTaskAction = useCallback(async (taskId: string, action: string) => {
+    setIsProcessing(true)
+    try {
+      const response = await fetch(`/api/processes/${params.id}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao actualizar tarefa')
+      }
+
+      toast.success('Tarefa actualizada com sucesso!')
+      loadProcess()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao actualizar tarefa'
+      toast.error(message)
+    } finally {
+      setIsProcessing(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id])
+
+  const handleBypassOpen = useCallback((task: ProcessTask) => {
+    setBypassTask(task)
+    setBypassReason('')
+    setBypassDialogOpen(true)
+  }, [])
+
+  const handleBypassSubmit = async () => {
+    if (!bypassTask || bypassReason.length < 10) return
+
+    setIsProcessing(true)
+    try {
+      const response = await fetch(
+        `/api/processes/${params.id}/tasks/${bypassTask.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'bypass', bypass_reason: bypassReason }),
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao dispensar tarefa')
+      }
+
+      toast.success('Tarefa dispensada com sucesso!')
+      setBypassDialogOpen(false)
+      setBypassTask(null)
+      setBypassReason('')
+      loadProcess()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao dispensar tarefa'
+      toast.error(message)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleAssignOpen = useCallback((task: ProcessTask) => {
+    setAssignTask(task)
+    setAssignDialogOpen(true)
+  }, [])
+
+  const handleTaskClick = useCallback((task: ProcessTask) => {
+    setSelectedTask(task)
+  }, [])
+
+  // Sincronizar selectedTask com dados actualizados do processo
+  useEffect(() => {
+    if (selectedTask && process?.stages) {
+      const allTasks: ProcessTask[] = process.stages.flatMap(
+        (s: ProcessStageWithTasks) => s.tasks
+      )
+      const updated = allTasks.find((t: ProcessTask) => t.id === selectedTask.id)
+      if (updated) {
+        setSelectedTask(updated)
+      } else {
+        setSelectedTask(null)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [process?.stages])
+
+  // Compute stats and filtered stages
+  const { filteredStages, totalTasks, completedTasks, overdueTasks, assignees } = useMemo(() => {
+    if (!process?.stages) {
+      return { filteredStages: [], totalTasks: 0, completedTasks: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[] }
+    }
+
+    const allTasks: ProcessTask[] = process.stages.flatMap((s: ProcessStageWithTasks) => s.tasks)
+
+    let total = 0
+    let completed = 0
+    let overdue = 0
+    const assigneeMap = new Map<string, string>()
+
+    for (const t of allTasks) {
+      total++
+      if (t.status === 'completed' || t.status === 'skipped') completed++
+      if (t.due_date && new Date(t.due_date) < new Date() && !['completed', 'skipped'].includes(t.status ?? '')) {
+        overdue++
+      }
+      if (t.assigned_to_user) {
+        assigneeMap.set(t.assigned_to_user.id, t.assigned_to_user.commercial_name)
+      }
+    }
+
+    const assigneeList = Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }))
+
+    // Apply filters to each stage
+    const filtered: ProcessStageWithTasks[] = process.stages.map((stage: ProcessStageWithTasks) => {
+      const tasks = stage.tasks.filter((t: ProcessTask) => {
+        if (filterStatus !== 'all' && t.status !== filterStatus) return false
+        if (filterPriority !== 'all' && (t.priority ?? 'normal') !== filterPriority) return false
+        if (filterAssignee !== 'all' && t.assigned_to_user?.id !== filterAssignee) return false
+        return true
+      })
+
+      return {
+        ...stage,
+        tasks,
+        tasks_total: stage.tasks_total,
+        tasks_completed: stage.tasks_completed,
+      }
+    }).filter((s: ProcessStageWithTasks) => s.tasks.length > 0)
+
+    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, overdueTasks: overdue, assignees: assigneeList }
+  }, [process?.stages, filterStatus, filterPriority, filterAssignee])
+
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   if (isLoading) {
     return (
@@ -131,6 +324,7 @@ export default function ProcessoDetailPage() {
 
   const { instance, stages, owners, documents } = process
   const property = instance.property
+  const isActive = ['active', 'on_hold', 'completed'].includes(instance.current_status)
 
   return (
     <div className="space-y-6">
@@ -150,10 +344,7 @@ export default function ProcessoDetailPage() {
         </div>
       </div>
 
-      {/* Stepper de Progresso */}
-      {stages && stages.length > 0 && <ProcessStepper stages={stages} />}
-
-      {/* Secção de Revisão (apenas para pending_approval e returned) */}
+      {/* Review Section (pending_approval / returned) */}
       {['pending_approval', 'returned'].includes(instance.current_status) && (
         <ProcessReviewSection
           process={instance}
@@ -166,7 +357,110 @@ export default function ProcessoDetailPage() {
         />
       )}
 
-      {/* Informação do Imóvel */}
+      {/* Active process: progress bar + filters + views */}
+      {isActive && stages && stages.length > 0 && (
+        <>
+          {/* Global progress card */}
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">Progresso Global</span>
+                <span className="text-sm font-bold tabular-nums">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  {completedTasks} concluídas
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-slate-400" />
+                  {totalTasks - completedTasks} pendentes
+                </span>
+                {overdueTasks > 0 && (
+                  <span className="flex items-center gap-1 text-red-500">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {overdueTasks} em atraso
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Filters + view toggle */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as prioridades</SelectItem>
+                {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {assignees.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="ml-auto">
+              <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
+                <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
+                  <LayoutGrid className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Vista Lista">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          </div>
+
+          {/* Views */}
+          {viewMode === 'kanban' ? (
+            <ProcessKanbanView
+              stages={filteredStages}
+              isProcessing={isProcessing}
+              onTaskAction={handleTaskAction}
+              onTaskBypass={handleBypassOpen}
+              onTaskAssign={handleAssignOpen}
+              onTaskClick={handleTaskClick}
+            />
+          ) : (
+            <ProcessListView
+              stages={filteredStages}
+              isProcessing={isProcessing}
+              onTaskAction={handleTaskAction}
+              onTaskBypass={handleBypassOpen}
+              onTaskAssign={handleAssignOpen}
+              onTaskClick={handleTaskClick}
+            />
+          )}
+        </>
+      )}
+
+      {/* Info cards */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -219,7 +513,7 @@ export default function ProcessoDetailPage() {
         </Card>
       </div>
 
-      {/* Proprietários */}
+      {/* Owners */}
       {owners && owners.length > 0 && (
         <Card>
           <CardHeader>
@@ -230,7 +524,7 @@ export default function ProcessoDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {owners.map((owner: any) => (
+              {owners.map((owner: { id: string; name: string; nif?: string | null; person_type: string; ownership_percentage: number; is_main_contact: boolean }) => (
                 <div
                   key={owner.id}
                   className="flex items-center justify-between py-2 border-b last:border-0"
@@ -254,15 +548,73 @@ export default function ProcessoDetailPage() {
         </Card>
       )}
 
-      {/* Tarefas (apenas para processos activos) */}
-      {['active', 'on_hold', 'completed'].includes(instance.current_status) && stages && (
-        <ProcessTasksSection
+      {/* Task Detail Sheet */}
+      <TaskDetailSheet
+        task={selectedTask}
+        processId={instance.id}
+        propertyId={instance.property_id}
+        processDocuments={documents}
+        owners={owners}
+        open={selectedTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTask(null)
+        }}
+        onTaskUpdate={loadProcess}
+      />
+
+      {/* Bypass Dialog */}
+      <Dialog open={bypassDialogOpen} onOpenChange={setBypassDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dispensar Tarefa</DialogTitle>
+            <DialogDescription>
+              Indique o motivo para dispensar esta tarefa (mínimo 10 caracteres)
+            </DialogDescription>
+          </DialogHeader>
+          {bypassTask && (
+            <div className="py-2">
+              <p className="text-sm font-medium">{bypassTask.title}</p>
+            </div>
+          )}
+          <Textarea
+            placeholder="Ex: Documento não aplicável a este tipo de imóvel..."
+            value={bypassReason}
+            onChange={(e) => setBypassReason(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBypassDialogOpen(false)
+                setBypassReason('')
+                setBypassTask(null)
+              }}
+              disabled={isProcessing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleBypassSubmit}
+              disabled={isProcessing || bypassReason.length < 10}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Dispensar Tarefa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Dialog */}
+      {assignTask && (
+        <ProcessTaskAssignDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          taskId={assignTask.id}
+          taskTitle={assignTask.title}
           processId={instance.id}
-          propertyId={instance.property_id}
-          stages={stages}
-          processDocuments={documents}
-          owners={owners}
-          onTaskUpdate={loadProcess}
+          currentAssignedTo={assignTask.assigned_to}
+          onAssigned={loadProcess}
         />
       )}
     </div>

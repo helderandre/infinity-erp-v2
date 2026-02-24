@@ -81,7 +81,7 @@ export function TaskUploadAction({
 
   return (
     <Card className="border-dashed">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="px-4 py-0 space-y-3">
         <div className="flex items-center gap-2 text-sm">
           <Upload className="h-4 w-4 text-blue-600" />
           <span className="font-medium">{docTypeName}</span>
@@ -96,12 +96,12 @@ export function TaskUploadAction({
             {validExisting.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-2 rounded border bg-emerald-50/50"
+                className="flex items-center justify-between p-2 rounded border bg-emerald-500/10"
               >
                 <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-emerald-600" />
+                  <FileText className="h-4 w-4 text-emerald-500" />
                   <span className="truncate">{doc.file_name}</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs">
+                  <Badge className="bg-emerald-500/15 text-emerald-500 border-0 text-xs">
                     Valido
                   </Badge>
                 </div>

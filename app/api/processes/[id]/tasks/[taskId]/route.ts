@@ -4,10 +4,12 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 
 const taskUpdateSchema = z.object({
-  action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset']),
+  action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset', 'update_priority', 'update_due_date']),
   bypass_reason: z.string().optional(),
   assigned_to: z.string().uuid().optional(),
   task_result: z.record(z.string(), z.any()).optional(),
+  priority: z.enum(['urgent', 'normal', 'low']).optional(),
+  due_date: z.string().optional(),
 })
 
 export async function PUT(
@@ -37,7 +39,7 @@ export async function PUT(
       )
     }
 
-    const { action, bypass_reason, assigned_to, task_result } = validation.data
+    const { action, bypass_reason, assigned_to, task_result, priority, due_date } = validation.data
 
     // Obter tarefa
     const { data: task, error: taskError } = await supabase
@@ -64,7 +66,7 @@ export async function PUT(
     }
 
     // Executar acção
-    let updateData: any = { updated_at: new Date().toISOString() }
+    let updateData: any = {}
 
     switch (action) {
       case 'start':
@@ -75,6 +77,7 @@ export async function PUT(
           )
         }
         updateData.status = 'in_progress'
+        updateData.started_at = new Date().toISOString()
         updateData.assigned_to = user.id
         break
 
@@ -135,6 +138,20 @@ export async function PUT(
         updateData.bypassed_by = null
         updateData.completed_at = null
         updateData.assigned_to = null
+        break
+
+      case 'update_priority':
+        if (!priority) {
+          return NextResponse.json(
+            { error: 'Prioridade é obrigatória' },
+            { status: 400 }
+          )
+        }
+        updateData.priority = priority
+        break
+
+      case 'update_due_date':
+        updateData.due_date = due_date || null
         break
 
       default:

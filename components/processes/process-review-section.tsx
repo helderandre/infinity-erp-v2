@@ -136,10 +136,10 @@ export function ProcessReviewSection({
 
   return (
     <>
-      <Card className="border-amber-200 bg-amber-50/50">
+      <Card className="border-amber-500/20 bg-amber-500/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-600" />
+            <AlertCircle className="h-5 w-5 text-amber-500" />
             {isReturned ? 'Processo Devolvido' : 'Aguarda Aprovação'}
           </CardTitle>
           <CardDescription>

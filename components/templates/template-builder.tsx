@@ -36,6 +36,7 @@ import { TemplateTaskCard } from './template-task-card'
 import { TemplateTaskDialog } from './template-task-dialog'
 import { TemplateStageDialog } from './template-stage-dialog'
 import type { TemplateDetail } from '@/types/template'
+import type { SubtaskData } from '@/types/subtask'
 
 // -------------------------------------------------------
 // Tipos internos do builder
@@ -50,11 +51,13 @@ export interface TaskData {
   id: string // UUID temporário
   title: string
   description?: string
-  action_type: 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL'
+  action_type: 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM'
   is_mandatory: boolean
+  priority?: 'urgent' | 'normal' | 'low'
   sla_days?: number
   assigned_role?: string
   config: Record<string, any>
+  subtasks?: SubtaskData[]
 }
 
 interface TemplateBuilderProps {
@@ -119,15 +122,25 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       const taskIds: string[] = []
       for (const task of stage.tpl_tasks || []) {
         taskIds.push(task.id)
+        const tplSubtasks = task.tpl_subtasks || []
         newTasksData[task.id] = {
           id: task.id,
           title: task.title,
           description: task.description || undefined,
           action_type: task.action_type as TaskData['action_type'],
           is_mandatory: task.is_mandatory ?? true,
+          priority: ((task as unknown as { priority?: string }).priority as TaskData['priority']) || 'normal',
           sla_days: task.sla_days || undefined,
           assigned_role: task.assigned_role || undefined,
           config: (task.config as Record<string, any>) || {},
+          subtasks: tplSubtasks.map((st) => ({
+            id: st.id,
+            title: st.title,
+            description: st.description || undefined,
+            is_mandatory: st.is_mandatory ?? true,
+            order_index: st.order_index ?? 0,
+            config: st.config || { check_type: 'manual' as const },
+          })),
         }
       }
       newItems[stage.id] = taskIds
@@ -412,10 +425,15 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
           description: tasksData[taskId].description,
           action_type: tasksData[taskId].action_type,
           is_mandatory: tasksData[taskId].is_mandatory,
+          priority: tasksData[taskId].priority || 'normal',
           sla_days: tasksData[taskId].sla_days,
           assigned_role: tasksData[taskId].assigned_role,
           config: tasksData[taskId].config,
           order_index: taskIndex,
+          subtasks: tasksData[taskId].subtasks?.map((st, sidx) => ({
+            ...st,
+            order_index: sidx,
+          })) || [],
         })),
       })),
     }

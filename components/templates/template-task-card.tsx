@@ -9,6 +9,7 @@ import {
   Mail,
   FileText,
   Circle,
+  ClipboardList,
   GripVertical,
   Pencil,
   Trash2,
@@ -33,6 +34,8 @@ const getTaskIcon = (actionType: string) => {
       return <Mail className="h-3.5 w-3.5" />
     case 'GENERATE_DOC':
       return <FileText className="h-3.5 w-3.5" />
+    case 'FORM':
+      return <ClipboardList className="h-3.5 w-3.5" />
     default:
       return <Circle className="h-3.5 w-3.5" />
   }
@@ -43,6 +46,7 @@ const actionTypeColors: Record<string, string> = {
   EMAIL: 'text-amber-600',
   GENERATE_DOC: 'text-purple-600',
   MANUAL: 'text-slate-500',
+  FORM: 'text-teal-600',
 }
 
 export function TemplateTaskCard({
@@ -115,6 +119,11 @@ export function TemplateTaskCard({
           {task.assigned_role && (
             <Badge variant="outline" className="text-[10px] px-1 py-0">
               {task.assigned_role}
+            </Badge>
+          )}
+          {task.subtasks && task.subtasks.length > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0">
+              {task.subtasks.length} subtarefas
             </Badge>
           )}
         </div>

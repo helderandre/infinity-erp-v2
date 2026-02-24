@@ -23,8 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ACTION_TYPES } from '@/lib/constants'
+import { ACTION_TYPES, TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { SubtaskEditor } from './subtask-editor'
 import type { TaskData } from './template-builder'
+import type { SubtaskData } from '@/types/subtask'
 
 const ASSIGNABLE_ROLES = [
   { value: 'Processual', label: 'Gestora Processual' },
@@ -53,10 +55,16 @@ export function TemplateTaskDialog({
   const [actionType, setActionType] = useState<TaskData['action_type']>('MANUAL')
   const [isMandatory, setIsMandatory] = useState(true)
   const [slaDays, setSlaDays] = useState<string>('')
+  const [priority, setPriority] = useState<'urgent' | 'normal' | 'low'>('normal')
   const [assignedRole, setAssignedRole] = useState('')
   const [docTypeId, setDocTypeId] = useState('')
 
-  // doc_types para select (UPLOAD)
+  // FORM state
+  const [ownerType, setOwnerType] = useState<'singular' | 'coletiva'>('singular')
+  const [formType, setFormType] = useState<string>('kyc_singular')
+  const [subtasks, setSubtasks] = useState<SubtaskData[]>([])
+
+  // doc_types para select (UPLOAD e FORM)
   const [docTypes, setDocTypes] = useState<Array<{ id: string; name: string; category: string }>>([])
   const [docTypesLoading, setDocTypesLoading] = useState(false)
 
@@ -68,24 +76,32 @@ export function TemplateTaskDialog({
         setDescription(initialData.description || '')
         setActionType(initialData.action_type)
         setIsMandatory(initialData.is_mandatory)
+        setPriority(initialData.priority || 'normal')
         setSlaDays(initialData.sla_days?.toString() || '')
         setAssignedRole(initialData.assigned_role || '')
         setDocTypeId(initialData.config?.doc_type_id || '')
+        setOwnerType(initialData.config?.owner_type || 'singular')
+        setFormType(initialData.config?.form_type || 'kyc_singular')
+        setSubtasks(initialData.subtasks || [])
       } else {
         setTitle('')
         setDescription('')
         setActionType('MANUAL')
         setIsMandatory(true)
+        setPriority('normal')
         setSlaDays('')
         setAssignedRole('')
         setDocTypeId('')
+        setOwnerType('singular')
+        setFormType('kyc_singular')
+        setSubtasks([])
       }
     }
   }, [open, initialData])
 
-  // Carregar doc_types quando action_type = UPLOAD
+  // Carregar doc_types quando action_type = UPLOAD ou FORM
   useEffect(() => {
-    if (actionType === 'UPLOAD' && docTypes.length === 0) {
+    if (['UPLOAD', 'FORM'].includes(actionType) && docTypes.length === 0) {
       setDocTypesLoading(true)
       fetch('/api/libraries/doc-types')
         .then((res) => res.json())
@@ -101,9 +117,16 @@ export function TemplateTaskDialog({
     // Validar UPLOAD: doc_type_id obrigatório
     if (actionType === 'UPLOAD' && !docTypeId) return
 
+    // Validar FORM: owner_type obrigatório
+    if (actionType === 'FORM' && !ownerType) return
+
     const config: Record<string, any> = {}
     if (actionType === 'UPLOAD' && docTypeId) {
       config.doc_type_id = docTypeId
+    }
+    if (actionType === 'FORM') {
+      config.owner_type = ownerType
+      config.form_type = formType
     }
 
     onSubmit({
@@ -112,9 +135,11 @@ export function TemplateTaskDialog({
       description: description.trim() || undefined,
       action_type: actionType,
       is_mandatory: isMandatory,
+      priority,
       sla_days: slaDays ? parseInt(slaDays, 10) : undefined,
       assigned_role: assignedRole || undefined,
       config,
+      subtasks: actionType === 'FORM' ? subtasks : undefined,
     })
   }
 
@@ -128,7 +153,7 @@ export function TemplateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[500px] sm:max-w-[500px] max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
           <DialogDescription>
@@ -136,132 +161,190 @@ export function TemplateTaskDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Título */}
-          <div className="space-y-2">
-            <Label htmlFor="task-title">Título *</Label>
-            <Input
-              id="task-title"
-              placeholder="Ex: Upload do Contrato de Mediação"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
-          {/* Descrição */}
-          <div className="space-y-2">
-            <Label htmlFor="task-desc">Descrição</Label>
-            <Textarea
-              id="task-desc"
-              placeholder="Descrição opcional..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[60px]"
-            />
-          </div>
-
-          {/* Tipo de Acção */}
-          <div className="space-y-2">
-            <Label>Tipo de Acção *</Label>
-            <Select value={actionType} onValueChange={(v) => setActionType(v as TaskData['action_type'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ACTION_TYPES).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Config condicional: UPLOAD -> doc_type_id */}
-          {actionType === 'UPLOAD' && (
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mx-4 px-4">
+          <div className="space-y-4 py-2">
+            {/* Título */}
             <div className="space-y-2">
-              <Label>Tipo de Documento *</Label>
-              <Select value={docTypeId} onValueChange={setDocTypeId}>
+              <Label htmlFor="task-title">Título *</Label>
+              <Input
+                id="task-title"
+                placeholder="Ex: Upload do Contrato de Mediação"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
+            {/* Descrição */}
+            <div className="space-y-2">
+              <Label htmlFor="task-desc">Descrição</Label>
+              <Textarea
+                id="task-desc"
+                placeholder="Descrição opcional..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[60px]"
+              />
+            </div>
+
+            {/* Tipo de Acção */}
+            <div className="space-y-2">
+              <Label>Tipo de Acção *</Label>
+              <Select value={actionType} onValueChange={(v) => setActionType(v as TaskData['action_type'])}>
                 <SelectTrigger>
-                  <SelectValue placeholder={docTypesLoading ? 'A carregar...' : 'Seleccionar tipo de documento'} />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(docTypesByCategory).map(([category, types]) => (
-                    <SelectGroup key={category}>
-                      <SelectLabel>{category}</SelectLabel>
-                      {types.map((dt) => (
-                        <SelectItem key={dt.id} value={dt.id}>
-                          {dt.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                  {Object.entries(ACTION_TYPES).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          {/* Config condicional: EMAIL -> mensagem "Em breve" */}
-          {actionType === 'EMAIL' && (
-            <div className="rounded-md border border-dashed p-3">
-              <p className="text-sm text-muted-foreground">
-                Selecção de template de email ficará disponível em breve (M13).
-              </p>
+            {/* Config condicional: UPLOAD -> doc_type_id */}
+            {actionType === 'UPLOAD' && (
+              <div className="space-y-2">
+                <Label>Tipo de Documento *</Label>
+                <Select value={docTypeId} onValueChange={setDocTypeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={docTypesLoading ? 'A carregar...' : 'Seleccionar tipo de documento'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(docTypesByCategory).map(([category, types]) => (
+                      <SelectGroup key={category}>
+                        <SelectLabel>{category}</SelectLabel>
+                        {types.map((dt) => (
+                          <SelectItem key={dt.id} value={dt.id}>
+                            {dt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Config condicional: EMAIL -> mensagem "Em breve" */}
+            {actionType === 'EMAIL' && (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="text-sm text-muted-foreground">
+                  Selecção de template de email ficará disponível em breve (M13).
+                </p>
+              </div>
+            )}
+
+            {/* Config condicional: GENERATE_DOC -> mensagem "Em breve" */}
+            {actionType === 'GENERATE_DOC' && (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="text-sm text-muted-foreground">
+                  Selecção de template de documento ficará disponível em breve (M13).
+                </p>
+              </div>
+            )}
+
+            {/* Config condicional: FORM -> owner_type + form_type + subtarefas */}
+            {actionType === 'FORM' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Tipo de proprietário</Label>
+                  <Select value={ownerType} onValueChange={(v) => setOwnerType(v as 'singular' | 'coletiva')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="singular">Pessoa Singular</SelectItem>
+                      <SelectItem value="coletiva">Pessoa Colectiva</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tipo de formulário</Label>
+                  <Select value={formType} onValueChange={setFormType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kyc_singular">KYC Singular</SelectItem>
+                      <SelectItem value="kyc_coletiva">KYC Colectiva</SelectItem>
+                      <SelectItem value="custom">Personalizado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <SubtaskEditor
+                  subtasks={subtasks}
+                  ownerType={ownerType}
+                  docTypes={docTypes}
+                  onChange={setSubtasks}
+                />
+              </div>
+            )}
+
+            {/* Prioridade */}
+            <div className="space-y-2">
+              <Label>Prioridade</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as 'urgent' | 'normal' | 'low')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {/* Config condicional: GENERATE_DOC -> mensagem "Em breve" */}
-          {actionType === 'GENERATE_DOC' && (
-            <div className="rounded-md border border-dashed p-3">
-              <p className="text-sm text-muted-foreground">
-                Selecção de template de documento ficará disponível em breve (M13).
-              </p>
+            {/* Role Atribuído */}
+            <div className="space-y-2">
+              <Label>Role Atribuído</Label>
+              <Select value={assignedRole} onValueChange={setAssignedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSIGNABLE_ROLES.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {/* Role Atribuído */}
-          <div className="space-y-2">
-            <Label>Role Atribuído</Label>
-            <Select value={assignedRole} onValueChange={setAssignedRole}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar role..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSIGNABLE_ROLES.map((role) => (
-                  <SelectItem key={role.value} value={role.value}>
-                    {role.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* SLA (dias) */}
-          <div className="space-y-2">
-            <Label htmlFor="task-sla">SLA (dias)</Label>
-            <Input
-              id="task-sla"
-              type="number"
-              min="1"
-              placeholder="Ex: 5"
-              value={slaDays}
-              onChange={(e) => setSlaDays(e.target.value)}
-            />
-          </div>
-
-          {/* Obrigatória? */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="task-mandatory">Tarefa Obrigatória</Label>
-              <p className="text-xs text-muted-foreground">
-                Tarefas obrigatórias não podem ser dispensadas
-              </p>
+            {/* SLA (dias) */}
+            <div className="space-y-2">
+              <Label htmlFor="task-sla">SLA (dias)</Label>
+              <Input
+                id="task-sla"
+                type="number"
+                min="1"
+                placeholder="Ex: 5"
+                value={slaDays}
+                onChange={(e) => setSlaDays(e.target.value)}
+              />
             </div>
-            <Switch
-              id="task-mandatory"
-              checked={isMandatory}
-              onCheckedChange={setIsMandatory}
-            />
+
+            {/* Obrigatória? */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="task-mandatory">Tarefa Obrigatória</Label>
+                <p className="text-xs text-muted-foreground">
+                  Tarefas obrigatórias não podem ser dispensadas
+                </p>
+              </div>
+              <Switch
+                id="task-mandatory"
+                checked={isMandatory}
+                onCheckedChange={setIsMandatory}
+              />
+            </div>
           </div>
         </div>
 
@@ -271,7 +354,11 @@ export function TemplateTaskDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!title.trim() || (actionType === 'UPLOAD' && !docTypeId)}
+            disabled={
+              !title.trim() ||
+              (actionType === 'UPLOAD' && !docTypeId) ||
+              (actionType === 'FORM' && !ownerType)
+            }
           >
             {isEditing ? 'Guardar Alterações' : 'Adicionar Tarefa'}
           </Button>

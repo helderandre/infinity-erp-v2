@@ -17,7 +17,10 @@ export async function GET(
         *,
         tpl_stages (
           *,
-          tpl_tasks (*)
+          tpl_tasks (
+            *,
+            tpl_subtasks (*)
+          )
         )
       `)
       .eq('id', id)
@@ -27,12 +30,17 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 404 })
     }
 
-    // Ordenar stages e tasks por order_index
+    // Ordenar stages, tasks e subtasks por order_index
     if (data.tpl_stages) {
       data.tpl_stages.sort((a: any, b: any) => a.order_index - b.order_index)
       data.tpl_stages.forEach((stage: any) => {
         if (stage.tpl_tasks) {
           stage.tpl_tasks.sort((a: any, b: any) => a.order_index - b.order_index)
+          stage.tpl_tasks.forEach((task: any) => {
+            if (task.tpl_subtasks) {
+              task.tpl_subtasks.sort((a: any, b: any) => a.order_index - b.order_index)
+            }
+          })
         }
       })
     }
@@ -173,6 +181,43 @@ export async function PUT(
           { error: `Erro ao criar tarefas: ${tasksError.message}` },
           { status: 500 }
         )
+      }
+
+      // Inserir subtarefas (3º nível)
+      // Cast para aceder a tpl_subtasks (tabela não presente no database.ts gerado)
+      const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
+
+      const { data: insertedTasks } = await supabase
+        .from('tpl_tasks')
+        .select('id, order_index')
+        .eq('tpl_stage_id', insertedStage.id)
+        .order('order_index')
+
+      if (insertedTasks) {
+        for (let i = 0; i < stage.tasks.length; i++) {
+          const task = stage.tasks[i] as Record<string, unknown>
+          const subtasks = task.subtasks as Array<Record<string, unknown>> | undefined
+          if (subtasks && subtasks.length > 0 && insertedTasks[i]) {
+            const subtasksToInsert = subtasks.map((st, idx) => ({
+              tpl_task_id: insertedTasks[i].id,
+              title: st.title,
+              description: st.description || null,
+              is_mandatory: st.is_mandatory,
+              order_index: idx,
+              config: st.config || {},
+            }))
+
+            const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+              .insert(subtasksToInsert)
+
+            if (subtasksError) {
+              return NextResponse.json(
+                { error: `Erro ao criar subtarefas: ${subtasksError.message}` },
+                { status: 500 }
+              )
+            }
+          }
+        }
       }
     }
 

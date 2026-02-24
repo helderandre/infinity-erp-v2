@@ -1,4 +1,5 @@
 import type { Database } from './database'
+import type { TplSubtask } from './subtask'
 
 type TplProcess = Database['public']['Tables']['tpl_processes']['Row']
 type TplStage = Database['public']['Tables']['tpl_stages']['Row']
@@ -16,6 +17,7 @@ export interface TemplateTask extends TplTask {
     | { email_library_id?: string }
     | { doc_library_id?: string }
     | Record<string, any>
+  tpl_subtasks?: TplSubtask[]
 }
 
 export interface TemplateStage extends TplStage {
@@ -26,4 +28,4 @@ export interface TemplateDetail extends TplProcess {
   tpl_stages: TemplateStage[]
 }
 
-export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL'
+export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM'

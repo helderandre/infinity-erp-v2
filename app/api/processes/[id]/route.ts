@@ -52,14 +52,18 @@ export async function GET(
       return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
     }
 
-    // Obter tarefas agrupadas por fase
+    // Obter tarefas agrupadas por fase (com subtarefas)
     const { data: tasks, error: tasksError } = await supabase
       .from('proc_tasks')
       .select(
         `
         *,
-        assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name),
-        owner:owners!proc_tasks_owner_id_fkey(id, name, person_type)
+        assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name, dev_consultant_profiles(profile_photo_url)),
+        owner:owners!proc_tasks_owner_id_fkey(id, name, person_type),
+        subtasks:proc_subtasks(
+          id, title, is_mandatory, is_completed,
+          completed_at, completed_by, order_index, config
+        )
       `
       )
       .eq('proc_instance_id', id)
@@ -68,6 +72,20 @@ export async function GET(
 
     if (tasksError) {
       return NextResponse.json({ error: tasksError.message }, { status: 500 })
+    }
+
+    // Ordenar subtarefas e aplanar profile_photo_url
+    if (tasks) {
+      tasks.forEach((task: any) => {
+        if (task.subtasks) {
+          task.subtasks.sort((a: any, b: any) => a.order_index - b.order_index)
+        }
+        if (task.assigned_to_user?.dev_consultant_profiles) {
+          task.assigned_to_user.profile_photo_url =
+            task.assigned_to_user.dev_consultant_profiles.profile_photo_url ?? null
+          delete task.assigned_to_user.dev_consultant_profiles
+        }
+      })
     }
 
     // Agrupar tarefas por fase
