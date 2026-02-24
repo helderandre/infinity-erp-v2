@@ -33,25 +33,21 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Build a map of messageId -> index for read receipt computation
+  // Build a map of messageId -> readers for read receipt display
   const messageReadersMap = useMemo(() => {
     const map = new Map<string, { userName: string; readAt: string }[]>()
     if (!messages.length || !readReceipts.length) return map
 
-    // Build messageId -> index map
     const idxMap = new Map<string, number>()
     messages.forEach((m, i) => idxMap.set(m.id, i))
 
     for (const receipt of readReceipts) {
       const r = receipt as ChatReadReceipt
-      // Skip the current user's own receipts
-      if (r.user_id === currentUser.id) continue
       if (!r.last_read_message_id) continue
 
       const lastReadIdx = idxMap.get(r.last_read_message_id)
       if (lastReadIdx === undefined) continue
 
-      // This user has read all messages up to and including lastReadIdx
       for (let i = 0; i <= lastReadIdx; i++) {
         const msgId = messages[i].id
         // Don't show read receipt on sender's own messages
@@ -64,8 +60,9 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
         map.set(msgId, existing)
       }
     }
+
     return map
-  }, [messages, readReceipts, currentUser.id])
+  }, [messages, readReceipts])
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
