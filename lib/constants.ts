@@ -864,3 +864,32 @@ export const formatPercentage = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
   return `${value}%`
 }
+
+// === M13: Templates de Email ===
+
+export const EMAIL_TEMPLATE_VARIABLES = [
+  { value: '{{proprietario_nome}}', label: 'Nome do Proprietário' },
+  { value: '{{proprietario_email}}', label: 'Email do Proprietário' },
+  { value: '{{proprietario_telefone}}', label: 'Telefone do Proprietário' },
+  { value: '{{imovel_ref}}', label: 'Referência do Imóvel' },
+  { value: '{{imovel_titulo}}', label: 'Título do Imóvel' },
+  { value: '{{imovel_morada}}', label: 'Morada do Imóvel' },
+  { value: '{{imovel_preco}}', label: 'Preço do Imóvel' },
+  { value: '{{consultor_nome}}', label: 'Nome do Consultor' },
+  { value: '{{consultor_email}}', label: 'Email do Consultor' },
+  { value: '{{consultor_telefone}}', label: 'Telefone do Consultor' },
+  { value: '{{processo_ref}}', label: 'Referência do Processo' },
+  { value: '{{data_actual}}', label: 'Data Actual' },
+  { value: '{{empresa_nome}}', label: 'Nome da Empresa' },
+] as const
+
+export const EMAIL_COMPONENT_LABELS = {
+  EmailContainer: 'Contentor',
+  EmailText: 'Texto',
+  EmailHeading: 'Título',
+  EmailImage: 'Imagem',
+  EmailButton: 'Botão',
+  EmailDivider: 'Divisor',
+  EmailSpacer: 'Espaçador',
+  EmailAttachment: 'Anexo',
+} as const

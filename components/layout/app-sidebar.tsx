@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Zap,
   ClipboardCheck,
+  Mail,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -118,6 +119,12 @@ const menuItems = [
     icon: Megaphone,
     href: '/dashboard/marketing',
     permission: 'marketing',
+  },
+  {
+    title: 'Templates Email',
+    icon: Mail,
+    href: '/dashboard/templates-email',
+    permission: 'settings',
   },
   {
     title: 'Definições',

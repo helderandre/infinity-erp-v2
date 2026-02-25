@@ -1755,6 +1755,7 @@ export type Database = {
           body_html: string
           created_at: string | null
           description: string | null
+          editor_state: Json | null
           id: string
           name: string
           subject: string
@@ -1764,6 +1765,7 @@ export type Database = {
           body_html: string
           created_at?: string | null
           description?: string | null
+          editor_state?: Json | null
           id?: string
           name: string
           subject: string
@@ -1773,6 +1775,7 @@ export type Database = {
           body_html?: string
           created_at?: string | null
           description?: string | null
+          editor_state?: Json | null
           id?: string
           name?: string
           subject?: string

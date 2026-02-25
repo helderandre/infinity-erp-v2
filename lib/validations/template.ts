@@ -40,8 +40,11 @@ export const taskSchema = z
       if (task.action_type === 'FORM') {
         return !!task.config?.owner_type
       }
-      // EMAIL e GENERATE_DOC: config opcional no MVP (bibliotecas vazias)
-      // Será obrigatório quando M13 estiver implementado
+      // EMAIL: email_library_id obrigatório (M13)
+      if (task.action_type === 'EMAIL') {
+        return !!task.config?.email_library_id
+      }
+      // GENERATE_DOC: config opcional (futuro M13 docs)
       return true
     },
     {

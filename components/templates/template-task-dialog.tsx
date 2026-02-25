@@ -27,6 +27,8 @@ import { ACTION_TYPES, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { SubtaskEditor } from './subtask-editor'
 import type { TaskData } from './template-builder'
 import type { SubtaskData } from '@/types/subtask'
+import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 
 const ASSIGNABLE_ROLES = [
   { value: 'Processual', label: 'Gestora Processual' },
@@ -68,6 +70,11 @@ export function TemplateTaskDialog({
   const [docTypes, setDocTypes] = useState<Array<{ id: string; name: string; category: string }>>([])
   const [docTypesLoading, setDocTypesLoading] = useState(false)
 
+  // EMAIL state (M13)
+  const [emailLibraryId, setEmailLibraryId] = useState('')
+  const [emailTemplates, setEmailTemplates] = useState<Array<{ id: string; name: string; subject: string }>>([])
+  const [emailTemplatesLoading, setEmailTemplatesLoading] = useState(false)
+
   // Reset ao abrir
   useEffect(() => {
     if (open) {
@@ -80,6 +87,7 @@ export function TemplateTaskDialog({
         setSlaDays(initialData.sla_days?.toString() || '')
         setAssignedRole(initialData.assigned_role || '')
         setDocTypeId(initialData.config?.doc_type_id || '')
+        setEmailLibraryId(initialData.config?.email_library_id || '')
         setOwnerType(initialData.config?.owner_type || 'singular')
         setFormType(initialData.config?.form_type || 'kyc_singular')
         setSubtasks(initialData.subtasks || [])
@@ -92,6 +100,7 @@ export function TemplateTaskDialog({
         setSlaDays('')
         setAssignedRole('')
         setDocTypeId('')
+        setEmailLibraryId('')
         setOwnerType('singular')
         setFormType('kyc_singular')
         setSubtasks([])
@@ -111,11 +120,26 @@ export function TemplateTaskDialog({
     }
   }, [actionType, docTypes.length])
 
+  // Carregar email templates quando action_type = EMAIL
+  useEffect(() => {
+    if (actionType === 'EMAIL' && emailTemplates.length === 0) {
+      setEmailTemplatesLoading(true)
+      fetch('/api/libraries/emails')
+        .then((res) => res.json())
+        .then((data) => setEmailTemplates(Array.isArray(data) ? data : []))
+        .catch(() => setEmailTemplates([]))
+        .finally(() => setEmailTemplatesLoading(false))
+    }
+  }, [actionType, emailTemplates.length])
+
   const handleSubmit = () => {
     if (!title.trim()) return
 
     // Validar UPLOAD: doc_type_id obrigatório
     if (actionType === 'UPLOAD' && !docTypeId) return
+
+    // Validar EMAIL: email_library_id obrigatório
+    if (actionType === 'EMAIL' && !emailLibraryId) return
 
     // Validar FORM: owner_type obrigatório
     if (actionType === 'FORM' && !ownerType) return
@@ -123,6 +147,9 @@ export function TemplateTaskDialog({
     const config: Record<string, any> = {}
     if (actionType === 'UPLOAD' && docTypeId) {
       config.doc_type_id = docTypeId
+    }
+    if (actionType === 'EMAIL' && emailLibraryId) {
+      config.email_library_id = emailLibraryId
     }
     if (actionType === 'FORM') {
       config.owner_type = ownerType
@@ -227,12 +254,36 @@ export function TemplateTaskDialog({
               </div>
             )}
 
-            {/* Config condicional: EMAIL -> mensagem "Em breve" */}
+            {/* Config condicional: EMAIL -> selecção de template */}
             {actionType === 'EMAIL' && (
-              <div className="rounded-md border border-dashed p-3">
-                <p className="text-sm text-muted-foreground">
-                  Selecção de template de email ficará disponível em breve (M13).
-                </p>
+              <div className="space-y-2">
+                <Label>Template de Email *</Label>
+                <Select
+                  value={emailLibraryId}
+                  onValueChange={(v) => setEmailLibraryId(v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={emailTemplatesLoading ? 'A carregar...' : 'Seleccione um template de email...'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailTemplates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        <div className="flex flex-col">
+                          <span>{tpl.name}</span>
+                          <span className="text-xs text-muted-foreground">{tpl.subject}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {emailLibraryId && (
+                  <Link href={`/dashboard/templates-email/${emailLibraryId}`} target="_blank">
+                    <Button variant="ghost" size="sm" type="button">
+                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                      Ver template
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
 
@@ -357,6 +408,7 @@ export function TemplateTaskDialog({
             disabled={
               !title.trim() ||
               (actionType === 'UPLOAD' && !docTypeId) ||
+              (actionType === 'EMAIL' && !emailLibraryId) ||
               (actionType === 'FORM' && !ownerType)
             }
           >
