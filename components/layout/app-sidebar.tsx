@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import {
   Building2,
-  Home,
   Users,
   FileText,
   LayoutDashboard,
@@ -15,9 +14,13 @@ import {
   FileStack,
   LogOut,
   ChevronDown,
+  ChevronRight,
   Zap,
   ClipboardCheck,
   Mail,
+  FileCode2,
+  Workflow,
+  Braces,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -33,9 +36,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
 import {
@@ -46,7 +46,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -121,16 +126,33 @@ const menuItems = [
     permission: 'marketing',
   },
   {
-    title: 'Templates Email',
-    icon: Mail,
-    href: '/dashboard/templates-email',
-    permission: 'settings',
-  },
-  {
     title: 'Definições',
     icon: Settings,
     href: '/dashboard/definicoes',
     permission: 'settings',
+  },
+]
+
+const builderItems = [
+  {
+    title: 'Template de Email',
+    icon: Mail,
+    href: '/dashboard/templates-email',
+  },
+  {
+    title: 'Template de Processos',
+    icon: Workflow,
+    href: '/dashboard/processos/templates',
+  },
+  {
+    title: 'Template de Documentos',
+    icon: FileCode2,
+    href: '/dashboard/templates-documentos',
+  },
+  {
+    title: 'Variáveis de Template',
+    icon: Braces,
+    href: '/dashboard/templates-variaveis',
   },
 ]
 
@@ -213,6 +235,46 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {hasPermission('settings' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/templates-email') ||
+                pathname?.startsWith('/dashboard/processos/templates') ||
+                pathname?.startsWith('/dashboard/templates-documentos')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  Builder
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {builderItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

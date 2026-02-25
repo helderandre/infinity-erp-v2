@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Strikethrough } from 'lucide-react'
-import { EMAIL_TEMPLATE_VARIABLES } from '@/lib/constants'
+import { useTemplateVariables } from '@/hooks/use-template-variables'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
 import { UnitInput } from '@/components/email-editor/settings'
 
@@ -117,6 +117,7 @@ export const EmailHeading = ({
 }
 
 const EmailHeadingSettings = () => {
+  const { variables: templateVariables } = useTemplateVariables()
   const {
     actions: { setProp },
     props,
@@ -322,12 +323,12 @@ const EmailHeadingSettings = () => {
       <div className="space-y-2">
         <Label>Variáveis</Label>
         <div className="flex flex-wrap gap-1">
-          {EMAIL_TEMPLATE_VARIABLES.map((v) => (
+          {templateVariables.map((v) => (
             <button
-              key={v.value}
+              key={v.key}
               type="button"
               className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors"
-              onClick={() => insertVariable(v.value)}
+              onClick={() => insertVariable(`{{${v.key}}}`)}
               title={v.label}
             >
               {v.label}

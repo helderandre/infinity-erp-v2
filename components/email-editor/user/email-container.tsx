@@ -59,6 +59,7 @@ interface EmailContainerProps {
   borderColor?: string
   borderRadius?: string
   boxShadow?: string
+  minHeight?: string | number
   children?: ReactNode
 }
 
@@ -83,6 +84,7 @@ export const EmailContainer = ({
   borderColor = 'transparent',
   borderRadius = '0px',
   boxShadow = 'none',
+  minHeight = 'auto',
   children,
 }: EmailContainerProps) => {
   const {
@@ -117,7 +119,11 @@ export const EmailContainer = ({
         border: borderStyle,
         borderRadius,
         boxShadow: boxShadow !== 'none' ? boxShadow : undefined,
-        minHeight: 40,
+        minHeight: minHeight === 'auto'
+          ? undefined
+          : typeof minHeight === 'number'
+            ? minHeight
+            : parseInt(minHeight) || undefined,
       }}
     >
       {children}
@@ -250,6 +256,35 @@ const EmailContainerSettings = () => {
         </ToggleGroup>
       </div>
 
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Altura Mínima</Label>
+        <div className="flex items-center gap-1.5">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={props.minHeight === 'auto' || props.minHeight == null ? 'auto' : 'px'}
+            onValueChange={(val) => {
+              if (val === 'auto') setProp((p: EmailContainerProps) => { p.minHeight = 'auto' })
+              else setProp((p: EmailContainerProps) => { p.minHeight = 40 })
+            }}
+          >
+            <ToggleGroupItem value="auto" className="text-xs px-3">Auto</ToggleGroupItem>
+            <ToggleGroupItem value="px" className="text-xs px-3">px</ToggleGroupItem>
+          </ToggleGroup>
+          {props.minHeight !== 'auto' && props.minHeight != null && (
+            <div className="flex-1">
+              <UnitInput
+                value={`${typeof props.minHeight === 'number' ? props.minHeight : parseInt(String(props.minHeight)) || 40}px`}
+                onChange={(v) => setProp((p: EmailContainerProps) => { p.minHeight = parseFloat(v) || 0 })}
+                units={['px']}
+                step={10}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       <ColorPickerField
         label="Cor de fundo"
         value={props.background || '#ffffff'}
@@ -323,6 +358,7 @@ EmailContainer.craft = {
     borderColor: 'transparent',
     borderRadius: '0px',
     boxShadow: 'none',
+    minHeight: 'auto',
   },
   related: {
     settings: EmailContainerSettings,

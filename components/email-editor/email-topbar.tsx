@@ -3,24 +3,31 @@
 import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Undo2, Redo2, Save, Loader2 } from 'lucide-react'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { ArrowLeft, Undo2, Redo2, Save, Loader2, Pencil, Eye } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+
+export type EditorMode = 'edit' | 'preview'
 
 interface EmailTopbarProps {
   name: string
   subject: string
+  mode: EditorMode
   onNameChange: (value: string) => void
   onSubjectChange: (value: string) => void
   onSave: (editorState: string) => void
+  onModeChange: (mode: EditorMode, editorState: string) => void
   isSaving: boolean
 }
 
 export function EmailTopbar({
   name,
   subject,
+  mode,
   onNameChange,
   onSubjectChange,
   onSave,
+  onModeChange,
   isSaving,
 }: EmailTopbarProps) {
   const router = useRouter()
@@ -32,6 +39,12 @@ export function EmailTopbar({
   const handleSave = () => {
     const editorState = query.serialize()
     onSave(editorState)
+  }
+
+  const handleModeChange = (value: string) => {
+    if (!value) return
+    const editorState = query.serialize()
+    onModeChange(value as EditorMode, editorState)
   }
 
   return (
@@ -61,10 +74,30 @@ export function EmailTopbar({
       />
 
       <div className="flex items-center gap-1 ml-auto">
+        {/* Mode toggle */}
+        <ToggleGroup
+          type="single"
+          value={mode}
+          onValueChange={handleModeChange}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="edit" aria-label="Modo Edição" className="gap-1.5 px-3">
+            <Pencil className="h-3.5 w-3.5" />
+            Edição
+          </ToggleGroupItem>
+          <ToggleGroupItem value="preview" aria-label="Modo Pré-visualização" className="gap-1.5 px-3">
+            <Eye className="h-3.5 w-3.5" />
+            Pré-visualizar
+          </ToggleGroupItem>
+        </ToggleGroup>
+
+        <div className="h-4 w-px bg-border mx-1" />
+
         <Button
           variant="ghost"
           size="icon"
-          disabled={!canUndo}
+          disabled={!canUndo || mode === 'preview'}
           onClick={() => actions.history.undo()}
           title="Desfazer"
         >
@@ -73,7 +106,7 @@ export function EmailTopbar({
         <Button
           variant="ghost"
           size="icon"
-          disabled={!canRedo}
+          disabled={!canRedo || mode === 'preview'}
           onClick={() => actions.history.redo()}
           title="Refazer"
         >

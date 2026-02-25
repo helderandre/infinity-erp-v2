@@ -29,6 +29,9 @@ const pathTranslations: Record<string, string> = {
   marketing: 'Marketing',
   definicoes: 'Definições',
   notificacoes: 'Notificações',
+  'templates-email': 'Templates de Email',
+  'templates-documentos': 'Templates de Documentos',
+  'templates-variaveis': 'Variáveis de Template',
 }
 
 export function Breadcrumbs() {

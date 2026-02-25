@@ -1,5 +1,106 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
+
+    // Verificar autenticação
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    // Verificar se o processo existe
+    const { data: proc, error: procError } = await supabase
+      .from('proc_instances')
+      .select('id, current_status, property_id')
+      .eq('id', id)
+      .single()
+
+    if (procError || !proc) {
+      return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
+    }
+
+    const adminSupabase = createAdminClient()
+
+    // Eliminar subtarefas das tarefas deste processo
+    const { data: taskIds } = await adminSupabase
+      .from('proc_tasks')
+      .select('id')
+      .eq('proc_instance_id', id)
+
+    if (taskIds && taskIds.length > 0) {
+      const ids = taskIds.map((t: { id: string }) => t.id)
+      await (adminSupabase as any)
+        .from('proc_subtasks')
+        .delete()
+        .in('proc_task_id', ids)
+    }
+
+    // Eliminar tarefas do processo
+    await adminSupabase
+      .from('proc_tasks')
+      .delete()
+      .eq('proc_instance_id', id)
+
+    // Eliminar mensagens do chat do processo (se existir tabela)
+    try {
+      await (adminSupabase as any)
+        .from('proc_chat_messages')
+        .delete()
+        .eq('proc_instance_id', id)
+    } catch {
+      // Ignorar se tabela não existir
+    }
+
+    // Eliminar o processo
+    const { error: deleteError } = await adminSupabase
+      .from('proc_instances')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      console.error('Erro ao eliminar processo:', deleteError)
+      return NextResponse.json(
+        { error: 'Erro ao eliminar processo', details: deleteError.message },
+        { status: 500 }
+      )
+    }
+
+    // Reverter o status do imóvel se estava 'in_process'
+    if (proc.property_id) {
+      const { data: property } = await adminSupabase
+        .from('dev_properties')
+        .select('status')
+        .eq('id', proc.property_id)
+        .single()
+
+      if (property?.status === 'in_process') {
+        await adminSupabase
+          .from('dev_properties')
+          .update({ status: 'pending_approval' })
+          .eq('id', proc.property_id)
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Processo eliminado com sucesso' })
+  } catch (error) {
+    console.error('Erro ao eliminar processo:', error)
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function GET(
   request: Request,

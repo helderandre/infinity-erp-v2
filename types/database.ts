@@ -1750,6 +1750,60 @@ export type Database = {
           },
         ]
       }
+      tpl_variables: {
+        Row: {
+          id: string
+          key: string
+          label: string
+          category: string
+          source_entity: string
+          source_table: string | null
+          source_column: string | null
+          format_type: string
+          format_config: Json | null
+          static_value: string | null
+          is_system: boolean
+          is_active: boolean
+          order_index: number
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          label: string
+          category: string
+          source_entity: string
+          source_table?: string | null
+          source_column?: string | null
+          format_type?: string
+          format_config?: Json | null
+          static_value?: string | null
+          is_system?: boolean
+          is_active?: boolean
+          order_index?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          label?: string
+          category?: string
+          source_entity?: string
+          source_table?: string | null
+          source_column?: string | null
+          format_type?: string
+          format_config?: Json | null
+          static_value?: string | null
+          is_system?: boolean
+          is_active?: boolean
+          order_index?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tpl_email_library: {
         Row: {
           body_html: string

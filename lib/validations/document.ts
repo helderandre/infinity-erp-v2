@@ -19,12 +19,12 @@ export const documentStatusSchema = z.object({
 // Criacao de tipo de documento (admin)
 export const docTypeCreateSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   category: z.string().min(1, 'Categoria obrigatoria'),
   allowed_extensions: z
     .array(z.string())
     .default(['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']),
-  default_validity_months: z.number().int().positive().optional(),
+  default_validity_months: z.number().int().positive().optional().nullable(),
   is_system: z.boolean().default(false),
 })
 

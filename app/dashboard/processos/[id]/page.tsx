@@ -24,6 +24,23 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   ArrowLeft,
   Building2,
   MapPin,
@@ -34,6 +51,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  MoreHorizontal,
+  Pause,
+  Play,
+  Trash2,
+  Loader2,
+  XCircle,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
@@ -74,6 +97,11 @@ export default function ProcessoDetailPage() {
   // Assign dialog
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [assignTask, setAssignTask] = useState<ProcessTask | null>(null)
+
+  // Process action dialogs
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [isActionLoading, setIsActionLoading] = useState(false)
 
   // Task detail sheet
   const [selectedTask, setSelectedTask] = useState<ProcessTask | null>(null)
@@ -240,6 +268,71 @@ export default function ProcessoDetailPage() {
     }
   }
 
+  const handleHold = async (action: 'pause' | 'resume') => {
+    setIsActionLoading(true)
+    try {
+      const res = await fetch(`/api/processes/${params.id}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || `Erro ao ${action === 'pause' ? 'pausar' : 'retomar'} processo`)
+      }
+      toast.success(action === 'pause' ? 'Processo pausado' : 'Processo retomado')
+      loadProcess()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro na operação'
+      toast.error(message)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  const handleCancelProcess = async () => {
+    setIsActionLoading(true)
+    try {
+      const res = await fetch(`/api/processes/${params.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Cancelado pelo utilizador' }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Erro ao cancelar processo')
+      }
+      toast.success('Processo cancelado')
+      setCancelDialogOpen(false)
+      loadProcess()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao cancelar'
+      toast.error(message)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  const handleDeleteProcess = async () => {
+    setIsActionLoading(true)
+    try {
+      const res = await fetch(`/api/processes/${params.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Erro ao eliminar processo')
+      }
+      toast.success('Processo eliminado com sucesso')
+      router.push('/dashboard/processos')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao eliminar'
+      toast.error(message)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
   const handleAssignOpen = useCallback((task: ProcessTask) => {
     setAssignTask(task)
     setAssignDialogOpen(true)
@@ -361,6 +454,58 @@ export default function ProcessoDetailPage() {
             <StatusBadge status={instance.current_status} type="process" />
           </div>
           <p className="text-muted-foreground">{property?.title}</p>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          {instance.current_status === 'active' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleHold('pause')}
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pause className="mr-2 h-4 w-4" />}
+              Pausar
+            </Button>
+          )}
+          {instance.current_status === 'on_hold' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleHold('resume')}
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+              Retomar
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {['active', 'on_hold'].includes(instance.current_status) && (
+                <>
+                  <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancelar processo
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar processo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -664,6 +809,56 @@ export default function ProcessoDetailPage() {
           onAssigned={loadProcess}
         />
       )}
+
+      {/* Cancel Process Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar processo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende cancelar o processo{' '}
+              <strong>{instance.external_ref}</strong>?
+              O processo será marcado como cancelado e não poderá ser retomado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionLoading}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelProcess}
+              disabled={isActionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Cancelar Processo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Process Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar processo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar permanentemente o processo{' '}
+              <strong>{instance.external_ref}</strong>?
+              Esta acção é irreversível e irá remover todas as tarefas associadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProcess}
+              disabled={isActionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -171,7 +171,7 @@ function SortableSubtaskRow({
             <SelectContent>
               {emailTemplates.map((et) => (
                 <SelectItem key={et.id} value={et.id}>
-                  {et.name} — {et.subject}
+                  {et.name}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -18,30 +18,33 @@ function cloneTreeWithNewIds(tree: NodeTree): NodeTree {
 
   for (const [oldId, node] of Object.entries(tree.nodes)) {
     const newId = oldToNew[oldId]
-    const cloned = JSON.parse(JSON.stringify(node))
 
-    // Remap child node references
-    if (cloned.data.nodes) {
-      cloned.data.nodes = cloned.data.nodes.map(
+    // Deep-clone only serializable data fields; preserve function references
+    // (data.type, rules, related) that JSON.parse(JSON.stringify()) would destroy
+    const clonedData = {
+      ...node.data,
+      props: JSON.parse(JSON.stringify(node.data.props)),
+      custom: node.data.custom ? JSON.parse(JSON.stringify(node.data.custom)) : node.data.custom,
+      nodes: (node.data.nodes || []).map(
         (childId: string) => oldToNew[childId] ?? childId
-      )
+      ),
+      linkedNodes: Object.fromEntries(
+        Object.entries(node.data.linkedNodes || {}).map(
+          ([key, linkedId]) => [key, oldToNew[linkedId] ?? linkedId]
+        )
+      ),
+      parent: node.data.parent && oldToNew[node.data.parent]
+        ? oldToNew[node.data.parent]
+        : node.data.parent,
     }
 
-    // Remap linked nodes
-    if (cloned.data.linkedNodes) {
-      const remapped: Record<string, string> = {}
-      for (const [key, linkedId] of Object.entries(cloned.data.linkedNodes)) {
-        remapped[key] = oldToNew[linkedId as string] ?? (linkedId as string)
-      }
-      cloned.data.linkedNodes = remapped
+    newNodes[newId] = {
+      ...node,
+      id: newId,
+      data: clonedData,
+      events: { selected: false, dragged: false, hovered: false },
+      dom: null,
     }
-
-    // Remap parent (only for non-root nodes of the tree)
-    if (cloned.data.parent && oldToNew[cloned.data.parent]) {
-      cloned.data.parent = oldToNew[cloned.data.parent]
-    }
-
-    newNodes[newId] = cloned
   }
 
   return {
@@ -66,8 +69,8 @@ export function duplicateNode(
     const tree = query.node(id).toNodeTree()
     const cloned = cloneTreeWithNewIds(tree)
     actions.addNodeTree(cloned, parentId, index + 1)
-  } catch {
-    // silently fail if node can't be duplicated
+  } catch (err) {
+    console.error('[duplicateNode] failed:', err)
   }
 }
 

@@ -21,8 +21,9 @@ import { EmailGrid } from './user/email-grid'
 import { RenderNode, duplicateNode } from './email-render-node'
 import { EmailToolbox } from './email-toolbox'
 import { EmailSettingsPanel } from './email-settings-panel'
-import { EmailTopbar } from './email-topbar'
+import { EmailTopbar, type EditorMode } from './email-topbar'
 import { EmailLayer } from './email-layer'
+import { EmailPreviewPanel } from './email-preview-panel'
 
 const resolver = {
   EmailContainer,
@@ -177,6 +178,8 @@ export function EmailEditorComponent({
   const [subject, setSubject] = useState(initialSubject)
   const [description] = useState(initialDescription)
   const [isSaving, setIsSaving] = useState(false)
+  const [mode, setMode] = useState<EditorMode>('edit')
+  const [previewEditorState, setPreviewEditorState] = useState<string | null>(null)
 
   const sanitizedData = useMemo(
     () => (initialData ? sanitizeEditorState(initialData) : undefined),
@@ -230,6 +233,13 @@ export function EmailEditorComponent({
     }
   }
 
+  const handleModeChange = (newMode: EditorMode, editorState: string) => {
+    if (newMode === 'preview') {
+      setPreviewEditorState(editorState)
+    }
+    setMode(newMode)
+  }
+
   return (
     <div className="flex flex-col -m-4 md:-m-6 h-[calc(100%+2rem)] md:h-[calc(100%+3rem)] overflow-hidden">
       <Editor resolver={resolver} onRender={RenderNode}>
@@ -237,34 +247,48 @@ export function EmailEditorComponent({
         <EmailTopbar
           name={name}
           subject={subject}
+          mode={mode}
           onNameChange={setName}
           onSubjectChange={setSubject}
           onSave={handleSave}
+          onModeChange={handleModeChange}
           isSaving={isSaving}
         />
-        <div className="flex flex-1 overflow-hidden">
-          <EmailToolbox />
-          <div className="flex-1 overflow-auto bg-muted/30 p-8">
-            <div className="mx-auto" style={{ maxWidth: 620 }}>
-              <Frame data={sanitizedData}>
-                <Element
-                  is={EmailContainer}
-                  canvas
-                  padding={24}
-                  background="#ffffff"
-                  width="100%"
-                  direction="column"
-                  align="stretch"
-                  justify="flex-start"
-                  gap={8}
-                >
-                  <EmailText html="Edite o seu template aqui" />
-                </Element>
-              </Frame>
+
+        {/* Edit mode */}
+        {mode === 'edit' && (
+          <div className="flex flex-1 overflow-hidden">
+            <EmailToolbox />
+            <div className="flex-1 overflow-auto bg-muted/30 p-8">
+              <div className="mx-auto" style={{ maxWidth: 620 }}>
+                <Frame data={sanitizedData}>
+                  <Element
+                    is={EmailContainer}
+                    canvas
+                    padding={24}
+                    background="#ffffff"
+                    width="100%"
+                    direction="column"
+                    align="stretch"
+                    justify="flex-start"
+                    gap={8}
+                  >
+                    <EmailText html="Edite o seu template aqui" />
+                  </Element>
+                </Frame>
+              </div>
             </div>
+            <RightSidebar />
           </div>
-          <RightSidebar />
-        </div>
+        )}
+
+        {/* Preview mode */}
+        {mode === 'preview' && (
+          <EmailPreviewPanel
+            editorState={previewEditorState}
+            subject={subject}
+          />
+        )}
       </Editor>
     </div>
   )
