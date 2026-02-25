@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Editor, Frame, Element } from '@craftjs/core'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Editor, Frame, Element, useEditor } from '@craftjs/core'
+import { ROOT_NODE, getRandomId } from '@craftjs/utils'
 import { Layers } from '@craftjs/layers'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -15,8 +16,9 @@ import { EmailButton } from './user/email-button'
 import { EmailDivider } from './user/email-divider'
 import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
+import { EmailGrid } from './user/email-grid'
 
-import { RenderNode } from './email-render-node'
+import { RenderNode, duplicateNode } from './email-render-node'
 import { EmailToolbox } from './email-toolbox'
 import { EmailSettingsPanel } from './email-settings-panel'
 import { EmailTopbar } from './email-topbar'
@@ -31,6 +33,7 @@ const resolver = {
   EmailDivider,
   EmailSpacer,
   EmailAttachment,
+  EmailGrid,
 }
 
 interface EmailEditorProps {
@@ -41,9 +44,113 @@ interface EmailEditorProps {
   initialDescription: string
 }
 
+/**
+ * Sanitize serialized Craft.js state to fix duplicate node IDs
+ * caused by a previous buggy duplication that reused original IDs.
+ *
+ * When a parent's `nodes` array has the same ID more than once,
+ * we deep-clone the subtree for each extra occurrence and assign fresh IDs.
+ */
+function sanitizeEditorState(raw: string): string {
+  try {
+    const nodes = JSON.parse(raw) as Record<string, Record<string, unknown>>
+
+    // Collect all subtree node IDs for a given root
+    function collectSubtreeIds(rootId: string): string[] {
+      const ids: string[] = [rootId]
+      const node = nodes[rootId] as { nodes?: string[]; linkedNodes?: Record<string, string> } | undefined
+      if (!node) return ids
+      for (const childId of node.nodes ?? []) {
+        ids.push(...collectSubtreeIds(childId))
+      }
+      for (const linkedId of Object.values(node.linkedNodes ?? {})) {
+        ids.push(...collectSubtreeIds(linkedId))
+      }
+      return ids
+    }
+
+    // Clone a subtree starting from rootId, generating fresh IDs
+    function cloneSubtree(rootId: string): string {
+      const subtreeIds = collectSubtreeIds(rootId)
+      const oldToNew: Record<string, string> = {}
+      for (const id of subtreeIds) {
+        oldToNew[id] = getRandomId()
+      }
+
+      for (const oldId of subtreeIds) {
+        const newId = oldToNew[oldId]
+        const cloned = JSON.parse(JSON.stringify(nodes[oldId]))
+
+        if (Array.isArray(cloned.nodes)) {
+          cloned.nodes = cloned.nodes.map((c: string) => oldToNew[c] ?? c)
+        }
+        if (cloned.linkedNodes) {
+          const remapped: Record<string, string> = {}
+          for (const [k, v] of Object.entries(cloned.linkedNodes)) {
+            remapped[k] = oldToNew[v as string] ?? (v as string)
+          }
+          cloned.linkedNodes = remapped
+        }
+        if (cloned.parent && oldToNew[cloned.parent]) {
+          cloned.parent = oldToNew[cloned.parent]
+        }
+
+        nodes[newId] = cloned
+      }
+
+      return oldToNew[rootId]
+    }
+
+    // Walk every node and fix duplicate children
+    let changed = false
+    for (const node of Object.values(nodes)) {
+      const childIds = (node as { nodes?: string[] }).nodes
+      if (!Array.isArray(childIds)) continue
+
+      const seen = new Set<string>()
+      for (let i = 0; i < childIds.length; i++) {
+        if (seen.has(childIds[i])) {
+          // Duplicate — clone the subtree and replace reference
+          childIds[i] = cloneSubtree(childIds[i])
+          changed = true
+        }
+        seen.add(childIds[i])
+      }
+    }
+
+    return changed ? JSON.stringify(nodes) : raw
+  } catch {
+    return raw
+  }
+}
+
+function KeyboardShortcuts() {
+  const { actions, query } = useEditor()
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault()
+        const selectedId = query.getEvent('selected').first()
+        if (selectedId && selectedId !== ROOT_NODE) {
+          duplicateNode(selectedId, query, actions)
+        }
+      }
+    },
+    [actions, query]
+  )
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
+  return null
+}
+
 function RightSidebar() {
   return (
-    <Tabs defaultValue="properties" className="w-72 shrink-0 border-l flex flex-col overflow-hidden">
+    <Tabs defaultValue="properties" className="w-72 shrink-0 border-l flex flex-col overflow-hidden gap-0">
       <TabsList className="w-full rounded-none border-b">
         <TabsTrigger value="properties" className="flex-1">Propriedades</TabsTrigger>
         <TabsTrigger value="layers" className="flex-1">Camadas</TabsTrigger>
@@ -70,6 +177,11 @@ export function EmailEditorComponent({
   const [subject, setSubject] = useState(initialSubject)
   const [description] = useState(initialDescription)
   const [isSaving, setIsSaving] = useState(false)
+
+  const sanitizedData = useMemo(
+    () => (initialData ? sanitizeEditorState(initialData) : undefined),
+    [initialData]
+  )
 
   const handleSave = async (editorState: string) => {
     if (!name.trim()) {
@@ -121,6 +233,7 @@ export function EmailEditorComponent({
   return (
     <div className="flex flex-col -m-4 md:-m-6 h-[calc(100%+2rem)] md:h-[calc(100%+3rem)] overflow-hidden">
       <Editor resolver={resolver} onRender={RenderNode}>
+        <KeyboardShortcuts />
         <EmailTopbar
           name={name}
           subject={subject}
@@ -133,14 +246,19 @@ export function EmailEditorComponent({
           <EmailToolbox />
           <div className="flex-1 overflow-auto bg-muted/30 p-8">
             <div className="mx-auto" style={{ maxWidth: 620 }}>
-              <Frame data={initialData || undefined}>
+              <Frame data={sanitizedData}>
                 <Element
                   is={EmailContainer}
                   canvas
-                  padding={20}
+                  padding={24}
                   background="#ffffff"
+                  width="100%"
+                  direction="column"
+                  align="stretch"
+                  justify="flex-start"
+                  gap={8}
                 >
-                  <EmailText text="Edite o seu template aqui" />
+                  <EmailText html="Edite o seu template aqui" />
                 </Element>
               </Frame>
             </div>

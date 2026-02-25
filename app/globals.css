@@ -144,6 +144,13 @@
 
 /* craft.js editor — component selection indicator */
 .component-selected {
-  box-shadow: inset 0 0 0 1px var(--primary);
+  outline: 2px solid color-mix(in oklch, var(--primary) 40%, transparent);
+  outline-offset: 1px;
   border-radius: 4px;
+  transition: outline-color 0.2s ease, outline-offset 0.15s ease;
+}
+
+.component-selected:hover {
+  outline-color: color-mix(in oklch, var(--primary) 60%, transparent);
+  outline-offset: 2px;
 }

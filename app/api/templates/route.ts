@@ -113,11 +113,11 @@ export async function POST(request: Request) {
         tpl_stage_id: insertedStage.id,
         title: task.title,
         description: task.description || null,
-        action_type: task.action_type,
+        action_type: 'COMPOSITE',
         is_mandatory: task.is_mandatory,
         sla_days: task.sla_days || null,
         assigned_role: task.assigned_role || null,
-        config: task.config || {},
+        config: {},
         order_index: task.order_index,
       }))
 
@@ -155,7 +155,10 @@ export async function POST(request: Request) {
               description: st.description || null,
               is_mandatory: st.is_mandatory,
               order_index: idx,
-              config: st.config || {},
+              config: {
+                type: st.type,
+                ...(st.config as Record<string, unknown> || {}),
+              },
             }))
 
             const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)

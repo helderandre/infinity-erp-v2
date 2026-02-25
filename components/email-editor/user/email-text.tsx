@@ -1,8 +1,8 @@
 'use client'
 
 import { useNode } from '@craftjs/core'
+import { useRef, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import {
   Select,
   SelectContent,
@@ -11,33 +11,78 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, Underline, Strikethrough } from 'lucide-react'
 import { EMAIL_TEMPLATE_VARIABLES } from '@/lib/constants'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
+import { UnitInput } from '@/components/email-editor/settings'
 
 interface EmailTextProps {
-  text?: string
+  html?: string
   fontSize?: number
-  fontWeight?: string
   color?: string
   textAlign?: string
   lineHeight?: number
   fontFamily?: string
+  rows?: number
+}
+
+const VAR_STYLE = [
+  'background-color: color-mix(in oklch, var(--muted), transparent)',
+  'border: 1px solid var(--border)',
+  'border-radius: 6px',
+  'padding: 1px 6px',
+  'font-size: 0.9em',
+  'font-family: ui-monospace, monospace',
+  'white-space: nowrap',
+].join(';')
+
+function highlightVariables(html: string): string {
+  return html.replace(
+    /(\{\{[^}]+\}\})/g,
+    `<span class="email-variable" contenteditable="false" style="${VAR_STYLE}">$1</span>`
+  )
+}
+
+function cleanVariables(html: string): string {
+  return html.replace(
+    /<span class="email-variable"[^>]*>(.*?)<\/span>/g,
+    '$1'
+  )
 }
 
 export const EmailText = ({
-  text = 'Texto de exemplo',
+  html = 'Texto de exemplo',
   fontSize = 16,
-  fontWeight = 'normal',
   color = '#000000',
   textAlign = 'left',
   lineHeight = 1.5,
   fontFamily = 'Arial, sans-serif',
+  rows,
 }: EmailTextProps) => {
   const {
     connectors: { connect, drag },
     actions: { setProp },
   } = useNode()
+
+  const editorRef = useRef<HTMLParagraphElement>(null)
+  const lastHtml = useRef(html)
+
+  useEffect(() => {
+    if (editorRef.current && html !== lastHtml.current) {
+      editorRef.current.innerHTML = highlightVariables(html)
+      lastHtml.current = html
+    }
+  }, [html])
+
+  const handleBlur = () => {
+    if (editorRef.current) {
+      const cleaned = cleanVariables(editorRef.current.innerHTML)
+      lastHtml.current = cleaned
+      setProp((p: EmailTextProps) => {
+        p.html = cleaned
+      })
+    }
+  }
 
   return (
     <div
@@ -46,16 +91,12 @@ export const EmailText = ({
       }}
     >
       <p
+        ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        onBlur={(e) =>
-          setProp((p: EmailTextProps) => {
-            p.text = e.currentTarget.textContent || ''
-          })
-        }
+        onBlur={handleBlur}
         style={{
           fontSize,
-          fontWeight,
           color,
           textAlign: textAlign as React.CSSProperties['textAlign'],
           lineHeight,
@@ -63,70 +104,157 @@ export const EmailText = ({
           margin: 0,
           outline: 'none',
           cursor: 'text',
+          minHeight: rows ? `${rows * lineHeight}em` : undefined,
         }}
-      >
-        {text}
-      </p>
+        dangerouslySetInnerHTML={{ __html: highlightVariables(html) }}
+      />
     </div>
   )
 }
+
 
 const EmailTextSettings = () => {
   const {
     actions: { setProp },
     fontSize,
-    fontWeight,
     color,
     textAlign,
     lineHeight,
     fontFamily,
-    text,
+    html,
+    rows,
   } = useNode((node) => ({
     fontSize: node.data.props.fontSize,
-    fontWeight: node.data.props.fontWeight,
     color: node.data.props.color,
     textAlign: node.data.props.textAlign,
     lineHeight: node.data.props.lineHeight,
     fontFamily: node.data.props.fontFamily,
-    text: node.data.props.text,
+    html: node.data.props.html,
+    rows: node.data.props.rows,
   }))
+
+  const insertVariable = (variable: string) => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      setProp((p: EmailTextProps) => {
+        p.html = (html || '') + ' ' + variable
+      })
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    const container = range.commonAncestorContainer
+
+    let isInEditor = false
+    let node: Node | null = container
+    while (node) {
+      if (node.nodeType === 1 && (node as HTMLElement).contentEditable === 'true') {
+        isInEditor = true
+        break
+      }
+      node = node.parentNode
+    }
+
+    if (!isInEditor) {
+      setProp((p: EmailTextProps) => {
+        p.html = (html || '') + ' ' + variable
+      })
+      return
+    }
+
+    range.deleteContents()
+    const textNode = document.createTextNode(variable)
+    range.insertNode(textNode)
+    range.setStartAfter(textNode)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+
+    const editorElement = node as HTMLElement
+    setProp((p: EmailTextProps) => {
+      p.html = cleanVariables(editorElement.innerHTML)
+    })
+  }
+
+  const applyFormatting = (command: string) => {
+    document.execCommand(command, false)
+
+    setTimeout(() => {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const container = selection.getRangeAt(0).commonAncestorContainer
+        let node: Node | null = container
+        while (node) {
+          if (node.nodeType === 1 && (node as HTMLElement).contentEditable === 'true') {
+            setProp((p: EmailTextProps) => {
+              p.html = cleanVariables((node as HTMLElement).innerHTML)
+            })
+            break
+          }
+          node = node.parentNode
+        }
+      }
+    }, 10)
+  }
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Tamanho da Fonte ({fontSize}px)</Label>
-        <Slider
-          min={10}
-          max={48}
-          step={1}
-          value={[fontSize]}
-          onValueChange={([v]) => setProp((p: EmailTextProps) => { p.fontSize = v })}
+        <Label>Formatação de Texto</Label>
+        <ToggleGroup
+          type="multiple"
+          variant="outline"
+          className="justify-start"
+        >
+          <ToggleGroupItem
+            value="bold"
+            aria-label="Negrito"
+            onClick={() => applyFormatting('bold')}
+          >
+            <Bold className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="italic"
+            aria-label="Itálico"
+            onClick={() => applyFormatting('italic')}
+          >
+            <Italic className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="underline"
+            aria-label="Sublinhado"
+            onClick={() => applyFormatting('underline')}
+          >
+            <Underline className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="strikethrough"
+            aria-label="Riscado"
+            onClick={() => applyFormatting('strikeThrough')}
+          >
+            <Strikethrough className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <p className="text-xs text-muted-foreground">
+          Seleccione o texto no editor e clique para formatar
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Tamanho</Label>
+        <UnitInput
+          value={`${fontSize}px`}
+          onChange={(v) => setProp((p: EmailTextProps) => { p.fontSize = parseFloat(v) || 16 })}
+          units={['px']}
         />
       </div>
-      <div className="space-y-2">
-        <Label>Peso da Fonte</Label>
-        <Select
-          value={fontWeight}
-          onValueChange={(v) => setProp((p: EmailTextProps) => { p.fontWeight = v })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="bold">Bold</SelectItem>
-            <SelectItem value="300">Light (300)</SelectItem>
-            <SelectItem value="500">Medium (500)</SelectItem>
-            <SelectItem value="600">Semi-bold (600)</SelectItem>
-            <SelectItem value="700">Bold (700)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+
       <ColorPickerField
         label="Cor"
         value={color}
         onChange={(v) => setProp((p: EmailTextProps) => { p.color = v })}
       />
+
       <div className="space-y-2">
         <Label>Alinhamento</Label>
         <ToggleGroup
@@ -151,16 +279,28 @@ const EmailTextSettings = () => {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-      <div className="space-y-2">
-        <Label>Altura da Linha ({lineHeight})</Label>
-        <Slider
-          min={1}
-          max={3}
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Altura da Linha</Label>
+        <UnitInput
+          value={`${lineHeight}`}
+          onChange={(v) => setProp((p: EmailTextProps) => { p.lineHeight = parseFloat(v) || 1.5 })}
+          units={['']}
           step={0.1}
-          value={[lineHeight]}
-          onValueChange={([v]) => setProp((p: EmailTextProps) => { p.lineHeight = v })}
+          min={1}
         />
       </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Linhas mínimas</Label>
+        <UnitInput
+          value={`${rows || 0}`}
+          onChange={(v) => setProp((p: EmailTextProps) => { p.rows = parseFloat(v) || undefined })}
+          units={['']}
+          min={0}
+        />
+      </div>
+
       <div className="space-y-2">
         <Label>Fonte</Label>
         <Select
@@ -187,6 +327,7 @@ const EmailTextSettings = () => {
           </SelectContent>
         </Select>
       </div>
+
       <div className="space-y-2">
         <Label>Variáveis</Label>
         <div className="flex flex-wrap gap-1">
@@ -195,17 +336,16 @@ const EmailTextSettings = () => {
               key={v.value}
               type="button"
               className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors"
-              onClick={() =>
-                setProp((p: EmailTextProps) => {
-                  p.text = (text || '') + ' ' + v.value
-                })
-              }
+              onClick={() => insertVariable(v.value)}
               title={v.label}
             >
               {v.label}
             </button>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Clique para inserir na posição do cursor
+        </p>
       </div>
     </div>
   )
@@ -214,9 +354,8 @@ const EmailTextSettings = () => {
 EmailText.craft = {
   displayName: 'Texto',
   props: {
-    text: 'Texto de exemplo',
+    html: 'Texto de exemplo',
     fontSize: 16,
-    fontWeight: 'normal',
     color: '#000000',
     textAlign: 'left',
     lineHeight: 1.5,

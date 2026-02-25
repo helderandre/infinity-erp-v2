@@ -1,3 +1,5 @@
+export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc'
+
 export interface TplSubtask {
   id: string
   tpl_task_id: string
@@ -6,12 +8,17 @@ export interface TplSubtask {
   is_mandatory: boolean
   order_index: number
   config: {
-    check_type: 'field' | 'document' | 'manual'
-    field_name?: string
+    type?: SubtaskType
     doc_type_id?: string
+    email_library_id?: string
+    doc_library_id?: string
+    // Legacy fields (retrocompatibilidade)
+    check_type?: 'field' | 'document' | 'manual'
+    field_name?: string
   }
 }
 
+// NÃO alterar nesta spec — módulo processos fica para depois
 export interface ProcSubtask {
   id: string
   proc_task_id: string
@@ -36,9 +43,11 @@ export interface SubtaskData {
   description?: string
   is_mandatory: boolean
   order_index: number
+  type: SubtaskType
   config: {
-    check_type: 'field' | 'document' | 'manual'
-    field_name?: string
-    doc_type_id?: string
+    doc_type_id?: string        // type === 'upload'
+    email_library_id?: string   // type === 'email'
+    doc_library_id?: string     // type === 'generate_doc'
+    // type === 'checklist' → sem config extra
   }
 }

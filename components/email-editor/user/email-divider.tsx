@@ -2,7 +2,6 @@
 
 import { useNode } from '@craftjs/core'
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import {
   Select,
   SelectContent,
@@ -11,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
+import { UnitInput } from '@/components/email-editor/settings'
 
 interface EmailDividerProps {
   color?: string
@@ -52,48 +52,38 @@ export const EmailDivider = ({
 const EmailDividerSettings = () => {
   const {
     actions: { setProp },
-    color,
-    thickness,
-    marginY,
-    style,
+    props,
   } = useNode((node) => ({
-    color: node.data.props.color,
-    thickness: node.data.props.thickness,
-    marginY: node.data.props.marginY,
-    style: node.data.props.style,
+    props: node.data.props as EmailDividerProps,
   }))
 
   return (
     <div className="space-y-4">
       <ColorPickerField
         label="Cor"
-        value={color}
+        value={props.color || '#e5e7eb'}
         onChange={(v) => setProp((p: EmailDividerProps) => { p.color = v })}
       />
-      <div className="space-y-2">
-        <Label>Espessura ({thickness}px)</Label>
-        <Slider
-          min={1}
-          max={5}
-          step={1}
-          value={[thickness]}
-          onValueChange={([v]) => setProp((p: EmailDividerProps) => { p.thickness = v })}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Espessura</Label>
+        <UnitInput
+          value={`${props.thickness ?? 1}px`}
+          onChange={(v) => setProp((p: EmailDividerProps) => { p.thickness = Math.max(1, parseFloat(v) || 1) })}
+          units={['px']}
         />
       </div>
-      <div className="space-y-2">
-        <Label>Margem Vertical ({marginY}px)</Label>
-        <Slider
-          min={0}
-          max={48}
-          step={1}
-          value={[marginY]}
-          onValueChange={([v]) => setProp((p: EmailDividerProps) => { p.marginY = v })}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Margem Vertical</Label>
+        <UnitInput
+          value={`${props.marginY ?? 16}px`}
+          onChange={(v) => setProp((p: EmailDividerProps) => { p.marginY = parseFloat(v) || 0 })}
+          units={['px']}
         />
       </div>
       <div className="space-y-2">
         <Label>Estilo</Label>
         <Select
-          value={style}
+          value={props.style}
           onValueChange={(v) => setProp((p: EmailDividerProps) => { p.style = v as EmailDividerProps['style'] })}
         >
           <SelectTrigger className="w-full">

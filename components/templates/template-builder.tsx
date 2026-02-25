@@ -33,10 +33,17 @@ import { toast } from 'sonner'
 import { Plus, Loader2, Save } from 'lucide-react'
 import { TemplateStageColumn } from './template-stage-column'
 import { TemplateTaskCard } from './template-task-card'
-import { TemplateTaskDialog } from './template-task-dialog'
+import { TemplateTaskSheet } from './template-task-sheet'
 import { TemplateStageDialog } from './template-stage-dialog'
 import type { TemplateDetail } from '@/types/template'
-import type { SubtaskData } from '@/types/subtask'
+import type { SubtaskData, SubtaskType } from '@/types/subtask'
+
+function deriveTypeFromLegacy(config: Record<string, unknown>): SubtaskType {
+  if (config?.check_type === 'document' || config?.doc_type_id) return 'upload'
+  if (config?.email_library_id) return 'email'
+  if (config?.doc_library_id) return 'generate_doc'
+  return 'checklist'
+}
 
 // -------------------------------------------------------
 // Tipos internos do builder
@@ -51,13 +58,11 @@ export interface TaskData {
   id: string // UUID temporário
   title: string
   description?: string
-  action_type: 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM'
   is_mandatory: boolean
   priority?: 'urgent' | 'normal' | 'low'
   sla_days?: number
   assigned_role?: string
-  config: Record<string, any>
-  subtasks?: SubtaskData[]
+  subtasks: SubtaskData[] // SEMPRE presente, array (pode ser vazio)
 }
 
 interface TemplateBuilderProps {
@@ -127,19 +132,22 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
           id: task.id,
           title: task.title,
           description: task.description || undefined,
-          action_type: task.action_type as TaskData['action_type'],
           is_mandatory: task.is_mandatory ?? true,
           priority: ((task as unknown as { priority?: string }).priority as TaskData['priority']) || 'normal',
           sla_days: task.sla_days || undefined,
           assigned_role: task.assigned_role || undefined,
-          config: (task.config as Record<string, any>) || {},
           subtasks: tplSubtasks.map((st) => ({
             id: st.id,
             title: st.title,
             description: st.description || undefined,
             is_mandatory: st.is_mandatory ?? true,
             order_index: st.order_index ?? 0,
-            config: st.config || { check_type: 'manual' as const },
+            type: st.config?.type || deriveTypeFromLegacy(st.config || {}),
+            config: {
+              doc_type_id: st.config?.doc_type_id,
+              email_library_id: st.config?.email_library_id,
+              doc_library_id: st.config?.doc_library_id,
+            },
           })),
         }
       }
@@ -423,17 +431,19 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
         tasks: (items[stageId] || []).map((taskId, taskIndex) => ({
           title: tasksData[taskId].title,
           description: tasksData[taskId].description,
-          action_type: tasksData[taskId].action_type,
           is_mandatory: tasksData[taskId].is_mandatory,
           priority: tasksData[taskId].priority || 'normal',
           sla_days: tasksData[taskId].sla_days,
           assigned_role: tasksData[taskId].assigned_role,
-          config: tasksData[taskId].config,
           order_index: taskIndex,
-          subtasks: tasksData[taskId].subtasks?.map((st, sidx) => ({
-            ...st,
+          subtasks: (tasksData[taskId].subtasks || []).map((st, sidx) => ({
+            title: st.title,
+            description: st.description,
+            is_mandatory: st.is_mandatory,
+            type: st.type,
+            config: st.config,
             order_index: sidx,
-          })) || [],
+          })),
         })),
       })),
     }
@@ -457,7 +467,11 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       } else {
         toast.success(mode === 'create' ? 'Template criado com sucesso!' : 'Template actualizado com sucesso!')
       }
-      router.push('/dashboard/processos/templates')
+
+      // On create, redirect to edit page of the new template; on edit, stay on the same page
+      if (mode === 'create' && result.id) {
+        router.replace(`/dashboard/processos/templates/${result.id}/editar`)
+      }
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -621,9 +635,9 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
         onSubmit={stageDialogData ? handleEditStage : handleAddStage}
       />
 
-      <TemplateTaskDialog
+      <TemplateTaskSheet
         open={taskDialogOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           setTaskDialogOpen(open)
           if (!open) {
             setTaskDialogData(null)

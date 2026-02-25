@@ -2,37 +2,53 @@
 
 import { useNode } from '@craftjs/core'
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
+import { UnitInput, RadiusInput } from '@/components/email-editor/settings'
+
+const SHADOW_PRESETS = [
+  { value: 'none', label: 'Nenhuma' },
+  { value: '0 1px 2px 0 rgba(0,0,0,0.05)', label: 'Extra Leve' },
+  { value: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)', label: 'Leve' },
+  { value: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)', label: 'Média' },
+  { value: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)', label: 'Grande' },
+]
 
 interface EmailButtonProps {
   text?: string
   href?: string
   backgroundColor?: string
   color?: string
-  borderRadius?: number
+  borderRadius?: string
   fontSize?: number
   paddingX?: number
   paddingY?: number
   align?: string
   fullWidth?: boolean
+  boxShadow?: string
 }
 
 export const EmailButton = ({
   text = 'Clique aqui',
   href = '#',
-  backgroundColor = '#2563eb',
-  color = '#ffffff',
-  borderRadius = 4,
+  backgroundColor = '#576c98',
+  color = '#fafafa',
+  borderRadius = '65px',
   fontSize = 16,
   paddingX = 24,
   paddingY = 12,
   align = 'center',
   fullWidth = false,
+  boxShadow = 'none',
 }: EmailButtonProps) => {
   const {
     connectors: { connect, drag },
@@ -59,6 +75,7 @@ export const EmailButton = ({
           fontFamily: 'Arial, sans-serif',
           textAlign: 'center',
           boxSizing: 'border-box',
+          boxShadow: boxShadow !== 'none' ? boxShadow : undefined,
         }}
       >
         {text}
@@ -70,27 +87,9 @@ export const EmailButton = ({
 const EmailButtonSettings = () => {
   const {
     actions: { setProp },
-    text,
-    href,
-    backgroundColor,
-    color,
-    borderRadius,
-    fontSize,
-    paddingX,
-    paddingY,
-    align,
-    fullWidth,
+    props,
   } = useNode((node) => ({
-    text: node.data.props.text,
-    href: node.data.props.href,
-    backgroundColor: node.data.props.backgroundColor,
-    color: node.data.props.color,
-    borderRadius: node.data.props.borderRadius,
-    fontSize: node.data.props.fontSize,
-    paddingX: node.data.props.paddingX,
-    paddingY: node.data.props.paddingY,
-    align: node.data.props.align,
-    fullWidth: node.data.props.fullWidth,
+    props: node.data.props as EmailButtonProps,
   }))
 
   return (
@@ -99,75 +98,36 @@ const EmailButtonSettings = () => {
         <Label>Texto</Label>
         <Input
           type="text"
-          value={text}
+          value={props.text}
           onChange={(e) => setProp((p: EmailButtonProps) => { p.text = e.target.value })}
         />
       </div>
       <div className="space-y-2">
-        <Label>Link (URL)</Label>
+        <Label>URL (href)</Label>
         <Input
           type="text"
           placeholder="https://..."
-          value={href}
+          className="font-mono text-xs"
+          value={props.href}
           onChange={(e) => setProp((p: EmailButtonProps) => { p.href = e.target.value })}
         />
       </div>
       <ColorPickerField
-        label="Cor de Fundo"
-        value={backgroundColor}
+        label="Cor de fundo"
+        value={props.backgroundColor || '#576c98'}
         onChange={(v) => setProp((p: EmailButtonProps) => { p.backgroundColor = v })}
       />
       <ColorPickerField
-        label="Cor do Texto"
-        value={color}
+        label="Cor do texto"
+        value={props.color || '#fafafa'}
         onChange={(v) => setProp((p: EmailButtonProps) => { p.color = v })}
       />
-      <div className="space-y-2">
-        <Label>Raio da Borda ({borderRadius}px)</Label>
-        <Slider
-          min={0}
-          max={20}
-          step={1}
-          value={[borderRadius]}
-          onValueChange={([v]) => setProp((p: EmailButtonProps) => { p.borderRadius = v })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Tamanho da Fonte ({fontSize}px)</Label>
-        <Slider
-          min={12}
-          max={24}
-          step={1}
-          value={[fontSize]}
-          onValueChange={([v]) => setProp((p: EmailButtonProps) => { p.fontSize = v })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Padding Horizontal ({paddingX}px)</Label>
-        <Slider
-          min={8}
-          max={48}
-          step={1}
-          value={[paddingX]}
-          onValueChange={([v]) => setProp((p: EmailButtonProps) => { p.paddingX = v })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Padding Vertical ({paddingY}px)</Label>
-        <Slider
-          min={4}
-          max={24}
-          step={1}
-          value={[paddingY]}
-          onValueChange={([v]) => setProp((p: EmailButtonProps) => { p.paddingY = v })}
-        />
-      </div>
       <div className="space-y-2">
         <Label>Alinhamento</Label>
         <ToggleGroup
           type="single"
           variant="outline"
-          value={align}
+          value={props.align}
           onValueChange={(v) => {
             if (v) setProp((p: EmailButtonProps) => { p.align = v })
           }}
@@ -183,12 +143,49 @@ const EmailButtonSettings = () => {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-      <div className="flex items-center justify-between">
-        <Label>Largura Total</Label>
-        <Switch
-          checked={fullWidth}
-          onCheckedChange={(v) => setProp((p: EmailButtonProps) => { p.fullWidth = v })}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Padding</Label>
+        <UnitInput
+          value={`${props.paddingY ?? 12}px`}
+          onChange={(v) => setProp((p: EmailButtonProps) => { p.paddingY = parseFloat(v) || 12 })}
+          units={['px']}
         />
+      </div>
+      <RadiusInput
+        value={props.borderRadius || '65px'}
+        onChange={(v) => setProp((p: EmailButtonProps) => { p.borderRadius = v })}
+      />
+      <div className="space-y-2">
+        <Label>Largura</Label>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          value={props.fullWidth ? '100%' : 'auto'}
+          onValueChange={(val) => {
+            if (val) setProp((p: EmailButtonProps) => { p.fullWidth = val === '100%' })
+          }}
+        >
+          <ToggleGroupItem value="auto" className="flex-1 text-xs">Auto</ToggleGroupItem>
+          <ToggleGroupItem value="100%" className="flex-1 text-xs">100%</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div className="space-y-2">
+        <Label>Sombra</Label>
+        <Select
+          value={props.boxShadow || 'none'}
+          onValueChange={(v) => setProp((p: EmailButtonProps) => { p.boxShadow = v })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SHADOW_PRESETS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )
@@ -199,14 +196,15 @@ EmailButton.craft = {
   props: {
     text: 'Clique aqui',
     href: '#',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    borderRadius: 4,
+    backgroundColor: '#576c98',
+    color: '#fafafa',
+    borderRadius: '65px',
     fontSize: 16,
     paddingX: 24,
     paddingY: 12,
     align: 'center',
     fullWidth: false,
+    boxShadow: 'none',
   },
   related: {
     settings: EmailButtonSettings,

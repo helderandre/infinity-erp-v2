@@ -127,13 +127,27 @@ export async function PUT(
     if (existingStages && existingStages.length > 0) {
       const stageIds = existingStages.map((s) => s.id)
 
-      // 6. Apagar todas as tasks das stages
+      // 6. Buscar task IDs para apagar subtasks primeiro
+      const { data: existingTasks } = await supabase
+        .from('tpl_tasks')
+        .select('id')
+        .in('tpl_stage_id', stageIds)
+
+      if (existingTasks && existingTasks.length > 0) {
+        const taskIds = existingTasks.map((t) => t.id)
+        const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
+        await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+          .delete()
+          .in('tpl_task_id', taskIds)
+      }
+
+      // 7. Apagar todas as tasks das stages
       await supabase
         .from('tpl_tasks')
         .delete()
         .in('tpl_stage_id', stageIds)
 
-      // 7. Apagar todas as stages
+      // 8. Apagar todas as stages
       await supabase
         .from('tpl_stages')
         .delete()
@@ -164,11 +178,11 @@ export async function PUT(
         tpl_stage_id: insertedStage.id,
         title: task.title,
         description: task.description || null,
-        action_type: task.action_type,
+        action_type: 'COMPOSITE',
         is_mandatory: task.is_mandatory,
         sla_days: task.sla_days || null,
         assigned_role: task.assigned_role || null,
-        config: task.config || {},
+        config: {},
         order_index: task.order_index,
       }))
 
@@ -204,7 +218,10 @@ export async function PUT(
               description: st.description || null,
               is_mandatory: st.is_mandatory,
               order_index: idx,
-              config: st.config || {},
+              config: {
+                type: st.type,
+                ...(st.config as Record<string, unknown> || {}),
+              },
             }))
 
             const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)

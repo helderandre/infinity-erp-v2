@@ -1,57 +1,45 @@
 import { z } from 'zod'
 
-// Schema para uma subtarefa do template
-export const subtaskSchema = z.object({
-  title: z.string().min(1, 'O título é obrigatório'),
-  description: z.string().optional(),
-  is_mandatory: z.boolean().default(true),
-  order_index: z.number().int().min(0),
-  config: z
-    .object({
-      check_type: z.enum(['field', 'document', 'manual']),
-      field_name: z.string().optional(),
-      doc_type_id: z.string().optional(),
-    })
-    .default({ check_type: 'manual' }),
-})
-
-// Schema para uma tarefa do template
-export const taskSchema = z
+// Schema para uma subtarefa do template (novo modelo com type)
+export const subtaskSchema = z
   .object({
     title: z.string().min(1, 'O título é obrigatório'),
     description: z.string().optional(),
-    action_type: z.enum(['UPLOAD', 'EMAIL', 'GENERATE_DOC', 'MANUAL', 'FORM'], {
-      message: 'Tipo de acção inválido',
-    }),
     is_mandatory: z.boolean().default(true),
-    sla_days: z.number().int().positive().optional(),
-    assigned_role: z.string().optional(),
-    config: z.record(z.string(), z.any()).default({}),
     order_index: z.number().int().min(0),
-    subtasks: z.array(subtaskSchema).optional(),
+    type: z.enum(['upload', 'checklist', 'email', 'generate_doc'], {
+      message: 'Tipo de subtarefa inválido',
+    }),
+    config: z
+      .object({
+        doc_type_id: z.string().optional(),
+        email_library_id: z.string().optional(),
+        doc_library_id: z.string().optional(),
+      })
+      .default({}),
   })
   .refine(
-    (task) => {
-      // UPLOAD: doc_type_id obrigatório
-      if (task.action_type === 'UPLOAD') {
-        return !!task.config?.doc_type_id
-      }
-      // FORM: owner_type obrigatório no config
-      if (task.action_type === 'FORM') {
-        return !!task.config?.owner_type
-      }
-      // EMAIL: email_library_id obrigatório (M13)
-      if (task.action_type === 'EMAIL') {
-        return !!task.config?.email_library_id
-      }
-      // GENERATE_DOC: config opcional (futuro M13 docs)
+    (subtask) => {
+      // upload: doc_type_id obrigatório
+      if (subtask.type === 'upload') return !!subtask.config?.doc_type_id
+      // email: email_library_id obrigatório
+      if (subtask.type === 'email') return !!subtask.config?.email_library_id
       return true
     },
-    {
-      message: 'Config inválido para o tipo de acção',
-      path: ['config'],
-    }
+    { message: 'Configuração inválida para o tipo de subtarefa', path: ['config'] }
   )
+
+// Schema para uma tarefa do template (sem action_type — derivado como COMPOSITE no backend)
+export const taskSchema = z.object({
+  title: z.string().min(1, 'O título é obrigatório'),
+  description: z.string().optional(),
+  is_mandatory: z.boolean().default(true),
+  priority: z.enum(['urgent', 'normal', 'low']).default('normal'),
+  sla_days: z.number().int().positive().optional(),
+  assigned_role: z.string().optional(),
+  order_index: z.number().int().min(0),
+  subtasks: z.array(subtaskSchema).default([]),
+})
 
 // Schema para uma fase do template
 export const stageSchema = z.object({

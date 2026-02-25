@@ -426,12 +426,34 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   bypass: 'Dispensa de tarefa',
 }
 
-// Labels de Tipo de Verificação de Subtarefa (PT-PT)
+// Labels de Tipo de Verificação de Subtarefa (PT-PT) — Legacy
 export const CHECK_TYPE_LABELS = {
   field: 'Campo do proprietário',
   document: 'Documento',
   manual: 'Verificação manual',
 } as const
+
+// Tipos de subtask (novo modelo)
+export const SUBTASK_TYPES = [
+  { type: 'upload' as const, label: 'Upload de Documento', icon: 'Upload', color: 'text-blue-500' },
+  { type: 'checklist' as const, label: 'Checklist (Manual)', icon: 'CheckSquare', color: 'text-slate-500' },
+  { type: 'email' as const, label: 'Envio de Email', icon: 'Mail', color: 'text-amber-500' },
+  { type: 'generate_doc' as const, label: 'Gerar Documento', icon: 'FileText', color: 'text-purple-500' },
+] as const
+
+export const SUBTASK_TYPE_LABELS: Record<string, string> = {
+  upload: 'Upload',
+  checklist: 'Checklist',
+  email: 'Email',
+  generate_doc: 'Gerar Doc',
+}
+
+export const SUBTASK_TYPE_ICONS: Record<string, string> = {
+  upload: 'Upload',
+  checklist: 'CheckSquare',
+  email: 'Mail',
+  generate_doc: 'FileText',
+}
 
 // Campos do proprietário singular
 export const OWNER_FIELDS_SINGULAR = [

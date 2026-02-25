@@ -2,8 +2,8 @@
 
 import React from 'react'
 import { useEditor } from '@craftjs/core'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Settings2 } from 'lucide-react'
 
 export function EmailSettingsPanel() {
   const { actions, selected } = useEditor((state, query) => {
@@ -27,20 +27,23 @@ export function EmailSettingsPanel() {
 
   return selected ? (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-end">
-        <Badge variant="secondary">{selected.name}</Badge>
+      <div className="flex items-center gap-2 pb-2 border-b">
+        <Settings2 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {selected.name}
+        </span>
       </div>
 
       {selected.settings && React.createElement(selected.settings)}
 
       {selected.isDeletable && (
         <Button
-          variant="destructive"
+          variant="ghost"
           size="sm"
-          className="w-full"
+          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={() => actions.delete(selected.id)}
         >
-          Eliminar
+          Remover componente
         </Button>
       )}
     </div>

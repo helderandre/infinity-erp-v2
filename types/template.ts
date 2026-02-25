@@ -28,4 +28,5 @@ export interface TemplateDetail extends TplProcess {
   tpl_stages: TemplateStage[]
 }
 
-export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM'
+/** @deprecated action_type migrou para SubtaskData.type — mantido apenas para referência legacy */
+export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM' | 'COMPOSITE'

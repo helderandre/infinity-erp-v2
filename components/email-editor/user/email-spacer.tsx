@@ -2,7 +2,7 @@
 
 import { useNode } from '@craftjs/core'
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
+import { UnitInput } from '@/components/email-editor/settings'
 
 interface EmailSpacerProps {
   height?: number
@@ -26,21 +26,19 @@ export const EmailSpacer = ({ height = 20 }: EmailSpacerProps) => {
 const EmailSpacerSettings = () => {
   const {
     actions: { setProp },
-    height,
+    props,
   } = useNode((node) => ({
-    height: node.data.props.height,
+    props: node.data.props as EmailSpacerProps,
   }))
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Altura ({height}px)</Label>
-        <Slider
-          min={4}
-          max={120}
-          step={1}
-          value={[height]}
-          onValueChange={([v]) => setProp((p: EmailSpacerProps) => { p.height = v })}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Altura</Label>
+        <UnitInput
+          value={`${props.height ?? 20}px`}
+          onChange={(v) => setProp((p: EmailSpacerProps) => { p.height = Math.max(4, parseFloat(v) || 20) })}
+          units={['px']}
         />
       </div>
     </div>

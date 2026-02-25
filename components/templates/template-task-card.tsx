@@ -8,15 +8,15 @@ import {
   Upload,
   Mail,
   FileText,
-  Circle,
-  ClipboardList,
+  CheckSquare,
+  Layers,
   GripVertical,
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { ACTION_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { TaskData } from './template-builder'
+import type { SubtaskData } from '@/types/subtask'
 
 interface TemplateTaskCardProps {
   id: string
@@ -26,27 +26,18 @@ interface TemplateTaskCardProps {
   onRemove?: () => void
 }
 
-const getTaskIcon = (actionType: string) => {
-  switch (actionType) {
-    case 'UPLOAD':
-      return <Upload className="h-3.5 w-3.5" />
-    case 'EMAIL':
-      return <Mail className="h-3.5 w-3.5" />
-    case 'GENERATE_DOC':
-      return <FileText className="h-3.5 w-3.5" />
-    case 'FORM':
-      return <ClipboardList className="h-3.5 w-3.5" />
-    default:
-      return <Circle className="h-3.5 w-3.5" />
+function getTaskIcon(subtasks: SubtaskData[]) {
+  if (subtasks.length === 0) return <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+  if (subtasks.length === 1) {
+    const iconMap: Record<string, React.ReactNode> = {
+      upload: <Upload className="h-3.5 w-3.5 text-blue-500" />,
+      email: <Mail className="h-3.5 w-3.5 text-amber-500" />,
+      generate_doc: <FileText className="h-3.5 w-3.5 text-purple-500" />,
+      checklist: <CheckSquare className="h-3.5 w-3.5 text-slate-500" />,
+    }
+    return iconMap[subtasks[0].type] || <Layers className="h-3.5 w-3.5 text-muted-foreground" />
   }
-}
-
-const actionTypeColors: Record<string, string> = {
-  UPLOAD: 'text-blue-600',
-  EMAIL: 'text-amber-600',
-  GENERATE_DOC: 'text-purple-600',
-  MANUAL: 'text-slate-500',
-  FORM: 'text-teal-600',
+  return <Layers className="h-3.5 w-3.5 text-teal-500" />
 }
 
 export function TemplateTaskCard({
@@ -73,6 +64,8 @@ export function TemplateTaskCard({
 
   if (!task) return null
 
+  const subtasks = task.subtasks || []
+
   return (
     <div
       ref={!isOverlay ? setNodeRef : undefined}
@@ -95,25 +88,22 @@ export function TemplateTaskCard({
       )}
 
       {/* Ícone do tipo */}
-      <div className={cn('mt-0.5 shrink-0', actionTypeColors[task.action_type])}>
-        {getTaskIcon(task.action_type)}
+      <div className="mt-0.5 shrink-0">
+        {getTaskIcon(subtasks)}
       </div>
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0 space-y-1">
         <p className="font-medium text-xs leading-tight break-words">{task.title}</p>
         <div className="flex items-center gap-1 flex-wrap">
-          <Badge variant="outline" className="text-[10px] px-1 py-0">
-            {ACTION_TYPES[task.action_type as keyof typeof ACTION_TYPES]}
-          </Badge>
           {task.is_mandatory && (
-            <Badge variant="secondary" className="text-[10px] px-1 py-0">
+            <Badge variant="outline" className="text-[10px] px-1 py-0">
               Obrig.
             </Badge>
           )}
           {task.sla_days && (
             <Badge variant="outline" className="text-[10px] px-1 py-0">
-              {task.sla_days}d
+              SLA: {task.sla_days}d
             </Badge>
           )}
           {task.assigned_role && (
@@ -121,9 +111,9 @@ export function TemplateTaskCard({
               {task.assigned_role}
             </Badge>
           )}
-          {task.subtasks && task.subtasks.length > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0">
-              {task.subtasks.length} subtarefas
+          {subtasks.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1 py-0">
+              {subtasks.length} subtask{subtasks.length > 1 ? 's' : ''}
             </Badge>
           )}
         </div>

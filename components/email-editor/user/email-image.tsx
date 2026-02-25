@@ -3,21 +3,38 @@
 import { useRef, useState } from 'react'
 import { useNode } from '@craftjs/core'
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { AlignLeft, AlignCenter, AlignRight, ImageIcon, Upload, Loader2 } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, ImageIcon, Upload, Loader2, X } from 'lucide-react'
 import { useImageCompress } from '@/hooks/use-image-compress'
 import { toast } from 'sonner'
+import { UnitInput, RadiusInput } from '@/components/email-editor/settings'
+
+const SHADOW_PRESETS = [
+  { value: 'none', label: 'Nenhuma' },
+  { value: '0 1px 2px 0 rgba(0,0,0,0.05)', label: 'Extra Leve' },
+  { value: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)', label: 'Leve' },
+  { value: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)', label: 'Média' },
+  { value: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)', label: 'Grande' },
+]
 
 interface EmailImageProps {
   src?: string
   alt?: string
   width?: number
+  height?: number
   align?: string
   href?: string
-  borderRadius?: number
+  borderRadius?: string
+  boxShadow?: string
 }
 
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/jpg,image/webp'
@@ -26,9 +43,11 @@ export const EmailImage = ({
   src = '',
   alt = '',
   width = 100,
+  height = 0,
   align = 'center',
   href = '',
-  borderRadius = 0,
+  borderRadius = '0px',
+  boxShadow = 'none',
 }: EmailImageProps) => {
   const {
     connectors: { connect, drag },
@@ -40,16 +59,21 @@ export const EmailImage = ({
       alt={alt}
       style={{
         width: `${width}%`,
+        height: height > 0 ? height : 'auto',
         borderRadius,
         display: 'block',
         maxWidth: '100%',
-        height: 'auto',
+        objectFit: height > 0 ? 'cover' : undefined,
+        boxShadow: boxShadow !== 'none' ? boxShadow : undefined,
       }}
     />
   ) : (
     <div
       className="flex flex-col items-center justify-center gap-2 rounded border border-dashed p-8 text-muted-foreground"
-      style={{ width: `${width}%` }}
+      style={{
+        width: `${width}%`,
+        height: height > 0 ? height : undefined,
+      }}
     >
       <ImageIcon className="h-8 w-8" />
       <span className="text-sm">Seleccione para carregar imagem</span>
@@ -73,19 +97,9 @@ export const EmailImage = ({
 const EmailImageSettings = () => {
   const {
     actions: { setProp },
-    src,
-    alt,
-    width,
-    align,
-    href,
-    borderRadius,
+    props,
   } = useNode((node) => ({
-    src: node.data.props.src,
-    alt: node.data.props.alt,
-    width: node.data.props.width,
-    align: node.data.props.align,
-    href: node.data.props.href,
-    borderRadius: node.data.props.borderRadius,
+    props: node.data.props as EmailImageProps,
   }))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -96,7 +110,6 @@ const EmailImageSettings = () => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Reset input so same file can be re-selected
     e.target.value = ''
 
     if (file.type === 'image/svg+xml') {
@@ -140,7 +153,34 @@ const EmailImageSettings = () => {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Imagem</Label>
-        <div className="flex gap-2">
+        {props.src && (
+          <div className="relative rounded-md overflow-hidden border">
+            <img src={props.src} alt={props.alt || ''} className="w-full h-auto" />
+            <div className="flex gap-2 p-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mr-2 h-3 w-3" />
+                Trocar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setProp((p: EmailImageProps) => { p.src = '' })}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
+        {!props.src && (
           <Button
             type="button"
             variant="outline"
@@ -156,41 +196,40 @@ const EmailImageSettings = () => {
             )}
             {isUploading ? 'A carregar...' : 'Carregar imagem'}
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={IMAGE_ACCEPT}
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={IMAGE_ACCEPT}
+          className="hidden"
+          onChange={handleFileSelect}
+        />
       </div>
       <div className="space-y-2">
-        <Label>URL da Imagem</Label>
+        <Label>Ou insira URL</Label>
         <Input
           type="text"
           placeholder="https://..."
-          value={src}
+          className="font-mono text-xs"
+          value={props.src}
           onChange={(e) => setProp((p: EmailImageProps) => { p.src = e.target.value })}
         />
       </div>
       <div className="space-y-2">
-        <Label>Texto Alternativo</Label>
+        <Label>Texto alternativo</Label>
         <Input
           type="text"
           placeholder="Descrição da imagem"
-          value={alt}
+          value={props.alt}
           onChange={(e) => setProp((p: EmailImageProps) => { p.alt = e.target.value })}
         />
       </div>
-      <div className="space-y-2">
-        <Label>Largura ({width}%)</Label>
-        <Slider
-          min={10}
-          max={100}
-          step={1}
-          value={[width]}
-          onValueChange={([v]) => setProp((p: EmailImageProps) => { p.width = v })}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Largura</Label>
+        <UnitInput
+          value={`${props.width ?? 100}%`}
+          onChange={(v) => setProp((p: EmailImageProps) => { p.width = Math.min(100, Math.max(10, parseFloat(v) || 100)) })}
+          units={['%']}
         />
       </div>
       <div className="space-y-2">
@@ -198,7 +237,7 @@ const EmailImageSettings = () => {
         <ToggleGroup
           type="single"
           variant="outline"
-          value={align}
+          value={props.align}
           onValueChange={(v) => {
             if (v) setProp((p: EmailImageProps) => { p.align = v })
           }}
@@ -214,24 +253,25 @@ const EmailImageSettings = () => {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
+      <RadiusInput
+        value={props.borderRadius || '0px'}
+        onChange={(v) => setProp((p: EmailImageProps) => { p.borderRadius = v })}
+      />
       <div className="space-y-2">
-        <Label>Link ao Clicar</Label>
-        <Input
-          type="text"
-          placeholder="https://..."
-          value={href}
-          onChange={(e) => setProp((p: EmailImageProps) => { p.href = e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Raio da Borda ({borderRadius}px)</Label>
-        <Slider
-          min={0}
-          max={20}
-          step={1}
-          value={[borderRadius]}
-          onValueChange={([v]) => setProp((p: EmailImageProps) => { p.borderRadius = v })}
-        />
+        <Label>Sombra</Label>
+        <Select
+          value={props.boxShadow || 'none'}
+          onValueChange={(v) => setProp((p: EmailImageProps) => { p.boxShadow = v })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SHADOW_PRESETS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )
@@ -243,9 +283,11 @@ EmailImage.craft = {
     src: '',
     alt: '',
     width: 100,
+    height: 0,
     align: 'center',
     href: '',
-    borderRadius: 0,
+    borderRadius: '0px',
+    boxShadow: 'none',
   },
   related: {
     settings: EmailImageSettings,

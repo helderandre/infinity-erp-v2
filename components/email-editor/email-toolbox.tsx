@@ -8,6 +8,7 @@ import {
   ImageIcon,
   MousePointer,
   Square,
+  LayoutGrid,
   Minus,
   ArrowUpDown,
   Paperclip,
@@ -24,6 +25,7 @@ import { EmailButton } from './user/email-button'
 import { EmailDivider } from './user/email-divider'
 import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
+import { EmailGrid } from './user/email-grid'
 
 interface ToolboxItem {
   label: string
@@ -59,7 +61,14 @@ const categories: ToolboxCategory[] = [
         label: 'Contentor',
         icon: Square,
         element: (
-          <Element is={EmailContainer} canvas padding={16} background="#f5f5f5" />
+          <Element is={EmailContainer} canvas padding={16} background="#f5f5f5" width="100%" />
+        ),
+      },
+      {
+        label: 'Grelha',
+        icon: LayoutGrid,
+        element: (
+          <Element is={EmailGrid} canvas columns={2} rows={1} gap={16} />
         ),
       },
       { label: 'Divisor', icon: Minus, element: <EmailDivider /> },
@@ -125,7 +134,7 @@ export function EmailToolbox() {
   const [search, setSearch] = useState('')
 
   return (
-    <div className="w-56 shrink-0 border-r overflow-auto flex flex-col">
+    <div className="w-72 shrink-0 border-r overflow-auto flex flex-col">
       <div className="p-3">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
