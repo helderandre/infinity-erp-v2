@@ -1719,6 +1719,9 @@ export type Database = {
           description: string | null
           doc_type_id: string | null
           id: string
+          letterhead_file_name: string | null
+          letterhead_file_type: string | null
+          letterhead_url: string | null
           name: string
           updated_at: string | null
         }
@@ -1728,6 +1731,9 @@ export type Database = {
           description?: string | null
           doc_type_id?: string | null
           id?: string
+          letterhead_file_name?: string | null
+          letterhead_file_type?: string | null
+          letterhead_url?: string | null
           name: string
           updated_at?: string | null
         }
@@ -1737,6 +1743,9 @@ export type Database = {
           description?: string | null
           doc_type_id?: string | null
           id?: string
+          letterhead_file_name?: string | null
+          letterhead_file_type?: string | null
+          letterhead_url?: string | null
           name?: string
           updated_at?: string | null
         }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -39,7 +40,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -135,14 +135,13 @@ interface DocTemplate {
 // --- Doc Templates Tab ---
 
 function DocTemplatesTab() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [templates, setTemplates] = useState<DocTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [editTemplate, setEditTemplate] = useState<DocTemplate | null>(null)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true)
@@ -191,7 +190,7 @@ function DocTemplatesTab() {
             className="pl-9"
           />
         </div>
-        <Button onClick={() => { setEditTemplate(null); setIsCreateOpen(true) }}>
+        <Button onClick={() => router.push('/dashboard/templates-documentos/novo')}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Template
         </Button>
@@ -208,7 +207,7 @@ function DocTemplatesTab() {
           icon={FileCode2}
           title="Nenhum template de documento"
           description={search ? 'Tente ajustar os critérios de pesquisa' : 'Crie o seu primeiro template de documento'}
-          action={!search ? { label: 'Criar Template', onClick: () => { setEditTemplate(null); setIsCreateOpen(true) } } : undefined}
+          action={!search ? { label: 'Criar Template', onClick: () => router.push('/dashboard/templates-documentos/novo') } : undefined}
         />
       ) : (
         <div className="rounded-md border">
@@ -247,7 +246,7 @@ function DocTemplatesTab() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditTemplate(tpl); setIsCreateOpen(true) }}>
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/templates-documentos/${tpl.id}`)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
@@ -264,13 +263,6 @@ function DocTemplatesTab() {
           </Table>
         </div>
       )}
-
-      <DocTemplateDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        template={editTemplate}
-        onSaved={fetchTemplates}
-      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
@@ -293,143 +285,6 @@ function DocTemplatesTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
-
-// --- Doc Template Create/Edit Dialog ---
-
-function DocTemplateDialog({
-  open,
-  onOpenChange,
-  template,
-  onSaved,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  template: DocTemplate | null
-  onSaved: () => void
-}) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [contentHtml, setContentHtml] = useState('')
-  const [docTypeId, setDocTypeId] = useState<string>('')
-  const [docTypes, setDocTypes] = useState<DocType[]>([])
-  const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setName(template?.name || '')
-      setDescription(template?.description || '')
-      setContentHtml(template?.content_html || '')
-      setDocTypeId(template?.doc_type_id || '')
-      fetch('/api/libraries/doc-types')
-        .then((r) => r.json())
-        .then(setDocTypes)
-        .catch(() => {})
-    }
-  }, [open, template])
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error('O nome é obrigatório')
-      return
-    }
-    if (!contentHtml.trim()) {
-      toast.error('O conteúdo é obrigatório')
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      const payload = {
-        name: name.trim(),
-        description: description.trim() || null,
-        content_html: contentHtml,
-        doc_type_id: docTypeId || null,
-      }
-
-      const res = template
-        ? await fetch(`/api/libraries/docs/${template.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-        : await fetch('/api/libraries/docs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-
-      if (!res.ok) throw new Error()
-      toast.success(template ? 'Template actualizado com sucesso' : 'Template criado com sucesso')
-      onOpenChange(false)
-      onSaved()
-    } catch {
-      toast.error('Erro ao guardar template')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{template ? 'Editar Template' : 'Novo Template de Documento'}</DialogTitle>
-          <DialogDescription>
-            {template ? 'Actualize os dados do template de documento.' : 'Crie um novo template de documento com variáveis.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="tpl-name">Nome *</Label>
-            <Input id="tpl-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Contrato de Arrendamento" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="tpl-desc">Descrição</Label>
-            <Input id="tpl-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição breve do template" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="tpl-doctype">Tipo de Documento</Label>
-            <Select value={docTypeId} onValueChange={setDocTypeId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar tipo (opcional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {docTypes.map((dt) => (
-                  <SelectItem key={dt.id} value={dt.id}>
-                    {dt.name} {dt.category ? `(${dt.category})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="tpl-content">Conteúdo HTML *</Label>
-            <Textarea
-              id="tpl-content"
-              value={contentHtml}
-              onChange={(e) => setContentHtml(e.target.value)}
-              placeholder="<h1>{{proprietario_nome}}</h1>..."
-              rows={10}
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use variáveis como {'{{proprietario_nome}}'}, {'{{imovel_ref}}'}, etc.
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {template ? 'Guardar' : 'Criar'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

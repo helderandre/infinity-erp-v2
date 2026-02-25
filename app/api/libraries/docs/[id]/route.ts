@@ -7,6 +7,9 @@ const docTemplateUpdateSchema = z.object({
   description: z.string().optional().nullable(),
   content_html: z.string().min(1, 'Conteúdo obrigatório').optional(),
   doc_type_id: z.string().optional().nullable(),
+  letterhead_url: z.string().optional().nullable(),
+  letterhead_file_name: z.string().optional().nullable(),
+  letterhead_file_type: z.string().optional().nullable(),
 })
 
 // GET — detalhe do template de documento
