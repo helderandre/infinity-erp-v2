@@ -101,7 +101,7 @@ export function TemplateTaskCard({
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0 space-y-1">
-        <p className="font-medium text-xs leading-tight truncate">{task.title}</p>
+        <p className="font-medium text-xs leading-tight break-words">{task.title}</p>
         <div className="flex items-center gap-1 flex-wrap">
           <Badge variant="outline" className="text-[10px] px-1 py-0">
             {ACTION_TYPES[task.action_type as keyof typeof ACTION_TYPES]}
