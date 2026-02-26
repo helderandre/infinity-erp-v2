@@ -3,6 +3,7 @@ export type NotificationType =
   | 'process_approved'
   | 'process_rejected'
   | 'process_returned'
+  | 'process_deleted'
   | 'task_assigned'
   | 'task_completed'
   | 'task_comment'

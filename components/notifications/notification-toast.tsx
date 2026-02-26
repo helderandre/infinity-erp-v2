@@ -14,6 +14,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Bell,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Notification, NotificationType } from '@/lib/notifications/types'
@@ -23,6 +24,7 @@ const NOTIFICATION_ICONS: Record<NotificationType, React.ElementType> = {
   process_approved: CheckCircle2,
   process_rejected: XCircle,
   process_returned: Undo2,
+  process_deleted: Trash2,
   task_assigned: UserCheck,
   task_completed: CheckCircle2,
   task_comment: MessageSquare,
@@ -37,6 +39,7 @@ const NOTIFICATION_ICON_COLORS: Partial<Record<NotificationType, string>> = {
   process_approved: 'text-emerald-500',
   process_rejected: 'text-red-500',
   process_returned: 'text-amber-500',
+  process_deleted: 'text-red-500',
   task_completed: 'text-emerald-500',
   task_overdue: 'text-red-500',
   task_assigned: 'text-blue-500',

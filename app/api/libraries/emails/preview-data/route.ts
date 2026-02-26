@@ -108,7 +108,8 @@ export async function POST(request: Request) {
       const idColumn = tableIdOverrides[tableName] || entityIdColumn[entityType] || 'id'
       const selectStr = Array.from(group.columns).join(', ')
 
-      const { data } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
         .from(tableName)
         .select(selectStr)
         .eq(idColumn, entityId)

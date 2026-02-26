@@ -21,6 +21,7 @@ import {
   Loader2,
   BellOff,
   Inbox,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -55,6 +56,7 @@ const NOTIFICATION_ICONS: Record<NotificationType, React.ElementType> = {
   process_approved: CheckCircle2,
   process_rejected: XCircle,
   process_returned: Undo2,
+  process_deleted: Trash2,
   task_assigned: UserCheck,
   task_completed: CheckCircle2,
   task_comment: MessageSquare,
@@ -69,6 +71,7 @@ const NOTIFICATION_DOT_STYLES: Partial<Record<NotificationType, string>> = {
   process_approved: 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
   process_rejected: 'border-red-500 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
   process_returned: 'border-amber-500 bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
+  process_deleted: 'border-red-500 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
   process_created: 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
   task_completed: 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
   task_overdue: 'border-red-500 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',

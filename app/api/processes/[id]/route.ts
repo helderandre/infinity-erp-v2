@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { notificationService } from '@/lib/notifications/service'
 
 export async function DELETE(
   request: Request,
@@ -19,53 +20,32 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    // Verificar se o processo existe
-    const { data: proc, error: procError } = await supabase
+    // Verificar se o processo existe e não está já eliminado
+    const { data: procRaw, error: procError } = await supabase
       .from('proc_instances')
-      .select('id, current_status, property_id')
+      .select('id, current_status, property_id, external_ref, requested_by')
       .eq('id', id)
       .single()
 
-    if (procError || !proc) {
+    if (procError || !procRaw) {
       return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
+    }
+
+    const proc = procRaw as typeof procRaw & { deleted_at?: string | null }
+
+    if (proc.deleted_at) {
+      return NextResponse.json({ error: 'Processo já foi eliminado' }, { status: 400 })
     }
 
     const adminSupabase = createAdminClient()
 
-    // Eliminar subtarefas das tarefas deste processo
-    const { data: taskIds } = await adminSupabase
-      .from('proc_tasks')
-      .select('id')
-      .eq('proc_instance_id', id)
-
-    if (taskIds && taskIds.length > 0) {
-      const ids = taskIds.map((t: { id: string }) => t.id)
-      await (adminSupabase as any)
-        .from('proc_subtasks')
-        .delete()
-        .in('proc_task_id', ids)
-    }
-
-    // Eliminar tarefas do processo
-    await adminSupabase
-      .from('proc_tasks')
-      .delete()
-      .eq('proc_instance_id', id)
-
-    // Eliminar mensagens do chat do processo (se existir tabela)
-    try {
-      await (adminSupabase as any)
-        .from('proc_chat_messages')
-        .delete()
-        .eq('proc_instance_id', id)
-    } catch {
-      // Ignorar se tabela não existir
-    }
-
-    // Eliminar o processo
-    const { error: deleteError } = await adminSupabase
+    // Soft-delete: marcar como eliminado em vez de remover
+    const { error: deleteError } = await (adminSupabase as any)
       .from('proc_instances')
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
+      })
       .eq('id', id)
 
     if (deleteError) {
@@ -90,6 +70,57 @@ export async function DELETE(
           .update({ status: 'pending_approval' })
           .eq('id', proc.property_id)
       }
+    }
+
+    // Obter nome do utilizador que eliminou
+    const { data: deleter } = await adminSupabase
+      .from('dev_users')
+      .select('commercial_name')
+      .eq('id', user.id)
+      .single()
+
+    const deleterName = deleter?.commercial_name || 'Utilizador'
+
+    // Enviar notificação ao criador do processo (se for diferente de quem eliminou)
+    if (proc.requested_by && proc.requested_by !== user.id) {
+      await notificationService.create({
+        recipientId: proc.requested_by,
+        senderId: user.id,
+        notificationType: 'process_deleted',
+        entityType: 'proc_instance',
+        entityId: id,
+        title: 'Processo eliminado',
+        body: `O processo ${proc.external_ref || ''} foi eliminado por ${deleterName}`,
+        actionUrl: `/dashboard/processos/${id}`,
+        metadata: {
+          process_ref: proc.external_ref,
+          deleted_by_name: deleterName,
+        },
+      })
+    }
+
+    // Notificar também gestoras processuais e brokers
+    const managerIds = await notificationService.getUserIdsByRoles([
+      'Broker/CEO',
+      'Gestora Processual',
+    ])
+    const recipientIds = managerIds.filter(
+      (rid) => rid !== user.id && rid !== proc.requested_by
+    )
+    if (recipientIds.length > 0) {
+      await notificationService.createBatch(recipientIds, {
+        senderId: user.id,
+        notificationType: 'process_deleted',
+        entityType: 'proc_instance',
+        entityId: id,
+        title: 'Processo eliminado',
+        body: `O processo ${proc.external_ref || ''} foi eliminado por ${deleterName}`,
+        actionUrl: `/dashboard/processos/${id}`,
+        metadata: {
+          process_ref: proc.external_ref,
+          deleted_by_name: deleterName,
+        },
+      })
     }
 
     return NextResponse.json({ success: true, message: 'Processo eliminado com sucesso' })
@@ -151,6 +182,28 @@ export async function GET(
 
     if (!data) {
       return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
+    }
+
+    // Cast para incluir colunas de soft-delete (ainda não nos types gerados)
+    const instance = data as typeof data & { deleted_at?: string | null; deleted_by?: string | null }
+
+    // Se o processo foi soft-deleted, retornar info de eliminação
+    if (instance.deleted_at) {
+      const adminSupabase = createAdminClient()
+      const { data: deleter } = await adminSupabase
+        .from('dev_users')
+        .select('id, commercial_name')
+        .eq('id', instance.deleted_by!)
+        .single()
+
+      return NextResponse.json({
+        deleted: true,
+        deleted_at: instance.deleted_at,
+        deleted_by: deleter
+          ? { id: deleter.id, commercial_name: deleter.commercial_name }
+          : null,
+        external_ref: instance.external_ref,
+      }, { status: 410 }) // 410 Gone
     }
 
     // Obter tarefas agrupadas por fase (com subtarefas)

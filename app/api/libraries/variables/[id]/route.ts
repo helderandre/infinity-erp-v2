@@ -15,7 +15,7 @@ const updateVariableSchema = z.object({
   source_table: z.string().nullable().optional(),
   source_column: z.string().nullable().optional(),
   format_type: z.enum(['text', 'currency', 'date', 'concat']).optional(),
-  format_config: z.record(z.unknown()).nullable().optional(),
+  format_config: z.any().nullable().optional(),
   static_value: z.string().nullable().optional(),
   is_active: z.boolean().optional(),
   order_index: z.number().int().optional(),
@@ -101,7 +101,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const { data, error } = await admin
       .from('tpl_variables')
-      .update(parsed.data)
+      .update(parsed.data as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single()

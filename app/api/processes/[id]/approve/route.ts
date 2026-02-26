@@ -126,6 +126,7 @@ export async function POST(
       .from('proc_instances')
       .select('*, property:dev_properties(id)')
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
 
     console.log('[APPROVE] Processo:', proc ? { id: proc.id, status: proc.current_status, tpl: proc.tpl_process_id, property: proc.property } : 'null', 'erro:', procError?.message)

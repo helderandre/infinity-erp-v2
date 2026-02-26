@@ -30,6 +30,7 @@ export async function GET(request: Request) {
         requested_by,
         approved_at,
         notes,
+        deleted_at,
         dev_properties (
           id,
           title,
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
           commercial_name
         )
       `)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false, nullsFirst: false })
 
     if (status) {

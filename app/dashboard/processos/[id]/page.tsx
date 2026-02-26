@@ -106,6 +106,14 @@ export default function ProcessoDetailPage() {
   // Task detail sheet
   const [selectedTask, setSelectedTask] = useState<ProcessTask | null>(null)
 
+  // Soft-delete info
+  const [deletedInfo, setDeletedInfo] = useState<{
+    deleted: boolean
+    deleted_at: string
+    deleted_by: { id: string; commercial_name: string } | null
+    external_ref: string | null
+  } | null>(null)
+
   useEffect(() => {
     loadProcess()
   }, [params.id])
@@ -114,6 +122,14 @@ export default function ProcessoDetailPage() {
     setIsLoading(true)
     try {
       const response = await fetch(`/api/processes/${params.id}`)
+
+      // Processo eliminado (soft-delete) — 410 Gone
+      if (response.status === 410) {
+        const data = await response.json()
+        setDeletedInfo(data)
+        return
+      }
+
       if (!response.ok) {
         throw new Error('Processo não encontrado')
       }
@@ -427,6 +443,52 @@ export default function ProcessoDetailPage() {
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  // Processo eliminado (soft-delete) — mostrar mensagem informativa
+  if (deletedInfo) {
+    const deletedDate = deletedInfo.deleted_at
+      ? formatDate(deletedInfo.deleted_at)
+      : 'data desconhecida'
+    const deletedByName = deletedInfo.deleted_by?.commercial_name || 'utilizador desconhecido'
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/processos">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold text-muted-foreground">
+            {deletedInfo.external_ref || 'Processo'}
+          </h1>
+        </div>
+
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-destructive/10 p-4 mb-4">
+              <Trash2 className="h-10 w-10 text-destructive" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Processo Eliminado</h2>
+            <p className="text-muted-foreground max-w-md">
+              Este processo foi eliminado em{' '}
+              <strong>{deletedDate}</strong> por{' '}
+              <strong>{deletedByName}</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Os dados deste processo já não estão disponíveis para consulta.
+            </p>
+            <Link href="/dashboard/processos" className="mt-6">
+              <Button variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar aos Processos
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }

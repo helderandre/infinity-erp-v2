@@ -67,6 +67,7 @@ export async function POST(
       .from('proc_instances')
       .select('current_status')
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
 
     if (procError || !proc) {

@@ -14,7 +14,7 @@ const createVariableSchema = z.object({
   source_table: z.string().nullable().optional(),
   source_column: z.string().nullable().optional(),
   format_type: z.enum(['text', 'currency', 'date', 'concat']).default('text'),
-  format_config: z.record(z.unknown()).nullable().optional(),
+  format_config: z.any().nullable().optional(),
   static_value: z.string().nullable().optional(),
   order_index: z.number().int().optional(),
 })
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         source_table: parsed.data.source_table || null,
         source_column: parsed.data.source_column || null,
         format_type: parsed.data.format_type,
-        format_config: parsed.data.format_config || null,
+        format_config: (parsed.data.format_config || null) as import('@/types/database').Json,
         static_value: parsed.data.static_value || null,
         is_system: false,
         order_index: parsed.data.order_index ?? 100,

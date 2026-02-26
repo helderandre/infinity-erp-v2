@@ -89,6 +89,7 @@ export async function PUT(
       .from('proc_instances')
       .select('*', { count: 'exact', head: true })
       .eq('tpl_process_id', id)
+      .is('deleted_at', null)
       .not('current_status', 'in', '("completed","cancelled")')
 
     if (activeInstances && activeInstances > 0) {

@@ -111,6 +111,7 @@ export async function POST(
       .from('proc_instances')
       .select('id, external_ref')
       .eq('id', processId)
+      .is('deleted_at', null)
       .single()
 
     if (procError || !proc) {
