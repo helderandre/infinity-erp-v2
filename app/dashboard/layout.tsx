@@ -2,6 +2,7 @@
 
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
+import { SearchCommand } from '@/components/layout/search-command'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { NotificationPopover } from '@/components/notifications/notification-popover'
 import { Separator } from '@/components/ui/separator'
@@ -24,7 +25,8 @@ export default function DashboardLayout({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-6" />
           <Breadcrumbs />
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            <SearchCommand />
             <ThemeToggle />
             <NotificationPopover />
           </div>

@@ -77,18 +77,39 @@ export const HIGHLIGHT_COLORS = [
 ] as const
 
 export const EDITOR_FONTS = [
+  // — Serif (Google Fonts)
   { name: 'Source Serif 4', value: 'Source Serif 4, ui-serif, Georgia, serif' },
   { name: 'Libre Baskerville', value: 'Libre Baskerville, serif' },
   { name: 'Merriweather', value: 'Merriweather, serif' },
   { name: 'Lora', value: 'Lora, serif' },
   { name: 'Crimson Pro', value: 'Crimson Pro, serif' },
   { name: 'Playfair Display', value: 'Playfair Display, serif' },
+  { name: 'EB Garamond', value: 'EB Garamond, serif' },
+  { name: 'Cormorant Garamond', value: 'Cormorant Garamond, serif' },
+  { name: 'Noto Serif', value: 'Noto Serif, serif' },
+  { name: 'PT Serif', value: 'PT Serif, serif' },
+  { name: 'Bitter', value: 'Bitter, serif' },
+  { name: 'Roboto Slab', value: 'Roboto Slab, serif' },
+  // — Sans-serif (Google Fonts)
   { name: 'Source Sans 3', value: 'Source Sans 3, sans-serif' },
   { name: 'Work Sans', value: 'Work Sans, sans-serif' },
-  { name: 'Times New Roman', value: '"Times New Roman", Times, serif' },
-  { name: 'Arial', value: 'Arial, sans-serif' },
+  { name: 'Inter', value: 'Inter, sans-serif' },
   { name: 'Roboto', value: 'Roboto, sans-serif' },
   { name: 'Open Sans', value: '"Open Sans", sans-serif' },
+  { name: 'Montserrat', value: 'Montserrat, sans-serif' },
+  { name: 'Poppins', value: 'Poppins, sans-serif' },
+  { name: 'Raleway', value: 'Raleway, sans-serif' },
+  { name: 'Nunito', value: 'Nunito, sans-serif' },
+  { name: 'Lato', value: 'Lato, sans-serif' },
+  { name: 'Oswald', value: 'Oswald, sans-serif' },
+  { name: 'Rubik', value: 'Rubik, sans-serif' },
+  { name: 'PT Sans', value: 'PT Sans, sans-serif' },
+  // — Sistema
+  { name: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { name: 'Arial', value: 'Arial, sans-serif' },
+  { name: 'Georgia', value: 'Georgia, serif' },
+  { name: 'Verdana', value: 'Verdana, sans-serif' },
+  { name: 'Courier New', value: '"Courier New", monospace' },
 ] as const
 
 export const LINE_SPACING_OPTIONS = [

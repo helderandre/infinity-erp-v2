@@ -24,6 +24,8 @@ export const subtaskSchema = z
       if (subtask.type === 'upload') return !!subtask.config?.doc_type_id
       // email: email_library_id obrigatório
       if (subtask.type === 'email') return !!subtask.config?.email_library_id
+      // generate_doc: doc_library_id obrigatório
+      if (subtask.type === 'generate_doc') return !!subtask.config?.doc_library_id
       return true
     },
     { message: 'Configuração inválida para o tipo de subtarefa', path: ['config'] }

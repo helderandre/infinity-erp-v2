@@ -50,7 +50,7 @@ export function getSlashCommandItems(
       <Braces size={18} className="text-amber-600" />
     ),
     group: 'variables' as const,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
       editor
         .chain()
         .focus()
@@ -68,7 +68,7 @@ export function getSlashCommandItems(
       searchTerms: ['p', 'paragraph', 'texto', 'paragrafo'],
       icon: <Type size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setParagraph().run()
       },
     },
@@ -78,7 +78,7 @@ export function getSlashCommandItems(
       searchTerms: ['title', 'h1', 'titulo', 'heading'],
       icon: <Heading1 size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run()
       },
     },
@@ -88,7 +88,7 @@ export function getSlashCommandItems(
       searchTerms: ['subtitle', 'h2', 'subtitulo'],
       icon: <Heading2 size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run()
       },
     },
@@ -98,7 +98,7 @@ export function getSlashCommandItems(
       searchTerms: ['h3', 'titulo3'],
       icon: <Heading3 size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run()
       },
     },
@@ -108,7 +108,7 @@ export function getSlashCommandItems(
       searchTerms: ['unordered', 'bullet', 'lista', 'marcadores'],
       icon: <List size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).toggleBulletList().run()
       },
     },
@@ -118,7 +118,7 @@ export function getSlashCommandItems(
       searchTerms: ['ordered', 'number', 'numerada'],
       icon: <ListOrdered size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).toggleOrderedList().run()
       },
     },
@@ -128,7 +128,7 @@ export function getSlashCommandItems(
       searchTerms: ['quote', 'blockquote', 'citacao'],
       icon: <Quote size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).toggleBlockquote().run()
       },
     },
@@ -138,7 +138,7 @@ export function getSlashCommandItems(
       searchTerms: ['table', 'tabela'],
       icon: <Table size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor
           .chain()
           .focus()
@@ -153,7 +153,7 @@ export function getSlashCommandItems(
       searchTerms: ['image', 'foto', 'imagem'],
       icon: <ImageIcon size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         const url = window.prompt('URL da imagem:')
         if (!url) return
         editor.chain().focus().deleteRange(range).setImage({ src: url }).run()
@@ -165,7 +165,7 @@ export function getSlashCommandItems(
       searchTerms: ['hr', 'divider', 'separator', 'separador', 'linha'],
       icon: <SeparatorHorizontal size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setHorizontalRule().run()
       },
     },
@@ -175,7 +175,7 @@ export function getSlashCommandItems(
       searchTerms: ['page', 'break', 'pagina', 'quebra'],
       icon: <Scissors size={18} />,
       group: 'insert',
-      command: ({ editor, range }) => {
+      command: ({ editor, range }: { editor: Editor; range: { from: number; to: number } }) => {
         editor.chain().focus().deleteRange(range).setPageBreak().run()
       },
     },

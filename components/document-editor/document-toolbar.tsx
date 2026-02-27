@@ -26,7 +26,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -131,16 +133,31 @@ export function DocumentToolbar({
           <SelectTrigger className="h-8 w-[180px] border-0 bg-transparent text-xs shadow-none focus:ring-0">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            {EDITOR_FONTS.map((font) => (
-              <SelectItem
-                key={font.value}
-                value={font.value}
-                style={{ fontFamily: font.value }}
-              >
-                {font.name}
-              </SelectItem>
-            ))}
+          <SelectContent className="max-h-[320px]">
+            <SelectGroup>
+              <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Serif</SelectLabel>
+              {EDITOR_FONTS.filter((_, i) => i < 12).map((font) => (
+                <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                  {font.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Sans-serif</SelectLabel>
+              {EDITOR_FONTS.filter((_, i) => i >= 12 && i < 25).map((font) => (
+                <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                  {font.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Sistema</SelectLabel>
+              {EDITOR_FONTS.filter((_, i) => i >= 25).map((font) => (
+                <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                  {font.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 

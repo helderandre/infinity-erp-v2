@@ -78,6 +78,7 @@ function SortableSubtaskRow({
   docTypes,
   docTypesByCategory,
   emailTemplates,
+  docTemplates,
   onUpdate,
   onRemove,
 }: {
@@ -85,6 +86,7 @@ function SortableSubtaskRow({
   docTypes: { id: string; name: string; category?: string }[]
   docTypesByCategory: Record<string, typeof docTypes>
   emailTemplates: { id: string; name: string; subject: string }[]
+  docTemplates: { id: string; name: string }[]
   onUpdate: (id: string, data: Partial<SubtaskData>) => void
   onRemove: (id: string) => void
 }) {
@@ -118,7 +120,7 @@ function SortableSubtaskRow({
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
 
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 min-w-0 space-y-2">
         {/* Badge de tipo + Input de título */}
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="shrink-0 text-xs">
@@ -179,9 +181,23 @@ function SortableSubtaskRow({
         )}
 
         {subtask.type === 'generate_doc' && (
-          <p className="text-xs text-muted-foreground italic">
-            Selecção de template de documento ficará disponível em breve (M13).
-          </p>
+          <Select
+            value={subtask.config.doc_library_id || ''}
+            onValueChange={(v) =>
+              onUpdate(subtask.id, { config: { ...subtask.config, doc_library_id: v } })
+            }
+          >
+            <SelectTrigger className="h-8 w-full text-xs [&>span]:truncate">
+              <SelectValue placeholder="Seleccionar template de documento..." />
+            </SelectTrigger>
+            <SelectContent>
+              {docTemplates.map((dt) => (
+                <SelectItem key={dt.id} value={dt.id}>
+                  {dt.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {/* checklist: não precisa de config extra — só o título */}
@@ -223,9 +239,11 @@ export function SubtaskEditor({ subtasks, onChange }: SubtaskEditorProps) {
   // Lazy-load doc types and email templates
   const [docTypes, setDocTypes] = useState<{ id: string; name: string; category?: string }[]>([])
   const [emailTemplates, setEmailTemplates] = useState<{ id: string; name: string; subject: string }[]>([])
+  const [docTemplates, setDocTemplates] = useState<{ id: string; name: string }[]>([])
 
   const hasUploadSubtask = subtasks.some((s) => s.type === 'upload')
   const hasEmailSubtask = subtasks.some((s) => s.type === 'email')
+  const hasGenerateDocSubtask = subtasks.some((s) => s.type === 'generate_doc')
 
   useEffect(() => {
     if (hasUploadSubtask && docTypes.length === 0) {
@@ -244,6 +262,15 @@ export function SubtaskEditor({ subtasks, onChange }: SubtaskEditorProps) {
         .catch(() => setEmailTemplates([]))
     }
   }, [hasEmailSubtask, emailTemplates.length])
+
+  useEffect(() => {
+    if (hasGenerateDocSubtask && docTemplates.length === 0) {
+      fetch('/api/libraries/docs')
+        .then((res) => res.json())
+        .then((data) => setDocTemplates(Array.isArray(data) ? data : []))
+        .catch(() => setDocTemplates([]))
+    }
+  }, [hasGenerateDocSubtask, docTemplates.length])
 
   const docTypesByCategory = docTypes.reduce<Record<string, typeof docTypes>>((acc, dt) => {
     const cat = dt.category || 'Outros'
@@ -323,6 +350,7 @@ export function SubtaskEditor({ subtasks, onChange }: SubtaskEditorProps) {
                   docTypes={docTypes}
                   docTypesByCategory={docTypesByCategory}
                   emailTemplates={emailTemplates}
+                  docTemplates={docTemplates}
                   onUpdate={handleUpdate}
                   onRemove={handleRemove}
                 />

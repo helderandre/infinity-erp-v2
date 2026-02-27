@@ -94,6 +94,10 @@ export function TemplateTaskSheet({
         toast.error(`Subtask "${st.title || 'Email'}": seleccione o template de email`)
         return
       }
+      if (st.type === 'generate_doc' && !st.config.doc_library_id) {
+        toast.error(`Subtask "${st.title || 'Gerar Documento'}": seleccione o template de documento`)
+        return
+      }
     }
 
     onSubmit({

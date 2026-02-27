@@ -58,7 +58,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-const menuItems = [
+export const menuItems = [
   {
     title: 'Dashboard',
     icon: LayoutDashboard,
@@ -133,7 +133,7 @@ const menuItems = [
   },
 ]
 
-const builderItems = [
+export const builderItems = [
   {
     title: 'Template de Email',
     icon: Mail,

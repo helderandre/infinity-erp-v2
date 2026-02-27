@@ -1,5 +1,14 @@
 import { Extension } from '@tiptap/core'
 
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    indent: {
+      indent: () => ReturnType
+      outdent: () => ReturnType
+    }
+  }
+}
+
 export const Indent = Extension.create({
   name: 'indent',
 
