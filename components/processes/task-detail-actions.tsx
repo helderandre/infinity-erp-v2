@@ -3,7 +3,17 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TaskUploadAction } from './task-upload-action'
 import { TaskFormAction } from './task-form-action'
 import {
@@ -16,10 +26,12 @@ import {
   FileText,
   ExternalLink,
   Download,
+  Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
+import { useUser } from '@/hooks/use-user'
 import type { ProcessTask, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
 
@@ -40,9 +52,22 @@ export function TaskDetailActions({
   owners = [],
   onTaskUpdate,
 }: TaskDetailActionsProps) {
+  const { user } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
   const [showBypassInput, setShowBypassInput] = useState(false)
   const [bypassReason, setBypassReason] = useState('')
+
+  // Email send dialog
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [emailForm, setEmailForm] = useState({
+    senderName: '',
+    senderEmail: '',
+    recipientEmail: '',
+    cc: '',
+    subject: '',
+    body: '',
+  })
 
   const mainOwnerId = owners.find((o) => o.is_main_contact)?.id || owners[0]?.id
 
@@ -72,6 +97,58 @@ export function TaskDetailActions({
     await handleAction('bypass', { bypass_reason: bypassReason })
     setShowBypassInput(false)
     setBypassReason('')
+  }
+
+  const handleOpenEmailDialog = () => {
+    const config = task.config as Record<string, unknown> | null
+    const mainOwner = owners.find((o) => o.is_main_contact) || owners[0]
+    setEmailForm({
+      senderName: user?.commercial_name || '',
+      senderEmail: user?.professional_email || '',
+      recipientEmail: mainOwner?.email || '',
+      cc: '',
+      subject: config?.subject ? String(config.subject) : '',
+      body: config?.body_html ? String(config.body_html) : '',
+    })
+    setEmailDialogOpen(true)
+  }
+
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true)
+    try {
+      const ccList = emailForm.cc
+        ? emailForm.cc.split(',').map((e) => e.trim()).filter(Boolean)
+        : []
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderName: emailForm.senderName,
+            senderEmail: emailForm.senderEmail,
+            recipientEmail: emailForm.recipientEmail,
+            ...(ccList.length > 0 && { cc: ccList }),
+            subject: emailForm.subject,
+            body: emailForm.body,
+          }),
+        }
+      )
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao enviar email')
+      }
+
+      toast.success('Email enviado com sucesso!')
+      setEmailDialogOpen(false)
+      await handleAction('complete')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao enviar email')
+    } finally {
+      setIsSendingEmail(false)
+    }
   }
 
   // Render action-type specific content
@@ -156,18 +233,16 @@ export function TaskDetailActions({
         )
       }
 
+      case 'COMPOSITE':
       case 'FORM': {
-        if (
-          !['pending', 'in_progress'].includes(task.status ?? '') ||
-          !task.subtasks ||
-          task.subtasks.length === 0
-        )
-          return null
+        if (!task.subtasks || task.subtasks.length === 0) return null
 
         return (
           <TaskFormAction
             task={task as ProcessTask & { subtasks: ProcSubtask[] }}
             processId={processId}
+            propertyId={propertyId}
+            owners={owners}
             onSubtaskToggle={async (taskId, subtaskId, completed) => {
               const res = await fetch(
                 `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtaskId}`,
@@ -290,18 +365,29 @@ export function TaskDetailActions({
             </Button>
           )}
 
-          <Button
-            size="sm"
-            onClick={() => handleAction('complete')}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            )}
-            Concluir
-          </Button>
+          {task.action_type === 'EMAIL' ? (
+            <Button
+              size="sm"
+              onClick={handleOpenEmailDialog}
+              disabled={isProcessing}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Enviar Email
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => handleAction('complete')}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Concluir
+            </Button>
+          )}
 
           {!task.is_mandatory && !showBypassInput && (
             <Button
@@ -356,6 +442,13 @@ export function TaskDetailActions({
     )
   }
 
+  const isEmailFormValid =
+    emailForm.senderName.trim() &&
+    emailForm.senderEmail.trim() &&
+    emailForm.recipientEmail.trim() &&
+    emailForm.subject.trim() &&
+    emailForm.body.trim()
+
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-medium">Acções</h4>
@@ -365,6 +458,144 @@ export function TaskDetailActions({
 
       {/* State transition buttons */}
       {renderStateButtons()}
+
+      {/* Email Send Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-blue-600" />
+              Enviar Email
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Remetente */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="senderName">Nome do remetente</Label>
+                <Input
+                  id="senderName"
+                  value={emailForm.senderName}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, senderName: e.target.value }))}
+                  placeholder="Ex: Infinity Group"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="senderEmail">
+                  Email do remetente
+                  {!emailForm.senderEmail && (
+                    <span className="ml-1 text-xs text-destructive">*</span>
+                  )}
+                </Label>
+                <Input
+                  id="senderEmail"
+                  type="email"
+                  value={emailForm.senderEmail}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, senderEmail: e.target.value }))}
+                  placeholder="noreply@dominio.pt"
+                />
+              </div>
+            </div>
+
+            {/* Destinatário + CC */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="recipientEmail">
+                  Para
+                  {!emailForm.recipientEmail && (
+                    <span className="ml-1 text-xs text-destructive">*</span>
+                  )}
+                </Label>
+                <Input
+                  id="recipientEmail"
+                  type="email"
+                  value={emailForm.recipientEmail}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, recipientEmail: e.target.value }))}
+                  placeholder="destinatario@exemplo.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cc">CC <span className="text-xs text-muted-foreground">(separar por vírgula)</span></Label>
+                <Input
+                  id="cc"
+                  value={emailForm.cc}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, cc: e.target.value }))}
+                  placeholder="cc1@exemplo.com, cc2@exemplo.com"
+                />
+              </div>
+            </div>
+
+            {/* Assunto */}
+            <div className="space-y-1.5">
+              <Label htmlFor="subject">
+                Assunto
+                {!emailForm.subject && (
+                  <span className="ml-1 text-xs text-destructive">*</span>
+                )}
+              </Label>
+              <Input
+                id="subject"
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm((f) => ({ ...f, subject: e.target.value }))}
+                placeholder="Assunto do email..."
+              />
+            </div>
+
+            {/* Corpo */}
+            <div className="space-y-1.5">
+              <Label>Corpo do email</Label>
+              <Tabs defaultValue="preview" className="w-full">
+                <TabsList className="h-8 mb-2">
+                  <TabsTrigger value="preview" className="text-xs h-7">Pré-visualização</TabsTrigger>
+                  <TabsTrigger value="source" className="text-xs h-7">Fonte HTML</TabsTrigger>
+                </TabsList>
+                <TabsContent value="preview">
+                  {emailForm.body ? (
+                    <div
+                      className="rounded-md border p-3 text-sm prose prose-sm max-w-none max-h-48 overflow-y-auto bg-white"
+                      dangerouslySetInnerHTML={{ __html: emailForm.body }}
+                    />
+                  ) : (
+                    <div className="rounded-md border p-3 text-sm text-muted-foreground italic">
+                      Sem corpo configurado no template.
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="source">
+                  <Textarea
+                    value={emailForm.body}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, body: e.target.value }))}
+                    placeholder="Corpo do email em HTML..."
+                    className="min-h-[120px] font-mono text-xs"
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEmailDialogOpen(false)}
+              disabled={isSendingEmail}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={isSendingEmail || !isEmailFormValid}
+            >
+              {isSendingEmail ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Enviar Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
