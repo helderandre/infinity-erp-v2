@@ -8,6 +8,13 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+interface EmailAttachment {
+  /** Display filename for the attachment (e.g. "contrato.pdf") */
+  filename: string
+  /** Publicly accessible URL to the file — Resend will fetch and attach it */
+  path: string
+}
+
 interface SendEmailPayload {
   senderName: string
   senderEmail: string
@@ -15,6 +22,8 @@ interface SendEmailPayload {
   cc?: string[]
   subject: string
   body: string
+  /** Optional file attachments — each must have a publicly accessible URL */
+  attachments?: EmailAttachment[]
 }
 
 serve(async (req) => {
@@ -49,7 +58,7 @@ serve(async (req) => {
     )
   }
 
-  const { senderName, senderEmail, recipientEmail, cc, subject, body } = payload
+  const { senderName, senderEmail, recipientEmail, cc, subject, body, attachments } = payload
 
   // Validação dos campos obrigatórios
   if (!senderName || !senderEmail || !recipientEmail || !subject || !body) {
@@ -72,6 +81,10 @@ serve(async (req) => {
 
   if (cc && Array.isArray(cc) && cc.length > 0) {
     resendPayload.cc = cc
+  }
+
+  if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+    resendPayload.attachments = attachments
   }
 
   // Enviar via Resend API

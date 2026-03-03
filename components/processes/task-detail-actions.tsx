@@ -29,8 +29,8 @@ import {
   Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
+import { wrapEmailHtml } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
 import type { ProcessTask, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
@@ -131,7 +131,7 @@ export function TaskDetailActions({
             recipientEmail: emailForm.recipientEmail,
             ...(ccList.length > 0 && { cc: ccList }),
             subject: emailForm.subject,
-            body: emailForm.body,
+            body: wrapEmailHtml(emailForm.body),
           }),
         }
       )

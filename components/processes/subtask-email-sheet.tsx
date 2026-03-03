@@ -39,7 +39,7 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { interpolateVariables } from '@/lib/utils'
-import { renderEmailToHtml } from '@/lib/email-renderer'
+import { renderEmailToHtml, wrapEmailHtml, extractAttachmentsFromState } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
 import type { ProcSubtask } from '@/types/subtask'
 
@@ -521,6 +521,12 @@ export function SubtaskEmailSheet({
         ? emailForm.cc.split(',').map((e) => e.trim()).filter(Boolean)
         : []
 
+      // Extract file attachments from the editor state
+      const attachments = extractAttachmentsFromState(pendingPayload.state)
+
+      // Wrap the body in a full email boilerplate for cross-client compatibility
+      const wrappedBody = wrapEmailHtml(pendingPayload.html)
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`,
         {
@@ -532,7 +538,8 @@ export function SubtaskEmailSheet({
             recipientEmail: emailForm.recipientEmail,
             ...(ccList.length > 0 && { cc: ccList }),
             subject,
-            body: pendingPayload.html,
+            body: wrappedBody,
+            ...(attachments.length > 0 && { attachments }),
           }),
         }
       )
