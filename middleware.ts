@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Rotas públicas
-  const publicPaths = ['/login']
+  const publicPaths = ['/login', '/forgot-password', '/verify-otp', '/reset-password']
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
