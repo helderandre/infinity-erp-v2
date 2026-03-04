@@ -196,7 +196,7 @@ export default function ProcessosPage() {
             <FileText className="mr-2 h-4 w-4" />
             Gerir Templates
           </Button>
-          <Button onClick={() => router.push('/dashboard/angariacao')}>
+          <Button onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
             Nova Angariação
           </Button>
@@ -313,7 +313,7 @@ export default function ProcessosPage() {
             !search && !statusFilter
               ? {
                   label: 'Nova Angariação',
-                  onClick: () => router.push('/dashboard/angariacao'),
+                  onClick: () => { setResumeDraftId(undefined); setDraftDialogOpen(true) },
                 }
               : statusFilter
                 ? {

@@ -16,7 +16,6 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
-  ClipboardCheck,
   Mail,
   FileCode2,
   Workflow,
@@ -76,12 +75,6 @@ export const menuItems = [
     icon: Zap,
     href: '/dashboard/leads',
     permission: 'leads',
-  },
-  {
-    title: 'Angariação',
-    icon: ClipboardCheck,
-    href: '/dashboard/angariacao',
-    permission: 'properties',
   },
   {
     title: 'Processos',
