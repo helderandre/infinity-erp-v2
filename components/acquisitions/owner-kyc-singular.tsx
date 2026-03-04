@@ -37,7 +37,13 @@ interface OwnerKycSingularProps {
 }
 
 export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  // Auto-open if any KYC field is pre-filled (e.g. from lead data)
+  const hasKycData = !!(
+    form.getValues(`owners.${index}.id_doc_type`) ||
+    form.getValues(`owners.${index}.id_doc_number`) ||
+    form.getValues(`owners.${index}.birth_date`)
+  )
+  const [isOpen, setIsOpen] = useState(hasKycData)
   const isPep = form.watch(`owners.${index}.is_pep`)
   const isResident = form.watch(`owners.${index}.is_portugal_resident`)
 

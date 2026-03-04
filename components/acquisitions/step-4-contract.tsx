@@ -2,218 +2,102 @@
 
 import { UseFormReturn } from 'react-hook-form'
 import {
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  AcqSectionHeader,
+  AcqInputField,
+  AcqTextareaField,
+  AcqSelectField,
+} from './acquisition-field'
 import { CONTRACT_REGIMES } from '@/lib/constants'
 
 interface StepContractProps {
   form: UseFormReturn<any>
 }
 
+const toOptions = (obj: Record<string, string>) =>
+  Object.entries(obj).map(([value, label]) => ({ value, label }))
+
 export function StepContract({ form }: StepContractProps) {
+  const errors = form.formState.errors
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Informações Contratuais</h3>
+    <div className="space-y-4">
+      <AcqSectionHeader title="Informações Contratuais" />
 
-        <FormField
-          control={form.control}
-          name="contract_regime"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Regime Contratual *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar regime" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Object.entries(CONTRACT_REGIMES).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
+      <div className="grid grid-cols-2 gap-3">
+        <AcqSelectField
+          label="Regime Contratual"
+          required
+          value={form.watch('contract_regime')}
+          onChange={(v) => form.setValue('contract_regime', v, { shouldValidate: true })}
+          options={toOptions(CONTRACT_REGIMES)}
+          placeholder="Seleccionar regime"
+          error={errors.contract_regime?.message as string}
         />
 
-        <FormField
-          control={form.control}
-          name="contract_term"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Prazo do Contrato</FormLabel>
-              <FormControl>
-                <Input placeholder="Ex: 12 meses" {...field} />
-              </FormControl>
-              <FormDescription>
-                Especifique o prazo de duração do contrato
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+        <AcqInputField
+          label="Prazo do Contrato"
+          value={form.watch('contract_term')}
+          onChange={(v) => form.setValue('contract_term', v)}
+          placeholder="Ex: 12 meses"
         />
 
-        <FormField
-          control={form.control}
-          name="contract_expiry"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Data de Expiração</FormLabel>
-              <FormControl>
-                <Input
-                  type="date"
-                  {...field}
-                  value={field.value || ''}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        <AcqInputField
+          label="Data de Expiração"
+          type="date"
+          value={form.watch('contract_expiry')}
+          onChange={(v) => form.setValue('contract_expiry', v)}
+          fullWidth
         />
       </div>
 
-      <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-semibold">Comissão</h3>
+      <AcqSectionHeader title="Comissão" className="pt-2" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="commission_agreed"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Valor da Comissão *</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Percentagem ou valor fixo acordado
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div className="grid grid-cols-2 gap-3">
+        <AcqInputField
+          label="Valor da Comissão"
+          required
+          type="number"
+          value={form.watch('commission_agreed')}
+          onChange={(v) => form.setValue('commission_agreed', parseFloat(v) || 0, { shouldValidate: true })}
+          placeholder="0"
+          error={errors.commission_agreed?.message as string}
+        />
 
-          <FormField
-            control={form.control}
-            name="commission_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo de Comissão</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="percentage">Percentagem (%)</SelectItem>
-                    <SelectItem value="fixed">Valor Fixo (€)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <AcqSelectField
+          label="Tipo de Comissão"
+          value={form.watch('commission_type')}
+          onChange={(v) => form.setValue('commission_type', v)}
+          options={[
+            { value: 'percentage', label: 'Percentagem (%)' },
+            { value: 'fixed', label: 'Valor Fixo (€)' },
+          ]}
+        />
       </div>
 
-      <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-semibold">Valores Adicionais (Opcional)</h3>
+      <AcqSectionHeader title="Valores Adicionais" className="pt-2" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="imi_value"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Valor IMI Anual</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) =>
-                      field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
-                    }
-                  />
-                </FormControl>
-                <FormDescription>Em euros (€)</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div className="grid grid-cols-2 gap-3">
+        <AcqInputField
+          label="Valor IMI Anual"
+          type="number"
+          value={form.watch('imi_value')}
+          onChange={(v) => form.setValue('imi_value', v ? parseFloat(v) : undefined)}
+          suffix="€"
+        />
 
-          <FormField
-            control={form.control}
-            name="condominium_fee"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Condomínio Mensal</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) =>
-                      field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
-                    }
-                  />
-                </FormControl>
-                <FormDescription>Em euros (€)</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <AcqInputField
+          label="Condomínio Mensal"
+          type="number"
+          value={form.watch('condominium_fee')}
+          onChange={(v) => form.setValue('condominium_fee', v ? parseFloat(v) : undefined)}
+          suffix="€"
+        />
 
-        <FormField
-          control={form.control}
-          name="internal_notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notas Internas</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Observações privadas sobre o imóvel ou proprietário..."
-                  className="min-h-[100px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Estas notas são privadas e não aparecem no anúncio público
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+        <AcqTextareaField
+          label="Notas Internas"
+          value={form.watch('internal_notes')}
+          onChange={(v) => form.setValue('internal_notes', v)}
+          placeholder="Observações privadas sobre o imóvel ou proprietário..."
         />
       </div>
     </div>

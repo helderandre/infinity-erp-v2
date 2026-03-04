@@ -22,9 +22,11 @@ import { LEAD_ORIGENS } from '@/lib/constants'
 
 interface LeadFormProps {
   consultants: { id: string; commercial_name: string }[]
+  onSuccess?: (id: string) => void
+  onCancel?: () => void
 }
 
-export function LeadForm({ consultants }: LeadFormProps) {
+export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -53,7 +55,11 @@ export function LeadForm({ consultants }: LeadFormProps) {
 
       const { id } = await res.json()
       toast.success('Lead criado com sucesso')
-      router.push(`/dashboard/leads/${id}`)
+      if (onSuccess) {
+        onSuccess(id)
+      } else {
+        router.push(`/dashboard/leads/${id}`)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao criar lead')
     } finally {
@@ -62,7 +68,7 @@ export function LeadForm({ consultants }: LeadFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-2xl">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome *</Label>
@@ -145,17 +151,17 @@ export function LeadForm({ consultants }: LeadFormProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Criar Lead
-        </Button>
+      <div className="flex items-center justify-end gap-3">
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.back()}
+          onClick={onCancel || (() => router.back())}
         >
           Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Criar Lead
         </Button>
       </div>
     </form>

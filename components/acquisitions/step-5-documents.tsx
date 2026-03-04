@@ -13,6 +13,8 @@ const ACQUISITION_DOC_CATEGORIES = [
   'Imóvel',
   'Jurídico',
   'Jurídico Especial',
+  'Proprietário',
+  'Proprietário Empresa',
 ]
 
 // Categorias cujos documentos devem ter owner_id

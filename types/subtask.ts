@@ -18,7 +18,6 @@ export interface TplSubtask {
   }
 }
 
-// NÃO alterar nesta spec — módulo processos fica para depois
 export interface ProcSubtask {
   id: string
   proc_task_id: string
@@ -29,10 +28,25 @@ export interface ProcSubtask {
   completed_at: string | null
   completed_by: string | null
   order_index: number
+  owner_id?: string
+  owner?: {
+    id: string
+    name: string
+    person_type?: string
+    email?: string
+  }
   config: {
-    check_type: 'field' | 'document' | 'manual'
+    type?: SubtaskType
+    check_type?: 'field' | 'document' | 'manual'
     field_name?: string
     doc_type_id?: string
+    email_library_id?: string
+    doc_library_id?: string
+    has_person_type_variants?: boolean
+    singular_config?: { email_library_id?: string; doc_library_id?: string }
+    coletiva_config?: { email_library_id?: string; doc_library_id?: string }
+    rendered?: Record<string, unknown>
+    [key: string]: unknown
   }
 }
 

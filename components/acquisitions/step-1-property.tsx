@@ -2,22 +2,11 @@
 
 import { UseFormReturn } from 'react-hook-form'
 import {
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  AcqSectionHeader,
+  AcqInputField,
+  AcqTextareaField,
+  AcqSelectField,
+} from './acquisition-field'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -29,247 +18,144 @@ interface StepPropertyProps {
   form: UseFormReturn<any>
 }
 
+const toOptions = (obj: Record<string, string>) =>
+  Object.entries(obj).map(([value, label]) => ({ value, label }))
+
 export function StepProperty({ form }: StepPropertyProps) {
+  const errors = form.formState.errors
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Informações Básicas</h3>
+    <div className="space-y-4">
+      <AcqSectionHeader title="Informações Básicas" />
 
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Título do Anúncio *</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Ex: Apartamento T2 no centro de Lisboa"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Título que aparecerá no portal (mínimo 5 caracteres)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+      <div className="grid grid-cols-2 gap-3">
+        <AcqInputField
+          label="Título do Anúncio"
+          required
+          fullWidth
+          value={form.watch('title')}
+          onChange={(v) => form.setValue('title', v, { shouldValidate: true })}
+          placeholder="Ex: Apartamento T2 no centro de Lisboa"
+          error={errors.title?.message as string}
         />
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descrição</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Descreva as características principais do imóvel..."
-                  className="min-h-[120px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        <AcqSelectField
+          label="Tipo de Imóvel"
+          required
+          value={form.watch('property_type')}
+          onChange={(v) => form.setValue('property_type', v, { shouldValidate: true })}
+          options={toOptions(PROPERTY_TYPES)}
+          placeholder="Seleccionar tipo"
+          error={errors.property_type?.message as string}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="property_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo de Imóvel *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(PROPERTY_TYPES).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <AcqSelectField
+          label="Tipo de Negócio"
+          required
+          value={form.watch('business_type')}
+          onChange={(v) => form.setValue('business_type', v, { shouldValidate: true })}
+          options={toOptions(BUSINESS_TYPES)}
+          placeholder="Seleccionar tipo"
+          error={errors.business_type?.message as string}
+        />
 
-          <FormField
-            control={form.control}
-            name="business_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo de Negócio *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(BUSINESS_TYPES).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <AcqInputField
+          label="Preço"
+          required
+          type="number"
+          value={form.watch('listing_price')}
+          onChange={(v) => form.setValue('listing_price', parseFloat(v) || 0, { shouldValidate: true })}
+          placeholder="0"
+          suffix="€"
+          error={errors.listing_price?.message as string}
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="listing_price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Preço de Venda/Arrendamento *</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                  />
-                </FormControl>
-                <FormDescription>Em euros (€)</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <AcqSelectField
+          label="Estado do Imóvel"
+          value={form.watch('property_condition')}
+          onChange={(v) => form.setValue('property_condition', v)}
+          options={toOptions(PROPERTY_CONDITIONS)}
+          placeholder="Seleccionar estado"
+        />
 
-          <FormField
-            control={form.control}
-            name="property_condition"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Estado do Imóvel *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(PROPERTY_CONDITIONS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <AcqSelectField
+          label="Certificado Energético"
+          value={form.watch('energy_certificate')}
+          onChange={(v) => form.setValue('energy_certificate', v)}
+          options={toOptions(ENERGY_CERTIFICATES)}
+          placeholder="Seleccionar classe"
+        />
 
-        <FormField
-          control={form.control}
-          name="energy_certificate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Certificado Energético</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar classe" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Object.entries(ENERGY_CERTIFICATES).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
+        <AcqTextareaField
+          label="Descrição"
+          value={form.watch('description')}
+          onChange={(v) => form.setValue('description', v)}
+          placeholder="Descreva as características principais do imóvel..."
+          rows={3}
         />
       </div>
 
-      <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-semibold">Especificações (Opcional)</h3>
+      <AcqSectionHeader title="Especificações" className="pt-2" />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <FormField
-            control={form.control}
-            name="specifications.typology"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipologia</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: T2" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <AcqInputField
+          label="Tipologia"
+          value={form.watch('specifications.typology')}
+          onChange={(v) => form.setValue('specifications.typology', v)}
+          placeholder="Ex: T2"
+        />
 
-          <FormField
-            control={form.control}
-            name="specifications.bedrooms"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Quartos</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <AcqInputField
+          label="Quartos"
+          type="number"
+          value={form.watch('specifications.bedrooms')}
+          onChange={(v) => form.setValue('specifications.bedrooms', parseInt(v) || 0)}
+        />
 
-          <FormField
-            control={form.control}
-            name="specifications.bathrooms"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Casas de Banho</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <AcqInputField
+          label="Casas de Banho"
+          type="number"
+          value={form.watch('specifications.bathrooms')}
+          onChange={(v) => form.setValue('specifications.bathrooms', parseInt(v) || 0)}
+        />
 
-          <FormField
-            control={form.control}
-            name="specifications.area_util"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Área Útil (m²)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <AcqInputField
+          label="Área Útil"
+          type="number"
+          value={form.watch('specifications.area_util')}
+          onChange={(v) => form.setValue('specifications.area_util', parseFloat(v) || 0)}
+          suffix="m²"
+        />
+
+        <AcqInputField
+          label="Área Bruta"
+          type="number"
+          value={form.watch('specifications.area_gross')}
+          onChange={(v) => form.setValue('specifications.area_gross', parseFloat(v) || 0)}
+          suffix="m²"
+        />
+
+        <AcqInputField
+          label="Ano Construção"
+          type="number"
+          value={form.watch('specifications.construction_year')}
+          onChange={(v) => form.setValue('specifications.construction_year', parseInt(v) || null)}
+          placeholder="Ex: 2005"
+        />
+
+        <AcqInputField
+          label="Estacionamento"
+          type="number"
+          value={form.watch('specifications.parking_spaces')}
+          onChange={(v) => form.setValue('specifications.parking_spaces', parseInt(v) || 0)}
+        />
+
+        <AcqInputField
+          label="Garagem"
+          type="number"
+          value={form.watch('specifications.garage_spaces')}
+          onChange={(v) => form.setValue('specifications.garage_spaces', parseInt(v) || 0)}
+        />
       </div>
     </div>
   )

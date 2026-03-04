@@ -58,6 +58,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
@@ -65,6 +66,8 @@ import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
 import { ProcessChat } from '@/components/processes/process-chat'
+import { ProcessPropertyTab } from '@/components/processes/process-property-tab'
+import { ProcessOwnersTab } from '@/components/processes/process-owners-tab'
 import { useUser } from '@/hooks/use-user'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
@@ -571,214 +574,160 @@ export default function ProcessoDetailPage() {
         </div>
       </div>
 
-      {/* Review Section (pending_approval / returned) */}
-      {['pending_approval', 'returned'].includes(instance.current_status) && (
-        <ProcessReviewSection
-          process={instance}
-          property={property}
-          owners={owners}
-          documents={documents}
-          onApprove={handleApprove}
-          onReturn={handleReturn}
-          onReject={handleReject}
-        />
-      )}
+      {/* Main Tabs: Processo | Imóvel | Proprietários */}
+      <Tabs defaultValue="processo">
+        <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0">
+          <TabsTrigger value="processo" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+            <LayoutGrid className="h-4 w-4" />
+            Processo
+          </TabsTrigger>
+          <TabsTrigger value="imovel" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+            <Building2 className="h-4 w-4" />
+            Imóvel
+          </TabsTrigger>
+          <TabsTrigger value="proprietarios" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+            <Users className="h-4 w-4" />
+            Proprietários
+            {owners && owners.length > 0 && (
+              <span className="ml-0.5 text-xs text-muted-foreground">({owners.length})</span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Active process: progress bar + filters + views */}
-      {isActive && stages && stages.length > 0 && (
-        <>
-          {/* Global progress card */}
-          <Card>
-            <CardContent className="px-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">Progresso Global</span>
-                <span className="text-sm font-bold tabular-nums">{progressPercent}%</span>
-              </div>
-              <Progress value={progressPercent} className="h-2" />
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  {completedTasks} concluídas
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-slate-400" />
-                  {totalTasks - completedTasks} pendentes
-                </span>
-                {overdueTasks > 0 && (
-                  <span className="flex items-center gap-1 text-red-500">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    {overdueTasks} em atraso
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Filters + view toggle */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as prioridades</SelectItem>
-                {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-              <SelectTrigger className="w-[170px]">
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {assignees.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="ml-auto">
-              <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
-                <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
-                  <LayoutGrid className="h-4 w-4" />
-                  Kanban
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="Vista Lista">
-                  <List className="h-4 w-4" />
-                  Lista
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
-
-          {/* Views */}
-          {viewMode === 'kanban' ? (
-            <ProcessKanbanView
-              stages={filteredStages}
-              isProcessing={isProcessing}
-              onTaskAction={handleTaskAction}
-              onTaskBypass={handleBypassOpen}
-              onTaskAssign={handleAssignOpen}
-              onTaskClick={handleTaskClick}
-            />
-          ) : (
-            <ProcessListView
-              stages={filteredStages}
-              isProcessing={isProcessing}
-              onTaskAction={handleTaskAction}
-              onTaskBypass={handleBypassOpen}
-              onTaskAssign={handleAssignOpen}
-              onTaskClick={handleTaskClick}
+        {/* Processo Tab */}
+        <TabsContent value="processo" className="mt-4 space-y-6">
+          {/* Review Section (pending_approval / returned) */}
+          {['pending_approval', 'returned'].includes(instance.current_status) && (
+            <ProcessReviewSection
+              process={instance}
+              property={property}
+              owners={owners}
+              documents={documents}
+              onApprove={handleApprove}
+              onReturn={handleReturn}
+              onReject={handleReject}
             />
           )}
-        </>
-      )}
 
-      {/* Info cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Imóvel
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tipo</span>
-              <span className="font-medium">{property?.property_type}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Preço</span>
-              <span className="font-medium">
-                {property?.listing_price ? formatCurrency(property.listing_price) : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Estado</span>
-              <StatusBadge status={property?.status} type="property" showDot={false} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Localização
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Cidade</span>
-              <span className="font-medium">{property?.city || '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Criado</span>
-              <span className="font-medium">{formatDate(instance.created_at)}</span>
-            </div>
-            {instance.approved_at && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Aprovado</span>
-                <span className="font-medium">{formatDate(instance.approved_at)}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Owners */}
-      {owners && owners.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Proprietários ({owners.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {owners.map((owner: { id: string; name: string; nif?: string | null; person_type: string; ownership_percentage: number; is_main_contact: boolean }) => (
-                <div
-                  key={owner.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
-                  <div>
-                    <p className="font-medium">{owner.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      NIF: {owner.nif || '—'} • {owner.person_type === 'singular' ? 'Pessoa Singular' : 'Pessoa Colectiva'}
-                    </p>
+          {/* Active process: progress bar + filters + views */}
+          {isActive && stages && stages.length > 0 && (
+            <>
+              {/* Global progress card */}
+              <Card>
+                <CardContent className="px-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">Progresso Global</span>
+                    <span className="text-sm font-bold tabular-nums">{progressPercent}%</span>
                   </div>
-                  <div className="text-right text-sm">
-                    <div>{owner.ownership_percentage}%</div>
-                    {owner.is_main_contact && (
-                      <div className="text-xs text-primary">Contacto Principal</div>
+                  <Progress value={progressPercent} className="h-2" />
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      {completedTasks} concluídas
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      {totalTasks - completedTasks} pendentes
+                    </span>
+                    {overdueTasks > 0 && (
+                      <span className="flex items-center gap-1 text-red-500">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {overdueTasks} em atraso
+                      </span>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </CardContent>
+              </Card>
 
-      {/* Chat do Processo */}
-      {isActive && user && (
+              {/* Filters + view toggle */}
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os estados</SelectItem>
+                    {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as prioridades</SelectItem>
+                    {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="Responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {assignees.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="ml-auto">
+                  <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
+                    <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
+                      <LayoutGrid className="h-4 w-4" />
+                      Kanban
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="list" aria-label="Vista Lista">
+                      <List className="h-4 w-4" />
+                      Lista
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              </div>
+
+              {/* Views */}
+              {viewMode === 'kanban' ? (
+                <ProcessKanbanView
+                  stages={filteredStages}
+                  isProcessing={isProcessing}
+                  onTaskAction={handleTaskAction}
+                  onTaskBypass={handleBypassOpen}
+                  onTaskAssign={handleAssignOpen}
+                  onTaskClick={handleTaskClick}
+                />
+              ) : (
+                <ProcessListView
+                  stages={filteredStages}
+                  isProcessing={isProcessing}
+                  onTaskAction={handleTaskAction}
+                  onTaskBypass={handleBypassOpen}
+                  onTaskAssign={handleAssignOpen}
+                  onTaskClick={handleTaskClick}
+                />
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* Imóvel Tab */}
+        <TabsContent value="imovel" className="mt-4">
+          <ProcessPropertyTab property={property} documents={documents} />
+        </TabsContent>
+
+        {/* Proprietários Tab */}
+        <TabsContent value="proprietarios" className="mt-4">
+          <ProcessOwnersTab owners={owners} documents={documents} />
+        </TabsContent>
+      </Tabs>
+
+      {/* Chat — always visible at the bottom */}
+      {user && (
         <Card className="overflow-hidden py-0">
           <div className="h-[500px]">
             <ProcessChat

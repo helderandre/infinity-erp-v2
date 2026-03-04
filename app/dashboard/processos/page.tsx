@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -26,16 +26,19 @@ import {
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileText, Plus, Search, Building2, MapPin, MoreVertical, Trash2, Loader2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, Loader2, X, CheckSquare } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
 import { toast } from 'sonner'
+import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 
 const STATUS_TABS = [
   { value: '', label: 'Todos' },
+  { value: 'draft', label: 'Rascunhos' },
   { value: 'pending_approval', label: 'Pendentes' },
   { value: 'returned', label: 'Devolvidos' },
   { value: 'active', label: 'Em Andamento' },
@@ -54,6 +57,13 @@ export default function ProcessosPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [processToDelete, setProcessToDelete] = useState<any>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false)
+  const [resumeDraftId, setResumeDraftId] = useState<string | undefined>()
+  const [selectionMode, setSelectionMode] = useState(false)
+  const suppressClickUntilRef = useRef(0)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
 
   const loadProcesses = useCallback(async () => {
@@ -98,6 +108,69 @@ export default function ProcessosPage() {
       setIsDeleting(false)
     }
   }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === processes.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(processes.map((p) => p.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true)
+    try {
+      const ids = Array.from(selectedIds)
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/processes/${id}`, { method: 'DELETE' }).then((res) => {
+            if (!res.ok) throw new Error(`Falha ao eliminar ${id}`)
+            return id
+          })
+        )
+      )
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) {
+        toast.warning(`${succeeded} eliminado(s), ${failed} falharam`)
+      } else {
+        toast.success(`${succeeded} processo(s) eliminado(s) com sucesso`)
+      }
+      exitSelectionMode()
+      setBulkDeleteDialogOpen(false)
+      loadProcesses()
+    } catch {
+      toast.error('Erro ao eliminar processos')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const enterSelectionMode = (initialId?: string) => {
+    setSelectionMode(true)
+    if (initialId) {
+      setSelectedIds(new Set([initialId]))
+    }
+  }
+
+  // Clear selection when filters change
+  useEffect(() => {
+    exitSelectionMode()
+  }, [debouncedSearch, statusFilter])
 
   useEffect(() => {
     loadProcesses()
@@ -182,6 +255,37 @@ export default function ProcessosPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectionMode && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
+          <Checkbox
+            checked={selectedIds.size === processes.length}
+            onCheckedChange={toggleSelectAll}
+          />
+          <span className="text-sm font-medium">
+            {selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="ml-auto"
+            disabled={selectedIds.size === 0}
+            onClick={() => setBulkDeleteDialogOpen(true)}
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            Eliminar ({selectedIds.size})
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={exitSelectionMode}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -221,48 +325,109 @@ export default function ProcessosPage() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {processes.map((proc) => (
-            <Card key={proc.id} className="group relative h-full transition-colors hover:bg-accent/50 hover:border-border">
-              {/* Dropdown menu */}
-              <div className="absolute top-3 right-3 z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                      onClick={(e) => e.preventDefault()}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.preventDefault()
-                        router.push(`/dashboard/processos/${proc.id}`)
-                      }}
-                    >
-                      Ver detalhes
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setProcessToDelete(proc)
-                        setDeleteDialogOpen(true)
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Eliminar processo
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+          {processes.map((proc) => {
+            const isDraft = proc.current_status === 'draft'
 
-              <Link href={`/dashboard/processos/${proc.id}`} className="block h-full">
-                <CardHeader className="pb-3">
+            const handleCardClick = (e: React.MouseEvent) => {
+              if (Date.now() < suppressClickUntilRef.current) {
+                e.preventDefault()
+                return
+              }
+              if (selectionMode) {
+                e.preventDefault()
+                toggleSelect(proc.id)
+                return
+              }
+              if (isDraft) {
+                e.preventDefault()
+                setResumeDraftId(proc.id)
+                setDraftDialogOpen(true)
+              }
+            }
+
+            const isSelected = selectedIds.has(proc.id)
+
+            const cardContent = (
+              <>
+                {/* Selection checkbox — only in selection mode */}
+                {selectionMode && (
+                  <div className="absolute top-3 left-3 z-10">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(proc.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="bg-background"
+                    />
+                  </div>
+                )}
+
+                {/* Dropdown menu */}
+                <div className="absolute top-3 right-3 z-10">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {isDraft ? (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setResumeDraftId(proc.id)
+                            setDraftDialogOpen(true)
+                          }}
+                        >
+                          <FileEdit className="mr-2 h-4 w-4" />
+                          Retomar rascunho
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            router.push(`/dashboard/processos/${proc.id}`)
+                          }}
+                        >
+                          Ver detalhes
+                        </DropdownMenuItem>
+                      )}
+                      {!selectionMode && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault()
+                              suppressClickUntilRef.current = Date.now() + 500
+                              setTimeout(() => enterSelectionMode(proc.id), 0)
+                            }}
+                          >
+                            <CheckSquare className="mr-2 h-4 w-4" />
+                            Seleccionar múltiplos
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setProcessToDelete(proc)
+                          setDeleteDialogOpen(true)
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar processo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <CardHeader className={cn('pb-3', selectionMode && 'pl-10')}>
                   <div className="flex items-start justify-between gap-2 pr-8">
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-sm font-semibold text-foreground">
@@ -316,7 +481,11 @@ export default function ProcessosPage() {
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="text-muted-foreground">Progresso</span>
-                      {proc.percent_complete === 0 ? (
+                      {isDraft ? (
+                        <span className="text-muted-foreground">
+                          Passo {proc.last_completed_step || 0} de 5
+                        </span>
+                      ) : proc.percent_complete === 0 ? (
                         <span className="text-muted-foreground">Não iniciado</span>
                       ) : (
                         <span className="text-foreground font-semibold">{proc.percent_complete}%</span>
@@ -324,8 +493,18 @@ export default function ProcessosPage() {
                     </div>
                     <div className="h-[3px] rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full transition-all ${proc.percent_complete === 100 ? 'bg-emerald-500' : 'bg-foreground'}`}
-                        style={{ width: `${proc.percent_complete}%` }}
+                        className={`h-full transition-all ${
+                          isDraft
+                            ? 'bg-violet-500'
+                            : proc.percent_complete === 100
+                              ? 'bg-emerald-500'
+                              : 'bg-foreground'
+                        }`}
+                        style={{
+                          width: isDraft
+                            ? `${((proc.last_completed_step || 0) / 5) * 100}%`
+                            : `${proc.percent_complete}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -348,13 +527,52 @@ export default function ProcessosPage() {
                     )}
                   </div>
                 </CardContent>
-              </Link>
-            </Card>
-          ))}
+              </>
+            )
+
+            return (
+              <Card key={proc.id} className={cn(
+                'group relative h-full transition-colors hover:bg-accent/50 hover:border-border',
+                isSelected && 'ring-2 ring-primary border-primary'
+              )}>
+                {selectionMode ? (
+                  <button type="button" onClick={handleCardClick} className="block h-full w-full text-left cursor-pointer">
+                    {cardContent}
+                  </button>
+                ) : isDraft ? (
+                  <button type="button" onClick={handleCardClick} className="block h-full w-full text-left">
+                    {cardContent}
+                  </button>
+                ) : (
+                  <Link href={`/dashboard/processos/${proc.id}`} className="block h-full">
+                    {cardContent}
+                  </Link>
+                )}
+              </Card>
+            )
+          })}
         </div>
       )}
 
-      {/* Delete confirmation dialog */}
+      {/* Draft resume dialog */}
+      <AcquisitionDialog
+        open={draftDialogOpen}
+        onOpenChange={(open) => {
+          setDraftDialogOpen(open)
+          if (!open) {
+            setResumeDraftId(undefined)
+            loadProcesses()
+          }
+        }}
+        draftId={resumeDraftId}
+        onComplete={(procInstanceId) => {
+          setDraftDialogOpen(false)
+          setResumeDraftId(undefined)
+          router.push(`/dashboard/processos/${procInstanceId}`)
+        }}
+      />
+
+      {/* Delete confirmation dialog (single) */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -378,6 +596,31 @@ export default function ProcessosPage() {
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirmation dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar {selectedIds.size} processo{selectedIds.size !== 1 ? 's' : ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar {selectedIds.size} processo{selectedIds.size !== 1 ? 's' : ''}?
+              <br />
+              Esta acção é irreversível e irá remover todas as tarefas associadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

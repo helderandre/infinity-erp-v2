@@ -139,6 +139,12 @@ export const STATUS_COLORS = {
 
 // Status de Propriedades (Visibilidade e Ciclo de Vida)
 export const PROPERTY_STATUS = {
+  draft: {
+    bg: 'bg-violet-500/15',
+    text: 'text-violet-500',
+    dot: 'bg-violet-500',
+    label: 'Rascunho',
+  },
   pending_approval: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-500',
@@ -197,6 +203,12 @@ export const PROPERTY_STATUS = {
 
 // Status de Processos (Workflow)
 export const PROCESS_STATUS = {
+  draft: {
+    bg: 'bg-violet-500/15',
+    text: 'text-violet-500',
+    dot: 'bg-violet-500',
+    label: 'Rascunho',
+  },
   pending_approval: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-500',
@@ -846,6 +858,69 @@ export const NEGOCIO_DURACOES_CONTRATO = [
   '1 ano',
   '2 anos',
   '3 anos',
+] as const
+
+// Localizações PT — distritos, concelhos e zonas relevantes para imobiliário
+export const LOCALIZACOES_PT = [
+  // Distritos
+  'Aveiro', 'Beja', 'Braga', 'Bragança', 'Castelo Branco',
+  'Coimbra', 'Évora', 'Faro', 'Guarda', 'Leiria',
+  'Lisboa', 'Portalegre', 'Porto', 'Santarém', 'Setúbal',
+  'Viana do Castelo', 'Vila Real', 'Viseu',
+  // Regiões autónomas
+  'Açores', 'Madeira', 'Funchal', 'Ponta Delgada',
+  // AML — Área Metropolitana de Lisboa
+  'Alcochete', 'Almada', 'Amadora', 'Barreiro', 'Cascais',
+  'Loures', 'Mafra', 'Moita', 'Montijo', 'Odivelas',
+  'Oeiras', 'Palmela', 'Seixal', 'Sesimbra', 'Sintra',
+  'Vila Franca de Xira',
+  // Zonas de Lisboa
+  'Alfama', 'Avenidas Novas', 'Baixa', 'Belém', 'Benfica',
+  'Campo de Ourique', 'Chiado', 'Estrela', 'Graça', 'Lapa',
+  'Lumiar', 'Marvila', 'Olivais', 'Parque das Nações',
+  'Príncipe Real', 'Restelo', 'Santos', 'São Domingos de Benfica',
+  'Telheiras', 'Alvalade', 'Areeiro', 'Arroios', 'Campolide',
+  'Carnide', 'Ajuda',
+  // AMP — Área Metropolitana do Porto
+  'Espinho', 'Gondomar', 'Maia', 'Matosinhos', 'Póvoa de Varzim',
+  'Santo Tirso', 'Trofa', 'Valongo', 'Vila do Conde',
+  'Vila Nova de Gaia',
+  // Zonas do Porto
+  'Boavista', 'Cedofeita', 'Foz do Douro', 'Lordelo do Ouro',
+  'Marquês', 'Massarelos', 'Nevogilde', 'Paranhos', 'Ramalde',
+  // Algarve — concelhos
+  'Albufeira', 'Alcoutim', 'Aljezur', 'Castro Marim', 'Faro',
+  'Lagoa', 'Lagos', 'Loulé', 'Monchique', 'Olhão',
+  'Portimão', 'São Brás de Alportel', 'Silves', 'Tavira',
+  'Vila do Bispo', 'Vila Real de Santo António',
+  // Algarve — zonas
+  'Vilamoura', 'Quarteira', 'Vale do Lobo', 'Quinta do Lago',
+  'Carvoeiro', 'Armação de Pêra', 'Praia da Rocha', 'Alvor',
+  'Sagres', 'Monte Gordo',
+  // Costa de Prata / Oeste
+  'Caldas da Rainha', 'Peniche', 'Óbidos', 'Torres Vedras',
+  'Nazaré', 'Alcobaça', 'Bombarral', 'Lourinhã', 'Alenquer',
+  'Arruda dos Vinhos', 'Sobral de Monte Agraço', 'Cadaval',
+  // Linha de Sintra / Cascais
+  'Queluz', 'Cacém', 'Agualva', 'Rio de Mouro', 'Mem Martins',
+  'Algueirão', 'Estoril', 'Carcavelos', 'Parede', 'São João do Estoril',
+  'São Pedro do Estoril', 'Monte Estoril', 'Birre',
+  // Margem Sul
+  'Costa da Caparica', 'Corroios', 'Amora', 'Arrentela',
+  'Paio Pires', 'Pinhal Novo', 'Quinta do Conde',
+  'Azeitão', 'Setúbal', 'Tróia',
+  // Centro
+  'Aveiro', 'Ílhavo', 'Águeda', 'Ovar', 'Viseu',
+  'Coimbra', 'Figueira da Foz', 'Leiria', 'Marinha Grande',
+  'Pombal', 'Tomar', 'Torres Novas', 'Abrantes', 'Entroncamento',
+  // Norte
+  'Guimarães', 'Barcelos', 'Famalicão', 'Viana do Castelo',
+  'Ponte de Lima', 'Bragança', 'Chaves', 'Vila Real',
+  'Amarante', 'Penafiel', 'Marco de Canaveses', 'Felgueiras',
+  // Alentejo
+  'Évora', 'Beja', 'Portalegre', 'Elvas', 'Estremoz',
+  'Vendas Novas', 'Montemor-o-Novo', 'Grândola', 'Santiago do Cacém',
+  'Sines', 'Alcácer do Sal', 'Comporta',
 ] as const
 
 // Formatadores

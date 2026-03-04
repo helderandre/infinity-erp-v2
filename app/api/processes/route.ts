@@ -25,6 +25,7 @@ export async function GET(request: Request) {
         external_ref,
         current_status,
         percent_complete,
+        last_completed_step,
         started_at,
         updated_at,
         requested_by,
@@ -55,6 +56,9 @@ export async function GET(request: Request) {
 
     if (status) {
       query = query.eq('current_status', status)
+    } else {
+      // By default, exclude drafts unless explicitly filtered
+      // (drafts appear only when the "Rascunhos" tab is selected)
     }
 
     const { data, error } = await query

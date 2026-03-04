@@ -599,6 +599,135 @@ export type Database = {
         }
         Relationships: []
       }
+      embarcacoes: {
+        Row: {
+          arqueacao: number | null
+          boca: number | null
+          comprimento: number | null
+          cor_casco: string | null
+          cor_superestrutura: string | null
+          created_at: string | null
+          data_construcao: number | null
+          data_registo: string | null
+          documento_url: string | null
+          fls: number | null
+          id: string
+          livro: number | null
+          lotacao: number | null
+          marca: string | null
+          material_casco: string | null
+          meios_salvacao: Json | null
+          modelo: string | null
+          motor_combustivel: string | null
+          motor_marca: string | null
+          motor_numero: string | null
+          motor_potencia_hp: number | null
+          motor_potencia_kw: number | null
+          motor_ps: string | null
+          motor_tipo: string | null
+          nome: string
+          numero_casco: string | null
+          numero_registo: string | null
+          observacoes: string | null
+          pontal: number | null
+          proprietario_cidade: string | null
+          proprietario_codigo_postal: string | null
+          proprietario_morada: string | null
+          proprietario_nome: string | null
+          proprietario_pais: string | null
+          radiobaliza: boolean | null
+          rx_msi: boolean | null
+          tipo_zona: string | null
+          updated_at: string | null
+          vhf_fixo: boolean | null
+          vhf_portatil: boolean | null
+        }
+        Insert: {
+          arqueacao?: number | null
+          boca?: number | null
+          comprimento?: number | null
+          cor_casco?: string | null
+          cor_superestrutura?: string | null
+          created_at?: string | null
+          data_construcao?: number | null
+          data_registo?: string | null
+          documento_url?: string | null
+          fls?: number | null
+          id?: string
+          livro?: number | null
+          lotacao?: number | null
+          marca?: string | null
+          material_casco?: string | null
+          meios_salvacao?: Json | null
+          modelo?: string | null
+          motor_combustivel?: string | null
+          motor_marca?: string | null
+          motor_numero?: string | null
+          motor_potencia_hp?: number | null
+          motor_potencia_kw?: number | null
+          motor_ps?: string | null
+          motor_tipo?: string | null
+          nome: string
+          numero_casco?: string | null
+          numero_registo?: string | null
+          observacoes?: string | null
+          pontal?: number | null
+          proprietario_cidade?: string | null
+          proprietario_codigo_postal?: string | null
+          proprietario_morada?: string | null
+          proprietario_nome?: string | null
+          proprietario_pais?: string | null
+          radiobaliza?: boolean | null
+          rx_msi?: boolean | null
+          tipo_zona?: string | null
+          updated_at?: string | null
+          vhf_fixo?: boolean | null
+          vhf_portatil?: boolean | null
+        }
+        Update: {
+          arqueacao?: number | null
+          boca?: number | null
+          comprimento?: number | null
+          cor_casco?: string | null
+          cor_superestrutura?: string | null
+          created_at?: string | null
+          data_construcao?: number | null
+          data_registo?: string | null
+          documento_url?: string | null
+          fls?: number | null
+          id?: string
+          livro?: number | null
+          lotacao?: number | null
+          marca?: string | null
+          material_casco?: string | null
+          meios_salvacao?: Json | null
+          modelo?: string | null
+          motor_combustivel?: string | null
+          motor_marca?: string | null
+          motor_numero?: string | null
+          motor_potencia_hp?: number | null
+          motor_potencia_kw?: number | null
+          motor_ps?: string | null
+          motor_tipo?: string | null
+          nome?: string
+          numero_casco?: string | null
+          numero_registo?: string | null
+          observacoes?: string | null
+          pontal?: number | null
+          proprietario_cidade?: string | null
+          proprietario_codigo_postal?: string | null
+          proprietario_morada?: string | null
+          proprietario_nome?: string | null
+          proprietario_pais?: string | null
+          radiobaliza?: boolean | null
+          rx_msi?: boolean | null
+          tipo_zona?: string | null
+          updated_at?: string | null
+          vhf_fixo?: boolean | null
+          vhf_portatil?: boolean | null
+        }
+        Relationships: []
+      }
       kv_store_6f39db24: {
         Row: {
           key: string
@@ -1071,6 +1200,69 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          action_url: string
+          body: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string | null
+          title: string
+        }
+        Insert: {
+          action_url: string
+          body?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id?: string | null
+          title: string
+        }
+        Update: {
+          action_url?: string
+          body?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_beneficiaries: {
         Row: {
           created_at: string | null
@@ -1247,6 +1439,212 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_chat_attachments: {
+        Row: {
+          attachment_type: string
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          message_id: string
+          mime_type: string | null
+          storage_key: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          attachment_type?: string
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          message_id: string
+          mime_type?: string | null
+          storage_key: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          attachment_type?: string
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+          storage_key?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          deleted_at: string | null
+          edited_at: string | null
+          has_attachments: boolean | null
+          id: string
+          is_deleted: boolean | null
+          is_edited: boolean | null
+          mentions: Json | null
+          parent_message_id: string | null
+          proc_instance_id: string
+          sender_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          parent_message_id?: string | null
+          proc_instance_id: string
+          sender_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          parent_message_id?: string | null
+          proc_instance_id?: string
+          sender_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_messages_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_read_receipts: {
+        Row: {
+          last_read_at: string | null
+          last_read_message_id: string | null
+          proc_instance_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          proc_instance_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          proc_instance_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_read_receipts_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_read_receipts_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_read_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_instances: {
         Row: {
           approved_at: string | null
@@ -1254,8 +1652,12 @@ export type Database = {
           completed_at: string | null
           current_stage_id: string | null
           current_status: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           external_ref: string | null
           id: string
+          last_completed_step: number | null
+          negocio_id: string | null
           notes: string | null
           percent_complete: number | null
           property_id: string
@@ -1276,8 +1678,12 @@ export type Database = {
           completed_at?: string | null
           current_stage_id?: string | null
           current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           external_ref?: string | null
           id?: string
+          last_completed_step?: number | null
+          negocio_id?: string | null
           notes?: string | null
           percent_complete?: number | null
           property_id: string
@@ -1298,8 +1704,12 @@ export type Database = {
           completed_at?: string | null
           current_stage_id?: string | null
           current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           external_ref?: string | null
           id?: string
+          last_completed_step?: number | null
+          negocio_id?: string | null
           notes?: string | null
           percent_complete?: number | null
           property_id?: string
@@ -1327,6 +1737,20 @@ export type Database = {
             columns: ["current_stage_id"]
             isOneToOne: false
             referencedRelation: "tpl_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
             referencedColumns: ["id"]
           },
           {
@@ -1366,6 +1790,125 @@ export type Database = {
           },
         ]
       }
+      proc_subtasks: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          is_mandatory: boolean | null
+          order_index: number
+          owner_id: string | null
+          proc_task_id: string
+          title: string
+          tpl_subtask_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number
+          owner_id?: string | null
+          proc_task_id: string
+          title: string
+          tpl_subtask_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number
+          owner_id?: string | null
+          proc_task_id?: string
+          title?: string
+          tpl_subtask_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_subtasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_tpl_subtask_id_fkey"
+            columns: ["tpl_subtask_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_subtasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_task_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          mentions: Json | null
+          proc_task_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          proc_task_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          proc_task_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_task_comments_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_task_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_tasks: {
         Row: {
           action_type: string | null
@@ -1375,14 +1918,18 @@ export type Database = {
           bypassed_by: string | null
           completed_at: string | null
           config: Json | null
+          created_at: string | null
           due_date: string | null
           id: string
           is_bypassed: boolean | null
           is_mandatory: boolean | null
           order_index: number | null
+          owner_id: string | null
+          priority: string
           proc_instance_id: string
           stage_name: string | null
           stage_order_index: number | null
+          started_at: string | null
           status: string | null
           task_result: Json | null
           title: string
@@ -1396,14 +1943,18 @@ export type Database = {
           bypassed_by?: string | null
           completed_at?: string | null
           config?: Json | null
+          created_at?: string | null
           due_date?: string | null
           id?: string
           is_bypassed?: boolean | null
           is_mandatory?: boolean | null
           order_index?: number | null
+          owner_id?: string | null
+          priority?: string
           proc_instance_id: string
           stage_name?: string | null
           stage_order_index?: number | null
+          started_at?: string | null
           status?: string | null
           task_result?: Json | null
           title: string
@@ -1417,14 +1968,18 @@ export type Database = {
           bypassed_by?: string | null
           completed_at?: string | null
           config?: Json | null
+          created_at?: string | null
           due_date?: string | null
           id?: string
           is_bypassed?: boolean | null
           is_mandatory?: boolean | null
           order_index?: number | null
+          owner_id?: string | null
+          priority?: string
           proc_instance_id?: string
           stage_name?: string | null
           stage_order_index?: number | null
+          started_at?: string | null
           status?: string | null
           task_result?: Json | null
           title?: string
@@ -1443,6 +1998,13 @@ export type Database = {
             columns: ["bypassed_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
             referencedColumns: ["id"]
           },
           {
@@ -1759,60 +2321,6 @@ export type Database = {
           },
         ]
       }
-      tpl_variables: {
-        Row: {
-          id: string
-          key: string
-          label: string
-          category: string
-          source_entity: string
-          source_table: string | null
-          source_column: string | null
-          format_type: string
-          format_config: Json | null
-          static_value: string | null
-          is_system: boolean
-          is_active: boolean
-          order_index: number
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          key: string
-          label: string
-          category: string
-          source_entity: string
-          source_table?: string | null
-          source_column?: string | null
-          format_type?: string
-          format_config?: Json | null
-          static_value?: string | null
-          is_system?: boolean
-          is_active?: boolean
-          order_index?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          key?: string
-          label?: string
-          category?: string
-          source_entity?: string
-          source_table?: string | null
-          source_column?: string | null
-          format_type?: string
-          format_config?: Json | null
-          static_value?: string | null
-          is_system?: boolean
-          is_active?: boolean
-          order_index?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       tpl_email_library: {
         Row: {
           body_html: string
@@ -1905,6 +2413,47 @@ export type Database = {
           },
         ]
       }
+      tpl_subtasks: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_mandatory: boolean | null
+          order_index: number
+          title: string
+          tpl_task_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index?: number
+          title: string
+          tpl_task_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index?: number
+          title?: string
+          tpl_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_subtasks_tpl_task_id_fkey"
+            columns: ["tpl_task_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tpl_tasks: {
         Row: {
           action_type: string
@@ -1915,6 +2464,7 @@ export type Database = {
           id: string
           is_mandatory: boolean | null
           order_index: number
+          priority: string
           sla_days: number | null
           title: string
           tpl_stage_id: string | null
@@ -1928,6 +2478,7 @@ export type Database = {
           id?: string
           is_mandatory?: boolean | null
           order_index: number
+          priority?: string
           sla_days?: number | null
           title: string
           tpl_stage_id?: string | null
@@ -1941,6 +2492,7 @@ export type Database = {
           id?: string
           is_mandatory?: boolean | null
           order_index?: number
+          priority?: string
           sla_days?: number | null
           title?: string
           tpl_stage_id?: string | null
@@ -1954,6 +2506,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tpl_variables: {
+        Row: {
+          category: string
+          created_at: string | null
+          format_config: Json | null
+          format_type: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          order_index: number
+          source_column: string | null
+          source_entity: string
+          source_table: string | null
+          static_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          format_config?: Json | null
+          format_type?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          order_index?: number
+          source_column?: string | null
+          source_entity: string
+          source_table?: string | null
+          static_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          format_config?: Json | null
+          format_type?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          order_index?: number
+          source_column?: string | null
+          source_entity?: string
+          source_table?: string | null
+          static_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_contracts: {
         Row: {
@@ -2055,6 +2661,7 @@ export type Database = {
           entity_type: string | null
           facebook_url: string | null
           full_name: string | null
+          genero: string | null
           green_receipt: boolean | null
           hire_date: string | null
           iban: string | null
@@ -2070,6 +2677,7 @@ export type Database = {
           monthly_salary: number | null
           nationality: string | null
           nif: string | null
+          pais_emissor: string | null
           personal_email: string | null
           phone_primary: string | null
           phone_secondary: string | null
@@ -2085,6 +2693,7 @@ export type Database = {
           sub_role: string | null
           tax_regime: string | null
           termination_date: string | null
+          tipo_documento: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2111,6 +2720,7 @@ export type Database = {
           entity_type?: string | null
           facebook_url?: string | null
           full_name?: string | null
+          genero?: string | null
           green_receipt?: boolean | null
           hire_date?: string | null
           iban?: string | null
@@ -2126,6 +2736,7 @@ export type Database = {
           monthly_salary?: number | null
           nationality?: string | null
           nif?: string | null
+          pais_emissor?: string | null
           personal_email?: string | null
           phone_primary?: string | null
           phone_secondary?: string | null
@@ -2141,6 +2752,7 @@ export type Database = {
           sub_role?: string | null
           tax_regime?: string | null
           termination_date?: string | null
+          tipo_documento?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2167,6 +2779,7 @@ export type Database = {
           entity_type?: string | null
           facebook_url?: string | null
           full_name?: string | null
+          genero?: string | null
           green_receipt?: boolean | null
           hire_date?: string | null
           iban?: string | null
@@ -2182,6 +2795,7 @@ export type Database = {
           monthly_salary?: number | null
           nationality?: string | null
           nif?: string | null
+          pais_emissor?: string | null
           personal_email?: string | null
           phone_primary?: string | null
           phone_secondary?: string | null
@@ -2197,6 +2811,7 @@ export type Database = {
           sub_role?: string | null
           tax_regime?: string | null
           termination_date?: string | null
+          tipo_documento?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2206,8 +2821,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _populate_subtasks: {
+        Args: {
+          p_parent_owner_id: string
+          p_proc_task_id: string
+          p_property_id: string
+          p_tpl_task_id: string
+        }
+        Returns: undefined
+      }
       populate_process_tasks: {
         Args: { p_instance_id: string }
+        Returns: undefined
+      }
+      recalculate_process_progress: {
+        Args: { p_proc_instance_id: string }
         Returns: undefined
       }
       unaccent: { Args: { "": string }; Returns: string }

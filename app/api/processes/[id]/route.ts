@@ -147,13 +147,10 @@ export async function GET(
         `
         *,
         property:dev_properties(
-          id,
-          title,
-          slug,
-          city,
-          listing_price,
-          status,
-          property_type
+          *,
+          specifications:dev_property_specifications(*),
+          internal:dev_property_internal(*),
+          media:dev_property_media(*)
         ),
         requested_by_user:dev_users!proc_instances_requested_by_fkey(
           id,
@@ -286,12 +283,7 @@ export async function GET(
         `
         ownership_percentage,
         is_main_contact,
-        owner:owners(
-          id,
-          name,
-          nif,
-          person_type
-        )
+        owner:owners(*)
       `
       )
       .eq('property_id', data.property?.id)
@@ -305,7 +297,9 @@ export async function GET(
         file_name,
         file_url,
         status,
+        valid_until,
         created_at,
+        uploaded_by,
         doc_type:doc_types(id, name, category)
       `
       )

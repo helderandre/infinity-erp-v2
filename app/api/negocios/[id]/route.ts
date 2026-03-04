@@ -15,7 +15,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('negocios')
-      .select('*, lead:leads(id, nome, telefone, telemovel, email)')
+      .select('*, lead:leads(id, nome, full_name, telefone, telemovel, email, nif, data_nascimento, nacionalidade, morada, tipo_documento, numero_documento, data_validade_documento, pais_emissor, tem_empresa, empresa, nipc, email_empresa, telefone_empresa, morada_empresa, documento_identificacao_url, documento_identificacao_frente_url, documento_identificacao_verso_url)')
       .eq('id', id)
       .single()
 

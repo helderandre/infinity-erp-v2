@@ -29,7 +29,7 @@ export async function GET(
     // 2. Consultar propriedades
     let query = supabase
       .from('dev_properties')
-      .select('id, title, slug, listing_price, property_type, status, city, zone')
+      .select('id, title, slug, listing_price, property_type, status, city, zone, description, energy_certificate, property_condition, consultant_id')
       .neq('status', 'sold')
       .eq('business_type', 'venda')
 
@@ -63,26 +63,54 @@ export async function GET(
       return NextResponse.json({ data: [] })
     }
 
-    // 3. Buscar specs e covers em paralelo
+    // 3. Buscar specs, media e consultores em paralelo
     const propertyIds = properties.map(p => p.id)
+    const consultantIds = [...new Set(properties.map(p => p.consultant_id).filter((id): id is string => !!id))]
 
-    const [specsResult, coversResult] = await Promise.all([
+    const [specsResult, mediaResult, consultantsResult] = await Promise.all([
       supabase
         .from('dev_property_specifications')
-        .select('property_id, bedrooms, area_util')
+        .select('property_id, bedrooms, bathrooms, area_gross, area_util, parking_spaces, construction_year, has_elevator, features')
         .in('property_id', propertyIds),
       supabase
         .from('dev_property_media')
-        .select('property_id, url')
+        .select('property_id, url, is_cover')
         .in('property_id', propertyIds)
-        .eq('is_cover', true),
+        .order('order_index', { ascending: true }),
+      consultantIds.length > 0
+        ? supabase
+            .from('dev_users')
+            .select('id, commercial_name, professional_email')
+            .in('id', consultantIds)
+        : Promise.resolve({ data: [] }),
     ])
+
+    // Also fetch consultant phones
+    const consultantPhoneResult = consultantIds.length > 0
+      ? await supabase
+          .from('dev_consultant_profiles')
+          .select('user_id, phone_commercial')
+          .in('user_id', consultantIds)
+      : { data: [] }
 
     const specsMap = new Map(
       (specsResult.data || []).map(s => [s.property_id, s])
     )
-    const coversMap = new Map(
-      (coversResult.data || []).map(c => [c.property_id, c.url])
+
+    // Group all media by property
+    const mediaMap = new Map<string, { url: string; is_cover: boolean }[]>()
+    for (const m of (mediaResult.data || [])) {
+      const pid = m.property_id as string
+      const list = mediaMap.get(pid) || []
+      list.push({ url: m.url, is_cover: !!m.is_cover })
+      mediaMap.set(pid, list)
+    }
+
+    const consultantMap = new Map(
+      (consultantsResult.data || []).map(c => [c.id, c])
+    )
+    const consultantPhoneMap = new Map(
+      (consultantPhoneResult.data || []).map(c => [c.user_id, c.phone_commercial])
     )
 
     // 4. Montar resultados com filtro de quartos e price_flag
@@ -106,6 +134,10 @@ export async function GET(
           }
         }
 
+        const media = mediaMap.get(p.id) || []
+        const coverMedia = media.find(m => m.is_cover)
+        const consultant = p.consultant_id ? consultantMap.get(p.consultant_id) : null
+
         return {
           id: p.id,
           title: p.title || '',
@@ -115,11 +147,32 @@ export async function GET(
           status: p.status,
           city: p.city,
           zone: p.zone,
+          description: p.description,
+          energy_certificate: p.energy_certificate,
+          property_condition: p.property_condition,
           specs: specs
-            ? { bedrooms: specs.bedrooms, area_util: specs.area_util }
+            ? {
+                bedrooms: specs.bedrooms,
+                bathrooms: specs.bathrooms,
+                area_gross: specs.area_gross,
+                area_util: specs.area_util,
+                parking_spaces: specs.parking_spaces,
+                construction_year: specs.construction_year,
+                has_elevator: specs.has_elevator,
+                features: specs.features,
+              }
             : null,
-          cover_url: coversMap.get(p.id) || null,
+          media,
+          cover_url: coverMedia?.url || media[0]?.url || null,
           price_flag,
+          consultant: consultant
+            ? {
+                id: consultant.id,
+                commercial_name: consultant.commercial_name,
+                phone: consultantPhoneMap.get(consultant.id) || null,
+                email: consultant.professional_email,
+              }
+            : null,
         }
       })
       .filter((p): p is PropertyMatch => p !== null)

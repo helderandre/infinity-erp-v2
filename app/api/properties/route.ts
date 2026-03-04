@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         '*, dev_property_specifications(*), dev_property_media(id, url, is_cover, order_index), consultant:dev_users!consultant_id(id, commercial_name)',
         { count: 'exact' }
       )
+      .neq('status', 'draft')
       .order(sortColumn, { ascending: sortAscending })
       .range(offset, offset + limit - 1)
 

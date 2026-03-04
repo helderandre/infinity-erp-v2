@@ -20,8 +20,8 @@ export async function GET(
       return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
     }
 
-    // Interessados so faz sentido para negocios de Venda
-    if (negocio.tipo !== 'Venda') {
+    // Interessados so faz sentido para negocios de Venda ou Compra e Venda
+    if (!['Venda', 'Compra e Venda'].includes(negocio.tipo)) {
       return NextResponse.json({ data: [] })
     }
 
@@ -34,7 +34,7 @@ export async function GET(
         id,
         lead:leads(
           nome,
-          agent:dev_users(commercial_name, phone_commercial:dev_consultant_profiles(phone_commercial))
+          agent:dev_users(commercial_name, professional_email, phone_commercial:dev_consultant_profiles(phone_commercial))
         )
       `)
       .in('tipo', ['Compra', 'Compra e Venda'])
@@ -64,6 +64,7 @@ export async function GET(
           firstName,
           colleague: (agent?.commercial_name as string) || 'Sem consultor',
           phone: profile?.[0]?.phone_commercial as string | null ?? null,
+          email: (agent?.professional_email as string) || null,
         }
       })
 

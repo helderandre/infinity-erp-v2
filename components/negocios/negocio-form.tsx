@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { TagsInput } from '@/components/ui/tags-input'
 import {
   NEGOCIO_TIPOS_IMOVEL,
   NEGOCIO_ESTADOS_IMOVEL,
@@ -19,6 +20,7 @@ import {
   NEGOCIO_CLASSES_IMOVEL,
   NEGOCIO_SITUACOES_PROFISSIONAIS,
   NEGOCIO_DURACOES_CONTRATO,
+  LOCALIZACOES_PT,
 } from '@/lib/constants'
 
 interface NegocioFormProps {
@@ -85,6 +87,64 @@ function CheckboxField({
   )
 }
 
+function SelectField({
+  label,
+  field,
+  form,
+  updateField,
+  options,
+}: {
+  label: string
+  field: string
+  form: Record<string, unknown>
+  updateField: (field: string, value: unknown) => void
+  options: readonly string[]
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={(form[field] as string) || ''} onValueChange={(v) => updateField(field, v)}>
+        <SelectTrigger>
+          <SelectValue placeholder="Seleccionar" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function LocationTagsField({
+  label,
+  field,
+  form,
+  updateField,
+  placeholder,
+}: {
+  label: string
+  field: string
+  form: Record<string, unknown>
+  updateField: (field: string, value: unknown) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="rounded-md border px-3 py-2">
+        <TagsInput
+          value={(form[field] as string) || ''}
+          onChange={(v) => updateField(field, v)}
+          placeholder={placeholder || 'Zonas pretendidas...'}
+          suggestions={LOCALIZACOES_PT}
+        />
+      </div>
+    </div>
+  )
+}
+
 const amenityFields = [
   { field: 'tem_elevador', label: 'Elevador' },
   { field: 'tem_estacionamento', label: 'Estacionamento' },
@@ -97,71 +157,45 @@ const amenityFields = [
 ]
 
 export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
-  const isCompra = tipo === 'Compra' || tipo === 'Compra e Venda'
-  const isVenda = tipo === 'Venda' || tipo === 'Compra e Venda'
+  const isCompraEVenda = tipo === 'Compra e Venda'
+  const isCompra = tipo === 'Compra' || isCompraEVenda
+  const isVenda = tipo === 'Venda' || isCompraEVenda
   const isArrendatario = tipo === 'Arrendatário'
   const isArrendador = tipo === 'Arrendador'
 
   return (
     <div className="space-y-6">
-      {/* Tipo de imovel e localizacao (comum a todos) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Tipo de Imóvel</Label>
-          <Select value={(form.tipo_imovel as string) || ''} onValueChange={(v) => updateField('tipo_imovel', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar" />
-            </SelectTrigger>
-            <SelectContent>
-              {NEGOCIO_TIPOS_IMOVEL.map((t) => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Localização</Label>
-          <Input
-            value={(form.localizacao as string) || ''}
-            onChange={(e) => updateField('localizacao', e.target.value)}
-            placeholder="Zonas pretendidas (separar por vírgula)"
-          />
-        </div>
-      </div>
+      {/* Shared top fields — only for single-type negócios (not Compra e Venda) */}
+      {!isCompraEVenda && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
+            <LocationTagsField label="Localização" field="localizacao" form={form} updateField={updateField} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
+            <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />
+          </div>
+        </>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Estado do Imóvel</Label>
-          <Select value={(form.estado_imovel as string) || ''} onValueChange={(v) => updateField('estado_imovel', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar" />
-            </SelectTrigger>
-            <SelectContent>
-              {NEGOCIO_ESTADOS_IMOVEL.map((e) => (
-                <SelectItem key={e} value={e}>{e}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Classe</Label>
-          <Select value={(form.classe_imovel as string) || ''} onValueChange={(v) => updateField('classe_imovel', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar" />
-            </SelectTrigger>
-            <SelectContent>
-              {NEGOCIO_CLASSES_IMOVEL.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Campos de Compra */}
+      {/* ─── Compra section ─── */}
       {isCompra && (
         <>
-          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Critérios de Compra</h4>
+          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {isCompraEVenda ? 'O que procura (Compra)' : 'Critérios de Compra'}
+          </h4>
+
+          {/* Compra-specific shared fields when Compra e Venda */}
+          {isCompraEVenda && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
+              <LocationTagsField label="Zonas pretendidas" field="localizacao" form={form} updateField={updateField} placeholder="Lisboa, Cascais..." />
+              <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
+              <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Orçamento Mínimo" field="orcamento" form={form} updateField={updateField} suffix="€" />
             <NumberInput label="Orçamento Máximo" field="orcamento_max" form={form} updateField={updateField} suffix="€" />
@@ -169,32 +203,8 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Área Mínima" field="area_min_m2" form={form} updateField={updateField} suffix="m²" />
-            <div className="space-y-2">
-              <Label>Motivação</Label>
-              <Select value={(form.motivacao_compra as string) || ''} onValueChange={(v) => updateField('motivacao_compra', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEGOCIO_MOTIVACOES.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Prazo</Label>
-              <Select value={(form.prazo_compra as string) || ''} onValueChange={(v) => updateField('prazo_compra', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEGOCIO_PRAZOS.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SelectField label="Motivação" field="motivacao_compra" form={form} updateField={updateField} options={NEGOCIO_MOTIVACOES} />
+            <SelectField label="Prazo" field="prazo_compra" form={form} updateField={updateField} options={NEGOCIO_PRAZOS} />
           </div>
           <div className="space-y-3">
             <Label>Financiamento</Label>
@@ -207,13 +217,36 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
               <NumberInput label="Capital Próprio" field="capital_proprio" form={form} updateField={updateField} suffix="€" />
             </div>
           </div>
+
+          {/* Amenities for Compra side */}
+          {isCompraEVenda && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Características pretendidas</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {amenityFields.map(({ field, label }) => (
+                  <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {/* Campos de Venda */}
+      {/* ─── Venda section ─── */}
       {isVenda && (
         <>
-          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados de Venda</h4>
+          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {isCompraEVenda ? 'O que vende (Venda)' : 'Dados de Venda'}
+          </h4>
+
+          {/* Venda-specific fields when Compra e Venda */}
+          {isCompraEVenda && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField label="Tipo de Imóvel" field="tipo_imovel_venda" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
+              <LocationTagsField label="Localização do imóvel" field="localizacao_venda" form={form} updateField={updateField} placeholder="Zona do imóvel..." />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Preço de Venda" field="preco_venda" form={form} updateField={updateField} suffix="€" />
             <NumberInput label="Quartos" field="quartos" form={form} updateField={updateField} />
@@ -247,10 +280,22 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
               />
             </div>
           </div>
+
+          {/* Amenities for Venda side */}
+          {isCompraEVenda && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Características do imóvel</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {amenityFields.map(({ field, label }) => (
+                  <CheckboxField key={`${field}_venda`} label={label} field={`${field}_venda`} form={form} updateField={updateField} />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {/* Campos de Arrendatario */}
+      {/* ─── Arrendatário section ─── */}
       {isArrendatario && (
         <>
           <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Critérios de Arrendamento</h4>
@@ -260,19 +305,7 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
             <NumberInput label="Área Mínima" field="area_min_m2" form={form} updateField={updateField} suffix="m²" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Situação Profissional</Label>
-              <Select value={(form.situacao_profissional as string) || ''} onValueChange={(v) => updateField('situacao_profissional', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEGOCIO_SITUACOES_PROFISSIONAIS.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SelectField label="Situação Profissional" field="situacao_profissional" form={form} updateField={updateField} options={NEGOCIO_SITUACOES_PROFISSIONAIS} />
             <NumberInput label="Rendimento Mensal" field="rendimento_mensal" form={form} updateField={updateField} suffix="€" />
           </div>
           <div className="flex items-center gap-6">
@@ -282,25 +315,13 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
         </>
       )}
 
-      {/* Campos de Arrendador */}
+      {/* ─── Arrendador section ─── */}
       {isArrendador && (
         <>
           <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Condições de Arrendamento</h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Renda Pretendida" field="renda_pretendida" form={form} updateField={updateField} suffix="€" />
-            <div className="space-y-2">
-              <Label>Duração Mínima</Label>
-              <Select value={(form.duracao_minima_contrato as string) || ''} onValueChange={(v) => updateField('duracao_minima_contrato', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEGOCIO_DURACOES_CONTRATO.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SelectField label="Duração Mínima" field="duracao_minima_contrato" form={form} updateField={updateField} options={NEGOCIO_DURACOES_CONTRATO} />
             <NumberInput label="Caução (rendas)" field="caucao_rendas" form={form} updateField={updateField} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -315,17 +336,19 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
         </>
       )}
 
-      {/* Amenidades (comum) */}
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Amenidades</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {amenityFields.map(({ field, label }) => (
-            <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
-          ))}
+      {/* Amenidades (single-type only — Compra e Venda has them inline above) */}
+      {!isCompraEVenda && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Amenidades</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {amenityFields.map(({ field, label }) => (
+              <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Observacoes */}
+      {/* Observações */}
       <div className="space-y-2">
         <Label>Observações</Label>
         <Textarea

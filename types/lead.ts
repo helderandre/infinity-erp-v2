@@ -22,7 +22,7 @@ export interface NegocioWithLead extends NegocioRow {
 
 // Negocio com lead basico (usado no detalhe do negocio)
 export interface NegocioWithLeadBasic extends NegocioRow {
-  lead?: Pick<LeadRow, 'id' | 'nome' | 'telefone' | 'telemovel' | 'email'> | null
+  lead?: Pick<LeadRow, 'id' | 'nome' | 'full_name' | 'telefone' | 'telemovel' | 'email' | 'nif' | 'data_nascimento' | 'nacionalidade' | 'morada' | 'tipo_documento' | 'numero_documento' | 'data_validade_documento' | 'pais_emissor' | 'tem_empresa' | 'empresa' | 'nipc' | 'email_empresa' | 'telefone_empresa' | 'morada_empresa' | 'documento_identificacao_url' | 'documento_identificacao_frente_url' | 'documento_identificacao_verso_url'> | null
 }
 
 // Attachment
@@ -42,12 +42,28 @@ export interface PropertyMatch {
   status: string | null
   city: string | null
   zone: string | null
+  description: string | null
+  energy_certificate: string | null
+  property_condition: string | null
   specs: {
     bedrooms: number | null
+    bathrooms: number | null
+    area_gross: number | null
     area_util: number | null
+    parking_spaces: number | null
+    construction_year: number | null
+    has_elevator: boolean | null
+    features: string[] | null
   } | null
+  media: { url: string; is_cover: boolean }[]
   cover_url: string | null
   price_flag: 'yellow' | 'orange' | null
+  consultant: {
+    id: string
+    commercial_name: string
+    phone: string | null
+    email: string | null
+  } | null
 }
 
 // Interessado (retornado pelo endpoint de interessados)
@@ -56,6 +72,7 @@ export interface NegocioInteressado {
   firstName: string
   colleague: string
   phone: string | null
+  email: string | null
 }
 
 // Resposta do chat IA

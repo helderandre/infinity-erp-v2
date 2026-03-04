@@ -31,6 +31,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { LeadForm } from '@/components/leads/lead-form'
 import { Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDate, LEAD_TEMPERATURAS } from '@/lib/constants'
@@ -91,6 +98,7 @@ function LeadsPageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [showNewDialog, setShowNewDialog] = useState(false)
 
   // Filtros
   const [search, setSearch] = useState(searchParams.get('nome') || '')
@@ -189,13 +197,41 @@ function LeadsPageContent() {
     setPage(0)
   }
 
+  const TEMP_DISPLAY: Record<string, { emoji: string; label: string; class: string }> = {
+    Quente: { emoji: '🔥', label: 'Quente', class: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
+    Morno: { emoji: '☀️', label: 'Morna', class: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+    Frio: { emoji: '❄️', label: 'Fria', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
+  }
+
+  const ESTADO_COLORS: Record<string, string> = {
+    'Novo': 'bg-sky-500',
+    'Em contacto': 'bg-yellow-500',
+    'Qualificado': 'bg-emerald-500',
+    'Em negociação': 'bg-blue-500',
+    'Convertido': 'bg-purple-500',
+    'Perdido': 'bg-red-500',
+    'Arquivado': 'bg-slate-400',
+  }
+
   const getTemperaturaBadge = (temp: string | null) => {
     if (!temp) return '—'
-    const t = LEAD_TEMPERATURAS.find((x) => x.value === temp)
-    if (!t) return <Badge variant="secondary">{temp}</Badge>
+    const info = TEMP_DISPLAY[temp]
+    if (!info) return <Badge variant="secondary">{temp}</Badge>
     return (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${t.color}`}>
-        {t.label}
+      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${info.class}`}>
+        <span>{info.emoji}</span>
+        {info.label}
+      </span>
+    )
+  }
+
+  const getEstadoBadge = (estado: string | null) => {
+    if (!estado) return '—'
+    const dotColor = ESTADO_COLORS[estado] || 'bg-slate-400'
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+        <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+        {estado}
       </span>
     )
   }
@@ -211,7 +247,7 @@ function LeadsPageContent() {
             Gestão de leads e contactos
           </p>
         </div>
-        <Button onClick={() => router.push('/dashboard/leads/novo')}>
+        <Button onClick={() => setShowNewDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Lead
         </Button>
@@ -275,7 +311,7 @@ function LeadsPageContent() {
             !hasActiveFilters
               ? {
                   label: 'Novo Lead',
-                  onClick: () => router.push('/dashboard/leads/novo'),
+                  onClick: () => setShowNewDialog(true),
                 }
               : undefined
           }
@@ -312,11 +348,7 @@ function LeadsPageContent() {
                       {lead.telemovel || lead.telefone || '—'}
                     </TableCell>
                     <TableCell>
-                      {lead.estado ? (
-                        <Badge variant="secondary">{lead.estado}</Badge>
-                      ) : (
-                        '—'
-                      )}
+                      {getEstadoBadge(lead.estado)}
                     </TableCell>
                     <TableCell>{getTemperaturaBadge(lead.temperatura)}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -394,6 +426,22 @@ function LeadsPageContent() {
           )}
         </>
       )}
+
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo Lead</DialogTitle>
+          </DialogHeader>
+          <LeadForm
+            consultants={consultants}
+            onSuccess={(id) => {
+              setShowNewDialog(false)
+              router.push(`/dashboard/leads/${id}`)
+            }}
+            onCancel={() => setShowNewDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

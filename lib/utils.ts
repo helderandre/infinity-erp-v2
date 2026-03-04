@@ -50,3 +50,15 @@ export function formatDateTime(date: string | Date | null | undefined): string {
     minute: '2-digit',
   }).format(d)
 }
+
+/**
+ * Replace {{key}} placeholders in a string with values from a map
+ */
+export function interpolateVariables(
+  template: string,
+  variables: Record<string, string>
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+    return variables[key] !== undefined ? variables[key] : `{{${key}}}`
+  })
+}

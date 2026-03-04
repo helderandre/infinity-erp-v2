@@ -19,15 +19,12 @@ export interface ProcessInstance extends ProcInstance {
 
 export interface ProcessTask extends ProcTask {
   assigned_to_user?: Pick<DevUser, 'id' | 'commercial_name'> & { profile_photo_url?: string | null }
-  owner_id?: string | null
   owner?: {
     id: string
     name: string
     person_type: 'singular' | 'coletiva'
   } | null
   priority: TaskPriority
-  started_at?: string | null
-  created_at?: string | null
   subtasks?: ProcSubtask[]
 }
 
@@ -43,6 +40,7 @@ export interface ProcessStageWithTasks {
 export interface ProcessOwner {
   id: string
   name: string
+  email: string | null
   nif: string | null
   person_type: 'singular' | 'coletiva'
   ownership_percentage: number
