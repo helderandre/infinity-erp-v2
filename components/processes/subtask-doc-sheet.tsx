@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -18,10 +18,14 @@ import {
   User,
   Building2,
   Download,
+  Eye,
+  Pencil,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn, interpolateVariables } from '@/lib/utils'
+import { DocumentEditor } from '@/components/document-editor/document-editor'
+import type { DocumentEditorRef } from '@/components/document-editor/types'
 import type { ProcSubtask } from '@/types/subtask'
 
 interface SubtaskDocSheetProps {
@@ -62,7 +66,10 @@ export function SubtaskDocSheet({
   const [isSaving, setIsSaving] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [hasRendered, setHasRendered] = useState(false)
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
+  const [previewHtml, setPreviewHtml] = useState('')
 
+  const editorRef = useRef<DocumentEditorRef>(null)
   const localDraftRef = useRef<{ subtaskId: string; html: string } | null>(null)
 
   useEffect(() => {
@@ -140,6 +147,13 @@ export function SubtaskDocSheet({
       .finally(() => setIsLoading(false))
   }, [open, subtask, propertyId])
 
+  const getEditorHtml = useCallback((): string => {
+    if (editorRef.current) {
+      return editorRef.current.getHTML()
+    }
+    return renderedHtml
+  }, [renderedHtml])
+
   const callSubtaskApi = async (payload: Record<string, unknown>) => {
     const res = await fetch(
       `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtask.id}`,
@@ -159,12 +173,14 @@ export function SubtaskDocSheet({
   const handleSaveDraft = async () => {
     setIsSaving(true)
     try {
+      const html = getEditorHtml()
       await callSubtaskApi({
         rendered_content: {
-          body_html: renderedHtml,
+          body_html: html,
         },
       })
-      localDraftRef.current = { subtaskId: subtask.id, html: renderedHtml }
+      localDraftRef.current = { subtaskId: subtask.id, html }
+      setRenderedHtml(html)
       setHasRendered(true)
       toast.success('Rascunho do documento guardado!')
       onSaveDraftProp?.()
@@ -178,9 +194,10 @@ export function SubtaskDocSheet({
   const handleMarkAsComplete = async () => {
     setIsCompleting(true)
     try {
+      const html = getEditorHtml()
       await callSubtaskApi({
         rendered_content: {
-          body_html: renderedHtml,
+          body_html: html,
         },
         is_completed: true,
       })
@@ -195,17 +212,36 @@ export function SubtaskDocSheet({
   }
 
   const handlePrint = () => {
+    const html = getEditorHtml()
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(`
       <!DOCTYPE html>
       <html><head>
         <title>${templateName || subtask.title}</title>
-        <style>body{font-family:Arial,sans-serif;padding:2rem;max-width:800px;margin:auto;}</style>
-      </head><body>${renderedHtml}</body></html>
+        <style>
+          body {
+            font-family: 'Source Serif 4', Georgia, serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: auto;
+            font-size: 12pt;
+            line-height: 1.6;
+          }
+          table { border-collapse: collapse; width: 100%; }
+          td, th { border: 1px solid #ddd; padding: 8px; }
+          img { max-width: 100%; }
+        </style>
+      </head><body>${html}</body></html>
     `)
     printWindow.document.close()
     printWindow.print()
+  }
+
+  const handleSwitchToPreview = () => {
+    const html = getEditorHtml()
+    setPreviewHtml(html)
+    setActiveTab('preview')
   }
 
   const ownerInfo = (subtask as unknown as { owner?: { person_type?: string; name?: string } }).owner
@@ -228,10 +264,13 @@ export function SubtaskDocSheet({
     </Badge>
   ) : null
 
+  const isCompleted = subtask.is_completed
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="flex flex-col p-0 sm:max-w-3xl"
+        className="flex flex-col p-0"
+        style={{ position: 'fixed', inset: 0, width: '100vw', maxWidth: '100vw', height: '100dvh' }}
         side="right"
       >
         {/* Header */}
@@ -250,7 +289,7 @@ export function SubtaskDocSheet({
                     Rascunho guardado
                   </Badge>
                 )}
-                {subtask.is_completed && (
+                {isCompleted && (
                   <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
                     <CheckCircle2 className="mr-1 h-3 w-3" />
                     Concluido
@@ -258,6 +297,35 @@ export function SubtaskDocSheet({
                 )}
               </div>
             </div>
+            {/* Edit / Preview toggle */}
+            {renderedHtml && !isLoading && !error && (
+              <div className="flex items-center gap-1 shrink-0 self-center">
+                <button
+                  onClick={() => setActiveTab('edit')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded transition-colors inline-flex items-center gap-1.5',
+                    activeTab === 'edit'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar
+                </button>
+                <button
+                  onClick={handleSwitchToPreview}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded transition-colors inline-flex items-center gap-1.5',
+                    activeTab === 'preview'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  <Eye className="h-3 w-3" />
+                  Pré-visualizar
+                </button>
+              </div>
+            )}
           </div>
         </SheetHeader>
 
@@ -265,7 +333,9 @@ export function SubtaskDocSheet({
         {isLoading ? (
           <div className="p-6 space-y-3 flex-1">
             <Skeleton className="h-4 w-40" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-28 mt-4" />
+            <Skeleton className="h-96 w-full" />
           </div>
         ) : error ? (
           <div className="p-6 flex-1">
@@ -275,17 +345,37 @@ export function SubtaskDocSheet({
             </div>
           </div>
         ) : renderedHtml ? (
-          <div className="flex-1 overflow-auto bg-muted/30 p-6">
-            <div
-              className="mx-auto rounded-md border bg-white p-8 prose prose-sm max-w-none"
-              style={{ maxWidth: 720 }}
-              dangerouslySetInnerHTML={{ __html: renderedHtml }}
-            />
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {/* Editor — always mounted to preserve state */}
+            <div className={cn('flex-1 overflow-hidden flex flex-col', activeTab !== 'edit' && 'hidden')}>
+              <DocumentEditor
+                ref={editorRef}
+                content={renderedHtml}
+                mode={isCompleted ? 'readonly' : 'document'}
+                placeholder="Conteúdo do documento..."
+              />
+            </div>
+
+            {/* Preview */}
+            {activeTab === 'preview' && (
+              <div className="flex-1 overflow-auto bg-muted/30 p-6">
+                <div
+                  className="mx-auto rounded-md border bg-white shadow-lg"
+                  style={{ width: '210mm', minHeight: '297mm' }}
+                >
+                  <div
+                    className="prose prose-sm sm:prose-base max-w-none px-10 py-8"
+                    style={{ fontFamily: 'Source Serif 4, Georgia, serif', fontSize: '12pt', lineHeight: 1.6 }}
+                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 
         {/* Footer */}
-        {renderedHtml && !subtask.is_completed ? (
+        {renderedHtml && !isCompleted ? (
           <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Button
@@ -324,7 +414,7 @@ export function SubtaskDocSheet({
               Marcar como Concluido
             </Button>
           </div>
-        ) : renderedHtml && subtask.is_completed ? (
+        ) : renderedHtml && isCompleted ? (
           <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-emerald-600">
               <CheckCircle2 className="h-4 w-4" />
