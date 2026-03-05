@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,13 +10,16 @@ import { ChatMessageItem } from './chat-message'
 import { ChatInput } from './chat-input'
 import { CHAT_LABELS } from '@/lib/constants'
 import type { ChatMessage, ChatReadReceipt } from '@/types/process'
+import type { ChatEntityData } from './chat-message'
 
 interface ProcessChatProps {
   processId: string
   currentUser: { id: string; name: string; avatarUrl?: string }
+  hideHeader?: boolean
+  onEntityClick?: (entityType: string, entityId: string) => void
 }
 
-export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
+export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick }: ProcessChatProps) {
   const {
     messages,
     readReceipts,
@@ -31,8 +34,29 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
 
   const { onlineUsers, typingUsers, setTyping } = useChatPresence(processId, currentUser)
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
+  const [entitiesMap, setEntitiesMap] = useState<Map<string, ChatEntityData>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
   const firstRenderRef = useRef(true)
+
+  // Fetch entities for rendering cards in messages
+  const loadEntities = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/processes/${processId}/chat/entities`)
+      if (!res.ok) return
+      const data = await res.json()
+      const map = new Map<string, ChatEntityData>()
+      for (const e of (data.entities || [])) {
+        map.set(e.id, e)
+      }
+      setEntitiesMap(map)
+    } catch {
+      // silent
+    }
+  }, [processId])
+
+  useEffect(() => {
+    loadEntities()
+  }, [loadEntities])
 
   // Build a map of messageId -> readers for read receipt display
   const messageReadersMap = useMemo(() => {
@@ -104,23 +128,25 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold">{CHAT_LABELS.title}</span>
-          {messages.length > 0 && (
-            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] font-medium rounded-full">
-              {messages.length}
-            </Badge>
+      {!hideHeader && (
+        <div className="border-b px-4 py-2.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">{CHAT_LABELS.title}</span>
+            {messages.length > 0 && (
+              <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] font-medium rounded-full">
+                {messages.length}
+              </Badge>
+            )}
+          </div>
+          {onlineCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              {onlineCount} {CHAT_LABELS.online}
+            </div>
           )}
         </div>
-        {onlineCount > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            {onlineCount} {CHAT_LABELS.online}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Body */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -153,6 +179,8 @@ export function ProcessChat({ processId, currentUser }: ProcessChatProps) {
                 onEdit={editMessage}
                 onDelete={deleteMessage}
                 readers={messageReadersMap.get(msg.id)}
+                onEntityClick={onEntityClick}
+                entitiesMap={entitiesMap}
               />
             ))}
           </>

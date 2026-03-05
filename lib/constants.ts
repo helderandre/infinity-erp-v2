@@ -770,7 +770,7 @@ export const KYC_LABELS = {
 
 export const CHAT_LABELS = {
   title: 'Chat do Processo',
-  placeholder: 'Escrever mensagem... Use @ para mencionar',
+  placeholder: 'Escrever mensagem... @ mencionar, / tarefas',
   send: 'Enviar',
   no_messages: 'Sem mensagens. Inicie a conversa.',
   typing_one: 'está a escrever...',

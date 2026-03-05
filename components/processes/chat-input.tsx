@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
 import { Button } from '@/components/ui/button'
-import { Paperclip, Send, X } from 'lucide-react'
+import { Paperclip, Send, X, ClipboardList, Pin, FileText } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { CHAT_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -63,11 +63,12 @@ export function ChatInput({
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [mentionUsers, setMentionUsers] = useState<{ id: string; display: string }[]>([])
+  const [mentionEntities, setMentionEntities] = useState<{ id: string; display: string; type?: string; status?: string; extra?: string }[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch users for mentions
+  // Fetch users for @ mentions
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -81,6 +82,29 @@ export function ChatInput({
     }
     loadUsers()
   }, [])
+
+  // Fetch entities for / mentions (tasks, subtasks, documents)
+  useEffect(() => {
+    const loadEntities = async () => {
+      try {
+        const res = await fetch(`/api/processes/${processId}/chat/entities`)
+        if (!res.ok) return
+        const data = await res.json()
+        setMentionEntities(
+          (data.entities || []).map((e: { id: string; display: string; type: string; status: string; extra?: string }) => ({
+            id: e.id,
+            display: e.display,
+            type: e.type,
+            status: e.status,
+            extra: e.extra,
+          }))
+        )
+      } catch {
+        // silent
+      }
+    }
+    loadEntities()
+  }, [processId])
 
   // Typing indicator with debounce
   const handleValueChange = useCallback(
@@ -227,6 +251,32 @@ export function ChatInput({
                   <span className="text-sm">{highlightedDisplay}</span>
                 </div>
               )}
+            />
+            <Mention
+              trigger="/"
+              data={mentionEntities}
+              markup="/[__display__](__id__)"
+              displayTransform={(_id, display) => `/${display}`}
+              style={{
+                backgroundColor: 'hsl(var(--accent) / 0.3)',
+                borderRadius: 4,
+                padding: '1px 2px',
+              }}
+              renderSuggestion={(suggestion, _search, highlightedDisplay) => {
+                const s = suggestion as { id?: string; type?: string; status?: string; extra?: string }
+                const EntityIcon = s.type === 'task' ? ClipboardList : s.type === 'subtask' ? Pin : FileText
+                const statusColor = s.status === 'completed' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-slate-400' : 'bg-blue-500'
+                return (
+                  <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted">
+                    <EntityIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm block truncate">{highlightedDisplay}</span>
+                      {s.extra && <span className="text-[10px] text-muted-foreground">{s.extra}</span>}
+                    </div>
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${statusColor}`} />
+                  </div>
+                )
+              }}
             />
           </MentionsInput>
         </div>

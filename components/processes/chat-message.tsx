@@ -14,13 +14,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Reply, Smile, Pencil, Trash2, X, Check, Eye } from 'lucide-react'
+import { Reply, Smile, Pencil, Trash2, X, Check, Eye, ClipboardList, Pin, FileText, Upload, Mail, CheckSquare, Circle, CheckCircle2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { CHAT_LABELS, CHAT_EMOJI_QUICK } from '@/lib/constants'
@@ -28,6 +30,17 @@ import { ChatAttachment } from './chat-attachment'
 import { ChatReactions } from './chat-reactions'
 import type { ChatMessage as ChatMessageType } from '@/types/process'
 import { toast } from 'sonner'
+
+export interface ChatEntityData {
+  id: string
+  display: string
+  type: 'task' | 'subtask' | 'doc'
+  status: string
+  extra?: string
+  config_type?: string
+  owner_name?: string
+  action_type?: string
+}
 
 interface ChatMessageProps {
   message: ChatMessageType
@@ -38,20 +51,169 @@ interface ChatMessageProps {
   onEdit: (messageId: string, content: string) => Promise<void>
   onDelete: (messageId: string) => Promise<void>
   readers?: { userName: string; readAt: string }[]
+  onEntityClick?: (entityType: string, entityId: string) => void
+  entitiesMap?: Map<string, ChatEntityData>
 }
 
-function renderMessageContent(content: string, isOwn: boolean): React.ReactNode {
-  const parts = content.split(/(@\[[^\]]+\]\([^)]+\))/)
+// Icons for subtask config types
+const SUBTASK_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  upload: Upload,
+  email: Mail,
+  checklist: CheckSquare,
+  generate_doc: FileText,
+}
+
+const SUBTASK_TYPE_LABELS: Record<string, string> = {
+  upload: 'Upload',
+  email: 'Email',
+  checklist: 'Checklist',
+  generate_doc: 'Documento',
+}
+
+const TASK_ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  UPLOAD: Upload,
+  EMAIL: Mail,
+  GENERATE_DOC: FileText,
+  MANUAL: Circle,
+  FORM: ClipboardList,
+  COMPOSITE: ClipboardList,
+}
+
+// Render an entity card that looks like the subtask cards
+function EntityMentionCard({
+  entityType,
+  entityId,
+  displayName,
+  entityData,
+  isOwn,
+  onEntityClick,
+}: {
+  entityType: string
+  entityId: string
+  displayName: string
+  entityData?: ChatEntityData
+  isOwn: boolean
+  onEntityClick?: (entityType: string, entityId: string) => void
+}) {
+  const configType = entityData?.config_type || 'checklist'
+  const ownerName = entityData?.owner_name
+  const status = entityData?.status || 'pending'
+  const isCompleted = status === 'completed'
+
+  // Choose icon based on entity type
+  let IconComponent: React.ComponentType<{ className?: string }> = ClipboardList
+  let typeLabel = ''
+
+  if (entityType === 'subtask') {
+    IconComponent = SUBTASK_TYPE_ICONS[configType] || CheckSquare
+    typeLabel = SUBTASK_TYPE_LABELS[configType] || 'Checklist'
+  } else if (entityType === 'task') {
+    const actionType = entityData?.action_type || 'MANUAL'
+    IconComponent = TASK_ACTION_ICONS[actionType] || Circle
+    typeLabel = entityData?.extra || 'Tarefa'
+  } else if (entityType === 'doc') {
+    IconComponent = FileText
+    typeLabel = 'Documento'
+  }
+
+  const StatusIcon = isCompleted ? CheckCircle2 : Circle
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onEntityClick?.(entityType, entityId)
+      }}
+      className={cn(
+        'flex flex-col gap-1.5 w-full rounded-lg border p-2.5 text-left cursor-pointer transition-colors my-1',
+        isOwn
+          ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/20'
+          : isCompleted
+            ? 'bg-background/60 border-border/50 opacity-80'
+            : 'bg-background border-border hover:bg-accent/50',
+      )}
+    >
+      {/* Header: status icon + type icon + title */}
+      <div className="flex items-center gap-2">
+        <StatusIcon className={cn('h-4 w-4 shrink-0', isCompleted ? 'text-emerald-400' : isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground')} />
+        <IconComponent className={cn('h-4 w-4 shrink-0', isOwn ? 'text-primary-foreground/70' : isCompleted ? 'text-muted-foreground' : 'text-foreground/70')} />
+        <span className={cn(
+          'flex-1 text-sm font-medium truncate',
+          isOwn ? 'text-primary-foreground' : 'text-foreground',
+          isCompleted && 'line-through opacity-70'
+        )}>
+          {displayName}
+        </span>
+      </div>
+
+      {/* Footer: owner + type */}
+      <div className="flex items-center gap-2">
+        {ownerName && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] px-1.5 py-0',
+              isOwn
+                ? 'border-primary-foreground/30 text-primary-foreground/80 bg-primary-foreground/10'
+                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'
+            )}
+          >
+            👤 {ownerName}
+          </Badge>
+        )}
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-[10px] px-1 py-0 ml-auto',
+            isOwn
+              ? 'border-primary-foreground/30 text-primary-foreground/80'
+              : ''
+          )}
+        >
+          {typeLabel}
+        </Badge>
+      </div>
+    </button>
+  )
+}
+
+function renderMessageContent(
+  content: string,
+  isOwn: boolean,
+  onEntityClick?: (entityType: string, entityId: string) => void,
+  entitiesMap?: Map<string, ChatEntityData>
+): React.ReactNode {
+  // Match both @[name](id) and /[name](type:id)
+  const parts = content.split(/([@/]\[[^\]]+\]\([^)]+\))/)
   return parts.map((part, i) => {
-    const match = part.match(/@\[([^\]]+)\]\(([^)]+)\)/)
-    if (match) {
+    // User mention: @[Name](uuid)
+    const userMatch = part.match(/^@\[([^\]]+)\]\(([^)]+)\)$/)
+    if (userMatch) {
       return (
         <span
           key={i}
           className={`font-semibold ${isOwn ? 'text-primary-foreground underline decoration-primary-foreground/40' : 'text-primary'}`}
         >
-          @{match[1]}
+          @{userMatch[1]}
         </span>
+      )
+    }
+    // Entity mention: /[Name](type:uuid) → render as card
+    const entityMatch = part.match(/^\/\[([^\]]+)\]\((\w+):([^)]+)\)$/)
+    if (entityMatch) {
+      const [, displayName, entityType, entityId] = entityMatch
+      const entityKey = `${entityType}:${entityId}`
+      const entityData = entitiesMap?.get(entityKey)
+      return (
+        <EntityMentionCard
+          key={i}
+          entityType={entityType}
+          entityId={entityId}
+          displayName={displayName}
+          entityData={entityData}
+          isOwn={isOwn}
+          onEntityClick={onEntityClick}
+        />
       )
     }
     return part
@@ -66,6 +228,8 @@ export function ChatMessageItem({
   onEdit,
   onDelete,
   readers,
+  onEntityClick,
+  entitiesMap,
 }: ChatMessageProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(message.content)
@@ -189,7 +353,7 @@ export function ChatMessageItem({
                   </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap break-words">
-                    {renderMessageContent(message.content, true)}
+                    {renderMessageContent(message.content, true, onEntityClick, entitiesMap)}
                     {message.is_edited && (
                       <span className="text-[10px] opacity-60 ml-1">{CHAT_LABELS.edited}</span>
                     )}
@@ -317,7 +481,7 @@ export function ChatMessageItem({
 
               {/* Content */}
               <p className="text-sm whitespace-pre-wrap break-words">
-                {renderMessageContent(message.content, false)}
+                {renderMessageContent(message.content, false, onEntityClick, entitiesMap)}
                 {message.is_edited && (
                   <span className="text-[10px] text-muted-foreground ml-1">{CHAT_LABELS.edited}</span>
                 )}

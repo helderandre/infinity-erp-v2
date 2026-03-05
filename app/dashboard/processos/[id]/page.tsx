@@ -67,7 +67,7 @@ import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
-import { ProcessChat } from '@/components/processes/process-chat'
+import { FloatingChat } from '@/components/processes/floating-chat'
 import { ProcessPropertyTab } from '@/components/processes/process-property-tab'
 import { ProcessOwnersTab } from '@/components/processes/process-owners-tab'
 import { useUser } from '@/hooks/use-user'
@@ -427,6 +427,29 @@ export default function ProcessoDetailPage() {
   const handleTaskClick = useCallback((task: ProcessTask) => {
     setSelectedTask(task)
   }, [])
+
+  const handleEntityClick = useCallback((entityType: string, entityId: string) => {
+    if (!process?.stages) return
+    const allTasks: ProcessTask[] = process.stages.flatMap(
+      (s: ProcessStageWithTasks) => s.tasks
+    )
+    if (entityType === 'task') {
+      const task = allTasks.find((t: ProcessTask) => t.id === entityId)
+      if (task) setSelectedTask(task)
+    } else if (entityType === 'subtask') {
+      const parentTask = allTasks.find((t: ProcessTask) =>
+        t.subtasks?.some((st: { id: string }) => st.id === entityId)
+      )
+      if (parentTask) setSelectedTask(parentTask)
+    } else if (entityType === 'doc') {
+      // Find the task that has this document linked via task_result
+      const linkedTask = allTasks.find((t: ProcessTask) => {
+        const result = t.task_result as Record<string, unknown> | null
+        return result?.doc_registry_id === entityId
+      })
+      if (linkedTask) setSelectedTask(linkedTask)
+    }
+  }, [process?.stages])
 
   // Sincronizar selectedTask com dados actualizados do processo
   useEffect(() => {
@@ -826,19 +849,16 @@ export default function ProcessoDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Chat — always visible at the bottom */}
+      {/* Floating Chat */}
       {user && (
-        <Card className="overflow-hidden py-0">
-          <div className="h-[500px]">
-            <ProcessChat
-              processId={instance.id}
-              currentUser={{
-                id: user.id,
-                name: user.commercial_name || 'Utilizador',
-              }}
-            />
-          </div>
-        </Card>
+        <FloatingChat
+          processId={instance.id}
+          currentUser={{
+            id: user.id,
+            name: user.commercial_name || 'Utilizador',
+          }}
+          onEntityClick={handleEntityClick}
+        />
       )}
 
       {/* Task Detail Sheet */}

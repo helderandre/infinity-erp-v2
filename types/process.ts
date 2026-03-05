@@ -233,6 +233,13 @@ export interface ChatMention {
   display_name: string
 }
 
+/** Entity mentions (tasks, subtasks, docs) — parsed from content at render time */
+export interface ChatEntityMention {
+  entity_type: 'task' | 'subtask' | 'doc'
+  entity_id: string
+  display_name: string
+}
+
 export interface ChatReaction {
   id: string
   emoji: string
