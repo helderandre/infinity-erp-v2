@@ -9,6 +9,7 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { FileTypeBadge } from '@/components/shared/file-type-badge'
 import type { ProcessDocument } from '@/types/process'
 
 interface TaskDocumentsPanelProps {
@@ -40,13 +41,13 @@ export function TaskDocumentsPanel({ documents }: TaskDocumentsPanelProps) {
               className="flex items-center justify-between p-3 rounded-lg border bg-card"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                <FileTypeBadge fileName={doc.file_name} />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                  <p className="text-sm font-medium truncate">{doc.doc_type?.name || doc.file_name}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{doc.doc_type?.name}</span>
+                    <span className="truncate">{doc.file_name}</span>
                     <span>·</span>
-                    <span>{formatDate(doc.created_at)}</span>
+                    <span className="shrink-0">{formatDate(doc.created_at)}</span>
                   </div>
                 </div>
               </div>

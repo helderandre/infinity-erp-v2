@@ -24,6 +24,7 @@ import {
   Download,
   ExternalLink,
 } from 'lucide-react'
+import { FileTypeBadge } from '@/components/shared/file-type-badge'
 import { formatDate } from '@/lib/utils'
 import { STATUS_COLORS } from '@/lib/constants'
 import type { Document } from '@/types/document'
@@ -54,8 +55,7 @@ export function DocumentList({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Nome</TableHead>
-          <TableHead>Tipo</TableHead>
+          <TableHead>Documento</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead>Validade</TableHead>
           <TableHead>Data</TableHead>
@@ -72,15 +72,13 @@ export function DocumentList({
           return (
             <TableRow key={doc.id}>
               <TableCell>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="truncate max-w-[200px]">{doc.file_name}</span>
+                <div className="flex items-center gap-2.5">
+                  <FileTypeBadge fileName={doc.file_name} className="h-7 w-7" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate max-w-[200px]">{doc.doc_type?.name || doc.file_name}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">{doc.file_name}</p>
+                  </div>
                 </div>
-              </TableCell>
-              <TableCell>
-                <span className="text-sm">
-                  {doc.doc_type?.name || '—'}
-                </span>
               </TableCell>
               <TableCell>
                 {statusConfig ? (

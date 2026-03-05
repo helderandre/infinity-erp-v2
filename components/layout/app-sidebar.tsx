@@ -14,6 +14,9 @@ import {
   FileStack,
   LogOut,
   ChevronDown,
+  Sun,
+  Moon,
+  Monitor,
   ChevronRight,
   Zap,
   Mail,
@@ -51,6 +54,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { useTheme } from 'next-themes'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -154,6 +158,7 @@ export function AppSidebar() {
   const router = useRouter()
   const { user } = useUser()
   const { hasPermission } = usePermissions()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -312,6 +317,33 @@ export function AppSidebar() {
                       </div>
                     </div>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Tema</span>
+                    <div className="mt-1 flex gap-1">
+                      <button
+                        onClick={() => setTheme('light')}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'light' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                      >
+                        <Sun className="h-3.5 w-3.5" />
+                        Claro
+                      </button>
+                      <button
+                        onClick={() => setTheme('dark')}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'dark' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                      >
+                        <Moon className="h-3.5 w-3.5" />
+                        Escuro
+                      </button>
+                      <button
+                        onClick={() => setTheme('system')}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'system' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                      >
+                        <Monitor className="h-3.5 w-3.5" />
+                        Auto
+                      </button>
+                    </div>
+                  </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut />

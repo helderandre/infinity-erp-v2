@@ -8,6 +8,7 @@ import {
   FileUploadItem,
   FileUploadItemPreview,
   FileUploadItemMetadata,
+  FileUploadItemProgress,
   FileUploadItemDelete,
 } from '@/components/ui/file-upload'
 import { Upload } from 'lucide-react'
@@ -66,19 +67,47 @@ export function DocumentUploader({
         if (validUntil) formData.append('valid_until', validUntil)
 
         try {
-          options.onProgress(file, 50)
-          const res = await fetch('/api/documents/upload', {
-            method: 'POST',
-            body: formData,
+          const result = await new Promise<UploadResult>((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                // Upload to API = 0-85%, saving to DB = 85-100%
+                const percent = Math.round((e.loaded / e.total) * 85)
+                options.onProgress(file, percent)
+              }
+            })
+
+            xhr.addEventListener('load', () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                options.onProgress(file, 100)
+                try {
+                  resolve(JSON.parse(xhr.responseText))
+                } catch {
+                  reject(new Error('Resposta inválida do servidor'))
+                }
+              } else {
+                try {
+                  const err = JSON.parse(xhr.responseText)
+                  reject(new Error(err.error || 'Erro ao carregar documento'))
+                } catch {
+                  reject(new Error('Erro ao carregar documento'))
+                }
+              }
+            })
+
+            xhr.addEventListener('error', () => {
+              reject(new Error('Erro de rede ao carregar documento'))
+            })
+
+            xhr.addEventListener('abort', () => {
+              reject(new Error('Upload cancelado'))
+            })
+
+            xhr.open('POST', '/api/documents/upload')
+            xhr.send(formData)
           })
 
-          if (!res.ok) {
-            const err = await res.json()
-            throw new Error(err.error || 'Erro ao carregar documento')
-          }
-
-          const result: UploadResult = await res.json()
-          options.onProgress(file, 100)
           options.onSuccess(file)
           toast.success('Documento carregado com sucesso')
           onUploaded(result)
@@ -116,10 +145,11 @@ export function DocumentUploader({
       </FileUploadDropzone>
       <FileUploadList>
         {files.map((file, index) => (
-          <FileUploadItem key={index} value={file}>
+          <FileUploadItem key={index} value={file} className="flex-wrap">
             <FileUploadItemPreview />
             <FileUploadItemMetadata />
             <FileUploadItemDelete />
+            <FileUploadItemProgress className="w-full basis-full" />
           </FileUploadItem>
         ))}
       </FileUploadList>

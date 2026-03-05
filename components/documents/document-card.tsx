@@ -3,7 +3,8 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { FileText, ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { FileTypeBadge } from '@/components/shared/file-type-badge'
 import { formatDate } from '@/lib/utils'
 import { STATUS_COLORS } from '@/lib/constants'
 import type { Document } from '@/types/document'
@@ -22,10 +23,10 @@ export function DocumentCard({ document, onPreview, compact = false }: DocumentC
     <Card className="hover:bg-accent/50 transition-colors">
       <CardContent className={compact ? 'p-3' : 'p-4'}>
         <div className="flex items-start gap-3">
-          <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+          <FileTypeBadge fileName={document.file_name} />
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-medium truncate">{document.file_name}</p>
+              <p className="text-sm font-medium truncate">{document.doc_type?.name || document.file_name}</p>
               {isExpired ? (
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
               ) : document.status === 'active' ? (
@@ -33,7 +34,7 @@ export function DocumentCard({ document, onPreview, compact = false }: DocumentC
               ) : null}
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {document.doc_type?.name && <span>{document.doc_type.name}</span>}
+              <span className="truncate">{document.file_name}</span>
               {document.valid_until && (
                 <span className={isExpired ? 'text-red-600' : ''}>
                   Valido ate {formatDate(document.valid_until)}

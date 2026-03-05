@@ -9,6 +9,7 @@ import { SubtaskCardBase, type CardState } from './subtask-card-base'
 import { DocumentUploader } from '@/components/documents/document-uploader'
 import type { ProcSubtask } from '@/types/subtask'
 import type { ProcessDocument } from '@/types/process'
+import { FileTypeBadge } from '@/components/shared/file-type-badge'
 
 interface SubtaskCardUploadProps {
   subtask: ProcSubtask
@@ -86,10 +87,11 @@ export function SubtaskCardUpload({
         {subtask.is_completed && (
           <div className="space-y-2">
             {linkedDoc && (
-              <div className="flex items-center gap-2 p-2 rounded-md border bg-muted/40">
+              <div className="flex items-center gap-2.5 p-2 rounded-md border bg-card">
+                <FileTypeBadge fileName={linkedDoc.file_name} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{linkedDoc.file_name}</p>
-                  <p className="text-muted-foreground">{linkedDoc.doc_type?.name}</p>
+                  <p className="font-medium truncate">{linkedDoc.doc_type?.name || linkedDoc.file_name}</p>
+                  <p className="text-muted-foreground truncate">{linkedDoc.file_name}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
