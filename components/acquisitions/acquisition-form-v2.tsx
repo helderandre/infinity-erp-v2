@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
-import { Loader2, ChevronLeft, ChevronRight, Check, Sparkles, Save } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Sparkles, Save } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   Stepper,
   StepperContent,
@@ -440,7 +441,7 @@ export function AcquisitionFormV2({
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Spinner variant="infinite" size={32} className="text-muted-foreground" />
       </div>
     )
   }
@@ -534,7 +535,7 @@ export function AcquisitionFormV2({
                 <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner variant="infinite" size={16} className="mr-2" />
                       {uploadProgress || 'A submeter...'}
                     </>
                   ) : (

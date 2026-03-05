@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { AlignLeft, AlignCenter, AlignRight, ImageIcon, Upload, Loader2, X } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, ImageIcon, Upload, X } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { useImageCompress } from '@/hooks/use-image-compress'
 import { toast } from 'sonner'
 import { UnitInput, RadiusInput } from '@/components/email-editor/settings'
@@ -190,7 +191,7 @@ const EmailImageSettings = () => {
             onClick={() => fileInputRef.current?.click()}
           >
             {isUploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <Upload className="mr-2 h-4 w-4" />
             )}

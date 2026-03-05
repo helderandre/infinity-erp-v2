@@ -56,7 +56,6 @@ import {
   Pencil,
   Trash2,
   Shield,
-  Loader2,
   Building2,
   User,
   Users,
@@ -65,6 +64,7 @@ import {
   EyeOff,
   Eye,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
 
@@ -809,7 +809,7 @@ export default function TemplatesVariaveisPage() {
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving && <Spinner variant="infinite" size={16} className="mr-2" />}
               {editingVariable ? 'Guardar' : 'Criar'}
             </Button>
           </DialogFooter>
@@ -836,7 +836,7 @@ export default function TemplatesVariaveisPage() {
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <Spinner variant="infinite" size={16} className="mr-2" />}
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { commentSchema } from '@/lib/validations/comment'
 import { notificationService } from '@/lib/notifications/service'
+import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 export async function GET(
   request: Request,
@@ -90,6 +91,17 @@ export async function POST(
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
+    }
+
+    // --- Registar actividade de comentário ---
+    try {
+      const commentUserName = (comment as any).user?.commercial_name || 'Utilizador'
+      await logTaskActivity(supabase, taskId, user.id, 'comment', `${commentUserName} adicionou um comentário`, {
+        comment_id: comment.id,
+        content_preview: validation.data.content.substring(0, 100),
+      })
+    } catch (activityError) {
+      console.error('[Comments] Erro ao registar actividade:', activityError)
     }
 
     // --- Notificações ---

@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, Mic, MicOff, FileText, Check } from 'lucide-react'
+import { Mic, MicOff, FileText, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { TagsInput } from '@/components/ui/tags-input'
 import { LOCALIZACOES_PT } from '@/lib/constants'
@@ -318,7 +319,7 @@ export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
           className="text-xs h-8"
         >
           {isExtracting ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            <Spinner variant="infinite" size={14} className="mr-1.5" />
           ) : (
             <FileText className="mr-1.5 h-3.5 w-3.5" />
           )}
@@ -333,7 +334,7 @@ export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
           className="text-xs h-8"
         >
           {isTranscribing ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            <Spinner variant="infinite" size={14} className="mr-1.5" />
           ) : isRecording ? (
             <>
               <MicOff className="mr-1.5 h-3.5 w-3.5" />

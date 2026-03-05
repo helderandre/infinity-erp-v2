@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { PropertyImageCropper } from './property-image-cropper'
 import { useImageCompress } from '@/hooks/use-image-compress'
-import { ImagePlus, X, Crop, Loader2, Upload } from 'lucide-react'
+import { ImagePlus, X, Crop, Upload } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 interface PropertyMediaUploadProps {
@@ -141,7 +142,7 @@ export function PropertyMediaUpload({
         {pendingImages.length > 0 && (
           <Button size="sm" onClick={handleUpload} disabled={isBusy}>
             {isBusy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <Upload className="mr-2 h-4 w-4" />
             )}

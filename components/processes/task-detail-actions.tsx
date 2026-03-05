@@ -21,19 +21,32 @@ import {
   CheckCircle2,
   Ban,
   RotateCcw,
-  Loader2,
   Mail,
   FileText,
   ExternalLink,
   Download,
   Send,
+  MailCheck,
+  MailOpen,
+  MousePointerClick,
+  MailX,
+  AlertCircle,
+  Clock,
+  ShieldAlert,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn, formatDate } from '@/lib/utils'
 import { wrapEmailHtml } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
+import { useEmailStatus } from '@/hooks/use-email-status'
+import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
 import type { ProcessTask, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
+
+const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Mail, MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, Clock, ShieldAlert,
+}
 
 interface TaskDetailActionsProps {
   task: ProcessTask
@@ -56,6 +69,33 @@ export function TaskDetailActions({
   const [isProcessing, setIsProcessing] = useState(false)
   const [showBypassInput, setShowBypassInput] = useState(false)
   const [bypassReason, setBypassReason] = useState('')
+
+  // Email status + resend
+  const { emails: emailLogs } = useEmailStatus(task.action_type === 'EMAIL' ? task.id : null)
+  const latestEmail = emailLogs[0]
+  const canResendEmail = task.status === 'completed' && task.action_type === 'EMAIL' && !!latestEmail
+  const [isResendingEmail, setIsResendingEmail] = useState(false)
+
+  const handleResendEmail = async () => {
+    if (!latestEmail) return
+    setIsResendingEmail(true)
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${task.id}/resend-email`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ log_email_id: latestEmail.id }),
+        }
+      )
+      if (!res.ok) throw new Error('Falha ao reenviar')
+      toast.success('Email reenviado com sucesso!')
+    } catch {
+      toast.error('Erro ao reenviar email')
+    } finally {
+      setIsResendingEmail(false)
+    }
+  }
 
   // Email send dialog
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
@@ -141,9 +181,21 @@ export function TaskDetailActions({
         throw new Error(err.error || 'Erro ao enviar email')
       }
 
+      const sendData = await res.json()
+
       toast.success('Email enviado com sucesso!')
       setEmailDialogOpen(false)
-      await handleAction('complete')
+      await handleAction('complete', {
+        resend_email_id: sendData.id,
+        email_metadata: {
+          sender_email: emailForm.senderEmail,
+          sender_name: emailForm.senderName,
+          recipient_email: emailForm.recipientEmail,
+          cc: emailForm.cc ? emailForm.cc.split(',').map((e: string) => e.trim()).filter(Boolean) : [],
+          subject: emailForm.subject,
+          body_html: wrapEmailHtml(emailForm.body),
+        },
+      })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao enviar email')
     } finally {
@@ -313,9 +365,31 @@ export function TaskDetailActions({
   const renderStateButtons = () => {
     if (task.status === 'completed') {
       return (
-        <div className="flex items-center gap-2 text-sm text-emerald-600">
-          <CheckCircle2 className="h-4 w-4" />
-          Tarefa concluída em {formatDate(task.completed_at)}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-emerald-600">
+            <CheckCircle2 className="h-4 w-4" />
+            Tarefa concluída em {formatDate(task.completed_at)}
+          </div>
+          {canResendEmail && (() => {
+            const emailStatus = latestEmail?.last_event
+            const statusConfig = emailStatus ? EMAIL_STATUS_CONFIG[emailStatus] : null
+            const StatusIcon = statusConfig ? EMAIL_STATUS_ICONS[statusConfig.icon] : null
+            return (
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={statusConfig?.badgeVariant || 'secondary'}
+                  className="gap-1 text-xs"
+                >
+                  {StatusIcon && <StatusIcon className={cn('h-3 w-3', statusConfig?.color)} />}
+                  {statusConfig?.label || emailStatus}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={isResendingEmail}>
+                  {isResendingEmail ? <Spinner variant="infinite" size={14} className="mr-1.5" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+                  Reenviar
+                </Button>
+              </div>
+            )
+          })()}
         </div>
       )
     }
@@ -336,7 +410,7 @@ export function TaskDetailActions({
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <RotateCcw className="mr-2 h-4 w-4" />
             )}
@@ -357,7 +431,7 @@ export function TaskDetailActions({
               disabled={isProcessing}
             >
               {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <PlayCircle className="mr-2 h-4 w-4" />
               )}
@@ -381,7 +455,7 @@ export function TaskDetailActions({
               disabled={isProcessing}
             >
               {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <CheckCircle2 className="mr-2 h-4 w-4" />
               )}
@@ -418,7 +492,7 @@ export function TaskDetailActions({
                 disabled={isProcessing || bypassReason.length < 10}
               >
                 {isProcessing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner variant="infinite" size={16} className="mr-2" />
                 ) : (
                   <Ban className="mr-2 h-4 w-4" />
                 )}
@@ -587,7 +661,7 @@ export function TaskDetailActions({
               disabled={isSendingEmail || !isEmailFormValid}
             >
               {isSendingEmail ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}

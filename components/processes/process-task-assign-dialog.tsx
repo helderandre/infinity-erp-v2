@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UserPlus, Loader2 } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 interface User {
@@ -117,7 +118,7 @@ export function ProcessTaskAssignDialog({
 
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} />
               A carregar utilizadores...
             </div>
           ) : (
@@ -149,7 +150,7 @@ export function ProcessTaskAssignDialog({
             disabled={isSubmitting || !selectedUserId}
           >
             {isSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <UserPlus className="mr-2 h-4 w-4" />
             )}

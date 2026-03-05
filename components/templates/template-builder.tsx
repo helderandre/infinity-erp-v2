@@ -30,7 +30,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Plus, Loader2, Save } from 'lucide-react'
+import { Plus, Save } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { TemplateStageColumn } from './template-stage-column'
 import { TemplateTaskCard } from './template-task-card'
 import { TemplateTaskSheet } from './template-task-sheet'
@@ -539,7 +540,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
                 A guardar...
               </>
             ) : (

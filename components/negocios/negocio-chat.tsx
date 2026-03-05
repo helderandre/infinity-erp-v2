@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Loader2, Send, RotateCcw } from 'lucide-react'
+import { Send, RotateCcw } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 interface Message {
@@ -130,7 +131,7 @@ export function NegocioChat({ negocioId, onFieldsExtracted }: NegocioChatProps) 
             <div className="flex justify-start">
               <Card>
                 <CardContent className="py-2 px-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner variant="infinite" size={16} />
                 </CardContent>
               </Card>
             </div>

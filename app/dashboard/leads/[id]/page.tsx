@@ -34,13 +34,13 @@ import {
 import { Label } from '@/components/ui/label'
 import {
   ArrowLeft,
-  Loader2,
   Plus,
   Trash2,
   ExternalLink,
   Briefcase,
   FileText,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { formatDate, formatCurrency } from '@/lib/constants'
 import { NEGOCIO_TIPOS } from '@/lib/constants'
@@ -437,7 +437,7 @@ export default function LeadDetailPage() {
                       Cancelar
                     </Button>
                     <Button onClick={handleCreateNegocio} disabled={!newNegocioTipo || creatingNegocio}>
-                      {creatingNegocio && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {creatingNegocio && <Spinner variant="infinite" size={16} className="mr-2" />}
                       Criar
                     </Button>
                   </DialogFooter>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { UploadCloud, Loader2 } from 'lucide-react'
+import { UploadCloud } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { MAX_FILE_SIZE } from '@/lib/validations/document'
 import { toast } from 'sonner'
 
@@ -152,7 +153,7 @@ export function UploadZone({
       >
         {isUploading ? (
           <>
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Spinner variant="infinite" size={24} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               A carregar... {progress}%
             </p>

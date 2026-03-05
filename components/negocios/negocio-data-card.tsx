@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Check, Loader2 } from 'lucide-react'
+import { Pencil, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
@@ -583,7 +584,7 @@ export function NegocioDataCard({
                 disabled={isSaving}
                 className="p-2 rounded-md hover:bg-muted transition-colors"
               >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isSaving ? <Spinner variant="infinite" size={16} /> : <Check className="h-4 w-4" />}
               </button>
             ) : (
               <button

@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
-import { Loader2, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   Stepper,
   StepperContent,
@@ -305,7 +306,7 @@ export function AcquisitionForm() {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner variant="infinite" size={16} className="mr-2" />
                       {uploadProgress || 'A criar angariação...'}
                     </>
                   ) : (

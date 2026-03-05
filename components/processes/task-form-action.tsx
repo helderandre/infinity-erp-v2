@@ -16,19 +16,31 @@ import {
   Circle,
   ChevronDown,
   ExternalLink,
-  Loader2,
   Upload,
   Mail,
   FileText,
   CheckSquare,
   Eye,
+  MailCheck,
+  MailOpen,
+  MousePointerClick,
+  MailX,
+  AlertCircle,
+  Clock,
+  ShieldAlert,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { cn } from '@/lib/utils'
-import { SUBTASK_TYPE_LABELS } from '@/lib/constants'
+import { SUBTASK_TYPE_LABELS, EMAIL_STATUS_CONFIG } from '@/lib/constants'
+import { useEmailStatus } from '@/hooks/use-email-status'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
 import type { ProcessTask, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
+
+const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Mail, MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, Clock, ShieldAlert,
+}
 
 interface TaskFormActionProps {
   task: ProcessTask & { subtasks: ProcSubtask[] }
@@ -49,6 +61,7 @@ export function TaskFormAction({
 }: TaskFormActionProps) {
   const [open, setOpen] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
+  const { emails } = useEmailStatus(task.id)
   const [openEmailSubtask, setOpenEmailSubtask] = useState<ProcSubtask | null>(null)
   const [openEmailOwnerEmail, setOpenEmailOwnerEmail] = useState<string>('')
   const [openDocSubtask, setOpenDocSubtask] = useState<ProcSubtask | null>(null)
@@ -145,7 +158,7 @@ export function TaskFormAction({
                     {isManual ? (
                       <div className="shrink-0">
                         {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <Spinner variant="infinite" size={16} className="text-muted-foreground" />
                         ) : (
                           <Checkbox
                             checked={subtask.is_completed}
@@ -209,14 +222,38 @@ export function TaskFormAction({
                           Opcional
                         </Badge>
                       )}
-                      {hasRendered && hasAction && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200"
-                        >
-                          Rascunho
-                        </Badge>
-                      )}
+                      {(() => {
+                        // Show email status badge if email subtask is completed
+                        if (isEmail && subtask.is_completed) {
+                          const emailForSubtask = emails.find(e => e.proc_subtask_id === subtask.id)
+                          const emailStatus = emailForSubtask?.last_event
+                          if (emailStatus) {
+                            const statusConfig = EMAIL_STATUS_CONFIG[emailStatus]
+                            const StatusIcon = statusConfig ? EMAIL_STATUS_ICONS[statusConfig.icon] : null
+                            return (
+                              <Badge
+                                variant={statusConfig?.badgeVariant || 'secondary'}
+                                className="gap-0.5 text-[10px] px-1 py-0"
+                              >
+                                {StatusIcon && <StatusIcon className={cn('h-2.5 w-2.5', statusConfig?.color)} />}
+                                {statusConfig?.label || emailStatus}
+                              </Badge>
+                            )
+                          }
+                        }
+                        // Show draft badge for non-completed actions with rendered content
+                        if (hasRendered && hasAction) {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200"
+                            >
+                              Rascunho
+                            </Badge>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
 
                     {/* Botão Ver (email / generate_doc) */}

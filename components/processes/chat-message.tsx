@@ -14,7 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Reply, Smile, Pencil, Trash2, X, Check, Loader2, Eye } from 'lucide-react'
+import { Reply, Smile, Pencil, Trash2, X, Check, Eye } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   Popover,
   PopoverContent,
@@ -180,7 +181,7 @@ export function ChatMessageItem({
                       autoFocus
                     />
                     <Button size="icon" variant="ghost" className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20" onClick={handleSaveEdit} disabled={isSubmitting}>
-                      {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      {isSubmitting ? <Spinner variant="infinite" size={12} /> : <Check className="h-3 w-3" />}
                     </Button>
                     <Button size="icon" variant="ghost" className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20" onClick={() => { setIsEditing(false); setEditValue(message.content) }}>
                       <X className="h-3 w-3" />
@@ -260,7 +261,7 @@ export function ChatMessageItem({
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={handleDelete} disabled={isSubmitting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isSubmitting ? <Spinner variant="infinite" size={16} className="mr-2" /> : null}
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>

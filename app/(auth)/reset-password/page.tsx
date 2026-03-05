@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -109,7 +110,7 @@ export default function ResetPasswordPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
                 A redefinir...
               </>
             ) : (

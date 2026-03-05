@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
+import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 const taskUpdateSchema = z.object({
   action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset', 'update_priority', 'update_due_date']),
@@ -11,6 +13,15 @@ const taskUpdateSchema = z.object({
   task_result: z.record(z.string(), z.any()).optional(),
   priority: z.enum(['urgent', 'normal', 'low']).optional(),
   due_date: z.string().optional(),
+  resend_email_id: z.string().optional(),
+  email_metadata: z.object({
+    sender_email: z.string().optional(),
+    sender_name: z.string().optional(),
+    recipient_email: z.string().optional(),
+    cc: z.array(z.string()).optional(),
+    subject: z.string().optional(),
+    body_html: z.string().optional(),
+  }).optional(),
 })
 
 export async function PUT(
@@ -40,7 +51,7 @@ export async function PUT(
       )
     }
 
-    const { action, bypass_reason, assigned_to, task_result, priority, due_date } = validation.data
+    const { action, bypass_reason, assigned_to, task_result, priority, due_date, resend_email_id, email_metadata } = validation.data
 
     // Obter tarefa
     const { data: task, error: taskError } = await supabase
@@ -175,10 +186,85 @@ export async function PUT(
       )
     }
 
+    // Inserir log_emails para EMAIL tasks com resend_email_id
+    if (action === 'complete' && resend_email_id && (task as any).action_type === 'EMAIL') {
+      const adminDb = createAdminClient() as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+      const { error: logError } = await adminDb.from('log_emails').insert({
+        proc_task_id: taskId,
+        resend_email_id,
+        recipient_email: email_metadata?.recipient_email || '',
+        sender_email: email_metadata?.sender_email || null,
+        sender_name: email_metadata?.sender_name || null,
+        cc: email_metadata?.cc || null,
+        subject: email_metadata?.subject || null,
+        body_html: email_metadata?.body_html || null,
+        sent_at: new Date().toISOString(),
+        delivery_status: 'sent',
+        last_event: 'sent',
+        events: [{ type: 'sent', timestamp: new Date().toISOString() }],
+      })
+      if (logError) console.error('[log_emails] Erro ao inserir:', logError)
+    }
+
     // Recalcular progresso do processo
     if (['complete', 'bypass', 'reset'].includes(action)) {
       const progressResult = await recalculateProgress(id)
       console.log('Progress recalculated:', progressResult)
+    }
+
+    // --- Registar actividade ---
+    try {
+      const { data: currentUser } = await supabase
+        .from('dev_users')
+        .select('commercial_name')
+        .eq('id', user.id)
+        .single()
+      const userName = currentUser?.commercial_name || 'Utilizador'
+
+      switch (action) {
+        case 'start':
+          await logTaskActivity(supabase, taskId, user.id, 'started', `${userName} iniciou a tarefa`)
+          break
+        case 'complete':
+          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} concluiu a tarefa`)
+          break
+        case 'bypass':
+          await logTaskActivity(supabase, taskId, user.id, 'bypass', `${userName} dispensou a tarefa: ${bypass_reason}`, { reason: bypass_reason })
+          break
+        case 'assign': {
+          const { data: assignedUser } = await supabase
+            .from('dev_users')
+            .select('commercial_name')
+            .eq('id', assigned_to!)
+            .single()
+          await logTaskActivity(supabase, taskId, user.id, 'assignment', `${userName} atribuiu a tarefa a ${assignedUser?.commercial_name || 'utilizador'}`, {
+            old_user_id: task.assigned_to,
+            new_user_id: assigned_to,
+            new_user_name: assignedUser?.commercial_name,
+          })
+          break
+        }
+        case 'update_priority':
+          await logTaskActivity(supabase, taskId, user.id, 'priority_change', `${userName} alterou a prioridade de ${task.priority || 'normal'} para ${priority}`, {
+            old_priority: task.priority || 'normal',
+            new_priority: priority,
+          })
+          break
+        case 'update_due_date':
+          await logTaskActivity(supabase, taskId, user.id, 'due_date_change', `${userName} alterou a data limite`, {
+            old_due_date: task.due_date,
+            new_due_date: due_date,
+          })
+          break
+        case 'reset':
+          await logTaskActivity(supabase, taskId, user.id, 'status_change', `${userName} reactivou a tarefa`, {
+            old_status: 'skipped',
+            new_status: 'pending',
+          })
+          break
+      }
+    } catch (activityError) {
+      console.error('[TaskUpdate] Erro ao registar actividade:', activityError)
     }
 
     // --- Notificações ---

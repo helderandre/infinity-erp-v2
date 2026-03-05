@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { LEAD_ORIGENS } from '@/lib/constants'
@@ -160,7 +160,7 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
           Cancelar
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && <Spinner variant="infinite" size={16} className="mr-2" />}
           Criar Lead
         </Button>
       </div>

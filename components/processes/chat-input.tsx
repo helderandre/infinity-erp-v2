@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
 import { Button } from '@/components/ui/button'
-import { Paperclip, Send, Loader2, X } from 'lucide-react'
+import { Paperclip, Send, X } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { CHAT_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import type { ChatMention, ChatMessage } from '@/types/process'
@@ -251,7 +252,7 @@ export function ChatInput({
           disabled={!value.trim() || isSubmitting || disabled}
         >
           {isSubmitting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Spinner variant="infinite" size={14} />
           ) : (
             <Send className="h-3.5 w-3.5" />
           )}

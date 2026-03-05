@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PropertyAddressMapPicker } from './property-address-map-picker'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -837,7 +837,7 @@ export function PropertyForm({
         {/* Submit */}
         <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting && <Spinner variant="infinite" size={16} className="mr-2" />}
             {mode === 'create' ? 'Criar Imovel' : 'Guardar'}
           </Button>
         </div>

@@ -18,11 +18,11 @@ import {
   Bell,
   CheckCheck,
   Filter,
-  Loader2,
   BellOff,
   Inbox,
   Trash2,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -504,7 +504,7 @@ export default function NotificacoesPage() {
               >
                 {isLoadingMore ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner variant="infinite" size={14} />
                     A carregar...
                   </>
                 ) : (

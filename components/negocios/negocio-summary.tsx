@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, Sparkles, Copy, Check } from 'lucide-react'
+import { Sparkles, Copy, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 interface NegocioSummaryProps {
@@ -44,7 +45,7 @@ export function NegocioSummary({ negocioId }: NegocioSummaryProps) {
     <div className="space-y-3">
       <Button size="sm" onClick={handleGenerate} disabled={isLoading} className="text-xs h-8">
         {isLoading ? (
-          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          <Spinner variant="infinite" size={14} className="mr-1.5" />
         ) : (
           <Sparkles className="mr-1.5 h-3.5 w-3.5" />
         )}

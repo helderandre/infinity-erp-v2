@@ -26,11 +26,11 @@ import {
   Users,
   ChevronsUpDown,
   Check,
-  Loader2,
   RefreshCw,
   Pencil,
   Cog,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { cn } from '@/lib/utils'
 import { useTemplateVariables, type TemplateVariable } from '@/hooks/use-template-variables'
 import { renderEmailToHtml, extractVariablesFromState } from '@/lib/email-renderer'
@@ -617,7 +617,7 @@ export function EmailPreviewPanel({
             disabled={isLoadingData}
           >
             {isLoadingData ? (
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              <Spinner variant="infinite" size={14} className="mr-2" />
             ) : (
               <RefreshCw className="mr-2 h-3.5 w-3.5" />
             )}

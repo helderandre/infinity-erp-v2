@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Mail } from 'lucide-react'
+import { ArrowLeft, Mail } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -75,7 +76,7 @@ export default function ForgotPasswordPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
                 A enviar...
               </>
             ) : (

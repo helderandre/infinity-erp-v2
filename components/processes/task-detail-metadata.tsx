@@ -23,13 +23,13 @@ import {
   ArrowRight,
   ArrowDown,
   X,
-  Loader2,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { ProcessTask, TaskPriority } from '@/types/process'
 
@@ -133,10 +133,16 @@ export function TaskDetailMetadata({
               </SelectContent>
             </Select>
           ) : (
-            <span className="flex items-center gap-1.5">
-              {PRIORITY_ICONS[(task.priority as TaskPriority) || 'normal']}
-              {TASK_PRIORITY_LABELS[(task.priority as TaskPriority) || 'normal']}
-            </span>
+            (() => {
+              const p = (task.priority as TaskPriority) || 'normal'
+              const config = PRIORITY_BADGE_CONFIG[p]
+              return (
+                <Badge variant="outline" className={cn('text-xs gap-1.5', config?.className)}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', config?.dotColor)} />
+                  {TASK_PRIORITY_LABELS[p]}
+                </Badge>
+              )
+            })()
           )}
         </div>
 
@@ -247,7 +253,7 @@ export function TaskDetailMetadata({
 
       {isUpdating && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Spinner variant="infinite" size={12} />
           A actualizar...
         </div>
       )}

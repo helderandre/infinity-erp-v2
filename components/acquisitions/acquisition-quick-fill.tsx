@@ -11,7 +11,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, Mic, MicOff, FileText, Check } from 'lucide-react'
+import { Mic, MicOff, FileText, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import type { UseFormReturn } from 'react-hook-form'
 
@@ -286,7 +287,7 @@ export function AcquisitionQuickFill({ form, open, onOpenChange }: AcquisitionQu
                 disabled={!text.trim() || isExtracting}
               >
                 {isExtracting ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Spinner variant="infinite" size={14} className="mr-1.5" />
                 ) : (
                   <FileText className="mr-1.5 h-3.5 w-3.5" />
                 )}
@@ -301,7 +302,7 @@ export function AcquisitionQuickFill({ form, open, onOpenChange }: AcquisitionQu
                 disabled={isTranscribing}
               >
                 {isTranscribing ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Spinner variant="infinite" size={14} className="mr-1.5" />
                 ) : isRecording ? (
                   <>
                     <MicOff className="mr-1.5 h-3.5 w-3.5" />

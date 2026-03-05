@@ -53,11 +53,11 @@ import {
   Play,
   RefreshCw,
   Trash2,
-  Loader2,
   XCircle,
   Building2,
   Users,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
@@ -589,7 +589,7 @@ export default function ProcessoDetailPage() {
               onClick={() => handleHold('pause')}
               disabled={isActionLoading}
             >
-              {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pause className="mr-2 h-4 w-4" />}
+              {isActionLoading ? <Spinner variant="infinite" size={16} className="mr-2" /> : <Pause className="mr-2 h-4 w-4" />}
               Pausar
             </Button>
           )}
@@ -600,7 +600,7 @@ export default function ProcessoDetailPage() {
               onClick={() => handleHold('resume')}
               disabled={isActionLoading}
             >
-              {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+              {isActionLoading ? <Spinner variant="infinite" size={16} className="mr-2" /> : <Play className="mr-2 h-4 w-4" />}
               Retomar
             </Button>
           )}
@@ -922,7 +922,7 @@ export default function ProcessoDetailPage() {
               disabled={isActionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isActionLoading && <Spinner variant="infinite" size={16} className="mr-2" />}
               Cancelar Processo
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -947,7 +947,7 @@ export default function ProcessoDetailPage() {
               disabled={isActionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isActionLoading && <Spinner variant="infinite" size={16} className="mr-2" />}
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -967,7 +967,7 @@ export default function ProcessoDetailPage() {
           <div className="py-4">
             {isLoadingTemplates ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <Spinner variant="infinite" size={20} className="text-muted-foreground" />
               </div>
             ) : reTemplateList.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
@@ -1001,7 +1001,7 @@ export default function ProcessoDetailPage() {
               disabled={isActionLoading || !selectedNewTemplateId}
             >
               {isActionLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <RefreshCw className="mr-2 h-4 w-4" />
               )}

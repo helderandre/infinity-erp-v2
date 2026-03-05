@@ -14,12 +14,12 @@ import {
   FileText,
   CheckCircle2,
   Save,
-  Loader2,
   AlertCircle,
   User,
   Building2,
   Download,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn, interpolateVariables } from '@/lib/utils'
 import type { ProcSubtask } from '@/types/subtask'
@@ -295,7 +295,7 @@ export function SubtaskDocSheet({
                 disabled={isSaving || isCompleting}
               >
                 {isSaving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner variant="infinite" size={16} className="mr-2" />
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
@@ -317,7 +317,7 @@ export function SubtaskDocSheet({
               disabled={isSaving || isCompleting}
             >
               {isCompleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <CheckCircle2 className="mr-2 h-4 w-4" />
               )}

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
+import { logTaskActivity } from '@/lib/processes/activity-logger'
 import { z } from 'zod'
 
 const subtaskUpdateSchema = z
@@ -15,6 +16,13 @@ const subtaskUpdateSchema = z
         editor_state: z.any().optional(),
       })
       .optional(),
+    resend_email_id: z.string().optional(),
+    email_metadata: z.object({
+      sender_email: z.string().optional(),
+      sender_name: z.string().optional(),
+      recipient_email: z.string().optional(),
+      cc: z.array(z.string()).optional(),
+    }).optional(),
   })
   .refine(
     (data) => data.is_completed !== undefined || data.rendered_content !== undefined,
@@ -50,11 +58,11 @@ export async function PUT(
       )
     }
 
-    const { is_completed, rendered_content } = validation.data
+    const { is_completed, rendered_content, resend_email_id, email_metadata } = validation.data
 
     // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
     const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
-      .select('id, config, proc_task_id')
+      .select('id, title, config, proc_task_id, owner_id, owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type)')
       .eq('id', subtaskId)
       .eq('proc_task_id', taskId)
       .single()
@@ -119,6 +127,98 @@ export async function PUT(
         { error: 'Erro ao actualizar subtarefa', details: updateError.message },
         { status: 500 }
       )
+    }
+
+    // Inserir log_emails quando email é enviado com sucesso
+    if (is_completed && subtaskType === 'email' && resend_email_id) {
+      const { error: logError } = await adminDb.from('log_emails').insert({
+        proc_task_id: taskId,
+        proc_subtask_id: subtaskId,
+        resend_email_id,
+        recipient_email: email_metadata?.recipient_email || '',
+        sender_email: email_metadata?.sender_email || null,
+        sender_name: email_metadata?.sender_name || null,
+        cc: email_metadata?.cc || null,
+        subject: rendered_content?.subject || null,
+        body_html: rendered_content?.body_html || null,
+        sent_at: new Date().toISOString(),
+        delivery_status: 'sent',
+        last_event: 'sent',
+        events: [{ type: 'sent', timestamp: new Date().toISOString() }],
+        metadata: { subtask_title: (subtask as any).title },
+      })
+      if (logError) console.error('[log_emails] Erro ao inserir:', logError)
+    }
+
+    // Registar actividade
+    try {
+      const { data: currentUser } = await supabase
+        .from('dev_users')
+        .select('commercial_name')
+        .eq('id', user.id)
+        .single()
+      const userName = currentUser?.commercial_name || 'Utilizador'
+      const effectiveType = subtaskType || checkType || 'checklist'
+
+      // Obter nome do proprietário e template
+      const ownerData = (subtask as any).owner as { name: string; person_type: string } | null
+      const ownerName = ownerData?.name
+      const subtaskTitle = (subtask as any).title as string | undefined
+
+      // Resolver nome do template (email ou doc)
+      let templateName: string | undefined
+      const emailLibId = config.email_library_id as string | undefined
+      const docLibId = config.doc_library_id as string | undefined
+      // Verificar variantes por tipo de proprietário
+      const singularConfig = config.singular_config as Record<string, string> | undefined
+      const coletivaConfig = config.coletiva_config as Record<string, string> | undefined
+      const resolvedEmailLibId = config.has_person_type_variants
+        ? (ownerData?.person_type === 'singular' ? singularConfig?.email_library_id : coletivaConfig?.email_library_id) || emailLibId
+        : emailLibId
+      const resolvedDocLibId = config.has_person_type_variants
+        ? (ownerData?.person_type === 'singular' ? singularConfig?.doc_library_id : coletivaConfig?.doc_library_id) || docLibId
+        : docLibId
+
+      if (effectiveType === 'email' && resolvedEmailLibId) {
+        const { data: tpl } = await adminDb.from('tpl_email_library').select('name').eq('id', resolvedEmailLibId).single()
+        templateName = (tpl as any)?.name
+      } else if (effectiveType === 'generate_doc' && resolvedDocLibId) {
+        const { data: tpl } = await adminDb.from('tpl_doc_library').select('name').eq('id', resolvedDocLibId).single()
+        templateName = (tpl as any)?.name
+      }
+
+      // Construir sufixo com contexto
+      const parts: string[] = []
+      if (templateName) parts.push(`"${templateName}"`)
+      if (ownerName) parts.push(`para ${ownerName}`)
+      const suffix = parts.length > 0 ? ` — ${parts.join(' ')}` : ''
+
+      const metadata: Record<string, unknown> = {
+        subtask_id: subtaskId,
+        subtask_title: subtaskTitle,
+        ...(ownerName && { owner_name: ownerName, owner_id: (subtask as any).owner_id }),
+        ...(templateName && { template_name: templateName }),
+        ...(resend_email_id && { resend_email_id }),
+      }
+
+      if (is_completed === undefined && rendered_content) {
+        // Rascunho guardado
+        const label = effectiveType === 'email' ? 'rascunho de email' : 'rascunho de documento'
+        await logTaskActivity(supabase, taskId, user.id, 'draft_generated', `${userName} gerou ${label}${suffix}`, metadata)
+      } else if (is_completed) {
+        // Subtarefa concluída
+        if (effectiveType === 'email') {
+          await logTaskActivity(supabase, taskId, user.id, 'email_sent', `${userName} enviou email${suffix}`, metadata)
+        } else if (effectiveType === 'generate_doc') {
+          await logTaskActivity(supabase, taskId, user.id, 'doc_generated', `${userName} gerou documento${suffix}`, metadata)
+        } else if (effectiveType === 'upload') {
+          await logTaskActivity(supabase, taskId, user.id, 'upload', `${userName} carregou documento${suffix}`, metadata)
+        } else {
+          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} concluiu item da checklist${suffix}`, metadata)
+        }
+      }
+    } catch (activityError) {
+      console.error('[SubtaskUpdate] Erro ao registar actividade:', activityError)
     }
 
     // Rascunho guardado — retornar

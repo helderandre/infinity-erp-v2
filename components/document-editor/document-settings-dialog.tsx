@@ -13,7 +13,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { FileText, FileWarning, Settings, Loader2 } from 'lucide-react'
+import { FileText, FileWarning, Settings } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 
 interface DocumentSettingsDialogProps {
   description: string
@@ -99,7 +100,7 @@ export function DocumentSettingsDialog({
               >
                 {isUploading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner variant="infinite" size={16} className="mr-2" />
                     A enviar...
                   </>
                 ) : (

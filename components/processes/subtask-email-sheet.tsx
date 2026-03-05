@@ -30,18 +30,31 @@ import {
   Mail,
   CheckCircle2,
   Save,
-  Loader2,
   AlertCircle,
   User,
   Building2,
   Send,
+  RotateCcw,
+  MailCheck,
+  MailOpen,
+  MousePointerClick,
+  MailX,
+  Clock,
+  ShieldAlert,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { interpolateVariables } from '@/lib/utils'
 import { renderEmailToHtml, wrapEmailHtml, extractAttachmentsFromState } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
+import { useEmailStatus } from '@/hooks/use-email-status'
+import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
 import type { ProcSubtask } from '@/types/subtask'
+
+const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Mail, MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, Clock, ShieldAlert,
+}
 
 import { EmailVariablesProvider } from '@/components/email-editor/email-variables-context'
 import { EmailContainer } from '@/components/email-editor/user/email-container'
@@ -271,7 +284,7 @@ function EditorCanvas({
             disabled={isSaving || isCompleting}
           >
             {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
@@ -285,7 +298,7 @@ function EditorCanvas({
               disabled={isSaving || isCompleting}
             >
               {isCompleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <CheckCircle2 className="mr-2 h-4 w-4" />
               )}
@@ -336,6 +349,33 @@ export function SubtaskEmailSheet({
   const [isCompleting, setIsCompleting] = useState(false)
   const [hasRendered, setHasRendered] = useState(false)
   const [editorKey, setEditorKey] = useState(0)
+
+  // Email status + resend
+  const { emails: emailLogs } = useEmailStatus(taskId, subtask.id)
+  const latestEmail = emailLogs[0]
+  const canResend = subtask.is_completed && !!latestEmail
+  const [isResending, setIsResending] = useState(false)
+
+  const handleResend = async () => {
+    if (!latestEmail) return
+    setIsResending(true)
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${taskId}/resend-email`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ log_email_id: latestEmail.id }),
+        }
+      )
+      if (!res.ok) throw new Error('Falha ao reenviar')
+      toast.success('Email reenviado com sucesso!')
+    } catch {
+      toast.error('Erro ao reenviar email')
+    } finally {
+      setIsResending(false)
+    }
+  }
 
   // Email send dialog
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
@@ -549,6 +589,8 @@ export function SubtaskEmailSheet({
         throw new Error(err.error || 'Erro ao enviar email')
       }
 
+      const sendData = await res.json()
+
       // Save rendered content and mark as completed
       await callSubtaskApi({
         rendered_content: {
@@ -557,6 +599,13 @@ export function SubtaskEmailSheet({
           editor_state: JSON.parse(pendingPayload.state),
         },
         is_completed: true,
+        resend_email_id: sendData.id,
+        email_metadata: {
+          sender_email: emailForm.senderEmail,
+          sender_name: emailForm.senderName,
+          recipient_email: emailForm.recipientEmail,
+          cc: emailForm.cc ? emailForm.cc.split(',').map((e: string) => e.trim()).filter(Boolean) : [],
+        },
       })
 
       toast.success('Email enviado com sucesso!')
@@ -612,14 +661,28 @@ export function SubtaskEmailSheet({
                     Rascunho guardado
                   </Badge>
                 )}
-                {subtask.is_completed && (
-                  <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
-                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                    Enviado
-                  </Badge>
-                )}
+                {subtask.is_completed && (() => {
+                  const emailStatus = latestEmail?.last_event
+                  const statusConfig = emailStatus ? EMAIL_STATUS_CONFIG[emailStatus] : null
+                  const StatusIcon = statusConfig ? EMAIL_STATUS_ICONS[statusConfig.icon] : null
+                  return (
+                    <Badge
+                      variant={statusConfig?.badgeVariant || 'secondary'}
+                      className="gap-1 text-xs"
+                    >
+                      {StatusIcon ? <StatusIcon className={cn('h-3 w-3', statusConfig?.color)} /> : <CheckCircle2 className="h-3 w-3" />}
+                      {statusConfig?.label || 'Enviado'}
+                    </Badge>
+                  )
+                })()}
               </div>
             </div>
+            {canResend && (
+              <Button variant="outline" size="sm" onClick={handleResend} disabled={isResending} className="shrink-0 self-center">
+                {isResending ? <Spinner variant="infinite" size={14} className="mr-1.5" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+                Reenviar
+              </Button>
+            )}
           </div>
         </SheetHeader>
 
@@ -765,7 +828,7 @@ export function SubtaskEmailSheet({
               }
             >
               {isSendingEmail ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}

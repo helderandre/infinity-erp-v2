@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Check, X, Undo2, AlertCircle, FileStack, Loader2 } from 'lucide-react'
+import { Check, X, Undo2, AlertCircle, FileStack } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 
@@ -167,7 +168,7 @@ export function ProcessReviewSection({
             </Label>
             {isLoadingTemplates ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} />
                 A carregar templates...
               </div>
             ) : templates.length === 0 ? (
@@ -219,7 +220,7 @@ export function ProcessReviewSection({
               className="flex-1 min-w-[120px]"
             >
               {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner variant="infinite" size={16} className="mr-2" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}

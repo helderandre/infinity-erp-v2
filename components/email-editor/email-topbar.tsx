@@ -4,7 +4,8 @@ import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ArrowLeft, Undo2, Redo2, Save, Loader2, Pencil, Eye } from 'lucide-react'
+import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
 
 export type EditorMode = 'edit' | 'preview'
@@ -114,7 +115,7 @@ export function EmailTopbar({
         </Button>
         <Button onClick={handleSave} disabled={isSaving} size="sm">
           {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Spinner variant="infinite" size={16} className="mr-2" />
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}

@@ -439,6 +439,76 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   bypass: 'Dispensa de tarefa',
 }
 
+// Configuração de tipos de actividade para timeline (ícones e cores)
+export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
+  icon: string
+  label: string
+  color: string
+}> = {
+  status_change:   { icon: 'RefreshCw',      label: 'Estado alterado',      color: 'text-blue-500' },
+  assignment:      { icon: 'UserPlus',       label: 'Atribuição',           color: 'text-violet-500' },
+  priority_change: { icon: 'Flag',           label: 'Prioridade alterada',  color: 'text-amber-500' },
+  due_date_change: { icon: 'CalendarClock',  label: 'Data limite alterada', color: 'text-orange-500' },
+  bypass:          { icon: 'Ban',            label: 'Dispensada',           color: 'text-orange-500' },
+  upload:          { icon: 'Upload',         label: 'Documento carregado',  color: 'text-emerald-500' },
+  email_sent:      { icon: 'Mail',           label: 'Email enviado',        color: 'text-sky-500' },
+  doc_generated:   { icon: 'FileText',       label: 'Documento gerado',     color: 'text-indigo-500' },
+  started:         { icon: 'PlayCircle',     label: 'Iniciada',             color: 'text-blue-500' },
+  completed:       { icon: 'CheckCircle2',   label: 'Concluída',            color: 'text-emerald-500' },
+  viewed:          { icon: 'Eye',            label: 'Visto por',            color: 'text-muted-foreground' },
+  draft_generated: { icon: 'PenLine',        label: 'Rascunho gerado',      color: 'text-violet-500' },
+  comment:         { icon: 'MessageSquare',  label: 'Comentário',           color: 'text-foreground' },
+  email_delivered: { icon: 'MailCheck',         label: 'Email entregue',     color: 'text-emerald-500' },
+  email_opened:    { icon: 'MailOpen',          label: 'Email aberto',       color: 'text-violet-500' },
+  email_clicked:   { icon: 'MousePointerClick', label: 'Link clicado',       color: 'text-indigo-500' },
+  email_bounced:   { icon: 'MailX',             label: 'Email rejeitado',    color: 'text-red-500' },
+  email_failed:    { icon: 'AlertCircle',       label: 'Erro no envio',      color: 'text-red-500' },
+  email_resent:    { icon: 'MailPlus',          label: 'Email reenviado',    color: 'text-sky-500' },
+}
+
+export const EMAIL_STATUS_CONFIG: Record<string, {
+  label: string
+  icon: string
+  color: string
+  badgeVariant: 'secondary' | 'default' | 'destructive' | 'outline'
+}> = {
+  sent:       { label: 'Enviado',   icon: 'Mail',              color: 'text-sky-500',     badgeVariant: 'secondary' },
+  delivered:  { label: 'Entregue',  icon: 'MailCheck',         color: 'text-emerald-500', badgeVariant: 'default' },
+  opened:     { label: 'Aberto',    icon: 'MailOpen',          color: 'text-violet-500',  badgeVariant: 'default' },
+  clicked:    { label: 'Clicado',   icon: 'MousePointerClick', color: 'text-indigo-500',  badgeVariant: 'default' },
+  bounced:    { label: 'Rejeitado', icon: 'MailX',             color: 'text-red-500',     badgeVariant: 'destructive' },
+  complained: { label: 'Spam',      icon: 'ShieldAlert',       color: 'text-red-500',     badgeVariant: 'destructive' },
+  failed:     { label: 'Falhou',    icon: 'AlertCircle',       color: 'text-red-500',     badgeVariant: 'destructive' },
+  delayed:    { label: 'Atrasado',  icon: 'Clock',             color: 'text-amber-500',   badgeVariant: 'outline' },
+}
+
+// Badges de prioridade com design expressivo
+export const PRIORITY_BADGE_CONFIG: Record<string, {
+  icon: string
+  label: string
+  className: string
+  dotColor: string
+}> = {
+  urgent: {
+    icon: 'AlertTriangle',
+    label: 'Urgente',
+    className: 'bg-red-500/15 text-red-600 border-red-500/20',
+    dotColor: 'bg-red-500',
+  },
+  normal: {
+    icon: 'ArrowRight',
+    label: 'Normal',
+    className: 'bg-amber-500/15 text-amber-600 border-amber-500/20',
+    dotColor: 'bg-amber-500',
+  },
+  low: {
+    icon: 'ArrowDown',
+    label: 'Baixa',
+    className: 'bg-slate-500/15 text-slate-500 border-slate-500/20',
+    dotColor: 'bg-slate-400',
+  },
+}
+
 // Labels de Tipo de Verificação de Subtarefa (PT-PT) — Legacy
 export const CHECK_TYPE_LABELS = {
   field: 'Campo do proprietário',

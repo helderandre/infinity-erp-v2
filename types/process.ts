@@ -155,6 +155,44 @@ export interface TaskActivityEntry {
   created_at: string
 }
 
+// ── Actividades de Tarefa (nova tabela proc_task_activities) ──
+
+export type TaskActivityType =
+  | 'status_change'
+  | 'assignment'
+  | 'priority_change'
+  | 'due_date_change'
+  | 'bypass'
+  | 'upload'
+  | 'email_sent'
+  | 'doc_generated'
+  | 'started'
+  | 'completed'
+  | 'viewed'
+  | 'draft_generated'
+  | 'comment'
+  | 'email_delivered'
+  | 'email_opened'
+  | 'email_clicked'
+  | 'email_bounced'
+  | 'email_failed'
+  | 'email_resent'
+
+export interface TaskActivity {
+  id: string
+  proc_task_id: string
+  user_id: string
+  activity_type: TaskActivityType
+  description: string
+  metadata?: Record<string, unknown>
+  created_at: string
+  user?: {
+    id: string
+    commercial_name: string
+    profile?: { profile_photo_url: string | null } | null
+  }
+}
+
 // ── Chat de Processo ──
 
 export interface ChatMessage {
@@ -229,6 +267,32 @@ export interface ChatReadReceipt {
     commercial_name: string
     profile?: { profile_photo_url: string | null } | null
   }
+}
+
+// ── Log de Emails ──
+
+export interface LogEmail {
+  id: string
+  proc_task_id: string | null
+  proc_subtask_id: string | null
+  resend_email_id: string | null
+  recipient_email: string
+  sender_email: string | null
+  sender_name: string | null
+  cc: string[] | null
+  subject: string | null
+  body_html: string | null
+  sent_at: string | null
+  delivery_status: string | null
+  last_event: string
+  events: Array<{
+    type: string
+    timestamp: string
+    metadata?: Record<string, unknown> | null
+  }>
+  parent_email_id: string | null
+  error_message: string | null
+  metadata: Record<string, unknown> | null
 }
 
 // ── Notificações ──

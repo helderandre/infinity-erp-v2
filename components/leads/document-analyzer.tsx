@@ -10,7 +10,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, Sparkles, Check } from 'lucide-react'
+import { Sparkles, Check } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import type { DocumentAnalysis } from '@/types/lead'
 
@@ -87,7 +88,7 @@ export function DocumentAnalyzer({ leadId, documentUrl, onApply }: DocumentAnaly
         disabled={isAnalyzing || !documentUrl}
       >
         {isAnalyzing ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Spinner variant="infinite" size={16} className="mr-2" />
         ) : (
           <Sparkles className="mr-2 h-4 w-4" />
         )}

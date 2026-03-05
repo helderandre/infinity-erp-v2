@@ -9,7 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Upload, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Upload, Save } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
 
 interface DocType {
@@ -85,7 +86,7 @@ export function DocumentEditorTopbar({
           className="gap-1.5"
         >
           {isImporting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Spinner variant="infinite" size={14} />
           ) : (
             <Upload className="h-3.5 w-3.5" />
           )}
@@ -96,7 +97,7 @@ export function DocumentEditorTopbar({
 
         <Button onClick={onSave} disabled={isSaving} size="sm">
           {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Spinner variant="infinite" size={16} className="mr-2" />
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}

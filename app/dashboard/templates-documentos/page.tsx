@@ -71,11 +71,11 @@ import {
   Pencil,
   Trash2,
   Shield,
-  Loader2,
   Check,
   ChevronsUpDown,
   X,
 } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -678,7 +678,7 @@ function DocTypeDialog({
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving && <Spinner variant="infinite" size={16} className="mr-2" />}
             {docType ? 'Guardar' : 'Criar'}
           </Button>
         </DialogFooter>

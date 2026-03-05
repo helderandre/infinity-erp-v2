@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 
 const RESEND_COOLDOWN = 60
 
@@ -139,7 +140,7 @@ function VerifyOtpForm() {
 
           {loading && (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} />
               A verificar...
             </div>
           )}
@@ -159,7 +160,7 @@ function VerifyOtpForm() {
                 disabled={resending}
               >
                 {resending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  <Spinner variant="infinite" size={12} className="mr-1" />
                 ) : (
                   <RefreshCw className="mr-1 h-3 w-3" />
                 )}

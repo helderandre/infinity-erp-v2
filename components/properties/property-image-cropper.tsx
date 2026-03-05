@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { Loader2, RectangleHorizontal, Square, Unlock } from 'lucide-react'
+import { RectangleHorizontal, Square, Unlock } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import getCroppedImg from '@/lib/crop-image'
 
 const ASPECT_OPTIONS = [
@@ -121,7 +122,7 @@ export function PropertyImageCropper({
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isProcessing && <Spinner variant="infinite" size={16} className="mr-2" />}
             Guardar
           </Button>
         </DialogFooter>

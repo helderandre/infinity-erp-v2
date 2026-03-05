@@ -2,7 +2,8 @@
 
 import { MentionsInput, Mention } from 'react-mentions'
 import { Button } from '@/components/ui/button'
-import { Send, Loader2 } from 'lucide-react'
+import { Send } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 
 interface CommentInputProps {
   value: string
@@ -92,7 +93,7 @@ export function CommentInput({
         onClick={onSubmit}
         disabled={!value.trim() || isSubmitting}
       >
-        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        {isSubmitting ? <Spinner variant="infinite" size={16} /> : <Send className="h-4 w-4" />}
       </Button>
     </div>
   )

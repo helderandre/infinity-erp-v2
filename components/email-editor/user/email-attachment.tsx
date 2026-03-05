@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Paperclip, Upload, Loader2, X, FileText, FileSpreadsheet, FileImage, File } from 'lucide-react'
+import { Paperclip, Upload, X, FileText, FileSpreadsheet, FileImage, File } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 const ACCEPT_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp'
@@ -223,7 +224,7 @@ const EmailAttachmentSettings = () => {
             onClick={() => fileInputRef.current?.click()}
           >
             {isUploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner variant="infinite" size={16} className="mr-2" />
             ) : (
               <Upload className="mr-2 h-4 w-4" />
             )}

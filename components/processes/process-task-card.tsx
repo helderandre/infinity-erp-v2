@@ -17,7 +17,6 @@ import {
   Ban,
   MoreHorizontal,
   UserPlus,
-  Flag,
   Calendar,
   Upload,
   Mail,
@@ -29,7 +28,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { ProcessTask, TaskPriority } from '@/types/process'
 
@@ -56,11 +55,6 @@ const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
   generate_doc: <FileText className="h-3 w-3" />,
 }
 
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  urgent: 'text-red-500',
-  normal: 'text-amber-500',
-  low: 'text-slate-400',
-}
 
 interface ProcessTaskCardProps {
   task: ProcessTask
@@ -84,8 +78,6 @@ export function ProcessTaskCard({
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !['completed', 'skipped'].includes(task.status ?? '')
   const statusIcon = STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending
   const actionIcon = ACTION_ICONS[task.action_type as keyof typeof ACTION_ICONS] ?? ACTION_ICONS.MANUAL
-  const priorityColor = PRIORITY_COLORS[(task.priority as TaskPriority) ?? 'normal']
-
   const actionMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -173,9 +165,12 @@ export function ProcessTaskCard({
             </Badge>
           )}
 
-          {/* Priority flag */}
-          {task.priority && task.priority !== 'normal' && (
-            <Flag className={cn('h-3.5 w-3.5', priorityColor)} />
+          {/* Priority badge */}
+          {task.priority && (
+            <Badge variant="outline" className={cn('text-[10px] gap-1 px-1.5 py-0', PRIORITY_BADGE_CONFIG[task.priority]?.className)}>
+              <span className={cn('h-1.5 w-1.5 rounded-full', PRIORITY_BADGE_CONFIG[task.priority]?.dotColor)} />
+              {TASK_PRIORITY_LABELS[task.priority]}
+            </Badge>
           )}
 
           {/* Mandatory */}
@@ -262,9 +257,12 @@ export function ProcessTaskCard({
       {/* Title */}
       <span className="flex-1 text-sm font-medium truncate">{task.title}</span>
 
-      {/* Priority flag */}
-      {task.priority && task.priority !== 'normal' && (
-        <Flag className={cn('h-3.5 w-3.5 shrink-0', priorityColor)} />
+      {/* Priority badge */}
+      {task.priority && (
+        <Badge variant="outline" className={cn('text-[10px] gap-1 px-1.5 py-0 shrink-0', PRIORITY_BADGE_CONFIG[task.priority]?.className)}>
+          <span className={cn('h-1.5 w-1.5 rounded-full', PRIORITY_BADGE_CONFIG[task.priority]?.dotColor)} />
+          {TASK_PRIORITY_LABELS[task.priority]}
+        </Badge>
       )}
 
       {/* Mandatory */}

@@ -27,7 +27,8 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, Loader2, X, CheckSquare } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
@@ -536,13 +537,13 @@ export default function ProcessosPage() {
                 isSelected && 'ring-2 ring-primary border-primary'
               )}>
                 {selectionMode ? (
-                  <button type="button" onClick={handleCardClick} className="block h-full w-full text-left cursor-pointer">
+                  <div role="button" tabIndex={0} onClick={handleCardClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e as unknown as React.MouseEvent) } }} className="block h-full w-full text-left cursor-pointer">
                     {cardContent}
-                  </button>
+                  </div>
                 ) : isDraft ? (
-                  <button type="button" onClick={handleCardClick} className="block h-full w-full text-left">
+                  <div role="button" tabIndex={0} onClick={handleCardClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e as unknown as React.MouseEvent) } }} className="block h-full w-full text-left cursor-pointer">
                     {cardContent}
-                  </button>
+                  </div>
                 ) : (
                   <Link href={`/dashboard/processos/${proc.id}`} className="block h-full">
                     {cardContent}
@@ -594,7 +595,7 @@ export default function ProcessosPage() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isDeleting && <Spinner variant="infinite" size={16} className="mr-2" />}
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -619,7 +620,7 @@ export default function ProcessosPage() {
               disabled={isBulkDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isBulkDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isBulkDeleting && <Spinner variant="infinite" size={16} className="mr-2" />}
               Eliminar {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>

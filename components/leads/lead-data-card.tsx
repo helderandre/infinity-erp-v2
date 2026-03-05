@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Check, Loader2, FileText, ExternalLink, Trash2, Sparkles } from 'lucide-react'
+import { Pencil, Check, FileText, ExternalLink, Trash2, Sparkles } from 'lucide-react'
+import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
@@ -267,7 +268,7 @@ export function LeadDataCard({
                 className="p-2 rounded-md hover:bg-muted transition-colors"
               >
                 {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner variant="infinite" size={16} />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
@@ -404,7 +405,7 @@ export function LeadDataCard({
                         onClick={onPostalCodeLookup}
                         disabled={cpLoading}
                       >
-                        {cpLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Auto'}
+                        {cpLoading ? <Spinner variant="infinite" size={12} /> : 'Auto'}
                       </Button>
                     </div>
                   </div>
@@ -470,7 +471,7 @@ export function LeadDataCard({
                             onClick={onNipcLookup}
                             disabled={nipcLoading}
                           >
-                            {nipcLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pesquisar'}
+                            {nipcLoading ? <Spinner variant="infinite" size={12} /> : 'Pesquisar'}
                           </Button>
                         </div>
                       </div>
