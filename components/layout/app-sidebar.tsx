@@ -23,6 +23,9 @@ import {
   FileCode2,
   Workflow,
   Braces,
+  Bot,
+  MessageCircle,
+  MessageSquareText,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -153,6 +156,24 @@ export const builderItems = [
   },
 ]
 
+export const automationItems = [
+  {
+    title: 'Fluxos',
+    icon: Workflow,
+    href: '/dashboard/automacao/fluxos',
+  },
+  {
+    title: 'Instâncias WhatsApp',
+    icon: MessageCircle,
+    href: '/dashboard/automacao/instancias',
+  },
+  {
+    title: 'Templates WhatsApp',
+    icon: MessageSquareText,
+    href: '/dashboard/automacao/templates-wpp',
+  },
+]
+
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -254,6 +275,45 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {builderItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {hasPermission('settings' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/automacao')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  <Bot className="mr-1.5 size-3.5" />
+                  Automações
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {automationItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
                       return (

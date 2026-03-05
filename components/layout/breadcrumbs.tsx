@@ -32,6 +32,12 @@ const pathTranslations: Record<string, string> = {
   'templates-email': 'Templates de Email',
   'templates-documentos': 'Templates de Documentos',
   'templates-variaveis': 'Variáveis de Template',
+  automacao: 'Automações',
+  fluxos: 'Fluxos',
+  editor: 'Editor',
+  instancias: 'Instâncias WhatsApp',
+  'templates-wpp': 'Templates WhatsApp',
+  execucoes: 'Execuções',
 }
 
 export function Breadcrumbs() {

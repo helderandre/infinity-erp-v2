@@ -364,11 +364,11 @@ SELECT cron.schedule('auto-cleanup', '0 3 * * *', $$DELETE FROM auto_runs WHERE 
 
 ## ✅ Critérios de Aceitação
 
-- [ ] Todas as migrations aplicam sem erro
-- [ ] Extensões pgmq, pg_cron, pg_net activas
-- [ ] Fila pgmq existe: `SELECT * FROM pgmq.list_queues();`
-- [ ] Realtime: `SELECT * FROM pg_publication_tables WHERE tablename LIKE 'auto_%';`
-- [ ] `tpl_variables` tem 25+ registos
-- [ ] Versionamento: actualizar `auto_flows` cria versão automática
-- [ ] CASCADE: apagar flow remove triggers, runs, steps
-- [ ] Cron: `SELECT * FROM cron.job;` mostra 2 jobs
+- [x] Todas as migrations aplicam sem erro
+- [x] Extensões pgmq, pg_cron, pg_net activas
+- [x] Fila pgmq existe: `SELECT * FROM pgmq.list_queues();`
+- [x] Realtime: `SELECT * FROM pg_publication_tables WHERE tablename LIKE 'auto_%';`
+- [x] `tpl_variables` tem 25+ registos
+- [x] Versionamento: actualizar `auto_flows` cria versão automática
+- [x] CASCADE: apagar flow remove triggers, runs, steps
+- [x] Cron: `SELECT * FROM cron.job;` mostra 2 jobs
