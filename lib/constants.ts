@@ -463,7 +463,10 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   email_clicked:   { icon: 'MousePointerClick', label: 'Link clicado',       color: 'text-indigo-500' },
   email_bounced:   { icon: 'MailX',             label: 'Email rejeitado',    color: 'text-red-500' },
   email_failed:    { icon: 'AlertCircle',       label: 'Erro no envio',      color: 'text-red-500' },
-  email_resent:    { icon: 'MailPlus',          label: 'Email reenviado',    color: 'text-sky-500' },
+  email_resent:       { icon: 'MailPlus',          label: 'Email reenviado',      color: 'text-sky-500' },
+  subtask_reverted:   { icon: 'RotateCcw',         label: 'Subtarefa revertida',  color: 'text-orange-500' },
+  document_replaced:  { icon: 'RefreshCw',          label: 'Documento substituído', color: 'text-blue-500' },
+  upload_completed:   { icon: 'Upload',             label: 'Upload concluído',     color: 'text-emerald-500' },
 }
 
 export const EMAIL_STATUS_CONFIG: Record<string, {

@@ -3,7 +3,7 @@
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 import { SearchCommand } from '@/components/layout/search-command'
-import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { QuickActions } from '@/components/layout/quick-actions'
 import { NotificationPopover } from '@/components/notifications/notification-popover'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -27,7 +27,7 @@ export default function DashboardLayout({
           <Breadcrumbs />
           <div className="ml-auto flex items-center gap-2">
             <SearchCommand />
-            <ThemeToggle />
+            <QuickActions />
             <NotificationPopover />
           </div>
         </header>

@@ -1,3 +1,4 @@
+// @deprecated — Substituído por SubtaskCardList + cards individuais (subtask-card-*.tsx)
 'use client'
 
 import { useState } from 'react'

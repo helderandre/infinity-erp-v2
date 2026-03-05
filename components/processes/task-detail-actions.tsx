@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TaskUploadAction } from './task-upload-action'
-import { TaskFormAction } from './task-form-action'
+import { SubtaskCardList } from './subtask-card-list'
 import {
   PlayCircle,
   CheckCircle2,
@@ -290,11 +290,12 @@ export function TaskDetailActions({
         if (!task.subtasks || task.subtasks.length === 0) return null
 
         return (
-          <TaskFormAction
+          <SubtaskCardList
             task={task as ProcessTask & { subtasks: ProcSubtask[] }}
             processId={processId}
             propertyId={propertyId}
             owners={owners}
+            processDocuments={processDocuments}
             onSubtaskToggle={async (taskId, subtaskId, completed) => {
               const res = await fetch(
                 `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtaskId}`,

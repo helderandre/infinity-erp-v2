@@ -56,6 +56,7 @@ import {
   XCircle,
   Building2,
   Users,
+  Activity,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -74,9 +75,11 @@ import { formatDate } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
+import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
 
-type ViewMode = 'kanban' | 'list'
+type ViewMode = 'kanban' | 'list' | 'timeline'
 
 export default function ProcessoDetailPage() {
   const params = useParams()
@@ -87,6 +90,11 @@ export default function ProcessoDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+
+  // Process-level activities (for timeline view)
+  const { activities: processActivities, isLoading: isLoadingActivities } = useProcessActivities(
+    viewMode === 'timeline' ? (params.id as string) : null
+  )
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -770,6 +778,10 @@ export default function ProcessoDetailPage() {
                       <List className="h-4 w-4" />
                       Lista
                     </ToggleGroupItem>
+                    <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
+                      <Activity className="h-4 w-4" />
+                      Timeline
+                    </ToggleGroupItem>
                   </ToggleGroup>
                 </div>
               </div>
@@ -784,7 +796,7 @@ export default function ProcessoDetailPage() {
                   onTaskAssign={handleAssignOpen}
                   onTaskClick={handleTaskClick}
                 />
-              ) : (
+              ) : viewMode === 'list' ? (
                 <ProcessListView
                   stages={filteredStages}
                   isProcessing={isProcessing}
@@ -792,6 +804,11 @@ export default function ProcessoDetailPage() {
                   onTaskBypass={handleBypassOpen}
                   onTaskAssign={handleAssignOpen}
                   onTaskClick={handleTaskClick}
+                />
+              ) : (
+                <ProcessTimelineView
+                  activities={processActivities}
+                  isLoading={isLoadingActivities}
                 />
               )}
             </>

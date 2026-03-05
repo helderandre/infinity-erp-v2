@@ -20,6 +20,9 @@ export type TaskActivityType =
   | 'email_bounced'
   | 'email_failed'
   | 'email_resent'
+  | 'subtask_reverted'
+  | 'document_replaced'
+  | 'upload_completed'
 
 export async function logTaskActivity(
   supabase: SupabaseClient,

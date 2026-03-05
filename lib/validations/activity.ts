@@ -7,6 +7,7 @@ export const activitySchema = z.object({
     'completed', 'viewed', 'draft_generated', 'comment',
     'email_delivered', 'email_opened', 'email_clicked',
     'email_bounced', 'email_failed', 'email_resent',
+    'subtask_reverted', 'document_replaced', 'upload_completed',
   ]),
   description: z.string().min(1).max(1000),
   metadata: z.record(z.string(), z.any()).optional(),

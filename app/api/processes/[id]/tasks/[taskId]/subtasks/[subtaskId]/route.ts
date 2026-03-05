@@ -23,6 +23,9 @@ const subtaskUpdateSchema = z
       recipient_email: z.string().optional(),
       cc: z.array(z.string()).optional(),
     }).optional(),
+    task_result: z.object({
+      doc_registry_id: z.string().optional(),
+    }).optional(),
   })
   .refine(
     (data) => data.is_completed !== undefined || data.rendered_content !== undefined,
@@ -95,6 +98,7 @@ export async function PUT(
       subtaskType === 'checklist' ||
       subtaskType === 'email' ||
       subtaskType === 'generate_doc' ||
+      subtaskType === 'upload' ||
       checkType === 'manual'
 
     if (!isAllowedType) {
@@ -115,6 +119,13 @@ export async function PUT(
       updateData.is_completed = is_completed
       updateData.completed_at = is_completed ? new Date().toISOString() : null
       updateData.completed_by = is_completed ? user.id : null
+    }
+
+    if (validation.data.task_result) {
+      updateData.config = {
+        ...config,
+        task_result: is_completed ? validation.data.task_result : null,
+      }
     }
 
     // Executar update (admin bypassa RLS)
@@ -205,6 +216,14 @@ export async function PUT(
         // Rascunho guardado
         const label = effectiveType === 'email' ? 'rascunho de email' : 'rascunho de documento'
         await logTaskActivity(supabase, taskId, user.id, 'draft_generated', `${userName} gerou ${label}${suffix}`, metadata)
+      } else if (is_completed === false) {
+        // Subtarefa revertida
+        await logTaskActivity(
+          supabase, taskId, user.id,
+          'subtask_reverted',
+          `${userName} reverteu "${subtaskTitle}"${suffix}`,
+          { ...metadata, previous_completed_at: (subtask as any).completed_at }
+        )
       } else if (is_completed) {
         // Subtarefa concluída
         if (effectiveType === 'email') {

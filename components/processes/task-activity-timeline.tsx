@@ -19,6 +19,7 @@ import {
   Upload, Mail, FileText, PlayCircle, CheckCircle2,
   Eye, PenLine, MessageSquare, Activity,
   MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, MailPlus, ShieldAlert, Clock,
+  RotateCcw,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -30,6 +31,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Upload, Mail, FileText, PlayCircle, CheckCircle2,
   Eye, PenLine, MessageSquare, Activity,
   MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, MailPlus, ShieldAlert, Clock,
+  RotateCcw,
 }
 
 interface TaskActivityTimelineProps {
