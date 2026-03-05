@@ -25,6 +25,8 @@ import {
   User,
   Building2,
   ClipboardList,
+  Layers,
+  CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
@@ -44,6 +46,14 @@ const ACTION_ICONS = {
   GENERATE_DOC: <FileText className="h-3.5 w-3.5" />,
   MANUAL: <Circle className="h-3.5 w-3.5" />,
   FORM: <ClipboardList className="h-3.5 w-3.5" />,
+  COMPOSITE: <Layers className="h-3.5 w-3.5" />,
+}
+
+const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
+  upload: <Upload className="h-3 w-3" />,
+  checklist: <CheckSquare className="h-3 w-3" />,
+  email: <Mail className="h-3 w-3" />,
+  generate_doc: <FileText className="h-3 w-3" />,
 }
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
@@ -142,11 +152,26 @@ export function ProcessTaskCard({
 
         {/* Row 2: badges */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* Action type */}
-          <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
-            {actionIcon}
-            {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
-          </Badge>
+          {/* Action type — for COMPOSITE, show subtask type badges instead */}
+          {task.action_type === 'COMPOSITE' && task.subtasks && task.subtasks.length > 0 ? (
+            <>
+              {/* Show unique subtask type icons */}
+              {(() => {
+                const types = [...new Set(task.subtasks.map((s) => (s.config as any)?.type || (s.config as any)?.check_type || 'checklist'))]
+                return types.map((t) => (
+                  <Badge key={t} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                    {SUBTASK_TYPE_ICONS_MAP[t] || <Circle className="h-3 w-3" />}
+                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
+                  </Badge>
+                ))
+              })()}
+            </>
+          ) : (
+            <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+              {actionIcon}
+              {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
+            </Badge>
+          )}
 
           {/* Priority flag */}
           {task.priority && task.priority !== 'normal' && (
@@ -172,8 +197,8 @@ export function ProcessTaskCard({
             </Badge>
           )}
 
-          {/* Subtask count for FORM */}
-          {task.action_type === 'FORM' && task.subtasks && task.subtasks.length > 0 && (
+          {/* Subtask count for FORM and COMPOSITE */}
+          {['FORM', 'COMPOSITE'].includes(task.action_type ?? '') && task.subtasks && task.subtasks.length > 0 && (
             <span className="text-[10px] text-muted-foreground tabular-nums">
               {task.subtasks.filter((s) => s.is_completed).length}/{task.subtasks.length}
             </span>

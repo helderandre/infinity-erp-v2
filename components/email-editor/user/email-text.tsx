@@ -13,6 +13,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, Underline, Strikethrough } from 'lucide-react'
 import { useTemplateVariables } from '@/hooks/use-template-variables'
+import { useEmailVariables } from '@/components/email-editor/email-variables-context'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
 import { UnitInput } from '@/components/email-editor/settings'
 
@@ -115,6 +116,7 @@ export const EmailText = ({
 
 const EmailTextSettings = () => {
   const { variables: templateVariables } = useTemplateVariables()
+  const { variables: resolvedVariables } = useEmailVariables()
   const {
     actions: { setProp },
     fontSize,
@@ -332,17 +334,25 @@ const EmailTextSettings = () => {
       <div className="space-y-2">
         <Label>Variáveis</Label>
         <div className="flex flex-wrap gap-1">
-          {templateVariables.map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors"
-              onClick={() => insertVariable(`{{${v.key}}}`)}
-              title={v.label}
-            >
-              {v.label}
-            </button>
-          ))}
+          {templateVariables.map((v) => {
+            const resolved = resolvedVariables[v.key]
+            const hasResolved = resolved !== undefined && resolved !== ''
+            return (
+              <button
+                key={v.key}
+                type="button"
+                className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors text-left"
+                onClick={() => insertVariable(hasResolved ? resolved : `{{${v.key}}}`)}
+                title={hasResolved ? `${v.label}: ${resolved}` : v.label}
+              >
+                {hasResolved ? (
+                  <span className="font-medium">{resolved}</span>
+                ) : (
+                  v.label
+                )}
+              </button>
+            )
+          })}
         </div>
         <p className="text-xs text-muted-foreground">
           Clique para inserir na posição do cursor

@@ -14,8 +14,12 @@ import {
   Circle,
   PlayCircle,
   Ban,
+  Upload,
+  Mail,
+  FileText,
+  CheckSquare,
 } from 'lucide-react'
-import { ACTION_TYPE_LABELS } from '@/lib/constants'
+import { ACTION_TYPE_LABELS, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { useTaskComments } from '@/hooks/use-task-comments'
 import { TaskDetailMetadata } from './task-detail-metadata'
 import { TaskDetailActions } from './task-detail-actions'
@@ -122,9 +126,29 @@ export function TaskDetailSheet({
             <SheetTitle className="text-lg">{task.title}</SheetTitle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary" className="text-xs">
-              {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
-            </Badge>
+            {/* For COMPOSITE tasks, show subtask type badges */}
+            {task.action_type === 'COMPOSITE' && task.subtasks && task.subtasks.length > 0 ? (
+              (() => {
+                const types = [...new Set(task.subtasks.map((s) => (s.config as any)?.type || (s.config as any)?.check_type || 'checklist'))]
+                const ICON_MAP: Record<string, React.ReactNode> = {
+                  upload: <Upload className="h-3 w-3" />,
+                  checklist: <CheckSquare className="h-3 w-3" />,
+                  manual: <CheckSquare className="h-3 w-3" />,
+                  email: <Mail className="h-3 w-3" />,
+                  generate_doc: <FileText className="h-3 w-3" />,
+                }
+                return types.map((t) => (
+                  <Badge key={t} variant="secondary" className="text-xs gap-1">
+                    {ICON_MAP[t] || null}
+                    {SUBTASK_TYPE_LABELS[t] || t}
+                  </Badge>
+                ))
+              })()
+            ) : (
+              <Badge variant="secondary" className="text-xs">
+                {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
+              </Badge>
+            )}
             {task.is_mandatory && (
               <Badge variant="outline" className="text-xs">
                 Obrigatória

@@ -15,11 +15,33 @@ export const subtaskSchema = z
         doc_type_id: z.string().optional(),
         email_library_id: z.string().optional(),
         doc_library_id: z.string().optional(),
+        // Campos de multiplicação por proprietário
+        owner_scope: z.enum(['none', 'all_owners', 'main_contact_only']).optional(),
+        person_type_filter: z.enum(['all', 'singular', 'coletiva']).optional(),
+        has_person_type_variants: z.boolean().optional(),
+        singular_config: z
+          .object({
+            doc_type_id: z.string().optional(),
+            email_library_id: z.string().optional(),
+            doc_library_id: z.string().optional(),
+          })
+          .optional(),
+        coletiva_config: z
+          .object({
+            doc_type_id: z.string().optional(),
+            email_library_id: z.string().optional(),
+            doc_library_id: z.string().optional(),
+          })
+          .optional(),
       })
       .default({}),
   })
   .refine(
     (subtask) => {
+      // Se tem variantes por tipo, a config base não é obrigatória
+      if (subtask.config?.has_person_type_variants && subtask.config?.owner_scope && subtask.config.owner_scope !== 'none') {
+        return true
+      }
       // upload: doc_type_id obrigatório
       if (subtask.type === 'upload') return !!subtask.config?.doc_type_id
       // email: email_library_id obrigatório
@@ -29,6 +51,38 @@ export const subtaskSchema = z
       return true
     },
     { message: 'Configuração inválida para o tipo de subtarefa', path: ['config'] }
+  )
+  .refine(
+    (subtask) => {
+      // Se has_person_type_variants está activo, validar que as variantes têm a config necessária por tipo
+      if (!subtask.config?.has_person_type_variants) return true
+      if (!subtask.config?.owner_scope || subtask.config.owner_scope === 'none') return true
+
+      const type = subtask.type
+      if (type === 'upload') {
+        return (
+          !!subtask.config.singular_config?.doc_type_id ||
+          !!subtask.config.coletiva_config?.doc_type_id
+        )
+      }
+      if (type === 'email') {
+        return (
+          !!subtask.config.singular_config?.email_library_id ||
+          !!subtask.config.coletiva_config?.email_library_id
+        )
+      }
+      if (type === 'generate_doc') {
+        return (
+          !!subtask.config.singular_config?.doc_library_id ||
+          !!subtask.config.coletiva_config?.doc_library_id
+        )
+      }
+      return true
+    },
+    {
+      message: 'Quando variantes por tipo de pessoa estão activas, configure pelo menos uma variante',
+      path: ['config'],
+    }
   )
 
 // Schema para uma tarefa do template (sem action_type — derivado como COMPOSITE no backend)

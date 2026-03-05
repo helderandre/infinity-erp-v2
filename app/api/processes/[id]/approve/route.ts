@@ -190,7 +190,7 @@ export async function POST(
 
     // Popular tarefas do template seleccionado
     console.log('[APPROVE] A popular tarefas via RPC...')
-    const { error: populateError } = await (supabase as any).rpc(
+    const { error: populateError } = await supabase.rpc(
       'populate_process_tasks',
       { p_instance_id: id }
     )

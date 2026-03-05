@@ -142,11 +142,17 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
             description: st.description || undefined,
             is_mandatory: st.is_mandatory ?? true,
             order_index: st.order_index ?? 0,
-            type: st.config?.type || deriveTypeFromLegacy(st.config || {}),
+            type: st.config?.type || deriveTypeFromLegacy((st.config || {}) as Record<string, unknown>),
             config: {
               doc_type_id: st.config?.doc_type_id,
               email_library_id: st.config?.email_library_id,
               doc_library_id: st.config?.doc_library_id,
+              // Preservar campos de owner config
+              owner_scope: st.config?.owner_scope,
+              person_type_filter: st.config?.person_type_filter,
+              has_person_type_variants: st.config?.has_person_type_variants,
+              singular_config: st.config?.singular_config,
+              coletiva_config: st.config?.coletiva_config,
             },
           })),
         }

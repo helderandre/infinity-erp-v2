@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -45,6 +46,7 @@ import {
   CheckSquare,
   Mail,
   FileText,
+  Users,
 } from 'lucide-react'
 import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -70,6 +72,90 @@ function getPlaceholder(type: SubtaskData['type']): string {
     generate_doc: 'Ex: Minuta CPCV',
   }
   return map[type] || 'Título da subtarefa'
+}
+
+// Helper para renderizar selects de variantes (singular/coletiva)
+function renderVariantSelect(
+  subtask: SubtaskData,
+  variant: 'singular' | 'coletiva',
+  docTypes: { id: string; name: string; category?: string }[],
+  docTypesByCategory: Record<string, typeof docTypes>,
+  emailTemplates: { id: string; name: string; subject: string }[],
+  docTemplates: { id: string; name: string }[],
+  onUpdate: (id: string, data: Partial<SubtaskData>) => void
+) {
+  const variantKey = variant === 'singular' ? 'singular_config' : 'coletiva_config'
+  const currentConfig = subtask.config[variantKey] || {}
+
+  const updateVariant = (field: string, value: string) => {
+    onUpdate(subtask.id, {
+      config: {
+        ...subtask.config,
+        [variantKey]: { ...currentConfig, [field]: value },
+      },
+    })
+  }
+
+  if (subtask.type === 'upload') {
+    return (
+      <Select
+        value={currentConfig.doc_type_id || ''}
+        onValueChange={(v) => updateVariant('doc_type_id', v)}
+      >
+        <SelectTrigger className="h-7 text-xs">
+          <SelectValue placeholder="Tipo de documento..." />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(docTypesByCategory).map(([category, types]) => (
+            <SelectGroup key={category}>
+              <SelectLabel>{category}</SelectLabel>
+              {types.map((dt) => (
+                <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  if (subtask.type === 'email') {
+    return (
+      <Select
+        value={currentConfig.email_library_id || ''}
+        onValueChange={(v) => updateVariant('email_library_id', v)}
+      >
+        <SelectTrigger className="h-7 text-xs">
+          <SelectValue placeholder="Template de email..." />
+        </SelectTrigger>
+        <SelectContent>
+          {emailTemplates.map((et) => (
+            <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  if (subtask.type === 'generate_doc') {
+    return (
+      <Select
+        value={currentConfig.doc_library_id || ''}
+        onValueChange={(v) => updateVariant('doc_library_id', v)}
+      >
+        <SelectTrigger className="h-7 text-xs">
+          <SelectValue placeholder="Template de documento..." />
+        </SelectTrigger>
+        <SelectContent>
+          {docTemplates.map((dt) => (
+            <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  return null
 }
 
 // Sortable row component
@@ -134,8 +220,8 @@ function SortableSubtaskRow({
           />
         </div>
 
-        {/* Config condicional por tipo */}
-        {subtask.type === 'upload' && (
+        {/* Config condicional por tipo (escondida quando has_person_type_variants activo) */}
+        {subtask.type === 'upload' && !subtask.config.has_person_type_variants && (
           <Select
             value={subtask.config.doc_type_id || ''}
             onValueChange={(v) =>
@@ -160,7 +246,7 @@ function SortableSubtaskRow({
           </Select>
         )}
 
-        {subtask.type === 'email' && (
+        {subtask.type === 'email' && !subtask.config.has_person_type_variants && (
           <Select
             value={subtask.config.email_library_id || ''}
             onValueChange={(v) =>
@@ -180,7 +266,7 @@ function SortableSubtaskRow({
           </Select>
         )}
 
-        {subtask.type === 'generate_doc' && (
+        {subtask.type === 'generate_doc' && !subtask.config.has_person_type_variants && (
           <Select
             value={subtask.config.doc_library_id || ''}
             onValueChange={(v) =>
@@ -201,6 +287,159 @@ function SortableSubtaskRow({
         )}
 
         {/* checklist: não precisa de config extra — só o título */}
+
+        {/* Secção de configuração por proprietário */}
+        {(() => {
+          const ownerScope = subtask.config.owner_scope
+          const isMultiplied = ownerScope && ownerScope !== 'none'
+
+          return (
+            <div className="space-y-2 pt-1">
+              {/* Badges visuais (quando multiplicação activa) */}
+              {isMultiplied && (
+                <div className="flex gap-1 flex-wrap">
+                  <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-700 border-blue-200">
+                    <Users className="h-3 w-3 mr-1" />
+                    {ownerScope === 'main_contact_only' ? 'Contacto Principal' : 'Por Proprietário'}
+                  </Badge>
+                  {subtask.config.person_type_filter && subtask.config.person_type_filter !== 'all' && (
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      {subtask.config.person_type_filter === 'singular' ? 'Singular' : 'Colectiva'}
+                    </Badge>
+                  )}
+                  {subtask.config.has_person_type_variants && (
+                    <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 text-amber-700 border-amber-200">
+                      S/C
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              {/* Toggle: Repetir por proprietário (mutuamente exclusivo com "Apenas contacto principal") */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={ownerScope === 'all_owners'}
+                  onCheckedChange={(checked) => {
+                    onUpdate(subtask.id, {
+                      config: {
+                        ...subtask.config,
+                        owner_scope: checked ? 'all_owners' : 'none',
+                        person_type_filter: checked ? (subtask.config.person_type_filter || 'all') : undefined,
+                        ...(!checked ? {
+                          has_person_type_variants: undefined,
+                          singular_config: undefined,
+                          coletiva_config: undefined,
+                        } : {}),
+                      },
+                    })
+                  }}
+                  className="scale-75"
+                />
+                <Label className="text-xs text-muted-foreground cursor-pointer">
+                  Repetir por proprietário
+                </Label>
+              </div>
+
+              {/* Toggle: Apenas contacto principal (mutuamente exclusivo com "Repetir por proprietário") */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={ownerScope === 'main_contact_only'}
+                  onCheckedChange={(checked) => {
+                    onUpdate(subtask.id, {
+                      config: {
+                        ...subtask.config,
+                        owner_scope: checked ? 'main_contact_only' : 'none',
+                        person_type_filter: checked ? (subtask.config.person_type_filter || 'all') : undefined,
+                        ...(!checked ? {
+                          has_person_type_variants: undefined,
+                          singular_config: undefined,
+                          coletiva_config: undefined,
+                        } : {}),
+                      },
+                    })
+                  }}
+                  className="scale-75"
+                />
+                <Label className="text-xs text-muted-foreground cursor-pointer">
+                  Apenas contacto principal
+                </Label>
+              </div>
+
+              {/* Toggle: Config diferente por tipo de pessoa (mesmo nível, só para tipos com config) */}
+              {subtask.type !== 'checklist' && isMultiplied && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={!!subtask.config.has_person_type_variants}
+                    onCheckedChange={(checked) =>
+                      onUpdate(subtask.id, {
+                        config: {
+                          ...subtask.config,
+                          has_person_type_variants: checked || undefined,
+                          singular_config: checked ? (subtask.config.singular_config || {}) : undefined,
+                          coletiva_config: checked ? (subtask.config.coletiva_config || {}) : undefined,
+                          ...(checked ? {
+                            doc_type_id: undefined,
+                            email_library_id: undefined,
+                            doc_library_id: undefined,
+                          } : {}),
+                        },
+                      })
+                    }
+                    className="scale-75"
+                  />
+                  <Label className="text-xs text-muted-foreground cursor-pointer">
+                    Configuração diferente por tipo de pessoa
+                  </Label>
+                </div>
+              )}
+
+              {/* Campos condicionais (visíveis quando um dos modos de proprietário está activo) */}
+              {isMultiplied && (
+                <div className="pl-4 border-l-2 border-muted space-y-2">
+                  {/* Select: Aplicar a que tipo de proprietário */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Aplicar a</Label>
+                    <Select
+                      value={subtask.config.person_type_filter || 'all'}
+                      onValueChange={(v) =>
+                        onUpdate(subtask.id, {
+                          config: { ...subtask.config, person_type_filter: v as any },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os proprietários</SelectItem>
+                        <SelectItem value="singular">Apenas Pessoa Singular</SelectItem>
+                        <SelectItem value="coletiva">Apenas Pessoa Colectiva</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Variantes singular/colectiva */}
+                  {subtask.type !== 'checklist' && subtask.config.has_person_type_variants && (
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">
+                          Pessoa Singular
+                        </Label>
+                        {renderVariantSelect(subtask, 'singular', docTypes, docTypesByCategory, emailTemplates, docTemplates, onUpdate)}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">
+                          Pessoa Colectiva
+                        </Label>
+                        {renderVariantSelect(subtask, 'coletiva', docTypes, docTypesByCategory, emailTemplates, docTemplates, onUpdate)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Toggle obrigatória + botão eliminar */}

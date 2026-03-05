@@ -6,11 +6,46 @@ type ProcTask = Database['public']['Tables']['proc_tasks']['Row']
 type DevProperty = Database['public']['Tables']['dev_properties']['Row']
 type DevUser = Database['public']['Tables']['dev_users']['Row']
 
+export interface PropertySpecs {
+  typology: string | null
+  bedrooms: number | null
+  bathrooms: number | null
+  area_gross: number | null
+  area_util: number | null
+  construction_year: number | null
+  parking_spaces: number | null
+  garage_spaces: number | null
+  features: string[] | null
+  has_elevator: boolean | null
+  fronts_count: number | null
+  solar_orientation: string[] | null
+  views: string[] | null
+  equipment: string[] | null
+}
+
+export interface PropertyInternal {
+  commission_agreed: number | null
+  commission_type: string | null
+  contract_regime: string | null
+  contract_term: string | null
+  contract_expiry: string | null
+  imi_value: number | null
+  condominium_fee: number | null
+}
+
 export interface ProcessInstance extends ProcInstance {
   property?: Pick<
     DevProperty,
-    'id' | 'title' | 'slug' | 'city' | 'listing_price' | 'status' | 'property_type'
-  >
+    | 'id' | 'title' | 'slug' | 'city' | 'listing_price' | 'status' | 'property_type'
+    | 'business_type' | 'property_condition' | 'energy_certificate'
+    | 'external_ref' | 'description'
+    | 'address_street' | 'postal_code' | 'zone'
+    | 'latitude' | 'longitude'
+  > & {
+    specs?: PropertySpecs | null
+    internal?: PropertyInternal | null
+    cover_url?: string | null
+  }
   requested_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   approved_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   returned_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
@@ -41,6 +76,7 @@ export interface ProcessOwner {
   id: string
   name: string
   email: string | null
+  phone: string | null
   nif: string | null
   person_type: 'singular' | 'coletiva'
   ownership_percentage: number
@@ -85,7 +121,7 @@ export type TaskAction =
   | 'update_priority'
   | 'update_due_date'
 
-export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM'
+export type ActionType = 'UPLOAD' | 'EMAIL' | 'GENERATE_DOC' | 'MANUAL' | 'FORM' | 'COMPOSITE'
 
 // ── Comentários de tarefa ──
 

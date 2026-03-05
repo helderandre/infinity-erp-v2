@@ -8,12 +8,12 @@ export async function autoCompleteTasks(
   procInstanceId: string,
   propertyId: string
 ) {
-  const supabase = createAdminClient() as any
+  const supabase = createAdminClient()
 
   try {
     // 1. Buscar tarefas UPLOAD do processo
-    const { data: tasks, error: tasksError } = await (supabase as any)
-      .from('proc_tasks' as any)
+    const { data: tasks, error: tasksError } = await supabase
+      .from('proc_tasks')
       .select('id, config')
       .eq('proc_instance_id', procInstanceId)
       .eq('action_type', 'UPLOAD')
@@ -42,10 +42,10 @@ export async function autoCompleteTasks(
 
     if (ownersError) throw ownersError
 
-    const ownerIds = propertyOwners?.map((po: any) => po.owner_id) || []
+    const ownerIds = propertyOwners?.map((po) => po.owner_id) ?? []
 
     // 4. Buscar documentos dos owners (reutilizáveis)
-    let ownerDocs: any[] = []
+    let ownerDocs: NonNullable<typeof propertyDocs> = []
     if (ownerIds.length > 0) {
       const { data, error: ownerDocsError } = await supabase
         .from('doc_registry')
@@ -55,16 +55,16 @@ export async function autoCompleteTasks(
         .eq('status', 'active')
 
       if (ownerDocsError) throw ownerDocsError
-      ownerDocs = data || []
+      ownerDocs = data ?? []
     }
 
-    const allDocs = [...(propertyDocs || []), ...ownerDocs]
+    const allDocs = [...(propertyDocs ?? []), ...ownerDocs]
 
     // 5. Auto-completar tarefas que têm documentos válidos
     let completedCount = 0
 
     for (const task of tasks) {
-      const docTypeId = task.config?.doc_type_id
+      const docTypeId = (task.config as Record<string, unknown>)?.doc_type_id
       if (!docTypeId) continue
 
       // Procurar documento válido
@@ -77,7 +77,7 @@ export async function autoCompleteTasks(
       if (matchingDoc) {
         // Completar tarefa
         const { error: updateError } = await supabase
-          .from('proc_tasks' as any)
+          .from('proc_tasks')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
@@ -107,12 +107,12 @@ export async function autoCompleteTasks(
  * Chamado após qualquer mudança em tarefas
  */
 export async function recalculateProgress(procInstanceId: string) {
-  const supabase = createAdminClient() as any
+  const supabase = createAdminClient()
 
   try {
     // 1. Buscar todas as tarefas do processo
     const { data: tasks, error: tasksError } = await supabase
-      .from('proc_tasks' as any)
+      .from('proc_tasks')
       .select('id, status, is_bypassed, is_mandatory, stage_order_index')
       .eq('proc_instance_id', procInstanceId)
 
@@ -125,20 +125,20 @@ export async function recalculateProgress(procInstanceId: string) {
     // 2. Calcular progresso
     const total = tasks.length
     const completed = tasks.filter(
-      (t: any) => t.status === 'completed' || t.is_bypassed
+      (t) => t.status === 'completed' || t.is_bypassed
     ).length
     const percentComplete = Math.round((completed / total) * 100)
 
     // 3. Determinar a fase actual (primeira fase não-completa)
     const stageProgress = new Map<number, { total: number; completed: number }>()
     for (const t of tasks) {
-      const stageIdx = (t as any).stage_order_index ?? 0
+      const stageIdx = t.stage_order_index ?? 0
       if (!stageProgress.has(stageIdx)) {
         stageProgress.set(stageIdx, { total: 0, completed: 0 })
       }
       const sp = stageProgress.get(stageIdx)!
       sp.total++
-      if ((t as any).status === 'completed' || (t as any).is_bypassed) {
+      if (t.status === 'completed' || t.is_bypassed) {
         sp.completed++
       }
     }
@@ -173,25 +173,21 @@ export async function recalculateProgress(procInstanceId: string) {
           .eq('order_index', currentStageIdx)
           .single()
 
-        currentStageId = stage?.id || null
+        currentStageId = stage?.id ?? null
       }
     }
 
     // 6. Atualizar processo
-    const updates: any = {
-      percent_complete: percentComplete,
-      current_stage_id: currentStageId,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (isCompleted) {
-      updates.current_status = 'completed'
-      updates.completed_at = new Date().toISOString()
-    }
-
     const { error: updateError } = await supabase
       .from('proc_instances')
-      .update(updates)
+      .update({
+        percent_complete: percentComplete,
+        current_stage_id: currentStageId,
+        updated_at: new Date().toISOString(),
+        ...(isCompleted
+          ? { current_status: 'completed', completed_at: new Date().toISOString() }
+          : {}),
+      })
       .eq('id', procInstanceId)
 
     if (updateError) throw updateError

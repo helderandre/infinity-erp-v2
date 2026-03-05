@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -42,9 +42,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   ArrowLeft,
-  Building2,
-  MapPin,
-  Users,
   LayoutGrid,
   List,
   Ban,
@@ -54,13 +51,17 @@ import {
   MoreHorizontal,
   Pause,
   Play,
+  RefreshCw,
   Trash2,
   Loader2,
   XCircle,
+  Building2,
+  Users,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
+import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
@@ -69,7 +70,7 @@ import { ProcessChat } from '@/components/processes/process-chat'
 import { ProcessPropertyTab } from '@/components/processes/process-property-tab'
 import { ProcessOwnersTab } from '@/components/processes/process-owners-tab'
 import { useUser } from '@/hooks/use-user'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -104,6 +105,10 @@ export default function ProcessoDetailPage() {
   // Process action dialogs
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [reTemplateDialogOpen, setReTemplateDialogOpen] = useState(false)
+  const [reTemplateList, setReTemplateList] = useState<{ id: string; name: string; stages_count: number; tasks_count: number }[]>([])
+  const [selectedNewTemplateId, setSelectedNewTemplateId] = useState('')
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
   const [isActionLoading, setIsActionLoading] = useState(false)
 
   // Task detail sheet
@@ -352,6 +357,60 @@ export default function ProcessoDetailPage() {
     }
   }
 
+  const loadTemplates = async () => {
+    setIsLoadingTemplates(true)
+    try {
+      const res = await fetch('/api/templates')
+      const data = await res.json()
+      const list = Array.isArray(data) ? data : []
+      const active = list
+        .filter((t: { is_active?: boolean }) => t.is_active)
+        .map((t: { id: string; name: string; tpl_stages?: { tpl_tasks?: unknown[] }[] }) => ({
+          id: t.id,
+          name: t.name,
+          stages_count: t.tpl_stages?.length || 0,
+          tasks_count: t.tpl_stages?.reduce((acc: number, s) => acc + (s.tpl_tasks?.length || 0), 0) || 0,
+        }))
+      setReTemplateList(active)
+    } catch {
+      setReTemplateList([])
+    } finally {
+      setIsLoadingTemplates(false)
+    }
+  }
+
+  const handleReTemplate = async () => {
+    if (!selectedNewTemplateId) return
+    setIsActionLoading(true)
+    try {
+      const res = await fetch(`/api/processes/${params.id}/re-template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tpl_process_id: selectedNewTemplateId }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Erro ao alterar template')
+      }
+
+      const result = await res.json()
+      toast.success(
+        result.template_name
+          ? `Template alterado para "${result.template_name}"!`
+          : 'Template alterado com sucesso!'
+      )
+      setReTemplateDialogOpen(false)
+      setSelectedNewTemplateId('')
+      loadProcess()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao alterar template'
+      toast.error(message)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
   const handleAssignOpen = useCallback((task: ProcessTask) => {
     setAssignTask(task)
     setAssignDialogOpen(true)
@@ -555,6 +614,10 @@ export default function ProcessoDetailPage() {
             <DropdownMenuContent align="end">
               {['active', 'on_hold'].includes(instance.current_status) && (
                 <>
+                  <DropdownMenuItem onClick={() => { loadTemplates(); setSelectedNewTemplateId(''); setReTemplateDialogOpen(true) }}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Alterar template
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancelar processo
@@ -598,14 +661,34 @@ export default function ProcessoDetailPage() {
         <TabsContent value="processo" className="mt-4 space-y-6">
           {/* Review Section (pending_approval / returned) */}
           {['pending_approval', 'returned'].includes(instance.current_status) && (
-            <ProcessReviewSection
+            <>
+              <ProcessReviewSection
+                process={instance}
+                property={property}
+                owners={owners}
+                documents={documents}
+                onApprove={handleApprove}
+                onReturn={handleReturn}
+                onReject={handleReject}
+              />
+              {property && (
+                <ProcessReviewBento
+                  process={instance}
+                  property={property}
+                  owners={owners}
+                  documents={documents}
+                />
+              )}
+            </>
+          )}
+
+          {/* Bento grid for active/completed processes (shows property + owner data below tasks) */}
+          {isActive && property && (
+            <ProcessReviewBento
               process={instance}
               property={property}
               owners={owners}
               documents={documents}
-              onApprove={handleApprove}
-              onReturn={handleReturn}
-              onReject={handleReject}
             />
           )}
 
@@ -870,6 +953,63 @@ export default function ProcessoDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Re-Template Dialog */}
+      <Dialog open={reTemplateDialogOpen} onOpenChange={setReTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Template do Processo</DialogTitle>
+            <DialogDescription>
+              As tarefas existentes serão eliminadas e recriadas com base no novo template.
+              Documentos já carregados não serão afectados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {isLoadingTemplates ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : reTemplateList.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum template activo encontrado.
+              </p>
+            ) : (
+              <Select value={selectedNewTemplateId} onValueChange={setSelectedNewTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {reTemplateList.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.stages_count} fases, {t.tasks_count} tarefas)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReTemplateDialogOpen(false)}
+              disabled={isActionLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleReTemplate}
+              disabled={isActionLoading || !selectedNewTemplateId}
+            >
+              {isActionLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Aplicar Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

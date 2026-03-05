@@ -426,6 +426,7 @@ export const ACTION_TYPE_LABELS = {
   GENERATE_DOC: 'Documento',
   MANUAL: 'Manual',
   FORM: 'Formulário',
+  COMPOSITE: 'Composta',
 } as const
 
 // Labels de Tipo de Actividade (PT-PT)
@@ -458,6 +459,10 @@ export const SUBTASK_TYPE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   email: 'Email',
   generate_doc: 'Gerar Doc',
+  // Legacy check_type mappings
+  manual: 'Checklist',
+  field: 'Campo',
+  document: 'Documento',
 }
 
 export const SUBTASK_TYPE_ICONS: Record<string, string> = {
@@ -465,6 +470,20 @@ export const SUBTASK_TYPE_ICONS: Record<string, string> = {
   checklist: 'CheckSquare',
   email: 'Mail',
   generate_doc: 'FileText',
+}
+
+// Labels de Owner Scope para subtarefas (PT-PT)
+export const OWNER_SCOPE_LABELS: Record<string, string> = {
+  none: 'Sem multiplicação',
+  all_owners: 'Todos os proprietários',
+  main_contact_only: 'Apenas contacto principal',
+}
+
+// Labels de filtro por tipo de pessoa (PT-PT)
+export const PERSON_TYPE_FILTER_LABELS: Record<string, string> = {
+  all: 'Todos os tipos',
+  singular: 'Apenas Pessoa Singular',
+  coletiva: 'Apenas Pessoa Colectiva',
 }
 
 // Campos do proprietário singular

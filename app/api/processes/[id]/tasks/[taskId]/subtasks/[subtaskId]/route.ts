@@ -1,11 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 
-const subtaskToggleSchema = z.object({
-  is_completed: z.boolean(),
-})
+const subtaskUpdateSchema = z
+  .object({
+    is_completed: z.boolean().optional(),
+    rendered_content: z
+      .object({
+        subject: z.string().optional(),
+        body_html: z.string().optional(),
+        content_html: z.string().optional(),
+        editor_state: z.any().optional(),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => data.is_completed !== undefined || data.rendered_content !== undefined,
+    { message: 'is_completed ou rendered_content são obrigatórios' }
+  )
 
 export async function PUT(
   request: Request,
@@ -14,24 +28,21 @@ export async function PUT(
   try {
     const { id, taskId, subtaskId } = await params
     const supabase = await createClient()
-    // Cast para aceder a tabelas não presentes no database.ts gerado
-    const db = supabase as unknown as {
-      from: (table: string) => ReturnType<typeof supabase.from>
-      auth: typeof supabase.auth
-    }
+    const admin = createAdminClient()
+    const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
 
     // Verificar autenticação
     const {
       data: { user },
       error: authError,
-    } = await db.auth.getUser()
+    } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
     // Parse e validação
     const body = await request.json()
-    const validation = subtaskToggleSchema.safeParse(body)
+    const validation = subtaskUpdateSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Dados inválidos', details: validation.error.flatten() },
@@ -39,20 +50,17 @@ export async function PUT(
       )
     }
 
-    const { is_completed } = validation.data
+    const { is_completed, rendered_content } = validation.data
 
-    // Verificar que a subtarefa existe e pertence à tarefa
-    const { data: subtask, error: subtaskError } = await (db.from('proc_subtasks') as ReturnType<typeof supabase.from>)
+    // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
+    const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
       .select('id, config, proc_task_id')
       .eq('id', subtaskId)
       .eq('proc_task_id', taskId)
       .single()
 
     if (subtaskError || !subtask) {
-      return NextResponse.json(
-        { error: 'Subtarefa não encontrada' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Subtarefa não encontrada' }, { status: 404 })
     }
 
     // Verificar que a tarefa pertence ao processo correcto
@@ -70,22 +78,40 @@ export async function PUT(
       )
     }
 
-    // Verificar que é uma subtarefa manual
-    const config = ((subtask as Record<string, unknown>).config as Record<string, string>) || {}
-    if (config.check_type !== 'manual') {
+    // Verificar que o tipo de subtarefa permite a operação
+    const config = ((subtask as Record<string, unknown>).config as Record<string, unknown>) || {}
+    const subtaskType = config.type as string | undefined
+    const checkType = config.check_type as string | undefined
+
+    const isAllowedType =
+      subtaskType === 'checklist' ||
+      subtaskType === 'email' ||
+      subtaskType === 'generate_doc' ||
+      checkType === 'manual'
+
+    if (!isAllowedType) {
       return NextResponse.json(
-        { error: 'Apenas subtarefas manuais podem ser alteradas' },
+        { error: 'Este tipo de subtarefa não suporta actualização manual' },
         { status: 400 }
       )
     }
 
-    // Actualizar subtarefa
-    const { error: updateError } = await (db.from('proc_subtasks') as ReturnType<typeof supabase.from>)
-      .update({
-        is_completed,
-        completed_at: is_completed ? new Date().toISOString() : null,
-        completed_by: is_completed ? user.id : null,
-      })
+    // Construir o update
+    const updateData: Record<string, unknown> = {}
+
+    if (rendered_content) {
+      updateData.config = { ...config, rendered: rendered_content }
+    }
+
+    if (is_completed !== undefined) {
+      updateData.is_completed = is_completed
+      updateData.completed_at = is_completed ? new Date().toISOString() : null
+      updateData.completed_by = is_completed ? user.id : null
+    }
+
+    // Executar update (admin bypassa RLS)
+    const { error: updateError } = await adminDb.from('proc_subtasks')
+      .update(updateData)
       .eq('id', subtaskId)
 
     if (updateError) {
@@ -95,20 +121,24 @@ export async function PUT(
       )
     }
 
-    // Verificar estado de todas as subtarefas da tarefa pai
-    const { data: allSubtasks, error: allSubtasksError } = await (db.from('proc_subtasks') as ReturnType<typeof supabase.from>)
+    // Rascunho guardado — retornar
+    if (is_completed === undefined) {
+      return NextResponse.json({ success: true, taskStatus: null })
+    }
+
+    // Verificar estado de todas as subtarefas para recalcular a tarefa pai
+    const { data: allSubtasks, error: allSubtasksError } = await adminDb.from('proc_subtasks')
       .select('is_completed, is_mandatory')
       .eq('proc_task_id', taskId)
 
     if (allSubtasksError) {
-      return NextResponse.json(
-        { error: 'Erro ao verificar subtarefas' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Erro ao verificar subtarefas' }, { status: 500 })
     }
 
-    // Determinar novo status da tarefa pai
-    const subtasksList = (allSubtasks || []) as Array<{ is_completed: boolean; is_mandatory: boolean }>
+    const subtasksList = (allSubtasks || []) as Array<{
+      is_completed: boolean
+      is_mandatory: boolean
+    }>
     const mandatorySubtasks = subtasksList.filter((s) => s.is_mandatory)
     const allMandatoryComplete = mandatorySubtasks.every((s) => s.is_completed)
     const anyComplete = subtasksList.some((s) => s.is_completed)
@@ -122,34 +152,18 @@ export async function PUT(
       newTaskStatus = 'pending'
     }
 
-    // Actualizar status da tarefa pai
     const taskUpdate: Record<string, unknown> = {
       status: newTaskStatus,
       updated_at: new Date().toISOString(),
-    }
-    if (newTaskStatus === 'completed') {
-      taskUpdate.completed_at = new Date().toISOString()
-    } else {
-      taskUpdate.completed_at = null
+      completed_at: newTaskStatus === 'completed' ? new Date().toISOString() : null,
     }
 
-    await supabase
-      .from('proc_tasks')
-      .update(taskUpdate)
-      .eq('id', taskId)
-
-    // Recalcular progresso do processo
+    await supabase.from('proc_tasks').update(taskUpdate).eq('id', taskId)
     await recalculateProgress(id)
 
-    return NextResponse.json({
-      success: true,
-      taskStatus: newTaskStatus,
-    })
+    return NextResponse.json({ success: true, taskStatus: newTaskStatus })
   } catch (error) {
     console.error('Erro ao actualizar subtarefa:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

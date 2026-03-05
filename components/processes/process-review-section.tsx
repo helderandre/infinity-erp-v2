@@ -249,18 +249,14 @@ export function ProcessReviewSection({
             )}
           </div>
 
-          <div className="text-sm text-muted-foreground space-y-1 pt-2 border-t">
-            <p><strong>Consultor:</strong> {process.requested_by_user?.commercial_name || '—'}</p>
-            {process.started_at && (
-              <p><strong>Data de Início:</strong> {new Date(process.started_at).toLocaleDateString('pt-PT')}</p>
-            )}
-            {owners?.length > 0 && (
-              <p><strong>Proprietários:</strong> {owners.length}</p>
-            )}
-            {documents?.length > 0 && (
-              <p><strong>Documentos:</strong> {documents.length} anexado{documents.length > 1 ? 's' : ''}</p>
-            )}
-          </div>
+          {process.requested_by_user && (
+            <p className="text-xs text-muted-foreground pt-2 border-t">
+              Solicitado por <strong>{process.requested_by_user.commercial_name}</strong>
+              {process.started_at && (
+                <> em {new Date(process.started_at).toLocaleDateString('pt-PT')}</>
+              )}
+            </p>
+          )}
         </CardContent>
       </Card>
 

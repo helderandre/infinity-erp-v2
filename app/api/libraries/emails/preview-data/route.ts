@@ -108,6 +108,8 @@ export async function POST(request: Request) {
       const idColumn = tableIdOverrides[tableName] || entityIdColumn[entityType] || 'id'
       const selectStr = Array.from(group.columns).join(', ')
 
+      // tableName is resolved dynamically at runtime from tpl_variables —
+      // fully-typed .from() is not possible with a variable table name
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from(tableName)

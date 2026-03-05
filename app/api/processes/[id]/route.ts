@@ -147,10 +147,36 @@ export async function GET(
         `
         *,
         property:dev_properties(
-          *,
-          specifications:dev_property_specifications(*),
-          internal:dev_property_internal(*),
-          media:dev_property_media(*)
+          id,
+          title,
+          slug,
+          city,
+          listing_price,
+          status,
+          property_type,
+          business_type,
+          property_condition,
+          energy_certificate,
+          external_ref,
+          description,
+          address_street,
+          postal_code,
+          zone,
+          latitude,
+          longitude,
+          dev_property_specifications(
+            typology, bedrooms, bathrooms,
+            area_gross, area_util,
+            construction_year, parking_spaces, garage_spaces,
+            features, has_elevator, fronts_count,
+            solar_orientation, views, equipment
+          ),
+          dev_property_internal(
+            commission_agreed, commission_type,
+            contract_regime, contract_term, contract_expiry,
+            imi_value, condominium_fee
+          ),
+          dev_property_media(url, is_cover, order_index)
         ),
         requested_by_user:dev_users!proc_instances_requested_by_fkey(
           id,
@@ -213,7 +239,9 @@ export async function GET(
         owner:owners!proc_tasks_owner_id_fkey(id, name, person_type),
         subtasks:proc_subtasks(
           id, title, is_mandatory, is_completed,
-          completed_at, completed_by, order_index, config
+          completed_at, completed_by, order_index, config,
+          owner_id,
+          owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type)
         )
       `
       )
@@ -283,7 +311,14 @@ export async function GET(
         `
         ownership_percentage,
         is_main_contact,
-        owner:owners(*)
+        owner:owners(
+          id,
+          name,
+          nif,
+          person_type,
+          email,
+          phone
+        )
       `
       )
       .eq('property_id', data.property?.id)
@@ -306,6 +341,32 @@ export async function GET(
       .eq('property_id', data.property?.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
+
+    // Processar dados do imóvel — extrair cover, specs, internal
+    if (data.property) {
+      const prop = data.property as any
+      // Cover image: is_cover=true ou a primeira por order_index
+      const media = prop.dev_property_media as any[] | null
+      if (media && media.length > 0) {
+        const cover = media.find((m: any) => m.is_cover) || media.sort((a: any, b: any) => a.order_index - b.order_index)[0]
+        prop.cover_url = cover?.url || null
+      } else {
+        prop.cover_url = null
+      }
+      delete prop.dev_property_media
+
+      // Flatten specs (1:1)
+      prop.specs = Array.isArray(prop.dev_property_specifications)
+        ? prop.dev_property_specifications[0] || null
+        : prop.dev_property_specifications || null
+      delete prop.dev_property_specifications
+
+      // Flatten internal (1:1)
+      prop.internal = Array.isArray(prop.dev_property_internal)
+        ? prop.dev_property_internal[0] || null
+        : prop.dev_property_internal || null
+      delete prop.dev_property_internal
+    }
 
     // Formatar resposta
     const response = {

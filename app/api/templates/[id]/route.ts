@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { templateSchema } from '@/lib/validations/template'
 
@@ -84,32 +85,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 })
     }
 
-    // 3. Verificar instâncias activas (não permitir edição completa)
-    const { count: activeInstances } = await supabase
-      .from('proc_instances')
-      .select('*', { count: 'exact', head: true })
-      .eq('tpl_process_id', id)
-      .is('deleted_at', null)
-      .not('current_status', 'in', '("completed","cancelled")')
-
-    if (activeInstances && activeInstances > 0) {
-      // Apenas permitir editar nome e descrição
-      const { error: updateError } = await supabase
-        .from('tpl_processes')
-        .update({ name, description })
-        .eq('id', id)
-
-      if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 })
-      }
-
-      return NextResponse.json({
-        id,
-        warning: 'Template tem instâncias activas. Apenas nome e descrição foram actualizados.',
-      })
-    }
-
-    // 4. Update nome/descrição do processo
+    // 3. Update nome/descrição do processo
     const { error: updateError } = await supabase
       .from('tpl_processes')
       .update({ name, description })
@@ -119,8 +95,11 @@ export async function PUT(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    // 5. Buscar IDs das stages actuais para apagar tasks
-    const { data: existingStages } = await supabase
+    // 4. Apagar stages/tasks/subtasks antigas (usar admin para evitar RLS)
+    const adminSupabase = createAdminClient()
+    const adminDb = adminSupabase as unknown as { from: (table: string) => ReturnType<typeof adminSupabase.from> }
+
+    const { data: existingStages } = await adminSupabase
       .from('tpl_stages')
       .select('id')
       .eq('tpl_process_id', id)
@@ -128,31 +107,48 @@ export async function PUT(
     if (existingStages && existingStages.length > 0) {
       const stageIds = existingStages.map((s) => s.id)
 
-      // 6. Buscar task IDs para apagar subtasks primeiro
-      const { data: existingTasks } = await supabase
+      // Nullificar current_stage_id em proc_instances que referenciam estas stages
+      await adminSupabase
+        .from('proc_instances')
+        .update({ current_stage_id: null })
+        .in('current_stage_id', stageIds)
+
+      // Nullificar tpl_task_id em proc_tasks que referenciam tarefas destas stages
+      const { data: existingTasks } = await adminSupabase
         .from('tpl_tasks')
         .select('id')
         .in('tpl_stage_id', stageIds)
 
       if (existingTasks && existingTasks.length > 0) {
         const taskIds = existingTasks.map((t) => t.id)
-        const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
-        await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+
+        await adminSupabase
+          .from('proc_tasks')
+          .update({ tpl_task_id: null })
+          .in('tpl_task_id', taskIds)
+
+        await (adminDb.from('tpl_subtasks') as ReturnType<typeof adminSupabase.from>)
           .delete()
           .in('tpl_task_id', taskIds)
       }
 
-      // 7. Apagar todas as tasks das stages
-      await supabase
+      await adminSupabase
         .from('tpl_tasks')
         .delete()
         .in('tpl_stage_id', stageIds)
 
-      // 8. Apagar todas as stages
-      await supabase
+      const { error: deleteStagesError } = await adminSupabase
         .from('tpl_stages')
         .delete()
         .eq('tpl_process_id', id)
+
+      if (deleteStagesError) {
+        console.error('Erro ao apagar stages:', deleteStagesError)
+        return NextResponse.json(
+          { error: `Erro ao apagar fases antigas: ${deleteStagesError.message}` },
+          { status: 500 }
+        )
+      }
     }
 
     // 8. Inserir novas stages e tasks

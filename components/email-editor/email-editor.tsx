@@ -24,6 +24,7 @@ import { EmailSettingsPanel } from './email-settings-panel'
 import { EmailTopbar, type EditorMode } from './email-topbar'
 import { EmailLayer } from './email-layer'
 import { EmailPreviewPanel } from './email-preview-panel'
+import { renderEmailToHtml } from '@/lib/email-renderer'
 
 const resolver = {
   EmailContainer,
@@ -202,7 +203,7 @@ export function EmailEditorComponent({
         name: name.trim(),
         subject: subject.trim(),
         description: description.trim() || undefined,
-        body_html: `<!-- craft.js template: ${name} -->`,
+        body_html: renderEmailToHtml(editorState, {}),
         editor_state: JSON.parse(editorState),
       }
 

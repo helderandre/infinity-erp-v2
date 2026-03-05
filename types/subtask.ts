@@ -1,5 +1,26 @@
 export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc'
 
+// Tipos de multiplicação por proprietário
+export type OwnerScope = 'none' | 'all_owners' | 'main_contact_only'
+export type PersonTypeFilter = 'all' | 'singular' | 'coletiva'
+
+// Configuração de proprietário para subtarefas
+export interface SubtaskOwnerConfig {
+  owner_scope?: OwnerScope
+  person_type_filter?: PersonTypeFilter
+  has_person_type_variants?: boolean
+  singular_config?: {
+    doc_type_id?: string
+    email_library_id?: string
+    doc_library_id?: string
+  }
+  coletiva_config?: {
+    doc_type_id?: string
+    email_library_id?: string
+    doc_library_id?: string
+  }
+}
+
 export interface TplSubtask {
   id: string
   tpl_task_id: string
@@ -15,7 +36,7 @@ export interface TplSubtask {
     // Legacy fields (retrocompatibilidade)
     check_type?: 'field' | 'document' | 'manual'
     field_name?: string
-  }
+  } & SubtaskOwnerConfig
 }
 
 export interface ProcSubtask {
@@ -28,13 +49,13 @@ export interface ProcSubtask {
   completed_at: string | null
   completed_by: string | null
   order_index: number
-  owner_id?: string
+  owner_id?: string | null
   owner?: {
     id: string
     name: string
     person_type?: string
     email?: string
-  }
+  } | null
   config: {
     type?: SubtaskType
     check_type?: 'field' | 'document' | 'manual'
@@ -42,12 +63,9 @@ export interface ProcSubtask {
     doc_type_id?: string
     email_library_id?: string
     doc_library_id?: string
-    has_person_type_variants?: boolean
-    singular_config?: { email_library_id?: string; doc_library_id?: string }
-    coletiva_config?: { email_library_id?: string; doc_library_id?: string }
     rendered?: Record<string, unknown>
     [key: string]: unknown
-  }
+  } & SubtaskOwnerConfig
 }
 
 // Usado no template builder (estado local)
@@ -63,5 +81,5 @@ export interface SubtaskData {
     email_library_id?: string   // type === 'email'
     doc_library_id?: string     // type === 'generate_doc'
     // type === 'checklist' → sem config extra
-  }
+  } & SubtaskOwnerConfig
 }
