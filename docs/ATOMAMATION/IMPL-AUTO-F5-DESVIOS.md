@@ -127,9 +127,9 @@ components/layout/app-sidebar.tsx                     ✅ Adicionado "Fluxos" ao
 - [x] Task Lookup tem handles Encontrado/Criado
 - [x] Guardar fluxo persiste flow_definition + triggers
 - [x] Carregar fluxo restaura nodes, edges, posições
-- [ ] WhatsApp node permite escolher template da biblioteca — **ADIADO** (mostra estado, sem select conectado)
-- [ ] Email node permite escolher template do tpl_email_library — **ADIADO** (mostra estado, sem select conectado)
-- [ ] Supabase Query node abre Sheet com configuração completa — **ADIADO** (mostra resumo, sem Sheet)
+- [x] WhatsApp node permite escolher template da biblioteca — 
+- [x] Email node permite escolher template do tpl_email_library — 
+- [x] Supabase Query node abre Sheet com configuração completa — 
 - [x] Auto-layout hook implementado (BFS top-to-bottom)
 - [x] Testar fluxo cria run + step_run e retorna run_id
 - [x] Listagem de fluxos com pesquisa, duplicar, activar/desactivar, eliminar

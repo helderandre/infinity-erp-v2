@@ -302,7 +302,7 @@ export function PropertyForm({
                 name="property_condition"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Condicao</FormLabel>
+                    <FormLabel>Condição</FormLabel>
                     <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
                       <FormControl>
                         <SelectTrigger>

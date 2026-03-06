@@ -67,6 +67,7 @@ async function fetchUazapiStatus(token: string) {
       isBusiness?: boolean
       qrcode?: string
       paircode?: string
+      owner?: string
     }
     status?: { connected?: boolean; loggedIn?: boolean; jid?: { user?: string } }
   }
@@ -82,13 +83,20 @@ function deriveConnectionStatus(statusData: Awaited<ReturnType<typeof fetchUazap
 }
 
 function extractPhone(statusData: Awaited<ReturnType<typeof fetchUazapiStatus>>): string | null {
+  // Priority 1: status.jid.user (clean, digits only)
   const jidUser = statusData?.status?.jid?.user
-  if (!jidUser) return null
-  // Format: 351912345678 → +351 912 345 678
-  if (jidUser.length >= 9) {
+  if (jidUser && /^\d{9,}$/.test(jidUser)) {
     return `+${jidUser}`
   }
-  return jidUser
+  // Priority 2: instance.owner (format: "5511999999999@s.whatsapp.net")
+  const owner = statusData?.instance?.owner
+  if (owner) {
+    const ownerNumber = owner.split("@")[0]
+    if (ownerNumber && /^\d{9,}$/.test(ownerNumber)) {
+      return `+${ownerNumber}`
+    }
+  }
+  return null
 }
 
 // ── GET: Listar instâncias ──

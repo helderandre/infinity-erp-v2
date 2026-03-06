@@ -16,12 +16,9 @@ function TriggerManualNodeInner({ id, data, selected }: NodeProps) {
       selected={selected}
       icon={<Play />}
       title={nodeData.label || "Manual"}
+      description="Este fluxo será iniciado manualmente"
       showTargetHandle={false}
-    >
-      <p className="text-muted-foreground/70">
-        Este fluxo será iniciado manualmente
-      </p>
-    </NodeWrapper>
+    />
   )
 }
 

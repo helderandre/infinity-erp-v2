@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import { Braces } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -70,6 +70,18 @@ export function VariablePicker({
   const [open, setOpen] = useState(false)
   const [systemVariables, setSystemVariables] = useState<VariableItem[]>([])
   const [loading, setLoading] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Find the closest Sheet/Dialog container to portal the popover inside it
+  // This prevents the Sheet overlay from blocking pointer events on the popover
+  const getPortalContainer = useCallback(() => {
+    if (!triggerRef.current) return undefined
+    const dialog =
+      triggerRef.current.closest("[data-slot='sheet-content']") ??
+      triggerRef.current.closest("[data-radix-dialog-content]") ??
+      triggerRef.current.closest("[role='dialog']")
+    return (dialog as HTMLElement) ?? undefined
+  }, [])
 
   // Carregar variáveis do sistema ao montar
   useEffect(() => {
@@ -125,6 +137,7 @@ export function VariablePicker({
       <PopoverTrigger asChild>
         {compact ? (
           <Button
+            ref={triggerRef}
             variant="ghost"
             size="icon"
             className="h-7 w-7"
@@ -133,16 +146,22 @@ export function VariablePicker({
             <Braces className="h-3.5 w-3.5" />
           </Button>
         ) : (
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button ref={triggerRef} variant="outline" size="sm" className="gap-1.5">
             <Braces className="h-3 w-3" />
             Variável
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent
+        className="w-80 p-0"
+        align="end"
+        side="left"
+        sideOffset={8}
+        container={open ? getPortalContainer() : undefined}
+      >
         <Command>
           <CommandInput placeholder="Pesquisar variável..." />
-          <CommandList>
+          <CommandList className="max-h-[300px]">
             <CommandEmpty>
               {loading ? "A carregar..." : "Nenhuma variável encontrada."}
             </CommandEmpty>

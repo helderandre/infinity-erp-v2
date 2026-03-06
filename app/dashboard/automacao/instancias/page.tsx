@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { Plus, RefreshCw, Smartphone, Signal, Workflow } from "lucide-react"
 import { toast } from "sonner"
 
@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/kibo-ui/spinner"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 import { InstanceCard } from "@/components/automations/instance-card"
 import { InstanceConnectionSheet } from "@/components/automations/instance-connection-sheet"
@@ -68,6 +84,7 @@ function InstanciasContent() {
     connectInstance,
     disconnectInstance,
     checkStatus,
+    assignUser,
     deleteInstance,
     refetch,
   } = useWhatsAppInstances()
@@ -76,6 +93,25 @@ function InstanciasContent() {
   const [createOpen, setCreateOpen] = useState(false)
   const [connectId, setConnectId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [assignId, setAssignId] = useState<string | null>(null)
+  const [assignUserId, setAssignUserId] = useState<string>("")
+  const [assignLoading, setAssignLoading] = useState(false)
+  const [users, setUsers] = useState<{ id: string; commercial_name: string }[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+
+  const withCardLoading = useCallback(async (id: string, fn: () => Promise<void>) => {
+    setLoadingIds((prev) => new Set(prev).add(id))
+    try {
+      await fn()
+    } finally {
+      setLoadingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [])
 
   // Stats
   const stats = useMemo(() => {
@@ -113,44 +149,103 @@ function InstanciasContent() {
   }
 
   const handleDisconnect = async (id: string) => {
-    try {
-      await disconnectInstance(id)
-      toast.success("Instância desconectada")
-    } catch {
-      toast.error("Erro ao desconectar")
-    }
+    await withCardLoading(id, async () => {
+      try {
+        await disconnectInstance(id)
+        toast.success("Instância desconectada")
+      } catch {
+        toast.error("Erro ao desconectar")
+      }
+    })
   }
 
   const handleDelete = async () => {
     if (!deleteId) return
-    try {
-      await deleteInstance(deleteId)
-      toast.success("Instância eliminada com sucesso")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao eliminar instância")
-    } finally {
-      setDeleteId(null)
-    }
+    const id = deleteId
+    setDeleteId(null)
+    await withCardLoading(id, async () => {
+      try {
+        await deleteInstance(id)
+        toast.success("Instância eliminada com sucesso")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao eliminar instância")
+      }
+    })
   }
 
   const handleCheckStatus = async (id: string) => {
-    try {
-      const result = await checkStatus(id)
-      await refetch()
-      if (result.connected) {
-        toast.success("Instância conectada")
-      } else {
-        toast.info("Estado actualizado")
+    await withCardLoading(id, async () => {
+      try {
+        const result = await checkStatus(id)
+        await refetch()
+        if (result.connected) {
+          toast.success("Instância conectada")
+        } else {
+          toast.info("Estado actualizado")
+        }
+      } catch {
+        toast.error("Erro ao verificar estado")
       }
-    } catch {
-      toast.error("Erro ao verificar estado")
-    }
+    })
   }
 
+  const assigningInstance = instances.find((i) => i.id === assignId)
+
+  // Load users when assign dialog opens
+  useEffect(() => {
+    if (!assignId) return
+    // Pre-select current user
+    setAssignUserId(assigningInstance?.user_id ?? "none")
+
+    let cancelled = false
+    async function loadUsers() {
+      setLoadingUsers(true)
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+        const { data } = await supabase
+          .from("dev_users")
+          .select("id, commercial_name")
+          .eq("is_active", true)
+          .order("commercial_name")
+        if (!cancelled && data) {
+          setUsers(
+            data.map((u) => ({
+              id: u.id,
+              commercial_name: u.commercial_name || "Sem nome",
+            }))
+          )
+        }
+      } catch {
+        // Lista opcional
+      } finally {
+        if (!cancelled) setLoadingUsers(false)
+      }
+    }
+    loadUsers()
+    return () => { cancelled = true }
+  }, [assignId, assigningInstance?.user_id])
+
   const handleAssignUser = (id: string) => {
-    // For now, just show a toast — full user picker can be added later
-    toast.info("Funcionalidade de atribuição em desenvolvimento")
-    void id
+    setAssignId(id)
+  }
+
+  const handleAssignSubmit = async () => {
+    if (!assignId) return
+    const id = assignId
+    setAssignLoading(true)
+    setAssignId(null)
+    try {
+      await withCardLoading(id, async () => {
+        const userId = assignUserId === "none" ? null : assignUserId
+        await assignUser(id, userId)
+        toast.success(userId ? "Utilizador atribuído com sucesso" : "Utilizador desatribuído")
+      })
+    } catch {
+      toast.error("Erro ao atribuir utilizador")
+    } finally {
+      setAssignLoading(false)
+    }
   }
 
   return (
@@ -258,6 +353,7 @@ function InstanciasContent() {
             <InstanceCard
               key={instance.id}
               instance={instance}
+              loading={loadingIds.has(instance.id)}
               onConnect={setConnectId}
               onDisconnect={handleDisconnect}
               onDelete={setDeleteId}
@@ -285,6 +381,51 @@ function InstanciasContent() {
         onCheckStatus={checkStatus}
         onSuccess={refetch}
       />
+
+      {/* Assign User Dialog */}
+      <Dialog open={!!assignId} onOpenChange={(open) => !open && setAssignId(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>
+              {assigningInstance?.user_id ? "Alterar utilizador" : "Atribuir utilizador"}
+            </DialogTitle>
+            <DialogDescription>
+              {assigningInstance?.user_id
+                ? `Alterar ou remover o utilizador atribuído a "${assigningInstance?.name}".`
+                : `Seleccione o utilizador responsável pela instância "${assigningInstance?.name}".`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="assign-user-select">Utilizador</Label>
+            <Select value={assignUserId} onValueChange={setAssignUserId}>
+              <SelectTrigger id="assign-user-select">
+                <SelectValue
+                  placeholder={loadingUsers ? "A carregar..." : "Seleccionar utilizador"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum (desatribuir)</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.commercial_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignId(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAssignSubmit} disabled={assignLoading}>
+              {assignLoading && <Spinner variant="infinite" size={16} className="mr-2" />}
+              {assignUserId === "none" ? "Desatribuir" : "Atribuir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

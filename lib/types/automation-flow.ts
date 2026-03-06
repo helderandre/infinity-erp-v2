@@ -83,6 +83,7 @@ export interface WhatsAppNodeData {
   messages?: WhatsAppMessage[]
   templateId?: string
   templateName?: string
+  recipientVariable?: string
 }
 
 // ── Email ──
@@ -155,7 +156,7 @@ export type SupabaseQueryOperation = "select" | "insert" | "update" | "upsert" |
 
 export interface SupabaseQueryFilter {
   column: string
-  operator: "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "in" | "like" | "is"
+  operator: "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "in" | "like" | "is" | "not_is"
   value: string
 }
 
@@ -302,6 +303,50 @@ export interface WebhookFieldMapping {
   webhookPath: string
   variableKey: string
   transform?: "uppercase" | "lowercase" | "trim" | "none"
+}
+
+// ── Categorias de Node ──
+
+export type NodeCategory = "trigger" | "action" | "logic"
+
+export function getNodeCategory(type: AutomationNodeType): NodeCategory {
+  if (isTriggerType(type)) return "trigger"
+  if (type === "condition" || type === "task_lookup" || type === "delay") return "logic"
+  return "action"
+}
+
+export const nodeCategoryConfig: Record<NodeCategory, {
+  label: string
+  badgeBg: string
+  badgeText: string
+  badgeDot: string
+  cardBorder: string
+  cardBg: string
+}> = {
+  trigger: {
+    label: "Trigger",
+    badgeBg: "bg-amber-100 dark:bg-amber-900/40",
+    badgeText: "text-amber-700 dark:text-amber-300",
+    badgeDot: "bg-amber-500",
+    cardBorder: "border-amber-200/80 dark:border-amber-800/40",
+    cardBg: "bg-amber-50/40 dark:bg-amber-950/10",
+  },
+  action: {
+    label: "Acção",
+    badgeBg: "bg-sky-100 dark:bg-sky-900/40",
+    badgeText: "text-sky-700 dark:text-sky-300",
+    badgeDot: "bg-sky-500",
+    cardBorder: "border-sky-200/80 dark:border-sky-800/40",
+    cardBg: "bg-sky-50/20 dark:bg-sky-950/10",
+  },
+  logic: {
+    label: "Lógica",
+    badgeBg: "bg-rose-100 dark:bg-rose-900/40",
+    badgeText: "text-rose-700 dark:text-rose-300",
+    badgeDot: "bg-rose-500",
+    cardBorder: "border-rose-200/80 dark:border-rose-800/40",
+    cardBg: "bg-rose-50/20 dark:bg-rose-950/10",
+  },
 }
 
 // ── Mapas de Cores por Tipo de Node ──

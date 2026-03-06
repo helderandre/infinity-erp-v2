@@ -25,7 +25,7 @@ export default function FluxosPage() {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
-  const { flows, loading, fetchFlows, createFlow, updateFlow, deleteFlow } =
+  const { flows, loading, fetchFlows, createFlow, updateFlow, deleteFlow, activateFlow } =
     useFlows({ search: debouncedSearch })
   const [creating, setCreating] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AutoFlow | null>(null)
@@ -59,21 +59,21 @@ export default function FluxosPage() {
   }
 
   const handleToggleActive = async (flow: AutoFlow) => {
-    const result = await updateFlow(flow.id, { is_active: !flow.is_active })
-    if (result) {
+    const result = await activateFlow(flow.id, !flow.is_active)
+    if (result?.ok) {
       toast.success(flow.is_active ? "Fluxo desactivado" : "Fluxo activado")
       fetchFlows()
     } else {
-      toast.error("Erro ao actualizar fluxo")
+      toast.error(result?.error || "Erro ao actualizar fluxo")
     }
   }
 
   const handleDuplicate = async (flow: AutoFlow) => {
-    const newFlow = await createFlow(`Cópia de ${flow.name}`)
-    if (newFlow && flow.flow_definition) {
+    const newFlow = await createFlow(`Copia de ${flow.name}`)
+    if (newFlow && flow.draft_definition) {
       await updateFlow(newFlow.id, {
         description: flow.description || undefined,
-        flow_definition: flow.flow_definition,
+        draft_definition: flow.draft_definition,
         wpp_instance_id: flow.wpp_instance_id,
       })
       toast.success("Fluxo duplicado")

@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import {
   MessageCircle,
   ImageIcon,
   Video,
   Mic,
   FileText,
-  Upload,
-  Braces,
 } from "lucide-react"
 import {
   Sheet,
@@ -19,10 +17,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
-import { VariablePicker } from "@/components/automations/variable-picker"
+import { WppRichEditor, type WppRichEditorRef } from "@/components/automations/wpp-rich-editor"
+import type { VariableItem } from "@/components/automations/variable-picker"
 import type { WhatsAppTemplateMessage } from "@/lib/types/whatsapp-template"
 import type { WhatsAppMessageType } from "@/lib/types/automation-flow"
 
@@ -31,6 +29,7 @@ interface WppMessageEditorProps {
   onOpenChange: (open: boolean) => void
   message: WhatsAppTemplateMessage | null
   onSave: (message: WhatsAppTemplateMessage) => void
+  additionalVariables?: VariableItem[]
 }
 
 const MESSAGE_TYPES: {
@@ -50,6 +49,7 @@ export function WppMessageEditor({
   onOpenChange,
   message,
   onSave,
+  additionalVariables,
 }: WppMessageEditorProps) {
   const [type, setType] = useState<WhatsAppMessageType>("text")
   const [content, setContent] = useState("")
@@ -57,6 +57,33 @@ export function WppMessageEditor({
   const [docName, setDocName] = useState("")
   const [delay, setDelay] = useState(2)
   const [audioType, setAudioType] = useState<"audio" | "ptt">("ptt")
+  const [systemVariables, setSystemVariables] = useState<VariableItem[]>([])
+  const editorRef = useRef<WppRichEditorRef>(null)
+
+  // Load system variables once
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch("/api/automacao/variaveis")
+        if (res.ok) {
+          const data = await res.json()
+          if (!cancelled) setSystemVariables(data)
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  // Combine system + webhook variables
+  const variables = useMemo(() => {
+    const combined = [...systemVariables]
+    if (additionalVariables) combined.push(...additionalVariables)
+    return combined
+  }, [systemVariables, additionalVariables])
 
   useEffect(() => {
     if (message) {
@@ -90,11 +117,6 @@ export function WppMessageEditor({
     onOpenChange(false)
   }
 
-  function handleInsertVariable(variableKey: string) {
-    setContent((prev) => prev + `{{${variableKey}}}`)
-  }
-
-  const charCount = content.length
   const maxChars = type === "text" ? 4096 : 1024
 
   return (
@@ -158,37 +180,19 @@ export function WppMessageEditor({
 
           {/* Section 2: Content (dynamic by type) */}
           <div className="space-y-4">
-            {/* Text content (all types except audio) */}
+            {/* Text content */}
             {type === "text" && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-medium">Mensagem</Label>
-                  <VariablePicker
-                    onSelect={(v) => handleInsertVariable(v.key)}
-                    compact
-                  />
-                </div>
-                <Textarea
+                <Label className="text-sm font-medium mb-2 block">Mensagem</Label>
+                <WppRichEditor
+                  ref={editorRef}
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={setContent}
                   placeholder="Escreva a sua mensagem..."
-                  className="min-h-[120px] resize-y"
                   maxLength={maxChars}
+                  minHeight="120px"
+                  variables={variables}
                 />
-                <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-[10px] text-muted-foreground">
-                    Formatação: *negrito* _itálico_ ~riscado~
-                  </p>
-                  <span
-                    className={`text-[10px] ${
-                      charCount > maxChars * 0.9
-                        ? "text-red-500"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {charCount} / {maxChars}
-                  </span>
-                </div>
               </div>
             )}
 
@@ -214,21 +218,16 @@ export function WppMessageEditor({
                   </p>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-medium">
-                      Legenda (opcional)
-                    </Label>
-                    <VariablePicker
-                      onSelect={(v) => handleInsertVariable(v.key)}
-                      compact
-                    />
-                  </div>
-                  <Textarea
+                  <Label className="text-sm font-medium mb-2 block">
+                    Legenda (opcional)
+                  </Label>
+                  <WppRichEditor
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={setContent}
                     placeholder="Legenda da imagem/vídeo..."
-                    className="min-h-[60px] resize-y"
                     maxLength={maxChars}
+                    minHeight="60px"
+                    variables={variables}
                   />
                 </div>
               </>
@@ -261,21 +260,16 @@ export function WppMessageEditor({
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-medium">
-                      Legenda (opcional)
-                    </Label>
-                    <VariablePicker
-                      onSelect={(v) => handleInsertVariable(v.key)}
-                      compact
-                    />
-                  </div>
-                  <Textarea
+                  <Label className="text-sm font-medium mb-2 block">
+                    Legenda (opcional)
+                  </Label>
+                  <WppRichEditor
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={setContent}
                     placeholder="Segue o documento solicitado..."
-                    className="min-h-[60px] resize-y"
                     maxLength={maxChars}
+                    minHeight="60px"
+                    variables={variables}
                   />
                 </div>
               </>

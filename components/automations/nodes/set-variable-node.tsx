@@ -18,11 +18,12 @@ function SetVariableNodeInner({ id, data, selected }: NodeProps) {
       selected={selected}
       icon={<Variable />}
       title={nodeData.label || "Definir Variável"}
+      description={assignments.length === 0 ? "Guardar um valor para usar depois" : undefined}
     >
-      {assignments.length > 0 ? (
-        <div className="space-y-0.5">
+      {assignments.length > 0 && (
+        <div className="rounded-lg bg-muted/60 px-2.5 py-1.5 space-y-0.5">
           {assignments.slice(0, 3).map((a, i) => (
-            <p key={i} className="truncate font-mono text-[10px]">
+            <p key={i} className="truncate font-mono text-[10px] text-foreground">
               {a.key} = {a.value}
             </p>
           ))}
@@ -30,8 +31,6 @@ function SetVariableNodeInner({ id, data, selected }: NodeProps) {
             <p className="text-[10px]">+{assignments.length - 3} mais</p>
           )}
         </div>
-      ) : (
-        <p className="text-muted-foreground/70">Guardar um valor para usar depois</p>
       )}
     </NodeWrapper>
   )

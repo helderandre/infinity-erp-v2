@@ -446,19 +446,19 @@ END; $$;
 
 ## ✅ Critérios de Aceitação
 
-- [ ] Edge Function worker processa steps pendentes da fila
-- [ ] WhatsApp node envia texto, imagem, documento via Uazapi
-- [ ] Email node envia via Resend e regista em log_emails
-- [ ] Condition node avalia regras e segue handle correcto
-- [ ] Supabase Query executa SELECT, INSERT, UPDATE, RPC
-- [ ] Task Lookup busca/cria lead e segue handle found/created
-- [ ] Delay node agenda step para o futuro
-- [ ] Webhook receiver aceita POST e dispara fluxo
-- [ ] Modo síncrono: webhook com Webhook Response retorna dados ao caller
-- [ ] Modo assíncrono: webhook enfileira e retorna run_id
-- [ ] Retry com backoff exponencial funciona para steps falhados
-- [ ] Run status actualiza automaticamente (running → completed/failed)
-- [ ] Delivery log regista cada mensagem/email enviado
+- [x] Edge Function worker processa steps pendentes da fila (via Next.js API route — ver IMPL-AUTO-F6-DESVIOS.md)
+- [x] WhatsApp node envia texto, imagem, documento via Uazapi
+- [x] Email node envia via Resend e regista em log_emails
+- [x] Condition node avalia regras e segue handle correcto
+- [x] Supabase Query executa SELECT, INSERT, UPDATE, RPC
+- [x] Task Lookup busca/cria lead e segue handle found/created
+- [x] Delay node agenda step para o futuro
+- [x] Webhook receiver aceita POST e dispara fluxo
+- [x] Modo sincrono: webhook com Webhook Response retorna dados ao caller
+- [x] Modo assincrono: webhook enfileira e retorna run_id
+- [x] Retry com backoff exponencial funciona para steps falhados
+- [x] Run status actualiza automaticamente (running -> completed/failed)
+- [x] Delivery log regista cada mensagem/email enviado
 
 ## 📝 Notas para o Claude Code
 

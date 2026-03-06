@@ -9,6 +9,7 @@ import type { WhatsAppNodeData, WhatsAppMessage } from "@/lib/types/automation-f
 import type { WhatsAppTemplateMessage } from "@/lib/types/whatsapp-template"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Sheet,
@@ -24,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { VariablePicker } from "@/components/automations/variable-picker"
+import { useWebhookVariables } from "@/hooks/use-webhook-variables"
 import { WppMessageCard } from "@/components/automations/wpp-message-card"
 import { WppMessageEditor } from "@/components/automations/wpp-message-editor"
 import { Plus } from "lucide-react"
@@ -63,6 +66,7 @@ function WhatsAppConfigSheet({
   nodeData: WhatsAppNodeData
   onSave: (data: Partial<WhatsAppNodeData>) => void
 }) {
+  const webhookVars = useWebhookVariables()
   const [mode, setMode] = useState<"template" | "inline">(
     nodeData.templateId ? "template" : "inline"
   )
@@ -70,6 +74,7 @@ function WhatsAppConfigSheet({
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState(nodeData.templateId || "")
   const [selectedTemplateName, setSelectedTemplateName] = useState(nodeData.templateName || "")
+  const [recipientVariable, setRecipientVariable] = useState(nodeData.recipientVariable || "")
   const [messages, setMessages] = useState<WhatsAppTemplateMessage[]>(
     (nodeData.messages || []).map((m, i) => ({
       id: `msg-${i}-${Date.now()}`,
@@ -126,6 +131,7 @@ function WhatsAppConfigSheet({
         templateId: selectedTemplateId || undefined,
         templateName: selectedTemplateName || undefined,
         messages: undefined,
+        recipientVariable: recipientVariable || undefined,
       })
     } else {
       const flowMessages: WhatsAppMessage[] = messages.map((m) => ({
@@ -139,10 +145,11 @@ function WhatsAppConfigSheet({
         templateId: undefined,
         templateName: undefined,
         messages: flowMessages,
+        recipientVariable: recipientVariable || undefined,
       })
     }
     onOpenChange(false)
-  }, [mode, selectedTemplateId, selectedTemplateName, messages, onSave, onOpenChange])
+  }, [mode, selectedTemplateId, selectedTemplateName, messages, recipientVariable, onSave, onOpenChange])
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
 
@@ -154,6 +161,29 @@ function WhatsAppConfigSheet({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          {/* Recipient */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Enviar para</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={recipientVariable}
+                onChange={(e) => setRecipientVariable(e.target.value)}
+                placeholder="{{wh_phone}} ou +351912345678"
+                className="flex-1"
+              />
+              <VariablePicker
+                onSelect={(v) => setRecipientVariable(v.key)}
+                additionalVariables={webhookVars}
+                compact
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Variável ou número de telefone do destinatário
+            </p>
+          </div>
+
+          <Separator />
+
           {/* Mode toggle */}
           <div>
             <Label className="text-sm font-medium mb-2 block">Modo</Label>
@@ -293,6 +323,7 @@ function WhatsAppConfigSheet({
         onOpenChange={setEditorOpen}
         message={editingMessage}
         onSave={handleSaveMessage}
+        additionalVariables={webhookVars}
       />
     </Sheet>
   )
@@ -323,33 +354,50 @@ function WhatsAppNodeInner({ id, data, selected }: NodeProps) {
         selected={selected}
         icon={<MessageCircle />}
         title={nodeData.label || "WhatsApp"}
+        description={!hasTemplate && messageCount === 0 ? "Enviar mensagens WhatsApp" : undefined}
       >
         {hasTemplate ? (
-          <div className="space-y-1">
-            <Badge variant="secondary" className="text-[10px]">
-              Template
-            </Badge>
-            <p className="truncate">{nodeData.templateName || "Template seleccionado"}</p>
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-muted/60 px-2.5 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="text-[10px] shrink-0">
+                  Template
+                </Badge>
+                <span className="truncate text-[10px] font-medium text-foreground">
+                  {nodeData.templateName || "Template seleccionado"}
+                </span>
+              </div>
+            </div>
+            {nodeData.recipientVariable && (
+              <p className="text-[10px]">Para: {nodeData.recipientVariable}</p>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); setSheetOpen(true) }}
-              className="flex items-center gap-1 mt-1 text-[10px] text-primary hover:underline"
+              className="flex items-center gap-1 text-[10px] text-primary hover:underline"
             >
               <Settings2 className="h-3 w-3" /> Configurar
             </button>
           </div>
         ) : messageCount > 0 ? (
-          <div className="space-y-1">
-            <p>{messageCount} mensage{messageCount === 1 ? "m" : "ns"}</p>
-            <div className="flex gap-0.5">
-              {nodeData.messages?.slice(0, 5).map((m, i) => (
-                <span key={i} className="text-[10px]">
-                  {m.type === "text" ? "📝" : m.type === "image" ? "🖼️" : m.type === "video" ? "🎥" : m.type === "audio" || m.type === "ptt" ? "🎵" : "📄"}
-                </span>
-              ))}
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-muted/60 px-2.5 py-1.5 flex items-center gap-2">
+              <span className="text-[10px] font-medium text-foreground">
+                {messageCount} mensage{messageCount === 1 ? "m" : "ns"}
+              </span>
+              <div className="flex gap-0.5">
+                {nodeData.messages?.slice(0, 5).map((m, i) => (
+                  <span key={i} className="text-[10px]">
+                    {m.type === "text" ? "📝" : m.type === "image" ? "🖼️" : m.type === "video" ? "🎥" : m.type === "audio" || m.type === "ptt" ? "🎵" : "📄"}
+                  </span>
+                ))}
+              </div>
             </div>
+            {nodeData.recipientVariable && (
+              <p className="text-[10px]">Para: {nodeData.recipientVariable}</p>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); setSheetOpen(true) }}
-              className="flex items-center gap-1 mt-1 text-[10px] text-primary hover:underline"
+              className="flex items-center gap-1 text-[10px] text-primary hover:underline"
             >
               <Settings2 className="h-3 w-3" /> Configurar
             </button>

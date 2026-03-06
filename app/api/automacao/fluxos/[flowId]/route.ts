@@ -8,21 +8,15 @@ interface DbFlow {
   id: string
   name: string
   description: string | null
-  flow_definition: SupabaseAny
+  draft_definition: SupabaseAny
+  published_definition: SupabaseAny | null
+  published_at: string | null
+  published_triggers: SupabaseAny | null
   is_active: boolean
   wpp_instance_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
-}
-
-interface DbTrigger {
-  id: string
-  flow_id: string
-  trigger_type: string
-  config: SupabaseAny
-  is_active: boolean
-  created_at: string
 }
 
 // GET /api/automacao/fluxos/[flowId] — Detalhe do fluxo
@@ -50,9 +44,20 @@ export async function GET(
     const { data: triggers } = (await (supabase as SupabaseAny)
       .from("auto_triggers")
       .select("*")
-      .eq("flow_id", flowId)) as { data: DbTrigger[] | null; error: SupabaseAny }
+      .eq("flow_id", flowId)) as { data: SupabaseAny[] | null; error: SupabaseAny }
 
-    return NextResponse.json({ flow, triggers: triggers || [] })
+    // Calculate has_unpublished_changes
+    const hasUnpublishedChanges =
+      !flow.published_definition ||
+      JSON.stringify(flow.draft_definition) !== JSON.stringify(flow.published_definition)
+
+    return NextResponse.json({
+      flow: {
+        ...flow,
+        has_unpublished_changes: hasUnpublishedChanges,
+      },
+      triggers: triggers || [],
+    })
   } catch (err) {
     console.error("[fluxos/[flowId]] GET error:", err)
     return NextResponse.json(
@@ -62,7 +67,7 @@ export async function GET(
   }
 }
 
-// PUT /api/automacao/fluxos/[flowId] — Actualizar fluxo
+// PUT /api/automacao/fluxos/[flowId] — Auto-save (so draft)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ flowId: string }> }
@@ -77,56 +82,26 @@ export async function PUT(
     if (body.name !== undefined) updates.name = body.name.trim()
     if (body.description !== undefined)
       updates.description = body.description?.trim() || null
-    if (body.flow_definition !== undefined)
-      updates.flow_definition = body.flow_definition
-    if (body.is_active !== undefined) updates.is_active = body.is_active
+    if (body.draft_definition !== undefined)
+      updates.draft_definition = body.draft_definition
     if (body.wpp_instance_id !== undefined)
       updates.wpp_instance_id = body.wpp_instance_id || null
 
-    if (Object.keys(updates).length === 0 && !body.triggers) {
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
         { error: "Nenhum campo para actualizar" },
         { status: 400 }
       )
     }
 
-    // Update flow
-    if (Object.keys(updates).length > 0) {
-      const { error } = await (supabase as SupabaseAny)
-        .from("auto_flows")
-        .update(updates)
-        .eq("id", flowId)
+    updates.updated_at = new Date().toISOString()
+    const { error } = await (supabase as SupabaseAny)
+      .from("auto_flows")
+      .update(updates)
+      .eq("id", flowId)
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-    }
-
-    // Upsert triggers if provided
-    if (body.triggers && Array.isArray(body.triggers)) {
-      // Delete existing triggers
-      await (supabase as SupabaseAny)
-        .from("auto_triggers")
-        .delete()
-        .eq("flow_id", flowId)
-
-      // Insert new triggers
-      if (body.triggers.length > 0) {
-        const triggersToInsert = body.triggers.map((t: SupabaseAny) => ({
-          flow_id: flowId,
-          trigger_type: t.trigger_type,
-          config: t.config || {},
-          is_active: true,
-        }))
-
-        const { error: triggerError } = await (supabase as SupabaseAny)
-          .from("auto_triggers")
-          .insert(triggersToInsert)
-
-        if (triggerError) {
-          console.error("[fluxos/[flowId]] trigger upsert error:", triggerError)
-        }
-      }
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     // Fetch updated flow

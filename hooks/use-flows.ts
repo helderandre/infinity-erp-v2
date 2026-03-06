@@ -7,7 +7,11 @@ export interface AutoFlow {
   id: string
   name: string
   description: string | null
-  flow_definition: FlowDefinition
+  draft_definition: FlowDefinition
+  published_definition: FlowDefinition | null
+  published_at: string | null
+  published_triggers: unknown[] | null
+  has_unpublished_changes: boolean
   is_active: boolean
   wpp_instance_id: string | null
   created_by: string | null
@@ -94,10 +98,8 @@ export function useFlows(options: UseFlowsOptions = {}) {
       data: {
         name?: string
         description?: string
-        flow_definition?: FlowDefinition
-        is_active?: boolean
+        draft_definition?: FlowDefinition
         wpp_instance_id?: string | null
-        triggers?: { trigger_type: string; config: Record<string, unknown> }[]
       }
     ): Promise<AutoFlow | null> => {
       try {
@@ -111,7 +113,7 @@ export function useFlows(options: UseFlowsOptions = {}) {
         return json.flow
       } catch (err) {
         console.error("[useFlows] updateFlow error:", err)
-        return null
+        throw err
       }
     },
     []
@@ -133,6 +135,57 @@ export function useFlows(options: UseFlowsOptions = {}) {
     }
   }, [])
 
+  const publishFlow = useCallback(
+    async (
+      id: string
+    ): Promise<{
+      ok: boolean
+      published_at?: string
+      triggers_count?: number
+      errors?: string[]
+      error?: string
+    } | null> => {
+      try {
+        const res = await fetch(`/api/automacao/fluxos/${id}/publish`, {
+          method: "POST",
+        })
+        const json = await res.json()
+        if (!res.ok) {
+          return { ok: false, error: json.error, errors: json.errors }
+        }
+        return json
+      } catch (err) {
+        console.error("[useFlows] publishFlow error:", err)
+        return null
+      }
+    },
+    []
+  )
+
+  const activateFlow = useCallback(
+    async (
+      id: string,
+      active: boolean
+    ): Promise<{ ok: boolean; is_active?: boolean; error?: string } | null> => {
+      try {
+        const res = await fetch(`/api/automacao/fluxos/${id}/activate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active }),
+        })
+        const json = await res.json()
+        if (!res.ok) {
+          return { ok: false, error: json.error }
+        }
+        return json
+      } catch (err) {
+        console.error("[useFlows] activateFlow error:", err)
+        return null
+      }
+    },
+    []
+  )
+
   const testFlow = useCallback(
     async (
       id: string,
@@ -141,7 +194,13 @@ export function useFlows(options: UseFlowsOptions = {}) {
         entity_id?: string
         test_variables?: Record<string, string>
       }
-    ): Promise<{ run_id: string; first_step_id: string } | null> => {
+    ): Promise<{
+        run_id: string
+        first_step_id: string
+        status?: string
+        errors?: Array<{ node: string; message: string }>
+        summary?: { whatsapp_sent?: number; emails_sent?: number }
+      } | null> => {
       try {
         const res = await fetch(`/api/automacao/fluxos/${id}/test`, {
           method: "POST",
@@ -172,6 +231,8 @@ export function useFlows(options: UseFlowsOptions = {}) {
     createFlow,
     updateFlow,
     deleteFlow,
+    publishFlow,
+    activateFlow,
     testFlow,
   }
 }

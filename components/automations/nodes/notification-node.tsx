@@ -16,16 +16,15 @@ function NotificationNodeInner({ id, data, selected }: NodeProps) {
       selected={selected}
       icon={<Bell />}
       title={nodeData.label || "Notificação"}
+      description={!nodeData.title ? "Criar notificação no sistema" : undefined}
     >
-      {nodeData.title ? (
-        <div className="space-y-0.5">
-          <p className="truncate font-medium">{nodeData.title}</p>
+      {nodeData.title && (
+        <div className="rounded-lg bg-muted/60 px-2.5 py-1.5 space-y-0.5">
+          <p className="truncate text-[10px] font-medium text-foreground">{nodeData.title}</p>
           {nodeData.body && (
             <p className="truncate text-[10px]">{nodeData.body}</p>
           )}
         </div>
-      ) : (
-        <p className="text-muted-foreground/70">Criar notificação no sistema</p>
       )}
     </NodeWrapper>
   )

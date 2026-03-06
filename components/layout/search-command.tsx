@@ -22,8 +22,13 @@ import { menuItems, builderItems } from './app-sidebar'
 
 export function SearchCommand() {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const { hasPermission } = usePermissions()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -74,7 +79,7 @@ export function SearchCommand() {
         </InputGroupAddon>
       </InputGroup>
 
-      <CommandDialog
+      {mounted && <CommandDialog
         open={open}
         onOpenChange={setOpen}
         title="Pesquisar páginas"
@@ -115,7 +120,7 @@ export function SearchCommand() {
             )}
           </CommandList>
         </Command>
-      </CommandDialog>
+      </CommandDialog>}
     </>
   )
 }

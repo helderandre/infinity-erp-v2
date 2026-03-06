@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
 import {
   ReactFlow,
   Background,
@@ -151,6 +151,12 @@ function hasCycle(
   return false
 }
 
+// ── Public Handle ──
+
+export interface FlowEditorHandle {
+  save: () => void
+}
+
 // ── Inner Editor ──
 
 interface FlowEditorInnerProps {
@@ -159,11 +165,11 @@ interface FlowEditorInnerProps {
   saving?: boolean
 }
 
-function FlowEditorInner({
+const FlowEditorInner = forwardRef<FlowEditorHandle, FlowEditorInnerProps>(function FlowEditorInner({
   initialDefinition,
   onSave,
   saving,
-}: FlowEditorInnerProps) {
+}: FlowEditorInnerProps, ref) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView } = useReactFlow()
   const { layoutNodes } = useAutoLayout()
@@ -189,13 +195,21 @@ function FlowEditorInner({
         targetHandle: e.targetHandle || undefined,
         label: e.label,
         animated: true,
-        style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
+        style: { stroke: "var(--muted-foreground)", strokeWidth: 1.5 },
       })),
     [initialDefinition]
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [edges, setEdges, rawOnEdgesChange] = useEdgesState(initialEdges)
+
+  // Detect edge removal and trigger save
+  const onEdgesChange = useCallback((changes: Parameters<typeof rawOnEdgesChange>[0]) => {
+    rawOnEdgesChange(changes)
+    if (changes.some((c) => c.type === "remove")) {
+      queueMicrotask(() => emitDraftRef.current())
+    }
+  }, [rawOnEdgesChange])
 
   // ── Connection validation ──
   const isValidConnection = useCallback(
@@ -229,6 +243,8 @@ function FlowEditorInner({
           eds
         )
       )
+      // Save after state update flushes
+      queueMicrotask(() => emitDraftRef.current())
     },
     [setEdges]
   )
@@ -270,6 +286,7 @@ function FlowEditorInner({
       }
 
       setNodes((nds) => [...nds, newNode])
+      queueMicrotask(() => emitDraftRef.current())
     },
     [nodes, screenToFlowPosition, setNodes]
   )
@@ -354,6 +371,32 @@ function FlowEditorInner({
     onSave(definition)
   }, [nodes, edges, onSave])
 
+  // Expose save to parent via ref
+  useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave])
+
+  // ── Auto-save: triggered only on discrete events ──
+  const emitDraftRef = useRef<() => void>(() => {})
+  const emitDraft = useCallback(() => {
+    const flowNodes = nodes.map((n) => ({
+      id: n.id,
+      type: n.type as AutomationNodeType,
+      position: n.position,
+      data: n.data as unknown as AutomationNodeData,
+    }))
+
+    const flowEdges: AutomationEdge[] = edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle || null,
+      targetHandle: e.targetHandle || null,
+      label: typeof e.label === "string" ? e.label : undefined,
+    }))
+
+    onSave({ version: 1, nodes: flowNodes, edges: flowEdges })
+  }, [nodes, edges, onSave])
+  emitDraftRef.current = emitDraft
+
   // ── Auto-Layout ──
   const handleAutoLayout = useCallback(() => {
     const automationNodes = nodes.map((n) => ({
@@ -393,6 +436,8 @@ function FlowEditorInner({
           onConnect={onConnect}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          onNodeDragStop={() => emitDraftRef.current()}
+          onNodesDelete={() => queueMicrotask(() => emitDraftRef.current())}
           nodeTypes={nodeTypes}
           isValidConnection={isValidConnection}
           fitView
@@ -400,7 +445,7 @@ function FlowEditorInner({
           className="bg-background"
           defaultEdgeOptions={{
             animated: true,
-            style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
+            style: { stroke: "var(--muted-foreground)", strokeWidth: 1.5 },
           }}
         >
           <Background gap={20} size={1} />
@@ -422,7 +467,7 @@ function FlowEditorInner({
       </div>
     </div>
   )
-}
+})
 
 // ── Wrapper with Provider ──
 
@@ -432,10 +477,12 @@ interface FlowEditorProps {
   saving?: boolean
 }
 
-export function FlowEditor(props: FlowEditorProps) {
-  return (
-    <ReactFlowProvider>
-      <FlowEditorInner {...props} />
-    </ReactFlowProvider>
-  )
-}
+export const FlowEditor = forwardRef<FlowEditorHandle, FlowEditorProps>(
+  function FlowEditor(props, ref) {
+    return (
+      <ReactFlowProvider>
+        <FlowEditorInner ref={ref} {...props} />
+      </ReactFlowProvider>
+    )
+  }
+)

@@ -20,6 +20,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { AutoFlow } from "@/hooks/use-flows"
 import type { FlowDefinition } from "@/lib/types/automation-flow"
 
@@ -31,6 +36,28 @@ interface FlowCardProps {
   onDuplicate: (flow: AutoFlow) => void
 }
 
+function PublicationBadge({ flow }: { flow: AutoFlow }) {
+  if (!flow.published_at) {
+    return (
+      <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+        Rascunho
+      </Badge>
+    )
+  }
+  if (flow.has_unpublished_changes) {
+    return (
+      <Badge variant="outline" className="text-[10px] shrink-0 text-yellow-600 border-yellow-300 bg-yellow-50">
+        Alteracoes
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] shrink-0 text-emerald-600 border-emerald-300 bg-emerald-50">
+      Publicado
+    </Badge>
+  )
+}
+
 export function FlowCard({
   flow,
   onEdit,
@@ -38,9 +65,10 @@ export function FlowCard({
   onToggleActive,
   onDuplicate,
 }: FlowCardProps) {
-  const definition = flow.flow_definition as FlowDefinition | null
+  const definition = flow.draft_definition as FlowDefinition | null
   const nodeCount = definition?.nodes?.length || 0
   const edgeCount = definition?.edges?.length || 0
+  const canToggle = !!flow.published_at
 
   return (
     <div
@@ -62,6 +90,7 @@ export function FlowCard({
             >
               {flow.is_active ? "Activo" : "Inactivo"}
             </Badge>
+            <PublicationBadge flow={flow} />
           </div>
           {flow.description && (
             <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
@@ -70,7 +99,16 @@ export function FlowCard({
           )}
           <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
             <span>{nodeCount} node{nodeCount !== 1 ? "s" : ""}</span>
-            <span>{edgeCount} conex{edgeCount !== 1 ? "ões" : "ão"}</span>
+            <span>{edgeCount} conex{edgeCount !== 1 ? "oes" : "ao"}</span>
+            {flow.published_at && (
+              <span>
+                Publicado{" "}
+                {formatDistanceToNow(new Date(flow.published_at), {
+                  addSuffix: true,
+                  locale: pt,
+                })}
+              </span>
+            )}
             <span>
               {formatDistanceToNow(new Date(flow.updated_at), {
                 addSuffix: true,
@@ -109,24 +147,36 @@ export function FlowCard({
               <Copy className="mr-2 h-4 w-4" />
               Duplicar
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleActive(flow)
-              }}
-            >
-              {flow.is_active ? (
-                <>
-                  <ToggleLeft className="mr-2 h-4 w-4" />
-                  Desactivar
-                </>
-              ) : (
-                <>
-                  <ToggleRight className="mr-2 h-4 w-4" />
-                  Activar
-                </>
-              )}
-            </DropdownMenuItem>
+            {canToggle ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleActive(flow)
+                }}
+              >
+                {flow.is_active ? (
+                  <>
+                    <ToggleLeft className="mr-2 h-4 w-4" />
+                    Desactivar
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="mr-2 h-4 w-4" />
+                    Activar
+                  </>
+                )}
+              </DropdownMenuItem>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuItem disabled>
+                    <ToggleRight className="mr-2 h-4 w-4" />
+                    Activar
+                  </DropdownMenuItem>
+                </TooltipTrigger>
+                <TooltipContent>Publica o fluxo primeiro</TooltipContent>
+              </Tooltip>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {

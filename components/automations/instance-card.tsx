@@ -15,6 +15,7 @@ import {
   Clock,
   User,
   Briefcase,
+  Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +38,7 @@ import {
 
 interface InstanceCardProps {
   instance: WhatsAppInstance
+  loading?: boolean
   onConnect: (id: string) => void
   onDisconnect: (id: string) => void
   onDelete: (id: string) => void
@@ -61,6 +63,7 @@ function formatPhone(phone: string): string {
 
 export function InstanceCard({
   instance,
+  loading: cardLoading = false,
   onConnect,
   onDisconnect,
   onDelete,
@@ -81,7 +84,12 @@ export function InstanceCard({
     : null
 
   return (
-    <Card className="py-0 transition-all hover:shadow-md">
+    <Card className="py-0 transition-all hover:shadow-md relative overflow-hidden">
+      {cardLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
       <CardContent className="p-5">
         {/* Header: Avatar + Nome + Menu */}
         <div className="flex items-start gap-3">
@@ -96,7 +104,22 @@ export function InstanceCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-sm truncate">{instance.name}</h3>
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-semibold text-sm truncate">{instance.name}</h3>
+                <Badge
+                  variant="outline"
+                  className={`${colors.bg} ${colors.text} border-transparent text-xs shrink-0`}
+                >
+                  <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${colors.dot}`} />
+                  {label}
+                </Badge>
+                {instance.is_business && (
+                  <Badge variant="outline" className="text-xs gap-1 shrink-0">
+                    <Briefcase className="h-2.5 w-2.5" />
+                    Business
+                  </Badge>
+                )}
+              </div>
               <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
@@ -146,23 +169,6 @@ export function InstanceCard({
             {instance.profile_name && (
               <p className="text-xs text-muted-foreground truncate">{instance.profile_name}</p>
             )}
-
-            {/* Badges */}
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <Badge
-                variant="outline"
-                className={`${colors.bg} ${colors.text} border-transparent text-xs`}
-              >
-                <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${colors.dot}`} />
-                {label}
-              </Badge>
-              {instance.is_business && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Briefcase className="h-2.5 w-2.5" />
-                  Business
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
 
@@ -209,16 +215,17 @@ export function InstanceCard({
               size="sm"
               className="w-full"
               onClick={() => onCheckStatus(instance.id)}
+              disabled={cardLoading}
             >
               <RefreshCw className="mr-2 h-3.5 w-3.5" />
-              Detalhes
+              Verificar
             </Button>
           ) : (
             <Button
               size="sm"
               className="w-full"
               onClick={() => onConnect(instance.id)}
-              disabled={status === "not_found"}
+              disabled={status === "not_found" || cardLoading}
             >
               <Plug className="mr-2 h-3.5 w-3.5" />
               Conectar

@@ -363,24 +363,26 @@ export function useWebhookTestListener() {
 
 ## ✅ Critérios de Aceitação
 
-- [ ] Dashboard mostra métricas correctas (fluxos, execuções, taxa sucesso, entregas)
-- [ ] Gráfico de execuções por dia renderiza últimos 14 dias
-- [ ] Listagem de execuções com filtro por estado e fluxo
-- [ ] Expandir execução mostra timeline de steps com status e duração
-- [ ] Detalhe de step mostra input_data e output_data formatados
-- [ ] Steps falhados mostram mensagem de erro e botão reenviar
-- [ ] Reenviar reseta steps falhados e worker re-processa
-- [ ] Timeline em tempo real actualiza via Supabase Realtime
-- [ ] Tester dialog permite selecionar lead e executar teste
-- [ ] Tester mostra progresso ao vivo até conclusão
-- [ ] Webhook listener funciona com countdown de 120s
-- [ ] Parar execução cancela steps pendentes
-- [ ] API `/api/automacao/fluxos/[id]/test` é acessível de outros módulos
+- [x] Dashboard mostra métricas correctas (fluxos, execuções, taxa sucesso, entregas)
+- [x] Gráfico de execuções por dia renderiza últimos 14 dias (echarts com barras empilhadas)
+- [x] Listagem de execuções com filtro por estado e fluxo
+- [x] Expandir execução mostra timeline de steps com status e duração
+- [x] Detalhe de step mostra input_data e output_data formatados
+- [x] Steps falhados mostram mensagem de erro e botão reenviar
+- [x] Reenviar reseta steps falhados e worker re-processa
+- [x] Timeline em tempo real actualiza via Supabase Realtime
+- [x] Tester dialog permite preencher variáveis e executar teste (sem autocomplete de lead — ver IMPL-AUTO-F7-DESVIOS.md)
+- [x] Tester mostra progresso ao vivo até conclusão
+- [x] Webhook listener funciona com countdown de 120s (já existia da F5)
+- [ ] Parar execução cancela steps pendentes (não implementado — ver nota abaixo)
+- [x] API `/api/automacao/fluxos/[id]/test` é acessível de outros módulos
+
+**Nota:** "Parar execução" (cancelar steps pendentes) não foi implementado nesta iteração. Requer um endpoint dedicado e lógica para cancelar steps na fila pgmq. Pode ser adicionado numa iteração futura quando o worker estiver em produção com volume real.
 
 ## 📝 Notas para o Claude Code
 
 1. **Reutilizar padrões do LeveMãe:** `use-realtime-execution.ts`, `automation-tester.tsx`, `executions-table.tsx`
-2. **Gráfico:** Usar echarts (já instalado) com `echarts-for-react`
+2. **Gráfico:** Usa echarts com `echarts-for-react` (tree-shaking via imports granulares)
 3. **Collapsible para execuções:** Usar `Collapsible` do shadcn/ui (já no LeveMãe)
 4. **Realtime subscription:** Canal por `run_id`, escutar INSERT+UPDATE em `auto_step_runs`
 5. **Paginação:** Server-side com offset/limit, não carregar tudo

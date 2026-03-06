@@ -158,9 +158,19 @@ export const builderItems = [
 
 export const automationItems = [
   {
+    title: 'Dashboard',
+    icon: Zap,
+    href: '/dashboard/automacao',
+  },
+  {
     title: 'Fluxos',
     icon: Workflow,
     href: '/dashboard/automacao/fluxos',
+  },
+  {
+    title: 'Execuções',
+    icon: Braces,
+    href: '/dashboard/automacao/execucoes',
   },
   {
     title: 'Instâncias WhatsApp',
@@ -314,7 +324,9 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {automationItems.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+                      const isActive = item.href === '/dashboard/automacao'
+                        ? pathname === item.href
+                        : pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
                       return (
                         <SidebarMenuItem key={item.href}>

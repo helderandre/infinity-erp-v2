@@ -201,7 +201,7 @@ export function SubtaskDocSheet({
         },
         is_completed: true,
       })
-      toast.success('Documento marcado como concluido!')
+      toast.success('Documento marcado como concluído!')
       onComplete()
       onOpenChange(false)
     } catch (e) {
@@ -292,7 +292,7 @@ export function SubtaskDocSheet({
                 {isCompleted && (
                   <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
                     <CheckCircle2 className="mr-1 h-3 w-3" />
-                    Concluido
+                    Concluído
                   </Badge>
                 )}
               </div>
@@ -411,14 +411,14 @@ export function SubtaskDocSheet({
               ) : (
                 <CheckCircle2 className="mr-2 h-4 w-4" />
               )}
-              Marcar como Concluido
+              Marcar como Concluído
             </Button>
           </div>
         ) : renderedHtml && isCompleted ? (
           <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-emerald-600">
               <CheckCircle2 className="h-4 w-4" />
-              Documento concluido.
+              Documento concluído.
             </div>
             <Button
               variant="outline"

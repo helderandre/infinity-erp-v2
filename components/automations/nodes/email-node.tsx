@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { VariablePicker } from "@/components/automations/variable-picker"
+import { useWebhookVariables } from "@/hooks/use-webhook-variables"
 
 interface EmailTemplate {
   id: string
@@ -47,6 +48,7 @@ function EmailConfigSheet({
   nodeData: EmailNodeData
   onSave: (data: Partial<EmailNodeData>) => void
 }) {
+  const webhookVars = useWebhookVariables()
   const [mode, setMode] = useState<"template" | "inline">(
     nodeData.emailTemplateId ? "template" : "inline"
   )
@@ -126,7 +128,8 @@ function EmailConfigSheet({
                 className="flex-1"
               />
               <VariablePicker
-                onSelect={(v) => setRecipientVariable(`{{${v.key}}}`)}
+                onSelect={(v) => setRecipientVariable(v.key)}
+                additionalVariables={webhookVars}
                 compact
               />
             </div>
@@ -210,6 +213,7 @@ function EmailConfigSheet({
                   <Label className="text-sm font-medium">Assunto</Label>
                   <VariablePicker
                     onSelect={(v) => setSubject((prev) => prev + `{{${v.key}}}`)}
+                    additionalVariables={webhookVars}
                     compact
                   />
                 </div>
@@ -224,6 +228,7 @@ function EmailConfigSheet({
                   <Label className="text-sm font-medium">Corpo do Email</Label>
                   <VariablePicker
                     onSelect={(v) => setBodyHtml((prev) => prev + `{{${v.key}}}`)}
+                    additionalVariables={webhookVars}
                     compact
                   />
                 </div>
@@ -276,32 +281,43 @@ function EmailNodeInner({ id, data, selected }: NodeProps) {
         selected={selected}
         icon={<Mail />}
         title={nodeData.label || "Email"}
+        description={!isConfigured ? "Enviar email automático" : undefined}
       >
         {nodeData.emailTemplateId ? (
-          <div className="space-y-1">
-            <Badge variant="secondary" className="text-[10px]">
-              Template
-            </Badge>
-            <p className="truncate">{nodeData.emailTemplateName || "Template seleccionado"}</p>
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-muted/60 px-2.5 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="text-[10px] shrink-0">
+                  Template
+                </Badge>
+                <span className="truncate text-[10px] font-medium text-foreground">
+                  {nodeData.emailTemplateName || "Template seleccionado"}
+                </span>
+              </div>
+            </div>
             {nodeData.recipientVariable && (
               <p className="text-[10px]">Para: {nodeData.recipientVariable}</p>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setSheetOpen(true) }}
-              className="flex items-center gap-1 mt-1 text-[10px] text-primary hover:underline"
+              className="flex items-center gap-1 text-[10px] text-primary hover:underline"
             >
               <Settings2 className="h-3 w-3" /> Configurar
             </button>
           </div>
         ) : nodeData.subject ? (
-          <div className="space-y-1">
-            <p className="truncate font-medium">{nodeData.subject}</p>
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-muted/60 px-2.5 py-1.5">
+              <p className="truncate text-[10px] font-medium text-foreground">
+                {nodeData.subject}
+              </p>
+            </div>
             {nodeData.recipientVariable && (
               <p className="text-[10px]">Para: {nodeData.recipientVariable}</p>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setSheetOpen(true) }}
-              className="flex items-center gap-1 mt-1 text-[10px] text-primary hover:underline"
+              className="flex items-center gap-1 text-[10px] text-primary hover:underline"
             >
               <Settings2 className="h-3 w-3" /> Configurar
             </button>

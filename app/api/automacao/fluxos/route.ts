@@ -8,7 +8,10 @@ interface DbFlow {
   id: string
   name: string
   description: string | null
-  flow_definition: SupabaseAny
+  draft_definition: SupabaseAny
+  published_definition: SupabaseAny | null
+  published_at: string | null
+  published_triggers: SupabaseAny | null
   is_active: boolean
   wpp_instance_id: string | null
   created_by: string | null
@@ -72,7 +75,7 @@ export async function POST(request: Request) {
       .insert({
         name: name?.trim() || "Novo Fluxo",
         description: null,
-        flow_definition: { version: 1, nodes: [], edges: [] },
+        draft_definition: { version: 1, nodes: [], edges: [] },
         is_active: false,
         wpp_instance_id: null,
       })

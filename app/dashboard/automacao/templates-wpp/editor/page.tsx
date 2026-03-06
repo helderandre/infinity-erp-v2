@@ -2,7 +2,8 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Loader2, Save } from "lucide-react"
+import { ArrowLeft, Save } from "lucide-react"
+import { Spinner } from "@/components/kibo-ui/spinner"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -153,7 +154,7 @@ function TemplateEditorContent() {
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Spinner variant="infinite" size={16} className="mr-2" />
           ) : (
             <Save className="h-4 w-4 mr-2" />
           )}

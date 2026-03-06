@@ -5,7 +5,6 @@ import type { NodeProps } from "@xyflow/react"
 import { Globe } from "lucide-react"
 import { NodeWrapper } from "./node-wrapper"
 import type { HttpRequestNodeData } from "@/lib/types/automation-flow"
-import { Badge } from "@/components/ui/badge"
 
 function HttpRequestNodeInner({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as HttpRequestNodeData
@@ -17,21 +16,15 @@ function HttpRequestNodeInner({ id, data, selected }: NodeProps) {
       selected={selected}
       icon={<Globe />}
       title={nodeData.label || "HTTP Request"}
+      description={!nodeData.url ? "Chamar uma API externa" : undefined}
     >
-      {nodeData.url ? (
-        <div className="space-y-1">
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-[10px] font-mono">
-              {nodeData.method || "GET"}
-            </Badge>
-          </div>
-          <p className="truncate font-mono text-[10px]">{nodeData.url}</p>
-          {nodeData.outputVariable && (
-            <p className="text-[10px]">Resultado → {nodeData.outputVariable}</p>
-          )}
+      {nodeData.url && (
+        <div className="flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1.5">
+          <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] font-mono font-semibold border">
+            {nodeData.method || "GET"}
+          </span>
+          <span className="truncate font-mono text-[10px]">{nodeData.url}</span>
         </div>
-      ) : (
-        <p className="text-muted-foreground/70">Chamar uma API externa</p>
       )}
     </NodeWrapper>
   )
