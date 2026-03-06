@@ -10,8 +10,8 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('tpl_email_library')
-      .select('id, name, subject, description, created_at, updated_at')
-      .order('name', { ascending: true })
+      .select('id, name, subject, description, body_html, usage_count, created_at, updated_at, created_by, creator:dev_users!created_by(id, commercial_name)')
+      .order('updated_at', { ascending: false })
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,subject.ilike.%${search}%`)
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('tpl_email_library')
-      .insert(parsed.data)
+      .insert({ ...parsed.data, created_by: user.id })
       .select()
       .single()
 

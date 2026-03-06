@@ -84,6 +84,8 @@ export async function PUT(
       updates.description = body.description?.trim() || null
     if (body.draft_definition !== undefined)
       updates.draft_definition = body.draft_definition
+    if (body.published_definition !== undefined)
+      updates.published_definition = body.published_definition
     if (body.wpp_instance_id !== undefined)
       updates.wpp_instance_id = body.wpp_instance_id || null
 

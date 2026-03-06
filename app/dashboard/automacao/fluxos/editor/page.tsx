@@ -9,6 +9,10 @@ import {
   Play,
   FlaskConical,
   Rocket,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react"
 import { Spinner } from "@/components/kibo-ui/spinner"
 import { Button } from "@/components/ui/button"
@@ -28,9 +32,21 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 type SaveStatus = "saved" | "saving" | "error"
+type EditorMode = "draft" | "production"
 
 function FlowEditorContent() {
   const router = useRouter()
@@ -42,7 +58,9 @@ function FlowEditorContent() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [wppInstanceId, setWppInstanceId] = useState<string | null>(null)
-  const [flowDefinition, setFlowDefinition] = useState<FlowDefinition | null>(null)
+  const [draftDefinition, setDraftDefinition] = useState<FlowDefinition | null>(null)
+  const [publishedDefinition, setPublishedDefinition] = useState<FlowDefinition | null>(null)
+  const [originalPublishedDefinition, setOriginalPublishedDefinition] = useState<FlowDefinition | null>(null)
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false)
   const [publishedAt, setPublishedAt] = useState<string | null>(null)
   const [loadingFlow, setLoadingFlow] = useState(true)
@@ -50,9 +68,17 @@ function FlowEditorContent() {
   const [publishing, setPublishing] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testerOpen, setTesterOpen] = useState(false)
+  const [mode, setMode] = useState<EditorMode>("draft")
+  const [productionDirty, setProductionDirty] = useState(false)
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const [pendingModeSwitch, setPendingModeSwitch] = useState<EditorMode | null>(null)
+  const [savingProduction, setSavingProduction] = useState(false)
   const editorRef = useRef<FlowEditorHandle>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const latestDefinitionRef = useRef<FlowDefinition | null>(null)
+
+  // Active definition based on mode
+  const activeDefinition = mode === "draft" ? draftDefinition : publishedDefinition
 
   // Load flow
   useEffect(() => {
@@ -68,7 +94,9 @@ function FlowEditorContent() {
         setName(result.flow.name)
         setDescription(result.flow.description || "")
         setWppInstanceId(result.flow.wpp_instance_id)
-        setFlowDefinition(result.flow.draft_definition)
+        setDraftDefinition(result.flow.draft_definition)
+        setPublishedDefinition(result.flow.published_definition)
+        setOriginalPublishedDefinition(result.flow.published_definition)
         setHasUnpublishedChanges(result.flow.has_unpublished_changes)
         setPublishedAt(result.flow.published_at)
       } else {
@@ -82,7 +110,7 @@ function FlowEditorContent() {
     fetchInstances()
   }, [flowId])
 
-  // Auto-save with debounce
+  // Auto-save with debounce (only in draft mode)
   const autoSave = useCallback(
     async (definition: FlowDefinition) => {
       if (!flowId) return
@@ -104,7 +132,6 @@ function FlowEditorContent() {
           setSaveStatus("saved")
         } catch {
           setSaveStatus("error")
-          // Retry after 5s
           setTimeout(() => {
             if (latestDefinitionRef.current) {
               autoSave(latestDefinitionRef.current)
@@ -118,13 +145,13 @@ function FlowEditorContent() {
 
   // Save metadata changes (name, description, wpp instance)
   const saveMetadata = useCallback(async () => {
-    if (!flowId || !flowDefinition) return
+    if (!flowId || !draftDefinition) return
     setSaveStatus("saving")
     try {
       await updateFlow(flowId, {
         name,
         description: description || undefined,
-        draft_definition: flowDefinition,
+        draft_definition: draftDefinition,
         wpp_instance_id: wppInstanceId,
       })
       setSaveStatus("saved")
@@ -132,7 +159,7 @@ function FlowEditorContent() {
     } catch {
       setSaveStatus("error")
     }
-  }, [flowId, name, description, wppInstanceId, flowDefinition, updateFlow])
+  }, [flowId, name, description, wppInstanceId, draftDefinition, updateFlow])
 
   // Debounced metadata save
   const metaSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -140,6 +167,91 @@ function FlowEditorContent() {
     if (metaSaveTimeoutRef.current) clearTimeout(metaSaveTimeoutRef.current)
     metaSaveTimeoutRef.current = setTimeout(saveMetadata, 2000)
   }, [saveMetadata])
+
+  // Handle flow save based on mode
+  const handleFlowSave = useCallback(
+    (definition: FlowDefinition) => {
+      if (mode === "draft") {
+        setDraftDefinition(definition)
+        autoSave(definition)
+      } else {
+        // Production mode: local change only, mark dirty
+        setPublishedDefinition(definition)
+        setProductionDirty(true)
+      }
+    },
+    [mode, autoSave]
+  )
+
+  // Save production explicitly
+  const handleSaveProduction = useCallback(async () => {
+    if (!flowId || !publishedDefinition) return
+
+    setSavingProduction(true)
+    try {
+      await updateFlow(flowId, { published_definition: publishedDefinition })
+
+      // Sync triggers via publish endpoint
+      await fetch(`/api/automacao/fluxos/${flowId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_production_edit: true }),
+      })
+
+      setOriginalPublishedDefinition(publishedDefinition)
+      setProductionDirty(false)
+      toast.success("Versão de produção guardada")
+    } catch {
+      toast.error("Erro ao guardar versão de produção")
+    } finally {
+      setSavingProduction(false)
+    }
+  }, [flowId, publishedDefinition, updateFlow])
+
+  // Mode switch with discard guard
+  const handleModeSwitch = useCallback(
+    (newMode: EditorMode) => {
+      if (newMode === mode) return
+
+      if (mode === "production" && productionDirty) {
+        setPendingModeSwitch(newMode)
+        setShowDiscardDialog(true)
+        return
+      }
+
+      setMode(newMode)
+    },
+    [mode, productionDirty]
+  )
+
+  const handleDiscardConfirm = useCallback(() => {
+    setPublishedDefinition(originalPublishedDefinition)
+    setProductionDirty(false)
+    setShowDiscardDialog(false)
+    if (pendingModeSwitch) {
+      setMode(pendingModeSwitch)
+      setPendingModeSwitch(null)
+    }
+  }, [originalPublishedDefinition, pendingModeSwitch])
+
+  const handleDiscardCancel = useCallback(() => {
+    setShowDiscardDialog(false)
+    setPendingModeSwitch(null)
+  }, [])
+
+  // Revert draft to published
+  const handleRevertDraftToPublished = useCallback(async () => {
+    if (!flowId || !publishedDefinition) return
+
+    try {
+      await updateFlow(flowId, { draft_definition: publishedDefinition })
+      setDraftDefinition(publishedDefinition)
+      setHasUnpublishedChanges(false)
+      toast.success("Rascunho revertido para a versão de produção")
+    } catch {
+      toast.error("Erro ao reverter rascunho")
+    }
+  }, [flowId, publishedDefinition, updateFlow])
 
   // Publish
   const handlePublish = useCallback(async () => {
@@ -150,11 +262,11 @@ function FlowEditorContent() {
       clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = null
     }
-    if (flowDefinition) {
+    if (draftDefinition) {
       await updateFlow(flowId, {
         name,
         description: description || undefined,
-        draft_definition: flowDefinition,
+        draft_definition: draftDefinition,
         wpp_instance_id: wppInstanceId,
       })
     }
@@ -182,7 +294,12 @@ function FlowEditorContent() {
     })
     setHasUnpublishedChanges(false)
     setPublishedAt(result.published_at || new Date().toISOString())
-  }, [flowId, flowDefinition, name, description, wppInstanceId, updateFlow, publishFlow])
+    // Sync local published definition
+    if (draftDefinition) {
+      setPublishedDefinition(draftDefinition)
+      setOriginalPublishedDefinition(draftDefinition)
+    }
+  }, [flowId, draftDefinition, name, description, wppInstanceId, updateFlow, publishFlow])
 
   // Test
   const handleTest = useCallback(async () => {
@@ -228,54 +345,7 @@ function FlowEditorContent() {
     (i) => i.connection_status === "connected"
   )
 
-  // Publication status badge
-  const PublicationBadge = () => {
-    if (!publishedAt) {
-      return (
-        <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
-          Nunca publicado
-        </Badge>
-      )
-    }
-    if (hasUnpublishedChanges) {
-      return (
-        <Badge variant="outline" className="text-[10px] gap-1 text-yellow-600 border-yellow-300 bg-yellow-50">
-          Alterações não publicadas
-        </Badge>
-      )
-    }
-    return (
-      <Badge variant="outline" className="text-[10px] gap-1 text-emerald-600 border-emerald-300 bg-emerald-50">
-        Publicado
-      </Badge>
-    )
-  }
-
-  // Save status indicator
-  const SaveIndicator = () => {
-    if (saveStatus === "saving") {
-      return (
-        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          <Spinner variant="infinite" size={12} />
-          A guardar...
-        </span>
-      )
-    }
-    if (saveStatus === "error") {
-      return (
-        <span className="flex items-center gap-1 text-[10px] text-destructive">
-          <CloudOff className="h-3 w-3" />
-          Erro ao guardar
-        </span>
-      )
-    }
-    return (
-      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-        <Cloud className="h-3 w-3" />
-        Guardado
-      </span>
-    )
-  }
+  const isNeverPublished = !publishedDefinition && !publishedAt
 
   return (
     <div className="flex h-full flex-col">
@@ -308,8 +378,80 @@ function FlowEditorContent() {
           />
         </div>
 
-        <PublicationBadge />
-        <SaveIndicator />
+        {/* Draft / Production Toggle */}
+        <div className="flex items-center rounded-lg border bg-muted p-0.5">
+          <button
+            onClick={() => handleModeSwitch("draft")}
+            className={cn(
+              "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+              mode === "draft"
+                ? "bg-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Rascunho
+          </button>
+          <button
+            onClick={() => handleModeSwitch("production")}
+            disabled={isNeverPublished}
+            className={cn(
+              "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+              mode === "production"
+                ? "bg-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+              isNeverPublished && "opacity-50 cursor-not-allowed"
+            )}
+            title={isNeverPublished ? "Publica o fluxo primeiro" : undefined}
+          >
+            Produção
+          </button>
+        </div>
+
+        {/* Status indicators */}
+        {mode === "draft" && (
+          <>
+            {saveStatus === "saving" ? (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Spinner variant="infinite" size={12} />
+                A guardar...
+              </span>
+            ) : saveStatus === "error" ? (
+              <span className="flex items-center gap-1 text-[10px] text-destructive">
+                <CloudOff className="h-3 w-3" />
+                Erro ao guardar
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Cloud className="h-3 w-3" />
+                Guardado
+              </span>
+            )}
+          </>
+        )}
+        {mode === "production" && !productionDirty && (
+          <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+            <CheckCircle className="h-3 w-3" />
+            Versão em produção
+          </span>
+        )}
+        {mode === "production" && productionDirty && (
+          <span className="flex items-center gap-1 text-[10px] text-amber-600">
+            <AlertTriangle className="h-3 w-3" />
+            Alterações não guardadas
+          </span>
+        )}
+
+        {/* Badges */}
+        {mode === "draft" && hasUnpublishedChanges && publishedDefinition && (
+          <Badge variant="outline" className="text-[10px] gap-1 text-amber-600 border-amber-300 bg-amber-50">
+            Rascunho difere da produção
+          </Badge>
+        )}
+        {mode === "draft" && !publishedAt && (
+          <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
+            Nunca publicado
+          </Badge>
+        )}
 
         <div className="flex-1" />
 
@@ -334,6 +476,14 @@ function FlowEditorContent() {
           </SelectContent>
         </Select>
 
+        {/* Revert draft to production (only in draft mode when diverged) */}
+        {mode === "draft" && hasUnpublishedChanges && publishedDefinition && (
+          <Button variant="ghost" size="sm" onClick={handleRevertDraftToPublished}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            Reverter
+          </Button>
+        )}
+
         <Button
           variant="outline"
           size="sm"
@@ -357,29 +507,43 @@ function FlowEditorContent() {
           Teste Avançado
         </Button>
 
-        <Button
-          size="sm"
-          onClick={handlePublish}
-          disabled={publishing}
-        >
-          {publishing ? (
-            <Spinner variant="infinite" size={14} className="mr-1.5" />
-          ) : (
-            <Rocket className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Publicar
-        </Button>
+        {/* Primary action button depends on mode */}
+        {mode === "draft" ? (
+          <Button
+            size="sm"
+            onClick={handlePublish}
+            disabled={publishing}
+          >
+            {publishing ? (
+              <Spinner variant="infinite" size={14} className="mr-1.5" />
+            ) : (
+              <Rocket className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Publicar
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleSaveProduction}
+            disabled={savingProduction || !productionDirty}
+          >
+            {savingProduction ? (
+              <Spinner variant="infinite" size={14} className="mr-1.5" />
+            ) : (
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Guardar
+          </Button>
+        )}
       </div>
 
       {/* Editor */}
       <div className="flex-1 min-h-0">
         <FlowEditor
+          key={mode}
           ref={editorRef}
-          initialDefinition={flowDefinition || undefined}
-          onSave={(def) => {
-            setFlowDefinition(def)
-            autoSave(def)
-          }}
+          initialDefinition={activeDefinition || undefined}
+          onSave={handleFlowSave}
           saving={saveStatus === "saving"}
         />
       </div>
@@ -387,10 +551,34 @@ function FlowEditorContent() {
       {/* Tester Sheet */}
       <AutomationTester
         flowId={flowId}
-        flowDefinition={flowDefinition}
+        flowDefinition={activeDefinition}
         open={testerOpen}
         onOpenChange={setTesterOpen}
       />
+
+      {/* Discard changes AlertDialog */}
+      <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterações não guardadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Fizeste alterações à versão de produção que ainda não foram guardadas.
+              Se mudares para o rascunho, essas alterações serão perdidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardCancel}>
+              Continuar a editar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDiscardConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Descartar alterações
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

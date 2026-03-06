@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { Spinner } from "@/components/kibo-ui/spinner"
 import { toast } from "sonner"
-import { useExecutions, type ExecutionDetail, type ExecutionStep, type ExecutionDelivery } from "@/hooks/use-executions"
+import { useExecutions, type ExecutionDetail, type ExecutionDelivery } from "@/hooks/use-executions"
 import { ExecutionTimeline } from "./execution-timeline"
 import type { RealtimeStep } from "@/hooks/use-realtime-execution"
 
@@ -37,6 +37,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
   const [detail, setDetail] = useState<ExecutionDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [retryingStepId, setRetryingStepId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!executionId || !open) return
@@ -47,7 +48,8 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
     })
   }, [executionId, open, getDetail])
 
-  const handleRetry = useCallback(async () => {
+  // Retry all failed steps
+  const handleRetryAll = useCallback(async () => {
     if (!executionId) return
     setRetrying(true)
     const ok = await retryExecution(executionId)
@@ -55,13 +57,38 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
     if (ok) {
       toast.success("Steps falhados reenviados")
       onRetried?.()
-      // Refresh detail
       const d = await getDetail(executionId)
       setDetail(d)
     } else {
       toast.error("Erro ao reenviar")
     }
   }, [executionId, retryExecution, getDetail, onRetried])
+
+  // Retry individual step
+  const handleRetryStep = useCallback(async (stepId: string) => {
+    if (!executionId) return
+    setRetryingStepId(stepId)
+    try {
+      const res = await fetch(`/api/automacao/execucoes/${executionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step_id: stepId }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        throw new Error(json.error)
+      }
+      toast.success("Step re-enfileirado para processamento")
+      onRetried?.()
+      const d = await getDetail(executionId)
+      setDetail(d)
+    } catch (err) {
+      console.error("[ExecutionDetailSheet] retry step error:", err)
+      toast.error("Erro ao reenviar step")
+    } finally {
+      setRetryingStepId(null)
+    }
+  }, [executionId, getDetail, onRetried])
 
   const run = detail?.run
   const steps = detail?.steps || []
@@ -96,7 +123,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {loading ? "A carregar..." : run?.auto_flows?.name || "Execução"}
+            {loading ? "A carregar..." : run?.auto_flows?.name || "Execucao"}
           </SheetTitle>
           <SheetDescription>
             {run?.id ? `ID: ${run.id.slice(0, 8)}...` : ""}
@@ -124,7 +151,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
                 <p className="mt-0.5 font-medium">{run.triggered_by || "—"}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Início</span>
+                <span className="text-muted-foreground">Inicio</span>
                 <p className="mt-0.5 font-medium">
                   {run.started_at
                     ? new Date(run.started_at).toLocaleString("pt-PT")
@@ -132,7 +159,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Conclusão</span>
+                <span className="text-muted-foreground">Conclusao</span>
                 <p className="mt-0.5 font-medium">
                   {run.completed_at
                     ? new Date(run.completed_at).toLocaleString("pt-PT")
@@ -141,12 +168,12 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
               </div>
             </div>
 
-            {/* Retry button */}
+            {/* Retry all button */}
             {hasFailed && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRetry}
+                onClick={handleRetryAll}
                 disabled={retrying}
                 className="w-full"
               >
@@ -155,7 +182,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
                 ) : (
                   <RefreshCw className="mr-2 h-3.5 w-3.5" />
                 )}
-                Reenviar passos falhados
+                Reenviar todos os passos falhados
               </Button>
             )}
 
@@ -170,6 +197,8 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
                 completedSteps={completedSteps}
                 failedSteps={failedSteps}
                 overallStatus={overallStatus}
+                onRetryStep={handleRetryStep}
+                retryingStepId={retryingStepId}
               />
             </div>
 
@@ -218,7 +247,7 @@ export function ExecutionDetailSheet({ executionId, open, onOpenChange, onRetrie
 
 function RunStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; variant: "default" | "destructive" | "outline" | "secondary"; icon: React.ElementType | null }> = {
-    completed: { label: "Concluído", variant: "outline", icon: CheckCircle2 },
+    completed: { label: "Concluido", variant: "outline", icon: CheckCircle2 },
     failed: { label: "Falhou", variant: "destructive", icon: XCircle },
     running: { label: "A executar", variant: "default", icon: null },
     pending: { label: "Pendente", variant: "secondary", icon: Clock },

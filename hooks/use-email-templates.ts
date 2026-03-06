@@ -3,13 +3,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
 
-interface EmailTemplate {
+interface EmailTemplateCreator {
+  id: string
+  commercial_name: string | null
+}
+
+export interface EmailTemplate {
   id: string
   name: string
   subject: string
   description: string | null
+  body_html: string | null
+  usage_count: number
   created_at: string | null
   updated_at: string | null
+  created_by: string | null
+  creator: EmailTemplateCreator | null
 }
 
 export function useEmailTemplates(search: string = '') {

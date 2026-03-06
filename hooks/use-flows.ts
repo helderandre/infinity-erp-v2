@@ -99,6 +99,7 @@ export function useFlows(options: UseFlowsOptions = {}) {
         name?: string
         description?: string
         draft_definition?: FlowDefinition
+        published_definition?: FlowDefinition
         wpp_instance_id?: string | null
       }
     ): Promise<AutoFlow | null> => {

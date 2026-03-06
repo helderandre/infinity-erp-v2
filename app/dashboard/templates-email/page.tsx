@@ -1,18 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +23,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
-import { Mail, Plus, Search, MoreHorizontal, Pencil, Copy, Trash2 } from 'lucide-react'
-import { useEmailTemplates } from '@/hooks/use-email-templates'
-import { formatDateTime } from '@/lib/constants'
+import {
+  Mail,
+  Plus,
+  Search,
+  MoreVertical,
+  Pencil,
+  Copy,
+  Trash2,
+  User,
+  Send,
+  Calendar,
+} from 'lucide-react'
+import { useEmailTemplates, type EmailTemplate } from '@/hooks/use-email-templates'
+import { formatDate } from '@/lib/constants'
 import { toast } from 'sonner'
 
 export default function TemplatesEmailPage() {
@@ -60,7 +64,7 @@ export default function TemplatesEmailPage() {
     }
   }
 
-  const handleDuplicate = async (template: { id: string; name: string; subject: string; description: string | null }) => {
+  const handleDuplicate = async (template: EmailTemplate) => {
     try {
       const detailRes = await fetch(`/api/libraries/emails/${template.id}`)
       if (!detailRes.ok) throw new Error('Erro ao carregar template')
@@ -112,13 +116,25 @@ export default function TemplatesEmailPage() {
             className="pl-9"
           />
         </div>
+        {!isLoading && templates.length > 0 && (
+          <span className="text-sm text-muted-foreground">
+            {templates.length} template{templates.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {/* Content */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-14 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="rounded-lg border bg-card overflow-hidden">
+              <Skeleton className="h-40 w-full rounded-none" />
+              <div className="p-4 space-y-3">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
           ))}
         </div>
       ) : templates.length === 0 ? (
@@ -140,60 +156,16 @@ export default function TemplatesEmailPage() {
           }
         />
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Assunto</TableHead>
-                <TableHead className="hidden md:table-cell">Descrição</TableHead>
-                <TableHead className="hidden sm:table-cell">Data Criação</TableHead>
-                <TableHead className="w-[50px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {templates.map((tpl) => (
-                <TableRow key={tpl.id}>
-                  <TableCell className="font-medium">{tpl.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{tpl.subject}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-[200px] truncate">
-                    {tpl.description || '—'}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {formatDateTime(tpl.created_at)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => router.push(`/dashboard/templates-email/${tpl.id}`)}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(tpl)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Duplicar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeleteId(tpl.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map((tpl) => (
+            <TemplateCard
+              key={tpl.id}
+              template={tpl}
+              onEdit={() => router.push(`/dashboard/templates-email/${tpl.id}`)}
+              onDuplicate={() => handleDuplicate(tpl)}
+              onDelete={() => setDeleteId(tpl.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -219,5 +191,146 @@ export default function TemplatesEmailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+function TemplateCard({
+  template,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: {
+  template: EmailTemplate
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+}) {
+  const creatorName = template.creator?.commercial_name || 'Desconhecido'
+
+  return (
+    <div
+      className="group relative rounded-lg border bg-card overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
+      onClick={onEdit}
+    >
+      {/* Preview thumbnail */}
+      <div className="relative h-44 bg-muted/30 overflow-hidden border-b">
+        {template.body_html ? (
+          <EmailPreviewThumbnail html={template.body_html} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Mail className="h-10 w-10 text-muted-foreground/30" />
+          </div>
+        )}
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+      </div>
+
+      {/* Card body */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-sm truncate">{template.name}</h3>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {template.subject}
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDuplicate}>
+                <Copy className="mr-2 h-4 w-4" />
+                Duplicar
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {template.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {template.description}
+          </p>
+        )}
+
+        {/* Meta info */}
+        <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1 truncate">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="truncate">{creatorName}</span>
+          </span>
+          <span className="flex items-center gap-1 shrink-0">
+            <Send className="h-3 w-3" />
+            {template.usage_count ?? 0}
+          </span>
+          <span className="flex items-center gap-1 ml-auto shrink-0">
+            <Calendar className="h-3 w-3" />
+            {formatDate(template.updated_at || template.created_at)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmailPreviewThumbnail({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    const doc = iframe.contentDocument
+    if (!doc) return
+
+    doc.open()
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            transform-origin: top left;
+            transform: scale(0.35);
+            width: ${Math.round(100 / 0.35)}%;
+            overflow: hidden;
+            pointer-events: none;
+          }
+          img { max-width: 100%; height: auto; }
+        </style>
+      </head>
+      <body>${html}</body>
+      </html>
+    `)
+    doc.close()
+    setLoaded(true)
+  }, [html])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title="Pré-visualização"
+      className={`w-full h-full border-0 transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+      sandbox="allow-same-origin"
+      tabIndex={-1}
+    />
   )
 }

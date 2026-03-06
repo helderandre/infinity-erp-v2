@@ -157,6 +157,55 @@
   outline-offset: 2px;
 }
 
+/* Tiptap / ProseMirror — email editor text blocks */
+.email-tiptap .ProseMirror {
+  outline: none;
+  min-height: 1em;
+  word-break: break-word;
+}
+
+.email-tiptap .ProseMirror p {
+  margin: 0;
+}
+
+.email-tiptap .ProseMirror h1,
+.email-tiptap .ProseMirror h2,
+.email-tiptap .ProseMirror h3,
+.email-tiptap .ProseMirror h4 {
+  margin: 0;
+}
+
+.email-tiptap .ProseMirror ul,
+.email-tiptap .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.email-tiptap .ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.email-tiptap .ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Variable node chips inside Tiptap */
+.email-tiptap .email-variable {
+  background-color: color-mix(in oklch, var(--muted), transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.85em;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+  user-select: all;
+}
+
 /* TipTap editor menus (tippy.js) */
 .tippy-box[data-theme~='editor-menu'] {
   background: transparent !important;

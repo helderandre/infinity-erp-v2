@@ -1,7 +1,8 @@
 'use client'
 
 import { useNode } from '@craftjs/core'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
+import { EditorContent } from '@tiptap/react'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -11,11 +12,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Strikethrough } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { useTemplateVariables } from '@/hooks/use-template-variables'
 import { useEmailVariables } from '@/components/email-editor/email-variables-context'
 import { ColorPickerField } from '@/components/email-editor/color-picker-field'
 import { UnitInput } from '@/components/email-editor/settings'
+import { useEmailTiptap } from '@/components/email-editor/hooks/use-email-tiptap'
+import { EmailBubbleMenu } from '@/components/email-editor/email-bubble-menu'
+import { registerEditor, unregisterEditor, getEditor } from '@/components/email-editor/hooks/editor-registry'
 
 interface EmailHeadingProps {
   html?: string
@@ -26,30 +30,6 @@ interface EmailHeadingProps {
   textAlign?: string
   fontFamily?: string
   padding?: number
-}
-
-const VAR_STYLE = [
-  'background-color: color-mix(in oklch, var(--muted), transparent)',
-  'border: 1px solid var(--border)',
-  'border-radius: 6px',
-  'padding: 1px 6px',
-  'font-size: 0.9em',
-  'font-family: ui-monospace, monospace',
-  'white-space: nowrap',
-].join(';')
-
-function highlightVariables(html: string): string {
-  return html.replace(
-    /(\{\{[^}]+\}\})/g,
-    `<span class="email-variable" contenteditable="false" style="${VAR_STYLE}">$1</span>`
-  )
-}
-
-function cleanVariables(html: string): string {
-  return html.replace(
-    /<span class="email-variable"[^>]*>(.*?)<\/span>/g,
-    '$1'
-  )
 }
 
 export const EmailHeading = ({
@@ -65,54 +45,65 @@ export const EmailHeading = ({
   const {
     connectors: { connect, drag },
     actions: { setProp },
-  } = useNode()
+    id: nodeId,
+  } = useNode((node) => ({ id: node.id }))
 
-  const editorRef = useRef<HTMLHeadingElement>(null)
-  const lastHtml = useRef(html)
+  const isInternalUpdate = useRef(false)
 
-  useEffect(() => {
-    if (editorRef.current && html !== lastHtml.current) {
-      editorRef.current.innerHTML = highlightVariables(html)
-      lastHtml.current = html
-    }
-  }, [html])
-
-  const handleBlur = () => {
-    if (editorRef.current) {
-      const cleaned = cleanVariables(editorRef.current.innerHTML)
-      lastHtml.current = cleaned
+  const handleUpdate = useCallback(
+    (newHtml: string) => {
+      isInternalUpdate.current = true
       setProp((p: EmailHeadingProps) => {
-        p.html = cleaned
+        p.html = newHtml
       })
-    }
-  }
+    },
+    [setProp]
+  )
 
-  const HeadingTag = level
+  const headingLevel = parseInt(level.replace('h', '')) as 1 | 2 | 3 | 4
+
+  const { editor } = useEmailTiptap({
+    content: html,
+    onUpdate: handleUpdate,
+    placeholder: 'Título...',
+    isHeading: true,
+    headingLevel,
+  })
+
+  // Register editor instance for settings panel access
+  useEffect(() => {
+    if (editor) {
+      registerEditor(nodeId, editor)
+      return () => unregisterEditor(nodeId)
+    }
+  }, [editor, nodeId])
+
+  // Sync external prop changes
+  useEffect(() => {
+    if (!editor) return
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false
+      return
+    }
+  }, [html, editor])
 
   return (
     <div
       ref={(ref) => {
         if (ref) connect(drag(ref))
       }}
+      className="email-tiptap"
+      style={{
+        color,
+        textAlign: textAlign as React.CSSProperties['textAlign'],
+        fontFamily,
+        fontSize,
+        fontWeight,
+        padding: padding > 0 ? padding : undefined,
+      }}
     >
-      <HeadingTag
-        ref={editorRef as any}
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={handleBlur}
-        style={{
-          color,
-          textAlign: textAlign as React.CSSProperties['textAlign'],
-          fontFamily,
-          fontSize,
-          fontWeight,
-          padding: padding > 0 ? padding : undefined,
-          margin: 0,
-          outline: 'none',
-          cursor: 'text',
-        }}
-        dangerouslySetInnerHTML={{ __html: highlightVariables(html) }}
-      />
+      {editor && <EmailBubbleMenu editor={editor} />}
+      <EditorContent editor={editor} />
     </div>
   )
 }
@@ -123,96 +114,25 @@ const EmailHeadingSettings = () => {
   const {
     actions: { setProp },
     props,
+    nodeId,
   } = useNode((node) => ({
     props: node.data.props as EmailHeadingProps,
+    nodeId: node.id,
   }))
 
-  const insertVariable = (variable: string) => {
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      setProp((p: EmailHeadingProps) => {
-        p.html = (props.html || '') + ' ' + variable
-      })
+  const insertVariable = (varKey: string) => {
+    const editor = getEditor(nodeId)
+    if (editor) {
+      editor.chain().focus().insertVariable(varKey).run()
       return
     }
-
-    const range = selection.getRangeAt(0)
-    let node: Node | null = range.commonAncestorContainer
-    let isInEditor = false
-    while (node) {
-      if (node.nodeType === 1 && (node as HTMLElement).contentEditable === 'true') {
-        isInEditor = true
-        break
-      }
-      node = node.parentNode
-    }
-
-    if (!isInEditor) {
-      setProp((p: EmailHeadingProps) => {
-        p.html = (props.html || '') + ' ' + variable
-      })
-      return
-    }
-
-    range.deleteContents()
-    const textNode = document.createTextNode(variable)
-    range.insertNode(textNode)
-    range.setStartAfter(textNode)
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-
     setProp((p: EmailHeadingProps) => {
-      p.html = cleanVariables((node as HTMLElement).innerHTML)
+      p.html = (props.html || '') + `{{${varKey}}}`
     })
-  }
-
-  const applyFormatting = (command: string) => {
-    document.execCommand(command, false)
-    setTimeout(() => {
-      const sel = window.getSelection()
-      if (sel && sel.rangeCount > 0) {
-        let node: Node | null = sel.getRangeAt(0).commonAncestorContainer
-        while (node) {
-          if (node.nodeType === 1 && (node as HTMLElement).contentEditable === 'true') {
-            setProp((p: EmailHeadingProps) => {
-              p.html = cleanVariables((node as HTMLElement).innerHTML)
-            })
-            break
-          }
-          node = node.parentNode
-        }
-      }
-    }, 10)
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Formatação de Texto</Label>
-        <ToggleGroup
-          type="multiple"
-          variant="outline"
-          className="justify-start"
-        >
-          <ToggleGroupItem value="bold" aria-label="Negrito" onClick={() => applyFormatting('bold')}>
-            <Bold className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="italic" aria-label="Itálico" onClick={() => applyFormatting('italic')}>
-            <Italic className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="underline" aria-label="Sublinhado" onClick={() => applyFormatting('underline')}>
-            <Underline className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="strikethrough" aria-label="Riscado" onClick={() => applyFormatting('strikeThrough')}>
-            <Strikethrough className="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <p className="text-xs text-muted-foreground">
-          Seleccione o texto no editor e clique para formatar
-        </p>
-      </div>
-
       <div className="space-y-2">
         <Label>Nível</Label>
         <Select
@@ -333,7 +253,7 @@ const EmailHeadingSettings = () => {
                 key={v.key}
                 type="button"
                 className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors text-left"
-                onClick={() => insertVariable(hasResolved ? resolved : `{{${v.key}}}`)}
+                onClick={() => insertVariable(v.key)}
                 title={hasResolved ? `${v.label}: ${resolved}` : v.label}
               >
                 {hasResolved ? (

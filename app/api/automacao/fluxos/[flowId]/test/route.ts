@@ -24,6 +24,8 @@ export async function POST(
 
     const { entity_type, entity_id, test_variables } = body
 
+    console.log(`[TEST] Flow ${flowId} test initiated with ${Object.keys(test_variables || {}).length} variables`)
+
     // Buscar flow
     const { data: flow, error: flowError } = await supabase
       .from("auto_flows")
@@ -168,6 +170,8 @@ export async function POST(
     const whatsappSent = result.stepsExecuted.filter(s => s.nodeType === "whatsapp" && s.status === "completed").length
     const emailsSent = result.stepsExecuted.filter(s => s.nodeType === "email" && s.status === "completed").length
 
+    console.log(`[TEST] Flow ${flowId} completed: ${result.stepsExecuted.length} steps executed, ${result.asyncNodes.length} async queued, status=${finalStatus}`)
+
     return NextResponse.json({
       run_id: runId,
       first_step_id: triggerNode.id,
@@ -178,7 +182,7 @@ export async function POST(
       summary: finalStatus === "completed" ? { whatsapp_sent: whatsappSent, emails_sent: emailsSent } : undefined,
     })
   } catch (err) {
-    console.error("[fluxos/[flowId]/test] POST error:", err)
+    console.error("[TEST] POST error:", err)
     return NextResponse.json(
       { error: "Erro interno ao testar fluxo" },
       { status: 500 }

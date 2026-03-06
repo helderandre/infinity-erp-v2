@@ -1,6 +1,10 @@
 // ============================================================
 // Execucao Detail API — Detalhe de uma execucao + steps
 // Fase 6 do Sistema de Automacoes
+//
+// GET  — Detalhe com steps e deliveries
+// POST — Retry: se body tem step_id, retenta step individual;
+//        caso contrario retenta todos os steps falhados
 // ============================================================
 
 import { NextResponse } from "next/server"
@@ -51,16 +55,65 @@ export async function GET(
   }
 }
 
-// POST /api/automacao/execucoes/[executionId] — Retry de execucao falhada
+// POST /api/automacao/execucoes/[executionId] — Retry de steps falhados
+// Body opcional: { step_id: string } — se fornecido, retenta apenas esse step
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ executionId: string }> }
 ) {
   try {
     const { executionId } = await params
     const supabase = createAdminClient() as SA
 
-    // Find failed steps and reset them to pending
+    // Parse body (pode ser vazio para retry de todos os falhados)
+    let body: { step_id?: string } = {}
+    try {
+      body = await request.json()
+    } catch {
+      // empty body is fine — retry all failed
+    }
+
+    if (body.step_id) {
+      // Retry de step individual
+      const { data: step, error } = await supabase
+        .from("auto_step_runs")
+        .select("id, status, output_data")
+        .eq("id", body.step_id)
+        .eq("run_id", executionId)
+        .single()
+
+      if (error || !step) {
+        return NextResponse.json({ error: "Step nao encontrado" }, { status: 404 })
+      }
+
+      if (step.status !== "failed") {
+        return NextResponse.json({ error: "Step nao esta falhado" }, { status: 400 })
+      }
+
+      // Reset step para pending
+      await supabase.from("auto_step_runs").update({
+        status: "pending",
+        retry_count: 0,
+        scheduled_for: new Date().toISOString(),
+        error_message: null,
+        output_data: null,
+        started_at: null,
+        completed_at: null,
+      }).eq("id", body.step_id)
+
+      // Update run status back to running
+      await supabase.from("auto_runs").update({
+        status: "running",
+        completed_at: null,
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", executionId)
+
+      console.log(`[RETRY] Step ${body.step_id} re-enfileirado manualmente para run ${executionId}`)
+      return NextResponse.json({ ok: true, retriedSteps: 1, step_id: body.step_id })
+    }
+
+    // Retry de todos os steps falhados
     const { data: failedSteps, error } = await supabase
       .from("auto_step_runs")
       .select("id")
@@ -77,7 +130,9 @@ export async function POST(
       await supabase.from("auto_step_runs").update({
         status: "pending",
         error_message: null,
+        output_data: null,
         completed_at: null,
+        started_at: null,
         retry_count: 0,
         scheduled_for: new Date().toISOString(),
       }).eq("id", step.id)
@@ -91,6 +146,7 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }).eq("id", executionId)
 
+    console.log(`[RETRY] ${failedSteps.length} steps re-enfileirados para run ${executionId}`)
     return NextResponse.json({ ok: true, retriedSteps: failedSteps.length })
   } catch (err) {
     console.error("[execucoes/[id]] POST retry error:", err)

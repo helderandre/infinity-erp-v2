@@ -6,6 +6,10 @@
 // 1. Teste (trigger inactivo) — captura payload para inspecao
 // 2. Sincrono — quando fluxo tem Webhook Response node
 // 3. Assincrono (padrao) — enfileira para o worker processar
+//
+// Proteccoes:
+// - Deduplicacao de webhooks (10s)
+// - Logging estruturado [WEBHOOK]
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server"
@@ -37,6 +41,8 @@ export async function POST(
       payload = { raw: await request.text() }
     }
 
+    console.log(`[WEBHOOK] POST /api/webhook/${key} payload_size=${JSON.stringify(payload).length}`)
+
     // 1. Find associated trigger (active, from active flow with published_definition)
     const { data: trigger } = await supabase
       .from("auto_triggers")
@@ -45,6 +51,8 @@ export async function POST(
       .eq("source_type", "webhook")
       .eq("active", true)
       .single()
+
+    console.log(`[WEBHOOK] Trigger found: ${trigger?.id || "NONE"} flow_active=${trigger?.auto_flows?.is_active}`)
 
     // 2. Always capture payload for inspection
     await supabase.from("auto_webhook_captures").upsert({
@@ -57,6 +65,7 @@ export async function POST(
 
     // 3. If no active trigger found -> 410 Gone
     if (!trigger) {
+      console.log(`[WEBHOOK] No active trigger for key=${key}. Returning 410.`)
       return NextResponse.json({
         error: "Webhook nao encontrado ou desactivado",
         hint: "Este webhook pode ter sido desactivado ou o fluxo nao esta publicado.",
@@ -65,6 +74,7 @@ export async function POST(
 
     // 4. If flow not active -> capture but don't execute
     if (!trigger.auto_flows.is_active) {
+      console.log(`[WEBHOOK] Flow inactive for key=${key}. Payload captured.`)
       return NextResponse.json({
         ok: true,
         mode: "inactive",
@@ -74,10 +84,31 @@ export async function POST(
 
     // 5. If no published_definition -> capture but don't execute
     if (!trigger.auto_flows.published_definition) {
+      console.log(`[WEBHOOK] Flow unpublished for key=${key}. Payload captured.`)
       return NextResponse.json({
         ok: true,
         mode: "unpublished",
         message: "Fluxo nao publicado. Payload capturado mas nao executado.",
+      })
+    }
+
+    // Proteccao: Deduplicacao de webhooks (10s)
+    // Verifica se ja existe run recente para este fluxo via webhook
+    const { data: recentRun } = await supabase
+      .from("auto_runs")
+      .select("id")
+      .eq("flow_id", trigger.flow_id)
+      .eq("triggered_by", "webhook")
+      .gte("created_at", new Date(Date.now() - 10000).toISOString())
+      .limit(1)
+
+    if (recentRun && recentRun.length > 0) {
+      console.log(`[WEBHOOK] Deduplicated: run ${recentRun[0].id} exists within 10s for flow ${trigger.flow_id}`)
+      return NextResponse.json({
+        ok: true,
+        mode: "deduplicated",
+        message: "Webhook recebido mas execucao recente ja existe. Payload capturado.",
+        existing_run_id: recentRun[0].id,
       })
     }
 
@@ -95,6 +126,7 @@ export async function POST(
 
     if (hasWebhookResponse) {
       // -- SYNC MODE --
+      console.log(`[WEBHOOK] Sync mode: run ${runId} for flow ${trigger.flow_id}`)
       await supabase.from("auto_runs").insert({
         id: runId,
         flow_id: trigger.flow_id,
@@ -146,6 +178,7 @@ export async function POST(
       }
 
       await supabase.rpc("auto_update_run_counts", { p_run_id: runId })
+      console.log(`[WEBHOOK] Sync run ${runId} completed: ${result.stepsExecuted.length} steps, status=${result.response.statusCode}`)
       return NextResponse.json(result.response.body, { status: result.response.statusCode })
     }
 
@@ -155,6 +188,7 @@ export async function POST(
     )
     const firstEdge = flowDef.edges.find((e: SA) => e.source === triggerNode?.id)
     if (!firstEdge) {
+      console.error(`[WEBHOOK] Flow ${trigger.flow_id} has no edges after trigger`)
       return NextResponse.json({ error: "Fluxo sem nodes apos trigger" }, { status: 422 })
     }
 
@@ -183,9 +217,10 @@ export async function POST(
     })
 
     await supabase.rpc("auto_update_run_counts", { p_run_id: runId })
+    console.log(`[WEBHOOK] Async run created: ${runId} mode=async`)
     return NextResponse.json({ ok: true, run_id: runId })
   } catch (error) {
-    console.error("[webhook] POST error:", error)
+    console.error("[WEBHOOK] POST error:", error)
     return NextResponse.json(
       { ok: false, error: "Erro ao processar webhook" },
       { status: 500 }

@@ -19,8 +19,10 @@ import {
   Activity,
   Calendar,
   Play,
+  RefreshCw,
 } from "lucide-react"
 import { Spinner } from "@/components/kibo-ui/spinner"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { RealtimeStep } from "@/hooks/use-realtime-execution"
 import { Progress } from "@/components/ui/progress"
@@ -44,19 +46,19 @@ const NODE_TYPE_ICONS: Record<string, React.ElementType> = {
 
 const NODE_TYPE_LABELS: Record<string, string> = {
   trigger_webhook: "Webhook",
-  trigger_status: "Mudança de Estado",
+  trigger_status: "Mudanca de Estado",
   trigger_schedule: "Agendamento",
   trigger_manual: "Manual",
   whatsapp: "WhatsApp",
   email: "Email",
   delay: "Aguardar",
-  condition: "Condição",
+  condition: "Condicao",
   supabase_query: "Consulta Banco",
   task_lookup: "Buscar Entidade",
-  set_variable: "Definir Variável",
+  set_variable: "Definir Variavel",
   http_request: "HTTP Request",
   webhook_response: "Responder Webhook",
-  notification: "Notificação",
+  notification: "Notificacao",
 }
 
 const STATUS_STYLES: Record<string, { icon: React.ElementType | null; color: string; bg: string }> = {
@@ -74,6 +76,8 @@ interface ExecutionTimelineProps {
   failedSteps: number
   overallStatus: "idle" | "running" | "completed" | "failed"
   compact?: boolean
+  onRetryStep?: (stepId: string) => void
+  retryingStepId?: string | null
 }
 
 export function ExecutionTimeline({
@@ -83,6 +87,8 @@ export function ExecutionTimeline({
   failedSteps,
   overallStatus,
   compact = false,
+  onRetryStep,
+  retryingStepId,
 }: ExecutionTimelineProps) {
   const progress = totalSteps > 0 ? Math.round(((completedSteps + failedSteps) / totalSteps) * 100) : 0
 
@@ -92,9 +98,9 @@ export function ExecutionTimeline({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {overallStatus === "running" && "Execução a decorrer..."}
-            {overallStatus === "completed" && "Execução concluída"}
-            {overallStatus === "failed" && "Execução com falhas"}
+            {overallStatus === "running" && "Execucao a decorrer..."}
+            {overallStatus === "completed" && "Execucao concluida"}
+            {overallStatus === "failed" && "Execucao com falhas"}
             {overallStatus === "idle" && "A aguardar"}
           </span>
           <span className="text-muted-foreground tabular-nums">
@@ -111,6 +117,10 @@ export function ExecutionTimeline({
           const StatusIcon = statusStyle.icon
           const NodeIcon = NODE_TYPE_ICONS[step.node_type] || Play
           const nodeLabel = step.node_label || NODE_TYPE_LABELS[step.node_type] || step.node_type
+
+          // Check if this step requires manual retry
+          const requiresManualRetry = step.status === "failed" &&
+            step.output_data?.requires_manual_retry === true
 
           return (
             <div
@@ -154,6 +164,24 @@ export function ExecutionTimeline({
                       </p>
                     )}
 
+                    {/* Manual retry button */}
+                    {requiresManualRetry && onRetryStep && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1.5 h-7 text-xs"
+                        onClick={() => onRetryStep(step.id)}
+                        disabled={retryingStepId === step.id}
+                      >
+                        {retryingStepId === step.id ? (
+                          <Spinner variant="infinite" size={12} className="mr-1.5" />
+                        ) : (
+                          <RefreshCw className="mr-1.5 h-3 w-3" />
+                        )}
+                        Tentar Novamente
+                      </Button>
+                    )}
+
                     {/* Scheduled for (delay nodes) */}
                     {step.status === "pending" && step.scheduled_for && (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -176,7 +204,7 @@ export function ExecutionTimeline({
 
         {steps.length === 0 && (
           <div className="text-center py-4 text-sm text-muted-foreground">
-            A aguardar execução...
+            A aguardar execucao...
           </div>
         )}
       </div>
