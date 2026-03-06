@@ -14,7 +14,7 @@ import {
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
-/** Rotas que usam layout full-bleed (sem padding no main) */
+/** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
   '/dashboard/automacao/fluxos/editor',
 ]
@@ -28,9 +28,9 @@ export default function DashboardLayout({
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
 
   return (
-    <SidebarProvider className="!min-h-svh !max-h-svh overflow-hidden">
+    <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
       <AppSidebar />
-      <SidebarInset className="min-w-0 overflow-hidden">
+      <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
         <header className="flex py-2 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-6" />
@@ -43,8 +43,8 @@ export default function DashboardLayout({
         </header>
         <main
           className={cn(
-            "flex flex-1 flex-col overflow-hidden min-h-0",
-            isFullBleed ? "" : "gap-4 p-4 md:gap-6 md:p-6"
+            "flex flex-1 flex-col overflow-hidden",
+            isFullBleed ? "min-h-0" : "gap-4 p-4 md:gap-6 md:p-6"
           )}
         >
           {children}

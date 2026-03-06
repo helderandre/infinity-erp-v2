@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,6 +66,30 @@ const SAMPLE_VALUES: Record<string, string> = {
   empresa_nome: "Infinity Group",
 }
 
+interface PreviewLead {
+  id: string
+  nome: string
+  email: string | null
+  telefone: string | null
+  telemovel: string | null
+  origem: string | null
+  estado: string | null
+  temperatura: string | null
+}
+
+function leadToVariables(lead: PreviewLead): Record<string, string> {
+  return {
+    ...SAMPLE_VALUES,
+    lead_nome: lead.nome || "",
+    lead_email: lead.email || "",
+    lead_telefone: lead.telefone || "",
+    lead_telemovel: lead.telemovel || "",
+    lead_origem: lead.origem || "",
+    lead_estado: lead.estado || "",
+    lead_temperatura: lead.temperatura || "",
+  }
+}
+
 interface WppTemplateBuilderProps {
   name: string
   description: string
@@ -99,6 +123,30 @@ export function WppTemplateBuilder({
   const [editingMessage, setEditingMessage] =
     useState<WhatsAppTemplateMessage | null>(null)
   const [tagInput, setTagInput] = useState("")
+  const [leads, setLeads] = useState<PreviewLead[]>([])
+  const [selectedLeadId, setSelectedLeadId] = useState<string>("sample")
+  const [previewVariables, setPreviewVariables] =
+    useState<Record<string, string>>(SAMPLE_VALUES)
+
+  // Fetch leads for preview
+  useEffect(() => {
+    fetch("/api/leads?limit=20")
+      .then((res) => res.json())
+      .then((json) => setLeads(json.data || []))
+      .catch(() => {})
+  }, [])
+
+  // Update preview variables when lead selection changes
+  useEffect(() => {
+    if (selectedLeadId === "sample") {
+      setPreviewVariables(SAMPLE_VALUES)
+    } else {
+      const lead = leads.find((l) => l.id === selectedLeadId)
+      if (lead) {
+        setPreviewVariables(leadToVariables(lead))
+      }
+    }
+  }, [selectedLeadId, leads])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -291,14 +339,25 @@ export function WppTemplateBuilder({
             <Label className="text-sm font-medium mb-2 block">
               Pré-visualização
             </Label>
-            <p className="text-[11px] text-muted-foreground mb-3">
-              Preview com dados de exemplo
-            </p>
+            <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+              <SelectTrigger className="text-xs h-8">
+                <SelectValue placeholder="Pré-visualizar com..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sample">Dados de exemplo</SelectItem>
+                {leads.map((lead) => (
+                  <SelectItem key={lead.id} value={lead.id}>
+                    {lead.nome}
+                    {lead.email ? ` (${lead.email})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <WppPreview
             messages={messages}
-            variables={SAMPLE_VALUES}
-            contactName={SAMPLE_VALUES.lead_nome}
+            variables={previewVariables}
+            contactName={previewVariables.lead_nome || SAMPLE_VALUES.lead_nome}
           />
         </div>
       </div>

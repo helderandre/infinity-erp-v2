@@ -6,6 +6,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   addEdge,
   useNodesState,
   useEdgesState,
@@ -27,6 +28,9 @@ import type {
 import { isTriggerType } from "@/lib/types/automation-flow"
 
 import { FlowSidebar } from "./flow-sidebar"
+import { useAutoLayout } from "@/hooks/use-auto-layout"
+import { Button } from "@/components/ui/button"
+import { LayoutGrid } from "lucide-react"
 import { TriggerWebhookNode } from "./nodes/trigger-webhook-node"
 import { TriggerStatusNode } from "./nodes/trigger-status-node"
 import { TriggerScheduleNode } from "./nodes/trigger-schedule-node"
@@ -161,7 +165,8 @@ function FlowEditorInner({
   saving,
 }: FlowEditorInnerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, fitView } = useReactFlow()
+  const { layoutNodes } = useAutoLayout()
 
   const initialNodes: Node[] = useMemo(
     () =>
@@ -269,8 +274,61 @@ function FlowEditorInner({
     [nodes, screenToFlowPosition, setNodes]
   )
 
+  // ── Validation ──
+  function validateFlow(flowNodes: Node[], flowEdges: Edge[]): string[] {
+    const errors: string[] = []
+
+    const triggers = flowNodes.filter((n) => isTriggerType(n.type || ""))
+    if (triggers.length === 0) {
+      errors.push("O fluxo precisa de pelo menos um gatilho")
+    }
+
+    for (const t of triggers) {
+      const d = t.data as Record<string, unknown>
+      if (t.type === "trigger_webhook" && !d.webhookKey)
+        errors.push("Gatilho Webhook sem chave configurada")
+      if (
+        t.type === "trigger_status" &&
+        !(d.triggerCondition as Record<string, unknown> | undefined)?.entity_type
+      )
+        errors.push("Gatilho Status sem entidade configurada")
+      if (t.type === "trigger_schedule" && !d.cronExpression)
+        errors.push("Gatilho Agendamento sem expressão cron")
+    }
+
+    for (const n of flowNodes.filter((n) => n.type === "whatsapp")) {
+      const d = n.data as Record<string, unknown>
+      if (!d.templateId && (!Array.isArray(d.messages) || (d.messages as unknown[]).length === 0))
+        errors.push(`Node WhatsApp "${d.label || "WhatsApp"}" sem mensagens configuradas`)
+    }
+
+    for (const n of flowNodes.filter((n) => n.type === "condition")) {
+      const d = n.data as Record<string, unknown>
+      if (!Array.isArray(d.rules) || (d.rules as unknown[]).length === 0)
+        errors.push(`Condição "${d.label || "Condição"}" sem regras definidas`)
+    }
+
+    const connectedIds = new Set([
+      ...flowEdges.map((e) => e.source),
+      ...flowEdges.map((e) => e.target),
+    ])
+    const triggerIds = new Set(triggers.map((t) => t.id))
+    for (const n of flowNodes) {
+      if (!triggerIds.has(n.id) && !connectedIds.has(n.id))
+        errors.push(`Node "${(n.data as Record<string, unknown>).label || n.type}" não está conectado`)
+    }
+
+    return errors
+  }
+
   // ── Save ──
   const handleSave = useCallback(() => {
+    const errors = validateFlow(nodes, edges)
+    if (errors.length > 0) {
+      errors.forEach((e) => toast.error(e))
+      return
+    }
+
     const flowNodes = nodes.map((n) => ({
       id: n.id,
       type: n.type as AutomationNodeType,
@@ -295,6 +353,33 @@ function FlowEditorInner({
 
     onSave(definition)
   }, [nodes, edges, onSave])
+
+  // ── Auto-Layout ──
+  const handleAutoLayout = useCallback(() => {
+    const automationNodes = nodes.map((n) => ({
+      id: n.id,
+      type: n.type as AutomationNodeType,
+      position: n.position,
+      data: n.data as unknown as AutomationNodeData,
+    }))
+    const automationEdges: AutomationEdge[] = edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle || null,
+      targetHandle: e.targetHandle || null,
+    }))
+    const layouted = layoutNodes(automationNodes, automationEdges)
+    setNodes(
+      layouted.map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: n.data as unknown as Record<string, unknown>,
+      }))
+    )
+    setTimeout(() => fitView({ padding: 0.2 }), 100)
+  }, [nodes, edges, layoutNodes, setNodes, fitView])
 
   return (
     <div className="flex h-full">
@@ -327,6 +412,12 @@ function FlowEditorInner({
             nodeStrokeWidth={3}
             className="!bg-background !border-border"
           />
+          <Panel position="top-right">
+            <Button variant="outline" size="sm" onClick={handleAutoLayout}>
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Organizar
+            </Button>
+          </Panel>
         </ReactFlow>
       </div>
     </div>
