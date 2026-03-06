@@ -59,7 +59,7 @@ export interface ExecutionDelivery {
 }
 
 export interface ExecutionDetail {
-  run: ExecutionRun & { auto_flows: { name: string; draft_definition: SA } }
+  run: ExecutionRun & { auto_flows: { name: string; draft_definition: SA; published_definition: SA | null } }
   steps: ExecutionStep[]
   deliveries: ExecutionDelivery[]
 }

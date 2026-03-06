@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useRef } from 'react'
 import { useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -10,6 +11,11 @@ import Color from '@tiptap/extension-color'
 import Placeholder from '@tiptap/extension-placeholder'
 import { VariableNode } from '../extensions/variable-node'
 import { FontSize } from '../extensions/font-size'
+import {
+  VariableMention,
+  createVariableSuggestion,
+} from '@/components/automations/wpp-variable-suggestion'
+import type { VariableItem } from '@/components/automations/variable-picker'
 
 /**
  * Migrate legacy HTML content:
@@ -47,6 +53,8 @@ export interface UseEmailTiptapOptions {
   editable?: boolean
   isHeading?: boolean
   headingLevel?: 1 | 2 | 3 | 4
+  /** When provided, enables @ mention trigger for inserting variables */
+  variables?: VariableItem[]
 }
 
 export function useEmailTiptap({
@@ -56,11 +64,25 @@ export function useEmailTiptap({
   editable = true,
   isHeading = false,
   headingLevel,
+  variables,
 }: UseEmailTiptapOptions): { editor: Editor | null } {
   const preparedContent = prepareVariablesForParsing(migrateHtmlContent(content))
 
-  const editor = useEditor({
-    extensions: [
+  // Keep variables ref fresh for the suggestion plugin
+  const variablesRef = useRef<VariableItem[]>(variables || [])
+  useEffect(() => {
+    variablesRef.current = variables || []
+  }, [variables])
+
+  const suggestion = useMemo(
+    () => (variables ? createVariableSuggestion(() => variablesRef.current) : null),
+    // Only create once — the ref keeps it fresh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [!!variables]
+  )
+
+  const extensions = useMemo(() => {
+    const exts = [
       StarterKit.configure({
         heading: isHeading ? { levels: [1, 2, 3, 4] } : false,
         codeBlock: false,
@@ -83,7 +105,21 @@ export function useEmailTiptap({
         placeholder: placeholder || '',
       }),
       VariableNode,
-    ],
+    ]
+
+    if (suggestion) {
+      exts.push(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        VariableMention.configure({ suggestion: suggestion as any }) as any
+      )
+    }
+
+    return exts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHeading, placeholder, suggestion])
+
+  const editor = useEditor({
+    extensions,
     content: preparedContent,
     editable,
     onUpdate: ({ editor }) => {

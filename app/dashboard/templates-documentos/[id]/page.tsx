@@ -49,9 +49,27 @@ export default function EditarTemplateDocumentoPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[600px] w-full" />
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-3 border-b px-4 py-2 shrink-0">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-8 flex-1" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="w-60 border-r p-4 space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+          <div className="flex-1 p-8">
+            <Skeleton className="mx-auto h-96 w-full max-w-[800px]" />
+          </div>
+          <div className="w-60 border-l p-4 space-y-3">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </div>
       </div>
     )
   }

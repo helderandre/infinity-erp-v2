@@ -215,7 +215,7 @@ export function DocumentTemplateEditor({ templateId, initialTemplate }: Document
   }
 
   return (
-    <div className="flex flex-col -m-4 md:-m-6 h-[calc(100vh-56px)] min-h-[calc(100vh-56px)] overflow-hidden">
+    <div className="flex h-full flex-col">
       {/* Topbar compacta */}
       <DocumentEditorTopbar
         name={name}

@@ -55,8 +55,35 @@ export const processSupabaseQuery: (
       const opts: SA = {}
       if (d.upsertConflict) opts.onConflict = d.upsertConflict
       const { data, error } = await (supabase as SA).from(d.table).upsert(row, opts).select()
-      if (error) throw new Error(`Supabase upsert error: ${error.message}`)
-      result = data
+      if (!error) {
+        result = data
+        break
+      }
+      // Fallback for partial unique indexes: SELECT + INSERT/UPDATE
+      const isConstraintError = error.message.includes("ON CONFLICT") ||
+        error.message.includes("unique") ||
+        error.message.includes("constraint") ||
+        error.code === "42P10"
+      if (!isConstraintError) throw new Error(`Supabase upsert error: ${error.message}`)
+
+      const conflictCol = (d.upsertConflict || "").split(",")[0].trim()
+      const conflictVal = row[conflictCol]
+      if (!conflictCol || !conflictVal) {
+        throw new Error(`Upsert fallback: conflict column "${conflictCol}" has no value`)
+      }
+      const { data: existing } = await (supabase as SA)
+        .from(d.table).select("id").eq(conflictCol, conflictVal).maybeSingle()
+      if (existing) {
+        const { data: updated, error: updErr } = await (supabase as SA)
+          .from(d.table).update(row).eq(conflictCol, conflictVal).select()
+        if (updErr) throw new Error(`Supabase upsert-update fallback error: ${updErr.message}`)
+        result = updated
+      } else {
+        const { data: inserted, error: insErr } = await (supabase as SA)
+          .from(d.table).insert(row).select()
+        if (insErr) throw new Error(`Supabase upsert-insert fallback error: ${insErr.message}`)
+        result = inserted
+      }
       break
     }
     case "delete": {

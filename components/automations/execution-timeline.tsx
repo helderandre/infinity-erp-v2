@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import {
   CheckCircle2,
   XCircle,
@@ -20,12 +21,16 @@ import {
   Calendar,
   Play,
   RefreshCw,
+  Circle,
 } from "lucide-react"
 import { Spinner } from "@/components/kibo-ui/spinner"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import type { RealtimeStep } from "@/hooks/use-realtime-execution"
-import { Progress } from "@/components/ui/progress"
+import type { FlowDefinition, AutomationNode, AutomationEdge, DelayNodeData } from "@/lib/types/automation-flow"
+
+// ── Node type icons & labels ──
 
 const NODE_TYPE_ICONS: Record<string, React.ElementType> = {
   trigger_webhook: Webhook,
@@ -61,13 +66,253 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   notification: "Notificacao",
 }
 
-const STATUS_STYLES: Record<string, { icon: React.ElementType | null; color: string; bg: string }> = {
-  completed: { icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-  failed: { icon: XCircle, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950/30" },
-  running: { icon: null, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30" },
-  pending: { icon: Clock, color: "text-slate-400", bg: "bg-slate-50 dark:bg-slate-900/30" },
-  cancelled: { icon: Ban, color: "text-slate-400", bg: "bg-slate-50 dark:bg-slate-900/30" },
+// ── Timeline step interface (combined flow node + step run) ──
+
+export interface TimelineStep {
+  nodeId: string
+  nodeType: string
+  nodeLabel: string
+  status: "completed" | "running" | "failed" | "pending" | "scheduled" | "waiting" | "cancelled"
+  stepRun?: RealtimeStep
+  order: number
+  scheduledFor?: string | null
+  delayConfig?: { value: number; unit: string }
 }
+
+// ── Graph traversal: BFS from trigger ──
+
+function traverseGraphBFS(nodes: AutomationNode[], edges: AutomationEdge[]): AutomationNode[] {
+  const targetIds = new Set(edges.map((e) => e.target))
+  const trigger = nodes.find((n) => !targetIds.has(n.id))
+  if (!trigger) return nodes
+
+  const ordered: AutomationNode[] = []
+  const visited = new Set<string>()
+  const queue = [trigger.id]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+
+    const node = nodes.find((n) => n.id === current)
+    if (node) ordered.push(node)
+
+    const nextEdges = edges.filter((e) => e.source === current)
+    for (const edge of nextEdges) {
+      if (!visited.has(edge.target)) queue.push(edge.target)
+    }
+  }
+
+  return ordered
+}
+
+// ── Build timeline: merge flow definition with step runs ──
+
+export function buildTimeline(
+  flowDefinition: FlowDefinition | null,
+  stepRuns: RealtimeStep[]
+): TimelineStep[] {
+  // Fallback: if no flow definition, just show step runs
+  if (!flowDefinition?.nodes?.length) {
+    return stepRuns.map((step, index) => ({
+      nodeId: step.node_id,
+      nodeType: step.node_type,
+      nodeLabel: step.node_label || NODE_TYPE_LABELS[step.node_type] || step.node_type,
+      status: step.status,
+      stepRun: step,
+      order: index,
+      scheduledFor: step.scheduled_for,
+    }))
+  }
+
+  const orderedNodes = traverseGraphBFS(flowDefinition.nodes, flowDefinition.edges)
+  const stepMap = new Map(stepRuns.map((s) => [s.node_id, s]))
+
+  return orderedNodes.map((node, index) => {
+    const step = stepMap.get(node.id)
+    const nodeData = node.data as { label?: string; type?: string; value?: number; unit?: string }
+    const nodeType = node.type || nodeData?.type || "unknown"
+
+    let status: TimelineStep["status"]
+    if (step) {
+      status = step.status
+    } else {
+      // No step in DB — infer state from previous nodes
+      const prevNode = orderedNodes[index - 1]
+      const prevStep = prevNode ? stepMap.get(prevNode.id) : null
+
+      if (!prevStep) {
+        status = index === 0 ? "pending" : "waiting"
+      } else if (prevStep.status === "completed") {
+        status = "pending" // should be created soon
+      } else if (prevStep.status === "failed" || prevStep.status === "cancelled") {
+        status = "waiting"
+      } else {
+        status = "waiting"
+      }
+    }
+
+    const delayConfig = nodeType === "delay" && nodeData?.value
+      ? { value: nodeData.value, unit: nodeData.unit || "minutes" }
+      : undefined
+
+    return {
+      nodeId: node.id,
+      nodeType,
+      nodeLabel: nodeData?.label || NODE_TYPE_LABELS[nodeType] || nodeType,
+      status,
+      stepRun: step || undefined,
+      order: index,
+      scheduledFor: step?.scheduled_for || null,
+      delayConfig,
+    }
+  })
+}
+
+// ── Countdown timer component ──
+
+function CountdownTimer({ scheduledFor }: { scheduledFor: string }) {
+  const [remaining, setRemaining] = useState("")
+
+  useEffect(() => {
+    const target = new Date(scheduledFor).getTime()
+
+    function tick() {
+      const diff = target - Date.now()
+      if (diff <= 0) {
+        setRemaining("A processar...")
+        return
+      }
+      const mins = Math.floor(diff / 60000)
+      const secs = Math.floor((diff % 60000) / 1000)
+      setRemaining(mins > 0 ? `${mins}m ${secs}s restantes` : `${secs}s restantes`)
+    }
+
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [scheduledFor])
+
+  return (
+    <span className="text-xs text-violet-600 dark:text-violet-400 font-mono">
+      {remaining}
+    </span>
+  )
+}
+
+// ── Step status icon ──
+
+function StepStatusIcon({ status }: { status: TimelineStep["status"] }) {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+    case "running":
+      return <Spinner variant="infinite" size={16} className="text-blue-500" />
+    case "failed":
+      return <XCircle className="h-4 w-4 text-red-500" />
+    case "pending":
+      return <Clock className="h-4 w-4 text-amber-500" />
+    case "scheduled":
+      return <Timer className="h-4 w-4 text-violet-500" />
+    case "cancelled":
+      return <Ban className="h-4 w-4 text-slate-400" />
+    case "waiting":
+      return <Circle className="h-4 w-4 text-muted-foreground/30" />
+  }
+}
+
+// ── Connector line color ──
+
+function connectorColor(status: TimelineStep["status"]) {
+  switch (status) {
+    case "completed":
+      return "bg-emerald-300 dark:bg-emerald-700"
+    case "running":
+      return "bg-blue-300 dark:bg-blue-700"
+    case "failed":
+      return "bg-red-300 dark:bg-red-700"
+    case "waiting":
+      return "bg-muted-foreground/15"
+    default:
+      return "bg-muted-foreground/25"
+  }
+}
+
+// ── Delay unit label ──
+
+function delayUnitLabel(unit: string) {
+  switch (unit) {
+    case "minutes": return "minutos"
+    case "hours": return "horas"
+    case "days": return "dias"
+    default: return unit
+  }
+}
+
+// ── Step result subtitle ──
+
+function StepSubtitle({ step }: { step: TimelineStep }) {
+  const { status, nodeType, stepRun, scheduledFor, delayConfig } = step
+
+  if (status === "running") {
+    return <span className="text-xs text-blue-500">A processar...</span>
+  }
+
+  if (status === "failed" && stepRun?.error_message) {
+    return (
+      <span className="text-xs text-red-600 dark:text-red-400 line-clamp-2">
+        {stepRun.error_message}
+      </span>
+    )
+  }
+
+  // Pending with scheduled_for in future = countdown
+  if (status === "pending" && scheduledFor && new Date(scheduledFor) > new Date()) {
+    return <CountdownTimer scheduledFor={scheduledFor} />
+  }
+
+  if (status === "waiting") {
+    return <span className="text-xs text-muted-foreground">A aguardar passo anterior</span>
+  }
+
+  if (status === "completed") {
+    // Duration
+    const duration = stepRun?.duration_ms != null
+      ? stepRun.duration_ms < 1000
+        ? `${stepRun.duration_ms}ms`
+        : `${(stepRun.duration_ms / 1000).toFixed(1)}s`
+      : null
+
+    // Contextual result
+    let result: string | null = null
+    if (nodeType === "delay" && delayConfig) {
+      result = `Esperou ${delayConfig.value} ${delayUnitLabel(delayConfig.unit)}`
+    } else if (nodeType === "supabase_query" && stepRun?.output_data) {
+      const op = (stepRun.output_data as Record<string, unknown>)?.operation
+      result = op === "inserted" ? "Registo criado"
+        : op === "updated" ? "Registo actualizado"
+        : op === "upserted" ? "Registo upserted"
+        : null
+    } else if (nodeType === "whatsapp") {
+      result = "Mensagens enviadas"
+    } else if (nodeType === "email") {
+      result = "Email enviado"
+    }
+
+    return (
+      <span className="text-xs text-muted-foreground">
+        {result && <span className="text-emerald-600 dark:text-emerald-400">{result}</span>}
+        {result && duration && <span className="mx-1">&middot;</span>}
+        {duration && <span>{duration}</span>}
+      </span>
+    )
+  }
+
+  return null
+}
+
+// ── Main component ──
 
 interface ExecutionTimelineProps {
   steps: RealtimeStep[]
@@ -78,19 +323,29 @@ interface ExecutionTimelineProps {
   compact?: boolean
   onRetryStep?: (stepId: string) => void
   retryingStepId?: string | null
+  flowDefinition?: FlowDefinition | null
 }
 
 export function ExecutionTimeline({
   steps,
-  totalSteps,
-  completedSteps,
-  failedSteps,
+  totalSteps: _totalSteps,
+  completedSteps: _completedSteps,
+  failedSteps: _failedSteps,
   overallStatus,
   compact = false,
   onRetryStep,
   retryingStepId,
+  flowDefinition,
 }: ExecutionTimelineProps) {
-  const progress = totalSteps > 0 ? Math.round(((completedSteps + failedSteps) / totalSteps) * 100) : 0
+  const timeline = useMemo(
+    () => buildTimeline(flowDefinition || null, steps),
+    [flowDefinition, steps]
+  )
+
+  const completed = timeline.filter((s) => s.status === "completed").length
+  const failed = timeline.filter((s) => s.status === "failed").length
+  const total = timeline.length
+  const progress = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0
 
   return (
     <div className="space-y-3">
@@ -104,105 +359,96 @@ export function ExecutionTimeline({
             {overallStatus === "idle" && "A aguardar"}
           </span>
           <span className="text-muted-foreground tabular-nums">
-            {completedSteps + failedSteps}/{totalSteps} passos
+            {completed}/{total} passos
           </span>
         </div>
         <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Steps */}
-      <div className="space-y-1">
-        {steps.map((step) => {
-          const statusStyle = STATUS_STYLES[step.status] || STATUS_STYLES.pending
-          const StatusIcon = statusStyle.icon
-          const NodeIcon = NODE_TYPE_ICONS[step.node_type] || Play
-          const nodeLabel = step.node_label || NODE_TYPE_LABELS[step.node_type] || step.node_type
-
-          // Check if this step requires manual retry
+      {/* Timeline steps */}
+      <div className="space-y-0">
+        {timeline.map((step, i) => {
+          const NodeIcon = NODE_TYPE_ICONS[step.nodeType] || Play
           const requiresManualRetry = step.status === "failed" &&
-            step.output_data?.requires_manual_retry === true
+            step.stepRun?.output_data?.requires_manual_retry === true
 
           return (
-            <div
-              key={step.id}
-              className={cn(
-                "flex items-start gap-2.5 rounded-md px-2.5 py-2 transition-colors",
-                statusStyle.bg
+            <div key={step.nodeId} className="relative">
+              {/* Connector line */}
+              {i > 0 && (
+                <div
+                  className={cn(
+                    "absolute left-[9px] -top-0 w-0.5 h-2",
+                    connectorColor(step.status)
+                  )}
+                />
               )}
-            >
-              {/* Status icon */}
-              <div className={cn("mt-0.5 shrink-0", statusStyle.color)}>
-                {step.status === "running" ? (
-                  <Spinner variant="infinite" size={16} />
-                ) : StatusIcon ? (
-                  <StatusIcon className="h-4 w-4" />
-                ) : null}
-              </div>
 
-              {/* Content */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <NodeIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-sm font-medium truncate">{nodeLabel}</span>
+              <div
+                className={cn(
+                  "flex items-start gap-2.5 rounded-md px-2.5 py-2 mt-0 transition-colors",
+                  step.status === "completed" && "bg-emerald-50/50 dark:bg-emerald-950/20",
+                  step.status === "running" && "bg-blue-50/50 dark:bg-blue-950/20",
+                  step.status === "failed" && "bg-red-50/50 dark:bg-red-950/20",
+                  step.status === "pending" && "bg-amber-50/30 dark:bg-amber-950/10",
+                  step.status === "waiting" && "opacity-50",
+                )}
+              >
+                {/* Status icon */}
+                <div className="mt-0.5 shrink-0">
+                  <StepStatusIcon status={step.status} />
                 </div>
 
-                {!compact && (
-                  <>
-                    {/* Duration */}
-                    {step.duration_ms != null && step.status === "completed" && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {step.duration_ms < 1000
-                          ? `${step.duration_ms}ms`
-                          : `${(step.duration_ms / 1000).toFixed(1)}s`}
-                      </p>
-                    )}
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <NodeIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium truncate">{step.nodeLabel}</span>
+                  </div>
 
-                    {/* Error */}
-                    {step.error_message && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 line-clamp-2">
-                        {step.error_message}
-                      </p>
-                    )}
+                  {!compact && (
+                    <>
+                      <div className="mt-0.5">
+                        <StepSubtitle step={step} />
+                      </div>
 
-                    {/* Manual retry button */}
-                    {requiresManualRetry && onRetryStep && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-1.5 h-7 text-xs"
-                        onClick={() => onRetryStep(step.id)}
-                        disabled={retryingStepId === step.id}
-                      >
-                        {retryingStepId === step.id ? (
-                          <Spinner variant="infinite" size={12} className="mr-1.5" />
-                        ) : (
-                          <RefreshCw className="mr-1.5 h-3 w-3" />
-                        )}
-                        Tentar Novamente
-                      </Button>
-                    )}
+                      {/* Manual retry button */}
+                      {requiresManualRetry && onRetryStep && step.stepRun && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-1.5 h-7 text-xs"
+                          onClick={() => onRetryStep(step.stepRun!.id)}
+                          disabled={retryingStepId === step.stepRun.id}
+                        >
+                          {retryingStepId === step.stepRun.id ? (
+                            <Spinner variant="infinite" size={12} className="mr-1.5" />
+                          ) : (
+                            <RefreshCw className="mr-1.5 h-3 w-3" />
+                          )}
+                          Tentar Novamente
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
 
-                    {/* Scheduled for (delay nodes) */}
-                    {step.status === "pending" && step.scheduled_for && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Agendado para {new Date(step.scheduled_for).toLocaleString("pt-PT")}
-                      </p>
-                    )}
-                  </>
+                {/* Time */}
+                {step.stepRun?.started_at && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 mt-0.5">
+                    {new Date(step.stepRun.started_at).toLocaleTimeString("pt-PT", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </span>
                 )}
               </div>
-
-              {/* Time */}
-              {step.started_at && (
-                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 mt-0.5">
-                  {new Date(step.started_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                </span>
-              )}
             </div>
           )
         })}
 
-        {steps.length === 0 && (
+        {timeline.length === 0 && (
           <div className="text-center py-4 text-sm text-muted-foreground">
             A aguardar execucao...
           </div>

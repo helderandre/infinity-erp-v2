@@ -18,6 +18,7 @@ import { UnitInput } from '@/components/email-editor/settings'
 import { useEmailTiptap } from '@/components/email-editor/hooks/use-email-tiptap'
 import { EmailBubbleMenu } from '@/components/email-editor/email-bubble-menu'
 import { registerEditor, unregisterEditor, getEditor } from '@/components/email-editor/hooks/editor-registry'
+import { useAutomationVariables } from '@/components/email-editor/automation-variables-context'
 
 interface EmailTextProps {
   html?: string
@@ -45,6 +46,7 @@ export const EmailText = ({
   } = useNode((node) => ({ id: node.id }))
 
   const isInternalUpdate = useRef(false)
+  const automationVariables = useAutomationVariables()
 
   const handleUpdate = useCallback(
     (newHtml: string) => {
@@ -60,6 +62,7 @@ export const EmailText = ({
     content: html,
     onUpdate: handleUpdate,
     placeholder: 'Escreva aqui...',
+    variables: automationVariables ?? undefined,
   })
 
   // Register editor instance for settings panel access

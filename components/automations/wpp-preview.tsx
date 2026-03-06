@@ -159,9 +159,9 @@ export function WppPreview({
   }, [messages, variables])
 
   return (
-    <div className="w-full max-w-[320px] mx-auto">
+    <div className="w-full max-w-[320px] mx-auto flex flex-col h-full">
       {/* Phone frame */}
-      <div className="rounded-2xl border-2 border-gray-300 dark:border-gray-600 bg-[#efeae2] dark:bg-[#0b141a] overflow-hidden shadow-xl">
+      <div className="rounded-2xl border-2 border-gray-300 dark:border-gray-600 bg-[#efeae2] dark:bg-[#0b141a] overflow-hidden shadow-xl flex flex-col flex-1 min-h-0">
         {/* WhatsApp header */}
         <div className="bg-[#008069] dark:bg-[#1f2c34] px-3 py-2.5 flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center overflow-hidden shrink-0">
@@ -188,7 +188,7 @@ export function WppPreview({
         {/* Chat area */}
         <div
           ref={scrollRef}
-          className="h-[380px] overflow-y-auto px-2.5 py-3 space-y-0.5"
+          className="flex-1 min-h-0 overflow-y-auto px-2.5 py-3 space-y-0.5"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}

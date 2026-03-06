@@ -242,7 +242,7 @@ export function EmailEditorComponent({
   }
 
   return (
-    <div className="flex flex-col -m-4 md:-m-6 h-[calc(100%+2rem)] md:h-[calc(100%+3rem)] overflow-hidden">
+    <div className="flex h-full flex-col">
       <Editor resolver={resolver} onRender={RenderNode}>
         <KeyboardShortcuts />
         <EmailTopbar
@@ -258,7 +258,7 @@ export function EmailEditorComponent({
 
         {/* Edit mode */}
         {mode === 'edit' && (
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 min-h-0">
             <EmailToolbox />
             <div className="flex-1 overflow-auto bg-muted/30 p-8">
               <div className="mx-auto" style={{ maxWidth: 620 }}>

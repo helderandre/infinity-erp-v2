@@ -38,7 +38,7 @@ interface ToolboxCategory {
   items: ToolboxItem[]
 }
 
-const categories: ToolboxCategory[] = [
+export const categories: ToolboxCategory[] = [
   {
     name: 'Conteúdo',
     items: [
@@ -77,7 +77,7 @@ const categories: ToolboxCategory[] = [
   },
 ]
 
-function CategorySection({
+export function CategorySection({
   category,
   search,
 }: {

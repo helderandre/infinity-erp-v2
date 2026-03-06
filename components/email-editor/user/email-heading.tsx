@@ -20,6 +20,7 @@ import { UnitInput } from '@/components/email-editor/settings'
 import { useEmailTiptap } from '@/components/email-editor/hooks/use-email-tiptap'
 import { EmailBubbleMenu } from '@/components/email-editor/email-bubble-menu'
 import { registerEditor, unregisterEditor, getEditor } from '@/components/email-editor/hooks/editor-registry'
+import { useAutomationVariables } from '@/components/email-editor/automation-variables-context'
 
 interface EmailHeadingProps {
   html?: string
@@ -49,6 +50,7 @@ export const EmailHeading = ({
   } = useNode((node) => ({ id: node.id }))
 
   const isInternalUpdate = useRef(false)
+  const automationVariables = useAutomationVariables()
 
   const handleUpdate = useCallback(
     (newHtml: string) => {
@@ -68,6 +70,7 @@ export const EmailHeading = ({
     placeholder: 'Título...',
     isHeading: true,
     headingLevel,
+    variables: automationVariables ?? undefined,
   })
 
   // Register editor instance for settings panel access

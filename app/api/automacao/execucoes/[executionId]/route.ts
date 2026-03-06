@@ -24,7 +24,7 @@ export async function GET(
 
     const { data: run, error: runError } = await supabase
       .from("auto_runs")
-      .select("*, auto_flows!inner(name, draft_definition)")
+      .select("*, auto_flows!inner(name, draft_definition, published_definition)")
       .eq("id", executionId)
       .single()
 

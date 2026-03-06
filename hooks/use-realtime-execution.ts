@@ -22,9 +22,20 @@ export interface RealtimeStep {
   created_at: string
 }
 
+export interface RealtimeRunStatus {
+  id: string
+  status: "pending" | "running" | "completed" | "failed" | "cancelled"
+  completed_at: string | null
+  error_message: string | null
+  total_steps: number
+  completed_steps: number
+  failed_steps: number
+}
+
 export function useRealtimeExecution() {
   const [runId, setRunId] = useState<string | null>(null)
   const [steps, setSteps] = useState<RealtimeStep[]>([])
+  const [runStatus, setRunStatus] = useState<RealtimeRunStatus | null>(null)
   const channelRef = useRef<SA>(null)
   const supabaseRef = useRef<SA>(null)
 
@@ -56,6 +67,7 @@ export function useRealtimeExecution() {
 
     setRunId(newRunId)
     setSteps([])
+    setRunStatus(null)
 
     const supabase = createClient() as SA
     supabaseRef.current = supabase
@@ -71,7 +83,7 @@ export function useRealtimeExecution() {
       setSteps(existingSteps)
     }
 
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes on steps AND run
     const channel = supabase
       .channel(`auto-run-${newRunId}`)
       .on(
@@ -106,6 +118,26 @@ export function useRealtimeExecution() {
           )
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "auto_runs",
+          filter: `id=eq.${newRunId}`,
+        },
+        (payload: SA) => {
+          setRunStatus({
+            id: payload.new.id,
+            status: payload.new.status,
+            completed_at: payload.new.completed_at,
+            error_message: payload.new.error_message,
+            total_steps: payload.new.total_steps,
+            completed_steps: payload.new.completed_steps,
+            failed_steps: payload.new.failed_steps,
+          })
+        }
+      )
       .subscribe()
 
     channelRef.current = channel
@@ -119,6 +151,7 @@ export function useRealtimeExecution() {
   return {
     runId,
     steps,
+    runStatus,
     totalSteps,
     completedSteps,
     failedSteps,

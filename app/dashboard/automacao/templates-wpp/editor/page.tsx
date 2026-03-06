@@ -2,14 +2,10 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Save } from "lucide-react"
-import { Spinner } from "@/components/kibo-ui/spinner"
-import { toast } from "sonner"
-
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WppTemplateBuilder } from "@/components/automations/wpp-template-builder"
 import { useWppTemplates } from "@/hooks/use-wpp-templates"
+import { toast } from "sonner"
 import type {
   WhatsAppTemplateMessage,
   WhatsAppTemplateCategory,
@@ -112,72 +108,39 @@ function TemplateEditorContent() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex items-center gap-3 border-b px-6 py-3 shrink-0">
           <Skeleton className="h-9 w-24" />
           <Skeleton className="h-9 w-64" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-6">
-          <div className="space-y-4">
+        <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[1fr_400px]">
+          <div className="space-y-4 p-6">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-32 w-full" />
           </div>
-          <Skeleton className="h-[480px]" />
+          <Skeleton className="m-6 h-[480px]" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/dashboard/automacao/templates-wpp")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              {templateId ? "Editar Template" : "Novo Template"}
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {templateId
-                ? "Modificar template de mensagens WhatsApp"
-                : "Criar novo template de mensagens WhatsApp"}
-            </p>
-          </div>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Spinner variant="infinite" size={16} className="mr-2" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          Guardar
-        </Button>
-      </div>
-
-      {/* Builder */}
-      <WppTemplateBuilder
-        name={name}
-        description={description}
-        category={category}
-        messages={messages}
-        tags={tags}
-        onNameChange={setName}
-        onDescriptionChange={setDescription}
-        onCategoryChange={setCategory}
-        onMessagesChange={setMessages}
-        onTagsChange={setTags}
-        onSave={handleSave}
-        saving={saving}
-      />
-    </div>
+    <WppTemplateBuilder
+      name={name}
+      description={description}
+      category={category}
+      messages={messages}
+      tags={tags}
+      onNameChange={setName}
+      onDescriptionChange={setDescription}
+      onCategoryChange={setCategory}
+      onMessagesChange={setMessages}
+      onTagsChange={setTags}
+      onSave={handleSave}
+      saving={saving}
+      isEditing={!!templateId}
+    />
   )
 }
 
@@ -185,9 +148,11 @@ export default function TemplateEditorPage() {
   return (
     <Suspense
       fallback={
-        <div className="space-y-6">
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="h-[400px] w-full" />
+        <div className="flex flex-1 min-h-0 flex-col">
+          <div className="flex items-center gap-3 border-b px-6 py-3 shrink-0">
+            <Skeleton className="h-9 w-64" />
+          </div>
+          <Skeleton className="m-6 h-[400px]" />
         </div>
       }
     >

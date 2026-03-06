@@ -17,6 +17,9 @@ import { cn } from '@/lib/utils'
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
   '/dashboard/automacao/fluxos/editor',
+  '/dashboard/automacao/templates-wpp/editor',
+  '/dashboard/templates-email/',
+  '/dashboard/templates-documentos/',
 ]
 
 export default function DashboardLayout({

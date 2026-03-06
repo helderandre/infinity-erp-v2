@@ -509,6 +509,7 @@ export function AutomationTester({ flowId, flowDefinition, open, onOpenChange }:
                 completedSteps={realtime.completedSteps}
                 failedSteps={realtime.failedSteps}
                 overallStatus={realtime.overallStatus}
+                flowDefinition={flowDefinition}
               />
 
               {/* Post-test summary */}

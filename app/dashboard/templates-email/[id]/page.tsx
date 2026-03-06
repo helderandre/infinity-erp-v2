@@ -14,16 +14,16 @@ export default function EditarTemplateEmailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col -m-4 md:-m-6 h-[calc(100%+2rem)] md:h-[calc(100%+3rem)] overflow-hidden">
+      <div className="flex h-full flex-col">
         {/* Topbar skeleton */}
-        <div className="flex items-center gap-3 border-b px-4 py-2">
+        <div className="flex items-center gap-3 border-b px-4 py-2 shrink-0">
           <Skeleton className="h-8 w-8" />
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-8 flex-1" />
           <Skeleton className="h-8 w-24" />
         </div>
         {/* Editor skeleton */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0">
           <div className="w-60 border-r p-4 space-y-2">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <Skeleton key={i} className="h-10 w-full" />

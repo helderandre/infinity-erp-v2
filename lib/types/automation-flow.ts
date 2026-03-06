@@ -97,6 +97,8 @@ export interface EmailNodeData {
   bodyHtml?: string
   editorState?: unknown
   recipientVariable?: string
+  senderName?: string
+  senderEmail?: string
 }
 
 // ── Delay ──
