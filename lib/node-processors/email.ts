@@ -45,8 +45,6 @@ export const processEmail: (
     throw new Error(`Email do remetente invalido: "${senderEmail}". Deve usar @infinitygroup.pt`)
   }
 
-  const from = `${senderName} <${senderEmail}>`
-
   // --- Recipient ---
   let recipientVar = d.recipientVariable || ""
   recipientVar = recipientVar.replace(/^\{\{/, "").replace(/\}\}$/, "").trim()
@@ -91,9 +89,12 @@ export const processEmail: (
   // Wrap for Gmail/Outlook compatibility
   const wrappedHtml = wrapEmailForCompatibility(bodyHtml)
 
-  // --- Send ---
-  const resendKey = process.env.RESEND
-  if (!resendKey) throw new Error("RESEND API key nao configurada")
+  // --- Send via Supabase Edge Function (has RESEND_API_KEY configured) ---
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("SUPABASE_URL ou SUPABASE_ANON_KEY nao configuradas")
+  }
 
   const delivery: DeliveryEntry = {
     channel: "email",
@@ -104,25 +105,26 @@ export const processEmail: (
   }
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${resendKey}`,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
-        from,
-        to: [recipientEmail],
+        senderName,
+        senderEmail,
+        recipientEmail,
         subject,
-        html: wrappedHtml,
+        body: wrappedHtml,
       }),
     })
 
     const resData = await response.json().catch(() => ({}))
     delivery.externalMessageId = resData?.id
-    if (!response.ok) {
+    if (!response.ok || !resData?.success) {
       delivery.status = "failed"
-      delivery.errorMessage = resData?.message || `HTTP ${response.status}`
+      delivery.errorMessage = resData?.error || resData?.message || `HTTP ${response.status}`
     }
   } catch (err) {
     delivery.status = "failed"

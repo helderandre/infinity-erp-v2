@@ -203,6 +203,20 @@ export async function POST(request: Request) {
         })
 
         for (const edge of nextEdges) {
+          // Dedup: skip if step already exists for this run + node
+          const { data: existingStep } = await (supabase as SA)
+            .from("auto_step_runs")
+            .select("id")
+            .eq("run_id", step.run_id)
+            .eq("node_id", edge.target)
+            .in("status", ["pending", "running", "completed"])
+            .maybeSingle()
+
+          if (existingStep) {
+            console.log(`[WORKER] Step for node ${edge.target} already exists (${existingStep.id}) in run ${step.run_id}, skipping`)
+            continue
+          }
+
           const nextNode = flowDef.nodes.find(n => n.id === edge.target)
           const nextData = nextNode?.data as { type?: string; label?: string } | undefined
           await (supabase as SA).from("auto_step_runs").insert({

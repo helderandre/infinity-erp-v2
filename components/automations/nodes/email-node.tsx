@@ -395,7 +395,7 @@ function EmailConfigSheet({
                   className="flex-1 h-8 text-sm"
                 />
                 <VariablePicker
-                  onSelect={(v) => setRecipientVariable(`{{${v.key}}}`)}
+                  onSelect={(v) => setRecipientVariable(v.key)}
                   additionalVariables={webhookVars}
                   compact
                 />

@@ -161,9 +161,15 @@ export async function POST(
         })
       }
 
-      // Enqueue remaining async nodes
+      // Enqueue remaining async nodes (with dedup check)
       if (result.asyncNodes.length > 0) {
+        // Get already-recorded node IDs to avoid duplicates
+        const recordedNodeIds = new Set(result.stepsExecuted.map(s => s.nodeId))
         for (const node of result.asyncNodes) {
+          if (recordedNodeIds.has(node.id)) {
+            console.log(`[WEBHOOK] Node ${node.id} already recorded as step, skipping enqueue`)
+            continue
+          }
           await supabase.from("auto_step_runs").insert({
             run_id: runId,
             flow_id: trigger.flow_id,
