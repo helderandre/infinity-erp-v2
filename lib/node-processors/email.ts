@@ -131,32 +131,42 @@ export const processEmail: (
     delivery.errorMessage = err instanceof Error ? err.message : "Erro desconhecido"
   }
 
-  // Log in auto_delivery_log
-  await (supabase as SA).from("auto_delivery_log").insert({
-    run_id: flowMeta.runId,
-    flow_id: flowMeta.flowId,
-    channel: "email",
-    recipient_address: recipientEmail,
-    message_type: "email",
-    final_content: subject,
-    status: delivery.status === "sent" ? "sent" : "failed",
-    external_message_id: delivery.externalMessageId,
-    error_message: delivery.errorMessage,
-    sent_at: delivery.status === "sent" ? new Date().toISOString() : null,
-  })
+  // Log in auto_delivery_log (non-critical — must not fail the step)
+  try {
+    const { error: deliveryLogErr } = await (supabase as SA).from("auto_delivery_log").insert({
+      run_id: flowMeta.runId,
+      flow_id: flowMeta.flowId,
+      channel: "email",
+      recipient_address: recipientEmail,
+      message_type: "email",
+      final_content: subject,
+      status: delivery.status === "sent" ? "sent" : "failed",
+      external_message_id: delivery.externalMessageId,
+      error_message: delivery.errorMessage,
+      sent_at: delivery.status === "sent" ? new Date().toISOString() : null,
+    })
+    if (deliveryLogErr) console.error("[EMAIL] Erro ao registar delivery log:", deliveryLogErr.message)
+  } catch (e) {
+    console.error("[EMAIL] Delivery log exception:", e)
+  }
 
-  // Log in log_emails
-  await (supabase as SA).from("log_emails").insert({
-    sender_name: senderName,
-    sender_email: senderEmail,
-    recipient_email: recipientEmail,
-    subject,
-    body_html: bodyHtml,
-    delivery_status: delivery.status === "sent" ? "sent" : "failed",
-    provider_id: delivery.externalMessageId,
-    sent_at: new Date().toISOString(),
-    metadata: { source: "automation", flow_id: flowMeta.flowId, run_id: flowMeta.runId },
-  }).catch(() => {}) // Non-critical
+  // Log in log_emails (non-critical)
+  try {
+    const { error: emailLogErr } = await (supabase as SA).from("log_emails").insert({
+      sender_name: senderName,
+      sender_email: senderEmail,
+      recipient_email: recipientEmail,
+      subject,
+      body_html: bodyHtml,
+      delivery_status: delivery.status === "sent" ? "sent" : "failed",
+      provider_id: delivery.externalMessageId,
+      sent_at: new Date().toISOString(),
+      metadata: { source: "automation", flow_id: flowMeta.flowId, run_id: flowMeta.runId },
+    })
+    if (emailLogErr) console.error("[EMAIL] Erro ao registar email log:", emailLogErr.message)
+  } catch (e) {
+    console.error("[EMAIL] Email log exception:", e)
+  }
 
   if (delivery.status === "failed") throw new Error(delivery.errorMessage || "Falha ao enviar email")
 
