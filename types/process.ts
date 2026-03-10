@@ -133,7 +133,7 @@ export interface DocumentFolder {
   id: string
   name: string
   icon: string
-  type: 'property' | 'process' | 'owner' | 'consultant'
+  type: 'property' | 'process' | 'owner' | 'consultant' | 'media'
   entity_id?: string
   document_count: number
   documents: DocumentFile[]

@@ -94,6 +94,39 @@ export async function GET(
       allDocs.push(...files)
     }
 
+    // 3.5. Pasta "Imagens do Imóvel" — dev_property_media
+    if (propertyId) {
+      const { data: mediaItems, error: mediaError } = await supabase
+        .from('dev_property_media')
+        .select('id, url, media_type, order_index, is_cover')
+        .eq('property_id', propertyId)
+        .order('order_index', { ascending: true })
+
+      if (mediaError) {
+        console.error('[Documents] Erro ao buscar media:', mediaError)
+      }
+
+      const mediaFiles: DocumentFile[] = (mediaItems || []).map((m: any, idx: number) => ({
+        id: m.id,
+        file_name: m.is_cover ? `Capa - Imagem ${idx + 1}` : `Imagem ${idx + 1}`,
+        file_url: m.url,
+        doc_type: { id: 'media', name: m.is_cover ? 'Capa' : 'Fotografia', category: 'Media' },
+        status: 'active' as const,
+        metadata: { mimetype: 'image/webp' },
+        created_at: new Date().toISOString(),
+      }))
+
+      folders.push({
+        id: 'media',
+        name: 'Imagens do Imóvel',
+        icon: 'ImageIcon',
+        type: 'media',
+        entity_id: propertyId,
+        document_count: mediaFiles.length,
+        documents: mediaFiles,
+      })
+    }
+
     // 4. Pasta por proprietário — doc_registry WHERE owner_id = X
     if (propertyOwners && propertyOwners.length > 0) {
       for (const po of propertyOwners) {

@@ -1,6 +1,6 @@
 import type { AlertsConfig } from './alert'
 
-export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc'
+export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field'
 
 // Tipos de multiplicação por proprietário
 export type OwnerScope = 'none' | 'all_owners' | 'main_contact_only'
@@ -21,6 +21,70 @@ export interface SubtaskOwnerConfig {
     email_library_id?: string
     doc_library_id?: string
   }
+}
+
+// ═══════════════════════════════════════════════
+// Tipos para subtarefas Form & Field
+// ═══════════════════════════════════════════════
+
+export type FormTargetEntity =
+  | 'property'           // dev_properties
+  | 'property_specs'     // dev_property_specifications
+  | 'property_internal'  // dev_property_internal
+  | 'owner'              // owners (via property_owners junction)
+  | 'property_owner'     // property_owners (ownership_percentage, is_main_contact)
+
+export type FormFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'currency'
+  | 'percentage'
+  | 'select'
+  | 'multiselect'
+  | 'checkbox'
+  | 'date'
+  | 'email'
+  | 'phone'
+  | 'rich_text'      // Editor Tiptap (texto rico HTML)
+  | 'address_map'    // Mapbox autocomplete + mapa (campo composto)
+  | 'media_upload'   // Upload de imagens do imóvel
+
+export interface FormFieldConfig {
+  field_name: string
+  label: string
+  field_type: FormFieldType
+  target_entity: FormTargetEntity
+  required?: boolean
+  help_text?: string
+  placeholder?: string
+  options?: { value: string; label: string }[]
+  options_from_constant?: string
+  min?: number
+  max?: number
+  width?: 'full' | 'half' | 'third'
+  order_index: number
+}
+
+export interface FormSectionConfig {
+  title: string
+  description?: string
+  fields: FormFieldConfig[]
+  order_index: number
+}
+
+export interface FormSubtaskConfig {
+  type: 'form'
+  form_title?: string
+  form_template_id?: string  // referência a tpl_form_templates.id (DB)
+  sections: FormSectionConfig[]
+}
+
+export interface FieldSubtaskConfig {
+  type: 'field'
+  field: FormFieldConfig
+  show_current_value?: boolean
+  auto_complete_on_save?: boolean
 }
 
 export type DependencyType = 'none' | 'subtask' | 'task'
@@ -49,6 +113,14 @@ export interface TplSubtask {
     check_type?: 'field' | 'document' | 'manual'
     field_name?: string
     alerts?: AlertsConfig
+    // Form subtask config
+    form_template_id?: string
+    form_title?: string
+    sections?: FormSectionConfig[]
+    // Field subtask config (campo único)
+    field?: FormFieldConfig
+    show_current_value?: boolean
+    auto_complete_on_save?: boolean
   } & SubtaskOwnerConfig
 }
 
@@ -93,6 +165,14 @@ export interface ProcSubtask {
     email_library_id?: string
     doc_library_id?: string
     rendered?: Record<string, unknown>
+    // Form subtask config
+    form_template_id?: string
+    form_title?: string
+    sections?: FormSectionConfig[]
+    // Field subtask config
+    field?: FormFieldConfig
+    show_current_value?: boolean
+    auto_complete_on_save?: boolean
     [key: string]: unknown
   } & SubtaskOwnerConfig
 }
@@ -119,5 +199,13 @@ export interface SubtaskData {
     doc_library_id?: string     // type === 'generate_doc'
     // type === 'checklist' → sem config extra
     alerts?: AlertsConfig
+    // Form subtask config
+    form_template_id?: string
+    form_title?: string
+    sections?: FormSectionConfig[]
+    // Field subtask config
+    field?: FormFieldConfig
+    show_current_value?: boolean
+    auto_complete_on_save?: boolean
   } & SubtaskOwnerConfig
 }

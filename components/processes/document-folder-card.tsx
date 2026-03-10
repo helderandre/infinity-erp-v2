@@ -1,6 +1,6 @@
 'use client'
 
-import { Building2, FileCheck, User, Briefcase, Folder } from 'lucide-react'
+import { Building2, FileCheck, User, Briefcase, Folder, ImageIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { DocumentFolder } from '@/types/process'
 
@@ -9,6 +9,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FileCheck,
   User,
   Briefcase,
+  ImageIcon,
 }
 
 interface DocumentFolderCardProps {
@@ -33,7 +34,10 @@ export function DocumentFolderCard({ folder, onClick }: DocumentFolderCardProps)
       <CardContent className="p-4">
         <p className="font-semibold text-sm truncate">{folder.name}</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {folder.document_count} {folder.document_count === 1 ? 'documento' : 'documentos'}
+          {folder.document_count} {folder.type === 'media'
+            ? (folder.document_count === 1 ? 'imagem' : 'imagens')
+            : (folder.document_count === 1 ? 'documento' : 'documentos')
+          }
         </p>
       </CardContent>
     </Card>

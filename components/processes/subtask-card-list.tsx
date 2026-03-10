@@ -20,6 +20,9 @@ import { SubtaskCardChecklist } from './subtask-card-checklist'
 import { SubtaskCardEmail } from './subtask-card-email'
 import { SubtaskCardDoc } from './subtask-card-doc'
 import { SubtaskCardUpload } from './subtask-card-upload'
+import { SubtaskCardForm } from './subtask-card-form'
+import { SubtaskCardField } from './subtask-card-field'
+import { FormSubtaskDialog } from './form-subtask-dialog'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
 import type { ProcessTask, ProcessOwner, ProcessDocument } from '@/types/process'
@@ -48,6 +51,8 @@ export function SubtaskCardList({
   const [openEmailSubtask, setOpenEmailSubtask] = useState<ProcSubtask | null>(null)
   const [openEmailOwnerEmail, setOpenEmailOwnerEmail] = useState('')
   const [openDocSubtask, setOpenDocSubtask] = useState<ProcSubtask | null>(null)
+  const [openFormSubtask, setOpenFormSubtask] = useState<ProcSubtask | null>(null)
+  const [viewFormSubtask, setViewFormSubtask] = useState<ProcSubtask | null>(null)
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
 
   const subtasks = task.subtasks || []
@@ -168,6 +173,29 @@ export function SubtaskCardList({
             onTaskUpdate={onTaskUpdate}
           />
         )
+      case 'form':
+        return (
+          <SubtaskCardForm
+            key={subtask.id}
+            subtask={subtask}
+            onOpenSheet={(s) => setOpenFormSubtask(s)}
+            onViewSheet={(s) => setViewFormSubtask(s)}
+            onRevert={(id) => setRevertTarget(id)}
+          />
+        )
+      case 'field':
+        return (
+          <SubtaskCardField
+            key={subtask.id}
+            subtask={subtask}
+            processId={processId}
+            taskId={task.id}
+            onCompleted={async () => {
+              await onSubtaskToggle(task.id, subtask.id, true)
+              onTaskUpdate()
+            }}
+          />
+        )
       default:
         return (
           <SubtaskCardChecklist
@@ -265,6 +293,36 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setOpenDocSubtask(null) }}
           onComplete={() => onTaskUpdate()}
           onSaveDraft={onTaskUpdate}
+        />
+      )}
+
+      {openFormSubtask && (
+        <FormSubtaskDialog
+          subtask={openFormSubtask}
+          processId={processId}
+          taskId={task.id}
+          open={!!openFormSubtask}
+          onOpenChange={(v) => { if (!v) setOpenFormSubtask(null) }}
+          onCompleted={async () => {
+            await onSubtaskToggle(task.id, openFormSubtask.id, true)
+            onTaskUpdate()
+            setOpenFormSubtask(null)
+          }}
+          onSaved={async () => {
+            onTaskUpdate()
+          }}
+        />
+      )}
+
+      {viewFormSubtask && (
+        <FormSubtaskDialog
+          subtask={viewFormSubtask}
+          processId={processId}
+          taskId={task.id}
+          open={!!viewFormSubtask}
+          onOpenChange={(v) => { if (!v) setViewFormSubtask(null) }}
+          onCompleted={async () => {}}
+          readOnly
         />
       )}
     </>

@@ -27,6 +27,8 @@ import {
   Layers,
   CheckSquare,
   Lock,
+  FormInput,
+  TextCursorInput,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
@@ -54,6 +56,8 @@ const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
   checklist: <CheckSquare className="h-3 w-3" />,
   email: <Mail className="h-3 w-3" />,
   generate_doc: <FileText className="h-3 w-3" />,
+  form: <FormInput className="h-3 w-3" />,
+  field: <TextCursorInput className="h-3 w-3" />,
 }
 
 
@@ -170,7 +174,7 @@ export function ProcessTaskCard({
                 return types.map((t) => (
                   <Badge key={t} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
                     {SUBTASK_TYPE_ICONS_MAP[t] || <Circle className="h-3 w-3" />}
-                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
+                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'form' ? 'Formulário' : t === 'field' ? 'Campo' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
                   </Badge>
                 ))
               })()}

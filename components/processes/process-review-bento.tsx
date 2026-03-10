@@ -140,9 +140,16 @@ function PropertyHeroCard({ property }: { property: NonNullable<ProcessInstance[
           />
         </div>
         {property.description && (
-          <p className="mt-3 text-xs text-muted-foreground line-clamp-3 border-t pt-3">
-            {property.description}
-          </p>
+          typeof property.description === 'string' && property.description.startsWith('<') ? (
+            <div
+              className="mt-3 text-xs text-muted-foreground line-clamp-3 border-t pt-3 prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0"
+              dangerouslySetInnerHTML={{ __html: property.description }}
+            />
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground line-clamp-3 border-t pt-3">
+              {property.description}
+            </p>
+          )
         )}
       </CardContent>
     </Card>

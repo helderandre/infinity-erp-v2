@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { DocumentsSection } from '@/components/documents/DocumentsSection'
+import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import { formatCurrency } from '@/lib/utils'
-import { ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ProcessDocument } from '@/types/process'
 import type { DocType } from '@/types/document'
+import type { PropertyMedia } from '@/types/property'
 
 /* ─── Display Field (matches lead-data-card pattern) ─── */
 function DisplayField({
@@ -100,15 +101,14 @@ export function ProcessPropertyTab({ property, documents, onDocumentUploaded }: 
 
   const specs = property.specifications || property.specs || {}
   const internal = property.internal || {}
-  const media: Array<{ id: string; url: string; media_type: string; is_cover: boolean; order_index: number }> =
-    property.media || []
-
-  // Sort media: cover first, then by order_index
-  const sortedMedia = [...media].sort((a, b) => {
-    if (a.is_cover && !b.is_cover) return -1
-    if (!a.is_cover && b.is_cover) return 1
-    return (a.order_index || 0) - (b.order_index || 0)
-  })
+  const media: PropertyMedia[] = (property.media || []).map((m: any) => ({
+    id: m.id,
+    property_id: property.id,
+    url: m.url,
+    media_type: m.media_type || 'image',
+    order_index: m.order_index ?? 0,
+    is_cover: m.is_cover ?? false,
+  }))
 
   const featuresList = specs.features || []
   const conditionLabels: Record<string, string> = {
@@ -174,7 +174,17 @@ export function ProcessPropertyTab({ property, documents, onDocumentUploaded }: 
                     <StatusBadge status={property.status} type="property" showDot={false} />
                   </div>
                   {property.description && (
-                    <DisplayField label="Descrição" value={property.description} fullWidth />
+                    typeof property.description === 'string' && property.description.startsWith('<') ? (
+                      <div className="col-span-full rounded-xl border px-4 py-3">
+                        <p className="text-xs text-muted-foreground mb-1">Descrição</p>
+                        <div
+                          className="text-sm prose prose-sm max-w-none [&_p]:my-0.5 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0"
+                          dangerouslySetInnerHTML={{ __html: property.description }}
+                        />
+                      </div>
+                    ) : (
+                      <DisplayField label="Descrição" value={property.description} fullWidth />
+                    )
                   )}
                 </div>
               </TabsContent>
@@ -259,33 +269,11 @@ export function ProcessPropertyTab({ property, documents, onDocumentUploaded }: 
 
           {/* Fotos Tab */}
           <TabsContent value="fotos" className="mt-4">
-            {sortedMedia.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Nenhuma foto carregada</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {sortedMedia.map((m) => (
-                  <a
-                    key={m.id}
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative aspect-[4/3] rounded-xl overflow-hidden border group"
-                  >
-                    <img
-                      src={m.url}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                    />
-                    {m.is_cover && (
-                      <Badge className="absolute top-2 left-2 text-[10px]">Capa</Badge>
-                    )}
-                  </a>
-                ))}
-              </div>
-            )}
+            <PropertyMediaGallery
+              propertyId={property.id}
+              media={media}
+              onMediaChange={() => onDocumentUploaded?.()}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

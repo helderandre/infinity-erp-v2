@@ -8,7 +8,7 @@ export const subtaskSchema = z
     description: z.string().optional(),
     is_mandatory: z.boolean().default(true),
     order_index: z.number().int().min(0),
-    type: z.enum(['upload', 'checklist', 'email', 'generate_doc'], {
+    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field'], {
       message: 'Tipo de subtarefa inválido',
     }),
     // Prazo, responsável, prioridade
@@ -42,6 +42,67 @@ export const subtaskSchema = z
             doc_library_id: z.string().optional(),
           })
           .optional(),
+        // Form config (type === 'form')
+        form_template_id: z.string().optional(),
+        form_title: z.string().optional(),
+        sections: z.array(z.object({
+          title: z.string().min(1),
+          description: z.string().optional(),
+          order_index: z.number().int().min(0),
+          fields: z.array(z.object({
+            field_name: z.string().min(1),
+            label: z.string().min(1),
+            field_type: z.enum([
+              'text', 'textarea', 'rich_text', 'number', 'currency', 'percentage',
+              'select', 'multiselect', 'checkbox', 'date', 'email', 'phone',
+              'address_map', 'media_upload',
+            ]),
+            target_entity: z.enum([
+              'property', 'property_specs', 'property_internal',
+              'owner', 'property_owner',
+            ]),
+            required: z.boolean().optional(),
+            help_text: z.string().optional(),
+            placeholder: z.string().optional(),
+            options: z.array(z.object({
+              value: z.string(),
+              label: z.string(),
+            })).optional(),
+            options_from_constant: z.string().optional(),
+            min: z.number().optional(),
+            max: z.number().optional(),
+            width: z.enum(['full', 'half', 'third']).optional(),
+            order_index: z.number().int().min(0),
+          })).min(1),
+        })).optional(),
+        // Field config (type === 'field')
+        field: z.object({
+          field_name: z.string().min(1),
+          label: z.string().min(1),
+          field_type: z.enum([
+            'text', 'textarea', 'number', 'currency', 'percentage',
+            'select', 'multiselect', 'checkbox', 'date', 'email', 'phone',
+            'address_map', 'media_upload',
+          ]),
+          target_entity: z.enum([
+            'property', 'property_specs', 'property_internal',
+            'owner', 'property_owner',
+          ]),
+          required: z.boolean().optional(),
+          help_text: z.string().optional(),
+          placeholder: z.string().optional(),
+          options: z.array(z.object({
+            value: z.string(),
+            label: z.string(),
+          })).optional(),
+          options_from_constant: z.string().optional(),
+          min: z.number().optional(),
+          max: z.number().optional(),
+          width: z.enum(['full', 'half', 'third']).optional(),
+          order_index: z.number().int().min(0),
+        }).optional(),
+        show_current_value: z.boolean().optional(),
+        auto_complete_on_save: z.boolean().optional(),
       })
       .default({}),
   })
@@ -57,6 +118,20 @@ export const subtaskSchema = z
       if (subtask.type === 'email') return !!subtask.config?.email_library_id
       // generate_doc: doc_library_id obrigatório
       if (subtask.type === 'generate_doc') return !!subtask.config?.doc_library_id
+      // Form: precisa de form_template_id OU sections com pelo menos 1 campo
+      // Nota: aceita form_template_id vazio (pending selection) ou sections vazias (config em progresso)
+      if (subtask.type === 'form') {
+        if (subtask.config?.form_template_id !== undefined) return true
+        const sections = subtask.config?.sections
+        if (!sections || sections.length === 0) return true // permitir guardar sem config (será configurado depois)
+        return sections.every(s => s.fields.length > 0)
+      }
+      // Field: precisa de campo com field_name e target_entity (ou vazio — será configurado depois)
+      if (subtask.type === 'field') {
+        const field = subtask.config?.field
+        if (!field) return true // permitir guardar sem config (será configurado depois)
+        return !!field.field_name && !!field.target_entity && !!field.field_type
+      }
       return true
     },
     { message: 'Configuração inválida para o tipo de subtarefa', path: ['config'] }

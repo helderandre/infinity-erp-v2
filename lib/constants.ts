@@ -558,6 +558,8 @@ export const SUBTASK_TYPES = [
   { type: 'checklist' as const, label: 'Checklist (Manual)', icon: 'CheckSquare', color: 'text-slate-500' },
   { type: 'email' as const, label: 'Envio de Email', icon: 'Mail', color: 'text-amber-500' },
   { type: 'generate_doc' as const, label: 'Gerar Documento', icon: 'FileText', color: 'text-purple-500' },
+  { type: 'form' as const, label: 'Formulário (multi-campo)', icon: 'ClipboardList', color: 'text-teal-500' },
+  { type: 'field' as const, label: 'Campo Único (inline)', icon: 'TextCursorInput', color: 'text-cyan-500' },
 ] as const
 
 export const SUBTASK_TYPE_LABELS: Record<string, string> = {
@@ -565,9 +567,10 @@ export const SUBTASK_TYPE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   email: 'Email',
   generate_doc: 'Gerar Doc',
+  form: 'Formulário',
+  field: 'Campo',
   // Legacy check_type mappings
   manual: 'Checklist',
-  field: 'Campo',
   document: 'Documento',
 }
 
@@ -576,6 +579,8 @@ export const SUBTASK_TYPE_ICONS: Record<string, string> = {
   checklist: 'CheckSquare',
   email: 'Mail',
   generate_doc: 'FileText',
+  form: 'ClipboardList',
+  field: 'TextCursorInput',
 }
 
 // Labels de Owner Scope para subtarefas (PT-PT)

@@ -71,8 +71,31 @@ export async function POST(request: Request) {
     // 1. Validar payload
     const parsed = templateSchema.safeParse(body)
     if (!parsed.success) {
+      // Debug: mostrar detalhes por subtarefa
+      const debugInfo: { stage: string; task: string; subtask: string; type: string; config: unknown; errors: string[] }[] = []
+      if (body.stages) {
+        for (const stage of body.stages) {
+          for (const task of stage.tasks || []) {
+            for (const st of task.subtasks || []) {
+              const { subtaskSchema } = await import('@/lib/validations/template')
+              const stResult = subtaskSchema.safeParse(st)
+              if (!stResult.success) {
+                debugInfo.push({
+                  stage: stage.name,
+                  task: task.title,
+                  subtask: st.title,
+                  type: st.type,
+                  config: st.config,
+                  errors: stResult.error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`),
+                })
+              }
+            }
+          }
+        }
+      }
+      console.error('[templates/POST] Validation failed. Subtask debug:', JSON.stringify(debugInfo, null, 2))
       return NextResponse.json(
-        { error: 'Dados inválidos', details: parsed.error.flatten() },
+        { error: 'Dados inválidos', details: parsed.error.flatten(), debug: debugInfo },
         { status: 400 }
       )
     }

@@ -14,7 +14,9 @@ import { DocumentFolderCard } from '@/components/processes/document-folder-card'
 import { DocumentFileCard } from '@/components/processes/document-file-card'
 import { DocumentFileRow } from '@/components/processes/document-file-row'
 import { DocumentPreviewDialog } from '@/components/processes/document-preview-dialog'
+import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import type { DocumentFile, DocumentFolder } from '@/types/process'
+import type { PropertyMedia } from '@/types/property'
 
 interface ProcessDocumentsManagerProps {
   processId: string
@@ -26,7 +28,7 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
   const [searchQuery, setSearchQuery] = useState('')
   const [previewFile, setPreviewFile] = useState<DocumentFile | null>(null)
 
-  const { folders, stats, isLoading } = useProcessDocuments({
+  const { folders, stats, isLoading, refetch } = useProcessDocuments({
     processId,
     search: searchQuery,
   })
@@ -78,8 +80,8 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
             />
           </div>
 
-          {/* View toggle (only inside folder) */}
-          {currentFolder && (
+          {/* View toggle (only inside folder, not media) */}
+          {currentFolder && currentFolder.type !== 'media' && (
             <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'list')} variant="outline" size="sm">
               <ToggleGroupItem value="grid" aria-label="Vista Grelha">
                 <LayoutGrid className="h-4 w-4" />
@@ -115,11 +117,24 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
       {/* Content: Inside folder */}
       {currentFolder && activeFolderData && (
         <>
-          {activeFolderData.documents.length === 0 ? (
+          {activeFolderData.type === 'media' ? (
+            <PropertyMediaGallery
+              propertyId={activeFolderData.entity_id}
+              media={activeFolderData.documents.map((d): PropertyMedia => ({
+                id: d.id,
+                property_id: activeFolderData.entity_id,
+                url: d.file_url,
+                media_type: 'image',
+                order_index: 0,
+                is_cover: d.doc_type?.name === 'Capa',
+              }))}
+              onMediaChange={refetch}
+            />
+          ) : activeFolderData.documents.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="Nenhum documento encontrado"
-              description="Esta pasta ainda não tem documentos."
+              title={'Nenhum documento encontrado'}
+              description={'Esta pasta ainda não tem documentos.'}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

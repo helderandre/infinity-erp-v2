@@ -160,19 +160,12 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
             dependency_type: st.dependency_type || 'none',
             dependency_subtask_id: st.dependency_subtask_id || null,
             dependency_task_id: st.dependency_task_id || null,
-            config: {
-              doc_type_id: st.config?.doc_type_id,
-              email_library_id: st.config?.email_library_id,
-              doc_library_id: st.config?.doc_library_id,
-              // Preservar campos de owner config
-              owner_scope: st.config?.owner_scope,
-              person_type_filter: st.config?.person_type_filter,
-              has_person_type_variants: st.config?.has_person_type_variants,
-              singular_config: st.config?.singular_config,
-              coletiva_config: st.config?.coletiva_config,
-              // Preservar alertas
-              alerts: st.config?.alerts,
-            },
+            config: (() => {
+              // Copiar todas as propriedades do config excepto 'type' (já extraído acima)
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { type: _type, ...rest } = (st.config || {}) as Record<string, unknown>
+              return rest
+            })(),
           })),
         }
       }

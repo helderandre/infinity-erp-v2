@@ -34,12 +34,15 @@ import {
   CheckSquare,
   Mail,
   Info,
+  ClipboardList,
+  TextCursorInput,
 } from 'lucide-react'
 import {
   SUBTASK_TYPE_LABELS,
   TASK_PRIORITY_LABELS,
 } from '@/lib/constants'
 import { AlertConfigEditor } from './alert-config-editor'
+import { FormFieldPicker } from './form-field-picker'
 import { cn } from '@/lib/utils'
 import type { SubtaskData } from '@/types/subtask'
 import type { AlertsConfig } from '@/types/alert'
@@ -67,6 +70,8 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   checklist: CheckSquare,
   email: Mail,
   generate_doc: FileText,
+  form: ClipboardList,
+  field: TextCursorInput,
 }
 
 // ─── Dependency types (passed from SubtaskEditor) ────────
@@ -107,6 +112,87 @@ interface SubtaskConfigDialogProps {
   taskDependencyOptions?: SubtaskDependencyOption[]
   allSubtasksContext?: SubtaskContextItem[]
   currentTaskId?: string
+}
+
+// ─── Form Template Selector ──────────────────────────────
+
+function FormTemplateSelector({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (id: string) => void
+}) {
+  const [templates, setTemplates] = useState<
+    { id: string; name: string; category: string | null; description: string | null }[]
+  >([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/form-templates')
+        if (res.ok) setTemplates(await res.json())
+      } catch {
+        // silenciar
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">A carregar templates...</p>
+  }
+
+  if (templates.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed p-3 text-center">
+        <p className="text-sm text-muted-foreground">Nenhum template de formulário disponível.</p>
+        <p className="text-xs text-muted-foreground mt-1">Crie templates em Definições → Templates de Formulário</p>
+      </div>
+    )
+  }
+
+  // Agrupar por categoria
+  const grouped = templates.reduce((acc, t) => {
+    const cat = t.category || 'Sem Categoria'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(t)
+    return acc
+  }, {} as Record<string, typeof templates>)
+
+  return (
+    <div className="space-y-2">
+      <Label>Template de Formulário</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Seleccionar template..." />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(grouped).map(([category, items]) => (
+            <SelectGroup key={category}>
+              <SelectLabel>{category}</SelectLabel>
+              {items.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                  {t.description && (
+                    <span className="text-muted-foreground ml-2 text-xs">— {t.description}</span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+      {value && (
+        <p className="text-xs text-muted-foreground">
+          As secções e campos serão carregados do template seleccionado ao executar a subtarefa.
+        </p>
+      )}
+    </div>
+  )
 }
 
 // ─── Component ───────────────────────────────────────────
@@ -420,7 +506,7 @@ function SectionDados({
       </div>
 
       {/* Type-specific config (only when NOT using person type variants) */}
-      {local.type !== 'checklist' && !local.config.has_person_type_variants && (
+      {['upload', 'email', 'generate_doc'].includes(local.type) && !local.config.has_person_type_variants && (
         <div>
           <h3 className="text-sm font-medium mb-3">
             {local.type === 'upload' && 'Tipo de Documento'}
@@ -484,6 +570,68 @@ function SectionDados({
         <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-start gap-2">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>Subtarefas do tipo <strong>Checklist</strong> não requerem configuração adicional — basta o título.</span>
+        </div>
+      )}
+
+      {/* Form subtask config */}
+      {local.type === 'form' && (
+        <div className="space-y-3">
+          <Label>Título do Formulário (opcional)</Label>
+          <Input
+            value={local.config.form_title || ''}
+            onChange={(e) => updateConfig({ form_title: e.target.value })}
+            placeholder="Ex: Completar Dados do Imóvel"
+          />
+          <Separator />
+
+          {/* Toggle: Template da DB vs Campos inline */}
+          <div className="flex items-center justify-between">
+            <Label>Usar template de formulário</Label>
+            <Switch
+              checked={!!local.config.form_template_id}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  // Activar modo template — manter sections como backup
+                  updateConfig({ form_template_id: '' })
+                } else {
+                  // Voltar a campos inline — remover referência ao template
+                  updateConfig({ form_template_id: undefined })
+                }
+              }}
+            />
+          </div>
+
+          {local.config.form_template_id !== undefined ? (
+            <FormTemplateSelector
+              value={local.config.form_template_id || ''}
+              onChange={(id) => updateConfig({ form_template_id: id })}
+            />
+          ) : (
+            <>
+              <Label>Campos do Formulário</Label>
+              <FormFieldPicker
+                mode="form"
+                sections={local.config.sections || []}
+                onSectionsChange={(sections) => updateConfig({ sections })}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Field subtask config */}
+      {local.type === 'field' && (
+        <div className="space-y-3">
+          <Label>Campo a Vincular</Label>
+          <FormFieldPicker
+            mode="field"
+            field={local.config.field || null}
+            onFieldChange={(field) => updateConfig({ field: field || undefined })}
+            showCurrentValue={local.config.show_current_value ?? true}
+            onShowCurrentValueChange={(v) => updateConfig({ show_current_value: v })}
+            autoCompleteOnSave={local.config.auto_complete_on_save ?? true}
+            onAutoCompleteOnSaveChange={(v) => updateConfig({ auto_complete_on_save: v })}
+          />
         </div>
       )}
     </div>

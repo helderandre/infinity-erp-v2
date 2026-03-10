@@ -41,6 +41,8 @@ import {
   Clock,
   Lock,
   Bell,
+  ClipboardList,
+  TextCursorInput,
 } from 'lucide-react'
 import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -56,6 +58,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   CheckSquare,
   Mail,
   FileText,
+  ClipboardList,
+  TextCursorInput,
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -63,6 +67,8 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   checklist: CheckSquare,
   email: Mail,
   generate_doc: FileText,
+  form: ClipboardList,
+  field: TextCursorInput,
 }
 
 interface RoleOption {
@@ -137,6 +143,16 @@ function SortableSubtaskRow({
   const alerts = subtask.config.alerts
   if (alerts && Object.values(alerts).some((e) => e?.enabled)) {
     indicators.push({ icon: Bell, label: 'Alertas', color: 'text-amber-500' })
+  }
+  // Form/field config indicators
+  if (subtask.type === 'form' && subtask.config.sections?.length) {
+    const fieldCount = subtask.config.sections.reduce((sum, s) => sum + (s.fields?.length ?? 0), 0)
+    if (fieldCount > 0) {
+      indicators.push({ icon: ClipboardList, label: `${fieldCount} campos`, color: 'text-teal-500' })
+    }
+  }
+  if (subtask.type === 'field' && subtask.config.field) {
+    indicators.push({ icon: TextCursorInput, label: subtask.config.field.label, color: 'text-cyan-500' })
   }
 
   return (
@@ -357,7 +373,9 @@ export function SubtaskEditor({
       (s.priority && s.priority !== 'normal') ||
       (s.config.owner_scope && s.config.owner_scope !== 'none') ||
       (s.dependency_type && s.dependency_type !== 'none') ||
-      (s.config.alerts && Object.values(s.config.alerts).some((e) => e?.enabled))
+      (s.config.alerts && Object.values(s.config.alerts).some((e) => e?.enabled)) ||
+      (s.type === 'form' && s.config.sections?.length) ||
+      (s.type === 'field' && s.config.field)
     )
   }
 

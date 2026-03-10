@@ -115,6 +115,8 @@ export async function PUT(
       subtaskType === 'email' ||
       subtaskType === 'generate_doc' ||
       subtaskType === 'upload' ||
+      subtaskType === 'form' ||
+      subtaskType === 'field' ||
       checkType === 'manual'
 
     if (!isAllowedType) {
@@ -253,6 +255,10 @@ export async function PUT(
           await logTaskActivity(supabase, taskId, user.id, 'doc_generated', `${userName} gerou documento${suffix}`, metadata)
         } else if (effectiveType === 'upload') {
           await logTaskActivity(supabase, taskId, user.id, 'upload', `${userName} carregou documento${suffix}`, metadata)
+        } else if (effectiveType === 'form') {
+          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} preencheu formulário "${subtaskTitle}"${suffix}`, metadata)
+        } else if (effectiveType === 'field') {
+          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} preencheu campo "${subtaskTitle}"${suffix}`, metadata)
         } else {
           await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} concluiu item da checklist${suffix}`, metadata)
         }

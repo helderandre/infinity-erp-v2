@@ -176,7 +176,7 @@ export async function GET(
             contract_regime, contract_term, contract_expiry,
             imi_value, condominium_fee
           ),
-          dev_property_media(url, is_cover, order_index)
+          dev_property_media(id, url, media_type, is_cover, order_index)
         ),
         requested_by_user:dev_users!proc_instances_requested_by_fkey(
           id,
@@ -384,6 +384,7 @@ export async function GET(
       } else {
         prop.cover_url = null
       }
+      prop.media = media || []
       delete prop.dev_property_media
 
       // Flatten specs (1:1)

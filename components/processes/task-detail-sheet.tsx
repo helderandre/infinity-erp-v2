@@ -160,6 +160,7 @@ export function TaskDetailSheet({
     if (!open) return
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.target instanceof HTMLElement && e.target.closest('[contenteditable="true"]')) return
       const tabs: SheetTab[] = ['task', 'activity', 'comments', 'documents']
       const idx = parseInt(e.key) - 1
       if (idx >= 0 && idx < tabs.length) {
