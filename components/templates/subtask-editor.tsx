@@ -22,27 +22,12 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import {
   GripVertical,
   Trash2,
@@ -51,16 +36,20 @@ import {
   CheckSquare,
   Mail,
   FileText,
-  Users,
-  Lock,
-  ChevronRight,
   Settings2,
+  Users,
+  Clock,
+  Lock,
+  Bell,
 } from 'lucide-react'
-import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { SubtaskData } from '@/types/subtask'
-import type { AlertsConfig } from '@/types/alert'
-import { AlertConfigEditor } from './alert-config-editor'
+import {
+  SubtaskConfigDialog,
+  type SubtaskDependencyOption,
+  type SubtaskContextItem,
+} from './subtask-config-dialog'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Upload,
@@ -69,17 +58,11 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FileText,
 }
 
-// Contexto de dependências passado pelo TemplateTaskSheet
-export interface SubtaskDependencyOption {
-  stageLabel: string
-  taskId: string
-  taskTitle: string
-}
-export interface SubtaskContextItem {
-  stageLabel: string
-  taskTitle: string
-  taskId: string
-  subtask: SubtaskData
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  upload: Upload,
+  checklist: CheckSquare,
+  email: Mail,
+  generate_doc: FileText,
 }
 
 interface RoleOption {
@@ -106,117 +89,22 @@ function getPlaceholder(type: SubtaskData['type']): string {
   return map[type] || 'Título da subtarefa'
 }
 
-// Helper para renderizar selects de variantes (singular/coletiva)
-function renderVariantSelect(
-  subtask: SubtaskData,
-  variant: 'singular' | 'coletiva',
-  docTypes: { id: string; name: string; category?: string }[],
-  docTypesByCategory: Record<string, typeof docTypes>,
-  emailTemplates: { id: string; name: string; subject: string }[],
-  docTemplates: { id: string; name: string }[],
-  onUpdate: (id: string, data: Partial<SubtaskData>) => void
-) {
-  const variantKey = variant === 'singular' ? 'singular_config' : 'coletiva_config'
-  const currentConfig = subtask.config[variantKey] || {}
+// ─── Compact Sortable Row ────────────────────────────────
 
-  const updateVariant = (field: string, value: string) => {
-    onUpdate(subtask.id, {
-      config: {
-        ...subtask.config,
-        [variantKey]: { ...currentConfig, [field]: value },
-      },
-    })
-  }
-
-  if (subtask.type === 'upload') {
-    return (
-      <Select
-        value={currentConfig.doc_type_id || ''}
-        onValueChange={(v) => updateVariant('doc_type_id', v)}
-      >
-        <SelectTrigger className="h-7 text-xs">
-          <SelectValue placeholder="Tipo de documento..." />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(docTypesByCategory).map(([category, types]) => (
-            <SelectGroup key={category}>
-              <SelectLabel>{category}</SelectLabel>
-              {types.map((dt) => (
-                <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
-              ))}
-            </SelectGroup>
-          ))}
-        </SelectContent>
-      </Select>
-    )
-  }
-
-  if (subtask.type === 'email') {
-    return (
-      <Select
-        value={currentConfig.email_library_id || ''}
-        onValueChange={(v) => updateVariant('email_library_id', v)}
-      >
-        <SelectTrigger className="h-7 text-xs">
-          <SelectValue placeholder="Template de email..." />
-        </SelectTrigger>
-        <SelectContent>
-          {emailTemplates.map((et) => (
-            <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    )
-  }
-
-  if (subtask.type === 'generate_doc') {
-    return (
-      <Select
-        value={currentConfig.doc_library_id || ''}
-        onValueChange={(v) => updateVariant('doc_library_id', v)}
-      >
-        <SelectTrigger className="h-7 text-xs">
-          <SelectValue placeholder="Template de documento..." />
-        </SelectTrigger>
-        <SelectContent>
-          {docTemplates.map((dt) => (
-            <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    )
-  }
-
-  return null
-}
-
-// Sortable row component
 function SortableSubtaskRow({
   subtask,
-  docTypes,
-  docTypesByCategory,
-  emailTemplates,
-  docTemplates,
-  onUpdate,
+  onUpdateTitle,
+  onToggleMandatory,
   onRemove,
-  sameTaskSubtasks,
-  taskDependencyOptions,
-  allSubtasksContext,
-  currentTaskId,
-  roles,
+  onOpenConfig,
+  hasConfig,
 }: {
   subtask: SubtaskData
-  docTypes: { id: string; name: string; category?: string }[]
-  docTypesByCategory: Record<string, typeof docTypes>
-  emailTemplates: { id: string; name: string; subject: string }[]
-  docTemplates: { id: string; name: string }[]
-  onUpdate: (id: string, data: Partial<SubtaskData>) => void
+  onUpdateTitle: (id: string, title: string) => void
+  onToggleMandatory: (id: string, mandatory: boolean) => void
   onRemove: (id: string) => void
-  sameTaskSubtasks: SubtaskData[]
-  taskDependencyOptions?: SubtaskDependencyOption[]
-  allSubtasksContext?: SubtaskContextItem[]
-  currentTaskId?: string
-  roles?: RoleOption[]
+  onOpenConfig: (subtask: SubtaskData) => void
+  hasConfig: boolean
 }) {
   const {
     attributes,
@@ -233,467 +121,106 @@ function SortableSubtaskRow({
     opacity: isDragging ? 0.4 : 1,
   }
 
+  const TypeIcon = TYPE_ICONS[subtask.type] || FileText
+
+  // Indicators for configured features
+  const indicators: { icon: React.ElementType; label: string; color: string }[] = []
+  if (subtask.sla_days || subtask.assigned_role || (subtask.priority && subtask.priority !== 'normal')) {
+    indicators.push({ icon: Clock, label: 'Prazos', color: 'text-blue-500' })
+  }
+  if (subtask.config.owner_scope && subtask.config.owner_scope !== 'none') {
+    indicators.push({ icon: Users, label: 'Proprietários', color: 'text-violet-500' })
+  }
+  if (subtask.dependency_type && subtask.dependency_type !== 'none') {
+    indicators.push({ icon: Lock, label: 'Dependência', color: 'text-orange-500' })
+  }
+  const alerts = subtask.config.alerts
+  if (alerts && Object.values(alerts).some((e) => e?.enabled)) {
+    indicators.push({ icon: Bell, label: 'Alertas', color: 'text-amber-500' })
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-start gap-2 rounded-md border bg-card p-3"
+      className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 group"
     >
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
-        className="mt-2 cursor-grab active:cursor-grabbing touch-none shrink-0"
+        className="cursor-grab active:cursor-grabbing touch-none shrink-0 opacity-40 group-hover:opacity-100 transition-opacity"
       >
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
 
-      <div className="flex-1 min-w-0 space-y-2">
-        {/* Badge de tipo + Input de título */}
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {SUBTASK_TYPE_LABELS[subtask.type]}
-          </Badge>
-          <Input
-            value={subtask.title}
-            onChange={(e) => onUpdate(subtask.id, { title: e.target.value })}
-            placeholder={getPlaceholder(subtask.type)}
-            className="h-8 text-sm"
-          />
-        </div>
-
-        {/* Config condicional por tipo (escondida quando has_person_type_variants activo) */}
-        {subtask.type === 'upload' && !subtask.config.has_person_type_variants && (
-          <Select
-            value={subtask.config.doc_type_id || ''}
-            onValueChange={(v) =>
-              onUpdate(subtask.id, { config: { ...subtask.config, doc_type_id: v } })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Seleccionar tipo de documento..." />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(docTypesByCategory).map(([category, types]) => (
-                <SelectGroup key={category}>
-                  <SelectLabel>{category}</SelectLabel>
-                  {types.map((dt) => (
-                    <SelectItem key={dt.id} value={dt.id}>
-                      {dt.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {subtask.type === 'email' && !subtask.config.has_person_type_variants && (
-          <Select
-            value={subtask.config.email_library_id || ''}
-            onValueChange={(v) =>
-              onUpdate(subtask.id, { config: { ...subtask.config, email_library_id: v } })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Seleccionar template de email..." />
-            </SelectTrigger>
-            <SelectContent>
-              {emailTemplates.map((et) => (
-                <SelectItem key={et.id} value={et.id}>
-                  {et.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {subtask.type === 'generate_doc' && !subtask.config.has_person_type_variants && (
-          <Select
-            value={subtask.config.doc_library_id || ''}
-            onValueChange={(v) =>
-              onUpdate(subtask.id, { config: { ...subtask.config, doc_library_id: v } })
-            }
-          >
-            <SelectTrigger className="h-8 w-full text-xs [&>span]:truncate">
-              <SelectValue placeholder="Seleccionar template de documento..." />
-            </SelectTrigger>
-            <SelectContent>
-              {docTemplates.map((dt) => (
-                <SelectItem key={dt.id} value={dt.id}>
-                  {dt.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* checklist: não precisa de config extra — só o título */}
-
-        {/* Opções avançadas (prazo, responsável, prioridade) */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-            <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
-            <Settings2 className="h-3 w-3" />
-            <span>Opções avançadas</span>
-            {(subtask.sla_days || subtask.assigned_role || (subtask.priority && subtask.priority !== 'normal')) && (
-              <Badge variant="secondary" className="text-[9px] h-4 px-1 ml-1">
-                {[
-                  subtask.sla_days && `${subtask.sla_days}d`,
-                  subtask.assigned_role,
-                  subtask.priority && subtask.priority !== 'normal' && TASK_PRIORITY_LABELS[subtask.priority],
-                ].filter(Boolean).join(' · ')}
-              </Badge>
-            )}
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2">
-            <div className="grid grid-cols-3 gap-2">
-              {/* Prazo (dias) */}
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Prazo (dias)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  placeholder="Ex: 5"
-                  value={subtask.sla_days || ''}
-                  onChange={(e) => {
-                    const val = e.target.value ? parseInt(e.target.value, 10) : undefined
-                    onUpdate(subtask.id, { sla_days: val && val > 0 ? val : undefined })
-                  }}
-                  className="h-7 text-xs"
-                />
-              </div>
-
-              {/* Responsável (role) */}
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Responsável</Label>
-                <Select
-                  value={subtask.assigned_role || '_none'}
-                  onValueChange={(v) => onUpdate(subtask.id, { assigned_role: v === '_none' ? undefined : v })}
-                >
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">(Sem atribuição)</SelectItem>
-                    {(roles || []).map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        {role.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Prioridade */}
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Prioridade</Label>
-                <Select
-                  value={subtask.priority || 'normal'}
-                  onValueChange={(v) => onUpdate(subtask.id, { priority: v as SubtaskData['priority'] })}
-                >
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Alertas */}
-            <AlertConfigEditor
-              alerts={(subtask.config as Record<string, unknown>).alerts as AlertsConfig | undefined}
-              onChange={(alerts) => onUpdate(subtask.id, {
-                config: { ...subtask.config, alerts },
-              })}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Bloqueada até (dependência) */}
-        {(sameTaskSubtasks.length > 1 || (taskDependencyOptions && taskDependencyOptions.length > 0)) && (() => {
-          const hasDep = subtask.dependency_type && subtask.dependency_type !== 'none'
-          // Subtarefas da mesma tarefa (excluindo a própria)
-          const siblingSubtasks = sameTaskSubtasks.filter((s) => s.id !== subtask.id && s.title)
-          // Subtarefas de outras tarefas
-          const otherSubtasks = (allSubtasksContext || []).filter(
-            (ctx) => ctx.taskId !== currentTaskId && ctx.subtask.title
-          )
-          const hasOptions = siblingSubtasks.length > 0 || otherSubtasks.length > 0 || (taskDependencyOptions && taskDependencyOptions.length > 0)
-
-          if (!hasOptions) return null
-
-          // Compute current value for the select
-          const currentDepValue = (() => {
-            if (!hasDep) return '_none'
-            if (subtask.dependency_type === 'subtask' && subtask.dependency_subtask_id) {
-              return `st:${subtask.dependency_subtask_id}`
-            }
-            if (subtask.dependency_type === 'task' && subtask.dependency_task_id) {
-              return `tk:${subtask.dependency_task_id}`
-            }
-            return '_none'
-          })()
-
-          return (
-            <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <Lock className="h-3 w-3 text-muted-foreground" />
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Bloqueada até</Label>
-              </div>
-              <Select
-                value={currentDepValue}
-                onValueChange={(v) => {
-                  if (v === '_none') {
-                    onUpdate(subtask.id, {
-                      dependency_type: 'none',
-                      dependency_subtask_id: null,
-                      dependency_task_id: null,
-                    })
-                  } else if (v.startsWith('st:')) {
-                    onUpdate(subtask.id, {
-                      dependency_type: 'subtask',
-                      dependency_subtask_id: v.slice(3),
-                      dependency_task_id: null,
-                    })
-                  } else if (v.startsWith('tk:')) {
-                    onUpdate(subtask.id, {
-                      dependency_type: 'task',
-                      dependency_subtask_id: null,
-                      dependency_task_id: v.slice(3),
-                    })
-                  }
-                }}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="Sem bloqueio" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">(Sem bloqueio)</SelectItem>
-                  {siblingSubtasks.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Subtarefas desta tarefa</SelectLabel>
-                      {siblingSubtasks.map((s) => (
-                        <SelectItem key={`st:${s.id}`} value={`st:${s.id}`}>
-                          {s.title}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {otherSubtasks.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Subtarefas de outras tarefas</SelectLabel>
-                      {otherSubtasks.map((ctx) => (
-                        <SelectItem key={`st:${ctx.subtask.id}`} value={`st:${ctx.subtask.id}`}>
-                          [{ctx.stageLabel}] {ctx.taskTitle} → {ctx.subtask.title}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {taskDependencyOptions && taskDependencyOptions.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Tarefas (tarefa inteira)</SelectLabel>
-                      {taskDependencyOptions.map((t) => (
-                        <SelectItem key={`tk:${t.taskId}`} value={`tk:${t.taskId}`}>
-                          [{t.stageLabel}] {t.taskTitle}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
-              {hasDep && (
-                <Badge variant="outline" className="text-[10px] h-5 bg-orange-50 text-orange-700 border-orange-200">
-                  <Lock className="h-3 w-3 mr-1" />
-                  Dependência
-                </Badge>
-              )}
-            </div>
-          )
-        })()}
-
-        {/* Secção de configuração por proprietário */}
-        {(() => {
-          const ownerScope = subtask.config.owner_scope
-          const isMultiplied = ownerScope && ownerScope !== 'none'
-
-          return (
-            <div className="space-y-2 pt-1">
-              {/* Badges visuais (quando multiplicação activa) */}
-              {isMultiplied && (
-                <div className="flex gap-1 flex-wrap">
-                  <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-700 border-blue-200">
-                    <Users className="h-3 w-3 mr-1" />
-                    {ownerScope === 'main_contact_only' ? 'Contacto Principal' : 'Por Proprietário'}
-                  </Badge>
-                  {subtask.config.person_type_filter && subtask.config.person_type_filter !== 'all' && (
-                    <Badge variant="outline" className="text-[10px] h-5">
-                      {subtask.config.person_type_filter === 'singular' ? 'Singular' : 'Colectiva'}
-                    </Badge>
-                  )}
-                  {subtask.config.has_person_type_variants && (
-                    <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 text-amber-700 border-amber-200">
-                      S/C
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              {/* Toggle: Repetir por proprietário (mutuamente exclusivo com "Apenas contacto principal") */}
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={ownerScope === 'all_owners'}
-                  onCheckedChange={(checked) => {
-                    onUpdate(subtask.id, {
-                      config: {
-                        ...subtask.config,
-                        owner_scope: checked ? 'all_owners' : 'none',
-                        person_type_filter: checked ? (subtask.config.person_type_filter || 'all') : undefined,
-                        ...(!checked ? {
-                          has_person_type_variants: undefined,
-                          singular_config: undefined,
-                          coletiva_config: undefined,
-                        } : {}),
-                      },
-                    })
-                  }}
-                  className="scale-75"
-                />
-                <Label className="text-xs text-muted-foreground cursor-pointer">
-                  Repetir por proprietário
-                </Label>
-              </div>
-
-              {/* Toggle: Apenas contacto principal (mutuamente exclusivo com "Repetir por proprietário") */}
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={ownerScope === 'main_contact_only'}
-                  onCheckedChange={(checked) => {
-                    onUpdate(subtask.id, {
-                      config: {
-                        ...subtask.config,
-                        owner_scope: checked ? 'main_contact_only' : 'none',
-                        person_type_filter: checked ? (subtask.config.person_type_filter || 'all') : undefined,
-                        ...(!checked ? {
-                          has_person_type_variants: undefined,
-                          singular_config: undefined,
-                          coletiva_config: undefined,
-                        } : {}),
-                      },
-                    })
-                  }}
-                  className="scale-75"
-                />
-                <Label className="text-xs text-muted-foreground cursor-pointer">
-                  Apenas contacto principal
-                </Label>
-              </div>
-
-              {/* Toggle: Config diferente por tipo de pessoa (mesmo nível, só para tipos com config) */}
-              {subtask.type !== 'checklist' && isMultiplied && (
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={!!subtask.config.has_person_type_variants}
-                    onCheckedChange={(checked) =>
-                      onUpdate(subtask.id, {
-                        config: {
-                          ...subtask.config,
-                          has_person_type_variants: checked || undefined,
-                          singular_config: checked ? (subtask.config.singular_config || {}) : undefined,
-                          coletiva_config: checked ? (subtask.config.coletiva_config || {}) : undefined,
-                          ...(checked ? {
-                            doc_type_id: undefined,
-                            email_library_id: undefined,
-                            doc_library_id: undefined,
-                          } : {}),
-                        },
-                      })
-                    }
-                    className="scale-75"
-                  />
-                  <Label className="text-xs text-muted-foreground cursor-pointer">
-                    Configuração diferente por tipo de pessoa
-                  </Label>
-                </div>
-              )}
-
-              {/* Campos condicionais (visíveis quando um dos modos de proprietário está activo) */}
-              {isMultiplied && (
-                <div className="pl-4 border-l-2 border-muted space-y-2">
-                  {/* Select: Aplicar a que tipo de proprietário */}
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Aplicar a</Label>
-                    <Select
-                      value={subtask.config.person_type_filter || 'all'}
-                      onValueChange={(v) =>
-                        onUpdate(subtask.id, {
-                          config: { ...subtask.config, person_type_filter: v as any },
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-7 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os proprietários</SelectItem>
-                        <SelectItem value="singular">Apenas Pessoa Singular</SelectItem>
-                        <SelectItem value="coletiva">Apenas Pessoa Colectiva</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Variantes singular/colectiva */}
-                  {subtask.type !== 'checklist' && subtask.config.has_person_type_variants && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">
-                          Pessoa Singular
-                        </Label>
-                        {renderVariantSelect(subtask, 'singular', docTypes, docTypesByCategory, emailTemplates, docTemplates, onUpdate)}
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">
-                          Pessoa Colectiva
-                        </Label>
-                        {renderVariantSelect(subtask, 'coletiva', docTypes, docTypesByCategory, emailTemplates, docTemplates, onUpdate)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })()}
+      {/* Type icon + badge */}
+      <div className="shrink-0">
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 gap-1">
+          <TypeIcon className="h-3 w-3" />
+          {SUBTASK_TYPE_LABELS[subtask.type]}
+        </Badge>
       </div>
 
-      {/* Toggle obrigatória + botão eliminar */}
+      {/* Title input */}
+      <Input
+        value={subtask.title}
+        onChange={(e) => onUpdateTitle(subtask.id, e.target.value)}
+        placeholder={getPlaceholder(subtask.type)}
+        className="h-8 text-sm flex-1 min-w-0"
+      />
+
+      {/* Feature indicators */}
+      {indicators.length > 0 && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          {indicators.map((ind) => (
+            <ind.icon key={ind.label} className={cn('h-3.5 w-3.5', ind.color)} />
+          ))}
+        </div>
+      )}
+
+      {/* Mandatory toggle */}
       <div className="flex items-center gap-1 shrink-0">
         <Switch
           checked={subtask.is_mandatory}
-          onCheckedChange={(v) => onUpdate(subtask.id, { is_mandatory: v })}
-          className="scale-75"
+          onCheckedChange={(v) => onToggleMandatory(subtask.id, v)}
+          className="scale-[0.65]"
         />
-        <span className="text-[10px] text-muted-foreground w-8">
-          {subtask.is_mandatory ? 'Obrig.' : 'Opc.'}
+        <span className="text-[10px] text-muted-foreground w-6">
+          {subtask.is_mandatory ? 'Obr.' : 'Opc.'}
         </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive"
-          onClick={() => onRemove(subtask.id)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
       </div>
+
+      {/* Config button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          'h-7 w-7 shrink-0',
+          hasConfig
+            ? 'text-primary'
+            : 'text-muted-foreground opacity-60 group-hover:opacity-100'
+        )}
+        onClick={() => onOpenConfig(subtask)}
+        title="Configurações avançadas"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+      </Button>
+
+      {/* Delete */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-destructive shrink-0 opacity-60 group-hover:opacity-100"
+        onClick={() => onRemove(subtask.id)}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
     </div>
   )
 }
+
+// ─── Main SubtaskEditor ──────────────────────────────────
 
 export function SubtaskEditor({
   subtasks,
@@ -704,15 +231,15 @@ export function SubtaskEditor({
   roles,
 }: SubtaskEditorProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  // Lazy-load doc types and email templates
+  // Config dialog state
+  const [configSubtask, setConfigSubtask] = useState<SubtaskData | null>(null)
+  const [configOpen, setConfigOpen] = useState(false)
+
+  // Lazy-load data for subtask config
   const [docTypes, setDocTypes] = useState<{ id: string; name: string; category?: string }[]>([])
   const [emailTemplates, setEmailTemplates] = useState<{ id: string; name: string; subject: string }[]>([])
   const [docTemplates, setDocTemplates] = useState<{ id: string; name: string }[]>([])
@@ -772,11 +299,16 @@ export function SubtaskEditor({
     [subtasks, onChange]
   )
 
-  const handleUpdate = useCallback(
-    (id: string, data: Partial<SubtaskData>) => {
-      onChange(
-        subtasks.map((s) => (s.id === id ? { ...s, ...data } : s))
-      )
+  const handleUpdateTitle = useCallback(
+    (id: string, title: string) => {
+      onChange(subtasks.map((s) => (s.id === id ? { ...s, title } : s)))
+    },
+    [subtasks, onChange]
+  )
+
+  const handleToggleMandatory = useCallback(
+    (id: string, is_mandatory: boolean) => {
+      onChange(subtasks.map((s) => (s.id === id ? { ...s, is_mandatory } : s)))
     },
     [subtasks, onChange]
   )
@@ -793,21 +325,44 @@ export function SubtaskEditor({
   )
 
   const handleAddSubtask = (type: SubtaskData['type']) => {
-    onChange([
-      ...subtasks,
-      {
-        id: crypto.randomUUID(),
-        type,
-        title: '',
-        is_mandatory: true,
-        order_index: subtasks.length,
-        config: {},
-      },
-    ])
+    const newSubtask: SubtaskData = {
+      id: crypto.randomUUID(),
+      type,
+      title: '',
+      is_mandatory: true,
+      order_index: subtasks.length,
+      config: {},
+    }
+    onChange([...subtasks, newSubtask])
+    // Auto-open config for the new subtask
+    setConfigSubtask(newSubtask)
+    setConfigOpen(true)
+  }
+
+  const handleOpenConfig = (subtask: SubtaskData) => {
+    setConfigSubtask(subtask)
+    setConfigOpen(true)
+  }
+
+  const handleSaveConfig = (updatedSubtask: SubtaskData) => {
+    onChange(subtasks.map((s) => (s.id === updatedSubtask.id ? updatedSubtask : s)))
+    setConfigOpen(false)
+    setConfigSubtask(null)
+  }
+
+  const hasAdvancedConfig = (s: SubtaskData) => {
+    return !!(
+      s.sla_days ||
+      s.assigned_role ||
+      (s.priority && s.priority !== 'normal') ||
+      (s.config.owner_scope && s.config.owner_scope !== 'none') ||
+      (s.dependency_type && s.dependency_type !== 'none') ||
+      (s.config.alerts && Object.values(s.config.alerts).some((e) => e?.enabled))
+    )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {subtasks.length > 0 && (
         <DndContext
           sensors={sensors}
@@ -823,22 +378,22 @@ export function SubtaskEditor({
                 <SortableSubtaskRow
                   key={subtask.id}
                   subtask={subtask}
-                  docTypes={docTypes}
-                  docTypesByCategory={docTypesByCategory}
-                  emailTemplates={emailTemplates}
-                  docTemplates={docTemplates}
-                  onUpdate={handleUpdate}
+                  onUpdateTitle={handleUpdateTitle}
+                  onToggleMandatory={handleToggleMandatory}
                   onRemove={handleRemove}
-                  sameTaskSubtasks={subtasks}
-                  taskDependencyOptions={taskDependencyOptions}
-                  allSubtasksContext={allSubtasksContext}
-                  currentTaskId={currentTaskId}
-                  roles={roles}
+                  onOpenConfig={handleOpenConfig}
+                  hasConfig={hasAdvancedConfig(subtask)}
                 />
               ))}
             </div>
           </SortableContext>
         </DndContext>
+      )}
+
+      {subtasks.length === 0 && (
+        <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+          Nenhuma subtarefa adicionada. Adicione subtarefas para definir os passos desta tarefa.
+        </div>
       )}
 
       <DropdownMenu>
@@ -860,6 +415,26 @@ export function SubtaskEditor({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Subtask Config Dialog */}
+      <SubtaskConfigDialog
+        open={configOpen}
+        onOpenChange={(open) => {
+          setConfigOpen(open)
+          if (!open) setConfigSubtask(null)
+        }}
+        subtask={configSubtask}
+        onSave={handleSaveConfig}
+        docTypes={docTypes}
+        docTypesByCategory={docTypesByCategory}
+        emailTemplates={emailTemplates}
+        docTemplates={docTemplates}
+        roles={roles}
+        sameTaskSubtasks={subtasks}
+        taskDependencyOptions={taskDependencyOptions}
+        allSubtasksContext={allSubtasksContext}
+        currentTaskId={currentTaskId}
+      />
     </div>
   )
 }

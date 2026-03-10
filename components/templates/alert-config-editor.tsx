@@ -57,10 +57,11 @@ const EVENT_KEYS: AlertEventType[] = ['on_complete', 'on_overdue', 'on_unblock',
 interface AlertConfigEditorProps {
   alerts: AlertsConfig | undefined
   onChange: (alerts: AlertsConfig) => void
+  defaultOpen?: boolean
 }
 
-export function AlertConfigEditor({ alerts, onChange }: AlertConfigEditorProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function AlertConfigEditor({ alerts, onChange, defaultOpen }: AlertConfigEditorProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen ?? false)
   const [emailSenders, setEmailSenders] = useState<EmailSender[]>([])
   const [wppInstances, setWppInstances] = useState<WppInstance[]>([])
   const [dataLoaded, setDataLoaded] = useState(false)
