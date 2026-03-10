@@ -3,6 +3,7 @@ import { z } from 'zod'
 // Schema para uma subtarefa do template (novo modelo com type)
 export const subtaskSchema = z
   .object({
+    _local_id: z.string().optional(), // ID local para mapeamento de dependências
     title: z.string().min(1, 'O título é obrigatório'),
     description: z.string().optional(),
     is_mandatory: z.boolean().default(true),
@@ -16,8 +17,8 @@ export const subtaskSchema = z
     priority: z.enum(['urgent', 'normal', 'low']).default('normal'),
     // Dependências (bloqueio)
     dependency_type: z.enum(['none', 'subtask', 'task']).default('none'),
-    dependency_subtask_id: z.string().uuid().nullable().optional(),
-    dependency_task_id: z.string().uuid().nullable().optional(),
+    dependency_subtask_id: z.string().nullable().optional(),
+    dependency_task_id: z.string().nullable().optional(),
     config: z
       .object({
         doc_type_id: z.string().optional(),
@@ -95,6 +96,7 @@ export const subtaskSchema = z
 
 // Schema para uma tarefa do template (sem action_type — derivado como COMPOSITE no backend)
 export const taskSchema = z.object({
+  _local_id: z.string().optional(), // ID local para mapeamento de dependências
   title: z.string().min(1, 'O título é obrigatório'),
   description: z.string().optional(),
   is_mandatory: z.boolean().default(true),
@@ -104,7 +106,9 @@ export const taskSchema = z.object({
   order_index: z.number().int().min(0),
   subtasks: z.array(subtaskSchema).default([]),
   // Dependência entre tarefas (bloqueio)
-  dependency_task_id: z.string().uuid().nullable().optional(),
+  dependency_task_id: z.string().nullable().optional(),
+  // Config da tarefa (alertas, etc.)
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 // Schema para uma fase do template

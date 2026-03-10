@@ -253,19 +253,47 @@ export async function GET(
       .order('order_index', { ascending: true })
 
     if (tasksError) {
+      console.error('Erro ao obter tarefas:', tasksError)
       return NextResponse.json({ error: tasksError.message }, { status: 500 })
     }
 
     // Ordenar subtarefas e aplanar profile_photo_url
     if (tasks) {
+      // Construir mapas de nomes para resolver dependências
+      const taskNameMap = new Map<string, string>()
+      const subtaskNameMap = new Map<string, string>()
+
       tasks.forEach((task: any) => {
+        taskNameMap.set(task.id, task.title || 'Tarefa')
         if (task.subtasks) {
           task.subtasks.sort((a: any, b: any) => a.order_index - b.order_index)
+          task.subtasks.forEach((st: any) => {
+            subtaskNameMap.set(st.id, st.title || 'Subtarefa')
+          })
         }
         if (task.assigned_to_user?.dev_consultant_profiles) {
           task.assigned_to_user.profile_photo_url =
             task.assigned_to_user.dev_consultant_profiles.profile_photo_url ?? null
           delete task.assigned_to_user.dev_consultant_profiles
+        }
+      })
+
+      // Resolver nomes das dependências (tarefas e subtarefas)
+      tasks.forEach((task: any) => {
+        if (task.is_blocked && task.dependency_proc_task_id) {
+          task.blocking_task_title = taskNameMap.get(task.dependency_proc_task_id) || null
+        }
+        if (task.subtasks) {
+          task.subtasks.forEach((st: any) => {
+            if (st.is_blocked) {
+              if (st.dependency_proc_subtask_id) {
+                st.blocking_subtask_title = subtaskNameMap.get(st.dependency_proc_subtask_id) || null
+              }
+              if (st.dependency_proc_task_id) {
+                st.blocking_task_title = taskNameMap.get(st.dependency_proc_task_id) || null
+              }
+            }
+          })
         }
       })
     }

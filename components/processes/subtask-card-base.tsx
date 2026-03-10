@@ -68,11 +68,16 @@ export function SubtaskCardBase({
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="shrink-0">
-                  <Lock className="h-4 w-4 text-amber-500" />
+                  <Lock className="h-4 w-4 text-primary" />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p>Bloqueada — aguarda conclusão de dependência</p>
+                {(subtask.blocking_subtask_title || subtask.blocking_task_title) && (
+                  <p className="text-xs opacity-80 mt-0.5">
+                    Depende de: {subtask.blocking_subtask_title || subtask.blocking_task_title}
+                  </p>
+                )}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -86,7 +91,7 @@ export function SubtaskCardBase({
           {subtask.title}
         </span>
         {isBlocked && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5">
             <Lock className="h-2.5 w-2.5 mr-0.5" />
             Bloqueada
           </Badge>

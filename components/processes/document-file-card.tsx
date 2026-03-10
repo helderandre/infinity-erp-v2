@@ -32,7 +32,7 @@ export function DocumentFileCard({ file, onPreview, onDownload }: DocumentFileCa
   const abbr = typeInfo?.abbr || file.file_name.split('.').pop()?.toUpperCase() || 'FILE'
 
   return (
-    <Card className="overflow-hidden cursor-pointer transition-all hover:shadow-md group">
+    <Card className="overflow-hidden cursor-pointer transition-all hover:shadow-md group py-0">
       <div className="aspect-[4/3] bg-muted flex flex-col items-center justify-center relative">
         <IconComponent className={`h-12 w-12 ${iconColor}`} />
         <span className={`text-xs font-bold mt-1 ${iconColor}`}>{abbr}</span>
@@ -58,14 +58,14 @@ export function DocumentFileCard({ file, onPreview, onDownload }: DocumentFileCa
         </div>
       </div>
       <CardContent className="p-3">
-        <p className="text-sm font-medium truncate" title={file.file_name}>
-          {file.file_name}
+        <p className="text-sm font-medium truncate" title={file.doc_type?.name || 'Sem tipo'}>
+          {file.doc_type?.name || 'Sem tipo'}
         </p>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-xs text-muted-foreground truncate">
-            {file.doc_type?.name || 'Sem tipo'}
+          <span className="text-xs text-muted-foreground truncate" title={file.file_name}>
+            {file.file_name}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground shrink-0 ml-1">
             {formatFileSize(file.metadata?.size)}
           </span>
         </div>

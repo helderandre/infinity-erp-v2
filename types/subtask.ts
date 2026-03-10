@@ -82,6 +82,9 @@ export interface ProcSubtask {
   dependency_proc_subtask_id?: string | null
   dependency_proc_task_id?: string | null
   unblocked_at?: string | null
+  // Nomes das dependências (resolvidos pelo servidor)
+  blocking_subtask_title?: string | null
+  blocking_task_title?: string | null
   config: {
     type?: SubtaskType
     check_type?: 'field' | 'document' | 'manual'

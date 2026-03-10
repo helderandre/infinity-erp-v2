@@ -101,11 +101,16 @@ export function TaskDetailMetadata({
     <div className="space-y-3">
       {/* Blocked banner */}
       {isBlocked && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          <Lock className="h-4 w-4 shrink-0 text-amber-500" />
-          <span>
+        <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+          <Lock className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+          <div>
             <strong>Bloqueada</strong> — esta tarefa aguarda a conclusão de uma dependência antes de poder ser executada.
-          </span>
+            {task.blocking_task_title && (
+              <p className="mt-1 text-xs text-primary/70">
+                Depende de: <strong>{task.blocking_task_title}</strong>
+              </p>
+            )}
+          </div>
         </div>
       )}
 

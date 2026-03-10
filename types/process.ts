@@ -68,6 +68,8 @@ export interface ProcessTask extends ProcTask {
   is_blocked?: boolean
   dependency_proc_task_id?: string | null
   unblocked_at?: string | null
+  // Nome da dependência (resolvido pelo servidor)
+  blocking_task_title?: string | null
 }
 
 export interface ProcessStageWithTasks {

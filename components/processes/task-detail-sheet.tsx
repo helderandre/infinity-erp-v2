@@ -272,7 +272,7 @@ export function TaskDetailSheet({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {task.is_blocked && (
-              <Badge variant="outline" className="text-xs gap-1 border-amber-300 text-amber-600 bg-amber-50">
+              <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary bg-primary/5">
                 <Lock className="h-3 w-3" />
                 Bloqueada
               </Badge>

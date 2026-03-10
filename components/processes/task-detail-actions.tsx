@@ -369,9 +369,16 @@ export function TaskDetailActions({
   const renderStateButtons = () => {
     if (isBlocked && !['completed', 'skipped'].includes(task.status ?? '')) {
       return (
-        <div className="flex items-center gap-2 text-sm text-amber-600">
-          <Lock className="h-4 w-4" />
-          <span>Acções bloqueadas — aguarda conclusão de dependência</span>
+        <div className="flex items-start gap-2 text-sm text-primary">
+          <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <span>Acções bloqueadas — aguarda conclusão de dependência</span>
+            {task.blocking_task_title && (
+              <p className="text-xs text-primary/70 mt-0.5">
+                Depende de: <strong>{task.blocking_task_title}</strong>
+              </p>
+            )}
+          </div>
         </div>
       )
     }
@@ -540,8 +547,16 @@ export function TaskDetailActions({
     <div className="space-y-4">
       <h4 className="text-sm font-medium">Acções</h4>
 
-      {/* Action-type specific content */}
-      {renderActionContent()}
+      {/* Action-type specific content — disabled overlay when blocked */}
+      {isBlocked && !['completed', 'skipped'].includes(task.status ?? '') ? (
+        <div className="relative">
+          <div className="pointer-events-none opacity-40 select-none" aria-disabled="true">
+            {renderActionContent()}
+          </div>
+        </div>
+      ) : (
+        renderActionContent()
+      )}
 
       {/* State transition buttons */}
       {renderStateButtons()}

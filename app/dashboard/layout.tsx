@@ -27,6 +27,11 @@ const SIDEBAR_PAGE_ROUTES = [
   '/dashboard/processos',
 ] as const
 
+/** Rotas dentro de SIDEBAR_PAGE_ROUTES que devem usar o layout padrão (com padding) */
+const SIDEBAR_PAGE_EXCEPTIONS = [
+  '/dashboard/processos/templates',
+] as const
+
 export default function DashboardLayout({
   children,
 }: {
@@ -35,6 +40,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
+    && !SIDEBAR_PAGE_EXCEPTIONS.some((r) => pathname === r || pathname?.startsWith(r + '/'))
 
   return (
     <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>

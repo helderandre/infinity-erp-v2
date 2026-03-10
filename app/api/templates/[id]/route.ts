@@ -188,9 +188,10 @@ export async function PUT(
         description: task.description || null,
         action_type: 'COMPOSITE',
         is_mandatory: task.is_mandatory,
+        priority: task.priority || 'normal',
         sla_days: task.sla_days || null,
         assigned_role: task.assigned_role || null,
-        config: (task as Record<string, unknown>).config || {},
+        config: task.config || {},
         order_index: task.order_index,
       }))
 
@@ -214,20 +215,20 @@ export async function PUT(
 
       if (insertedTasks) {
         for (let i = 0; i < stage.tasks.length; i++) {
-          const task = stage.tasks[i] as Record<string, unknown>
-          const localTaskId = task._local_id as string | undefined
+          const task = stage.tasks[i]
+          const localTaskId = task._local_id
           if (localTaskId && insertedTasks[i]) {
             taskIdMap.set(localTaskId, insertedTasks[i].id)
           }
 
           // Registar dependência de tarefa para resolver depois
-          const depTaskId = task.dependency_task_id as string | undefined
+          const depTaskId = task.dependency_task_id
           if (depTaskId && insertedTasks[i]) {
             taskDeps.push({ dbId: insertedTasks[i].id, localDepId: depTaskId })
           }
 
           // Inserir subtarefas
-          const subtasks = task.subtasks as Array<Record<string, unknown>> | undefined
+          const subtasks = task.subtasks
           if (subtasks && subtasks.length > 0 && insertedTasks[i]) {
             const subtasksToInsert = subtasks.map((st, idx) => ({
               tpl_task_id: insertedTasks[i].id,
@@ -260,19 +261,19 @@ export async function PUT(
               const sortedInserted = (insertedSubtasks as { id: string; order_index: number }[])
                 .sort((a, b) => a.order_index - b.order_index)
               for (let j = 0; j < subtasks.length; j++) {
-                const localSubtaskId = subtasks[j]._local_id as string | undefined
+                const localSubtaskId = subtasks[j]._local_id
                 if (localSubtaskId && sortedInserted[j]) {
                   subtaskIdMap.set(localSubtaskId, sortedInserted[j].id)
                 }
 
                 // Registar dependência de subtarefa
-                const depType = subtasks[j].dependency_type as string | undefined
+                const depType = subtasks[j].dependency_type
                 if (depType && depType !== 'none' && sortedInserted[j]) {
                   subtaskDeps.push({
                     dbId: sortedInserted[j].id,
                     depType,
-                    localSubtaskId: subtasks[j].dependency_subtask_id as string | undefined,
-                    localTaskId: subtasks[j].dependency_task_id as string | undefined,
+                    localSubtaskId: subtasks[j].dependency_subtask_id || undefined,
+                    localTaskId: subtasks[j].dependency_task_id || undefined,
                   })
                 }
               }

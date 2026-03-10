@@ -20,7 +20,7 @@ export function DocumentCard({ document, onPreview, compact = false }: DocumentC
   const isExpired = document.valid_until && new Date(document.valid_until) < new Date()
 
   return (
-    <Card className="hover:bg-accent/50 transition-colors">
+    <Card className="hover:bg-accent/50 transition-colors py-0">
       <CardContent className={compact ? 'p-3' : 'p-4'}>
         <div className="flex items-start gap-3">
           <FileTypeBadge fileName={document.file_name} />

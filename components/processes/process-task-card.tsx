@@ -79,7 +79,7 @@ export function ProcessTaskCard({
   const isBlocked = !!task.is_blocked
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !['completed', 'skipped'].includes(task.status ?? '')
   const statusIcon = isBlocked
-    ? <Lock className="h-4 w-4 text-amber-500" />
+    ? <Lock className="h-4 w-4 text-primary" />
     : (STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending)
   const actionIcon = ACTION_ICONS[task.action_type as keyof typeof ACTION_ICONS] ?? ACTION_ICONS.MANUAL
   const actionMenu = (
@@ -91,7 +91,7 @@ export function ProcessTaskCard({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {isBlocked && (
-          <DropdownMenuItem disabled className="text-amber-600">
+          <DropdownMenuItem disabled className="text-primary">
             <Lock className="mr-2 h-4 w-4" />
             Bloqueada — aguarda dependência
           </DropdownMenuItem>
@@ -149,7 +149,7 @@ export function ProcessTaskCard({
           <div className="shrink-0 mt-0.5">{statusIcon}</div>
           <span className="flex-1 text-sm font-medium leading-snug line-clamp-2">{task.title}</span>
           {isBlocked && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50 shrink-0">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
               <Lock className="h-2.5 w-2.5 mr-0.5" />
               Bloqueada
             </Badge>
@@ -277,7 +277,7 @@ export function ProcessTaskCard({
 
       {/* Blocked badge */}
       {isBlocked && (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50 shrink-0">
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
           <Lock className="h-2.5 w-2.5 mr-0.5" />
           Bloqueada
         </Badge>
