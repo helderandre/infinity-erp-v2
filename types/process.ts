@@ -64,10 +64,6 @@ export interface ProcessTask extends ProcTask {
   } | null
   priority: TaskPriority
   subtasks?: ProcSubtask[]
-  // Dependências / bloqueio (campos DB não presentes no database.ts gerado)
-  is_blocked?: boolean
-  dependency_proc_task_id?: string | null
-  unblocked_at?: string | null
   // Nome da dependência (resolvido pelo servidor)
   blocking_task_title?: string | null
 }

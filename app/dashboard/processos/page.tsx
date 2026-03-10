@@ -668,7 +668,6 @@ export default function ProcessosPage() {
                 {/* Dropdown menu */}
                 <div className="absolute top-3 right-3 z-10">
                   <ProcessDropdownMenu
-                    proc={proc}
                     isDraft={isDraft}
                     selectionMode={selectionMode}
                     onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}

@@ -180,6 +180,10 @@ export async function POST(request: Request) {
         }
       }
 
+      if (!ownerId) {
+        continue
+      }
+
       ownerIds.push(ownerId)
 
       // Inserir beneficiarios se for colectiva com beneficiarios

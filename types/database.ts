@@ -1,1 +1,3958 @@
-{"types":"export type Json =\n  | string\n  | number\n  | boolean\n  | null\n  | { [key: string]: Json | undefined }\n  | Json[]\n\nexport type Database = {\n  // Allows to automatically instantiate createClient with right options\n  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)\n  __InternalSupabase: {\n    PostgrestVersion: \"14.1\"\n  }\n  public: {\n    Tables: {\n      auto_delivery_log: {\n        Row: {\n          channel: Database[\"public\"][\"Enums\"][\"auto_channel_type\"]\n          created_at: string | null\n          delivered_at: string | null\n          error_message: string | null\n          external_message_id: string | null\n          final_content: string | null\n          flow_id: string\n          id: string\n          media_url: string | null\n          message_type: string | null\n          recipient_address: string\n          run_id: string\n          sent_at: string | null\n          status: Database[\"public\"][\"Enums\"][\"auto_delivery_status\"]\n          step_run_id: string\n          track_source: string | null\n        }\n        Insert: {\n          channel: Database[\"public\"][\"Enums\"][\"auto_channel_type\"]\n          created_at?: string | null\n          delivered_at?: string | null\n          error_message?: string | null\n          external_message_id?: string | null\n          final_content?: string | null\n          flow_id: string\n          id?: string\n          media_url?: string | null\n          message_type?: string | null\n          recipient_address: string\n          run_id: string\n          sent_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_delivery_status\"]\n          step_run_id: string\n          track_source?: string | null\n        }\n        Update: {\n          channel?: Database[\"public\"][\"Enums\"][\"auto_channel_type\"]\n          created_at?: string | null\n          delivered_at?: string | null\n          error_message?: string | null\n          external_message_id?: string | null\n          final_content?: string | null\n          flow_id?: string\n          id?: string\n          media_url?: string | null\n          message_type?: string | null\n          recipient_address?: string\n          run_id?: string\n          sent_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_delivery_status\"]\n          step_run_id?: string\n          track_source?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_delivery_log_flow_id_fkey\"\n            columns: [\"flow_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_flows\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_delivery_log_run_id_fkey\"\n            columns: [\"run_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_runs\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_delivery_log_step_run_id_fkey\"\n            columns: [\"step_run_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_step_runs\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_flow_versions: {\n        Row: {\n          changed_by: string | null\n          created_at: string | null\n          flow_definition: Json\n          flow_id: string\n          id: string\n          version: number\n        }\n        Insert: {\n          changed_by?: string | null\n          created_at?: string | null\n          flow_definition: Json\n          flow_id: string\n          id?: string\n          version: number\n        }\n        Update: {\n          changed_by?: string | null\n          created_at?: string | null\n          flow_definition?: Json\n          flow_id?: string\n          id?: string\n          version?: number\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_flow_versions_changed_by_fkey\"\n            columns: [\"changed_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_flow_versions_flow_id_fkey\"\n            columns: [\"flow_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_flows\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_flows: {\n        Row: {\n          context_config: Json | null\n          created_at: string | null\n          created_by: string | null\n          description: string | null\n          draft_definition: Json\n          id: string\n          is_active: boolean | null\n          name: string\n          published_at: string | null\n          published_by: string | null\n          published_definition: Json | null\n          published_triggers: Json | null\n          updated_at: string | null\n          wpp_instance_id: string | null\n        }\n        Insert: {\n          context_config?: Json | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          draft_definition?: Json\n          id?: string\n          is_active?: boolean | null\n          name?: string\n          published_at?: string | null\n          published_by?: string | null\n          published_definition?: Json | null\n          published_triggers?: Json | null\n          updated_at?: string | null\n          wpp_instance_id?: string | null\n        }\n        Update: {\n          context_config?: Json | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          draft_definition?: Json\n          id?: string\n          is_active?: boolean | null\n          name?: string\n          published_at?: string | null\n          published_by?: string | null\n          published_definition?: Json | null\n          published_triggers?: Json | null\n          updated_at?: string | null\n          wpp_instance_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_flows_created_by_fkey\"\n            columns: [\"created_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_flows_published_by_fkey\"\n            columns: [\"published_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_flows_wpp_instance_id_fkey\"\n            columns: [\"wpp_instance_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_wpp_instances\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_runs: {\n        Row: {\n          completed_at: string | null\n          completed_steps: number | null\n          context: Json | null\n          created_at: string | null\n          entity_id: string | null\n          entity_type: string | null\n          error_message: string | null\n          failed_steps: number | null\n          flow_id: string\n          id: string\n          is_test: boolean\n          started_at: string | null\n          status: Database[\"public\"][\"Enums\"][\"auto_run_status\"]\n          total_steps: number | null\n          trigger_id: string | null\n          triggered_by: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          completed_at?: string | null\n          completed_steps?: number | null\n          context?: Json | null\n          created_at?: string | null\n          entity_id?: string | null\n          entity_type?: string | null\n          error_message?: string | null\n          failed_steps?: number | null\n          flow_id: string\n          id?: string\n          is_test?: boolean\n          started_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_run_status\"]\n          total_steps?: number | null\n          trigger_id?: string | null\n          triggered_by?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          completed_at?: string | null\n          completed_steps?: number | null\n          context?: Json | null\n          created_at?: string | null\n          entity_id?: string | null\n          entity_type?: string | null\n          error_message?: string | null\n          failed_steps?: number | null\n          flow_id?: string\n          id?: string\n          is_test?: boolean\n          started_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_run_status\"]\n          total_steps?: number | null\n          trigger_id?: string | null\n          triggered_by?: string | null\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_runs_flow_id_fkey\"\n            columns: [\"flow_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_flows\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_runs_trigger_id_fkey\"\n            columns: [\"trigger_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_triggers\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_step_runs: {\n        Row: {\n          completed_at: string | null\n          created_at: string | null\n          duration_ms: number | null\n          error_message: string | null\n          flow_id: string\n          id: string\n          input_data: Json | null\n          max_retries: number | null\n          node_id: string\n          node_label: string | null\n          node_type: string\n          output_data: Json | null\n          priority: number | null\n          retry_count: number | null\n          run_id: string\n          scheduled_for: string | null\n          started_at: string | null\n          status: Database[\"public\"][\"Enums\"][\"auto_step_status\"]\n        }\n        Insert: {\n          completed_at?: string | null\n          created_at?: string | null\n          duration_ms?: number | null\n          error_message?: string | null\n          flow_id: string\n          id?: string\n          input_data?: Json | null\n          max_retries?: number | null\n          node_id: string\n          node_label?: string | null\n          node_type: string\n          output_data?: Json | null\n          priority?: number | null\n          retry_count?: number | null\n          run_id: string\n          scheduled_for?: string | null\n          started_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_step_status\"]\n        }\n        Update: {\n          completed_at?: string | null\n          created_at?: string | null\n          duration_ms?: number | null\n          error_message?: string | null\n          flow_id?: string\n          id?: string\n          input_data?: Json | null\n          max_retries?: number | null\n          node_id?: string\n          node_label?: string | null\n          node_type?: string\n          output_data?: Json | null\n          priority?: number | null\n          retry_count?: number | null\n          run_id?: string\n          scheduled_for?: string | null\n          started_at?: string | null\n          status?: Database[\"public\"][\"Enums\"][\"auto_step_status\"]\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_step_runs_flow_id_fkey\"\n            columns: [\"flow_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_flows\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"auto_step_runs_run_id_fkey\"\n            columns: [\"run_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_runs\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_triggers: {\n        Row: {\n          active: boolean | null\n          created_at: string | null\n          flow_id: string\n          id: string\n          payload_mapping: Json | null\n          source_type: string\n          trigger_condition: Json | null\n          trigger_source: string | null\n        }\n        Insert: {\n          active?: boolean | null\n          created_at?: string | null\n          flow_id: string\n          id?: string\n          payload_mapping?: Json | null\n          source_type: string\n          trigger_condition?: Json | null\n          trigger_source?: string | null\n        }\n        Update: {\n          active?: boolean | null\n          created_at?: string | null\n          flow_id?: string\n          id?: string\n          payload_mapping?: Json | null\n          source_type?: string\n          trigger_condition?: Json | null\n          trigger_source?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_triggers_flow_id_fkey\"\n            columns: [\"flow_id\"]\n            isOneToOne: false\n            referencedRelation: \"auto_flows\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_webhook_captures: {\n        Row: {\n          flow_name: string | null\n          payload: Json | null\n          received_at: string | null\n          source_id: string\n          updated_at: string | null\n        }\n        Insert: {\n          flow_name?: string | null\n          payload?: Json | null\n          received_at?: string | null\n          source_id: string\n          updated_at?: string | null\n        }\n        Update: {\n          flow_name?: string | null\n          payload?: Json | null\n          received_at?: string | null\n          source_id?: string\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      auto_wpp_instances: {\n        Row: {\n          connection_status: string\n          created_at: string | null\n          id: string\n          is_business: boolean | null\n          name: string\n          phone: string | null\n          profile_name: string | null\n          profile_pic_url: string | null\n          status: string\n          uazapi_instance_id: string | null\n          uazapi_token: string\n          updated_at: string | null\n          user_id: string | null\n        }\n        Insert: {\n          connection_status?: string\n          created_at?: string | null\n          id?: string\n          is_business?: boolean | null\n          name: string\n          phone?: string | null\n          profile_name?: string | null\n          profile_pic_url?: string | null\n          status?: string\n          uazapi_instance_id?: string | null\n          uazapi_token: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Update: {\n          connection_status?: string\n          created_at?: string | null\n          id?: string\n          is_business?: boolean | null\n          name?: string\n          phone?: string | null\n          profile_name?: string | null\n          profile_pic_url?: string | null\n          status?: string\n          uazapi_instance_id?: string | null\n          uazapi_token?: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_wpp_instances_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      auto_wpp_templates: {\n        Row: {\n          category: string | null\n          created_at: string | null\n          created_by: string | null\n          description: string | null\n          id: string\n          is_active: boolean | null\n          messages: Json\n          name: string\n          tags: string[] | null\n          updated_at: string | null\n        }\n        Insert: {\n          category?: string | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          messages?: Json\n          name: string\n          tags?: string[] | null\n          updated_at?: string | null\n        }\n        Update: {\n          category?: string | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          messages?: Json\n          name?: string\n          tags?: string[] | null\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"auto_wpp_templates_created_by_fkey\"\n            columns: [\"created_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      consultant_documents: {\n        Row: {\n          consultant_id: string\n          created_at: string | null\n          doc_type_id: string | null\n          file_name: string\n          file_url: string\n          id: string\n          metadata: Json | null\n          notes: string | null\n          status: string | null\n          uploaded_by: string | null\n          valid_until: string | null\n        }\n        Insert: {\n          consultant_id: string\n          created_at?: string | null\n          doc_type_id?: string | null\n          file_name: string\n          file_url: string\n          id?: string\n          metadata?: Json | null\n          notes?: string | null\n          status?: string | null\n          uploaded_by?: string | null\n          valid_until?: string | null\n        }\n        Update: {\n          consultant_id?: string\n          created_at?: string | null\n          doc_type_id?: string | null\n          file_name?: string\n          file_url?: string\n          id?: string\n          metadata?: Json | null\n          notes?: string | null\n          status?: string | null\n          uploaded_by?: string | null\n          valid_until?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"consultant_documents_consultant_id_fkey\"\n            columns: [\"consultant_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"consultant_documents_doc_type_id_fkey\"\n            columns: [\"doc_type_id\"]\n            isOneToOne: false\n            referencedRelation: \"doc_types\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"consultant_documents_uploaded_by_fkey\"\n            columns: [\"uploaded_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      contact_form_submissions: {\n        Row: {\n          created_at: string | null\n          email: string\n          id: string\n          message: string\n          name: string\n          notes: string | null\n          phone: string | null\n          read_at: string | null\n          replied_at: string | null\n          status: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          email: string\n          id?: string\n          message: string\n          name: string\n          notes?: string | null\n          phone?: string | null\n          read_at?: string | null\n          replied_at?: string | null\n          status?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          email?: string\n          id?: string\n          message?: string\n          name?: string\n          notes?: string | null\n          phone?: string | null\n          read_at?: string | null\n          replied_at?: string | null\n          status?: string | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      dev_consultant_private_data: {\n        Row: {\n          address_private: string | null\n          commission_rate: number | null\n          documents_json: Json | null\n          full_name: string | null\n          hiring_date: string | null\n          iban: string | null\n          monthly_salary: number | null\n          nif: string | null\n          user_id: string\n        }\n        Insert: {\n          address_private?: string | null\n          commission_rate?: number | null\n          documents_json?: Json | null\n          full_name?: string | null\n          hiring_date?: string | null\n          iban?: string | null\n          monthly_salary?: number | null\n          nif?: string | null\n          user_id: string\n        }\n        Update: {\n          address_private?: string | null\n          commission_rate?: number | null\n          documents_json?: Json | null\n          full_name?: string | null\n          hiring_date?: string | null\n          iban?: string | null\n          monthly_salary?: number | null\n          nif?: string | null\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_consultant_private_data_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: true\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_consultant_profiles: {\n        Row: {\n          bio: string | null\n          instagram_handle: string | null\n          languages: string[] | null\n          linkedin_url: string | null\n          phone_commercial: string | null\n          profile_photo_url: string | null\n          specializations: string[] | null\n          user_id: string\n        }\n        Insert: {\n          bio?: string | null\n          instagram_handle?: string | null\n          languages?: string[] | null\n          linkedin_url?: string | null\n          phone_commercial?: string | null\n          profile_photo_url?: string | null\n          specializations?: string[] | null\n          user_id: string\n        }\n        Update: {\n          bio?: string | null\n          instagram_handle?: string | null\n          languages?: string[] | null\n          linkedin_url?: string | null\n          phone_commercial?: string | null\n          profile_photo_url?: string | null\n          specializations?: string[] | null\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_consultant_profiles_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: true\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_properties: {\n        Row: {\n          address_parish: string | null\n          address_street: string | null\n          business_status: string | null\n          business_type: string | null\n          city: string | null\n          consultant_id: string | null\n          contract_regime: string | null\n          created_at: string | null\n          description: string | null\n          energy_certificate: string | null\n          external_ref: string | null\n          id: string\n          latitude: number | null\n          listing_price: number | null\n          longitude: number | null\n          postal_code: string | null\n          property_condition: string | null\n          property_type: string | null\n          slug: string | null\n          status: string | null\n          title: string\n          updated_at: string | null\n          zone: string | null\n        }\n        Insert: {\n          address_parish?: string | null\n          address_street?: string | null\n          business_status?: string | null\n          business_type?: string | null\n          city?: string | null\n          consultant_id?: string | null\n          contract_regime?: string | null\n          created_at?: string | null\n          description?: string | null\n          energy_certificate?: string | null\n          external_ref?: string | null\n          id?: string\n          latitude?: number | null\n          listing_price?: number | null\n          longitude?: number | null\n          postal_code?: string | null\n          property_condition?: string | null\n          property_type?: string | null\n          slug?: string | null\n          status?: string | null\n          title: string\n          updated_at?: string | null\n          zone?: string | null\n        }\n        Update: {\n          address_parish?: string | null\n          address_street?: string | null\n          business_status?: string | null\n          business_type?: string | null\n          city?: string | null\n          consultant_id?: string | null\n          contract_regime?: string | null\n          created_at?: string | null\n          description?: string | null\n          energy_certificate?: string | null\n          external_ref?: string | null\n          id?: string\n          latitude?: number | null\n          listing_price?: number | null\n          longitude?: number | null\n          postal_code?: string | null\n          property_condition?: string | null\n          property_type?: string | null\n          slug?: string | null\n          status?: string | null\n          title?: string\n          updated_at?: string | null\n          zone?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_properties_consultant_id_fkey\"\n            columns: [\"consultant_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_property_internal: {\n        Row: {\n          commission_agreed: number | null\n          commission_type: string | null\n          condominium_fee: number | null\n          contract_expiry: string | null\n          contract_regime: string | null\n          contract_term: string | null\n          cpcv_percentage: number | null\n          exact_address: string | null\n          imi_value: number | null\n          internal_notes: string | null\n          postal_code: string | null\n          property_id: string\n          reference_internal: string | null\n        }\n        Insert: {\n          commission_agreed?: number | null\n          commission_type?: string | null\n          condominium_fee?: number | null\n          contract_expiry?: string | null\n          contract_regime?: string | null\n          contract_term?: string | null\n          cpcv_percentage?: number | null\n          exact_address?: string | null\n          imi_value?: number | null\n          internal_notes?: string | null\n          postal_code?: string | null\n          property_id: string\n          reference_internal?: string | null\n        }\n        Update: {\n          commission_agreed?: number | null\n          commission_type?: string | null\n          condominium_fee?: number | null\n          contract_expiry?: string | null\n          contract_regime?: string | null\n          contract_term?: string | null\n          cpcv_percentage?: number | null\n          exact_address?: string | null\n          imi_value?: number | null\n          internal_notes?: string | null\n          postal_code?: string | null\n          property_id?: string\n          reference_internal?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_property_internal_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: true\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_property_media: {\n        Row: {\n          id: string\n          is_cover: boolean | null\n          media_type: string | null\n          order_index: number | null\n          property_id: string | null\n          url: string\n        }\n        Insert: {\n          id?: string\n          is_cover?: boolean | null\n          media_type?: string | null\n          order_index?: number | null\n          property_id?: string | null\n          url: string\n        }\n        Update: {\n          id?: string\n          is_cover?: boolean | null\n          media_type?: string | null\n          order_index?: number | null\n          property_id?: string | null\n          url?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_property_media_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_property_specifications: {\n        Row: {\n          area_gross: number | null\n          area_util: number | null\n          attic_area: number | null\n          balcony_area: number | null\n          bathrooms: number | null\n          bedrooms: number | null\n          construction_year: number | null\n          equipment: string[] | null\n          features: string[] | null\n          fronts_count: number | null\n          garage_spaces: number | null\n          gym_area: number | null\n          has_elevator: boolean | null\n          pantry_area: number | null\n          parking_spaces: number | null\n          pool_area: number | null\n          property_id: string\n          solar_orientation: string[] | null\n          storage_area: number | null\n          typology: string | null\n          views: string[] | null\n        }\n        Insert: {\n          area_gross?: number | null\n          area_util?: number | null\n          attic_area?: number | null\n          balcony_area?: number | null\n          bathrooms?: number | null\n          bedrooms?: number | null\n          construction_year?: number | null\n          equipment?: string[] | null\n          features?: string[] | null\n          fronts_count?: number | null\n          garage_spaces?: number | null\n          gym_area?: number | null\n          has_elevator?: boolean | null\n          pantry_area?: number | null\n          parking_spaces?: number | null\n          pool_area?: number | null\n          property_id: string\n          solar_orientation?: string[] | null\n          storage_area?: number | null\n          typology?: string | null\n          views?: string[] | null\n        }\n        Update: {\n          area_gross?: number | null\n          area_util?: number | null\n          attic_area?: number | null\n          balcony_area?: number | null\n          bathrooms?: number | null\n          bedrooms?: number | null\n          construction_year?: number | null\n          equipment?: string[] | null\n          features?: string[] | null\n          fronts_count?: number | null\n          garage_spaces?: number | null\n          gym_area?: number | null\n          has_elevator?: boolean | null\n          pantry_area?: number | null\n          parking_spaces?: number | null\n          pool_area?: number | null\n          property_id?: string\n          solar_orientation?: string[] | null\n          storage_area?: number | null\n          typology?: string | null\n          views?: string[] | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"dev_property_specifications_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: true\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      dev_users: {\n        Row: {\n          commercial_name: string\n          created_at: string | null\n          display_website: boolean | null\n          id: string\n          is_active: boolean | null\n          professional_email: string | null\n        }\n        Insert: {\n          commercial_name: string\n          created_at?: string | null\n          display_website?: boolean | null\n          id: string\n          is_active?: boolean | null\n          professional_email?: string | null\n        }\n        Update: {\n          commercial_name?: string\n          created_at?: string | null\n          display_website?: boolean | null\n          id?: string\n          is_active?: boolean | null\n          professional_email?: string | null\n        }\n        Relationships: []\n      }\n      doc_registry: {\n        Row: {\n          created_at: string | null\n          doc_type_id: string | null\n          file_name: string\n          file_url: string\n          id: string\n          metadata: Json | null\n          notes: string | null\n          owner_id: string | null\n          property_id: string | null\n          status: string | null\n          updated_at: string | null\n          uploaded_by: string | null\n          valid_until: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          doc_type_id?: string | null\n          file_name: string\n          file_url: string\n          id?: string\n          metadata?: Json | null\n          notes?: string | null\n          owner_id?: string | null\n          property_id?: string | null\n          status?: string | null\n          updated_at?: string | null\n          uploaded_by?: string | null\n          valid_until?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          doc_type_id?: string | null\n          file_name?: string\n          file_url?: string\n          id?: string\n          metadata?: Json | null\n          notes?: string | null\n          owner_id?: string | null\n          property_id?: string | null\n          status?: string | null\n          updated_at?: string | null\n          uploaded_by?: string | null\n          valid_until?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"doc_registry_doc_type_id_fkey\"\n            columns: [\"doc_type_id\"]\n            isOneToOne: false\n            referencedRelation: \"doc_types\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"doc_registry_owner_id_fkey\"\n            columns: [\"owner_id\"]\n            isOneToOne: false\n            referencedRelation: \"owners\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"doc_registry_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"doc_registry_uploaded_by_fkey\"\n            columns: [\"uploaded_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      doc_types: {\n        Row: {\n          allowed_extensions: string[] | null\n          category: string | null\n          created_at: string | null\n          default_validity_months: number | null\n          description: string | null\n          id: string\n          is_system: boolean | null\n          name: string\n        }\n        Insert: {\n          allowed_extensions?: string[] | null\n          category?: string | null\n          created_at?: string | null\n          default_validity_months?: number | null\n          description?: string | null\n          id?: string\n          is_system?: boolean | null\n          name: string\n        }\n        Update: {\n          allowed_extensions?: string[] | null\n          category?: string | null\n          created_at?: string | null\n          default_validity_months?: number | null\n          description?: string | null\n          id?: string\n          is_system?: boolean | null\n          name?: string\n        }\n        Relationships: []\n      }\n      email_senders: {\n        Row: {\n          created_at: string\n          display_name: string\n          email: string\n          id: string\n          is_active: boolean\n          is_default: boolean\n          name: string\n          reply_to: string | null\n          user_id: string | null\n        }\n        Insert: {\n          created_at?: string\n          display_name: string\n          email: string\n          id?: string\n          is_active?: boolean\n          is_default?: boolean\n          name: string\n          reply_to?: string | null\n          user_id?: string | null\n        }\n        Update: {\n          created_at?: string\n          display_name?: string\n          email?: string\n          id?: string\n          is_active?: boolean\n          is_default?: boolean\n          name?: string\n          reply_to?: string | null\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"email_senders_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      embarcacoes: {\n        Row: {\n          arqueacao: number | null\n          boca: number | null\n          comprimento: number | null\n          cor_casco: string | null\n          cor_superestrutura: string | null\n          created_at: string | null\n          data_construcao: number | null\n          data_registo: string | null\n          documento_url: string | null\n          fls: number | null\n          id: string\n          livro: number | null\n          lotacao: number | null\n          marca: string | null\n          material_casco: string | null\n          meios_salvacao: Json | null\n          modelo: string | null\n          motor_combustivel: string | null\n          motor_marca: string | null\n          motor_numero: string | null\n          motor_potencia_hp: number | null\n          motor_potencia_kw: number | null\n          motor_ps: string | null\n          motor_tipo: string | null\n          nome: string\n          numero_casco: string | null\n          numero_registo: string | null\n          observacoes: string | null\n          pontal: number | null\n          proprietario_cidade: string | null\n          proprietario_codigo_postal: string | null\n          proprietario_morada: string | null\n          proprietario_nome: string | null\n          proprietario_pais: string | null\n          radiobaliza: boolean | null\n          rx_msi: boolean | null\n          tipo_zona: string | null\n          updated_at: string | null\n          vhf_fixo: boolean | null\n          vhf_portatil: boolean | null\n        }\n        Insert: {\n          arqueacao?: number | null\n          boca?: number | null\n          comprimento?: number | null\n          cor_casco?: string | null\n          cor_superestrutura?: string | null\n          created_at?: string | null\n          data_construcao?: number | null\n          data_registo?: string | null\n          documento_url?: string | null\n          fls?: number | null\n          id?: string\n          livro?: number | null\n          lotacao?: number | null\n          marca?: string | null\n          material_casco?: string | null\n          meios_salvacao?: Json | null\n          modelo?: string | null\n          motor_combustivel?: string | null\n          motor_marca?: string | null\n          motor_numero?: string | null\n          motor_potencia_hp?: number | null\n          motor_potencia_kw?: number | null\n          motor_ps?: string | null\n          motor_tipo?: string | null\n          nome: string\n          numero_casco?: string | null\n          numero_registo?: string | null\n          observacoes?: string | null\n          pontal?: number | null\n          proprietario_cidade?: string | null\n          proprietario_codigo_postal?: string | null\n          proprietario_morada?: string | null\n          proprietario_nome?: string | null\n          proprietario_pais?: string | null\n          radiobaliza?: boolean | null\n          rx_msi?: boolean | null\n          tipo_zona?: string | null\n          updated_at?: string | null\n          vhf_fixo?: boolean | null\n          vhf_portatil?: boolean | null\n        }\n        Update: {\n          arqueacao?: number | null\n          boca?: number | null\n          comprimento?: number | null\n          cor_casco?: string | null\n          cor_superestrutura?: string | null\n          created_at?: string | null\n          data_construcao?: number | null\n          data_registo?: string | null\n          documento_url?: string | null\n          fls?: number | null\n          id?: string\n          livro?: number | null\n          lotacao?: number | null\n          marca?: string | null\n          material_casco?: string | null\n          meios_salvacao?: Json | null\n          modelo?: string | null\n          motor_combustivel?: string | null\n          motor_marca?: string | null\n          motor_numero?: string | null\n          motor_potencia_hp?: number | null\n          motor_potencia_kw?: number | null\n          motor_ps?: string | null\n          motor_tipo?: string | null\n          nome?: string\n          numero_casco?: string | null\n          numero_registo?: string | null\n          observacoes?: string | null\n          pontal?: number | null\n          proprietario_cidade?: string | null\n          proprietario_codigo_postal?: string | null\n          proprietario_morada?: string | null\n          proprietario_nome?: string | null\n          proprietario_pais?: string | null\n          radiobaliza?: boolean | null\n          rx_msi?: boolean | null\n          tipo_zona?: string | null\n          updated_at?: string | null\n          vhf_fixo?: boolean | null\n          vhf_portatil?: boolean | null\n        }\n        Relationships: []\n      }\n      kv_store_6f39db24: {\n        Row: {\n          key: string\n          value: Json\n        }\n        Insert: {\n          key: string\n          value: Json\n        }\n        Update: {\n          key?: string\n          value?: Json\n        }\n        Relationships: []\n      }\n      lead_attachments: {\n        Row: {\n          created_at: string | null\n          id: string\n          lead_id: string\n          name: string | null\n          url: string\n        }\n        Insert: {\n          created_at?: string | null\n          id?: string\n          lead_id: string\n          name?: string | null\n          url: string\n        }\n        Update: {\n          created_at?: string | null\n          id?: string\n          lead_id?: string\n          name?: string | null\n          url?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"lead_attachments_lead_id_fkey\"\n            columns: [\"lead_id\"]\n            isOneToOne: false\n            referencedRelation: \"leads\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      leads: {\n        Row: {\n          agent_id: string | null\n          codigo_postal: string | null\n          concelho: string | null\n          consentimento_contacto: boolean | null\n          consentimento_webmarketing: boolean | null\n          created_at: string\n          data: string | null\n          data_contacto: string | null\n          data_nascimento: string | null\n          data_validade_documento: string | null\n          distrito: string | null\n          documento_identificacao_frente_url: string | null\n          documento_identificacao_url: string | null\n          documento_identificacao_verso_url: string | null\n          email: string | null\n          email_empresa: string | null\n          empresa: string | null\n          estado: string | null\n          forma_contacto: string | null\n          freguesia: string | null\n          full_name: string | null\n          genero: string | null\n          id: string\n          localidade: string | null\n          meio_contacto_preferencial: string | null\n          morada: string | null\n          morada_empresa: string | null\n          nacionalidade: string | null\n          nif: string | null\n          nipc: string | null\n          nome: string\n          numero_documento: string | null\n          observacoes: string | null\n          origem: string | null\n          pais: string | null\n          pais_emissor: string | null\n          telefone: string | null\n          telefone_empresa: string | null\n          telefone_fixo: string | null\n          telemovel: string | null\n          tem_empresa: boolean | null\n          temperatura: string | null\n          tipo_documento: string | null\n          website_empresa: string | null\n          zona: string | null\n        }\n        Insert: {\n          agent_id?: string | null\n          codigo_postal?: string | null\n          concelho?: string | null\n          consentimento_contacto?: boolean | null\n          consentimento_webmarketing?: boolean | null\n          created_at?: string\n          data?: string | null\n          data_contacto?: string | null\n          data_nascimento?: string | null\n          data_validade_documento?: string | null\n          distrito?: string | null\n          documento_identificacao_frente_url?: string | null\n          documento_identificacao_url?: string | null\n          documento_identificacao_verso_url?: string | null\n          email?: string | null\n          email_empresa?: string | null\n          empresa?: string | null\n          estado?: string | null\n          forma_contacto?: string | null\n          freguesia?: string | null\n          full_name?: string | null\n          genero?: string | null\n          id?: string\n          localidade?: string | null\n          meio_contacto_preferencial?: string | null\n          morada?: string | null\n          morada_empresa?: string | null\n          nacionalidade?: string | null\n          nif?: string | null\n          nipc?: string | null\n          nome: string\n          numero_documento?: string | null\n          observacoes?: string | null\n          origem?: string | null\n          pais?: string | null\n          pais_emissor?: string | null\n          telefone?: string | null\n          telefone_empresa?: string | null\n          telefone_fixo?: string | null\n          telemovel?: string | null\n          tem_empresa?: boolean | null\n          temperatura?: string | null\n          tipo_documento?: string | null\n          website_empresa?: string | null\n          zona?: string | null\n        }\n        Update: {\n          agent_id?: string | null\n          codigo_postal?: string | null\n          concelho?: string | null\n          consentimento_contacto?: boolean | null\n          consentimento_webmarketing?: boolean | null\n          created_at?: string\n          data?: string | null\n          data_contacto?: string | null\n          data_nascimento?: string | null\n          data_validade_documento?: string | null\n          distrito?: string | null\n          documento_identificacao_frente_url?: string | null\n          documento_identificacao_url?: string | null\n          documento_identificacao_verso_url?: string | null\n          email?: string | null\n          email_empresa?: string | null\n          empresa?: string | null\n          estado?: string | null\n          forma_contacto?: string | null\n          freguesia?: string | null\n          full_name?: string | null\n          genero?: string | null\n          id?: string\n          localidade?: string | null\n          meio_contacto_preferencial?: string | null\n          morada?: string | null\n          morada_empresa?: string | null\n          nacionalidade?: string | null\n          nif?: string | null\n          nipc?: string | null\n          nome?: string\n          numero_documento?: string | null\n          observacoes?: string | null\n          origem?: string | null\n          pais?: string | null\n          pais_emissor?: string | null\n          telefone?: string | null\n          telefone_empresa?: string | null\n          telefone_fixo?: string | null\n          telemovel?: string | null\n          tem_empresa?: boolean | null\n          temperatura?: string | null\n          tipo_documento?: string | null\n          website_empresa?: string | null\n          zona?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"leads_agent_id_fkey\"\n            columns: [\"agent_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      log_audit: {\n        Row: {\n          action: string\n          created_at: string | null\n          entity_id: string\n          entity_type: string\n          id: string\n          ip_address: string | null\n          new_data: Json | null\n          old_data: Json | null\n          user_id: string | null\n        }\n        Insert: {\n          action: string\n          created_at?: string | null\n          entity_id: string\n          entity_type: string\n          id?: string\n          ip_address?: string | null\n          new_data?: Json | null\n          old_data?: Json | null\n          user_id?: string | null\n        }\n        Update: {\n          action?: string\n          created_at?: string | null\n          entity_id?: string\n          entity_type?: string\n          id?: string\n          ip_address?: string | null\n          new_data?: Json | null\n          old_data?: Json | null\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"log_audit_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      log_emails: {\n        Row: {\n          body_html: string | null\n          cc: string[] | null\n          delivery_status: string | null\n          error_message: string | null\n          events: Json | null\n          id: string\n          last_event: string | null\n          metadata: Json | null\n          parent_email_id: string | null\n          proc_subtask_id: string | null\n          proc_task_id: string | null\n          provider_id: string | null\n          recipient_email: string\n          resend_email_id: string | null\n          sender_email: string | null\n          sender_name: string | null\n          sent_at: string | null\n          subject: string | null\n        }\n        Insert: {\n          body_html?: string | null\n          cc?: string[] | null\n          delivery_status?: string | null\n          error_message?: string | null\n          events?: Json | null\n          id?: string\n          last_event?: string | null\n          metadata?: Json | null\n          parent_email_id?: string | null\n          proc_subtask_id?: string | null\n          proc_task_id?: string | null\n          provider_id?: string | null\n          recipient_email: string\n          resend_email_id?: string | null\n          sender_email?: string | null\n          sender_name?: string | null\n          sent_at?: string | null\n          subject?: string | null\n        }\n        Update: {\n          body_html?: string | null\n          cc?: string[] | null\n          delivery_status?: string | null\n          error_message?: string | null\n          events?: Json | null\n          id?: string\n          last_event?: string | null\n          metadata?: Json | null\n          parent_email_id?: string | null\n          proc_subtask_id?: string | null\n          proc_task_id?: string | null\n          provider_id?: string | null\n          recipient_email?: string\n          resend_email_id?: string | null\n          sender_email?: string | null\n          sender_name?: string | null\n          sent_at?: string | null\n          subject?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"log_emails_parent_email_id_fkey\"\n            columns: [\"parent_email_id\"]\n            isOneToOne: false\n            referencedRelation: \"log_emails\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"log_emails_proc_subtask_id_fkey\"\n            columns: [\"proc_subtask_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_subtasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"log_emails_proc_task_id_fkey\"\n            columns: [\"proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      negocios: {\n        Row: {\n          aceita_animais: boolean | null\n          area_m2: number | null\n          area_min_m2: number | null\n          capital_proprio: number | null\n          casas_banho: number | null\n          caucao_rendas: number | null\n          classe_imovel: string | null\n          concelho: string | null\n          created_at: string | null\n          credito_pre_aprovado: boolean | null\n          distrito: string | null\n          duracao_minima_contrato: string | null\n          estado: string | null\n          estado_imovel: string | null\n          estado_imovel_venda: string | null\n          financiamento_necessario: boolean | null\n          freguesia: string | null\n          id: string\n          lead_id: string\n          localizacao: string | null\n          localizacao_venda: string | null\n          mobilado: boolean | null\n          motivacao_compra: string | null\n          num_wc: number | null\n          observacoes: string | null\n          orcamento: number | null\n          orcamento_max: number | null\n          prazo_compra: string | null\n          preco_venda: number | null\n          quartos: number | null\n          quartos_min: number | null\n          renda_max_mensal: number | null\n          renda_pretendida: number | null\n          rendimento_mensal: number | null\n          situacao_profissional: string | null\n          tem_arrumos: boolean | null\n          tem_arrumos_venda: boolean | null\n          tem_elevador: boolean | null\n          tem_elevador_venda: boolean | null\n          tem_estacionamento: boolean | null\n          tem_estacionamento_venda: boolean | null\n          tem_exterior: boolean | null\n          tem_exterior_venda: boolean | null\n          tem_fiador: boolean | null\n          tem_garagem: boolean | null\n          tem_garagem_venda: boolean | null\n          tem_piscina: boolean | null\n          tem_piscina_venda: boolean | null\n          tem_porteiro: boolean | null\n          tem_porteiro_venda: boolean | null\n          tem_varanda: boolean | null\n          tem_varanda_venda: boolean | null\n          tipo: string\n          tipo_imovel: string | null\n          tipo_imovel_venda: string | null\n          total_divisoes: number | null\n          valor_credito: number | null\n        }\n        Insert: {\n          aceita_animais?: boolean | null\n          area_m2?: number | null\n          area_min_m2?: number | null\n          capital_proprio?: number | null\n          casas_banho?: number | null\n          caucao_rendas?: number | null\n          classe_imovel?: string | null\n          concelho?: string | null\n          created_at?: string | null\n          credito_pre_aprovado?: boolean | null\n          distrito?: string | null\n          duracao_minima_contrato?: string | null\n          estado?: string | null\n          estado_imovel?: string | null\n          estado_imovel_venda?: string | null\n          financiamento_necessario?: boolean | null\n          freguesia?: string | null\n          id?: string\n          lead_id: string\n          localizacao?: string | null\n          localizacao_venda?: string | null\n          mobilado?: boolean | null\n          motivacao_compra?: string | null\n          num_wc?: number | null\n          observacoes?: string | null\n          orcamento?: number | null\n          orcamento_max?: number | null\n          prazo_compra?: string | null\n          preco_venda?: number | null\n          quartos?: number | null\n          quartos_min?: number | null\n          renda_max_mensal?: number | null\n          renda_pretendida?: number | null\n          rendimento_mensal?: number | null\n          situacao_profissional?: string | null\n          tem_arrumos?: boolean | null\n          tem_arrumos_venda?: boolean | null\n          tem_elevador?: boolean | null\n          tem_elevador_venda?: boolean | null\n          tem_estacionamento?: boolean | null\n          tem_estacionamento_venda?: boolean | null\n          tem_exterior?: boolean | null\n          tem_exterior_venda?: boolean | null\n          tem_fiador?: boolean | null\n          tem_garagem?: boolean | null\n          tem_garagem_venda?: boolean | null\n          tem_piscina?: boolean | null\n          tem_piscina_venda?: boolean | null\n          tem_porteiro?: boolean | null\n          tem_porteiro_venda?: boolean | null\n          tem_varanda?: boolean | null\n          tem_varanda_venda?: boolean | null\n          tipo: string\n          tipo_imovel?: string | null\n          tipo_imovel_venda?: string | null\n          total_divisoes?: number | null\n          valor_credito?: number | null\n        }\n        Update: {\n          aceita_animais?: boolean | null\n          area_m2?: number | null\n          area_min_m2?: number | null\n          capital_proprio?: number | null\n          casas_banho?: number | null\n          caucao_rendas?: number | null\n          classe_imovel?: string | null\n          concelho?: string | null\n          created_at?: string | null\n          credito_pre_aprovado?: boolean | null\n          distrito?: string | null\n          duracao_minima_contrato?: string | null\n          estado?: string | null\n          estado_imovel?: string | null\n          estado_imovel_venda?: string | null\n          financiamento_necessario?: boolean | null\n          freguesia?: string | null\n          id?: string\n          lead_id?: string\n          localizacao?: string | null\n          localizacao_venda?: string | null\n          mobilado?: boolean | null\n          motivacao_compra?: string | null\n          num_wc?: number | null\n          observacoes?: string | null\n          orcamento?: number | null\n          orcamento_max?: number | null\n          prazo_compra?: string | null\n          preco_venda?: number | null\n          quartos?: number | null\n          quartos_min?: number | null\n          renda_max_mensal?: number | null\n          renda_pretendida?: number | null\n          rendimento_mensal?: number | null\n          situacao_profissional?: string | null\n          tem_arrumos?: boolean | null\n          tem_arrumos_venda?: boolean | null\n          tem_elevador?: boolean | null\n          tem_elevador_venda?: boolean | null\n          tem_estacionamento?: boolean | null\n          tem_estacionamento_venda?: boolean | null\n          tem_exterior?: boolean | null\n          tem_exterior_venda?: boolean | null\n          tem_fiador?: boolean | null\n          tem_garagem?: boolean | null\n          tem_garagem_venda?: boolean | null\n          tem_piscina?: boolean | null\n          tem_piscina_venda?: boolean | null\n          tem_porteiro?: boolean | null\n          tem_porteiro_venda?: boolean | null\n          tem_varanda?: boolean | null\n          tem_varanda_venda?: boolean | null\n          tipo?: string\n          tipo_imovel?: string | null\n          tipo_imovel_venda?: string | null\n          total_divisoes?: number | null\n          valor_credito?: number | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"negocios_lead_id_fkey\"\n            columns: [\"lead_id\"]\n            isOneToOne: false\n            referencedRelation: \"leads\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      notifications: {\n        Row: {\n          action_url: string\n          body: string | null\n          created_at: string\n          entity_id: string\n          entity_type: string\n          id: string\n          is_read: boolean\n          metadata: Json | null\n          notification_type: string\n          read_at: string | null\n          recipient_id: string\n          sender_id: string | null\n          title: string\n        }\n        Insert: {\n          action_url: string\n          body?: string | null\n          created_at?: string\n          entity_id: string\n          entity_type: string\n          id?: string\n          is_read?: boolean\n          metadata?: Json | null\n          notification_type: string\n          read_at?: string | null\n          recipient_id: string\n          sender_id?: string | null\n          title: string\n        }\n        Update: {\n          action_url?: string\n          body?: string | null\n          created_at?: string\n          entity_id?: string\n          entity_type?: string\n          id?: string\n          is_read?: boolean\n          metadata?: Json | null\n          notification_type?: string\n          read_at?: string | null\n          recipient_id?: string\n          sender_id?: string | null\n          title?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"notifications_recipient_id_fkey\"\n            columns: [\"recipient_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"notifications_sender_id_fkey\"\n            columns: [\"sender_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      owner_beneficiaries: {\n        Row: {\n          created_at: string | null\n          full_name: string\n          id: string\n          id_doc_expiry: string | null\n          id_doc_issued_by: string | null\n          id_doc_number: string | null\n          id_doc_type: string | null\n          nif: string | null\n          owner_id: string\n          position: string | null\n          share_percentage: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          full_name: string\n          id?: string\n          id_doc_expiry?: string | null\n          id_doc_issued_by?: string | null\n          id_doc_number?: string | null\n          id_doc_type?: string | null\n          nif?: string | null\n          owner_id: string\n          position?: string | null\n          share_percentage?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          full_name?: string\n          id?: string\n          id_doc_expiry?: string | null\n          id_doc_issued_by?: string | null\n          id_doc_number?: string | null\n          id_doc_type?: string | null\n          nif?: string | null\n          owner_id?: string\n          position?: string | null\n          share_percentage?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"owner_beneficiaries_owner_id_fkey\"\n            columns: [\"owner_id\"]\n            isOneToOne: false\n            referencedRelation: \"owners\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      owners: {\n        Row: {\n          address: string | null\n          beneficiaries_json: Json | null\n          birth_date: string | null\n          cae_code: string | null\n          city: string | null\n          company_branches: string | null\n          company_cert_url: string | null\n          company_object: string | null\n          country_of_incorporation: string | null\n          created_at: string | null\n          email: string | null\n          funds_origin: string[] | null\n          id: string\n          id_doc_expiry: string | null\n          id_doc_issued_by: string | null\n          id_doc_number: string | null\n          id_doc_type: string | null\n          is_pep: boolean | null\n          is_portugal_resident: boolean | null\n          last_profession: string | null\n          legal_nature: string | null\n          legal_rep_id_doc: string | null\n          legal_representative_name: string | null\n          legal_representative_nif: string | null\n          marital_regime: string | null\n          marital_status: string | null\n          name: string\n          nationality: string | null\n          naturality: string | null\n          nif: string | null\n          observations: string | null\n          pep_position: string | null\n          person_type: string\n          phone: string | null\n          postal_code: string | null\n          profession: string | null\n          rcbe_code: string | null\n          residence_country: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          address?: string | null\n          beneficiaries_json?: Json | null\n          birth_date?: string | null\n          cae_code?: string | null\n          city?: string | null\n          company_branches?: string | null\n          company_cert_url?: string | null\n          company_object?: string | null\n          country_of_incorporation?: string | null\n          created_at?: string | null\n          email?: string | null\n          funds_origin?: string[] | null\n          id?: string\n          id_doc_expiry?: string | null\n          id_doc_issued_by?: string | null\n          id_doc_number?: string | null\n          id_doc_type?: string | null\n          is_pep?: boolean | null\n          is_portugal_resident?: boolean | null\n          last_profession?: string | null\n          legal_nature?: string | null\n          legal_rep_id_doc?: string | null\n          legal_representative_name?: string | null\n          legal_representative_nif?: string | null\n          marital_regime?: string | null\n          marital_status?: string | null\n          name: string\n          nationality?: string | null\n          naturality?: string | null\n          nif?: string | null\n          observations?: string | null\n          pep_position?: string | null\n          person_type: string\n          phone?: string | null\n          postal_code?: string | null\n          profession?: string | null\n          rcbe_code?: string | null\n          residence_country?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          address?: string | null\n          beneficiaries_json?: Json | null\n          birth_date?: string | null\n          cae_code?: string | null\n          city?: string | null\n          company_branches?: string | null\n          company_cert_url?: string | null\n          company_object?: string | null\n          country_of_incorporation?: string | null\n          created_at?: string | null\n          email?: string | null\n          funds_origin?: string[] | null\n          id?: string\n          id_doc_expiry?: string | null\n          id_doc_issued_by?: string | null\n          id_doc_number?: string | null\n          id_doc_type?: string | null\n          is_pep?: boolean | null\n          is_portugal_resident?: boolean | null\n          last_profession?: string | null\n          legal_nature?: string | null\n          legal_rep_id_doc?: string | null\n          legal_representative_name?: string | null\n          legal_representative_nif?: string | null\n          marital_regime?: string | null\n          marital_status?: string | null\n          name?: string\n          nationality?: string | null\n          naturality?: string | null\n          nif?: string | null\n          observations?: string | null\n          pep_position?: string | null\n          person_type?: string\n          phone?: string | null\n          postal_code?: string | null\n          profession?: string | null\n          rcbe_code?: string | null\n          residence_country?: string | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      proc_alert_log: {\n        Row: {\n          channel: string\n          created_at: string\n          entity_id: string\n          entity_type: string\n          error_message: string | null\n          event_type: string\n          id: string\n          metadata: Json | null\n          proc_instance_id: string\n          recipient_address: string | null\n          recipient_id: string | null\n          status: string\n        }\n        Insert: {\n          channel: string\n          created_at?: string\n          entity_id: string\n          entity_type: string\n          error_message?: string | null\n          event_type: string\n          id?: string\n          metadata?: Json | null\n          proc_instance_id: string\n          recipient_address?: string | null\n          recipient_id?: string | null\n          status?: string\n        }\n        Update: {\n          channel?: string\n          created_at?: string\n          entity_id?: string\n          entity_type?: string\n          error_message?: string | null\n          event_type?: string\n          id?: string\n          metadata?: Json | null\n          proc_instance_id?: string\n          recipient_address?: string | null\n          recipient_id?: string | null\n          status?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_alert_log_proc_instance_id_fkey\"\n            columns: [\"proc_instance_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_instances\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_alert_log_recipient_id_fkey\"\n            columns: [\"recipient_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_chat_attachments: {\n        Row: {\n          attachment_type: string\n          created_at: string | null\n          file_name: string\n          file_size: number | null\n          file_url: string\n          id: string\n          message_id: string\n          mime_type: string | null\n          storage_key: string\n          uploaded_by: string | null\n        }\n        Insert: {\n          attachment_type?: string\n          created_at?: string | null\n          file_name: string\n          file_size?: number | null\n          file_url: string\n          id?: string\n          message_id: string\n          mime_type?: string | null\n          storage_key: string\n          uploaded_by?: string | null\n        }\n        Update: {\n          attachment_type?: string\n          created_at?: string | null\n          file_name?: string\n          file_size?: number | null\n          file_url?: string\n          id?: string\n          message_id?: string\n          mime_type?: string | null\n          storage_key?: string\n          uploaded_by?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_chat_attachments_message_id_fkey\"\n            columns: [\"message_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_chat_messages\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_attachments_uploaded_by_fkey\"\n            columns: [\"uploaded_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_chat_messages: {\n        Row: {\n          content: string\n          created_at: string | null\n          deleted_at: string | null\n          edited_at: string | null\n          has_attachments: boolean | null\n          id: string\n          is_deleted: boolean | null\n          is_edited: boolean | null\n          mentions: Json | null\n          parent_message_id: string | null\n          proc_instance_id: string\n          sender_id: string\n          updated_at: string | null\n        }\n        Insert: {\n          content: string\n          created_at?: string | null\n          deleted_at?: string | null\n          edited_at?: string | null\n          has_attachments?: boolean | null\n          id?: string\n          is_deleted?: boolean | null\n          is_edited?: boolean | null\n          mentions?: Json | null\n          parent_message_id?: string | null\n          proc_instance_id: string\n          sender_id: string\n          updated_at?: string | null\n        }\n        Update: {\n          content?: string\n          created_at?: string | null\n          deleted_at?: string | null\n          edited_at?: string | null\n          has_attachments?: boolean | null\n          id?: string\n          is_deleted?: boolean | null\n          is_edited?: boolean | null\n          mentions?: Json | null\n          parent_message_id?: string | null\n          proc_instance_id?: string\n          sender_id?: string\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_chat_messages_parent_message_id_fkey\"\n            columns: [\"parent_message_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_chat_messages\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_messages_proc_instance_id_fkey\"\n            columns: [\"proc_instance_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_instances\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_messages_sender_id_fkey\"\n            columns: [\"sender_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_chat_reactions: {\n        Row: {\n          created_at: string | null\n          emoji: string\n          id: string\n          message_id: string\n          user_id: string\n        }\n        Insert: {\n          created_at?: string | null\n          emoji: string\n          id?: string\n          message_id: string\n          user_id: string\n        }\n        Update: {\n          created_at?: string | null\n          emoji?: string\n          id?: string\n          message_id?: string\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_chat_reactions_message_id_fkey\"\n            columns: [\"message_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_chat_messages\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_reactions_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_chat_read_receipts: {\n        Row: {\n          last_read_at: string | null\n          last_read_message_id: string | null\n          proc_instance_id: string\n          user_id: string\n        }\n        Insert: {\n          last_read_at?: string | null\n          last_read_message_id?: string | null\n          proc_instance_id: string\n          user_id: string\n        }\n        Update: {\n          last_read_at?: string | null\n          last_read_message_id?: string | null\n          proc_instance_id?: string\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_chat_read_receipts_last_read_message_id_fkey\"\n            columns: [\"last_read_message_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_chat_messages\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_read_receipts_proc_instance_id_fkey\"\n            columns: [\"proc_instance_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_instances\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_chat_read_receipts_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_instances: {\n        Row: {\n          approved_at: string | null\n          approved_by: string | null\n          completed_at: string | null\n          current_stage_id: string | null\n          current_status: string | null\n          deleted_at: string | null\n          deleted_by: string | null\n          external_ref: string | null\n          id: string\n          last_completed_step: number | null\n          negocio_id: string | null\n          notes: string | null\n          percent_complete: number | null\n          process_type: string\n          property_id: string\n          rejected_at: string | null\n          rejected_by: string | null\n          rejected_reason: string | null\n          requested_by: string | null\n          returned_at: string | null\n          returned_by: string | null\n          returned_reason: string | null\n          started_at: string | null\n          tpl_process_id: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          approved_at?: string | null\n          approved_by?: string | null\n          completed_at?: string | null\n          current_stage_id?: string | null\n          current_status?: string | null\n          deleted_at?: string | null\n          deleted_by?: string | null\n          external_ref?: string | null\n          id?: string\n          last_completed_step?: number | null\n          negocio_id?: string | null\n          notes?: string | null\n          percent_complete?: number | null\n          process_type?: string\n          property_id: string\n          rejected_at?: string | null\n          rejected_by?: string | null\n          rejected_reason?: string | null\n          requested_by?: string | null\n          returned_at?: string | null\n          returned_by?: string | null\n          returned_reason?: string | null\n          started_at?: string | null\n          tpl_process_id?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          approved_at?: string | null\n          approved_by?: string | null\n          completed_at?: string | null\n          current_stage_id?: string | null\n          current_status?: string | null\n          deleted_at?: string | null\n          deleted_by?: string | null\n          external_ref?: string | null\n          id?: string\n          last_completed_step?: number | null\n          negocio_id?: string | null\n          notes?: string | null\n          percent_complete?: number | null\n          process_type?: string\n          property_id?: string\n          rejected_at?: string | null\n          rejected_by?: string | null\n          rejected_reason?: string | null\n          requested_by?: string | null\n          returned_at?: string | null\n          returned_by?: string | null\n          returned_reason?: string | null\n          started_at?: string | null\n          tpl_process_id?: string | null\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_instances_approved_by_fkey\"\n            columns: [\"approved_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_current_stage_id_fkey\"\n            columns: [\"current_stage_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_stages\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_deleted_by_fkey\"\n            columns: [\"deleted_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_negocio_id_fkey\"\n            columns: [\"negocio_id\"]\n            isOneToOne: false\n            referencedRelation: \"negocios\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_rejected_by_fkey\"\n            columns: [\"rejected_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_requested_by_fkey\"\n            columns: [\"requested_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_returned_by_fkey\"\n            columns: [\"returned_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_instances_tpl_process_id_fkey\"\n            columns: [\"tpl_process_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_processes\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_subtasks: {\n        Row: {\n          assigned_role: string | null\n          assigned_to: string | null\n          completed_at: string | null\n          completed_by: string | null\n          config: Json | null\n          created_at: string | null\n          dependency_proc_subtask_id: string | null\n          dependency_proc_task_id: string | null\n          dependency_type: string | null\n          due_date: string | null\n          id: string\n          is_blocked: boolean\n          is_completed: boolean | null\n          is_mandatory: boolean | null\n          order_index: number\n          owner_id: string | null\n          priority: string\n          proc_task_id: string\n          started_at: string | null\n          title: string\n          tpl_subtask_id: string | null\n          unblocked_at: string | null\n        }\n        Insert: {\n          assigned_role?: string | null\n          assigned_to?: string | null\n          completed_at?: string | null\n          completed_by?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_proc_subtask_id?: string | null\n          dependency_proc_task_id?: string | null\n          dependency_type?: string | null\n          due_date?: string | null\n          id?: string\n          is_blocked?: boolean\n          is_completed?: boolean | null\n          is_mandatory?: boolean | null\n          order_index?: number\n          owner_id?: string | null\n          priority?: string\n          proc_task_id: string\n          started_at?: string | null\n          title: string\n          tpl_subtask_id?: string | null\n          unblocked_at?: string | null\n        }\n        Update: {\n          assigned_role?: string | null\n          assigned_to?: string | null\n          completed_at?: string | null\n          completed_by?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_proc_subtask_id?: string | null\n          dependency_proc_task_id?: string | null\n          dependency_type?: string | null\n          due_date?: string | null\n          id?: string\n          is_blocked?: boolean\n          is_completed?: boolean | null\n          is_mandatory?: boolean | null\n          order_index?: number\n          owner_id?: string | null\n          priority?: string\n          proc_task_id?: string\n          started_at?: string | null\n          title?: string\n          tpl_subtask_id?: string | null\n          unblocked_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_subtasks_assigned_to_fkey\"\n            columns: [\"assigned_to\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_completed_by_fkey\"\n            columns: [\"completed_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_dependency_proc_subtask_id_fkey\"\n            columns: [\"dependency_proc_subtask_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_subtasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_dependency_proc_task_id_fkey\"\n            columns: [\"dependency_proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_owner_id_fkey\"\n            columns: [\"owner_id\"]\n            isOneToOne: false\n            referencedRelation: \"owners\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_proc_task_id_fkey\"\n            columns: [\"proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_subtasks_tpl_subtask_id_fkey\"\n            columns: [\"tpl_subtask_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_subtasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_task_activities: {\n        Row: {\n          activity_type: string\n          created_at: string | null\n          description: string\n          id: string\n          metadata: Json | null\n          proc_task_id: string\n          user_id: string | null\n        }\n        Insert: {\n          activity_type: string\n          created_at?: string | null\n          description: string\n          id?: string\n          metadata?: Json | null\n          proc_task_id: string\n          user_id?: string | null\n        }\n        Update: {\n          activity_type?: string\n          created_at?: string | null\n          description?: string\n          id?: string\n          metadata?: Json | null\n          proc_task_id?: string\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_task_activities_proc_task_id_fkey\"\n            columns: [\"proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_task_activities_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_task_comments: {\n        Row: {\n          content: string\n          created_at: string | null\n          id: string\n          mentions: Json | null\n          proc_task_id: string\n          updated_at: string | null\n          user_id: string\n        }\n        Insert: {\n          content: string\n          created_at?: string | null\n          id?: string\n          mentions?: Json | null\n          proc_task_id: string\n          updated_at?: string | null\n          user_id: string\n        }\n        Update: {\n          content?: string\n          created_at?: string | null\n          id?: string\n          mentions?: Json | null\n          proc_task_id?: string\n          updated_at?: string | null\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_task_comments_proc_task_id_fkey\"\n            columns: [\"proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_task_comments_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      proc_tasks: {\n        Row: {\n          action_type: string | null\n          assigned_role: string | null\n          assigned_to: string | null\n          bypass_reason: string | null\n          bypassed_by: string | null\n          completed_at: string | null\n          config: Json | null\n          created_at: string | null\n          dependency_proc_task_id: string | null\n          due_date: string | null\n          id: string\n          is_blocked: boolean\n          is_bypassed: boolean | null\n          is_mandatory: boolean | null\n          order_index: number | null\n          owner_id: string | null\n          priority: string\n          proc_instance_id: string\n          stage_name: string | null\n          stage_order_index: number | null\n          started_at: string | null\n          status: string | null\n          task_result: Json | null\n          title: string\n          tpl_task_id: string | null\n          unblocked_at: string | null\n        }\n        Insert: {\n          action_type?: string | null\n          assigned_role?: string | null\n          assigned_to?: string | null\n          bypass_reason?: string | null\n          bypassed_by?: string | null\n          completed_at?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_proc_task_id?: string | null\n          due_date?: string | null\n          id?: string\n          is_blocked?: boolean\n          is_bypassed?: boolean | null\n          is_mandatory?: boolean | null\n          order_index?: number | null\n          owner_id?: string | null\n          priority?: string\n          proc_instance_id: string\n          stage_name?: string | null\n          stage_order_index?: number | null\n          started_at?: string | null\n          status?: string | null\n          task_result?: Json | null\n          title: string\n          tpl_task_id?: string | null\n          unblocked_at?: string | null\n        }\n        Update: {\n          action_type?: string | null\n          assigned_role?: string | null\n          assigned_to?: string | null\n          bypass_reason?: string | null\n          bypassed_by?: string | null\n          completed_at?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_proc_task_id?: string | null\n          due_date?: string | null\n          id?: string\n          is_blocked?: boolean\n          is_bypassed?: boolean | null\n          is_mandatory?: boolean | null\n          order_index?: number | null\n          owner_id?: string | null\n          priority?: string\n          proc_instance_id?: string\n          stage_name?: string | null\n          stage_order_index?: number | null\n          started_at?: string | null\n          status?: string | null\n          task_result?: Json | null\n          title?: string\n          tpl_task_id?: string | null\n          unblocked_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"proc_tasks_assigned_to_fkey\"\n            columns: [\"assigned_to\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_tasks_bypassed_by_fkey\"\n            columns: [\"bypassed_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_tasks_dependency_proc_task_id_fkey\"\n            columns: [\"dependency_proc_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_tasks_owner_id_fkey\"\n            columns: [\"owner_id\"]\n            isOneToOne: false\n            referencedRelation: \"owners\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_tasks_proc_instance_id_fkey\"\n            columns: [\"proc_instance_id\"]\n            isOneToOne: false\n            referencedRelation: \"proc_instances\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"proc_tasks_tpl_task_id_fkey\"\n            columns: [\"tpl_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_tasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      property_listings: {\n        Row: {\n          approval_date: string | null\n          area_bruta: number | null\n          area_util: number | null\n          attic_area: number | null\n          balcony_area: number | null\n          bathrooms_count: number | null\n          business_type: string | null\n          cmi_date: string | null\n          commission_rate: number | null\n          condominium_fee: number | null\n          construction_year: number | null\n          consultant_id: string | null\n          consultant_name: string | null\n          contract_regime: string | null\n          contract_term: string | null\n          cpcv_payment_percentage: number | null\n          created_at: string | null\n          deal_notes: string | null\n          deed_payment_percentage: number | null\n          energy_certificate: string | null\n          equipment: string | null\n          external_listing: string | null\n          external_reference_id: string | null\n          fronts_count: number | null\n          full_address_template: string | null\n          garage_spaces: number | null\n          gym_area: number | null\n          has_elevator: boolean | null\n          has_referral: boolean | null\n          id: string\n          imi_value: number | null\n          listing_price: number | null\n          locality: string | null\n          occupancy_status: string | null\n          other_equipment: string | null\n          owner_type: string | null\n          owners_count: number | null\n          pantry_area: number | null\n          parish: string | null\n          parking_spaces: number | null\n          pool_area: number | null\n          postal_code: string | null\n          postal_locality_template: string | null\n          property_address: string | null\n          property_condition: string | null\n          property_notes: string | null\n          property_observations: string | null\n          property_type: string | null\n          referral_colleague_info: string | null\n          referral_percentage: number | null\n          referral_type: string | null\n          solar_orientation: string | null\n          storage_area: number | null\n          typology: string | null\n          updated_at: string | null\n          views: string | null\n          zone: string | null\n        }\n        Insert: {\n          approval_date?: string | null\n          area_bruta?: number | null\n          area_util?: number | null\n          attic_area?: number | null\n          balcony_area?: number | null\n          bathrooms_count?: number | null\n          business_type?: string | null\n          cmi_date?: string | null\n          commission_rate?: number | null\n          condominium_fee?: number | null\n          construction_year?: number | null\n          consultant_id?: string | null\n          consultant_name?: string | null\n          contract_regime?: string | null\n          contract_term?: string | null\n          cpcv_payment_percentage?: number | null\n          created_at?: string | null\n          deal_notes?: string | null\n          deed_payment_percentage?: number | null\n          energy_certificate?: string | null\n          equipment?: string | null\n          external_listing?: string | null\n          external_reference_id?: string | null\n          fronts_count?: number | null\n          full_address_template?: string | null\n          garage_spaces?: number | null\n          gym_area?: number | null\n          has_elevator?: boolean | null\n          has_referral?: boolean | null\n          id?: string\n          imi_value?: number | null\n          listing_price?: number | null\n          locality?: string | null\n          occupancy_status?: string | null\n          other_equipment?: string | null\n          owner_type?: string | null\n          owners_count?: number | null\n          pantry_area?: number | null\n          parish?: string | null\n          parking_spaces?: number | null\n          pool_area?: number | null\n          postal_code?: string | null\n          postal_locality_template?: string | null\n          property_address?: string | null\n          property_condition?: string | null\n          property_notes?: string | null\n          property_observations?: string | null\n          property_type?: string | null\n          referral_colleague_info?: string | null\n          referral_percentage?: number | null\n          referral_type?: string | null\n          solar_orientation?: string | null\n          storage_area?: number | null\n          typology?: string | null\n          updated_at?: string | null\n          views?: string | null\n          zone?: string | null\n        }\n        Update: {\n          approval_date?: string | null\n          area_bruta?: number | null\n          area_util?: number | null\n          attic_area?: number | null\n          balcony_area?: number | null\n          bathrooms_count?: number | null\n          business_type?: string | null\n          cmi_date?: string | null\n          commission_rate?: number | null\n          condominium_fee?: number | null\n          construction_year?: number | null\n          consultant_id?: string | null\n          consultant_name?: string | null\n          contract_regime?: string | null\n          contract_term?: string | null\n          cpcv_payment_percentage?: number | null\n          created_at?: string | null\n          deal_notes?: string | null\n          deed_payment_percentage?: number | null\n          energy_certificate?: string | null\n          equipment?: string | null\n          external_listing?: string | null\n          external_reference_id?: string | null\n          fronts_count?: number | null\n          full_address_template?: string | null\n          garage_spaces?: number | null\n          gym_area?: number | null\n          has_elevator?: boolean | null\n          has_referral?: boolean | null\n          id?: string\n          imi_value?: number | null\n          listing_price?: number | null\n          locality?: string | null\n          occupancy_status?: string | null\n          other_equipment?: string | null\n          owner_type?: string | null\n          owners_count?: number | null\n          pantry_area?: number | null\n          parish?: string | null\n          parking_spaces?: number | null\n          pool_area?: number | null\n          postal_code?: string | null\n          postal_locality_template?: string | null\n          property_address?: string | null\n          property_condition?: string | null\n          property_notes?: string | null\n          property_observations?: string | null\n          property_type?: string | null\n          referral_colleague_info?: string | null\n          referral_percentage?: number | null\n          referral_type?: string | null\n          solar_orientation?: string | null\n          storage_area?: number | null\n          typology?: string | null\n          updated_at?: string | null\n          views?: string | null\n          zone?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"property_listings_consultant_id_fkey\"\n            columns: [\"consultant_id\"]\n            isOneToOne: false\n            referencedRelation: \"users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      property_owners: {\n        Row: {\n          is_main_contact: boolean | null\n          owner_id: string\n          ownership_percentage: number | null\n          property_id: string\n        }\n        Insert: {\n          is_main_contact?: boolean | null\n          owner_id: string\n          ownership_percentage?: number | null\n          property_id: string\n        }\n        Update: {\n          is_main_contact?: boolean | null\n          owner_id?: string\n          ownership_percentage?: number | null\n          property_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"property_owners_owner_id_fkey\"\n            columns: [\"owner_id\"]\n            isOneToOne: false\n            referencedRelation: \"owners\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"property_owners_property_id_fkey\"\n            columns: [\"property_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_properties\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      ref_counters: {\n        Row: {\n          counter: number\n          prefix: string\n          year: number\n        }\n        Insert: {\n          counter?: number\n          prefix: string\n          year: number\n        }\n        Update: {\n          counter?: number\n          prefix?: string\n          year?: number\n        }\n        Relationships: []\n      }\n      roles: {\n        Row: {\n          created_at: string | null\n          description: string | null\n          id: string\n          name: string\n          permissions: Json | null\n          updated_at: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          description?: string | null\n          id?: string\n          name: string\n          permissions?: Json | null\n          updated_at?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          description?: string | null\n          id?: string\n          name?: string\n          permissions?: Json | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      tpl_doc_library: {\n        Row: {\n          content_html: string\n          created_at: string | null\n          description: string | null\n          doc_type_id: string | null\n          id: string\n          letterhead_file_name: string | null\n          letterhead_file_type: string | null\n          letterhead_url: string | null\n          name: string\n          updated_at: string | null\n        }\n        Insert: {\n          content_html: string\n          created_at?: string | null\n          description?: string | null\n          doc_type_id?: string | null\n          id?: string\n          letterhead_file_name?: string | null\n          letterhead_file_type?: string | null\n          letterhead_url?: string | null\n          name: string\n          updated_at?: string | null\n        }\n        Update: {\n          content_html?: string\n          created_at?: string | null\n          description?: string | null\n          doc_type_id?: string | null\n          id?: string\n          letterhead_file_name?: string | null\n          letterhead_file_type?: string | null\n          letterhead_url?: string | null\n          name?: string\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_doc_library_doc_type_id_fkey\"\n            columns: [\"doc_type_id\"]\n            isOneToOne: false\n            referencedRelation: \"doc_types\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_email_library: {\n        Row: {\n          body_html: string\n          created_at: string | null\n          created_by: string | null\n          description: string | null\n          editor_state: Json | null\n          id: string\n          name: string\n          subject: string\n          updated_at: string | null\n          usage_count: number\n        }\n        Insert: {\n          body_html: string\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          editor_state?: Json | null\n          id?: string\n          name: string\n          subject: string\n          updated_at?: string | null\n          usage_count?: number\n        }\n        Update: {\n          body_html?: string\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          editor_state?: Json | null\n          id?: string\n          name?: string\n          subject?: string\n          updated_at?: string | null\n          usage_count?: number\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_email_library_created_by_fkey\"\n            columns: [\"created_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_form_templates: {\n        Row: {\n          category: string | null\n          created_at: string | null\n          created_by: string | null\n          description: string | null\n          id: string\n          is_active: boolean | null\n          name: string\n          sections: Json\n          updated_at: string | null\n        }\n        Insert: {\n          category?: string | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          name: string\n          sections?: Json\n          updated_at?: string | null\n        }\n        Update: {\n          category?: string | null\n          created_at?: string | null\n          created_by?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          name?: string\n          sections?: Json\n          updated_at?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_form_templates_created_by_fkey\"\n            columns: [\"created_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_processes: {\n        Row: {\n          created_at: string | null\n          deleted_at: string | null\n          description: string | null\n          id: string\n          is_active: boolean | null\n          name: string\n          process_type: string\n        }\n        Insert: {\n          created_at?: string | null\n          deleted_at?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          name: string\n          process_type?: string\n        }\n        Update: {\n          created_at?: string | null\n          deleted_at?: string | null\n          description?: string | null\n          id?: string\n          is_active?: boolean | null\n          name?: string\n          process_type?: string\n        }\n        Relationships: []\n      }\n      tpl_stages: {\n        Row: {\n          created_at: string | null\n          description: string | null\n          id: string\n          name: string\n          order_index: number\n          tpl_process_id: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          description?: string | null\n          id?: string\n          name: string\n          order_index: number\n          tpl_process_id?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          description?: string | null\n          id?: string\n          name?: string\n          order_index?: number\n          tpl_process_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_stages_tpl_process_id_fkey\"\n            columns: [\"tpl_process_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_processes\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_subtasks: {\n        Row: {\n          assigned_role: string | null\n          config: Json | null\n          created_at: string | null\n          dependency_subtask_id: string | null\n          dependency_task_id: string | null\n          dependency_type: string | null\n          description: string | null\n          id: string\n          is_mandatory: boolean | null\n          order_index: number\n          priority: string\n          sla_days: number | null\n          title: string\n          tpl_task_id: string\n        }\n        Insert: {\n          assigned_role?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_subtask_id?: string | null\n          dependency_task_id?: string | null\n          dependency_type?: string | null\n          description?: string | null\n          id?: string\n          is_mandatory?: boolean | null\n          order_index?: number\n          priority?: string\n          sla_days?: number | null\n          title: string\n          tpl_task_id: string\n        }\n        Update: {\n          assigned_role?: string | null\n          config?: Json | null\n          created_at?: string | null\n          dependency_subtask_id?: string | null\n          dependency_task_id?: string | null\n          dependency_type?: string | null\n          description?: string | null\n          id?: string\n          is_mandatory?: boolean | null\n          order_index?: number\n          priority?: string\n          sla_days?: number | null\n          title?: string\n          tpl_task_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_subtasks_dependency_subtask_id_fkey\"\n            columns: [\"dependency_subtask_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_subtasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"tpl_subtasks_dependency_task_id_fkey\"\n            columns: [\"dependency_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_tasks\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"tpl_subtasks_tpl_task_id_fkey\"\n            columns: [\"tpl_task_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_tasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_tasks: {\n        Row: {\n          action_type: string\n          assigned_role: string | null\n          config: Json | null\n          dependency_task_id: string | null\n          description: string | null\n          id: string\n          is_mandatory: boolean | null\n          order_index: number\n          priority: string\n          sla_days: number | null\n          title: string\n          tpl_stage_id: string | null\n        }\n        Insert: {\n          action_type: string\n          assigned_role?: string | null\n          config?: Json | null\n          dependency_task_id?: string | null\n          description?: string | null\n          id?: string\n          is_mandatory?: boolean | null\n          order_index: number\n          priority?: string\n          sla_days?: number | null\n          title: string\n          tpl_stage_id?: string | null\n        }\n        Update: {\n          action_type?: string\n          assigned_role?: string | null\n          config?: Json | null\n          dependency_task_id?: string | null\n          description?: string | null\n          id?: string\n          is_mandatory?: boolean | null\n          order_index?: number\n          priority?: string\n          sla_days?: number | null\n          title?: string\n          tpl_stage_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"tpl_tasks_tpl_stage_id_fkey\"\n            columns: [\"tpl_stage_id\"]\n            isOneToOne: false\n            referencedRelation: \"tpl_stages\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tpl_variables: {\n        Row: {\n          category: string\n          category_color: string | null\n          created_at: string | null\n          format_config: Json | null\n          format_type: string\n          id: string\n          is_active: boolean\n          is_system: boolean\n          key: string\n          label: string\n          order_index: number\n          source_column: string | null\n          source_entity: string\n          source_table: string | null\n          static_value: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          category: string\n          category_color?: string | null\n          created_at?: string | null\n          format_config?: Json | null\n          format_type?: string\n          id?: string\n          is_active?: boolean\n          is_system?: boolean\n          key: string\n          label: string\n          order_index?: number\n          source_column?: string | null\n          source_entity: string\n          source_table?: string | null\n          static_value?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          category?: string\n          category_color?: string | null\n          created_at?: string | null\n          format_config?: Json | null\n          format_type?: string\n          id?: string\n          is_active?: boolean\n          is_system?: boolean\n          key?: string\n          label?: string\n          order_index?: number\n          source_column?: string | null\n          source_entity?: string\n          source_table?: string | null\n          static_value?: string | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      user_contracts: {\n        Row: {\n          created_at: string | null\n          file_url: string | null\n          id: string\n          name: string\n          user_id: string\n        }\n        Insert: {\n          created_at?: string | null\n          file_url?: string | null\n          id?: string\n          name: string\n          user_id: string\n        }\n        Update: {\n          created_at?: string | null\n          file_url?: string | null\n          id?: string\n          name?: string\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"user_contracts_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      user_roles: {\n        Row: {\n          assigned_at: string | null\n          assigned_by: string | null\n          role_id: string\n          user_id: string\n        }\n        Insert: {\n          assigned_at?: string | null\n          assigned_by?: string | null\n          role_id: string\n          user_id: string\n        }\n        Update: {\n          assigned_at?: string | null\n          assigned_by?: string | null\n          role_id?: string\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"user_roles_assigned_by_fkey\"\n            columns: [\"assigned_by\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"user_roles_role_id_fkey\"\n            columns: [\"role_id\"]\n            isOneToOne: false\n            referencedRelation: \"roles\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"user_roles_user_id_fkey\"\n            columns: [\"user_id\"]\n            isOneToOne: false\n            referencedRelation: \"dev_users\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      users: {\n        Row: {\n          address_line1: string | null\n          address_line2: string | null\n          agreed_value: number | null\n          bio: string | null\n          birthplace: string | null\n          city: string | null\n          commercial_name: string | null\n          commission_value: number | null\n          company_address: string | null\n          company_email: string | null\n          company_iban: string | null\n          company_name: string | null\n          company_nif: string | null\n          country: string | null\n          created_at: string | null\n          date_of_birth: string | null\n          department: string | null\n          display_website: boolean | null\n          district: string | null\n          documents: Json | null\n          entity_type: string | null\n          facebook_url: string | null\n          full_name: string | null\n          genero: string | null\n          green_receipt: boolean | null\n          hire_date: string | null\n          iban: string | null\n          id: string\n          identity_card: string | null\n          identity_card_url: string | null\n          identity_card_validity: string | null\n          instagram_handle: string | null\n          is_active: boolean | null\n          languages: string[] | null\n          license_number: string | null\n          linkedin_url: string | null\n          monthly_salary: number | null\n          nationality: string | null\n          nif: string | null\n          pais_emissor: string | null\n          personal_email: string | null\n          phone_primary: string | null\n          phone_secondary: string | null\n          photo_url: string | null\n          postal_code: string | null\n          previous_agency: string | null\n          professional_activity: string | null\n          professional_email: string | null\n          profile_photo_crop: Json | null\n          profile_photo_url: string | null\n          role_id: string | null\n          specializations: string[] | null\n          sub_role: string | null\n          tax_regime: string | null\n          termination_date: string | null\n          tipo_documento: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          address_line1?: string | null\n          address_line2?: string | null\n          agreed_value?: number | null\n          bio?: string | null\n          birthplace?: string | null\n          city?: string | null\n          commercial_name?: string | null\n          commission_value?: number | null\n          company_address?: string | null\n          company_email?: string | null\n          company_iban?: string | null\n          company_name?: string | null\n          company_nif?: string | null\n          country?: string | null\n          created_at?: string | null\n          date_of_birth?: string | null\n          department?: string | null\n          display_website?: boolean | null\n          district?: string | null\n          documents?: Json | null\n          entity_type?: string | null\n          facebook_url?: string | null\n          full_name?: string | null\n          genero?: string | null\n          green_receipt?: boolean | null\n          hire_date?: string | null\n          iban?: string | null\n          id?: string\n          identity_card?: string | null\n          identity_card_url?: string | null\n          identity_card_validity?: string | null\n          instagram_handle?: string | null\n          is_active?: boolean | null\n          languages?: string[] | null\n          license_number?: string | null\n          linkedin_url?: string | null\n          monthly_salary?: number | null\n          nationality?: string | null\n          nif?: string | null\n          pais_emissor?: string | null\n          personal_email?: string | null\n          phone_primary?: string | null\n          phone_secondary?: string | null\n          photo_url?: string | null\n          postal_code?: string | null\n          previous_agency?: string | null\n          professional_activity?: string | null\n          professional_email?: string | null\n          profile_photo_crop?: Json | null\n          profile_photo_url?: string | null\n          role_id?: string | null\n          specializations?: string[] | null\n          sub_role?: string | null\n          tax_regime?: string | null\n          termination_date?: string | null\n          tipo_documento?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          address_line1?: string | null\n          address_line2?: string | null\n          agreed_value?: number | null\n          bio?: string | null\n          birthplace?: string | null\n          city?: string | null\n          commercial_name?: string | null\n          commission_value?: number | null\n          company_address?: string | null\n          company_email?: string | null\n          company_iban?: string | null\n          company_name?: string | null\n          company_nif?: string | null\n          country?: string | null\n          created_at?: string | null\n          date_of_birth?: string | null\n          department?: string | null\n          display_website?: boolean | null\n          district?: string | null\n          documents?: Json | null\n          entity_type?: string | null\n          facebook_url?: string | null\n          full_name?: string | null\n          genero?: string | null\n          green_receipt?: boolean | null\n          hire_date?: string | null\n          iban?: string | null\n          id?: string\n          identity_card?: string | null\n          identity_card_url?: string | null\n          identity_card_validity?: string | null\n          instagram_handle?: string | null\n          is_active?: boolean | null\n          languages?: string[] | null\n          license_number?: string | null\n          linkedin_url?: string | null\n          monthly_salary?: number | null\n          nationality?: string | null\n          nif?: string | null\n          pais_emissor?: string | null\n          personal_email?: string | null\n          phone_primary?: string | null\n          phone_secondary?: string | null\n          photo_url?: string | null\n          postal_code?: string | null\n          previous_agency?: string | null\n          professional_activity?: string | null\n          professional_email?: string | null\n          profile_photo_crop?: Json | null\n          profile_photo_url?: string | null\n          role_id?: string | null\n          specializations?: string[] | null\n          sub_role?: string | null\n          tax_regime?: string | null\n          termination_date?: string | null\n          tipo_documento?: string | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n    }\n    Views: {\n      [_ in never]: never\n    }\n    Functions: {\n      _populate_subtasks: {\n        Args: {\n          p_parent_owner_id: string\n          p_proc_task_id: string\n          p_property_id: string\n          p_tpl_task_id: string\n        }\n        Returns: undefined\n      }\n      auto_claim_steps: {\n        Args: { batch_size?: number }\n        Returns: {\n          completed_at: string | null\n          created_at: string | null\n          duration_ms: number | null\n          error_message: string | null\n          flow_id: string\n          id: string\n          input_data: Json | null\n          max_retries: number | null\n          node_id: string\n          node_label: string | null\n          node_type: string\n          output_data: Json | null\n          priority: number | null\n          retry_count: number | null\n          run_id: string\n          scheduled_for: string | null\n          started_at: string | null\n          status: Database[\"public\"][\"Enums\"][\"auto_step_status\"]\n        }[]\n        SetofOptions: {\n          from: \"*\"\n          to: \"auto_step_runs\"\n          isOneToOne: false\n          isSetofReturn: true\n        }\n      }\n      auto_get_table_columns: {\n        Args: { p_table: string }\n        Returns: {\n          column_name: string\n          data_type: string\n        }[]\n      }\n      auto_reset_stuck_steps: { Args: never; Returns: number }\n      auto_update_run_counts: { Args: { p_run_id: string }; Returns: undefined }\n      check_overdue_and_unblock_alerts: { Args: never; Returns: undefined }\n      populate_process_tasks: {\n        Args: { p_instance_id: string }\n        Returns: undefined\n      }\n      recalculate_process_progress: {\n        Args: { p_proc_instance_id: string }\n        Returns: undefined\n      }\n      resolve_process_dependencies: {\n        Args: { p_instance_id: string }\n        Returns: undefined\n      }\n      unaccent: { Args: { \"\": string }; Returns: string }\n    }\n    Enums: {\n      auto_channel_type: \"whatsapp\" | \"email\" | \"notification\"\n      auto_delivery_status:\n        | \"pending\"\n        | \"sent\"\n        | \"delivered\"\n        | \"failed\"\n        | \"cancelled\"\n      auto_run_status:\n        | \"pending\"\n        | \"queued\"\n        | \"running\"\n        | \"completed\"\n        | \"failed\"\n        | \"cancelled\"\n        | \"timed_out\"\n      auto_step_status:\n        | \"pending\"\n        | \"running\"\n        | \"completed\"\n        | \"failed\"\n        | \"skipped\"\n        | \"cancelled\"\n    }\n    CompositeTypes: {\n      [_ in never]: never\n    }\n  }\n}\n\ntype DatabaseWithoutInternals = Omit<Database, \"__InternalSupabase\">\n\ntype DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, \"public\">]\n\nexport type Tables<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof (DefaultSchema[\"Tables\"] & DefaultSchema[\"Views\"])\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"] &\n        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Views\"])\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"] &\n      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Views\"])[TableName] extends {\n      Row: infer R\n    }\n    ? R\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema[\"Tables\"] &\n        DefaultSchema[\"Views\"])\n    ? (DefaultSchema[\"Tables\"] &\n        DefaultSchema[\"Views\"])[DefaultSchemaTableNameOrOptions] extends {\n        Row: infer R\n      }\n      ? R\n      : never\n    : never\n\nexport type TablesInsert<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof DefaultSchema[\"Tables\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"]\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"][TableName] extends {\n      Insert: infer I\n    }\n    ? I\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema[\"Tables\"]\n    ? DefaultSchema[\"Tables\"][DefaultSchemaTableNameOrOptions] extends {\n        Insert: infer I\n      }\n      ? I\n      : never\n    : never\n\nexport type TablesUpdate<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof DefaultSchema[\"Tables\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"]\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"][TableName] extends {\n      Update: infer U\n    }\n    ? U\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema[\"Tables\"]\n    ? DefaultSchema[\"Tables\"][DefaultSchemaTableNameOrOptions] extends {\n        Update: infer U\n      }\n      ? U\n      : never\n    : never\n\nexport type Enums<\n  DefaultSchemaEnumNameOrOptions extends\n    | keyof DefaultSchema[\"Enums\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  EnumName extends DefaultSchemaEnumNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions[\"schema\"]][\"Enums\"]\n    : never = never,\n> = DefaultSchemaEnumNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions[\"schema\"]][\"Enums\"][EnumName]\n  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema[\"Enums\"]\n    ? DefaultSchema[\"Enums\"][DefaultSchemaEnumNameOrOptions]\n    : never\n\nexport type CompositeTypes<\n  PublicCompositeTypeNameOrOptions extends\n    | keyof DefaultSchema[\"CompositeTypes\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions[\"schema\"]][\"CompositeTypes\"]\n    : never = never,\n> = PublicCompositeTypeNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions[\"schema\"]][\"CompositeTypes\"][CompositeTypeName]\n  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema[\"CompositeTypes\"]\n    ? DefaultSchema[\"CompositeTypes\"][PublicCompositeTypeNameOrOptions]\n    : never\n\nexport const Constants = {\n  public: {\n    Enums: {\n      auto_channel_type: [\"whatsapp\", \"email\", \"notification\"],\n      auto_delivery_status: [\n        \"pending\",\n        \"sent\",\n        \"delivered\",\n        \"failed\",\n        \"cancelled\",\n      ],\n      auto_run_status: [\n        \"pending\",\n        \"queued\",\n        \"running\",\n        \"completed\",\n        \"failed\",\n        \"cancelled\",\n        \"timed_out\",\n      ],\n      auto_step_status: [\n        \"pending\",\n        \"running\",\n        \"completed\",\n        \"failed\",\n        \"skipped\",\n        \"cancelled\",\n      ],\n    },\n  },\n} as const\n"}
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      auto_delivery_log: {
+        Row: {
+          channel: Database["public"]["Enums"]["auto_channel_type"]
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          external_message_id: string | null
+          final_content: string | null
+          flow_id: string
+          id: string
+          media_url: string | null
+          message_type: string | null
+          recipient_address: string
+          run_id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["auto_delivery_status"]
+          step_run_id: string
+          track_source: string | null
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["auto_channel_type"]
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_message_id?: string | null
+          final_content?: string | null
+          flow_id: string
+          id?: string
+          media_url?: string | null
+          message_type?: string | null
+          recipient_address: string
+          run_id: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["auto_delivery_status"]
+          step_run_id: string
+          track_source?: string | null
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["auto_channel_type"]
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_message_id?: string | null
+          final_content?: string | null
+          flow_id?: string
+          id?: string
+          media_url?: string | null
+          message_type?: string | null
+          recipient_address?: string
+          run_id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["auto_delivery_status"]
+          step_run_id?: string
+          track_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_delivery_log_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "auto_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_delivery_log_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "auto_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_delivery_log_step_run_id_fkey"
+            columns: ["step_run_id"]
+            isOneToOne: false
+            referencedRelation: "auto_step_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_flow_versions: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          flow_definition: Json
+          flow_id: string
+          id: string
+          version: number
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          flow_definition: Json
+          flow_id: string
+          id?: string
+          version: number
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          flow_definition?: Json
+          flow_id?: string
+          id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_flow_versions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_flow_versions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "auto_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_flows: {
+        Row: {
+          context_config: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          draft_definition: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          published_at: string | null
+          published_by: string | null
+          published_definition: Json | null
+          published_triggers: Json | null
+          updated_at: string | null
+          wpp_instance_id: string | null
+        }
+        Insert: {
+          context_config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          draft_definition?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          published_at?: string | null
+          published_by?: string | null
+          published_definition?: Json | null
+          published_triggers?: Json | null
+          updated_at?: string | null
+          wpp_instance_id?: string | null
+        }
+        Update: {
+          context_config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          draft_definition?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          published_at?: string | null
+          published_by?: string | null
+          published_definition?: Json | null
+          published_triggers?: Json | null
+          updated_at?: string | null
+          wpp_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_flows_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_flows_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_flows_wpp_instance_id_fkey"
+            columns: ["wpp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_runs: {
+        Row: {
+          completed_at: string | null
+          completed_steps: number | null
+          context: Json | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          failed_steps: number | null
+          flow_id: string
+          id: string
+          is_test: boolean
+          started_at: string | null
+          status: Database["public"]["Enums"]["auto_run_status"]
+          total_steps: number | null
+          trigger_id: string | null
+          triggered_by: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_steps?: number | null
+          context?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          failed_steps?: number | null
+          flow_id: string
+          id?: string
+          is_test?: boolean
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["auto_run_status"]
+          total_steps?: number | null
+          trigger_id?: string | null
+          triggered_by?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_steps?: number | null
+          context?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          failed_steps?: number | null
+          flow_id?: string
+          id?: string
+          is_test?: boolean
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["auto_run_status"]
+          total_steps?: number | null
+          trigger_id?: string | null
+          triggered_by?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_runs_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "auto_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_runs_trigger_id_fkey"
+            columns: ["trigger_id"]
+            isOneToOne: false
+            referencedRelation: "auto_triggers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_step_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          flow_id: string
+          id: string
+          input_data: Json | null
+          max_retries: number | null
+          node_id: string
+          node_label: string | null
+          node_type: string
+          output_data: Json | null
+          priority: number | null
+          retry_count: number | null
+          run_id: string
+          scheduled_for: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["auto_step_status"]
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          flow_id: string
+          id?: string
+          input_data?: Json | null
+          max_retries?: number | null
+          node_id: string
+          node_label?: string | null
+          node_type: string
+          output_data?: Json | null
+          priority?: number | null
+          retry_count?: number | null
+          run_id: string
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["auto_step_status"]
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          flow_id?: string
+          id?: string
+          input_data?: Json | null
+          max_retries?: number | null
+          node_id?: string
+          node_label?: string | null
+          node_type?: string
+          output_data?: Json | null
+          priority?: number | null
+          retry_count?: number | null
+          run_id?: string
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["auto_step_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_step_runs_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "auto_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_step_runs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "auto_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_triggers: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          flow_id: string
+          id: string
+          payload_mapping: Json | null
+          source_type: string
+          trigger_condition: Json | null
+          trigger_source: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          flow_id: string
+          id?: string
+          payload_mapping?: Json | null
+          source_type: string
+          trigger_condition?: Json | null
+          trigger_source?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          flow_id?: string
+          id?: string
+          payload_mapping?: Json | null
+          source_type?: string
+          trigger_condition?: Json | null
+          trigger_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_triggers_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "auto_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_webhook_captures: {
+        Row: {
+          flow_name: string | null
+          payload: Json | null
+          received_at: string | null
+          source_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          flow_name?: string | null
+          payload?: Json | null
+          received_at?: string | null
+          source_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          flow_name?: string | null
+          payload?: Json | null
+          received_at?: string | null
+          source_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      auto_wpp_instances: {
+        Row: {
+          connection_status: string
+          created_at: string | null
+          id: string
+          is_business: boolean | null
+          name: string
+          phone: string | null
+          profile_name: string | null
+          profile_pic_url: string | null
+          status: string
+          uazapi_instance_id: string | null
+          uazapi_token: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          connection_status?: string
+          created_at?: string | null
+          id?: string
+          is_business?: boolean | null
+          name: string
+          phone?: string | null
+          profile_name?: string | null
+          profile_pic_url?: string | null
+          status?: string
+          uazapi_instance_id?: string | null
+          uazapi_token: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          connection_status?: string
+          created_at?: string | null
+          id?: string
+          is_business?: boolean | null
+          name?: string
+          phone?: string | null
+          profile_name?: string | null
+          profile_pic_url?: string | null
+          status?: string
+          uazapi_instance_id?: string | null
+          uazapi_token?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_wpp_instances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_wpp_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          messages: Json
+          name: string
+          tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          messages?: Json
+          name: string
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          messages?: Json
+          name?: string
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_wpp_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultant_documents: {
+        Row: {
+          consultant_id: string
+          created_at: string | null
+          doc_type_id: string | null
+          file_name: string
+          file_url: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          status: string | null
+          uploaded_by: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          status?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          status?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_documents_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_documents_doc_type_id_fkey"
+            columns: ["doc_type_id"]
+            isOneToOne: false
+            referencedRelation: "doc_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_form_submissions: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          message: string
+          name: string
+          notes: string | null
+          phone: string | null
+          read_at: string | null
+          replied_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          message: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          read_at?: string | null
+          replied_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          read_at?: string | null
+          replied_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      dev_consultant_private_data: {
+        Row: {
+          address_private: string | null
+          commission_rate: number | null
+          documents_json: Json | null
+          full_name: string | null
+          hiring_date: string | null
+          iban: string | null
+          monthly_salary: number | null
+          nif: string | null
+          user_id: string
+        }
+        Insert: {
+          address_private?: string | null
+          commission_rate?: number | null
+          documents_json?: Json | null
+          full_name?: string | null
+          hiring_date?: string | null
+          iban?: string | null
+          monthly_salary?: number | null
+          nif?: string | null
+          user_id: string
+        }
+        Update: {
+          address_private?: string | null
+          commission_rate?: number | null
+          documents_json?: Json | null
+          full_name?: string | null
+          hiring_date?: string | null
+          iban?: string | null
+          monthly_salary?: number | null
+          nif?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_consultant_private_data_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_consultant_profiles: {
+        Row: {
+          bio: string | null
+          instagram_handle: string | null
+          languages: string[] | null
+          linkedin_url: string | null
+          phone_commercial: string | null
+          profile_photo_url: string | null
+          specializations: string[] | null
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          instagram_handle?: string | null
+          languages?: string[] | null
+          linkedin_url?: string | null
+          phone_commercial?: string | null
+          profile_photo_url?: string | null
+          specializations?: string[] | null
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          instagram_handle?: string | null
+          languages?: string[] | null
+          linkedin_url?: string | null
+          phone_commercial?: string | null
+          profile_photo_url?: string | null
+          specializations?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_consultant_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_properties: {
+        Row: {
+          address_parish: string | null
+          address_street: string | null
+          business_status: string | null
+          business_type: string | null
+          city: string | null
+          consultant_id: string | null
+          contract_regime: string | null
+          created_at: string | null
+          description: string | null
+          energy_certificate: string | null
+          external_ref: string | null
+          id: string
+          latitude: number | null
+          listing_price: number | null
+          longitude: number | null
+          postal_code: string | null
+          property_condition: string | null
+          property_type: string | null
+          slug: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          zone: string | null
+        }
+        Insert: {
+          address_parish?: string | null
+          address_street?: string | null
+          business_status?: string | null
+          business_type?: string | null
+          city?: string | null
+          consultant_id?: string | null
+          contract_regime?: string | null
+          created_at?: string | null
+          description?: string | null
+          energy_certificate?: string | null
+          external_ref?: string | null
+          id?: string
+          latitude?: number | null
+          listing_price?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          property_condition?: string | null
+          property_type?: string | null
+          slug?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Update: {
+          address_parish?: string | null
+          address_street?: string | null
+          business_status?: string | null
+          business_type?: string | null
+          city?: string | null
+          consultant_id?: string | null
+          contract_regime?: string | null
+          created_at?: string | null
+          description?: string | null
+          energy_certificate?: string | null
+          external_ref?: string | null
+          id?: string
+          latitude?: number | null
+          listing_price?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          property_condition?: string | null
+          property_type?: string | null
+          slug?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_properties_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_property_internal: {
+        Row: {
+          commission_agreed: number | null
+          commission_type: string | null
+          condominium_fee: number | null
+          contract_expiry: string | null
+          contract_regime: string | null
+          contract_term: string | null
+          cpcv_percentage: number | null
+          exact_address: string | null
+          imi_value: number | null
+          internal_notes: string | null
+          postal_code: string | null
+          property_id: string
+          reference_internal: string | null
+        }
+        Insert: {
+          commission_agreed?: number | null
+          commission_type?: string | null
+          condominium_fee?: number | null
+          contract_expiry?: string | null
+          contract_regime?: string | null
+          contract_term?: string | null
+          cpcv_percentage?: number | null
+          exact_address?: string | null
+          imi_value?: number | null
+          internal_notes?: string | null
+          postal_code?: string | null
+          property_id: string
+          reference_internal?: string | null
+        }
+        Update: {
+          commission_agreed?: number | null
+          commission_type?: string | null
+          condominium_fee?: number | null
+          contract_expiry?: string | null
+          contract_regime?: string | null
+          contract_term?: string | null
+          cpcv_percentage?: number | null
+          exact_address?: string | null
+          imi_value?: number | null
+          internal_notes?: string | null
+          postal_code?: string | null
+          property_id?: string
+          reference_internal?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_property_internal_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_property_media: {
+        Row: {
+          id: string
+          is_cover: boolean | null
+          media_type: string | null
+          order_index: number | null
+          property_id: string | null
+          url: string
+        }
+        Insert: {
+          id?: string
+          is_cover?: boolean | null
+          media_type?: string | null
+          order_index?: number | null
+          property_id?: string | null
+          url: string
+        }
+        Update: {
+          id?: string
+          is_cover?: boolean | null
+          media_type?: string | null
+          order_index?: number | null
+          property_id?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_property_media_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_property_specifications: {
+        Row: {
+          area_gross: number | null
+          area_util: number | null
+          attic_area: number | null
+          balcony_area: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          construction_year: number | null
+          equipment: string[] | null
+          features: string[] | null
+          fronts_count: number | null
+          garage_spaces: number | null
+          gym_area: number | null
+          has_elevator: boolean | null
+          pantry_area: number | null
+          parking_spaces: number | null
+          pool_area: number | null
+          property_id: string
+          solar_orientation: string[] | null
+          storage_area: number | null
+          typology: string | null
+          views: string[] | null
+        }
+        Insert: {
+          area_gross?: number | null
+          area_util?: number | null
+          attic_area?: number | null
+          balcony_area?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          construction_year?: number | null
+          equipment?: string[] | null
+          features?: string[] | null
+          fronts_count?: number | null
+          garage_spaces?: number | null
+          gym_area?: number | null
+          has_elevator?: boolean | null
+          pantry_area?: number | null
+          parking_spaces?: number | null
+          pool_area?: number | null
+          property_id: string
+          solar_orientation?: string[] | null
+          storage_area?: number | null
+          typology?: string | null
+          views?: string[] | null
+        }
+        Update: {
+          area_gross?: number | null
+          area_util?: number | null
+          attic_area?: number | null
+          balcony_area?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          construction_year?: number | null
+          equipment?: string[] | null
+          features?: string[] | null
+          fronts_count?: number | null
+          garage_spaces?: number | null
+          gym_area?: number | null
+          has_elevator?: boolean | null
+          pantry_area?: number | null
+          parking_spaces?: number | null
+          pool_area?: number | null
+          property_id?: string
+          solar_orientation?: string[] | null
+          storage_area?: number | null
+          typology?: string | null
+          views?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_property_specifications_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_users: {
+        Row: {
+          commercial_name: string
+          created_at: string | null
+          display_website: boolean | null
+          id: string
+          is_active: boolean | null
+          professional_email: string | null
+        }
+        Insert: {
+          commercial_name: string
+          created_at?: string | null
+          display_website?: boolean | null
+          id: string
+          is_active?: boolean | null
+          professional_email?: string | null
+        }
+        Update: {
+          commercial_name?: string
+          created_at?: string | null
+          display_website?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          professional_email?: string | null
+        }
+        Relationships: []
+      }
+      doc_registry: {
+        Row: {
+          created_at: string | null
+          doc_type_id: string | null
+          file_name: string
+          file_url: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          owner_id: string | null
+          property_id: string | null
+          status: string | null
+          updated_at: string | null
+          uploaded_by: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          owner_id?: string | null
+          property_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          owner_id?: string | null
+          property_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_registry_doc_type_id_fkey"
+            columns: ["doc_type_id"]
+            isOneToOne: false
+            referencedRelation: "doc_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doc_registry_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doc_registry_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doc_registry_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doc_types: {
+        Row: {
+          allowed_extensions: string[] | null
+          category: string | null
+          created_at: string | null
+          default_validity_months: number | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+        }
+        Insert: {
+          allowed_extensions?: string[] | null
+          category?: string | null
+          created_at?: string | null
+          default_validity_months?: number | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+        }
+        Update: {
+          allowed_extensions?: string[] | null
+          category?: string | null
+          created_at?: string | null
+          default_validity_months?: number | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      email_senders: {
+        Row: {
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          reply_to: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          email: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          reply_to?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          reply_to?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_senders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      embarcacoes: {
+        Row: {
+          arqueacao: number | null
+          boca: number | null
+          comprimento: number | null
+          cor_casco: string | null
+          cor_superestrutura: string | null
+          created_at: string | null
+          data_construcao: number | null
+          data_registo: string | null
+          documento_url: string | null
+          fls: number | null
+          id: string
+          livro: number | null
+          lotacao: number | null
+          marca: string | null
+          material_casco: string | null
+          meios_salvacao: Json | null
+          modelo: string | null
+          motor_combustivel: string | null
+          motor_marca: string | null
+          motor_numero: string | null
+          motor_potencia_hp: number | null
+          motor_potencia_kw: number | null
+          motor_ps: string | null
+          motor_tipo: string | null
+          nome: string
+          numero_casco: string | null
+          numero_registo: string | null
+          observacoes: string | null
+          pontal: number | null
+          proprietario_cidade: string | null
+          proprietario_codigo_postal: string | null
+          proprietario_morada: string | null
+          proprietario_nome: string | null
+          proprietario_pais: string | null
+          radiobaliza: boolean | null
+          rx_msi: boolean | null
+          tipo_zona: string | null
+          updated_at: string | null
+          vhf_fixo: boolean | null
+          vhf_portatil: boolean | null
+        }
+        Insert: {
+          arqueacao?: number | null
+          boca?: number | null
+          comprimento?: number | null
+          cor_casco?: string | null
+          cor_superestrutura?: string | null
+          created_at?: string | null
+          data_construcao?: number | null
+          data_registo?: string | null
+          documento_url?: string | null
+          fls?: number | null
+          id?: string
+          livro?: number | null
+          lotacao?: number | null
+          marca?: string | null
+          material_casco?: string | null
+          meios_salvacao?: Json | null
+          modelo?: string | null
+          motor_combustivel?: string | null
+          motor_marca?: string | null
+          motor_numero?: string | null
+          motor_potencia_hp?: number | null
+          motor_potencia_kw?: number | null
+          motor_ps?: string | null
+          motor_tipo?: string | null
+          nome: string
+          numero_casco?: string | null
+          numero_registo?: string | null
+          observacoes?: string | null
+          pontal?: number | null
+          proprietario_cidade?: string | null
+          proprietario_codigo_postal?: string | null
+          proprietario_morada?: string | null
+          proprietario_nome?: string | null
+          proprietario_pais?: string | null
+          radiobaliza?: boolean | null
+          rx_msi?: boolean | null
+          tipo_zona?: string | null
+          updated_at?: string | null
+          vhf_fixo?: boolean | null
+          vhf_portatil?: boolean | null
+        }
+        Update: {
+          arqueacao?: number | null
+          boca?: number | null
+          comprimento?: number | null
+          cor_casco?: string | null
+          cor_superestrutura?: string | null
+          created_at?: string | null
+          data_construcao?: number | null
+          data_registo?: string | null
+          documento_url?: string | null
+          fls?: number | null
+          id?: string
+          livro?: number | null
+          lotacao?: number | null
+          marca?: string | null
+          material_casco?: string | null
+          meios_salvacao?: Json | null
+          modelo?: string | null
+          motor_combustivel?: string | null
+          motor_marca?: string | null
+          motor_numero?: string | null
+          motor_potencia_hp?: number | null
+          motor_potencia_kw?: number | null
+          motor_ps?: string | null
+          motor_tipo?: string | null
+          nome?: string
+          numero_casco?: string | null
+          numero_registo?: string | null
+          observacoes?: string | null
+          pontal?: number | null
+          proprietario_cidade?: string | null
+          proprietario_codigo_postal?: string | null
+          proprietario_morada?: string | null
+          proprietario_nome?: string | null
+          proprietario_pais?: string | null
+          radiobaliza?: boolean | null
+          rx_msi?: boolean | null
+          tipo_zona?: string | null
+          updated_at?: string | null
+          vhf_fixo?: boolean | null
+          vhf_portatil?: boolean | null
+        }
+        Relationships: []
+      }
+      kv_store_6f39db24: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      lead_attachments: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_id: string
+          name: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          name?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          name?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_attachments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          agent_id: string | null
+          codigo_postal: string | null
+          concelho: string | null
+          consentimento_contacto: boolean | null
+          consentimento_webmarketing: boolean | null
+          created_at: string
+          data: string | null
+          data_contacto: string | null
+          data_nascimento: string | null
+          data_validade_documento: string | null
+          distrito: string | null
+          documento_identificacao_frente_url: string | null
+          documento_identificacao_url: string | null
+          documento_identificacao_verso_url: string | null
+          email: string | null
+          email_empresa: string | null
+          empresa: string | null
+          estado: string | null
+          forma_contacto: string | null
+          freguesia: string | null
+          full_name: string | null
+          genero: string | null
+          id: string
+          localidade: string | null
+          meio_contacto_preferencial: string | null
+          morada: string | null
+          morada_empresa: string | null
+          nacionalidade: string | null
+          nif: string | null
+          nipc: string | null
+          nome: string
+          numero_documento: string | null
+          observacoes: string | null
+          origem: string | null
+          pais: string | null
+          pais_emissor: string | null
+          telefone: string | null
+          telefone_empresa: string | null
+          telefone_fixo: string | null
+          telemovel: string | null
+          tem_empresa: boolean | null
+          temperatura: string | null
+          tipo_documento: string | null
+          website_empresa: string | null
+          zona: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
+          created_at?: string
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
+          email?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
+          id?: string
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome: string
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
+          created_at?: string
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
+          email?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
+          id?: string
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome?: string
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      log_audit: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_audit_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      log_emails: {
+        Row: {
+          body_html: string | null
+          cc: string[] | null
+          delivery_status: string | null
+          error_message: string | null
+          events: Json | null
+          id: string
+          last_event: string | null
+          metadata: Json | null
+          parent_email_id: string | null
+          proc_subtask_id: string | null
+          proc_task_id: string | null
+          provider_id: string | null
+          recipient_email: string
+          resend_email_id: string | null
+          sender_email: string | null
+          sender_name: string | null
+          sent_at: string | null
+          subject: string | null
+        }
+        Insert: {
+          body_html?: string | null
+          cc?: string[] | null
+          delivery_status?: string | null
+          error_message?: string | null
+          events?: Json | null
+          id?: string
+          last_event?: string | null
+          metadata?: Json | null
+          parent_email_id?: string | null
+          proc_subtask_id?: string | null
+          proc_task_id?: string | null
+          provider_id?: string | null
+          recipient_email: string
+          resend_email_id?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sent_at?: string | null
+          subject?: string | null
+        }
+        Update: {
+          body_html?: string | null
+          cc?: string[] | null
+          delivery_status?: string | null
+          error_message?: string | null
+          events?: Json | null
+          id?: string
+          last_event?: string | null
+          metadata?: Json | null
+          parent_email_id?: string | null
+          proc_subtask_id?: string | null
+          proc_task_id?: string | null
+          provider_id?: string | null
+          recipient_email?: string
+          resend_email_id?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sent_at?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_emails_parent_email_id_fkey"
+            columns: ["parent_email_id"]
+            isOneToOne: false
+            referencedRelation: "log_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_emails_proc_subtask_id_fkey"
+            columns: ["proc_subtask_id"]
+            isOneToOne: false
+            referencedRelation: "proc_subtasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_emails_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negocios: {
+        Row: {
+          aceita_animais: boolean | null
+          area_m2: number | null
+          area_min_m2: number | null
+          capital_proprio: number | null
+          casas_banho: number | null
+          caucao_rendas: number | null
+          classe_imovel: string | null
+          concelho: string | null
+          created_at: string | null
+          credito_pre_aprovado: boolean | null
+          distrito: string | null
+          duracao_minima_contrato: string | null
+          estado: string | null
+          estado_imovel: string | null
+          estado_imovel_venda: string | null
+          financiamento_necessario: boolean | null
+          freguesia: string | null
+          id: string
+          lead_id: string
+          localizacao: string | null
+          localizacao_venda: string | null
+          mobilado: boolean | null
+          motivacao_compra: string | null
+          num_wc: number | null
+          observacoes: string | null
+          orcamento: number | null
+          orcamento_max: number | null
+          prazo_compra: string | null
+          preco_venda: number | null
+          quartos: number | null
+          quartos_min: number | null
+          renda_max_mensal: number | null
+          renda_pretendida: number | null
+          rendimento_mensal: number | null
+          situacao_profissional: string | null
+          tem_arrumos: boolean | null
+          tem_arrumos_venda: boolean | null
+          tem_elevador: boolean | null
+          tem_elevador_venda: boolean | null
+          tem_estacionamento: boolean | null
+          tem_estacionamento_venda: boolean | null
+          tem_exterior: boolean | null
+          tem_exterior_venda: boolean | null
+          tem_fiador: boolean | null
+          tem_garagem: boolean | null
+          tem_garagem_venda: boolean | null
+          tem_piscina: boolean | null
+          tem_piscina_venda: boolean | null
+          tem_porteiro: boolean | null
+          tem_porteiro_venda: boolean | null
+          tem_varanda: boolean | null
+          tem_varanda_venda: boolean | null
+          tipo: string
+          tipo_imovel: string | null
+          tipo_imovel_venda: string | null
+          total_divisoes: number | null
+          valor_credito: number | null
+        }
+        Insert: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          id?: string
+          lead_id: string
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          quartos?: number | null
+          quartos_min?: number | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          tipo: string
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          valor_credito?: number | null
+        }
+        Update: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          id?: string
+          lead_id?: string
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          quartos?: number | null
+          quartos_min?: number | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          tipo?: string
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          valor_credito?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negocios_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          action_url: string
+          body: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string | null
+          title: string
+        }
+        Insert: {
+          action_url: string
+          body?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id?: string | null
+          title: string
+        }
+        Update: {
+          action_url?: string
+          body?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_beneficiaries: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          id_doc_expiry: string | null
+          id_doc_issued_by: string | null
+          id_doc_number: string | null
+          id_doc_type: string | null
+          nif: string | null
+          owner_id: string
+          position: string | null
+          share_percentage: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_name: string
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          nif?: string | null
+          owner_id: string
+          position?: string | null
+          share_percentage?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          nif?: string | null
+          owner_id?: string
+          position?: string | null
+          share_percentage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_beneficiaries_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owners: {
+        Row: {
+          address: string | null
+          beneficiaries_json: Json | null
+          birth_date: string | null
+          cae_code: string | null
+          city: string | null
+          company_branches: string | null
+          company_cert_url: string | null
+          company_object: string | null
+          country_of_incorporation: string | null
+          created_at: string | null
+          email: string | null
+          funds_origin: string[] | null
+          id: string
+          id_doc_expiry: string | null
+          id_doc_issued_by: string | null
+          id_doc_number: string | null
+          id_doc_type: string | null
+          is_pep: boolean | null
+          is_portugal_resident: boolean | null
+          last_profession: string | null
+          legal_nature: string | null
+          legal_rep_id_doc: string | null
+          legal_representative_name: string | null
+          legal_representative_nif: string | null
+          marital_regime: string | null
+          marital_status: string | null
+          name: string
+          nationality: string | null
+          naturality: string | null
+          nif: string | null
+          observations: string | null
+          pep_position: string | null
+          person_type: string
+          phone: string | null
+          postal_code: string | null
+          profession: string | null
+          rcbe_code: string | null
+          residence_country: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          beneficiaries_json?: Json | null
+          birth_date?: string | null
+          cae_code?: string | null
+          city?: string | null
+          company_branches?: string | null
+          company_cert_url?: string | null
+          company_object?: string | null
+          country_of_incorporation?: string | null
+          created_at?: string | null
+          email?: string | null
+          funds_origin?: string[] | null
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          is_pep?: boolean | null
+          is_portugal_resident?: boolean | null
+          last_profession?: string | null
+          legal_nature?: string | null
+          legal_rep_id_doc?: string | null
+          legal_representative_name?: string | null
+          legal_representative_nif?: string | null
+          marital_regime?: string | null
+          marital_status?: string | null
+          name: string
+          nationality?: string | null
+          naturality?: string | null
+          nif?: string | null
+          observations?: string | null
+          pep_position?: string | null
+          person_type: string
+          phone?: string | null
+          postal_code?: string | null
+          profession?: string | null
+          rcbe_code?: string | null
+          residence_country?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          beneficiaries_json?: Json | null
+          birth_date?: string | null
+          cae_code?: string | null
+          city?: string | null
+          company_branches?: string | null
+          company_cert_url?: string | null
+          company_object?: string | null
+          country_of_incorporation?: string | null
+          created_at?: string | null
+          email?: string | null
+          funds_origin?: string[] | null
+          id?: string
+          id_doc_expiry?: string | null
+          id_doc_issued_by?: string | null
+          id_doc_number?: string | null
+          id_doc_type?: string | null
+          is_pep?: boolean | null
+          is_portugal_resident?: boolean | null
+          last_profession?: string | null
+          legal_nature?: string | null
+          legal_rep_id_doc?: string | null
+          legal_representative_name?: string | null
+          legal_representative_nif?: string | null
+          marital_regime?: string | null
+          marital_status?: string | null
+          name?: string
+          nationality?: string | null
+          naturality?: string | null
+          nif?: string | null
+          observations?: string | null
+          pep_position?: string | null
+          person_type?: string
+          phone?: string | null
+          postal_code?: string | null
+          profession?: string | null
+          rcbe_code?: string | null
+          residence_country?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      proc_alert_log: {
+        Row: {
+          channel: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_message: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          proc_instance_id: string
+          recipient_address: string | null
+          recipient_id: string | null
+          status: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          proc_instance_id: string
+          recipient_address?: string | null
+          recipient_id?: string | null
+          status?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          proc_instance_id?: string
+          recipient_address?: string | null
+          recipient_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_alert_log_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_alert_log_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_attachments: {
+        Row: {
+          attachment_type: string
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          message_id: string
+          mime_type: string | null
+          storage_key: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          attachment_type?: string
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          message_id: string
+          mime_type?: string | null
+          storage_key: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          attachment_type?: string
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+          storage_key?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          deleted_at: string | null
+          edited_at: string | null
+          has_attachments: boolean | null
+          id: string
+          is_deleted: boolean | null
+          is_edited: boolean | null
+          mentions: Json | null
+          parent_message_id: string | null
+          proc_instance_id: string
+          sender_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          parent_message_id?: string | null
+          proc_instance_id: string
+          sender_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
+          mentions?: Json | null
+          parent_message_id?: string | null
+          proc_instance_id?: string
+          sender_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_messages_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_chat_read_receipts: {
+        Row: {
+          last_read_at: string | null
+          last_read_message_id: string | null
+          proc_instance_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          proc_instance_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          proc_instance_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_chat_read_receipts_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "proc_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_read_receipts_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_chat_read_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_instances: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          completed_at: string | null
+          current_stage_id: string | null
+          current_status: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          external_ref: string | null
+          id: string
+          last_completed_step: number | null
+          negocio_id: string | null
+          notes: string | null
+          percent_complete: number | null
+          process_type: string
+          property_id: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          requested_by: string | null
+          returned_at: string | null
+          returned_by: string | null
+          returned_reason: string | null
+          started_at: string | null
+          tpl_process_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          current_stage_id?: string | null
+          current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_ref?: string | null
+          id?: string
+          last_completed_step?: number | null
+          negocio_id?: string | null
+          notes?: string | null
+          percent_complete?: number | null
+          process_type?: string
+          property_id: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          started_at?: string | null
+          tpl_process_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          current_stage_id?: string | null
+          current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_ref?: string | null
+          id?: string
+          last_completed_step?: number | null
+          negocio_id?: string | null
+          notes?: string | null
+          percent_complete?: number | null
+          process_type?: string
+          property_id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          started_at?: string | null
+          tpl_process_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_instances_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_current_stage_id_fkey"
+            columns: ["current_stage_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_instances_tpl_process_id_fkey"
+            columns: ["tpl_process_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_subtasks: {
+        Row: {
+          assigned_role: string | null
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          config: Json | null
+          created_at: string | null
+          dependency_proc_subtask_id: string | null
+          dependency_proc_task_id: string | null
+          dependency_type: string | null
+          due_date: string | null
+          id: string
+          is_blocked: boolean
+          is_completed: boolean | null
+          is_mandatory: boolean | null
+          order_index: number
+          owner_id: string | null
+          priority: string
+          proc_task_id: string
+          started_at: string | null
+          title: string
+          tpl_subtask_id: string | null
+          unblocked_at: string | null
+        }
+        Insert: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_proc_subtask_id?: string | null
+          dependency_proc_task_id?: string | null
+          dependency_type?: string | null
+          due_date?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_completed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number
+          owner_id?: string | null
+          priority?: string
+          proc_task_id: string
+          started_at?: string | null
+          title: string
+          tpl_subtask_id?: string | null
+          unblocked_at?: string | null
+        }
+        Update: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_proc_subtask_id?: string | null
+          dependency_proc_task_id?: string | null
+          dependency_type?: string | null
+          due_date?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_completed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number
+          owner_id?: string | null
+          priority?: string
+          proc_task_id?: string
+          started_at?: string | null
+          title?: string
+          tpl_subtask_id?: string | null
+          unblocked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_subtasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_dependency_proc_subtask_id_fkey"
+            columns: ["dependency_proc_subtask_id"]
+            isOneToOne: false
+            referencedRelation: "proc_subtasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_dependency_proc_task_id_fkey"
+            columns: ["dependency_proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_subtasks_tpl_subtask_id_fkey"
+            columns: ["tpl_subtask_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_subtasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_task_activities: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          description: string
+          id: string
+          metadata: Json | null
+          proc_task_id: string
+          user_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          description: string
+          id?: string
+          metadata?: Json | null
+          proc_task_id: string
+          user_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          proc_task_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_task_activities_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_task_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_task_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          mentions: Json | null
+          proc_task_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          proc_task_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          proc_task_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_task_comments_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_task_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_tasks: {
+        Row: {
+          action_type: string | null
+          assigned_role: string | null
+          assigned_to: string | null
+          bypass_reason: string | null
+          bypassed_by: string | null
+          completed_at: string | null
+          config: Json | null
+          created_at: string | null
+          dependency_proc_task_id: string | null
+          due_date: string | null
+          id: string
+          is_blocked: boolean
+          is_bypassed: boolean | null
+          is_mandatory: boolean | null
+          order_index: number | null
+          owner_id: string | null
+          priority: string
+          proc_instance_id: string
+          stage_name: string | null
+          stage_order_index: number | null
+          started_at: string | null
+          status: string | null
+          task_result: Json | null
+          title: string
+          tpl_task_id: string | null
+          unblocked_at: string | null
+        }
+        Insert: {
+          action_type?: string | null
+          assigned_role?: string | null
+          assigned_to?: string | null
+          bypass_reason?: string | null
+          bypassed_by?: string | null
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_proc_task_id?: string | null
+          due_date?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_bypassed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number | null
+          owner_id?: string | null
+          priority?: string
+          proc_instance_id: string
+          stage_name?: string | null
+          stage_order_index?: number | null
+          started_at?: string | null
+          status?: string | null
+          task_result?: Json | null
+          title: string
+          tpl_task_id?: string | null
+          unblocked_at?: string | null
+        }
+        Update: {
+          action_type?: string | null
+          assigned_role?: string | null
+          assigned_to?: string | null
+          bypass_reason?: string | null
+          bypassed_by?: string | null
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_proc_task_id?: string | null
+          due_date?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_bypassed?: boolean | null
+          is_mandatory?: boolean | null
+          order_index?: number | null
+          owner_id?: string | null
+          priority?: string
+          proc_instance_id?: string
+          stage_name?: string | null
+          stage_order_index?: number | null
+          started_at?: string | null
+          status?: string | null
+          task_result?: Json | null
+          title?: string
+          tpl_task_id?: string | null
+          unblocked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_bypassed_by_fkey"
+            columns: ["bypassed_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_dependency_proc_task_id_fkey"
+            columns: ["dependency_proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_tasks_tpl_task_id_fkey"
+            columns: ["tpl_task_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_listings: {
+        Row: {
+          approval_date: string | null
+          area_bruta: number | null
+          area_util: number | null
+          attic_area: number | null
+          balcony_area: number | null
+          bathrooms_count: number | null
+          business_type: string | null
+          cmi_date: string | null
+          commission_rate: number | null
+          condominium_fee: number | null
+          construction_year: number | null
+          consultant_id: string | null
+          consultant_name: string | null
+          contract_regime: string | null
+          contract_term: string | null
+          cpcv_payment_percentage: number | null
+          created_at: string | null
+          deal_notes: string | null
+          deed_payment_percentage: number | null
+          energy_certificate: string | null
+          equipment: string | null
+          external_listing: string | null
+          external_reference_id: string | null
+          fronts_count: number | null
+          full_address_template: string | null
+          garage_spaces: number | null
+          gym_area: number | null
+          has_elevator: boolean | null
+          has_referral: boolean | null
+          id: string
+          imi_value: number | null
+          listing_price: number | null
+          locality: string | null
+          occupancy_status: string | null
+          other_equipment: string | null
+          owner_type: string | null
+          owners_count: number | null
+          pantry_area: number | null
+          parish: string | null
+          parking_spaces: number | null
+          pool_area: number | null
+          postal_code: string | null
+          postal_locality_template: string | null
+          property_address: string | null
+          property_condition: string | null
+          property_notes: string | null
+          property_observations: string | null
+          property_type: string | null
+          referral_colleague_info: string | null
+          referral_percentage: number | null
+          referral_type: string | null
+          solar_orientation: string | null
+          storage_area: number | null
+          typology: string | null
+          updated_at: string | null
+          views: string | null
+          zone: string | null
+        }
+        Insert: {
+          approval_date?: string | null
+          area_bruta?: number | null
+          area_util?: number | null
+          attic_area?: number | null
+          balcony_area?: number | null
+          bathrooms_count?: number | null
+          business_type?: string | null
+          cmi_date?: string | null
+          commission_rate?: number | null
+          condominium_fee?: number | null
+          construction_year?: number | null
+          consultant_id?: string | null
+          consultant_name?: string | null
+          contract_regime?: string | null
+          contract_term?: string | null
+          cpcv_payment_percentage?: number | null
+          created_at?: string | null
+          deal_notes?: string | null
+          deed_payment_percentage?: number | null
+          energy_certificate?: string | null
+          equipment?: string | null
+          external_listing?: string | null
+          external_reference_id?: string | null
+          fronts_count?: number | null
+          full_address_template?: string | null
+          garage_spaces?: number | null
+          gym_area?: number | null
+          has_elevator?: boolean | null
+          has_referral?: boolean | null
+          id?: string
+          imi_value?: number | null
+          listing_price?: number | null
+          locality?: string | null
+          occupancy_status?: string | null
+          other_equipment?: string | null
+          owner_type?: string | null
+          owners_count?: number | null
+          pantry_area?: number | null
+          parish?: string | null
+          parking_spaces?: number | null
+          pool_area?: number | null
+          postal_code?: string | null
+          postal_locality_template?: string | null
+          property_address?: string | null
+          property_condition?: string | null
+          property_notes?: string | null
+          property_observations?: string | null
+          property_type?: string | null
+          referral_colleague_info?: string | null
+          referral_percentage?: number | null
+          referral_type?: string | null
+          solar_orientation?: string | null
+          storage_area?: number | null
+          typology?: string | null
+          updated_at?: string | null
+          views?: string | null
+          zone?: string | null
+        }
+        Update: {
+          approval_date?: string | null
+          area_bruta?: number | null
+          area_util?: number | null
+          attic_area?: number | null
+          balcony_area?: number | null
+          bathrooms_count?: number | null
+          business_type?: string | null
+          cmi_date?: string | null
+          commission_rate?: number | null
+          condominium_fee?: number | null
+          construction_year?: number | null
+          consultant_id?: string | null
+          consultant_name?: string | null
+          contract_regime?: string | null
+          contract_term?: string | null
+          cpcv_payment_percentage?: number | null
+          created_at?: string | null
+          deal_notes?: string | null
+          deed_payment_percentage?: number | null
+          energy_certificate?: string | null
+          equipment?: string | null
+          external_listing?: string | null
+          external_reference_id?: string | null
+          fronts_count?: number | null
+          full_address_template?: string | null
+          garage_spaces?: number | null
+          gym_area?: number | null
+          has_elevator?: boolean | null
+          has_referral?: boolean | null
+          id?: string
+          imi_value?: number | null
+          listing_price?: number | null
+          locality?: string | null
+          occupancy_status?: string | null
+          other_equipment?: string | null
+          owner_type?: string | null
+          owners_count?: number | null
+          pantry_area?: number | null
+          parish?: string | null
+          parking_spaces?: number | null
+          pool_area?: number | null
+          postal_code?: string | null
+          postal_locality_template?: string | null
+          property_address?: string | null
+          property_condition?: string | null
+          property_notes?: string | null
+          property_observations?: string | null
+          property_type?: string | null
+          referral_colleague_info?: string | null
+          referral_percentage?: number | null
+          referral_type?: string | null
+          solar_orientation?: string | null
+          storage_area?: number | null
+          typology?: string | null
+          updated_at?: string | null
+          views?: string | null
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_listings_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_owners: {
+        Row: {
+          is_main_contact: boolean | null
+          owner_id: string
+          ownership_percentage: number | null
+          property_id: string
+        }
+        Insert: {
+          is_main_contact?: boolean | null
+          owner_id: string
+          ownership_percentage?: number | null
+          property_id: string
+        }
+        Update: {
+          is_main_contact?: boolean | null
+          owner_id?: string
+          ownership_percentage?: number | null
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_owners_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ref_counters: {
+        Row: {
+          counter: number
+          prefix: string
+          year: number
+        }
+        Insert: {
+          counter?: number
+          prefix: string
+          year: number
+        }
+        Update: {
+          counter?: number
+          prefix?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          permissions: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          permissions?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          permissions?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tpl_doc_library: {
+        Row: {
+          content_html: string
+          created_at: string | null
+          description: string | null
+          doc_type_id: string | null
+          id: string
+          letterhead_file_name: string | null
+          letterhead_file_type: string | null
+          letterhead_url: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          content_html: string
+          created_at?: string | null
+          description?: string | null
+          doc_type_id?: string | null
+          id?: string
+          letterhead_file_name?: string | null
+          letterhead_file_type?: string | null
+          letterhead_url?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          content_html?: string
+          created_at?: string | null
+          description?: string | null
+          doc_type_id?: string | null
+          id?: string
+          letterhead_file_name?: string | null
+          letterhead_file_type?: string | null
+          letterhead_url?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_doc_library_doc_type_id_fkey"
+            columns: ["doc_type_id"]
+            isOneToOne: false
+            referencedRelation: "doc_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_email_library: {
+        Row: {
+          body_html: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          editor_state: Json | null
+          id: string
+          name: string
+          subject: string
+          updated_at: string | null
+          usage_count: number
+        }
+        Insert: {
+          body_html: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          editor_state?: Json | null
+          id?: string
+          name: string
+          subject: string
+          updated_at?: string | null
+          usage_count?: number
+        }
+        Update: {
+          body_html?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          editor_state?: Json | null
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string | null
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_email_library_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_form_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sections: Json
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sections?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sections?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_form_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_processes: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          process_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          process_type?: string
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          process_type?: string
+        }
+        Relationships: []
+      }
+      tpl_stages: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+          tpl_process_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          order_index: number
+          tpl_process_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          tpl_process_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_stages_tpl_process_id_fkey"
+            columns: ["tpl_process_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_subtasks: {
+        Row: {
+          assigned_role: string | null
+          config: Json | null
+          created_at: string | null
+          dependency_subtask_id: string | null
+          dependency_task_id: string | null
+          dependency_type: string | null
+          description: string | null
+          id: string
+          is_mandatory: boolean | null
+          order_index: number
+          priority: string
+          sla_days: number | null
+          title: string
+          tpl_task_id: string
+        }
+        Insert: {
+          assigned_role?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_subtask_id?: string | null
+          dependency_task_id?: string | null
+          dependency_type?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index?: number
+          priority?: string
+          sla_days?: number | null
+          title: string
+          tpl_task_id: string
+        }
+        Update: {
+          assigned_role?: string | null
+          config?: Json | null
+          created_at?: string | null
+          dependency_subtask_id?: string | null
+          dependency_task_id?: string | null
+          dependency_type?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index?: number
+          priority?: string
+          sla_days?: number | null
+          title?: string
+          tpl_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_subtasks_dependency_subtask_id_fkey"
+            columns: ["dependency_subtask_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_subtasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tpl_subtasks_dependency_task_id_fkey"
+            columns: ["dependency_task_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tpl_subtasks_tpl_task_id_fkey"
+            columns: ["tpl_task_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_tasks: {
+        Row: {
+          action_type: string
+          assigned_role: string | null
+          config: Json | null
+          dependency_task_id: string | null
+          description: string | null
+          id: string
+          is_mandatory: boolean | null
+          order_index: number
+          priority: string
+          sla_days: number | null
+          title: string
+          tpl_stage_id: string | null
+        }
+        Insert: {
+          action_type: string
+          assigned_role?: string | null
+          config?: Json | null
+          dependency_task_id?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index: number
+          priority?: string
+          sla_days?: number | null
+          title: string
+          tpl_stage_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          assigned_role?: string | null
+          config?: Json | null
+          dependency_task_id?: string | null
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          order_index?: number
+          priority?: string
+          sla_days?: number | null
+          title?: string
+          tpl_stage_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tpl_tasks_tpl_stage_id_fkey"
+            columns: ["tpl_stage_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tpl_variables: {
+        Row: {
+          category: string
+          category_color: string | null
+          created_at: string | null
+          format_config: Json | null
+          format_type: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          order_index: number
+          source_column: string | null
+          source_entity: string
+          source_table: string | null
+          static_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          category_color?: string | null
+          created_at?: string | null
+          format_config?: Json | null
+          format_type?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          order_index?: number
+          source_column?: string | null
+          source_entity: string
+          source_table?: string | null
+          static_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          category_color?: string | null
+          created_at?: string | null
+          format_config?: Json | null
+          format_type?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          order_index?: number
+          source_column?: string | null
+          source_entity?: string
+          source_table?: string | null
+          static_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_contracts: {
+        Row: {
+          created_at: string | null
+          file_url: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_contracts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          agreed_value: number | null
+          bio: string | null
+          birthplace: string | null
+          city: string | null
+          commercial_name: string | null
+          commission_value: number | null
+          company_address: string | null
+          company_email: string | null
+          company_iban: string | null
+          company_name: string | null
+          company_nif: string | null
+          country: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          department: string | null
+          display_website: boolean | null
+          district: string | null
+          documents: Json | null
+          entity_type: string | null
+          facebook_url: string | null
+          full_name: string | null
+          genero: string | null
+          green_receipt: boolean | null
+          hire_date: string | null
+          iban: string | null
+          id: string
+          identity_card: string | null
+          identity_card_url: string | null
+          identity_card_validity: string | null
+          instagram_handle: string | null
+          is_active: boolean | null
+          languages: string[] | null
+          license_number: string | null
+          linkedin_url: string | null
+          monthly_salary: number | null
+          nationality: string | null
+          nif: string | null
+          pais_emissor: string | null
+          personal_email: string | null
+          phone_primary: string | null
+          phone_secondary: string | null
+          photo_url: string | null
+          postal_code: string | null
+          previous_agency: string | null
+          professional_activity: string | null
+          professional_email: string | null
+          profile_photo_crop: Json | null
+          profile_photo_url: string | null
+          role_id: string | null
+          specializations: string[] | null
+          sub_role: string | null
+          tax_regime: string | null
+          termination_date: string | null
+          tipo_documento: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agreed_value?: number | null
+          bio?: string | null
+          birthplace?: string | null
+          city?: string | null
+          commercial_name?: string | null
+          commission_value?: number | null
+          company_address?: string | null
+          company_email?: string | null
+          company_iban?: string | null
+          company_name?: string | null
+          company_nif?: string | null
+          country?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          department?: string | null
+          display_website?: boolean | null
+          district?: string | null
+          documents?: Json | null
+          entity_type?: string | null
+          facebook_url?: string | null
+          full_name?: string | null
+          genero?: string | null
+          green_receipt?: boolean | null
+          hire_date?: string | null
+          iban?: string | null
+          id?: string
+          identity_card?: string | null
+          identity_card_url?: string | null
+          identity_card_validity?: string | null
+          instagram_handle?: string | null
+          is_active?: boolean | null
+          languages?: string[] | null
+          license_number?: string | null
+          linkedin_url?: string | null
+          monthly_salary?: number | null
+          nationality?: string | null
+          nif?: string | null
+          pais_emissor?: string | null
+          personal_email?: string | null
+          phone_primary?: string | null
+          phone_secondary?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          previous_agency?: string | null
+          professional_activity?: string | null
+          professional_email?: string | null
+          profile_photo_crop?: Json | null
+          profile_photo_url?: string | null
+          role_id?: string | null
+          specializations?: string[] | null
+          sub_role?: string | null
+          tax_regime?: string | null
+          termination_date?: string | null
+          tipo_documento?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agreed_value?: number | null
+          bio?: string | null
+          birthplace?: string | null
+          city?: string | null
+          commercial_name?: string | null
+          commission_value?: number | null
+          company_address?: string | null
+          company_email?: string | null
+          company_iban?: string | null
+          company_name?: string | null
+          company_nif?: string | null
+          country?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          department?: string | null
+          display_website?: boolean | null
+          district?: string | null
+          documents?: Json | null
+          entity_type?: string | null
+          facebook_url?: string | null
+          full_name?: string | null
+          genero?: string | null
+          green_receipt?: boolean | null
+          hire_date?: string | null
+          iban?: string | null
+          id?: string
+          identity_card?: string | null
+          identity_card_url?: string | null
+          identity_card_validity?: string | null
+          instagram_handle?: string | null
+          is_active?: boolean | null
+          languages?: string[] | null
+          license_number?: string | null
+          linkedin_url?: string | null
+          monthly_salary?: number | null
+          nationality?: string | null
+          nif?: string | null
+          pais_emissor?: string | null
+          personal_email?: string | null
+          phone_primary?: string | null
+          phone_secondary?: string | null
+          photo_url?: string | null
+          postal_code?: string | null
+          previous_agency?: string | null
+          professional_activity?: string | null
+          professional_email?: string | null
+          profile_photo_crop?: Json | null
+          profile_photo_url?: string | null
+          role_id?: string | null
+          specializations?: string[] | null
+          sub_role?: string | null
+          tax_regime?: string | null
+          termination_date?: string | null
+          tipo_documento?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      _populate_subtasks: {
+        Args: {
+          p_parent_owner_id: string
+          p_proc_task_id: string
+          p_property_id: string
+          p_tpl_task_id: string
+        }
+        Returns: undefined
+      }
+      auto_claim_steps: {
+        Args: { batch_size?: number }
+        Returns: {
+          completed_at: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          flow_id: string
+          id: string
+          input_data: Json | null
+          max_retries: number | null
+          node_id: string
+          node_label: string | null
+          node_type: string
+          output_data: Json | null
+          priority: number | null
+          retry_count: number | null
+          run_id: string
+          scheduled_for: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["auto_step_status"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "auto_step_runs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      auto_get_table_columns: {
+        Args: { p_table: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
+      }
+      auto_reset_stuck_steps: { Args: never; Returns: number }
+      auto_update_run_counts: { Args: { p_run_id: string }; Returns: undefined }
+      check_overdue_and_unblock_alerts: { Args: never; Returns: undefined }
+      populate_process_tasks: {
+        Args: { p_instance_id: string }
+        Returns: undefined
+      }
+      recalculate_process_progress: {
+        Args: { p_proc_instance_id: string }
+        Returns: undefined
+      }
+      resolve_process_dependencies: {
+        Args: { p_instance_id: string }
+        Returns: undefined
+      }
+      unaccent: { Args: { "": string }; Returns: string }
+    }
+    Enums: {
+      auto_channel_type: "whatsapp" | "email" | "notification"
+      auto_delivery_status:
+        | "pending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "cancelled"
+      auto_run_status:
+        | "pending"
+        | "queued"
+        | "running"
+        | "completed"
+        | "failed"
+        | "cancelled"
+        | "timed_out"
+      auto_step_status:
+        | "pending"
+        | "running"
+        | "completed"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      auto_channel_type: ["whatsapp", "email", "notification"],
+      auto_delivery_status: [
+        "pending",
+        "sent",
+        "delivered",
+        "failed",
+        "cancelled",
+      ],
+      auto_run_status: [
+        "pending",
+        "queued",
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+        "timed_out",
+      ],
+      auto_step_status: [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+    },
+  },
+} as const

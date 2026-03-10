@@ -119,10 +119,10 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
         <>
           {activeFolderData.type === 'media' ? (
             <PropertyMediaGallery
-              propertyId={activeFolderData.entity_id}
+              propertyId={activeFolderData.entity_id!}
               media={activeFolderData.documents.map((d): PropertyMedia => ({
                 id: d.id,
-                property_id: activeFolderData.entity_id,
+                property_id: activeFolderData.entity_id!,
                 url: d.file_url,
                 media_type: 'image',
                 order_index: 0,
