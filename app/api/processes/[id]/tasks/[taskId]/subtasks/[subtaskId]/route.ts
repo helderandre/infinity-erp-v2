@@ -8,6 +8,9 @@ import { z } from 'zod'
 const subtaskUpdateSchema = z
   .object({
     is_completed: z.boolean().optional(),
+    assigned_to: z.string().uuid().nullable().optional(),
+    priority: z.enum(['urgent', 'normal', 'low']).optional(),
+    due_date: z.string().nullable().optional(),
     rendered_content: z
       .object({
         subject: z.string().optional(),
@@ -28,8 +31,13 @@ const subtaskUpdateSchema = z
     }).optional(),
   })
   .refine(
-    (data) => data.is_completed !== undefined || data.rendered_content !== undefined,
-    { message: 'is_completed ou rendered_content são obrigatórios' }
+    (data) =>
+      data.is_completed !== undefined ||
+      data.rendered_content !== undefined ||
+      data.assigned_to !== undefined ||
+      data.priority !== undefined ||
+      data.due_date !== undefined,
+    { message: 'is_completed, rendered_content, assigned_to, priority ou due_date são obrigatórios' }
   )
 
 export async function PUT(
@@ -61,7 +69,7 @@ export async function PUT(
       )
     }
 
-    const { is_completed, rendered_content, resend_email_id, email_metadata } = validation.data
+    const { is_completed, rendered_content, resend_email_id, email_metadata, assigned_to, priority, due_date } = validation.data
 
     // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
     const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
@@ -86,6 +94,14 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Subtarefa não pertence a este processo' },
         { status: 404 }
+      )
+    }
+
+    // Verificar se a subtarefa está bloqueada
+    if ((subtask as Record<string, unknown>).is_blocked === true && is_completed !== false) {
+      return NextResponse.json(
+        { error: 'Esta subtarefa está bloqueada. Aguarde a conclusão da dependência.' },
+        { status: 400 }
       )
     }
 
@@ -127,6 +143,11 @@ export async function PUT(
         task_result: is_completed ? validation.data.task_result : null,
       }
     }
+
+    // Novos campos: assigned_to, priority, due_date
+    if (assigned_to !== undefined) updateData.assigned_to = assigned_to
+    if (priority !== undefined) updateData.priority = priority
+    if (due_date !== undefined) updateData.due_date = due_date
 
     // Executar update (admin bypassa RLS)
     const { error: updateError } = await adminDb.from('proc_subtasks')
@@ -238,6 +259,34 @@ export async function PUT(
       }
     } catch (activityError) {
       console.error('[SubtaskUpdate] Erro ao registar actividade:', activityError)
+    }
+
+    // --- Alertas configurados no template ---
+    try {
+      const subtaskAlerts = (config as Record<string, any>)?.alerts
+      if (subtaskAlerts && is_completed) {
+        if (subtaskAlerts.on_complete?.enabled) {
+          const { alertService } = await import('@/lib/alerts/service')
+          const { data: proc } = await supabase
+            .from('proc_instances')
+            .select('external_ref')
+            .eq('id', id)
+            .single()
+
+          await alertService.processAlert(subtaskAlerts.on_complete, {
+            procInstanceId: id,
+            entityType: 'proc_subtask',
+            entityId: subtaskId,
+            eventType: 'on_complete',
+            title: (subtask as any).title,
+            processRef: proc?.external_ref || '',
+            triggeredBy: user.id,
+            assignedTo: (subtask as any).assigned_to,
+          })
+        }
+      }
+    } catch (alertError) {
+      console.error('[SubtaskUpdate] Erro ao processar alertas:', alertError)
     }
 
     // Rascunho guardado — retornar

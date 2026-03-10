@@ -12,6 +12,14 @@ export type NotificationType =
   | 'chat_mention'
   | 'task_updated'
   | 'task_overdue'
+  | 'subtask_completed'
+  | 'subtask_overdue'
+  | 'subtask_unblocked'
+  | 'subtask_assigned'
+  | 'alert_on_complete'
+  | 'alert_on_overdue'
+  | 'alert_on_unblock'
+  | 'alert_on_assign'
 
 export type NotificationEntityType =
   | 'proc_instance'

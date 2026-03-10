@@ -15,23 +15,36 @@ import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import { TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { SubtaskEditor } from './subtask-editor'
+import { AlertConfigEditor } from './alert-config-editor'
 import { toast } from 'sonner'
-import type { TaskData } from './template-builder'
+import type { TaskData, StageData } from './template-builder'
 import type { SubtaskData } from '@/types/subtask'
+import type { AlertsConfig } from '@/types/alert'
 
-const ASSIGNABLE_ROLES = [
-  { value: 'Processual', label: 'Gestora Processual' },
-  { value: 'Consultor', label: 'Consultor' },
-  { value: 'Broker/CEO', label: 'Broker/CEO' },
-] as const
+interface RoleOption {
+  value: string
+  label: string
+}
 
-interface TemplateTaskSheetProps {
+// Contexto para dependências: todas as tarefas e fases do template
+interface DependencyContext {
+  allTasks?: Record<string, TaskData>
+  allStages?: Record<string, StageData>
+  stageTaskMap?: Record<string, string[]>
+  containers?: string[]
+  currentTaskId?: string
+}
+
+interface TemplateTaskSheetProps extends DependencyContext {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData: TaskData | null // null = criar, TaskData = editar
@@ -43,6 +56,11 @@ export function TemplateTaskSheet({
   onOpenChange,
   initialData,
   onSubmit,
+  allTasks,
+  allStages,
+  stageTaskMap,
+  containers,
+  currentTaskId,
 }: TemplateTaskSheetProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -51,6 +69,25 @@ export function TemplateTaskSheet({
   const [assignedRole, setAssignedRole] = useState('')
   const [slaDays, setSlaDays] = useState<string>('')
   const [subtasks, setSubtasks] = useState<SubtaskData[]>([])
+  const [dependencyTaskId, setDependencyTaskId] = useState<string | null>(null)
+  const [taskAlerts, setTaskAlerts] = useState<AlertsConfig | undefined>(undefined)
+  const [roles, setRoles] = useState<RoleOption[]>([])
+
+  // Fetch roles from DB (once)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/libraries/roles')
+      .then((res) => res.json())
+      .then((data: { id: string; name: string }[]) => {
+        if (cancelled) return
+        const mapped = data
+          .filter((r) => r.name.toLowerCase() !== 'admin')
+          .map((r) => ({ value: r.name, label: r.name }))
+        setRoles(mapped)
+      })
+      .catch(() => {/* silently ignore */})
+    return () => { cancelled = true }
+  }, [])
 
   // Reset/populate ao abrir
   useEffect(() => {
@@ -63,6 +100,8 @@ export function TemplateTaskSheet({
       setAssignedRole(initialData.assigned_role || '')
       setSlaDays(initialData.sla_days ? String(initialData.sla_days) : '')
       setSubtasks(initialData.subtasks || [])
+      setDependencyTaskId(initialData.dependency_task_id || null)
+      setTaskAlerts(initialData._task_alerts)
     } else {
       setTitle('')
       setDescription('')
@@ -71,8 +110,58 @@ export function TemplateTaskSheet({
       setAssignedRole('')
       setSlaDays('')
       setSubtasks([])
+      setDependencyTaskId(null)
+      setTaskAlerts(undefined)
     }
   }, [open, initialData])
+
+  // Construir opções de dependência para tarefas (excluindo a tarefa actual)
+  const taskDependencyOptions = (() => {
+    if (!allTasks || !allStages || !stageTaskMap || !containers) return []
+
+    const options: { stageLabel: string; taskId: string; taskTitle: string }[] = []
+    for (const stageId of containers) {
+      const stageName = allStages[stageId]?.name || 'Fase'
+      const taskIds = stageTaskMap[stageId] || []
+      for (const taskId of taskIds) {
+        if (taskId === currentTaskId) continue // Excluir a própria tarefa
+        const task = allTasks[taskId]
+        if (task) {
+          options.push({
+            stageLabel: stageName,
+            taskId,
+            taskTitle: task.title || '(Sem título)',
+          })
+        }
+      }
+    }
+    return options
+  })()
+
+  // Construir lista de todas as subtarefas de outras tarefas (para dependências de subtarefas)
+  const allSubtasksContext = (() => {
+    if (!allTasks || !allStages || !stageTaskMap || !containers) return []
+
+    const result: { stageLabel: string; taskTitle: string; taskId: string; subtask: SubtaskData }[] = []
+    for (const stageId of containers) {
+      const stageName = allStages[stageId]?.name || 'Fase'
+      const taskIds = stageTaskMap[stageId] || []
+      for (const taskId of taskIds) {
+        const task = allTasks[taskId]
+        if (task) {
+          for (const st of task.subtasks || []) {
+            result.push({
+              stageLabel: stageName,
+              taskTitle: task.title || '(Sem título)',
+              taskId,
+              subtask: st,
+            })
+          }
+        }
+      }
+    }
+    return result
+  })()
 
   const handleSubmit = () => {
     if (!title.trim()) {
@@ -108,7 +197,9 @@ export function TemplateTaskSheet({
       priority,
       sla_days: slaDays ? parseInt(slaDays, 10) : undefined,
       assigned_role: assignedRole || undefined,
+      dependency_task_id: dependencyTaskId || null,
       subtasks,
+      _task_alerts: taskAlerts,
     })
   }
 
@@ -172,7 +263,7 @@ export function TemplateTaskSheet({
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {ASSIGNABLE_ROLES.map((role) => (
+                    {roles.map((role) => (
                       <SelectItem key={role.value} value={role.value}>
                         {role.label}
                       </SelectItem>
@@ -194,6 +285,43 @@ export function TemplateTaskSheet({
                 />
               </div>
             </div>
+
+            {/* Bloqueada até (dependência de tarefa) */}
+            {taskDependencyOptions.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Bloqueada até</Label>
+                <Select
+                  value={dependencyTaskId || '_none'}
+                  onValueChange={(v) => setDependencyTaskId(v === '_none' ? null : v)}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Sem bloqueio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">(Sem bloqueio)</SelectItem>
+                    {(() => {
+                      // Agrupar por fase
+                      const grouped = new Map<string, typeof taskDependencyOptions>()
+                      for (const opt of taskDependencyOptions) {
+                        const list = grouped.get(opt.stageLabel) || []
+                        list.push(opt)
+                        grouped.set(opt.stageLabel, list)
+                      }
+                      return Array.from(grouped.entries()).map(([stage, tasks]) => (
+                        <SelectGroup key={stage}>
+                          <SelectLabel>{stage}</SelectLabel>
+                          {tasks.map((t) => (
+                            <SelectItem key={t.taskId} value={t.taskId}>
+                              {t.taskTitle}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Secção: Subtasks */}
@@ -201,7 +329,24 @@ export function TemplateTaskSheet({
             <h3 className="text-sm font-medium text-muted-foreground">
               Subtasks ({subtasks.length})
             </h3>
-            <SubtaskEditor subtasks={subtasks} onChange={setSubtasks} />
+            <SubtaskEditor
+              subtasks={subtasks}
+              onChange={setSubtasks}
+              taskDependencyOptions={taskDependencyOptions}
+              allSubtasksContext={allSubtasksContext}
+              currentTaskId={currentTaskId}
+              roles={roles}
+            />
+          </div>
+
+          {/* Secção: Alertas da Tarefa */}
+          <Separator />
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground">Alertas da Tarefa</h3>
+            <AlertConfigEditor
+              alerts={taskAlerts}
+              onChange={setTaskAlerts}
+            />
           </div>
         </div>
 

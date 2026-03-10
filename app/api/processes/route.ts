@@ -17,21 +17,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
+    const processType = searchParams.get('process_type') || ''
 
     let query = supabase
       .from('proc_instances')
       .select(`
-        id,
-        external_ref,
-        current_status,
-        percent_complete,
-        last_completed_step,
-        started_at,
-        updated_at,
-        requested_by,
-        approved_at,
-        notes,
-        deleted_at,
+        *,
         dev_properties (
           id,
           title,
@@ -59,6 +50,10 @@ export async function GET(request: Request) {
     } else {
       // By default, exclude drafts unless explicitly filtered
       // (drafts appear only when the "Rascunhos" tab is selected)
+    }
+
+    if (processType) {
+      query = query.eq('process_type' as any, processType)
     }
 
     const { data, error } = await query

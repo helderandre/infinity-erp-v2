@@ -33,6 +33,7 @@ import {
   AlertCircle,
   Clock,
   ShieldAlert,
+  Lock,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -362,8 +363,19 @@ export function TaskDetailActions({
     }
   }
 
+  const isBlocked = !!task.is_blocked
+
   // Render state transition buttons
   const renderStateButtons = () => {
+    if (isBlocked && !['completed', 'skipped'].includes(task.status ?? '')) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-amber-600">
+          <Lock className="h-4 w-4" />
+          <span>Acções bloqueadas — aguarda conclusão de dependência</span>
+        </div>
+      )
+    }
+
     if (task.status === 'completed') {
       return (
         <div className="space-y-2">

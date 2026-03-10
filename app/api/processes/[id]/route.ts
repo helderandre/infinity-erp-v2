@@ -237,11 +237,14 @@ export async function GET(
         *,
         assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name, dev_consultant_profiles(profile_photo_url)),
         owner:owners!proc_tasks_owner_id_fkey(id, name, person_type),
-        subtasks:proc_subtasks(
+        subtasks:proc_subtasks!proc_subtasks_proc_task_id_fkey(
           id, title, is_mandatory, is_completed,
           completed_at, completed_by, order_index, config,
-          owner_id,
-          owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type)
+          owner_id, is_blocked, dependency_type,
+          dependency_proc_subtask_id, dependency_proc_task_id, unblocked_at,
+          due_date, assigned_to, assigned_role, priority, started_at,
+          owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type),
+          assigned_to_user:dev_users!proc_subtasks_assigned_to_fkey(id, commercial_name)
         )
       `
       )

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
+import { PageSidebar, type PageSidebarAction } from '@/components/shared/page-sidebar'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,12 +28,12 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, HandCoins, ShoppingCart, LayoutList } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS } from '@/lib/constants'
+import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
 import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
@@ -55,6 +56,7 @@ export default function ProcessosPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [activeType, setActiveType] = useState<string>('all')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [processToDelete, setProcessToDelete] = useState<any>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -73,6 +75,7 @@ export default function ProcessosPage() {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (statusFilter) params.set('status', statusFilter)
+      if (activeType !== 'all') params.set('process_type', activeType)
 
       const res = await fetch(`/api/processes?${params.toString()}`)
       if (!res.ok) throw new Error('Erro ao carregar processos')
@@ -85,7 +88,7 @@ export default function ProcessosPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, statusFilter])
+  }, [debouncedSearch, statusFilter, activeType])
 
   const handleDeleteProcess = async () => {
     if (!processToDelete) return
@@ -171,7 +174,7 @@ export default function ProcessosPage() {
   // Clear selection when filters change
   useEffect(() => {
     exitSelectionMode()
-  }, [debouncedSearch, statusFilter])
+  }, [debouncedSearch, statusFilter, activeType])
 
   useEffect(() => {
     loadProcesses()
@@ -183,29 +186,44 @@ export default function ProcessosPage() {
     return acc
   }, {} as Record<string, number>)
 
+  const TYPE_SIDEBAR_ITEMS = [
+    { key: 'all', bg: 'bg-foreground', text: 'text-background', dot: '', label: 'Todos', icon: LayoutList },
+    { ...PROCESS_TYPES.angariacao, key: 'angariacao', label: 'Angariações', icon: FileSearch },
+    { ...PROCESS_TYPES.venda, key: 'venda', label: 'Vendas', icon: HandCoins },
+    { ...PROCESS_TYPES.compra, key: 'compra', label: 'Compras', icon: ShoppingCart },
+  ]
+
+  const sidebarActions: PageSidebarAction[] = [
+    { key: 'templates', label: 'Gerir Templates', icon: FileText, onClick: () => router.push('/dashboard/processos/templates') },
+    { key: 'nova', label: 'Nova Angariação', icon: Plus, onClick: () => { setResumeDraftId(undefined); setDraftDialogOpen(true) } },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full">
+      {/* Page header — full width, border bottom */}
+      <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Processos</h1>
-          <p className="text-muted-foreground">
-            Gestão de processos de angariação
+          <h1 className="text-2xl font-bold tracking-tight">Processos</h1>
+          <p className="text-sm text-muted-foreground">
+            Gestão de processos documentais
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.push('/dashboard/processos/templates')}>
-            <FileText className="mr-2 h-4 w-4" />
-            Gerir Templates
-          </Button>
-          <Button onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Angariação
-          </Button>
         </div>
       </div>
 
-      {/* Status filter tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      {/* Sidebar + Content */}
+      <div className="flex flex-1 min-h-0">
+        <PageSidebar
+          items={TYPE_SIDEBAR_ITEMS}
+          activeKey={activeType}
+          onSelect={setActiveType}
+          actions={sidebarActions}
+        />
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0 space-y-4 p-4 md:p-6 overflow-y-auto">
+
+        {/* Status filter tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
         {STATUS_TABS.map((tab) => {
           const isActive = statusFilter === tab.value
           const count = tab.value === ''
@@ -626,6 +644,8 @@ export default function ProcessosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
+      </div>
     </div>
   )
 }

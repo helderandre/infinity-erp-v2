@@ -162,6 +162,15 @@ export async function POST(
       console.error('[RE-TEMPLATE] Erro ao popular tarefas:', populateError)
     }
 
+    // Resolver dependências
+    const { error: depsError } = await supabase.rpc(
+      'resolve_process_dependencies' as any,
+      { p_instance_id: id }
+    )
+    if (depsError) {
+      console.error('[RE-TEMPLATE] Erro ao resolver dependências:', depsError)
+    }
+
     // Auto-completar tarefas UPLOAD que já têm documentos existentes
     try {
       await autoCompleteTasks(id, proc.property.id)

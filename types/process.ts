@@ -1,6 +1,8 @@
 import type { Database } from './database'
 import type { ProcSubtask } from './subtask'
 
+export type ProcessType = 'angariacao' | 'venda' | 'compra'
+
 type ProcInstance = Database['public']['Tables']['proc_instances']['Row']
 type ProcTask = Database['public']['Tables']['proc_tasks']['Row']
 type DevProperty = Database['public']['Tables']['dev_properties']['Row']
@@ -34,6 +36,7 @@ export interface PropertyInternal {
 }
 
 export interface ProcessInstance extends ProcInstance {
+  process_type: ProcessType
   property?: Pick<
     DevProperty,
     | 'id' | 'title' | 'slug' | 'city' | 'listing_price' | 'status' | 'property_type'
@@ -61,6 +64,10 @@ export interface ProcessTask extends ProcTask {
   } | null
   priority: TaskPriority
   subtasks?: ProcSubtask[]
+  // Dependências / bloqueio (campos DB não presentes no database.ts gerado)
+  is_blocked?: boolean
+  dependency_proc_task_id?: string | null
+  unblocked_at?: string | null
 }
 
 export interface ProcessStageWithTasks {

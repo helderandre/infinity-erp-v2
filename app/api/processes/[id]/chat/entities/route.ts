@@ -31,7 +31,7 @@ export async function GET(
       .from('proc_tasks')
       .select(`
         id, title, action_type, status, stage_name,
-        subtasks:proc_subtasks(id, title, is_completed, config, owner_id, owner:owners!proc_subtasks_owner_id_fkey(name))
+        subtasks:proc_subtasks!proc_subtasks_proc_task_id_fkey(id, title, is_completed, config, owner_id, owner:owners!proc_subtasks_owner_id_fkey(name))
       `)
       .eq('proc_instance_id', processId)
       .order('stage_order_index', { ascending: true })

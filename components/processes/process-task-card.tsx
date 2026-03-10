@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Layers,
   CheckSquare,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
@@ -75,8 +76,11 @@ export function ProcessTaskCard({
   onAssign,
   onClick,
 }: ProcessTaskCardProps) {
+  const isBlocked = !!task.is_blocked
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !['completed', 'skipped'].includes(task.status ?? '')
-  const statusIcon = STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending
+  const statusIcon = isBlocked
+    ? <Lock className="h-4 w-4 text-amber-500" />
+    : (STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending)
   const actionIcon = ACTION_ICONS[task.action_type as keyof typeof ACTION_ICONS] ?? ACTION_ICONS.MANUAL
   const actionMenu = (
     <DropdownMenu>
@@ -86,13 +90,19 @@ export function ProcessTaskCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {task.status === 'pending' && (
+        {isBlocked && (
+          <DropdownMenuItem disabled className="text-amber-600">
+            <Lock className="mr-2 h-4 w-4" />
+            Bloqueada — aguarda dependência
+          </DropdownMenuItem>
+        )}
+        {!isBlocked && task.status === 'pending' && (
           <DropdownMenuItem onClick={() => onAction(task.id, 'start')}>
             <PlayCircle className="mr-2 h-4 w-4" />
             Iniciar
           </DropdownMenuItem>
         )}
-        {['pending', 'in_progress'].includes(task.status ?? '') && (
+        {!isBlocked && ['pending', 'in_progress'].includes(task.status ?? '') && (
           <>
             <DropdownMenuItem onClick={() => onAction(task.id, 'complete')}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -129,7 +139,8 @@ export function ProcessTaskCard({
       <div
         className={cn(
           'rounded-lg border bg-card p-3 space-y-2 hover:shadow-sm transition-shadow cursor-pointer',
-          isOverdue && 'border-red-500/40'
+          isOverdue && 'border-red-500/40',
+          isBlocked && 'opacity-60 border-dashed'
         )}
         onClick={() => onClick?.(task)}
       >
@@ -137,6 +148,12 @@ export function ProcessTaskCard({
         <div className="flex items-start gap-2">
           <div className="shrink-0 mt-0.5">{statusIcon}</div>
           <span className="flex-1 text-sm font-medium leading-snug line-clamp-2">{task.title}</span>
+          {isBlocked && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50 shrink-0">
+              <Lock className="h-2.5 w-2.5 mr-0.5" />
+              Bloqueada
+            </Badge>
+          )}
           <div onClick={(e) => e.stopPropagation()}>
             {actionMenu}
           </div>
@@ -245,7 +262,8 @@ export function ProcessTaskCard({
     <div
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer',
-        isOverdue && 'border-red-500/40'
+        isOverdue && 'border-red-500/40',
+        isBlocked && 'opacity-60 border-dashed'
       )}
       onClick={() => onClick?.(task)}
     >
@@ -256,6 +274,14 @@ export function ProcessTaskCard({
 
       {/* Title */}
       <span className="flex-1 text-sm font-medium truncate">{task.title}</span>
+
+      {/* Blocked badge */}
+      {isBlocked && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50 shrink-0">
+          <Lock className="h-2.5 w-2.5 mr-0.5" />
+          Bloqueada
+        </Badge>
+      )}
 
       {/* Priority badge */}
       {task.priority && (

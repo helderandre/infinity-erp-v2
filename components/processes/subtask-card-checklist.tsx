@@ -13,8 +13,10 @@ interface SubtaskCardChecklistProps {
 
 export function SubtaskCardChecklist({ subtask, onToggle }: SubtaskCardChecklistProps) {
   const [isToggling, setIsToggling] = useState(false)
+  const isBlocked = !!(subtask as any).is_blocked
 
   const handleToggle = async () => {
+    if (isBlocked) return
     setIsToggling(true)
     try {
       await onToggle(subtask.id, !subtask.is_completed)
@@ -34,6 +36,7 @@ export function SubtaskCardChecklist({ subtask, onToggle }: SubtaskCardChecklist
           <Checkbox
             checked={subtask.is_completed}
             onCheckedChange={handleToggle}
+            disabled={isBlocked}
             className="h-4 w-4"
           />
         )

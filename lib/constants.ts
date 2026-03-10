@@ -201,6 +201,39 @@ export const PROPERTY_STATUS = {
   },
 } as const
 
+// Tipos de Processo
+export const PROCESS_TYPES = {
+  angariacao: {
+    label: 'Angariação',
+    prefix: 'ANG',
+    bg: 'bg-amber-100',
+    text: 'text-amber-800',
+    dot: 'bg-amber-500',
+    icon: 'FileSearch',
+    description: 'Captação e validação documental de imóveis',
+  },
+  venda: {
+    label: 'Venda',
+    prefix: 'VND',
+    bg: 'bg-emerald-100',
+    text: 'text-emerald-800',
+    dot: 'bg-emerald-500',
+    icon: 'HandCoins',
+    description: 'Processo de venda de imóvel',
+  },
+  compra: {
+    label: 'Compra',
+    prefix: 'COMP',
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+    dot: 'bg-blue-500',
+    icon: 'ShoppingCart',
+    description: 'Processo de compra de imóvel',
+  },
+} as const
+
+export type ProcessTypeKey = keyof typeof PROCESS_TYPES
+
 // Status de Processos (Workflow)
 export const PROCESS_STATUS = {
   draft: {
@@ -1082,3 +1115,61 @@ export const EMAIL_COMPONENT_LABELS = {
   EmailSpacer: 'Espaçador',
   EmailAttachment: 'Anexo',
 } as const
+
+// --- ALERTAS ---
+
+export const ALERT_EVENT_LABELS = {
+  on_complete: 'Ao concluir',
+  on_overdue: 'Ao vencer prazo',
+  on_unblock: 'Ao desbloquear',
+  on_assign: 'Ao atribuir',
+} as const
+
+export const ALERT_CHANNEL_LABELS = {
+  notification: 'Notificação in-app',
+  email: 'Email',
+  whatsapp: 'WhatsApp',
+} as const
+
+export const ALERT_RECIPIENT_LABELS = {
+  consultant: 'Consultor do processo',
+  assigned: 'Responsável atribuído',
+  role: 'Todos com a role...',
+  specific_users: 'Utilizadores específicos',
+} as const
+
+export const ALERT_MESSAGE_VARIABLES = {
+  '{title}': 'Título da tarefa/subtarefa',
+  '{process_ref}': 'Referência do processo (PROC-2026-XXXX)',
+  '{triggered_by}': 'Nome de quem executou a acção',
+} as const
+
+// Módulos de Permissão — labels PT-PT
+export const PERMISSION_MODULES: { key: string; label: string; group: string }[] = [
+  // Core
+  { key: 'dashboard', label: 'Dashboard', group: 'Core' },
+  { key: 'properties', label: 'Imóveis', group: 'Core' },
+  { key: 'leads', label: 'Leads', group: 'Core' },
+  { key: 'owners', label: 'Proprietários', group: 'Core' },
+  { key: 'processes', label: 'Processos', group: 'Core' },
+  { key: 'documents', label: 'Documentos', group: 'Core' },
+  // Pessoas
+  { key: 'consultants', label: 'Consultores', group: 'Pessoas' },
+  { key: 'teams', label: 'Equipas', group: 'Pessoas' },
+  { key: 'users', label: 'Utilizadores', group: 'Pessoas' },
+  { key: 'buyers', label: 'Compradores', group: 'Pessoas' },
+  { key: 'recruitment', label: 'Recrutamento', group: 'Pessoas' },
+  // Negócio
+  { key: 'pipeline', label: 'Pipeline', group: 'Negócio' },
+  { key: 'commissions', label: 'Comissões', group: 'Negócio' },
+  { key: 'financial', label: 'Financeiro', group: 'Negócio' },
+  { key: 'goals', label: 'Objectivos', group: 'Negócio' },
+  { key: 'credit', label: 'Crédito', group: 'Negócio' },
+  // Sistema
+  { key: 'marketing', label: 'Marketing', group: 'Sistema' },
+  { key: 'templates', label: 'Templates', group: 'Sistema' },
+  { key: 'calendar', label: 'Calendário', group: 'Sistema' },
+  { key: 'store', label: 'Loja', group: 'Sistema' },
+  { key: 'integration', label: 'Integrações', group: 'Sistema' },
+  { key: 'settings', label: 'Definições', group: 'Sistema' },
+] as const

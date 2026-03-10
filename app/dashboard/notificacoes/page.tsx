@@ -21,6 +21,9 @@ import {
   BellOff,
   Inbox,
   Trash2,
+  Unlock,
+  UserPlus,
+  BellRing,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Button } from '@/components/ui/button'
@@ -65,6 +68,14 @@ const NOTIFICATION_ICONS: Record<NotificationType, React.ElementType> = {
   chat_mention: AtSign,
   task_updated: RefreshCw,
   task_overdue: AlertTriangle,
+  subtask_completed: CheckCircle2,
+  subtask_overdue: AlertTriangle,
+  subtask_unblocked: Unlock,
+  subtask_assigned: UserPlus,
+  alert_on_complete: BellRing,
+  alert_on_overdue: BellRing,
+  alert_on_unblock: BellRing,
+  alert_on_assign: BellRing,
 }
 
 const NOTIFICATION_DOT_STYLES: Partial<Record<NotificationType, string>> = {
@@ -81,6 +92,14 @@ const NOTIFICATION_DOT_STYLES: Partial<Record<NotificationType, string>> = {
   chat_message: 'border-sky-500 bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-400',
   comment_mention: 'border-violet-500 bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400',
   chat_mention: 'border-violet-500 bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400',
+  subtask_completed: 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
+  subtask_overdue: 'border-red-500 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
+  subtask_unblocked: 'border-teal-500 bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400',
+  subtask_assigned: 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
+  alert_on_complete: 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
+  alert_on_overdue: 'border-red-500 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
+  alert_on_unblock: 'border-teal-500 bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400',
+  alert_on_assign: 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
 }
 
 const DEFAULT_DOT_STYLE = 'border-muted-foreground/40 bg-muted text-muted-foreground'

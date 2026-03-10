@@ -7,9 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { TemplateList } from '@/components/templates/template-list'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FileStack, Plus, Search, ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useDebounce } from '@/hooks/use-debounce'
+import { PROCESS_TYPES } from '@/lib/constants'
 import type { TemplateWithCounts } from '@/types/template'
 
 export default function TemplatesPage() {
@@ -17,6 +19,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<TemplateWithCounts[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
   const debouncedSearch = useDebounce(search, 300)
 
   const loadTemplates = useCallback(async () => {
@@ -40,12 +43,11 @@ export default function TemplatesPage() {
 
   // Filtrar no frontend (lista pequena)
   const filteredTemplates = templates.filter((tpl) => {
-    if (!debouncedSearch) return true
-    const q = debouncedSearch.toLowerCase()
-    return (
-      tpl.name.toLowerCase().includes(q) ||
-      tpl.description?.toLowerCase().includes(q)
-    )
+    const matchesSearch = !debouncedSearch ||
+      tpl.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      tpl.description?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    const matchesType = typeFilter === 'all' || tpl.process_type === typeFilter
+    return matchesSearch && matchesType
   })
 
   return (
@@ -69,7 +71,7 @@ export default function TemplatesPage() {
         </Button>
       </div>
 
-      {/* Pesquisa */}
+      {/* Pesquisa + Filtro tipo */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -80,6 +82,17 @@ export default function TemplatesPage() {
             className="pl-9"
           />
         </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            {Object.entries(PROCESS_TYPES).map(([key, config]) => (
+              <SelectItem key={key} value={key}>{config.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Conteúdo */}

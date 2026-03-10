@@ -15,6 +15,7 @@ interface SubtaskCardDocProps {
 export function SubtaskCardDoc({
   subtask, onOpenSheet, onRevert,
 }: SubtaskCardDocProps) {
+  const isBlocked = !!(subtask as any).is_blocked
   const hasRendered = !!(subtask.config as Record<string, unknown>).rendered
   const state: CardState = subtask.is_completed ? 'completed' : hasRendered ? 'draft' : 'pending'
 
@@ -41,6 +42,7 @@ export function SubtaskCardDoc({
               size="sm"
               className="h-7 text-xs"
               onClick={() => onOpenSheet(subtask)}
+              disabled={isBlocked}
             >
               <Edit className="mr-1 h-3 w-3" />
               {hasRendered ? 'Continuar Edição' : 'Editar Documento'}

@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { ownerSchema } from '@/lib/validations/owner'
 
+const PAGE_SIZE = 20
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
@@ -9,10 +11,13 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const nif = searchParams.get('nif')
     const email = searchParams.get('email')
+    const personType = searchParams.get('person_type')
+    const limit = Number(searchParams.get('limit')) || PAGE_SIZE
+    const offset = Number(searchParams.get('offset')) || 0
 
     let query = supabase
       .from('owners')
-      .select('*')
+      .select('*, property_owners(owner_id, dev_properties(status))', { count: 'exact' })
       .order('created_at', { ascending: false })
 
     // Search por NIF específico (exacto)
@@ -30,13 +35,29 @@ export async function GET(request: Request) {
       )
     }
 
-    const { data, error } = await query.limit(20)
+    if (personType && personType !== 'all') {
+      query = query.eq('person_type', personType)
+    }
+
+    query = query.range(offset, offset + limit - 1)
+
+    const { data, error, count } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    // Map property count
+    const owners = (data || []).map((owner) => ({
+      ...owner,
+      properties_count: (owner.property_owners || []).filter(
+        (po: any) =>
+          po.dev_properties && po.dev_properties.status !== 'cancelled'
+      ).length,
+      property_owners: undefined,
+    }))
+
+    return NextResponse.json({ data: owners, total: count || 0 })
   } catch (error) {
     console.error('Erro ao listar owners:', error)
     return NextResponse.json(
@@ -78,10 +99,16 @@ export async function POST(request: Request) {
       }
     }
 
+    // Clean empty strings to null
+    const cleanedData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(data)) {
+      cleanedData[key] = value === '' ? null : value
+    }
+
     // Criar owner
     const { data: owner, error } = await supabase
       .from('owners')
-      .insert(data)
+      .insert(cleanedData as typeof data)
       .select()
       .single()
 

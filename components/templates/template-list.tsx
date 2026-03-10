@@ -22,9 +22,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Pencil, Trash2, Layers, ListChecks } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Power, Layers, ListChecks } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
+import { PROCESS_TYPES } from '@/lib/constants'
 import type { TemplateWithCounts } from '@/types/template'
 
 interface TemplateListProps {
@@ -34,21 +35,38 @@ interface TemplateListProps {
 
 export function TemplateList({ templates, onRefresh }: TemplateListProps) {
   const router = useRouter()
+  const [deactivateId, setDeactivateId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleDeactivate = async () => {
-    if (!deleteId) return
-    setIsDeleting(true)
+    if (!deactivateId) return
+    setIsLoading(true)
     try {
-      const res = await fetch(`/api/templates/${deleteId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/templates/${deactivateId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Erro ao desactivar template')
       toast.success('Template desactivado com sucesso')
       onRefresh()
     } catch (error: any) {
       toast.error(error.message)
     } finally {
-      setIsDeleting(false)
+      setIsLoading(false)
+      setDeactivateId(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setIsLoading(true)
+    try {
+      const res = await fetch(`/api/templates/${deleteId}?action=delete`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erro ao eliminar template')
+      toast.success('Template eliminado com sucesso')
+      onRefresh()
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsLoading(false)
       setDeleteId(null)
     }
   }
@@ -73,6 +91,15 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-2 ml-2">
+                  {tpl.process_type && PROCESS_TYPES[tpl.process_type as keyof typeof PROCESS_TYPES] && (
+                    <Badge variant="secondary" className={cn(
+                      PROCESS_TYPES[tpl.process_type as keyof typeof PROCESS_TYPES].bg,
+                      PROCESS_TYPES[tpl.process_type as keyof typeof PROCESS_TYPES].text,
+                      'text-xs'
+                    )}>
+                      {PROCESS_TYPES[tpl.process_type as keyof typeof PROCESS_TYPES].label}
+                    </Badge>
+                  )}
                   <Badge variant={tpl.is_active ? 'default' : 'secondary'}>
                     {tpl.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
@@ -89,13 +116,24 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
+                      {tpl.is_active && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeactivateId(tpl.id)}
+                          >
+                            <Power className="mr-2 h-4 w-4" />
+                            Desactivar
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => setDeleteId(tpl.id)}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Desactivar
+                        Eliminar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -121,8 +159,8 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
         ))}
       </div>
 
-      {/* Dialog de confirmação */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      {/* Dialog de desactivação */}
+      <AlertDialog open={!!deactivateId} onOpenChange={(open) => !open && setDeactivateId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Desactivar Template</AlertDialogTitle>
@@ -133,13 +171,36 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeactivate}
-              disabled={isDeleting}
+              disabled={isLoading}
+            >
+              {isLoading ? 'A desactivar...' : 'Desactivar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de eliminação */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar este template? O template
+              será removido da listagem. Processos já instanciados não serão
+              afectados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'A desactivar...' : 'Desactivar'}
+              {isLoading ? 'A eliminar...' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

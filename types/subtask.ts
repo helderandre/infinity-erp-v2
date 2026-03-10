@@ -1,3 +1,5 @@
+import type { AlertsConfig } from './alert'
+
 export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc'
 
 // Tipos de multiplicação por proprietário
@@ -21,6 +23,8 @@ export interface SubtaskOwnerConfig {
   }
 }
 
+export type DependencyType = 'none' | 'subtask' | 'task'
+
 export interface TplSubtask {
   id: string
   tpl_task_id: string
@@ -28,6 +32,14 @@ export interface TplSubtask {
   description: string | null
   is_mandatory: boolean
   order_index: number
+  // Prazo, responsável, prioridade
+  sla_days: number | null
+  assigned_role: string | null
+  priority: string // default 'normal'
+  // Dependências
+  dependency_type?: DependencyType
+  dependency_subtask_id?: string | null
+  dependency_task_id?: string | null
   config: {
     type?: SubtaskType
     doc_type_id?: string
@@ -36,6 +48,7 @@ export interface TplSubtask {
     // Legacy fields (retrocompatibilidade)
     check_type?: 'field' | 'document' | 'manual'
     field_name?: string
+    alerts?: AlertsConfig
   } & SubtaskOwnerConfig
 }
 
@@ -56,6 +69,19 @@ export interface ProcSubtask {
     person_type?: string
     email?: string
   } | null
+  // Prazo, responsável, prioridade
+  due_date: string | null
+  assigned_to: string | null
+  assigned_to_user?: { id: string; commercial_name: string } | null
+  assigned_role: string | null
+  priority: string // default 'normal'
+  started_at: string | null
+  // Dependências / bloqueio
+  is_blocked?: boolean
+  dependency_type?: DependencyType
+  dependency_proc_subtask_id?: string | null
+  dependency_proc_task_id?: string | null
+  unblocked_at?: string | null
   config: {
     type?: SubtaskType
     check_type?: 'field' | 'document' | 'manual'
@@ -76,10 +102,19 @@ export interface SubtaskData {
   is_mandatory: boolean
   order_index: number
   type: SubtaskType
+  // Prazo, responsável, prioridade (template builder)
+  sla_days?: number
+  assigned_role?: string
+  priority?: 'urgent' | 'normal' | 'low'
+  // Dependências (template builder)
+  dependency_type?: DependencyType
+  dependency_subtask_id?: string | null  // depende de outra subtarefa
+  dependency_task_id?: string | null     // depende de uma tarefa inteira
   config: {
     doc_type_id?: string        // type === 'upload'
     email_library_id?: string   // type === 'email'
     doc_library_id?: string     // type === 'generate_doc'
     // type === 'checklist' → sem config extra
+    alerts?: AlertsConfig
   } & SubtaskOwnerConfig
 }

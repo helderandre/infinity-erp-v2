@@ -34,6 +34,7 @@ export async function GET(request: Request) {
         { count: 'exact' }
       )
       .neq('status', 'draft')
+      .neq('status', 'cancelled')
       .order(sortColumn, { ascending: sortAscending })
       .range(offset, offset + limit - 1)
 

@@ -2,25 +2,31 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { templateSchema } from '@/lib/validations/template'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
 
+    const { searchParams } = new URL(request.url)
+    const processType = searchParams.get('process_type') || ''
+
     // Buscar templates com contagem de stages e tasks
-    const { data: templates, error } = await supabase
+    let query = supabase
       .from('tpl_processes')
       .select(`
-        id,
-        name,
-        description,
-        is_active,
-        created_at,
+        *,
         tpl_stages (
           id,
           tpl_tasks (id)
         )
       `)
+      .is('deleted_at' as any, null)
       .order('created_at', { ascending: false })
+
+    if (processType) {
+      query = query.eq('process_type' as any, processType)
+    }
+
+    const { data: templates, error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -40,6 +46,7 @@ export async function GET() {
         description: tpl.description,
         is_active: tpl.is_active,
         created_at: tpl.created_at,
+        process_type: (tpl as any).process_type,
         stages_count: stages.length,
         tasks_count: totalTasks,
       }
@@ -70,12 +77,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, description, stages } = parsed.data
+    const { name, description, process_type, stages } = parsed.data
 
     // 2. Inserir tpl_processes
     const { data: process, error: processError } = await supabase
       .from('tpl_processes')
-      .insert({ name, description })
+      .insert({ name, description, process_type } as any)
       .select('id')
       .single()
 
@@ -86,7 +93,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Inserir tpl_stages + tpl_tasks para cada fase
+    // Cast para aceder a tpl_subtasks
+    const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
+
+    // Mappings: local ID → DB ID (para resolver dependências)
+    const taskIdMap = new Map<string, string>()
+    const subtaskIdMap = new Map<string, string>()
+
+    // Pendentes de dependência para actualizar depois
+    const taskDeps: { dbId: string; localDepId: string }[] = []
+    const subtaskDeps: { dbId: string; depType: string; localSubtaskId?: string; localTaskId?: string }[] = []
+
+    // 3. Inserir tpl_stages + tpl_tasks + tpl_subtasks
     for (const stage of stages) {
       const { data: insertedStage, error: stageError } = await supabase
         .from('tpl_stages')
@@ -100,7 +118,6 @@ export async function POST(request: Request) {
         .single()
 
       if (stageError || !insertedStage) {
-        // Rollback manual: apagar o processo criado
         await supabase.from('tpl_processes').delete().eq('id', process.id)
         return NextResponse.json(
           { error: `Erro ao criar fase "${stage.name}": ${stageError?.message}` },
@@ -108,7 +125,7 @@ export async function POST(request: Request) {
         )
       }
 
-      // 4. Inserir tarefas da fase
+      // Inserir tarefas (sem dependency_task_id — será resolvido no 2º passo)
       const tasksToInsert = stage.tasks.map((task) => ({
         tpl_stage_id: insertedStage.id,
         title: task.title,
@@ -117,16 +134,15 @@ export async function POST(request: Request) {
         is_mandatory: task.is_mandatory,
         sla_days: task.sla_days || null,
         assigned_role: task.assigned_role || null,
-        config: {},
+        config: (task as Record<string, unknown>).config || {},
         order_index: task.order_index,
       }))
 
       const { error: tasksError } = await supabase
         .from('tpl_tasks')
-        .insert(tasksToInsert)
+        .insert(tasksToInsert as any)
 
       if (tasksError) {
-        // Rollback manual
         await supabase.from('tpl_processes').delete().eq('id', process.id)
         return NextResponse.json(
           { error: `Erro ao criar tarefas: ${tasksError.message}` },
@@ -134,10 +150,7 @@ export async function POST(request: Request) {
         )
       }
 
-      // 5. Inserir subtarefas (3º nível)
-      // Cast para aceder a tpl_subtasks (tabela não presente no database.ts gerado)
-      const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
-
+      // Buscar tasks inseridas para obter IDs reais
       const { data: insertedTasks } = await supabase
         .from('tpl_tasks')
         .select('id, order_index')
@@ -147,6 +160,18 @@ export async function POST(request: Request) {
       if (insertedTasks) {
         for (let i = 0; i < stage.tasks.length; i++) {
           const task = stage.tasks[i] as Record<string, unknown>
+          const localTaskId = task._local_id as string | undefined
+          if (localTaskId && insertedTasks[i]) {
+            taskIdMap.set(localTaskId, insertedTasks[i].id)
+          }
+
+          // Registar dependência de tarefa para resolver depois
+          const depTaskId = task.dependency_task_id as string | undefined
+          if (depTaskId && insertedTasks[i]) {
+            taskDeps.push({ dbId: insertedTasks[i].id, localDepId: depTaskId })
+          }
+
+          // Inserir subtarefas
           const subtasks = task.subtasks as Array<Record<string, unknown>> | undefined
           if (subtasks && subtasks.length > 0 && insertedTasks[i]) {
             const subtasksToInsert = subtasks.map((st, idx) => ({
@@ -155,14 +180,18 @@ export async function POST(request: Request) {
               description: st.description || null,
               is_mandatory: st.is_mandatory,
               order_index: idx,
+              sla_days: (st as Record<string, unknown>).sla_days || null,
+              assigned_role: (st as Record<string, unknown>).assigned_role || null,
+              priority: (st as Record<string, unknown>).priority || 'normal',
               config: {
                 type: st.type,
                 ...(st.config as Record<string, unknown> || {}),
               },
             }))
 
-            const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+            const { data: insertedSubtasks, error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
               .insert(subtasksToInsert)
+              .select('id, order_index')
 
             if (subtasksError) {
               await supabase.from('tpl_processes').delete().eq('id', process.id)
@@ -171,9 +200,62 @@ export async function POST(request: Request) {
                 { status: 500 }
               )
             }
+
+            // Mapear IDs locais das subtarefas
+            if (insertedSubtasks) {
+              const sortedInserted = (insertedSubtasks as { id: string; order_index: number }[])
+                .sort((a, b) => a.order_index - b.order_index)
+              for (let j = 0; j < subtasks.length; j++) {
+                const localSubtaskId = subtasks[j]._local_id as string | undefined
+                if (localSubtaskId && sortedInserted[j]) {
+                  subtaskIdMap.set(localSubtaskId, sortedInserted[j].id)
+                }
+
+                // Registar dependência de subtarefa
+                const depType = subtasks[j].dependency_type as string | undefined
+                if (depType && depType !== 'none' && sortedInserted[j]) {
+                  subtaskDeps.push({
+                    dbId: sortedInserted[j].id,
+                    depType,
+                    localSubtaskId: subtasks[j].dependency_subtask_id as string | undefined,
+                    localTaskId: subtasks[j].dependency_task_id as string | undefined,
+                  })
+                }
+              }
+            }
           }
         }
       }
+    }
+
+    // 4. Segundo passo: resolver dependências de tarefas
+    for (const dep of taskDeps) {
+      const resolvedId = taskIdMap.get(dep.localDepId)
+      if (resolvedId) {
+        await supabase
+          .from('tpl_tasks')
+          .update({ dependency_task_id: resolvedId })
+          .eq('id', dep.dbId)
+      }
+    }
+
+    // 5. Segundo passo: resolver dependências de subtarefas
+    for (const dep of subtaskDeps) {
+      const update: Record<string, unknown> = { dependency_type: dep.depType }
+
+      if (dep.depType === 'subtask' && dep.localSubtaskId) {
+        const resolvedId = subtaskIdMap.get(dep.localSubtaskId)
+        if (resolvedId) update.dependency_subtask_id = resolvedId
+      }
+
+      if (dep.depType === 'task' && dep.localTaskId) {
+        const resolvedId = taskIdMap.get(dep.localTaskId)
+        if (resolvedId) update.dependency_task_id = resolvedId
+      }
+
+      await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+        .update(update)
+        .eq('id', dep.dbId)
     }
 
     return NextResponse.json({ id: process.id }, { status: 201 })

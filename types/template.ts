@@ -6,6 +6,7 @@ type TplStage = Database['public']['Tables']['tpl_stages']['Row']
 type TplTask = Database['public']['Tables']['tpl_tasks']['Row']
 
 export interface TemplateWithCounts extends TplProcess {
+  process_type?: string
   stages_count: number
   tasks_count: number
 }
@@ -25,6 +26,7 @@ export interface TemplateStage extends TplStage {
 }
 
 export interface TemplateDetail extends TplProcess {
+  process_type?: string
   tpl_stages: TemplateStage[]
 }
 

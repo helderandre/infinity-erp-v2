@@ -100,7 +100,7 @@ export async function POST(
     // Verificar se o template existe e está activo
     const { data: template, error: templateError } = await supabase
       .from('tpl_processes')
-      .select('id, name, is_active')
+      .select('*')
       .eq('id', tpl_process_id)
       .single()
 
@@ -145,6 +145,16 @@ export async function POST(
       console.log('[APPROVE] Status inválido para aprovação:', proc.current_status)
       return NextResponse.json(
         { error: 'Apenas processos pendentes ou devolvidos podem ser aprovados' },
+        { status: 400 }
+      )
+    }
+
+    // Validar compatibilidade de tipo entre template e processo
+    if ((template as any).process_type && (proc as any).process_type &&
+        (template as any).process_type !== (proc as any).process_type) {
+      console.log('[APPROVE] Tipo incompatível — template:', (template as any).process_type, 'processo:', (proc as any).process_type)
+      return NextResponse.json(
+        { error: 'O template seleccionado não é compatível com este tipo de processo' },
         { status: 400 }
       )
     }
@@ -199,6 +209,18 @@ export async function POST(
       console.error('[APPROVE] Erro ao popular tarefas:', populateError)
     } else {
       console.log('[APPROVE] Tarefas populadas com sucesso')
+    }
+
+    // Resolver dependências (mapear IDs de template para IDs de instância + marcar is_blocked)
+    console.log('[APPROVE] A resolver dependências...')
+    const { error: depsError } = await supabase.rpc(
+      'resolve_process_dependencies' as any,
+      { p_instance_id: id }
+    )
+    if (depsError) {
+      console.error('[APPROVE] Erro ao resolver dependências:', depsError)
+    } else {
+      console.log('[APPROVE] Dependências resolvidas com sucesso')
     }
 
     // Auto-completar tarefas UPLOAD que já têm documentos existentes

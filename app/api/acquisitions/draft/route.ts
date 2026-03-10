@@ -78,11 +78,12 @@ export async function POST(request: Request) {
         property_id: property.id,
         tpl_process_id: null,
         current_status: 'draft',
+        process_type: 'angariacao',
         requested_by: user.id,
         percent_complete: 0,
         last_completed_step: 0,
         negocio_id: negocioId || null,
-      })
+      } as any)
       .select('id')
       .single()
 

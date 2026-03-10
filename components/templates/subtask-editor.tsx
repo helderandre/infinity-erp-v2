@@ -39,6 +39,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   GripVertical,
   Trash2,
   Plus,
@@ -47,10 +52,15 @@ import {
   Mail,
   FileText,
   Users,
+  Lock,
+  ChevronRight,
+  Settings2,
 } from 'lucide-react'
-import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
+import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { SubtaskData } from '@/types/subtask'
+import type { AlertsConfig } from '@/types/alert'
+import { AlertConfigEditor } from './alert-config-editor'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Upload,
@@ -59,9 +69,31 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FileText,
 }
 
+// Contexto de dependências passado pelo TemplateTaskSheet
+export interface SubtaskDependencyOption {
+  stageLabel: string
+  taskId: string
+  taskTitle: string
+}
+export interface SubtaskContextItem {
+  stageLabel: string
+  taskTitle: string
+  taskId: string
+  subtask: SubtaskData
+}
+
+interface RoleOption {
+  value: string
+  label: string
+}
+
 interface SubtaskEditorProps {
   subtasks: SubtaskData[]
   onChange: (subtasks: SubtaskData[]) => void
+  taskDependencyOptions?: SubtaskDependencyOption[]
+  allSubtasksContext?: SubtaskContextItem[]
+  currentTaskId?: string
+  roles?: RoleOption[]
 }
 
 function getPlaceholder(type: SubtaskData['type']): string {
@@ -167,6 +199,11 @@ function SortableSubtaskRow({
   docTemplates,
   onUpdate,
   onRemove,
+  sameTaskSubtasks,
+  taskDependencyOptions,
+  allSubtasksContext,
+  currentTaskId,
+  roles,
 }: {
   subtask: SubtaskData
   docTypes: { id: string; name: string; category?: string }[]
@@ -175,6 +212,11 @@ function SortableSubtaskRow({
   docTemplates: { id: string; name: string }[]
   onUpdate: (id: string, data: Partial<SubtaskData>) => void
   onRemove: (id: string) => void
+  sameTaskSubtasks: SubtaskData[]
+  taskDependencyOptions?: SubtaskDependencyOption[]
+  allSubtasksContext?: SubtaskContextItem[]
+  currentTaskId?: string
+  roles?: RoleOption[]
 }) {
   const {
     attributes,
@@ -287,6 +329,194 @@ function SortableSubtaskRow({
         )}
 
         {/* checklist: não precisa de config extra — só o título */}
+
+        {/* Opções avançadas (prazo, responsável, prioridade) */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+            <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
+            <Settings2 className="h-3 w-3" />
+            <span>Opções avançadas</span>
+            {(subtask.sla_days || subtask.assigned_role || (subtask.priority && subtask.priority !== 'normal')) && (
+              <Badge variant="secondary" className="text-[9px] h-4 px-1 ml-1">
+                {[
+                  subtask.sla_days && `${subtask.sla_days}d`,
+                  subtask.assigned_role,
+                  subtask.priority && subtask.priority !== 'normal' && TASK_PRIORITY_LABELS[subtask.priority],
+                ].filter(Boolean).join(' · ')}
+              </Badge>
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="grid grid-cols-3 gap-2">
+              {/* Prazo (dias) */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Prazo (dias)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 5"
+                  value={subtask.sla_days || ''}
+                  onChange={(e) => {
+                    const val = e.target.value ? parseInt(e.target.value, 10) : undefined
+                    onUpdate(subtask.id, { sla_days: val && val > 0 ? val : undefined })
+                  }}
+                  className="h-7 text-xs"
+                />
+              </div>
+
+              {/* Responsável (role) */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Responsável</Label>
+                <Select
+                  value={subtask.assigned_role || '_none'}
+                  onValueChange={(v) => onUpdate(subtask.id, { assigned_role: v === '_none' ? undefined : v })}
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">(Sem atribuição)</SelectItem>
+                    {(roles || []).map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Prioridade */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Prioridade</Label>
+                <Select
+                  value={subtask.priority || 'normal'}
+                  onValueChange={(v) => onUpdate(subtask.id, { priority: v as SubtaskData['priority'] })}
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Alertas */}
+            <AlertConfigEditor
+              alerts={(subtask.config as Record<string, unknown>).alerts as AlertsConfig | undefined}
+              onChange={(alerts) => onUpdate(subtask.id, {
+                config: { ...subtask.config, alerts },
+              })}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Bloqueada até (dependência) */}
+        {(sameTaskSubtasks.length > 1 || (taskDependencyOptions && taskDependencyOptions.length > 0)) && (() => {
+          const hasDep = subtask.dependency_type && subtask.dependency_type !== 'none'
+          // Subtarefas da mesma tarefa (excluindo a própria)
+          const siblingSubtasks = sameTaskSubtasks.filter((s) => s.id !== subtask.id && s.title)
+          // Subtarefas de outras tarefas
+          const otherSubtasks = (allSubtasksContext || []).filter(
+            (ctx) => ctx.taskId !== currentTaskId && ctx.subtask.title
+          )
+          const hasOptions = siblingSubtasks.length > 0 || otherSubtasks.length > 0 || (taskDependencyOptions && taskDependencyOptions.length > 0)
+
+          if (!hasOptions) return null
+
+          // Compute current value for the select
+          const currentDepValue = (() => {
+            if (!hasDep) return '_none'
+            if (subtask.dependency_type === 'subtask' && subtask.dependency_subtask_id) {
+              return `st:${subtask.dependency_subtask_id}`
+            }
+            if (subtask.dependency_type === 'task' && subtask.dependency_task_id) {
+              return `tk:${subtask.dependency_task_id}`
+            }
+            return '_none'
+          })()
+
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <Lock className="h-3 w-3 text-muted-foreground" />
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Bloqueada até</Label>
+              </div>
+              <Select
+                value={currentDepValue}
+                onValueChange={(v) => {
+                  if (v === '_none') {
+                    onUpdate(subtask.id, {
+                      dependency_type: 'none',
+                      dependency_subtask_id: null,
+                      dependency_task_id: null,
+                    })
+                  } else if (v.startsWith('st:')) {
+                    onUpdate(subtask.id, {
+                      dependency_type: 'subtask',
+                      dependency_subtask_id: v.slice(3),
+                      dependency_task_id: null,
+                    })
+                  } else if (v.startsWith('tk:')) {
+                    onUpdate(subtask.id, {
+                      dependency_type: 'task',
+                      dependency_subtask_id: null,
+                      dependency_task_id: v.slice(3),
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="Sem bloqueio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">(Sem bloqueio)</SelectItem>
+                  {siblingSubtasks.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Subtarefas desta tarefa</SelectLabel>
+                      {siblingSubtasks.map((s) => (
+                        <SelectItem key={`st:${s.id}`} value={`st:${s.id}`}>
+                          {s.title}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {otherSubtasks.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Subtarefas de outras tarefas</SelectLabel>
+                      {otherSubtasks.map((ctx) => (
+                        <SelectItem key={`st:${ctx.subtask.id}`} value={`st:${ctx.subtask.id}`}>
+                          [{ctx.stageLabel}] {ctx.taskTitle} → {ctx.subtask.title}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {taskDependencyOptions && taskDependencyOptions.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Tarefas (tarefa inteira)</SelectLabel>
+                      {taskDependencyOptions.map((t) => (
+                        <SelectItem key={`tk:${t.taskId}`} value={`tk:${t.taskId}`}>
+                          [{t.stageLabel}] {t.taskTitle}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
+              {hasDep && (
+                <Badge variant="outline" className="text-[10px] h-5 bg-orange-50 text-orange-700 border-orange-200">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Dependência
+                </Badge>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Secção de configuração por proprietário */}
         {(() => {
@@ -465,7 +695,14 @@ function SortableSubtaskRow({
   )
 }
 
-export function SubtaskEditor({ subtasks, onChange }: SubtaskEditorProps) {
+export function SubtaskEditor({
+  subtasks,
+  onChange,
+  taskDependencyOptions,
+  allSubtasksContext,
+  currentTaskId,
+  roles,
+}: SubtaskEditorProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -592,6 +829,11 @@ export function SubtaskEditor({ subtasks, onChange }: SubtaskEditorProps) {
                   docTemplates={docTemplates}
                   onUpdate={handleUpdate}
                   onRemove={handleRemove}
+                  sameTaskSubtasks={subtasks}
+                  taskDependencyOptions={taskDependencyOptions}
+                  allSubtasksContext={allSubtasksContext}
+                  currentTaskId={currentTaskId}
+                  roles={roles}
                 />
               ))}
             </div>

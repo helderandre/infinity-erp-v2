@@ -20,6 +20,7 @@ import {
   Mail,
   FileText,
   CheckSquare,
+  Lock,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -270,6 +271,12 @@ export function TaskDetailSheet({
             <SheetTitle className="text-lg">{task.title}</SheetTitle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {task.is_blocked && (
+              <Badge variant="outline" className="text-xs gap-1 border-amber-300 text-amber-600 bg-amber-50">
+                <Lock className="h-3 w-3" />
+                Bloqueada
+              </Badge>
+            )}
             {task.action_type === 'COMPOSITE' && task.subtasks && task.subtasks.length > 0 ? (
               (() => {
                 const types = [...new Set(task.subtasks.map((s) => (s.config as any)?.type || (s.config as any)?.check_type || 'checklist'))]

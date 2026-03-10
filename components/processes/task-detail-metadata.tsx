@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowDown,
+  Lock,
   X,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
@@ -94,8 +95,20 @@ export function TaskDetailMetadata({
   const dueDate = task.due_date ? new Date(task.due_date) : undefined
   const isEditable = !['completed', 'skipped'].includes(task.status ?? '')
 
+  const isBlocked = !!task.is_blocked
+
   return (
     <div className="space-y-3">
+      {/* Blocked banner */}
+      {isBlocked && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          <Lock className="h-4 w-4 shrink-0 text-amber-500" />
+          <span>
+            <strong>Bloqueada</strong> — esta tarefa aguarda a conclusão de uma dependência antes de poder ser executada.
+          </span>
+        </div>
+      )}
+
       <h4 className="text-sm font-medium">Detalhes</h4>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

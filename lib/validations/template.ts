@@ -10,6 +10,14 @@ export const subtaskSchema = z
     type: z.enum(['upload', 'checklist', 'email', 'generate_doc'], {
       message: 'Tipo de subtarefa inválido',
     }),
+    // Prazo, responsável, prioridade
+    sla_days: z.number().int().positive().optional(),
+    assigned_role: z.string().optional(),
+    priority: z.enum(['urgent', 'normal', 'low']).default('normal'),
+    // Dependências (bloqueio)
+    dependency_type: z.enum(['none', 'subtask', 'task']).default('none'),
+    dependency_subtask_id: z.string().uuid().nullable().optional(),
+    dependency_task_id: z.string().uuid().nullable().optional(),
     config: z
       .object({
         doc_type_id: z.string().optional(),
@@ -95,6 +103,8 @@ export const taskSchema = z.object({
   assigned_role: z.string().optional(),
   order_index: z.number().int().min(0),
   subtasks: z.array(subtaskSchema).default([]),
+  // Dependência entre tarefas (bloqueio)
+  dependency_task_id: z.string().uuid().nullable().optional(),
 })
 
 // Schema para uma fase do template
@@ -109,6 +119,9 @@ export const stageSchema = z.object({
 export const templateSchema = z.object({
   name: z.string().min(1, 'O nome do template é obrigatório'),
   description: z.string().optional(),
+  process_type: z.enum(['angariacao', 'venda', 'compra'], {
+    message: 'Tipo de processo obrigatório',
+  }),
   stages: z
     .array(stageSchema)
     .min(1, 'O template deve ter pelo menos uma fase'),

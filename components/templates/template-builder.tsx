@@ -29,8 +29,10 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus, Save } from 'lucide-react'
+import { PROCESS_TYPES } from '@/lib/constants'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { TemplateStageColumn } from './template-stage-column'
 import { TemplateTaskCard } from './template-task-card'
@@ -38,6 +40,7 @@ import { TemplateTaskSheet } from './template-task-sheet'
 import { TemplateStageDialog } from './template-stage-dialog'
 import type { TemplateDetail } from '@/types/template'
 import type { SubtaskData, SubtaskType } from '@/types/subtask'
+import type { AlertsConfig } from '@/types/alert'
 
 function deriveTypeFromLegacy(config: Record<string, unknown>): SubtaskType {
   if (config?.check_type === 'document' || config?.doc_type_id) return 'upload'
@@ -64,6 +67,10 @@ export interface TaskData {
   sla_days?: number
   assigned_role?: string
   subtasks: SubtaskData[] // SEMPRE presente, array (pode ser vazio)
+  // Dependência entre tarefas (bloqueio)
+  dependency_task_id?: string | null // referência ao ID local de outra tarefa
+  // Alertas configurados na tarefa (propagados para tpl_tasks.config.alerts)
+  _task_alerts?: AlertsConfig
 }
 
 interface TemplateBuilderProps {
@@ -81,6 +88,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
   // Campos do template
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
+  const [processType, setProcessType] = useState<string>(initialData?.process_type || '')
 
   // Estado DnD: items = { stageId: [taskId1, taskId2, ...] }
   const [items, setItems] = useState<Record<string, string[]>>({})
@@ -137,6 +145,8 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
           priority: ((task as unknown as { priority?: string }).priority as TaskData['priority']) || 'normal',
           sla_days: task.sla_days || undefined,
           assigned_role: task.assigned_role || undefined,
+          dependency_task_id: task.dependency_task_id || null,
+          _task_alerts: (task.config as Record<string, unknown>)?.alerts as AlertsConfig | undefined,
           subtasks: tplSubtasks.map((st) => ({
             id: st.id,
             title: st.title,
@@ -144,6 +154,12 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
             is_mandatory: st.is_mandatory ?? true,
             order_index: st.order_index ?? 0,
             type: st.config?.type || deriveTypeFromLegacy((st.config || {}) as Record<string, unknown>),
+            sla_days: st.sla_days || undefined,
+            assigned_role: st.assigned_role || undefined,
+            priority: (st.priority as SubtaskData['priority']) || 'normal',
+            dependency_type: st.dependency_type || 'none',
+            dependency_subtask_id: st.dependency_subtask_id || null,
+            dependency_task_id: st.dependency_task_id || null,
             config: {
               doc_type_id: st.config?.doc_type_id,
               email_library_id: st.config?.email_library_id,
@@ -154,6 +170,8 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
               has_person_type_variants: st.config?.has_person_type_variants,
               singular_config: st.config?.singular_config,
               coletiva_config: st.config?.coletiva_config,
+              // Preservar alertas
+              alerts: st.config?.alerts,
             },
           })),
         }
@@ -416,6 +434,10 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       toast.error('O nome do template é obrigatório')
       return
     }
+    if (!processType) {
+      toast.error('Seleccione o tipo de processo')
+      return
+    }
     if (containers.length === 0) {
       toast.error('O template deve ter pelo menos uma fase')
       return
@@ -431,24 +453,37 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
     const payload = {
       name: name.trim(),
       description: description.trim() || undefined,
+      process_type: processType,
       stages: containers.map((stageId, stageIndex) => ({
         name: stagesData[stageId].name,
         description: stagesData[stageId].description,
         order_index: stageIndex,
         tasks: (items[stageId] || []).map((taskId, taskIndex) => ({
+          _local_id: taskId,
           title: tasksData[taskId].title,
           description: tasksData[taskId].description,
           is_mandatory: tasksData[taskId].is_mandatory,
           priority: tasksData[taskId].priority || 'normal',
           sla_days: tasksData[taskId].sla_days,
           assigned_role: tasksData[taskId].assigned_role,
+          dependency_task_id: tasksData[taskId].dependency_task_id || null,
+          config: tasksData[taskId]._task_alerts
+            ? { alerts: tasksData[taskId]._task_alerts }
+            : undefined,
           order_index: taskIndex,
           subtasks: (tasksData[taskId].subtasks || []).map((st, sidx) => ({
+            _local_id: st.id,
             title: st.title,
             description: st.description,
             is_mandatory: st.is_mandatory,
             type: st.type,
+            sla_days: st.sla_days,
+            assigned_role: st.assigned_role,
+            priority: st.priority || 'normal',
             config: st.config,
+            dependency_type: st.dependency_type || 'none',
+            dependency_subtask_id: st.dependency_subtask_id || null,
+            dependency_task_id: st.dependency_task_id || null,
             order_index: sidx,
           })),
         })),
@@ -494,7 +529,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       {/* Campos do template */}
       <Card>
         <CardContent className=" space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="tpl-name">Nome do Template *</Label>
               <Input
@@ -512,6 +547,21 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Processo *</Label>
+              <Select value={processType} onValueChange={setProcessType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PROCESS_TYPES).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -653,6 +703,11 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
         }}
         initialData={taskDialogData}
         onSubmit={taskDialogData ? handleEditTask : handleAddTask}
+        allTasks={tasksData}
+        allStages={stagesData}
+        stageTaskMap={items}
+        containers={containers}
+        currentTaskId={taskDialogData?.id}
       />
     </div>
   )

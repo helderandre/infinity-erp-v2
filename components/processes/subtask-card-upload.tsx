@@ -33,6 +33,7 @@ export function SubtaskCardUpload({
   const taskResult = config.task_result as Record<string, string> | undefined
   const docRegistryId = taskResult?.doc_registry_id
 
+  const isBlocked = !!(subtask as any).is_blocked
   const state: CardState = subtask.is_completed ? 'completed' : 'pending'
 
   // Find linked document
@@ -79,7 +80,7 @@ export function SubtaskCardUpload({
             propertyId={propertyId}
             ownerId={ownerId}
             onUploaded={handleUploadComplete}
-            disabled={isUploading}
+            disabled={isUploading || isBlocked}
           />
         )}
 

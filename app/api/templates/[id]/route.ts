@@ -20,7 +20,7 @@ export async function GET(
           *,
           tpl_tasks (
             *,
-            tpl_subtasks (*)
+            tpl_subtasks!tpl_subtasks_tpl_task_id_fkey (*)
           )
         )
       `)
@@ -72,7 +72,7 @@ export async function PUT(
       )
     }
 
-    const { name, description, stages } = parsed.data
+    const { name, description, process_type, stages } = parsed.data
 
     // 2. Verificar se template existe
     const { data: existing, error: existError } = await supabase
@@ -88,7 +88,7 @@ export async function PUT(
     // 3. Update nome/descrição do processo
     const { error: updateError } = await supabase
       .from('tpl_processes')
-      .update({ name, description })
+      .update({ name, description, process_type } as any)
       .eq('id', id)
 
     if (updateError) {
@@ -151,6 +151,17 @@ export async function PUT(
       }
     }
 
+    // Cast para aceder a tpl_subtasks
+    const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
+
+    // Mappings: local ID → DB ID (para resolver dependências)
+    const taskIdMap = new Map<string, string>()
+    const subtaskIdMap = new Map<string, string>()
+
+    // Pendentes de dependência para actualizar depois
+    const taskDeps: { dbId: string; localDepId: string }[] = []
+    const subtaskDeps: { dbId: string; depType: string; localSubtaskId?: string; localTaskId?: string }[] = []
+
     // 8. Inserir novas stages e tasks
     for (const stage of stages) {
       const { data: insertedStage, error: stageError } = await supabase
@@ -179,13 +190,13 @@ export async function PUT(
         is_mandatory: task.is_mandatory,
         sla_days: task.sla_days || null,
         assigned_role: task.assigned_role || null,
-        config: {},
+        config: (task as Record<string, unknown>).config || {},
         order_index: task.order_index,
       }))
 
       const { error: tasksError } = await supabase
         .from('tpl_tasks')
-        .insert(tasksToInsert)
+        .insert(tasksToInsert as any)
 
       if (tasksError) {
         return NextResponse.json(
@@ -194,10 +205,7 @@ export async function PUT(
         )
       }
 
-      // Inserir subtarefas (3º nível)
-      // Cast para aceder a tpl_subtasks (tabela não presente no database.ts gerado)
-      const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
-
+      // Buscar tasks inseridas para obter IDs reais
       const { data: insertedTasks } = await supabase
         .from('tpl_tasks')
         .select('id, order_index')
@@ -207,6 +215,18 @@ export async function PUT(
       if (insertedTasks) {
         for (let i = 0; i < stage.tasks.length; i++) {
           const task = stage.tasks[i] as Record<string, unknown>
+          const localTaskId = task._local_id as string | undefined
+          if (localTaskId && insertedTasks[i]) {
+            taskIdMap.set(localTaskId, insertedTasks[i].id)
+          }
+
+          // Registar dependência de tarefa para resolver depois
+          const depTaskId = task.dependency_task_id as string | undefined
+          if (depTaskId && insertedTasks[i]) {
+            taskDeps.push({ dbId: insertedTasks[i].id, localDepId: depTaskId })
+          }
+
+          // Inserir subtarefas
           const subtasks = task.subtasks as Array<Record<string, unknown>> | undefined
           if (subtasks && subtasks.length > 0 && insertedTasks[i]) {
             const subtasksToInsert = subtasks.map((st, idx) => ({
@@ -215,14 +235,18 @@ export async function PUT(
               description: st.description || null,
               is_mandatory: st.is_mandatory,
               order_index: idx,
+              sla_days: st.sla_days || null,
+              assigned_role: st.assigned_role || null,
+              priority: st.priority || 'normal',
               config: {
                 type: st.type,
                 ...(st.config as Record<string, unknown> || {}),
               },
             }))
 
-            const { error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+            const { data: insertedSubtasks, error: subtasksError } = await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
               .insert(subtasksToInsert)
+              .select('id, order_index')
 
             if (subtasksError) {
               return NextResponse.json(
@@ -230,9 +254,62 @@ export async function PUT(
                 { status: 500 }
               )
             }
+
+            // Mapear IDs locais das subtarefas
+            if (insertedSubtasks) {
+              const sortedInserted = (insertedSubtasks as { id: string; order_index: number }[])
+                .sort((a, b) => a.order_index - b.order_index)
+              for (let j = 0; j < subtasks.length; j++) {
+                const localSubtaskId = subtasks[j]._local_id as string | undefined
+                if (localSubtaskId && sortedInserted[j]) {
+                  subtaskIdMap.set(localSubtaskId, sortedInserted[j].id)
+                }
+
+                // Registar dependência de subtarefa
+                const depType = subtasks[j].dependency_type as string | undefined
+                if (depType && depType !== 'none' && sortedInserted[j]) {
+                  subtaskDeps.push({
+                    dbId: sortedInserted[j].id,
+                    depType,
+                    localSubtaskId: subtasks[j].dependency_subtask_id as string | undefined,
+                    localTaskId: subtasks[j].dependency_task_id as string | undefined,
+                  })
+                }
+              }
+            }
           }
         }
       }
+    }
+
+    // 9. Segundo passo: resolver dependências de tarefas
+    for (const dep of taskDeps) {
+      const resolvedId = taskIdMap.get(dep.localDepId)
+      if (resolvedId) {
+        await supabase
+          .from('tpl_tasks')
+          .update({ dependency_task_id: resolvedId })
+          .eq('id', dep.dbId)
+      }
+    }
+
+    // 10. Segundo passo: resolver dependências de subtarefas
+    for (const dep of subtaskDeps) {
+      const update: Record<string, unknown> = { dependency_type: dep.depType }
+
+      if (dep.depType === 'subtask' && dep.localSubtaskId) {
+        const resolvedId = subtaskIdMap.get(dep.localSubtaskId)
+        if (resolvedId) update.dependency_subtask_id = resolvedId
+      }
+
+      if (dep.depType === 'task' && dep.localTaskId) {
+        const resolvedId = taskIdMap.get(dep.localTaskId)
+        if (resolvedId) update.dependency_task_id = resolvedId
+      }
+
+      await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
+        .update(update)
+        .eq('id', dep.dbId)
     }
 
     return NextResponse.json({ id })
@@ -242,7 +319,7 @@ export async function PUT(
   }
 }
 
-// DELETE — Soft delete (is_active = false)
+// DELETE — Desactivar (is_active = false) ou eliminar (soft delete com deleted_at)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -250,7 +327,24 @@ export async function DELETE(
   try {
     const { id } = await params
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const action = searchParams.get('action')
 
+    if (action === 'delete') {
+      // Soft delete — marcar como eliminado
+      const { error } = await supabase
+        .from('tpl_processes')
+        .update({ is_active: false, deleted_at: new Date().toISOString() } as any)
+        .eq('id', id)
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, action: 'deleted' })
+    }
+
+    // Default: apenas desactivar
     const { error } = await supabase
       .from('tpl_processes')
       .update({ is_active: false })
@@ -260,9 +354,9 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, action: 'deactivated' })
   } catch (error) {
-    console.error('Error deactivating template:', error)
+    console.error('Error deactivating/deleting template:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

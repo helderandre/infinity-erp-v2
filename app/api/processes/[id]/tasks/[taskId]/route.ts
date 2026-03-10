@@ -324,6 +324,43 @@ export async function PUT(
       console.error('[TaskUpdate] Erro ao enviar notificações:', notifError)
     }
 
+    // --- Alertas configurados no template ---
+    try {
+      const taskConfig = ((task as any).config as Record<string, any>) || {}
+      if (taskConfig.alerts) {
+        const { alertService } = await import('@/lib/alerts/service')
+        const procRef = (task as any).proc_instance?.external_ref || ''
+
+        if (action === 'complete' && taskConfig.alerts.on_complete?.enabled) {
+          await alertService.processAlert(taskConfig.alerts.on_complete, {
+            procInstanceId: id,
+            entityType: 'proc_task',
+            entityId: taskId,
+            eventType: 'on_complete',
+            title: task.title,
+            processRef: procRef,
+            triggeredBy: user.id,
+            assignedTo: task.assigned_to,
+          })
+        }
+
+        if (action === 'assign' && assigned_to && taskConfig.alerts.on_assign?.enabled) {
+          await alertService.processAlert(taskConfig.alerts.on_assign, {
+            procInstanceId: id,
+            entityType: 'proc_task',
+            entityId: taskId,
+            eventType: 'on_assign',
+            title: task.title,
+            processRef: procRef,
+            triggeredBy: user.id,
+            assignedTo: assigned_to,
+          })
+        }
+      }
+    } catch (alertError) {
+      console.error('[TaskUpdate] Erro ao processar alertas:', alertError)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Tarefa actualizada com sucesso',

@@ -22,6 +22,11 @@ const FULL_BLEED_ROUTES = [
   '/dashboard/templates-documentos/',
 ]
 
+/** Rotas que usam sidebar interna (sem padding esquerdo, altura flex) */
+const SIDEBAR_PAGE_ROUTES = [
+  '/dashboard/processos',
+] as const
+
 export default function DashboardLayout({
   children,
 }: {
@@ -29,6 +34,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
+  const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
 
   return (
     <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
@@ -47,7 +53,11 @@ export default function DashboardLayout({
         <main
           className={cn(
             "flex flex-1 flex-col overflow-hidden",
-            isFullBleed ? "min-h-0" : "gap-4 p-4 md:gap-6 md:p-6"
+            isFullBleed
+              ? "min-h-0"
+              : isSidebarPage
+                ? "min-h-0"
+                : "gap-4 p-4 md:gap-6 md:p-6"
           )}
         >
           {children}

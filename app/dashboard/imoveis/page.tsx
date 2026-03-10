@@ -55,7 +55,7 @@ import { toast } from 'sonner'
 import type { PropertyWithRelations } from '@/types/property'
 
 const PAGE_SIZE = 20
-const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS)
+const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS).filter((k) => k !== 'cancelled')
 const DEFAULT_STATUSES = ALL_STATUS_KEYS.filter(
   (k) => k !== 'pending_approval' && k !== 'in_process'
 )
@@ -582,7 +582,7 @@ function ImoveisPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar imóvel</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende eliminar este imóvel? O imóvel será marcado como cancelado.
+              Tem a certeza de que pretende eliminar este imóvel? Esta acção é irreversível.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

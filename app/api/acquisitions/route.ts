@@ -252,9 +252,10 @@ export async function POST(request: Request) {
         property_id: property.id,
         tpl_process_id: null,
         current_status: 'pending_approval',
+        process_type: 'angariacao',
         requested_by: user.id,
         percent_complete: 0,
-      })
+      } as any)
       .select('id')
       .single()
 

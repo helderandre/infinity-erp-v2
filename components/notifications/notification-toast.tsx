@@ -15,6 +15,9 @@ import {
   AlertTriangle,
   Bell,
   Trash2,
+  Unlock,
+  UserPlus,
+  BellRing,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Notification, NotificationType } from '@/lib/notifications/types'
@@ -33,6 +36,14 @@ const NOTIFICATION_ICONS: Record<NotificationType, React.ElementType> = {
   chat_mention: AtSign,
   task_updated: RefreshCw,
   task_overdue: AlertTriangle,
+  subtask_completed: CheckCircle2,
+  subtask_overdue: AlertTriangle,
+  subtask_unblocked: Unlock,
+  subtask_assigned: UserPlus,
+  alert_on_complete: BellRing,
+  alert_on_overdue: BellRing,
+  alert_on_unblock: BellRing,
+  alert_on_assign: BellRing,
 }
 
 const NOTIFICATION_ICON_COLORS: Partial<Record<NotificationType, string>> = {
@@ -45,6 +56,14 @@ const NOTIFICATION_ICON_COLORS: Partial<Record<NotificationType, string>> = {
   task_assigned: 'text-blue-500',
   comment_mention: 'text-violet-500',
   chat_mention: 'text-violet-500',
+  subtask_completed: 'text-emerald-500',
+  subtask_overdue: 'text-red-500',
+  subtask_unblocked: 'text-teal-500',
+  subtask_assigned: 'text-blue-500',
+  alert_on_complete: 'text-emerald-500',
+  alert_on_overdue: 'text-red-500',
+  alert_on_unblock: 'text-teal-500',
+  alert_on_assign: 'text-blue-500',
 }
 
 interface NotificationToastContentProps {
