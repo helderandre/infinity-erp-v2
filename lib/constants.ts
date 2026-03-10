@@ -777,6 +777,28 @@ export const DOC_CATEGORIES: Record<string, string> = {
   'Proprietário Empresa': 'Proprietário Empresa',
 }
 
+export const DOC_FOLDER_LABELS = {
+  property: 'Documentos do Imóvel',
+  process: 'Documentos do Processo',
+  owner: 'Documentos do Proprietário',
+  consultant: 'Documentos do Consultor',
+} as const
+
+export const DOC_FOLDER_ICONS = {
+  property: 'Building2',
+  process: 'FileCheck',
+  owner: 'User',
+  consultant: 'Briefcase',
+} as const
+
+export const FILE_TYPE_ICONS: Record<string, { icon: string; color: string; abbr: string }> = {
+  'application/pdf': { icon: 'FileText', color: 'text-red-500', abbr: 'PDF' },
+  'image/jpeg': { icon: 'Image', color: 'text-blue-500', abbr: 'JPG' },
+  'image/png': { icon: 'Image', color: 'text-blue-500', abbr: 'PNG' },
+  'application/msword': { icon: 'FileText', color: 'text-blue-700', abbr: 'DOC' },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { icon: 'FileText', color: 'text-blue-700', abbr: 'DOCX' },
+}
+
 export const KYC_LABELS = {
   birth_date: 'Data de Nascimento',
   id_doc_type: 'Tipo de Documento',

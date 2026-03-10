@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { PageSidebar, type PageSidebarAction } from '@/components/shared/page-sidebar'
@@ -28,7 +29,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, HandCoins, ShoppingCart, LayoutList } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, HandCoins, ShoppingCart, LayoutList, LayoutGrid, List } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -37,6 +38,77 @@ import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@
 import { useDebounce } from '@/hooks/use-debounce'
 import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
+
+function ProcessDropdownMenu({ isDraft, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
+  isDraft: boolean
+  selectionMode: boolean
+  onResumeDraft: () => void
+  onViewDetails: () => void
+  onSelectMultiple: () => void
+  onDelete: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground"
+          onClick={(e) => e.preventDefault()}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {isDraft ? (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.preventDefault()
+              onResumeDraft()
+            }}
+          >
+            <FileEdit className="mr-2 h-4 w-4" />
+            Retomar rascunho
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.preventDefault()
+              onViewDetails()
+            }}
+          >
+            Ver detalhes
+          </DropdownMenuItem>
+        )}
+        {!selectionMode && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                onSelectMultiple()
+              }}
+            >
+              <CheckSquare className="mr-2 h-4 w-4" />
+              Seleccionar múltiplos
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={(e) => {
+            e.preventDefault()
+            onDelete()
+          }}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Eliminar processo
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 const STATUS_TABS = [
   { value: '', label: 'Todos' },
@@ -67,6 +139,7 @@ export default function ProcessosPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const debouncedSearch = useDebounce(search, 300)
 
   const loadProcesses = useCallback(async () => {
@@ -272,6 +345,24 @@ export default function ProcessosPage() {
             className="pl-9"
           />
         </div>
+        <div className="flex border rounded-md">
+          <Button
+            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="rounded-r-none"
+            onClick={() => setViewMode('list')}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="rounded-l-none"
+            onClick={() => setViewMode('grid')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -306,19 +397,52 @@ export default function ProcessosPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-4 w-24 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-20 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        viewMode === 'list' ? (
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Referência</TableHead>
+                  <TableHead>Imóvel</TableHead>
+                  <TableHead className="w-[140px]">Estado</TableHead>
+                  <TableHead className="w-[100px]">Progresso</TableHead>
+                  <TableHead className="w-[120px]">Consultor</TableHead>
+                  <TableHead className="w-[120px] text-right">Preço</TableHead>
+                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead className="w-[50px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-2 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-6" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-4 w-24 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
       ) : processes.length === 0 ? (
         <EmptyState
           icon={FileText}
@@ -342,6 +466,167 @@ export default function ProcessosPage() {
                 : undefined
           }
         />
+      ) : viewMode === 'list' ? (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {selectionMode && (
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={selectedIds.size === processes.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                )}
+                <TableHead className="w-[180px]">Referência</TableHead>
+                <TableHead>Imóvel</TableHead>
+                <TableHead className="w-[140px]">Estado</TableHead>
+                <TableHead className="w-[100px]">Progresso</TableHead>
+                <TableHead className="w-[120px]">Consultor</TableHead>
+                <TableHead className="w-[120px] text-right">Preço</TableHead>
+                <TableHead className="w-[100px]">Data</TableHead>
+                <TableHead className="w-[50px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {processes.map((proc) => {
+                const isDraft = proc.current_status === 'draft'
+                const isSelected = selectedIds.has(proc.id)
+
+                const handleRowClick = () => {
+                  if (Date.now() < suppressClickUntilRef.current) return
+                  if (selectionMode) {
+                    toggleSelect(proc.id)
+                    return
+                  }
+                  if (isDraft) {
+                    setResumeDraftId(proc.id)
+                    setDraftDialogOpen(true)
+                  } else {
+                    router.push(`/dashboard/processos/${proc.id}`)
+                  }
+                }
+
+                const progressPercent = isDraft
+                  ? ((proc.last_completed_step || 0) / 5) * 100
+                  : proc.percent_complete
+
+                return (
+                  <TableRow
+                    key={proc.id}
+                    className={cn(
+                      'cursor-pointer transition-colors',
+                      isSelected && 'bg-primary/5'
+                    )}
+                    onClick={handleRowClick}
+                  >
+                    {selectionMode && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(proc.id)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <span className="font-mono text-sm font-medium">
+                        {proc.external_ref || 'Sem ref.'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          {proc.dev_properties?.title || 'Imóvel sem título'}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {proc.dev_properties?.property_type && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {(PROPERTY_TYPES as Record<string, string>)[proc.dev_properties.property_type] || proc.dev_properties.property_type}
+                            </span>
+                          )}
+                          {proc.dev_properties?.city && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {proc.dev_properties.city}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={proc.current_status} type="process" showDot={false} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full transition-all',
+                              isDraft
+                                ? 'bg-violet-500'
+                                : proc.percent_complete === 100
+                                  ? 'bg-emerald-500'
+                                  : 'bg-foreground'
+                            )}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-8 text-right">
+                          {isDraft
+                            ? `${proc.last_completed_step || 0}/5`
+                            : `${proc.percent_complete}%`}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {proc.requested_by_user?.commercial_name && (
+                        <span className="flex items-center gap-1.5 text-sm">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={proc.requested_by_user?.avatar_url} />
+                            <AvatarFallback className="text-[9px]">
+                              {proc.requested_by_user.commercial_name.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate max-w-[90px]">
+                            {proc.requested_by_user.commercial_name}
+                          </span>
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {proc.dev_properties?.listing_price ? (
+                        <span className="font-semibold text-sm">
+                          {formatCurrency(Number(proc.dev_properties.listing_price))}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {proc.started_at
+                        ? formatDate(proc.started_at)
+                        : proc.updated_at
+                          ? formatDate(proc.updated_at)
+                          : '—'}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <ProcessDropdownMenu
+                        isDraft={isDraft}
+                        selectionMode={selectionMode}
+                        onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
+                        onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}
+                        onSelectMultiple={() => { suppressClickUntilRef.current = Date.now() + 500; setTimeout(() => enterSelectionMode(proc.id), 0) }}
+                        onDelete={() => { setProcessToDelete(proc); setDeleteDialogOpen(true) }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {processes.map((proc) => {
@@ -382,68 +667,15 @@ export default function ProcessosPage() {
 
                 {/* Dropdown menu */}
                 <div className="absolute top-3 right-3 z-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground"
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {isDraft ? (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setResumeDraftId(proc.id)
-                            setDraftDialogOpen(true)
-                          }}
-                        >
-                          <FileEdit className="mr-2 h-4 w-4" />
-                          Retomar rascunho
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            router.push(`/dashboard/processos/${proc.id}`)
-                          }}
-                        >
-                          Ver detalhes
-                        </DropdownMenuItem>
-                      )}
-                      {!selectionMode && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault()
-                              suppressClickUntilRef.current = Date.now() + 500
-                              setTimeout(() => enterSelectionMode(proc.id), 0)
-                            }}
-                          >
-                            <CheckSquare className="mr-2 h-4 w-4" />
-                            Seleccionar múltiplos
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setProcessToDelete(proc)
-                          setDeleteDialogOpen(true)
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Eliminar processo
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <ProcessDropdownMenu
+                    proc={proc}
+                    isDraft={isDraft}
+                    selectionMode={selectionMode}
+                    onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
+                    onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}
+                    onSelectMultiple={() => { suppressClickUntilRef.current = Date.now() + 500; setTimeout(() => enterSelectionMode(proc.id), 0) }}
+                    onDelete={() => { setProcessToDelete(proc); setDeleteDialogOpen(true) }}
+                  />
                 </div>
 
                 <CardHeader className={cn('pb-3', selectionMode && 'pl-10')}>

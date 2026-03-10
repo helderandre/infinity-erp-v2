@@ -137,129 +137,114 @@ export function ProcessReviewSection({
 
   return (
     <>
-      <Card className="border-amber-500/20 bg-amber-500/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
+      <div className="rounded-lg border border-amber-200 bg-amber-50/60 dark:border-amber-500/20 dark:bg-amber-500/5 p-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-foreground">
             {isReturned ? 'Processo Devolvido' : 'Aguarda Aprovação'}
-          </CardTitle>
-          <CardDescription>
-            {isReturned
-              ? 'Este processo foi devolvido e aguarda correcções'
-              : 'Reveja as informações, seleccione o template e aprove ou devolva o processo'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isReturned && process.returned_reason && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Motivo da devolução:</strong>
-                <p className="mt-1">{process.returned_reason}</p>
-              </AlertDescription>
-            </Alert>
-          )}
+          </h3>
+        </div>
 
-          {/* Selecção de Template */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <FileStack className="h-4 w-4" />
-              Template de Processo *
-            </Label>
-            {isLoadingTemplates ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Spinner variant="infinite" size={16} />
-                A carregar templates...
-              </div>
-            ) : templates.length === 0 ? (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Nenhum template de processo activo encontrado.
-                  Crie um template antes de aprovar.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <>
-                <Select
-                  value={selectedTemplateId}
-                  onValueChange={setSelectedTemplateId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar template de processo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((tpl) => (
-                      <SelectItem key={tpl.id} value={tpl.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{tpl.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Info do template seleccionado */}
-                {selectedTemplate && selectedTemplate.description && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedTemplate.description}
-                  </p>
-                )}
-              </>
-            )}
+        {isReturned && process.returned_reason && (
+          <div className="rounded-md border border-amber-200 dark:border-amber-500/20 bg-white/60 dark:bg-background/40 px-3 py-2">
+            <p className="text-xs font-medium text-foreground">Motivo da devolução:</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{process.returned_reason}</p>
           </div>
+        )}
 
-          {/* Botões de acção */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={handleApproveClick}
-              disabled={isProcessing || !selectedTemplateId || templates.length === 0}
-              className="flex-1 min-w-[120px]"
-            >
-              {isProcessing ? (
-                <Spinner variant="infinite" size={16} className="mr-2" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              Aprovar Processo
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => setReturnDialogOpen(true)}
-              disabled={isProcessing}
-              className="flex-1 min-w-[120px]"
-            >
-              <Undo2 className="mr-2 h-4 w-4" />
-              Devolver
-            </Button>
-
-            {!isReturned && (
-              <Button
-                variant="destructive"
-                onClick={() => setRejectDialogOpen(true)}
-                disabled={isProcessing}
-                className="flex-1 min-w-[120px]"
-              >
-                <X className="mr-2 h-4 w-4" />
-                Rejeitar
-              </Button>
-            )}
-          </div>
-
-          {process.requested_by_user && (
-            <p className="text-xs text-muted-foreground pt-2 border-t">
-              Solicitado por <strong>{process.requested_by_user.commercial_name}</strong>
-              {process.started_at && (
-                <> em {new Date(process.started_at).toLocaleDateString('pt-PT')}</>
-              )}
+        {/* Template selector */}
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+            <FileStack className="h-3.5 w-3.5" />
+            Template de Processo *
+          </Label>
+          {isLoadingTemplates ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+              <Spinner variant="infinite" size={14} />
+              A carregar templates...
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-xs text-destructive">
+              Nenhum template activo encontrado. Crie um template antes de aprovar.
             </p>
+          ) : (
+            <>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={setSelectedTemplateId}
+              >
+                <SelectTrigger className="h-9 bg-white dark:bg-background">
+                  <SelectValue placeholder="Seleccionar template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{tpl.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedTemplate?.description && (
+                <p className="text-[11px] text-muted-foreground">{selectedTemplate.description}</p>
+              )}
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Action buttons — compact */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleApproveClick}
+            disabled={isProcessing || !selectedTemplateId || templates.length === 0}
+          >
+            {isProcessing ? (
+              <Spinner variant="infinite" size={14} className="mr-1.5" />
+            ) : (
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Aprovar
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReturnDialogOpen(true)}
+            disabled={isProcessing}
+          >
+            <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+            Devolver
+          </Button>
+
+          {!isReturned && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRejectDialogOpen(true)}
+              disabled={isProcessing}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              Rejeitar
+            </Button>
+          )}
+        </div>
+
+        {process.requested_by_user && (
+          <p className="text-[11px] text-muted-foreground">
+            Solicitado por <strong>{process.requested_by_user.commercial_name}</strong>
+            {process.started_at && (
+              <> em {new Date(process.started_at).toLocaleDateString('pt-PT')}</>
+            )}
+          </p>
+        )}
+      </div>
 
       {/* Dialog de Devolução */}
       <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>

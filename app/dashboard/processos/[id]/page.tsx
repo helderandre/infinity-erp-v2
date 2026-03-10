@@ -57,10 +57,14 @@ import {
   Building2,
   Users,
   Activity,
+  ClipboardList,
+  FileText,
+  Kanban,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { PageSidebar } from '@/components/shared/page-sidebar'
+import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
@@ -70,8 +74,9 @@ import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
 import { FloatingChat } from '@/components/processes/floating-chat'
 import { ProcessPropertyTab } from '@/components/processes/process-property-tab'
 import { ProcessOwnersTab } from '@/components/processes/process-owners-tab'
+import { ProcessDocumentsManager } from '@/components/processes/process-documents-manager'
 import { useUser } from '@/hooks/use-user'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -80,6 +85,8 @@ import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
 
 type ViewMode = 'kanban' | 'list' | 'timeline'
+
+type SidebarSection = string // 'detalhes' | 'imovel' | 'pipeline' | 'proprietarios' | 'proprietarios:<id>' | 'documentos'
 
 export default function ProcessoDetailPage() {
   const params = useParams()
@@ -90,10 +97,11 @@ export default function ProcessoDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+  const [activeSection, setActiveSection] = useState<SidebarSection>('detalhes')
 
   // Process-level activities (for timeline view)
   const { activities: processActivities, isLoading: isLoadingActivities } = useProcessActivities(
-    viewMode === 'timeline' ? (params.id as string) : null
+    viewMode === 'timeline' && activeSection === 'pipeline' ? (params.id as string) : null
   )
 
   // Filters
@@ -139,7 +147,6 @@ export default function ProcessoDetailPage() {
     try {
       const response = await fetch(`/api/processes/${params.id}`)
 
-      // Processo eliminado (soft-delete) — 410 Gone
       if (response.status === 410) {
         const data = await response.json()
         setDeletedInfo(data)
@@ -442,7 +449,6 @@ export default function ProcessoDetailPage() {
       )
       if (parentTask) setSelectedTask(parentTask)
     } else if (entityType === 'doc') {
-      // Find the task that has this document linked via task_result
       const linkedTask = allTasks.find((t: ProcessTask) => {
         const result = t.task_result as Record<string, unknown> | null
         return result?.doc_registry_id === entityId
@@ -451,7 +457,7 @@ export default function ProcessoDetailPage() {
     }
   }, [process?.stages])
 
-  // Sincronizar selectedTask com dados actualizados do processo
+  // Sync selectedTask with updated process data
   useEffect(() => {
     if (selectedTask && process?.stages) {
       const allTasks: ProcessTask[] = process.stages.flatMap(
@@ -467,7 +473,7 @@ export default function ProcessoDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [process?.stages])
 
-  // Deep-link: abrir tarefa via ?task=<taskId> (apenas na primeira carga)
+  // Deep-link: open task via ?task=<taskId>
   const deepLinkHandled = useRef(false)
   useEffect(() => {
     const taskParam = searchParams.get('task')
@@ -478,6 +484,7 @@ export default function ProcessoDetailPage() {
       const target = allTasks.find((t: ProcessTask) => t.id === taskParam)
       if (target) {
         setSelectedTask(target)
+        setActiveSection('pipeline')
         deepLinkHandled.current = true
       }
     }
@@ -509,7 +516,6 @@ export default function ProcessoDetailPage() {
 
     const assigneeList = Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }))
 
-    // Apply filters to each stage
     const filtered: ProcessStageWithTasks[] = process.stages.map((stage: ProcessStageWithTasks) => {
       const tasks = stage.tasks.filter((t: ProcessTask) => {
         if (filterStatus !== 'all' && t.status !== filterStatus) return false
@@ -531,88 +537,150 @@ export default function ProcessoDetailPage() {
 
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
+  // Determine if process is pending (locks sidebar to 'detalhes' only)
+  const isPending = process?.instance
+    ? ['pending_approval', 'returned'].includes(process.instance.current_status)
+    : false
+  const isActive = process?.instance
+    ? ['active', 'on_hold', 'completed'].includes(process.instance.current_status)
+    : false
+
+  // Force detalhes section when pending
+  useEffect(() => {
+    if (isPending && activeSection !== 'detalhes') {
+      setActiveSection('detalhes')
+    }
+  }, [isPending, activeSection])
+
+  // Build owner sub-items for the sidebar (use process?.owners since destructuring happens after guards)
+  const ownerSubItems = (process?.owners || []).map((owner: { id: string; name?: string; is_main_contact?: boolean }) => ({
+    key: `proprietarios:${owner.id}`,
+    label: owner.name || 'Sem nome',
+    badge: owner.is_main_contact ? 'Principal' : undefined,
+  }))
+
+  // Sidebar items
+  const sidebarItems: PageSidebarItem[] = [
+    { key: 'detalhes', label: 'Detalhes', icon: ClipboardList },
+    { key: 'pipeline', label: 'Pipeline', icon: Kanban },
+    { key: 'imovel', label: 'Imóvel', icon: Building2 },
+    {
+      key: 'proprietarios',
+      label: 'Proprietários',
+      icon: Users,
+      subItems: ownerSubItems.length > 0 ? ownerSubItems : undefined,
+    },
+    { key: 'documentos', label: 'Documentos', icon: FileText },
+  ]
+
+  const handleSidebarSelect = (key: string) => {
+    if (isPending && key !== 'detalhes') return
+    setActiveSection(key)
+  }
+
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64 w-full" />
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-4 px-4 md:px-6 py-4 border-b">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-6 w-48" />
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="w-52 shrink-0 border-r p-4 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+          </div>
+          <div className="flex-1 p-6 space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Processo eliminado (soft-delete) — mostrar mensagem informativa
+  // Deleted process
   if (deletedInfo) {
-    const deletedDate = deletedInfo.deleted_at
-      ? formatDate(deletedInfo.deleted_at)
-      : 'data desconhecida'
+    const deletedDate = deletedInfo.deleted_at ? formatDate(deletedInfo.deleted_at) : 'data desconhecida'
     const deletedByName = deletedInfo.deleted_by?.commercial_name || 'utilizador desconhecido'
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-4 px-4 md:px-6 py-4 border-b">
           <Link href="/dashboard/processos">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-muted-foreground">
+          <h1 className="text-xl font-bold text-muted-foreground">
             {deletedInfo.external_ref || 'Processo'}
           </h1>
         </div>
-
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-destructive/10 p-4 mb-4">
-              <Trash2 className="h-10 w-10 text-destructive" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">Processo Eliminado</h2>
-            <p className="text-muted-foreground max-w-md">
-              Este processo foi eliminado em{' '}
-              <strong>{deletedDate}</strong> por{' '}
-              <strong>{deletedByName}</strong>.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Os dados deste processo já não estão disponíveis para consulta.
-            </p>
-            <Link href="/dashboard/processos" className="mt-6">
-              <Button variant="outline">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar aos Processos
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="border-destructive/30 bg-destructive/5 max-w-md w-full">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-destructive/10 p-4 mb-4">
+                <Trash2 className="h-10 w-10 text-destructive" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Processo Eliminado</h2>
+              <p className="text-muted-foreground">
+                Eliminado em <strong>{deletedDate}</strong> por <strong>{deletedByName}</strong>.
+              </p>
+              <Link href="/dashboard/processos" className="mt-6">
+                <Button variant="outline">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar aos Processos
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
-  if (!process) {
-    return null
-  }
+  if (!process) return null
 
   const { instance, stages, owners, documents } = process
   const property = instance.property
-  const isActive = ['active', 'on_hold', 'completed'].includes(instance.current_status)
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/processos">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{instance.external_ref}</h1>
-            <StatusBadge status={instance.current_status} type="process" />
+    <div className="flex flex-col h-full">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard/processos">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold truncate">{instance.external_ref}</h1>
+              <StatusBadge status={instance.current_status} type="process" />
+            </div>
+            <p className="text-sm text-muted-foreground truncate">{property?.title}</p>
           </div>
-          <p className="text-muted-foreground">{property?.title}</p>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2">
+        {/* Progress bar + Action buttons */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Inline progress */}
+          {isActive && totalTasks > 0 && (
+            <div className="flex items-center gap-2 w-36">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full transition-all duration-500',
+                    progressPercent === 100 ? 'bg-emerald-500' : 'bg-primary'
+                  )}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                {progressPercent}%
+              </span>
+            </div>
+          )}
           {instance.current_status === 'active' && (
             <Button
               variant="outline"
@@ -668,41 +736,47 @@ export default function ProcessoDetailPage() {
         </div>
       </div>
 
-      {/* Main Tabs: Processo | Imóvel | Proprietários */}
-      <Tabs defaultValue="processo">
-        <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0">
-          <TabsTrigger value="processo" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <LayoutGrid className="h-4 w-4" />
-            Processo
-          </TabsTrigger>
-          <TabsTrigger value="imovel" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <Building2 className="h-4 w-4" />
-            Imóvel
-          </TabsTrigger>
-          <TabsTrigger value="proprietarios" className="rounded-full px-5 py-2 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <Users className="h-4 w-4" />
-            Proprietários
-            {owners && owners.length > 0 && (
-              <span className="ml-0.5 text-xs text-muted-foreground">({owners.length})</span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      {/* Sidebar + Content */}
+      <div className="flex flex-1 min-h-0">
+        <PageSidebar
+          items={sidebarItems.map((item) => ({
+            ...item,
+            disabled: isPending && item.key !== 'detalhes',
+          }))}
+          activeKey={activeSection}
+          onSelect={handleSidebarSelect}
+        />
 
-        {/* Processo Tab */}
-        <TabsContent value="processo" className="mt-4 space-y-6">
-          {/* Review Section (pending_approval / returned) */}
-          {['pending_approval', 'returned'].includes(instance.current_status) && (
-            <>
-              <ProcessReviewSection
-                process={instance}
-                property={property}
-                owners={owners}
-                documents={documents}
-                onApprove={handleApprove}
-                onReturn={handleReturn}
-                onReject={handleReject}
-              />
-              {property && (
+        {/* Main content */}
+        <div className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6">
+          {/* ── DETALHES section ── */}
+          {activeSection === 'detalhes' && (
+            <div className="space-y-6">
+              {/* Review section (pending / returned) */}
+              {isPending && (
+                <>
+                  <ProcessReviewSection
+                    process={instance}
+                    property={property}
+                    owners={owners}
+                    documents={documents}
+                    onApprove={handleApprove}
+                    onReturn={handleReturn}
+                    onReject={handleReject}
+                  />
+                  {property && (
+                    <ProcessReviewBento
+                      process={instance}
+                      property={property}
+                      owners={owners}
+                      documents={documents}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Active process summary (bento only, progress is in Pipeline) */}
+              {isActive && property && (
                 <ProcessReviewBento
                   process={instance}
                   property={property}
@@ -710,144 +784,161 @@ export default function ProcessoDetailPage() {
                   documents={documents}
                 />
               )}
-            </>
+            </div>
           )}
 
-          {/* Bento grid for active/completed processes (shows property + owner data below tasks) */}
-          {isActive && property && (
-            <ProcessReviewBento
-              process={instance}
-              property={property}
-              owners={owners}
-              documents={documents}
-            />
+          {/* ── IMÓVEL section ── */}
+          {activeSection === 'imovel' && (
+            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} />
           )}
 
-          {/* Active process: progress bar + filters + views */}
-          {isActive && stages && stages.length > 0 && (
-            <>
-              {/* Global progress card */}
-              <Card>
-                <CardContent className="px-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">Progresso Global</span>
-                    <span className="text-sm font-bold tabular-nums">{progressPercent}%</span>
+          {/* ── PIPELINE section ── */}
+          {activeSection === 'pipeline' && (
+            <div className="space-y-4">
+              {isActive && stages && stages.length > 0 ? (
+                <>
+                  {/* Progress bar */}
+                  <Card>
+                    <CardContent className="px-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold shrink-0">Progresso</span>
+                        <Progress value={progressPercent} className="h-2 flex-1" />
+                        <span className="text-sm font-bold tabular-nums shrink-0">{progressPercent}%</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          {completedTasks} concluídas
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
+                          {totalTasks - completedTasks} pendentes
+                        </span>
+                        {overdueTasks > 0 && (
+                          <span className="flex items-center gap-1 text-red-500">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            {overdueTasks} em atraso
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Filters + view toggle */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os estados</SelectItem>
+                        {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={filterPriority} onValueChange={setFilterPriority}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Prioridade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as prioridades</SelectItem>
+                        {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                      <SelectTrigger className="w-[170px]">
+                        <SelectValue placeholder="Responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {assignees.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="ml-auto">
+                      <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
+                        <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
+                          <LayoutGrid className="h-4 w-4" />
+                          Kanban
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="list" aria-label="Vista Lista">
+                          <List className="h-4 w-4" />
+                          Lista
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
+                          <Activity className="h-4 w-4" />
+                          Timeline
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
                   </div>
-                  <Progress value={progressPercent} className="h-2" />
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                      {completedTasks} concluídas
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" />
-                      {totalTasks - completedTasks} pendentes
-                    </span>
-                    {overdueTasks > 0 && (
-                      <span className="flex items-center gap-1 text-red-500">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        {overdueTasks} em atraso
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Filters + view toggle */}
-              <div className="flex flex-wrap items-center gap-3">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os estados</SelectItem>
-                    {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as prioridades</SelectItem>
-                    {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                  <SelectTrigger className="w-[170px]">
-                    <SelectValue placeholder="Responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {assignees.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="ml-auto">
-                  <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
-                    <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
-                      <LayoutGrid className="h-4 w-4" />
-                      Kanban
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="list" aria-label="Vista Lista">
-                      <List className="h-4 w-4" />
-                      Lista
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
-                      <Activity className="h-4 w-4" />
-                      Timeline
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </div>
-
-              {/* Views */}
-              {viewMode === 'kanban' ? (
-                <ProcessKanbanView
-                  stages={filteredStages}
-                  isProcessing={isProcessing}
-                  onTaskAction={handleTaskAction}
-                  onTaskBypass={handleBypassOpen}
-                  onTaskAssign={handleAssignOpen}
-                  onTaskClick={handleTaskClick}
-                />
-              ) : viewMode === 'list' ? (
-                <ProcessListView
-                  stages={filteredStages}
-                  isProcessing={isProcessing}
-                  onTaskAction={handleTaskAction}
-                  onTaskBypass={handleBypassOpen}
-                  onTaskAssign={handleAssignOpen}
-                  onTaskClick={handleTaskClick}
-                />
+                  {/* Views */}
+                  {viewMode === 'kanban' ? (
+                    <ProcessKanbanView
+                      stages={filteredStages}
+                      isProcessing={isProcessing}
+                      onTaskAction={handleTaskAction}
+                      onTaskBypass={handleBypassOpen}
+                      onTaskAssign={handleAssignOpen}
+                      onTaskClick={handleTaskClick}
+                    />
+                  ) : viewMode === 'list' ? (
+                    <ProcessListView
+                      stages={filteredStages}
+                      isProcessing={isProcessing}
+                      onTaskAction={handleTaskAction}
+                      onTaskBypass={handleBypassOpen}
+                      onTaskAssign={handleAssignOpen}
+                      onTaskClick={handleTaskClick}
+                    />
+                  ) : (
+                    <ProcessTimelineView
+                      activities={processActivities}
+                      isLoading={isLoadingActivities}
+                    />
+                  )}
+                </>
               ) : (
-                <ProcessTimelineView
-                  activities={processActivities}
-                  isLoading={isLoadingActivities}
-                />
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <Kanban className="h-8 w-8 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm font-medium">Pipeline não disponível</p>
+                    <p className="text-xs mt-1">O processo precisa de ser aprovado antes de ter tarefas.</p>
+                  </CardContent>
+                </Card>
               )}
-            </>
+            </div>
           )}
-        </TabsContent>
 
-        {/* Imóvel Tab */}
-        <TabsContent value="imovel" className="mt-4">
-          <ProcessPropertyTab property={property} documents={documents} />
-        </TabsContent>
+          {/* ── PROPRIETÁRIOS section — all owners (cards overview) ── */}
+          {activeSection === 'proprietarios' && (
+            <ProcessOwnersTab owners={owners} documents={documents} onDocumentUploaded={loadProcess} />
+          )}
 
-        {/* Proprietários Tab */}
-        <TabsContent value="proprietarios" className="mt-4">
-          <ProcessOwnersTab owners={owners} documents={documents} />
-        </TabsContent>
-      </Tabs>
+          {/* ── PROPRIETÁRIO individual ── */}
+          {activeSection.startsWith('proprietarios:') && (() => {
+            const ownerId = activeSection.split(':')[1]
+            const singleOwner = (owners || []).find((o: { id: string }) => o.id === ownerId)
+            if (!singleOwner) return null
+            return (
+              <ProcessOwnersTab owners={[singleOwner]} documents={documents} onDocumentUploaded={loadProcess} />
+            )
+          })()}
+
+          {/* ── DOCUMENTOS section ── */}
+          {activeSection === 'documentos' && (
+            <ProcessDocumentsManager processId={instance.id} />
+          )}
+        </div>
+      </div>
 
       {/* Floating Chat */}
       {user && (
@@ -872,7 +963,6 @@ export default function ProcessoDetailPage() {
         onOpenChange={(open) => {
           if (!open) {
             setSelectedTask(null)
-            // Limpar ?task= da URL para evitar reabertura
             const taskParam = searchParams.get('task')
             if (taskParam) {
               const url = new URL(window.location.href)

@@ -1,11 +1,9 @@
 'use client'
 
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+} from '@/components/ui/sheet'
 import { AcquisitionFormV2 } from './acquisition-form-v2'
 import type { AcquisitionFormData } from '@/lib/validations/acquisition'
 
@@ -31,11 +29,14 @@ export function AcquisitionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{draftId ? 'Retomar Angariação' : 'Nova Angariação'}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="!max-w-[800px] w-full p-0 gap-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         {open && (
           <AcquisitionFormV2
             mode="dialog"
@@ -49,7 +50,7 @@ export function AcquisitionDialog({
             onClose={handleClose}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

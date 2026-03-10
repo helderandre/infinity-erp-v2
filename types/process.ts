@@ -99,6 +99,53 @@ export interface ProcessDocument {
   created_at: string
 }
 
+// ── Gestor de Documentos (pastas) ──
+
+export interface DocumentFile {
+  id: string
+  file_name: string
+  file_url: string
+  doc_type: {
+    id: string
+    name: string
+    category: string
+  }
+  status: 'active' | 'archived' | 'expired'
+  uploaded_by?: {
+    id: string
+    commercial_name: string
+  }
+  metadata: {
+    size?: number
+    mimetype?: string
+    r2_key?: string
+  }
+  valid_until?: string
+  notes?: string
+  created_at: string
+  source?: 'registry' | 'task'
+  task_title?: string
+}
+
+export interface DocumentFolder {
+  id: string
+  name: string
+  icon: string
+  type: 'property' | 'process' | 'owner' | 'consultant'
+  entity_id?: string
+  document_count: number
+  documents: DocumentFile[]
+}
+
+export interface ProcessDocumentsResponse {
+  folders: DocumentFolder[]
+  stats: {
+    total_documents: number
+    total_size_bytes: number
+    by_status: Record<string, number>
+  }
+}
+
 export interface ProcessDetail {
   instance: ProcessInstance
   stages: ProcessStageWithTasks[] | null

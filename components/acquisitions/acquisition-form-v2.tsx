@@ -7,24 +7,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
 import type { z } from 'zod'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { SheetHeader, SheetFooter, SheetTitle } from '@/components/ui/sheet'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Check, Sparkles, Save } from 'lucide-react'
+import { Check, Sparkles, Save, X } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
-import {
-  Stepper,
-  StepperContent,
-  StepperDescription,
-  StepperIndicator,
-  StepperItem,
-  StepperList,
-  StepperNext,
-  StepperPrev,
-  StepperSeparator,
-  StepperTitle,
-  StepperTrigger,
-} from '@/components/ui/stepper'
 import { StepProperty } from './step-1-property'
 import { StepLocation } from './step-2-location'
 import { StepOwners } from './step-3-owners'
@@ -34,41 +22,26 @@ import { AcquisitionQuickFill } from './acquisition-quick-fill'
 
 type AcquisitionFormData = z.infer<typeof acquisitionSchema>
 
-const STEPS = [
+const TABS = [
   {
     value: 'property',
-    title: 'Dados do Imóvel',
-    description: 'Informações gerais',
-    stepNumber: 1,
-    fields: ['title', 'property_type', 'business_type', 'listing_price'] as const,
+    label: 'Dados do Imóvel',
   },
   {
     value: 'location',
-    title: 'Localização',
-    description: 'Morada e coordenadas',
-    stepNumber: 2,
-    fields: ['city', 'address_street', 'postal_code'] as const,
+    label: 'Localização',
   },
   {
     value: 'owners',
-    title: 'Proprietários',
-    description: 'Dados dos proprietários',
-    stepNumber: 3,
-    fields: ['owners'] as const,
+    label: 'Proprietários',
   },
   {
     value: 'contract',
-    title: 'Contrato',
-    description: 'Comissões e termos',
-    stepNumber: 4,
-    fields: ['contract_regime', 'commission_agreed'] as const,
+    label: 'Contrato',
   },
   {
     value: 'documents',
-    title: 'Documentos',
-    description: 'Upload opcional',
-    stepNumber: 5,
-    fields: [] as const,
+    label: 'Documentos',
   },
 ]
 
@@ -86,13 +59,13 @@ const FIELD_LABELS: Record<string, string> = {
   commission_agreed: 'Comissão',
 }
 
-// Map field key to which step it belongs
-function getStepForField(field: string): number {
-  if (['title', 'property_type', 'business_type', 'listing_price', 'description', 'property_condition', 'energy_certificate'].includes(field)) return 0
-  if (['address_street', 'city', 'postal_code', 'zone', 'address_parish', 'latitude', 'longitude'].includes(field)) return 1
-  if (field === 'owners') return 2
-  if (['contract_regime', 'commission_agreed', 'commission_type', 'contract_term', 'contract_expiry', 'imi_value', 'condominium_fee', 'internal_notes'].includes(field)) return 3
-  return 4
+// Map field key to which tab it belongs
+function getTabForField(field: string): string {
+  if (['title', 'property_type', 'business_type', 'listing_price', 'description', 'property_condition', 'energy_certificate'].includes(field)) return 'property'
+  if (['address_street', 'city', 'postal_code', 'zone', 'address_parish', 'latitude', 'longitude'].includes(field)) return 'location'
+  if (field === 'owners') return 'owners'
+  if (['contract_regime', 'commission_agreed', 'commission_type', 'contract_term', 'contract_expiry', 'imi_value', 'condominium_fee', 'internal_notes'].includes(field)) return 'contract'
+  return 'documents'
 }
 
 export interface AcquisitionFormV2Props {
@@ -113,8 +86,9 @@ export function AcquisitionFormV2({
   onClose,
 }: AcquisitionFormV2Props) {
   const router = useRouter()
-  const [step, setStep] = useState('property')
+  const [activeTab, setActiveTab] = useState('property')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [isInitializing, setIsInitializing] = useState(!!draftId)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [quickFillOpen, setQuickFillOpen] = useState(false)
@@ -166,6 +140,14 @@ export function AcquisitionFormV2({
     },
   })
 
+  // Watch required fields for submit button state
+  const title = form.watch('title')
+  const propertyType = form.watch('property_type')
+  const businessType = form.watch('business_type')
+  const listingPrice = form.watch('listing_price')
+
+  const canSubmit = !!(title && propertyType && businessType && listingPrice > 0)
+
   // Apply prefill data locally on mount (no DB write)
   useEffect(() => {
     if (draftCreated.current) return
@@ -191,11 +173,6 @@ export function AcquisitionFormV2({
             }
           }
           form.reset(merged as any)
-
-          const lastStep = data.last_completed_step || 0
-          if (lastStep > 0 && lastStep < STEPS.length) {
-            setStep(STEPS[lastStep].value)
-          }
         } catch (error) {
           console.error('Erro na inicialização:', error)
           toast.error('Erro ao carregar rascunho')
@@ -317,7 +294,7 @@ export function AcquisitionFormV2({
     [form]
   )
 
-  // Save all completed steps to DB
+  // Save all steps to DB
   const saveAllSteps = useCallback(
     async (procId: string) => {
       for (let i = 1; i <= 5; i++) {
@@ -327,18 +304,8 @@ export function AcquisitionFormV2({
     [saveStep]
   )
 
-  const stepIndex = STEPS.findIndex((s) => s.value === step)
-
-  // Navigate steps locally — no DB save
-  const handleStepChange = useCallback(
-    (newStep: string) => {
-      setStep(newStep)
-    },
-    []
-  )
-
   const handleSaveDraft = async () => {
-    setIsSubmitting(true)
+    setIsSavingDraft(true)
     try {
       const { procId } = await ensureDraft()
       await saveAllSteps(procId)
@@ -348,7 +315,7 @@ export function AcquisitionFormV2({
       console.error('Erro ao guardar rascunho:', error)
       toast.error(error.message || 'Erro ao guardar rascunho')
     } finally {
-      setIsSubmitting(false)
+      setIsSavingDraft(false)
     }
   }
 
@@ -362,13 +329,12 @@ export function AcquisitionFormV2({
 
       toast.error(`Campos obrigatórios em falta: ${labels.join(', ')}`)
 
-      // Navigate to the first step that has errors
-      let firstErrorStep = 4
+      // Navigate to the first tab that has errors
       for (const field of errorFields) {
-        const s = getStepForField(field)
-        if (s < firstErrorStep) firstErrorStep = s
+        const tab = getTabForField(field)
+        setActiveTab(tab)
+        break
       }
-      setStep(STEPS[firstErrorStep].value)
       return
     }
 
@@ -440,123 +406,148 @@ export function AcquisitionFormV2({
 
   if (isInitializing) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12 flex-1">
         <Spinner variant="infinite" size={32} className="text-muted-foreground" />
       </div>
     )
   }
 
-  const containerClass = mode === 'dialog' ? '' : 'container max-w-4xl mx-auto py-8'
+  // Standalone mode (full page)
+  if (mode === 'standalone') {
+    return (
+      <div className="container max-w-4xl mx-auto py-8">
+        <Form {...form}>
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+            <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList variant="line" className="w-full justify-start">
+                {TABS.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="property"><StepProperty form={form} /></TabsContent>
+              <TabsContent value="location"><StepLocation form={form} /></TabsContent>
+              <TabsContent value="owners"><StepOwners form={form} /></TabsContent>
+              <TabsContent value="contract"><StepContract form={form} /></TabsContent>
+              <TabsContent value="documents"><StepDocuments form={form} /></TabsContent>
+            </Tabs>
+            <div className="flex justify-end">
+              <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !canSubmit}>
+                {isSubmitting ? (
+                  <>
+                    <Spinner variant="infinite" size={16} className="mr-2" />
+                    {uploadProgress || 'A submeter...'}
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Submeter Angariação
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    )
+  }
 
+  // Dialog (Sheet) mode
   return (
-    <div className={containerClass}>
-      <Form {...form}>
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-          {/* QuickFill floating bubble */}
-          <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
+    <Form {...form}>
+      <form onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full overflow-hidden">
+        <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
 
-          <Stepper value={step} onValueChange={handleStepChange}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex-1" />
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  className="gap-1.5 rounded-full px-3 h-8 text-xs shadow-sm"
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  Guardar Rascunho
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setQuickFillOpen(true)}
-                  className="gap-1.5 rounded-full px-3 h-8 text-xs shadow-sm"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Preencher com IA
-                </Button>
-              </div>
+        {/* Header */}
+        <SheetHeader className="flex-shrink-0 border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-lg font-semibold">
+              {draftId ? 'Retomar Angariação' : 'Nova Angariação'}
+            </SheetTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || isSubmitting}
+              >
+                {isSavingDraft ? (
+                  <Spinner variant="infinite" size={14} className="mr-1.5" />
+                ) : (
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Guardar Rascunho
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickFillOpen(true)}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                Preencher com IA
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onClose}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
+        </SheetHeader>
 
-            <StepperList>
-              {STEPS.map((s) => (
-                <StepperItem key={s.value} value={s.value}>
-                  <StepperTrigger>
-                    <StepperIndicator />
-                    <div className="flex flex-col gap-px">
-                      <StepperTitle>{s.title}</StepperTitle>
-                      <StepperDescription className="hidden sm:block">
-                        {s.description}
-                      </StepperDescription>
-                    </div>
-                  </StepperTrigger>
-                  <StepperSeparator />
-                </StepperItem>
-              ))}
-            </StepperList>
+        {/* Content with Tabs */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full gap-0">
+            <div className="flex-shrink-0 border-b px-6">
+              <TabsList variant="line" className="w-full justify-start -mb-px">
+                {TABS.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <TabsContent value="property" className="mt-0"><StepProperty form={form} /></TabsContent>
+              <TabsContent value="location" className="mt-0"><StepLocation form={form} /></TabsContent>
+              <TabsContent value="owners" className="mt-0"><StepOwners form={form} /></TabsContent>
+              <TabsContent value="contract" className="mt-0"><StepContract form={form} /></TabsContent>
+              <TabsContent value="documents" className="mt-0"><StepDocuments form={form} /></TabsContent>
+            </div>
+          </Tabs>
+        </div>
 
-            <Card>
-              <CardContent>
-                <StepperContent value="property">
-                  <StepProperty form={form} />
-                </StepperContent>
-                <StepperContent value="location">
-                  <StepLocation form={form} />
-                </StepperContent>
-                <StepperContent value="owners">
-                  <StepOwners form={form} />
-                </StepperContent>
-                <StepperContent value="contract">
-                  <StepContract form={form} />
-                </StepperContent>
-                <StepperContent value="documents">
-                  <StepDocuments form={form} />
-                </StepperContent>
-              </CardContent>
-            </Card>
-
-            <div className="flex items-center justify-between pt-4">
-              <StepperPrev asChild>
-                <Button type="button" variant="outline" disabled={isSubmitting}>
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Voltar
-                </Button>
-              </StepperPrev>
-
-              <span className="text-sm text-muted-foreground">
-                Passo {stepIndex + 1} de {STEPS.length}
-              </span>
-
-              {stepIndex === STEPS.length - 1 ? (
-                <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Spinner variant="infinite" size={16} className="mr-2" />
-                      {uploadProgress || 'A submeter...'}
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Submeter Angariação
-                    </>
-                  )}
-                </Button>
+        {/* Footer */}
+        <SheetFooter className="flex-shrink-0 border-t px-6 py-4">
+          <div className="flex items-center justify-end w-full">
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !canSubmit}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner variant="infinite" size={16} className="mr-2" />
+                  {uploadProgress || 'A submeter...'}
+                </>
               ) : (
-                <StepperNext asChild>
-                  <Button type="button" disabled={isSubmitting}>
-                    Avançar
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </StepperNext>
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Submeter Angariação
+                </>
               )}
-            </div>
-          </Stepper>
-        </form>
-      </Form>
-    </div>
+            </Button>
+          </div>
+        </SheetFooter>
+      </form>
+    </Form>
   )
 }
