@@ -1111,6 +1111,90 @@ export const formatPercentage = (value: number | null | undefined): string => {
   return `${value}%`
 }
 
+// === MARKETING SHOP ===
+
+export const MARKETING_CATEGORIES = {
+  photography: 'Fotografia',
+  video: 'Vídeo',
+  design: 'Design',
+  physical_materials: 'Materiais Físicos',
+  ads: 'Publicidade',
+  social_media: 'Redes Sociais',
+  other: 'Outro',
+} as const
+
+export const MARKETING_CATEGORY_ICONS: Record<string, string> = {
+  photography: 'Camera',
+  video: 'Video',
+  design: 'Palette',
+  physical_materials: 'Package',
+  ads: 'Megaphone',
+  social_media: 'Share2',
+  other: 'MoreHorizontal',
+}
+
+export const MARKETING_ORDER_STATUS = {
+  pending: { bg: 'bg-amber-500/15', text: 'text-amber-500', dot: 'bg-amber-500', label: 'Pendente' },
+  accepted: { bg: 'bg-blue-500/15', text: 'text-blue-500', dot: 'bg-blue-500', label: 'Aceite' },
+  scheduled: { bg: 'bg-indigo-500/15', text: 'text-indigo-500', dot: 'bg-indigo-500', label: 'Agendado' },
+  in_production: { bg: 'bg-purple-500/15', text: 'text-purple-500', dot: 'bg-purple-500', label: 'Em Produção' },
+  delivered: { bg: 'bg-cyan-500/15', text: 'text-cyan-500', dot: 'bg-cyan-500', label: 'Entregue' },
+  completed: { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Concluído' },
+  rejected: { bg: 'bg-red-500/15', text: 'text-red-500', dot: 'bg-red-500', label: 'Rejeitado' },
+  cancelled: { bg: 'bg-slate-500/15', text: 'text-slate-500', dot: 'bg-slate-500', label: 'Cancelado' },
+} as const
+
+export const MARKETING_TIME_SLOTS = {
+  morning: 'Manhã',
+  afternoon: 'Tarde',
+  all_day: 'Todo o dia',
+} as const
+
+export const MARKETING_CONTACT_RELATIONSHIPS = {
+  agent: 'Consultor',
+  owner: 'Proprietário',
+  tenant: 'Inquilino',
+  colleague: 'Colega',
+  other: 'Outro',
+} as const
+
+export const CONTA_CORRENTE_CATEGORIES = {
+  // DEBIT
+  marketing_purchase: 'Compra Marketing',
+  physical_material: 'Material Físico',
+  fee_registration: 'Taxa de Registo',
+  fee_renewal: 'Taxa de Renovação',
+  fee_technology: 'Taxa de Tecnologia',
+  fee_process_management: 'Taxa Gestão Processual',
+  manual_adjustment: 'Ajuste Manual',
+  // CREDIT
+  commission_payment: 'Pagamento Comissão',
+  refund: 'Reembolso',
+} as const
+
+export const MARKETING_LABELS = {
+  catalog: 'Catálogo',
+  packs: 'Packs',
+  orders: 'Encomendas',
+  conta_corrente: 'Conta Corrente',
+  new_service: 'Novo Serviço',
+  new_pack: 'Novo Pack',
+  edit_service: 'Editar Serviço',
+  edit_pack: 'Editar Pack',
+  delete_confirm: 'Tem a certeza de que pretende eliminar este item?',
+  no_services: 'Nenhum serviço encontrado',
+  no_packs: 'Nenhum pack encontrado',
+  no_orders: 'Nenhuma encomenda encontrada',
+  price: 'Preço',
+  delivery_days: 'Prazo de Entrega',
+  days: 'dias úteis',
+  requires_scheduling: 'Requer Agendamento',
+  requires_property: 'Requer Imóvel',
+  request_service: 'Pedir Serviço',
+  balance: 'Saldo',
+  transactions: 'Movimentos',
+} as const
+
 // === M13: Templates de Email ===
 
 export const EMAIL_TEMPLATE_VARIABLES = [
