@@ -8,6 +8,8 @@ interface FolderIconProps {
   variant?: 'filled' | 'open'
   /** When true, the front panel tilts open with a 3D perspective effect */
   hovered?: boolean
+  /** Optional Lucide icon component rendered centered on the folder body */
+  icon?: React.ComponentType<{ className?: string }>
 }
 
 // Shared defs used by both layers — extracted to avoid duplication.
@@ -139,7 +141,7 @@ function BodySvg() {
  * Tab and body are separate HTML layers so that CSS 3D perspective
  * can be applied to the front panel on hover.
  */
-export function FolderIcon({ className, variant = 'filled', hovered = false }: FolderIconProps) {
+export function FolderIcon({ className, variant = 'filled', hovered = false, icon: Icon }: FolderIconProps) {
   if (variant === 'open') {
     return <FolderOpenIcon className={className} />
   }
@@ -157,10 +159,17 @@ export function FolderIcon({ className, variant = 'filled', hovered = false }: F
         className="absolute inset-0 transition-transform duration-300 ease-out"
         style={{
           transformOrigin: 'center bottom',
-          transform: hovered ? 'rotateX(-45deg)' : 'rotateX(0deg)',
+          transform: hovered ? 'rotateX(-25deg)' : 'rotateX(0deg)',
         }}
       >
         <BodySvg />
+
+        {/* Optional icon overlay centered on the body panel */}
+        {Icon && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ top: '10%' }}>
+            <Icon className="w-[20%] h-[20%] text-neutral-50" />
+          </div>
+        )}
       </div>
     </div>
   )

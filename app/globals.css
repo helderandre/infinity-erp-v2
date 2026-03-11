@@ -75,11 +75,11 @@
   --chart-5: oklch(0.424 0.199 265.638);
   --radius: 0.625rem;
   /* Folder icon palette (light) — derived from primary */
-  --folder-tab-from: color-mix(in oklch, var(--primary) 55%, white);
-  --folder-tab-to: color-mix(in oklch, var(--primary) 75%, white);
-  --folder-body-from: color-mix(in oklch, var(--primary) 35%, white);
-  --folder-body-to: color-mix(in oklch, var(--primary) 55%, white);
-  --folder-shadow: color-mix(in oklch, var(--primary) 90%, black);
+  --folder-tab-from: color-mix(in oklch, var(--primary) 45%, white);
+  --folder-tab-to: color-mix(in oklch, var(--primary) 65%, white);
+  --folder-body-from: color-mix(in oklch, var(--primary) 25%, white);
+  --folder-body-to: color-mix(in oklch, var(--primary) 45%, white);
+  --folder-shadow: color-mix(in oklch, var(--primary) 100%, black);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -114,12 +114,12 @@
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
-  /* Folder icon palette (dark) — derived from primary */
-  --folder-tab-from: color-mix(in oklch, var(--primary) 50%, black);
-  --folder-tab-to: color-mix(in oklch, var(--primary) 70%, black);
-  --folder-body-from: color-mix(in oklch, var(--primary) 40%, black);
-  --folder-body-to: color-mix(in oklch, var(--primary) 50%, black);
-  --folder-shadow: color-mix(in oklch, var(--primary) 85%, black);
+  /* Folder icon palette (dark) — silver/light folder on dark bg */
+  --folder-tab-from: oklch(0.55 0 0);
+  --folder-tab-to: oklch(0.45 0 0);
+  --folder-body-from: oklch(0.72 0 0);
+  --folder-body-to: oklch(0.60 0 0);
+  --folder-shadow: oklch(0.30 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

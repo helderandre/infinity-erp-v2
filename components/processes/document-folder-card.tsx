@@ -34,10 +34,7 @@ export function DocumentFolderCard({ folder, onClick }: DocumentFolderCardProps)
         className="aspect-[16/10] m-2 rounded-lg bg-muted/30 flex items-center justify-center relative"
         style={{ perspective: '600px' }}
       >
-        <FolderIcon className="h-48 w-48" hovered={hovered} />
-        <div className="absolute top-2 right-2 rounded-full bg-background/80 p-1.5">
-          <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+        <FolderIcon className="h-48 w-48" hovered={hovered} icon={TypeIcon} />
       </div>
       <CardContent className="p-4">
         <p className="font-semibold text-sm truncate">{folder.name}</p>
