@@ -82,15 +82,30 @@ export function DocumentToolbar({
     [editor, onFontFamilyChange]
   )
 
+  const getSelectionFontSize = useCallback((): number | null => {
+    const { from, to } = editor.state.selection
+    if (from === to) return null
+    const mark = editor.getAttributes('textStyle')
+    if (mark?.fontSize) {
+      const parsed = parseInt(mark.fontSize, 10)
+      if (!isNaN(parsed)) return parsed
+    }
+    return null
+  }, [editor])
+
+  const displayFontSize = getSelectionFontSize() ?? fontSize
+
   const decreaseFontSize = useCallback(() => {
-    const newSize = Math.max(8, fontSize - 1)
+    const current = getSelectionFontSize() ?? fontSize
+    const newSize = Math.max(8, current - 1)
     onFontSizeChange(newSize)
-  }, [fontSize, onFontSizeChange])
+  }, [fontSize, getSelectionFontSize, onFontSizeChange])
 
   const increaseFontSize = useCallback(() => {
-    const newSize = Math.min(72, fontSize + 1)
+    const current = getSelectionFontSize() ?? fontSize
+    const newSize = Math.min(72, current + 1)
     onFontSizeChange(newSize)
-  }, [fontSize, onFontSizeChange])
+  }, [fontSize, getSelectionFontSize, onFontSizeChange])
 
   const handleIndent = useCallback(() => {
     if (editor.isActive('listItem')) {
@@ -166,7 +181,7 @@ export function DocumentToolbar({
             <Minus size={14} />
           </ToolbarButton>
           <span className="w-8 text-center text-xs font-medium tabular-nums">
-            {fontSize}
+            {displayFontSize}
           </span>
           <ToolbarButton onClick={increaseFontSize} tooltip="Aumentar fonte">
             <Plus size={14} />

@@ -74,6 +74,12 @@
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
   --radius: 0.625rem;
+  /* Folder icon palette (light) — derived from primary */
+  --folder-tab-from: color-mix(in oklch, var(--primary) 55%, white);
+  --folder-tab-to: color-mix(in oklch, var(--primary) 75%, white);
+  --folder-body-from: color-mix(in oklch, var(--primary) 35%, white);
+  --folder-body-to: color-mix(in oklch, var(--primary) 55%, white);
+  --folder-shadow: color-mix(in oklch, var(--primary) 90%, black);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -108,6 +114,12 @@
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
+  /* Folder icon palette (dark) — derived from primary */
+  --folder-tab-from: color-mix(in oklch, var(--primary) 50%, black);
+  --folder-tab-to: color-mix(in oklch, var(--primary) 70%, black);
+  --folder-body-from: color-mix(in oklch, var(--primary) 40%, black);
+  --folder-body-to: color-mix(in oklch, var(--primary) 50%, black);
+  --folder-shadow: color-mix(in oklch, var(--primary) 85%, black);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -204,6 +216,60 @@
   font-family: ui-monospace, monospace;
   white-space: nowrap;
   user-select: all;
+}
+
+/* Document editor — ProseMirror list & heading styles */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.ProseMirror li > ul {
+  list-style-type: circle;
+}
+
+.ProseMirror li > ul > li > ul {
+  list-style-type: square;
+}
+
+.ProseMirror li > ol {
+  list-style-type: lower-alpha;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.67em 0;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.5em 0;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0.4em 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: var(--muted-foreground);
 }
 
 /* TipTap editor menus (tippy.js) */

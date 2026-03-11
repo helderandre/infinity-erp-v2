@@ -6,8 +6,8 @@ import {
   FileText,
   ExternalLink,
   Download,
-  FolderOpen,
 } from 'lucide-react'
+import { FolderIcon } from '@/components/icons/folder-icon'
 import { formatDate } from '@/lib/utils'
 import { FileTypeBadge } from '@/components/shared/file-type-badge'
 import type { ProcessDocument } from '@/types/process'
@@ -21,7 +21,7 @@ export function TaskDocumentsPanel({ documents }: TaskDocumentsPanelProps) {
   if (documents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <FolderOpen className="h-8 w-8 text-muted-foreground/40 mb-3" />
+        <FolderIcon variant="open" className="h-36 w-36 opacity-40 mb-3" />
         <p className="text-sm text-muted-foreground">Sem documentos associados.</p>
       </div>
     )

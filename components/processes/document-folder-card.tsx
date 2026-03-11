@@ -1,7 +1,9 @@
 'use client'
 
-import { Building2, FileCheck, User, Briefcase, Folder, ImageIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Building2, FileCheck, User, Briefcase, ImageIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { FolderIcon } from '@/components/icons/folder-icon'
 import type { DocumentFolder } from '@/types/process'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -19,14 +21,20 @@ interface DocumentFolderCardProps {
 
 export function DocumentFolderCard({ folder, onClick }: DocumentFolderCardProps) {
   const TypeIcon = ICON_MAP[folder.icon] || FileCheck
+  const [hovered, setHovered] = useState(false)
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] py-0"
+      className="overflow-hidden gap-0 cursor-pointer transition-all hover:shadow-sm hover:scale-[1.01] py-0"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="aspect-[16/10] bg-muted flex items-center justify-center relative">
-        <Folder className="h-16 w-16 text-blue-400" />
+      <div
+        className="aspect-[16/10] m-2 rounded-lg bg-muted/30 flex items-center justify-center relative"
+        style={{ perspective: '600px' }}
+      >
+        <FolderIcon className="h-48 w-48" hovered={hovered} />
         <div className="absolute top-2 right-2 rounded-full bg-background/80 p-1.5">
           <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" />
         </div>

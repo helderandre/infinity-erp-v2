@@ -27,6 +27,7 @@ import { VariableNode } from './extensions/variable-node'
 import { SlashCommand } from './extensions/slash-command'
 import { PageBreak } from './extensions/page-break'
 import { Indent } from './extensions/indent'
+import { FontSize } from './extensions/font-size'
 import { createSlashCommandSuggestion } from './document-slash-command'
 import { DocumentToolbar } from './document-toolbar'
 import { DocumentBubbleMenuContent } from './document-bubble-menu'
@@ -155,6 +156,7 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
         }),
         PageBreak,
         Indent,
+        FontSize,
       ],
       content: initialContent || '',
       editorProps: {
@@ -178,10 +180,10 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
 
     useEffect(() => {
       if (!editor) return
-      const el = editor.view.dom as HTMLElement
-      el.style.fontFamily = currentFont
-      el.style.fontSize = `${fontSize}pt`
-      el.style.lineHeight = String(lineHeight)
+      const dom = editor.view.dom as HTMLElement
+      dom.style.setProperty('font-family', currentFont)
+      dom.style.setProperty('font-size', `${fontSize}pt`)
+      dom.style.setProperty('line-height', String(lineHeight))
     }, [editor, currentFont, fontSize, lineHeight])
 
     useEffect(() => {
@@ -217,10 +219,16 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
 
     const handleFontSizeChange = useCallback(
       (size: number) => {
-        setFontSize(size)
-        if (editor) {
-          const el = editor.view.dom as HTMLElement
-          el.style.fontSize = `${size}pt`
+        if (!editor) return
+        const { from, to } = editor.state.selection
+        if (from !== to) {
+          // Apply font size to selection only
+          editor.chain().focus().setFontSize(`${size}pt`).run()
+        } else {
+          // No selection — change global default
+          setFontSize(size)
+          const dom = editor.view.dom as HTMLElement
+          dom.style.setProperty('font-size', `${size}pt`)
         }
       },
       [editor]
@@ -230,8 +238,8 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
       (lh: number) => {
         setLineHeight(lh)
         if (editor) {
-          const el = editor.view.dom as HTMLElement
-          el.style.lineHeight = String(lh)
+          const dom = editor.view.dom as HTMLElement
+          dom.style.setProperty('line-height', String(lh))
         }
       },
       [editor]
@@ -241,8 +249,8 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
       (font: string) => {
         setCurrentFont(font)
         if (editor) {
-          const el = editor.view.dom as HTMLElement
-          el.style.fontFamily = font
+          const dom = editor.view.dom as HTMLElement
+          dom.style.setProperty('font-family', font)
         }
       },
       [editor]
@@ -288,7 +296,7 @@ export const DocumentEditor = forwardRef<DocumentEditorRef, DocumentEditorIntern
               theme: 'editor-menu',
             }}
           >
-            <DocumentBubbleMenuContent editor={editor} mode={mode} getIsSystem={getIsSystem} />
+            <DocumentBubbleMenuContent editor={editor} />
           </BubbleMenu>
         )}
 
