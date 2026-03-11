@@ -80,7 +80,7 @@ export const subtaskSchema = z
           field_name: z.string().min(1),
           label: z.string().min(1),
           field_type: z.enum([
-            'text', 'textarea', 'number', 'currency', 'percentage',
+            'text', 'textarea', 'rich_text', 'number', 'currency', 'percentage',
             'select', 'multiselect', 'checkbox', 'date', 'email', 'phone',
             'address_map', 'media_upload',
           ]),

@@ -967,6 +967,7 @@ export default function ProcessoDetailPage() {
         task={selectedTask}
         processId={instance.id}
         propertyId={instance.property_id}
+        consultantId={instance.requested_by ?? undefined}
         processDocuments={documents}
         owners={owners}
         open={selectedTask !== null}

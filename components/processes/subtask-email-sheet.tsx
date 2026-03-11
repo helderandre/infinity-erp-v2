@@ -85,6 +85,7 @@ interface SubtaskEmailSheetProps {
   propertyId: string
   processId: string
   taskId: string
+  consultantId?: string
   ownerEmail?: string
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -358,6 +359,7 @@ export function SubtaskEmailSheet({
   propertyId,
   processId,
   taskId,
+  consultantId,
   ownerEmail = '',
   open,
   onOpenChange,
@@ -403,8 +405,9 @@ export function SubtaskEmailSheet({
     }
   }
 
-  // Reset template
+  // Reset template — recarrega o template original da biblioteca (sem fechar o sheet)
   const [isResettingTemplate, setIsResettingTemplate] = useState(false)
+  const [forceReloadFromTemplate, setForceReloadFromTemplate] = useState(false)
 
   const handleResetTemplate = async () => {
     setIsResettingTemplate(true)
@@ -419,9 +422,9 @@ export function SubtaskEmailSheet({
       )
       if (!res.ok) throw new Error('Falha ao resetar')
       localDraftRef.current = null
+      setForceReloadFromTemplate(true)
       toast.success('Template resetado para o original')
       onResetTemplateProp?.()
-      onOpenChange(false)
     } catch {
       toast.error('Erro ao resetar template')
     } finally {
@@ -445,6 +448,74 @@ export function SubtaskEmailSheet({
   // serve de fonte de verdade enquanto o componente estiver montado.
   const localDraftRef = useRef<{ subtaskId: string; subject: string; editorState: string } | null>(null)
 
+  // Helper: carregar template original da biblioteca de emails
+  const loadFromLibrary = useCallback(() => {
+    const emailLibraryId = getEmailLibraryId(subtask)
+    if (!emailLibraryId) {
+      setError('Sem template de email configurado para esta subtarefa.')
+      return
+    }
+
+    setLoadedEditorState(null)
+    setHasRendered(false)
+    setError(null)
+    setIsLoading(true)
+
+    const previewDataPromise = fetch('/api/libraries/emails/preview-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        property_id: propertyId,
+        owner_id: subtask.owner_id ?? undefined,
+        consultant_id: consultantId ?? undefined,
+        process_id: processId ?? undefined,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const vars: Record<string, string> = d.variables ?? {}
+        setResolvedVariables(vars)
+        return vars
+      })
+      .catch(() => ({} as Record<string, string>))
+
+    Promise.all([
+      fetch(`/api/libraries/emails/${emailLibraryId}`).then((r) => r.json()),
+      previewDataPromise,
+    ])
+      .then(([templateData, variables]) => {
+        if (templateData.error) {
+          setError(templateData.error)
+          return
+        }
+
+        setSubject(interpolateVariables(templateData.subject ?? '', variables))
+
+        if (templateData.editor_state) {
+          const stateStr = JSON.stringify(templateData.editor_state)
+          const populated = stateStr.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+            const val = variables[key]
+            return val !== undefined ? escapeForJsonString(val) : ''
+          })
+          setLoadedEditorState(populated)
+          setEditorKey((k) => k + 1)
+        } else {
+          setError(
+            'Este template não tem editor visual configurado. Edite o template na biblioteca de emails para activar esta funcionalidade.'
+          )
+        }
+      })
+      .catch(() => setError('Erro ao carregar o template de email.'))
+      .finally(() => setIsLoading(false))
+  }, [subtask, propertyId, consultantId, processId])
+
+  // Quando forceReloadFromTemplate muda, recarregar do template original
+  useEffect(() => {
+    if (!forceReloadFromTemplate) return
+    setForceReloadFromTemplate(false)
+    loadFromLibrary()
+  }, [forceReloadFromTemplate, loadFromLibrary])
+
   useEffect(() => {
     if (!open) return
 
@@ -457,6 +528,8 @@ export function SubtaskEmailSheet({
       body: JSON.stringify({
         property_id: propertyId,
         owner_id: subtask.owner_id ?? undefined,
+        consultant_id: consultantId ?? undefined,
+        process_id: processId ?? undefined,
       }),
     })
       .then((r) => r.json())
@@ -495,43 +568,8 @@ export function SubtaskEmailSheet({
     }
 
     // Prioridade 3: carregar template de raiz
-    const emailLibraryId = getEmailLibraryId(subtask)
-    if (!emailLibraryId) {
-      setError('Sem template de email configurado para esta subtarefa.')
-      return
-    }
-
-    setIsLoading(true)
-
-    Promise.all([
-      fetch(`/api/libraries/emails/${emailLibraryId}`).then((r) => r.json()),
-      previewDataPromise,
-    ])
-      .then(([templateData, variables]) => {
-        if (templateData.error) {
-          setError(templateData.error)
-          return
-        }
-
-        setSubject(interpolateVariables(templateData.subject ?? '', variables))
-
-        if (templateData.editor_state) {
-          const stateStr = JSON.stringify(templateData.editor_state)
-          const populated = stateStr.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
-            const val = variables[key]
-            return val !== undefined ? escapeForJsonString(val) : ''
-          })
-          setLoadedEditorState(populated)
-          setEditorKey((k) => k + 1)
-        } else {
-          setError(
-            'Este template não tem editor visual configurado. Edite o template na biblioteca de emails para activar esta funcionalidade.'
-          )
-        }
-      })
-      .catch(() => setError('Erro ao carregar o template de email.'))
-      .finally(() => setIsLoading(false))
-  }, [open, subtask, propertyId])
+    loadFromLibrary()
+  }, [open, subtask, propertyId, consultantId, processId, loadFromLibrary])
 
   const callSubtaskApi = async (payload: Record<string, unknown>) => {
     const res = await fetch(
@@ -747,11 +785,25 @@ export function SubtaskEmailSheet({
             <Skeleton className="h-64 w-full" />
           </div>
         ) : error ? (
-          <div className="p-6 flex-1">
+          <div className="p-6 flex-1 space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               {error}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-orange-600 hover:text-orange-700"
+              onClick={handleResetTemplate}
+              disabled={isResettingTemplate}
+            >
+              {isResettingTemplate ? (
+                <Spinner variant="infinite" size={16} className="mr-2" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Resetar Template
+            </Button>
           </div>
         ) : loadedEditorState ? (
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">

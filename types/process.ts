@@ -232,6 +232,7 @@ export type TaskActivityType =
   | 'email_bounced'
   | 'email_failed'
   | 'email_resent'
+  | 'email_delayed'
   | 'subtask_reverted'
   | 'document_replaced'
   | 'upload_completed'
@@ -239,7 +240,7 @@ export type TaskActivityType =
 export interface TaskActivity {
   id: string
   proc_task_id: string
-  user_id: string
+  user_id: string | null
   activity_type: TaskActivityType
   description: string
   metadata?: Record<string, unknown>
@@ -248,7 +249,7 @@ export interface TaskActivity {
     id: string
     commercial_name: string
     profile?: { profile_photo_url: string | null } | null
-  }
+  } | null
 }
 
 // ── Chat de Processo ──

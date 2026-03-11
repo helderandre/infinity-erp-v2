@@ -19,7 +19,7 @@ import {
   Upload, Mail, FileText, PlayCircle, CheckCircle2,
   Eye, PenLine, MessageSquare, Activity,
   MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, MailPlus, ShieldAlert, Clock,
-  RotateCcw,
+  RotateCcw, Bot,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -91,14 +91,20 @@ export function TaskActivityTimeline({ activities, isLoading }: TaskActivityTime
                 <TimelineContent>
                   <TimelineHeader>
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-5 w-5">
-                        {activity.user?.profile?.profile_photo_url && (
-                          <AvatarImage src={activity.user.profile.profile_photo_url} />
-                        )}
-                        <AvatarFallback className="text-[9px]">
-                          {activity.user?.commercial_name?.[0]?.toUpperCase() || '?'}
-                        </AvatarFallback>
-                      </Avatar>
+                      {activity.user_id ? (
+                        <Avatar className="h-5 w-5">
+                          {activity.user?.profile?.profile_photo_url && (
+                            <AvatarImage src={activity.user.profile.profile_photo_url} />
+                          )}
+                          <AvatarFallback className="text-[9px]">
+                            {activity.user?.commercial_name?.[0]?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center">
+                          <Bot className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      )}
                       <span className="text-sm font-medium">
                         {activity.user?.commercial_name || 'Sistema'}
                       </span>

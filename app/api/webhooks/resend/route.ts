@@ -82,14 +82,29 @@ export async function POST(req: NextRequest) {
       bounced: 'email_bounced',
       failed: 'email_failed',
       complained: 'email_bounced',
+      delivery_delayed: 'email_delayed',
+      suppressed: 'email_bounced',
     }
     const activityType = activityMap[eventType]
     if (activityType) {
+      const descriptionMap: Record<string, string> = {
+        delivered: 'Email entregue',
+        opened: 'Email aberto',
+        clicked: 'Link clicado no email',
+        bounced: 'Email rejeitado pelo servidor',
+        failed: 'Falha no envio do email',
+        complained: 'Email marcado como spam',
+        delivery_delayed: 'Entrega do email atrasada',
+        suppressed: 'Email suprimido pelo servidor',
+      }
+      const desc = descriptionMap[eventType] || `Email ${eventType}`
+      const subject = event.data.subject ? ` — ${event.data.subject}` : ''
+
       await db.from('proc_task_activities').insert({
         proc_task_id: logEmail.proc_task_id,
         user_id: null,
         activity_type: activityType,
-        description: `Email ${eventType}: ${event.data.subject}`,
+        description: `${desc}${subject}`,
         metadata: {
           resend_email_id: resendEmailId,
           event_type: eventType,

@@ -25,7 +25,9 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn, interpolateVariables } from '@/lib/utils'
 import { DocumentEditor } from '@/components/document-editor/document-editor'
+import { DocumentVariablesSidebar } from '@/components/document-editor/document-variables-sidebar'
 import type { DocumentEditorRef } from '@/components/document-editor/types'
+import { useTemplateVariables } from '@/hooks/use-template-variables'
 import type { ProcSubtask } from '@/types/subtask'
 
 interface SubtaskDocSheetProps {
@@ -33,6 +35,7 @@ interface SubtaskDocSheetProps {
   propertyId: string
   processId: string
   taskId: string
+  consultantId?: string
   open: boolean
   onOpenChange: (v: boolean) => void
   onComplete: () => void
@@ -54,6 +57,7 @@ export function SubtaskDocSheet({
   propertyId,
   processId,
   taskId,
+  consultantId,
   open,
   onOpenChange,
   onComplete,
@@ -68,7 +72,9 @@ export function SubtaskDocSheet({
   const [hasRendered, setHasRendered] = useState(false)
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
   const [previewHtml, setPreviewHtml] = useState('')
+  const [resolvedVariables, setResolvedVariables] = useState<Record<string, string>>({})
 
+  const { variables: templateVariables } = useTemplateVariables()
   const editorRef = useRef<DocumentEditorRef>(null)
   const localDraftRef = useRef<{ subtaskId: string; html: string } | null>(null)
 
@@ -84,11 +90,14 @@ export function SubtaskDocSheet({
       body: JSON.stringify({
         property_id: propertyId,
         owner_id: (subtask as unknown as { owner_id?: string }).owner_id ?? undefined,
+        consultant_id: consultantId ?? undefined,
+        process_id: processId ?? undefined,
       }),
     })
       .then((r) => r.json())
       .then((d) => {
         const vars: Record<string, string> = d.variables ?? {}
+        setResolvedVariables(vars)
         return vars
       })
       .catch(() => ({} as Record<string, string>))
@@ -145,7 +154,7 @@ export function SubtaskDocSheet({
       })
       .catch(() => setError('Erro ao carregar o template de documento.'))
       .finally(() => setIsLoading(false))
-  }, [open, subtask, propertyId])
+  }, [open, subtask, propertyId, consultantId, processId])
 
   const getEditorHtml = useCallback((): string => {
     if (editorRef.current) {
@@ -346,14 +355,28 @@ export function SubtaskDocSheet({
           </div>
         ) : renderedHtml ? (
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            {/* Editor — always mounted to preserve state */}
-            <div className={cn('flex-1 overflow-hidden flex flex-col', activeTab !== 'edit' && 'hidden')}>
-              <DocumentEditor
-                ref={editorRef}
-                content={renderedHtml}
-                mode={isCompleted ? 'readonly' : 'document'}
-                placeholder="Conteúdo do documento..."
-              />
+            {/* Editor + Variables Sidebar — always mounted to preserve state */}
+            <div className={cn('flex-1 overflow-hidden flex flex-row', activeTab !== 'edit' && 'hidden')}>
+              <div className="flex-1 overflow-hidden flex flex-col min-w-0">
+                <DocumentEditor
+                  ref={editorRef}
+                  content={renderedHtml}
+                  mode={isCompleted ? 'readonly' : 'document'}
+                  placeholder="Conteúdo do documento..."
+                />
+              </div>
+              {!isCompleted && templateVariables.length > 0 && (
+                <DocumentVariablesSidebar
+                  allVariables={templateVariables}
+                  resolvedVariables={resolvedVariables}
+                  onVariableClick={(key) => {
+                    const resolved = resolvedVariables[key]
+                    if (resolved && editorRef.current?.editor) {
+                      editorRef.current.editor.chain().focus().insertContent(resolved).run()
+                    }
+                  }}
+                />
+              )}
             </div>
 
             {/* Preview */}

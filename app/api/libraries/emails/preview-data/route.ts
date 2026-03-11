@@ -68,6 +68,9 @@ export async function POST(request: Request) {
     // For tables where the FK column is different from 'id'
     const tableIdOverrides: Record<string, string> = {
       dev_consultant_profiles: 'user_id',
+      dev_property_specifications: 'property_id',
+      dev_property_internal: 'property_id',
+      dev_consultant_private_data: 'user_id',
     }
 
     // 2. Group variables by (source_table + entity) to batch queries

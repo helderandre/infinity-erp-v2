@@ -497,7 +497,9 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   email_bounced:   { icon: 'MailX',             label: 'Email rejeitado',    color: 'text-red-500' },
   email_failed:    { icon: 'AlertCircle',       label: 'Erro no envio',      color: 'text-red-500' },
   email_resent:       { icon: 'MailPlus',          label: 'Email reenviado',      color: 'text-sky-500' },
+  email_delayed:      { icon: 'Clock',             label: 'Email atrasado',       color: 'text-amber-500' },
   subtask_reverted:   { icon: 'RotateCcw',         label: 'Subtarefa revertida',  color: 'text-orange-500' },
+  template_reset:     { icon: 'RotateCcw',         label: 'Template resetado',    color: 'text-orange-500' },
   document_replaced:  { icon: 'RefreshCw',          label: 'Documento substituído', color: 'text-blue-500' },
   upload_completed:   { icon: 'Upload',             label: 'Upload concluído',     color: 'text-emerald-500' },
 }
@@ -514,8 +516,11 @@ export const EMAIL_STATUS_CONFIG: Record<string, {
   clicked:    { label: 'Clicado',   icon: 'MousePointerClick', color: 'text-indigo-500',  badgeVariant: 'default' },
   bounced:    { label: 'Rejeitado', icon: 'MailX',             color: 'text-red-500',     badgeVariant: 'destructive' },
   complained: { label: 'Spam',      icon: 'ShieldAlert',       color: 'text-red-500',     badgeVariant: 'destructive' },
-  failed:     { label: 'Falhou',    icon: 'AlertCircle',       color: 'text-red-500',     badgeVariant: 'destructive' },
-  delayed:    { label: 'Atrasado',  icon: 'Clock',             color: 'text-amber-500',   badgeVariant: 'outline' },
+  failed:            { label: 'Falhou',    icon: 'AlertCircle',       color: 'text-red-500',     badgeVariant: 'destructive' },
+  delivery_delayed:  { label: 'Atrasado',  icon: 'Clock',             color: 'text-amber-500',   badgeVariant: 'outline' },
+  scheduled:         { label: 'Agendado',  icon: 'Clock',             color: 'text-blue-500',    badgeVariant: 'secondary' },
+  suppressed:        { label: 'Suprimido', icon: 'ShieldAlert',       color: 'text-orange-500',  badgeVariant: 'destructive' },
+  received:          { label: 'Recebido',  icon: 'MailCheck',         color: 'text-emerald-500', badgeVariant: 'default' },
 }
 
 // Badges de prioridade com design expressivo

@@ -53,6 +53,7 @@ interface TaskDetailActionsProps {
   task: ProcessTask
   processId: string
   propertyId: string
+  consultantId?: string
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
   onTaskUpdate: () => void
@@ -62,6 +63,7 @@ export function TaskDetailActions({
   task,
   processId,
   propertyId,
+  consultantId,
   processDocuments = [],
   owners = [],
   onTaskUpdate,
@@ -295,6 +297,7 @@ export function TaskDetailActions({
             task={task as ProcessTask & { subtasks: ProcSubtask[] }}
             processId={processId}
             propertyId={propertyId}
+            consultantId={consultantId}
             owners={owners}
             processDocuments={processDocuments}
             onSubtaskToggle={async (taskId, subtaskId, completed) => {

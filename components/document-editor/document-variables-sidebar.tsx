@@ -8,11 +8,13 @@ import type { TemplateVariable } from '@/hooks/use-template-variables'
 
 interface DocumentVariablesSidebarProps {
   allVariables: TemplateVariable[]
+  resolvedVariables?: Record<string, string>
   onVariableClick?: (key: string) => void
 }
 
 export function DocumentVariablesSidebar({
   allVariables,
+  resolvedVariables,
   onVariableClick,
 }: DocumentVariablesSidebarProps) {
   const [isOpen, setIsOpen] = useState(true)
@@ -69,16 +71,24 @@ export function DocumentVariablesSidebar({
                   {category}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {vars.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => onVariableClick?.(v.key)}
-                      className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-accent transition-colors"
-                      title={`{{${v.key}}}`}
-                    >
-                      {v.label}
-                    </button>
-                  ))}
+                  {vars.map((v) => {
+                    const resolved = resolvedVariables?.[v.key]
+                    const hasResolved = resolved !== undefined && resolved !== ''
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => onVariableClick?.(v.key)}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-accent transition-colors text-left"
+                        title={hasResolved ? `${v.label}: ${resolved}` : `{{${v.key}}}`}
+                      >
+                        {hasResolved ? (
+                          <span className="font-medium">{resolved}</span>
+                        ) : (
+                          v.label
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))

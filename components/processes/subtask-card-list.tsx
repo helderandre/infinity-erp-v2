@@ -32,6 +32,7 @@ interface SubtaskCardListProps {
   task: ProcessTask & { subtasks: ProcSubtask[] }
   processId: string
   propertyId: string
+  consultantId?: string
   owners?: ProcessOwner[]
   processDocuments?: ProcessDocument[]
   onSubtaskToggle: (taskId: string, subtaskId: string, completed: boolean) => Promise<void>
@@ -42,6 +43,7 @@ export function SubtaskCardList({
   task,
   processId,
   propertyId,
+  consultantId,
   owners = [],
   processDocuments = [],
   onSubtaskToggle,
@@ -321,6 +323,7 @@ export function SubtaskCardList({
           propertyId={propertyId}
           processId={processId}
           taskId={task.id}
+          consultantId={consultantId}
           ownerEmail={openEmailOwnerEmail}
           open={!!openEmailSubtask}
           onOpenChange={(v) => { if (!v) setOpenEmailSubtask(null) }}
@@ -336,6 +339,7 @@ export function SubtaskCardList({
           propertyId={propertyId}
           processId={processId}
           taskId={task.id}
+          consultantId={consultantId}
           open={!!openDocSubtask}
           onOpenChange={(v) => { if (!v) setOpenDocSubtask(null) }}
           onComplete={() => onTaskUpdate()}

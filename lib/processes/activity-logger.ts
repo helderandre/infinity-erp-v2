@@ -20,7 +20,9 @@ export type TaskActivityType =
   | 'email_bounced'
   | 'email_failed'
   | 'email_resent'
+  | 'email_delayed'
   | 'subtask_reverted'
+  | 'template_reset'
   | 'document_replaced'
   | 'upload_completed'
 

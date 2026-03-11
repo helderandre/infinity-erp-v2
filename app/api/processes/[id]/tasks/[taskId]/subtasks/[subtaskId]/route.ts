@@ -139,6 +139,31 @@ export async function PUT(
         return NextResponse.json({ error: 'Erro ao resetar template', details: resetError.message }, { status: 500 })
       }
 
+      // Registar actividade de reset
+      try {
+        const { data: currentUser } = await supabase
+          .from('dev_users')
+          .select('commercial_name')
+          .eq('id', user.id)
+          .single()
+        const userName = currentUser?.commercial_name || 'Utilizador'
+        const subtaskTitle = (subtask as any).title as string | undefined
+        const ownerData = (subtask as any).owner as { name: string; person_type: string } | null
+
+        const parts: string[] = []
+        if (subtaskTitle) parts.push(`"${subtaskTitle}"`)
+        if (ownerData?.name) parts.push(`para ${ownerData.name}`)
+        const suffix = parts.length > 0 ? ` — ${parts.join(' ')}` : ''
+
+        await logTaskActivity(supabase, taskId, user.id, 'template_reset', `${userName} resetou o template de email${suffix}`, {
+          subtask_id: subtaskId,
+          subtask_title: subtaskTitle,
+          ...(ownerData?.name && { owner_name: ownerData.name, owner_id: (subtask as any).owner_id }),
+        })
+      } catch (activityError) {
+        console.error('[SubtaskUpdate] Erro ao registar actividade de reset:', activityError)
+      }
+
       return NextResponse.json({ success: true, reset: true })
     }
 
