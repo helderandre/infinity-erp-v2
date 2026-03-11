@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
+import { ADHOC_TASK_ROLES } from '@/lib/constants'
 import { z } from 'zod'
 
 const subtaskUpdateSchema = z
@@ -311,8 +312,9 @@ export async function PUT(
     // --- Alertas configurados no template ---
     try {
       const subtaskAlerts = (config as Record<string, any>)?.alerts
-      if (subtaskAlerts && is_completed) {
-        if (subtaskAlerts.on_complete?.enabled) {
+      if (subtaskAlerts) {
+        // on_complete
+        if (is_completed && subtaskAlerts.on_complete?.enabled) {
           const { alertService } = await import('@/lib/alerts/service')
           const { data: proc } = await supabase
             .from('proc_instances')
@@ -331,9 +333,68 @@ export async function PUT(
             assignedTo: (subtask as any).assigned_to,
           })
         }
+
+        // on_assign
+        if (assigned_to !== undefined && assigned_to && subtaskAlerts.on_assign?.enabled) {
+          const { alertService: als } = await import('@/lib/alerts/service')
+          const { data: proc } = await supabase
+            .from('proc_instances')
+            .select('external_ref')
+            .eq('id', id)
+            .single()
+
+          await als.processAlert(subtaskAlerts.on_assign, {
+            procInstanceId: id,
+            entityType: 'proc_subtask',
+            entityId: subtaskId,
+            eventType: 'on_assign',
+            title: (subtask as any).title,
+            processRef: proc?.external_ref || '',
+            triggeredBy: user.id,
+            assignedTo: assigned_to,
+          })
+        }
       }
     } catch (alertError) {
       console.error('[SubtaskUpdate] Erro ao processar alertas:', alertError)
+    }
+
+    // --- Trigger on_unblock para subtarefas dependentes ---
+    if (is_completed) {
+      try {
+        const { data: dependentSubtasks } = await adminDb.from('proc_subtasks')
+          .select('id, title, config, assigned_to')
+          .eq('proc_task_id', taskId)
+          .eq('dependency_proc_subtask_id', subtaskId)
+          .eq('is_completed', false)
+
+        if (dependentSubtasks && (dependentSubtasks as any[]).length > 0) {
+          const { alertService: als } = await import('@/lib/alerts/service')
+          const { data: proc } = await supabase
+            .from('proc_instances')
+            .select('external_ref')
+            .eq('id', id)
+            .single()
+
+          for (const depSt of dependentSubtasks as any[]) {
+            const depConfig = (depSt.config as Record<string, any>)?.alerts?.on_unblock
+            if (depConfig?.enabled) {
+              await als.processAlert(depConfig, {
+                procInstanceId: id,
+                entityType: 'proc_subtask',
+                entityId: depSt.id,
+                eventType: 'on_unblock',
+                title: depSt.title,
+                processRef: proc?.external_ref || '',
+                triggeredBy: user.id,
+                assignedTo: depSt.assigned_to,
+              })
+            }
+          }
+        }
+      } catch (unblockError) {
+        console.error('[SubtaskUpdate] Erro ao processar on_unblock:', unblockError)
+      }
     }
 
     // Rascunho guardado — retornar
@@ -376,9 +437,224 @@ export async function PUT(
     await supabase.from('proc_tasks').update(taskUpdate).eq('id', taskId)
     await recalculateProgress(id)
 
+    // --- Quando a task pai passa a completed via subtasks, disparar on_complete da task ---
+    if (newTaskStatus === 'completed') {
+      try {
+        const { data: parentTaskFull } = await supabase
+          .from('proc_tasks')
+          .select('config, title, assigned_to, proc_instance:proc_instances(external_ref)')
+          .eq('id', taskId)
+          .single()
+
+        const parentConfig = ((parentTaskFull as any)?.config as Record<string, any>) || {}
+        if (parentConfig.alerts?.on_complete?.enabled) {
+          const { alertService: als } = await import('@/lib/alerts/service')
+          const procRefParent = (parentTaskFull as any)?.proc_instance?.external_ref || ''
+
+          await als.processAlert(parentConfig.alerts.on_complete, {
+            procInstanceId: id,
+            entityType: 'proc_task',
+            entityId: taskId,
+            eventType: 'on_complete',
+            title: (parentTaskFull as any)?.title || '',
+            processRef: procRefParent,
+            triggeredBy: user.id,
+            assignedTo: (parentTaskFull as any)?.assigned_to,
+          })
+        }
+      } catch (parentAlertError) {
+        console.error('[SubtaskUpdate] Erro ao processar on_complete da task pai:', parentAlertError)
+      }
+    }
+
     return NextResponse.json({ success: true, taskStatus: newTaskStatus })
   } catch (error) {
     console.error('Erro ao actualizar subtarefa:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
+// DELETE — Remover subtarefa ad-hoc
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string; taskId: string; subtaskId: string }> }
+) {
+  try {
+    const { id, taskId, subtaskId } = await params
+    const supabase = await createClient()
+    const admin = createAdminClient()
+    const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+
+    // 1. Autenticar
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    // 2. Verificar role autorizado
+    const { data: devUser } = await supabase
+      .from('dev_users')
+      .select('id, commercial_name')
+      .eq('id', user.id)
+      .single()
+
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    const roleName = (userRole?.role as any)?.name
+    if (!roleName || !ADHOC_TASK_ROLES.includes(roleName as any)) {
+      return NextResponse.json(
+        { error: 'Sem permissão para remover subtarefas' },
+        { status: 403 }
+      )
+    }
+
+    // 3. Validar processo activo
+    const { data: process } = await supabase
+      .from('proc_instances')
+      .select('current_status')
+      .eq('id', id)
+      .single()
+
+    if (!process || !['active', 'on_hold'].includes(process.current_status as string)) {
+      return NextResponse.json(
+        { error: 'Apenas processos activos ou pausados permitem remover subtarefas' },
+        { status: 400 }
+      )
+    }
+
+    // 4. Validar tarefa pertence ao processo
+    const { data: task } = await supabase
+      .from('proc_tasks')
+      .select('id, title, proc_instance_id')
+      .eq('id', taskId)
+      .eq('proc_instance_id', id)
+      .single()
+
+    if (!task) {
+      return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
+    }
+
+    // 5. Obter subtarefa
+    const { data: subtask } = await adminDb.from('proc_subtasks')
+      .select('id, title, tpl_subtask_id, config, proc_task_id, is_completed')
+      .eq('id', subtaskId)
+      .eq('proc_task_id', taskId)
+      .single()
+
+    if (!subtask) {
+      return NextResponse.json({ error: 'Subtarefa não encontrada' }, { status: 404 })
+    }
+
+    // 6. Verificar que é ad-hoc
+    if ((subtask as any).tpl_subtask_id !== null) {
+      return NextResponse.json(
+        { error: 'Apenas subtarefas ad-hoc podem ser removidas' },
+        { status: 403 }
+      )
+    }
+
+    // 7. Verificar dependências
+    const { data: dependentSubtasks } = await adminDb.from('proc_subtasks')
+      .select('id')
+      .eq('dependency_proc_subtask_id', subtaskId)
+
+    if (dependentSubtasks && (dependentSubtasks as any[]).length > 0) {
+      return NextResponse.json(
+        { error: 'Existem subtarefas que dependem desta subtarefa. Remova as dependências primeiro.' },
+        { status: 409 }
+      )
+    }
+
+    // 8. Registar actividade ANTES da eliminação
+    try {
+      const userName = devUser?.commercial_name || 'Utilizador'
+      const stConfig = (subtask as any).config || {}
+      await logTaskActivity(
+        supabase, taskId, user.id,
+        'subtask_deleted',
+        `${userName} removeu subtarefa "${(subtask as any).title}" da tarefa "${task.title}"`,
+        {
+          is_adhoc: true,
+          deleted_subtask_title: (subtask as any).title,
+          subtask_type: stConfig.type,
+          parent_task_title: task.title,
+          parent_task_id: taskId,
+          subtask_status_at_deletion: (subtask as any).is_completed ? 'completed' : 'pending',
+          deleted_by_role: roleName,
+        }
+      )
+    } catch (activityError) {
+      console.error('[AdhocSubtaskDelete] Erro ao registar actividade:', activityError)
+    }
+
+    // 9. Eliminar subtarefa
+    const { error: delError } = await adminDb.from('proc_subtasks')
+      .delete()
+      .eq('id', subtaskId)
+
+    if (delError) {
+      return NextResponse.json(
+        { error: 'Erro ao eliminar subtarefa', details: (delError as any).message },
+        { status: 500 }
+      )
+    }
+
+    // 10. Actualizar action_type da tarefa-pai
+    const { data: remainingSubtasks } = await adminDb.from('proc_subtasks')
+      .select('id, config')
+      .eq('proc_task_id', taskId)
+
+    const remaining = (remainingSubtasks || []) as Array<{ id: string; config: any }>
+    let newActionType: string
+    if (remaining.length === 0) {
+      newActionType = 'MANUAL'
+    } else if (remaining.length === 1) {
+      const typeMap: Record<string, string> = {
+        upload: 'UPLOAD', email: 'EMAIL', generate_doc: 'GENERATE_DOC',
+        form: 'FORM', checklist: 'MANUAL', field: 'FORM',
+      }
+      newActionType = typeMap[remaining[0].config?.type] || 'MANUAL'
+    } else {
+      newActionType = 'COMPOSITE'
+    }
+
+    // Recalcular status da tarefa
+    const mandatoryRemaining = remaining.filter((s: any) => s.is_mandatory !== false)
+    const allMandatoryComplete = mandatoryRemaining.length > 0 && mandatoryRemaining.every((s: any) => s.is_completed)
+    const anyComplete = remaining.some((s: any) => s.is_completed)
+
+    let newTaskStatus: string
+    if (remaining.length === 0) {
+      newTaskStatus = 'pending'
+    } else if (allMandatoryComplete) {
+      newTaskStatus = 'completed'
+    } else if (anyComplete) {
+      newTaskStatus = 'in_progress'
+    } else {
+      newTaskStatus = 'pending'
+    }
+
+    await supabase.from('proc_tasks').update({
+      action_type: newActionType,
+      status: newTaskStatus,
+      completed_at: newTaskStatus === 'completed' ? new Date().toISOString() : null,
+    }).eq('id', taskId)
+
+    // 11. Recalcular progresso
+    await recalculateProgress(id)
+
+    return NextResponse.json({
+      message: 'Subtarefa removida com sucesso',
+      deleted_subtask_id: subtaskId,
+      remaining_subtask_count: remaining.length,
+    })
+  } catch (error) {
+    console.error('Erro ao eliminar subtarefa ad-hoc:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

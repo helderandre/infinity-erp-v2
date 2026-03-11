@@ -64,6 +64,7 @@ export const propertyOwnerSchema = z.object({
   owner_id: z.string().uuid(),
   ownership_percentage: z.number().min(0).max(100).default(100),
   is_main_contact: z.boolean().default(false),
+  owner_role_id: z.string().uuid().optional(),
 })
 
 export type OwnerFormData = z.infer<typeof ownerSchema>

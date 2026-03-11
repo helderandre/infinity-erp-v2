@@ -213,6 +213,7 @@ export async function POST(request: Request) {
       const { error: linkError } = await supabase.from('property_owners').insert({
         property_id: property.id,
         owner_id: ownerId,
+        owner_role_id: '010848f5-19ad-4660-a63a-aa99bdd08a0d',
         ownership_percentage: ownerData.ownership_percentage || 100,
         is_main_contact: ownerData.is_main_contact || false,
       })

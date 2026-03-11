@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
-import { ClipboardList, ExternalLink } from 'lucide-react'
+import { ClipboardList, ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -35,8 +35,10 @@ interface SubtaskCardListProps {
   consultantId?: string
   owners?: ProcessOwner[]
   processDocuments?: ProcessDocument[]
+  canDeleteAdhocSubtask?: boolean
   onSubtaskToggle: (taskId: string, subtaskId: string, completed: boolean) => Promise<void>
   onTaskUpdate: () => void
+  onDeleteSubtask?: (subtask: ProcSubtask) => void
 }
 
 export function SubtaskCardList({
@@ -46,8 +48,10 @@ export function SubtaskCardList({
   consultantId,
   owners = [],
   processDocuments = [],
+  canDeleteAdhocSubtask,
   onSubtaskToggle,
   onTaskUpdate,
+  onDeleteSubtask,
 }: SubtaskCardListProps) {
   const { emails } = useEmailStatus(task.id)
   const [openEmailSubtask, setOpenEmailSubtask] = useState<ProcSubtask | null>(null)
@@ -254,7 +258,34 @@ export function SubtaskCardList({
 
         {/* Cards */}
         <div className="space-y-2">
-          {subtasks.map(renderCard)}
+          {subtasks.map((subtask) => {
+            const isAdhocSubtask = !subtask.tpl_subtask_id
+            return (
+              <div key={subtask.id} className="relative group">
+                {renderCard(subtask)}
+                {isAdhocSubtask && canDeleteAdhocSubtask && !subtask.is_completed && (
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => onDeleteSubtask?.(subtask)}
+                      title="Remover subtarefa manual"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+                {isAdhocSubtask && (
+                  <div className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="inline-flex items-center text-[9px] text-violet-600 bg-violet-100 px-1 py-0.5 rounded">
+                      Manual
+                    </span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* Link para proprietário */}

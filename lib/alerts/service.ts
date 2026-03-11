@@ -94,14 +94,15 @@ class AlertService {
     try {
       const notificationType = `alert_${context.eventType}` as SA
 
+      // senderId = null para alertas — evita que createBatch filtre o próprio destinatário
       await notificationService.createBatch(recipientIds, {
-        senderId: context.triggeredBy,
+        senderId: null as unknown as string,
         notificationType,
         entityType: context.entityType === 'proc_task' ? 'proc_task' : 'proc_task',
         entityId: context.entityId,
         title: message,
         body: `Processo ${context.processRef} — ${context.title}`,
-        actionUrl: `/dashboard/processos/${context.procInstanceId}`,
+        actionUrl: `/dashboard/processos/${context.procInstanceId}?task=${context.entityId}`,
         metadata: {
           alert_event: context.eventType,
           process_ref: context.processRef,
@@ -153,29 +154,31 @@ class AlertService {
         }
       }
 
-      // Buscar emails dos destinatários
-      const { data: users } = await supabase
-        .from('dev_users')
-        .select('id, professional_email')
-        .in('id', recipientIds)
+      // Buscar emails de cadastro (auth) dos destinatários
+      const recipientEmails: { id: string; email: string }[] = []
+      for (const rid of recipientIds) {
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(rid)
+        if (authUser?.email) {
+          recipientEmails.push({ id: rid, email: authUser.email })
+        }
+      }
 
-      if (!users || users.length === 0) return
+      if (recipientEmails.length === 0) return
 
       // Enviar email para cada destinatário via Edge Function
-      for (const u of users) {
-        if (!u.professional_email) continue
+      for (const u of recipientEmails) {
         try {
           await supabase.functions.invoke('send-email', {
             body: {
               senderName,
               senderEmail,
-              recipientEmail: u.professional_email,
+              recipientEmail: u.email,
               subject: `[Processo ${context.processRef}] ${message}`,
               body: `<p>${message}</p><p><strong>Tarefa:</strong> ${context.title}</p><p><strong>Processo:</strong> ${context.processRef}</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/processos/${context.procInstanceId}">Ver processo</a></p>`,
             },
           })
         } catch (emailError) {
-          console.error(`[AlertService] Erro email para ${u.professional_email}:`, emailError)
+          console.error(`[AlertService] Erro email para ${u.email}:`, emailError)
         }
       }
 
@@ -233,26 +236,38 @@ class AlertService {
 
       const fullMessage = `*[Processo ${context.processRef}]*\n${message}\n\nTarefa: ${context.title}`
 
+      let allSent = true
       for (const profile of profiles) {
         if (!profile.phone_commercial) continue
         const phone = profile.phone_commercial.replace(/\D/g, '')
         if (!phone) continue
 
         try {
-          await fetch(`${baseUrl}/sendText/${instance.uazapi_token}`, {
+          console.log(`[AlertService] WhatsApp → ${phone} via ${baseUrl}/send/text`)
+          const wppRes = await fetch(`${baseUrl}/send/text`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              token: instance.uazapi_token,
+            },
             body: JSON.stringify({
-              phone,
-              message: fullMessage,
+              number: phone,
+              text: fullMessage,
+              delay: 2,
+              readchat: true,
+              track_source: 'erp_infinity_alerts',
             }),
           })
+          const wppBody = await wppRes.text()
+          console.log(`[AlertService] WhatsApp resposta (${wppRes.status}):`, wppBody)
+          if (!wppRes.ok) allSent = false
         } catch (wppError) {
           console.error(`[AlertService] Erro WhatsApp para ${phone}:`, wppError)
+          allSent = false
         }
       }
 
-      await this.logAlert(context, 'whatsapp', recipientIds, 'sent')
+      await this.logAlert(context, 'whatsapp', recipientIds, allSent ? 'sent' : 'failed', allSent ? undefined : 'Falha parcial no envio')
     } catch (error) {
       console.error('[AlertService] Erro WhatsApp:', error)
       await this.logAlert(context, 'whatsapp', recipientIds, 'failed', String(error))

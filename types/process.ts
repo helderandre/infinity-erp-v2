@@ -48,6 +48,13 @@ export interface ProcessInstance extends ProcInstance {
     specs?: PropertySpecs | null
     internal?: PropertyInternal | null
     cover_url?: string | null
+    media?: Array<{
+      id: string
+      url: string
+      media_type: string
+      is_cover: boolean
+      order_index: number
+    }>
   }
   requested_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   approved_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
@@ -236,6 +243,13 @@ export type TaskActivityType =
   | 'subtask_reverted'
   | 'document_replaced'
   | 'upload_completed'
+  | 'task_created'
+  | 'task_deleted'
+  | 'subtask_added'
+  | 'subtask_deleted'
+  | 'adhoc_task_completed'
+  | 'adhoc_subtask_completed'
+  | 'adhoc_subtask_reverted'
 
 export interface TaskActivity {
   id: string

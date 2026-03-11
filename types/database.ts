@@ -593,6 +593,98 @@ export type Database = {
           },
         ]
       }
+      conta_corrente_limits: {
+        Row: {
+          agent_id: string
+          created_at: string
+          credit_limit: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          credit_limit?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          credit_limit?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conta_corrente_limits_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conta_corrente_transactions: {
+        Row: {
+          agent_id: string
+          amount: number
+          balance_after: number
+          category: string
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          type: string
+        }
+        Insert: {
+          agent_id: string
+          amount: number
+          balance_after?: number
+          category: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          type: string
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          balance_after?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conta_corrente_transactions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conta_corrente_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_form_submissions: {
         Row: {
           created_at: string | null
@@ -1615,6 +1707,359 @@ export type Database = {
           },
         ]
       }
+      marketing_catalog: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          estimated_delivery_days: number
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          requires_property: boolean
+          requires_scheduling: boolean
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string
+          estimated_delivery_days?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          requires_property?: boolean
+          requires_scheduling?: boolean
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          estimated_delivery_days?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          requires_property?: boolean
+          requires_scheduling?: boolean
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketing_order_deliverables: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          order_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          order_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          order_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_order_deliverables_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_order_deliverables_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_order_items: {
+        Row: {
+          catalog_item_id: string | null
+          id: string
+          name: string
+          order_id: string
+          pack_id: string | null
+          price: number
+        }
+        Insert: {
+          catalog_item_id?: string | null
+          id?: string
+          name: string
+          order_id: string
+          pack_id?: string | null
+          price: number
+        }
+        Update: {
+          catalog_item_id?: string | null
+          id?: string
+          name?: string
+          order_id?: string
+          pack_id?: string | null
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_order_items_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_order_items_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_orders: {
+        Row: {
+          access_instructions: string | null
+          address: string | null
+          agent_id: string
+          alternative_date: string | null
+          alternative_time: string | null
+          area_m2: number | null
+          assigned_to: string | null
+          calendar_event_id: string | null
+          cancellation_reason: string | null
+          city: string | null
+          confirmed_date: string | null
+          confirmed_time: string | null
+          contact_is_agent: boolean | null
+          contact_name: string | null
+          contact_observations: string | null
+          contact_phone: string | null
+          contact_relationship: string | null
+          created_at: string
+          floor_door: string | null
+          has_exteriors: boolean | null
+          has_facades: boolean | null
+          id: string
+          internal_notes: string | null
+          is_occupied: boolean | null
+          is_staged: boolean | null
+          number_of_divisions: number | null
+          parish: string | null
+          parking_available: boolean | null
+          postal_code: string | null
+          preferred_date: string | null
+          preferred_time: string | null
+          property_id: string | null
+          property_type: string | null
+          rejection_reason: string | null
+          status: string
+          total_amount: number
+          typology: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_instructions?: string | null
+          address?: string | null
+          agent_id: string
+          alternative_date?: string | null
+          alternative_time?: string | null
+          area_m2?: number | null
+          assigned_to?: string | null
+          calendar_event_id?: string | null
+          cancellation_reason?: string | null
+          city?: string | null
+          confirmed_date?: string | null
+          confirmed_time?: string | null
+          contact_is_agent?: boolean | null
+          contact_name?: string | null
+          contact_observations?: string | null
+          contact_phone?: string | null
+          contact_relationship?: string | null
+          created_at?: string
+          floor_door?: string | null
+          has_exteriors?: boolean | null
+          has_facades?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          is_occupied?: boolean | null
+          is_staged?: boolean | null
+          number_of_divisions?: number | null
+          parish?: string | null
+          parking_available?: boolean | null
+          postal_code?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          property_id?: string | null
+          property_type?: string | null
+          rejection_reason?: string | null
+          status?: string
+          total_amount: number
+          typology?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_instructions?: string | null
+          address?: string | null
+          agent_id?: string
+          alternative_date?: string | null
+          alternative_time?: string | null
+          area_m2?: number | null
+          assigned_to?: string | null
+          calendar_event_id?: string | null
+          cancellation_reason?: string | null
+          city?: string | null
+          confirmed_date?: string | null
+          confirmed_time?: string | null
+          contact_is_agent?: boolean | null
+          contact_name?: string | null
+          contact_observations?: string | null
+          contact_phone?: string | null
+          contact_relationship?: string | null
+          created_at?: string
+          floor_door?: string | null
+          has_exteriors?: boolean | null
+          has_facades?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          is_occupied?: boolean | null
+          is_staged?: boolean | null
+          number_of_divisions?: number | null
+          parish?: string | null
+          parking_available?: boolean | null
+          postal_code?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          property_id?: string | null
+          property_type?: string | null
+          rejection_reason?: string | null
+          status?: string
+          total_amount?: number
+          typology?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_orders_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_orders_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_orders_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_pack_items: {
+        Row: {
+          catalog_item_id: string
+          id: string
+          pack_id: string
+        }
+        Insert: {
+          catalog_item_id: string
+          id?: string
+          pack_id: string
+        }
+        Update: {
+          catalog_item_id?: string
+          id?: string
+          pack_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_pack_items_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_pack_items_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_packs: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       negocios: {
         Row: {
           aceita_animais: boolean | null
@@ -1915,6 +2360,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      owner_role_types: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          name: string
+          order_index: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          name: string
+          order_index?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          name?: string
+          order_index?: number | null
+        }
+        Relationships: []
       }
       owners: {
         Row: {
@@ -2993,18 +3468,21 @@ export type Database = {
         Row: {
           is_main_contact: boolean | null
           owner_id: string
+          owner_role_id: string
           ownership_percentage: number | null
           property_id: string
         }
         Insert: {
           is_main_contact?: boolean | null
           owner_id: string
+          owner_role_id: string
           ownership_percentage?: number | null
           property_id: string
         }
         Update: {
           is_main_contact?: boolean | null
           owner_id?: string
+          owner_role_id?: string
           ownership_percentage?: number | null
           property_id?: string
         }
@@ -3014,6 +3492,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owners_owner_role_id_fkey"
+            columns: ["owner_role_id"]
+            isOneToOne: false
+            referencedRelation: "owner_role_types"
             referencedColumns: ["id"]
           },
           {

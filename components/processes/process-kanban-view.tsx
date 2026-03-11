@@ -19,19 +19,23 @@ const STAGE_COLORS = [
 interface ProcessKanbanViewProps {
   stages: ProcessStageWithTasks[]
   isProcessing: boolean
+  canDeleteAdhoc?: boolean
   onTaskAction: (taskId: string, action: string) => void
   onTaskBypass: (task: ProcessTask) => void
   onTaskAssign: (task: ProcessTask) => void
   onTaskClick?: (task: ProcessTask) => void
+  onTaskDelete?: (task: ProcessTask) => void
 }
 
 export function ProcessKanbanView({
   stages,
   isProcessing,
+  canDeleteAdhoc,
   onTaskAction,
   onTaskBypass,
   onTaskAssign,
   onTaskClick,
+  onTaskDelete,
 }: ProcessKanbanViewProps) {
   return (
     <ScrollArea className="w-full">
@@ -69,10 +73,12 @@ export function ProcessKanbanView({
                       task={task}
                       variant="kanban"
                       isProcessing={isProcessing}
+                      canDeleteAdhoc={canDeleteAdhoc}
                       onAction={onTaskAction}
                       onBypass={onTaskBypass}
                       onAssign={onTaskAssign}
                       onClick={onTaskClick}
+                      onDelete={onTaskDelete}
                     />
                   ))}
                   {stage.tasks.length === 0 && (

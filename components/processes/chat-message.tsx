@@ -240,6 +240,12 @@ export function ChatMessageItem({
   const isOwn = message.sender_id === currentUserId
   const timeStr = format(new Date(message.created_at), 'HH:mm')
 
+  // Voice messages: hide the text content (just show the player)
+  const isVoiceMsg = message.has_attachments &&
+    message.attachments?.some(
+      (a) => a.attachment_type === 'audio' && a.file_name.includes('voice')
+    )
+
   if (message.is_deleted) {
     return (
       <div className="flex justify-center py-1">
@@ -351,18 +357,18 @@ export function ChatMessageItem({
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                ) : (
+                ) : !isVoiceMsg ? (
                   <p className="text-sm whitespace-pre-wrap break-words">
                     {renderMessageContent(message.content, true, onEntityClick, entitiesMap)}
                     {message.is_edited && (
                       <span className="text-[10px] opacity-60 ml-1">{CHAT_LABELS.edited}</span>
                     )}
                   </p>
-                )}
+                ) : null}
 
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
-                  <div className="mt-1.5 space-y-1">
+                  <div className={isVoiceMsg ? '' : 'mt-1.5 space-y-1'}>
                     {message.attachments.map((att) => (
                       <ChatAttachment key={att.id} attachment={att} />
                     ))}
@@ -480,16 +486,18 @@ export function ChatMessageItem({
               )}
 
               {/* Content */}
-              <p className="text-sm whitespace-pre-wrap break-words">
-                {renderMessageContent(message.content, false, onEntityClick, entitiesMap)}
-                {message.is_edited && (
-                  <span className="text-[10px] text-muted-foreground ml-1">{CHAT_LABELS.edited}</span>
-                )}
-              </p>
+              {!isVoiceMsg && (
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {renderMessageContent(message.content, false, onEntityClick, entitiesMap)}
+                  {message.is_edited && (
+                    <span className="text-[10px] text-muted-foreground ml-1">{CHAT_LABELS.edited}</span>
+                  )}
+                </p>
+              )}
 
               {/* Attachments */}
               {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-1.5 space-y-1">
+                <div className={isVoiceMsg ? '' : 'mt-1.5 space-y-1'}>
                   {message.attachments.map((att) => (
                     <ChatAttachment key={att.id} attachment={att} />
                   ))}

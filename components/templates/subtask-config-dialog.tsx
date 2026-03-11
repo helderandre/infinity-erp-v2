@@ -43,6 +43,7 @@ import {
 } from '@/lib/constants'
 import { AlertConfigEditor } from './alert-config-editor'
 import { FormFieldPicker } from './form-field-picker'
+import { OwnerSelector } from '@/components/processes/owner-selector'
 import { cn } from '@/lib/utils'
 import type { SubtaskData } from '@/types/subtask'
 import type { AlertsConfig } from '@/types/alert'
@@ -112,6 +113,9 @@ interface SubtaskConfigDialogProps {
   taskDependencyOptions?: SubtaskDependencyOption[]
   allSubtasksContext?: SubtaskContextItem[]
   currentTaskId?: string
+  // Ad-hoc mode
+  mode?: 'template' | 'adhoc'
+  availableOwners?: { id: string; name: string; person_type: 'singular' | 'coletiva'; nif?: string | null }[]
 }
 
 // ─── Form Template Selector ──────────────────────────────
@@ -166,11 +170,12 @@ function FormTemplateSelector({
   return (
     <div className="space-y-2">
       <Label>Template de Formulário</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || '__none__'} onValueChange={(v) => onChange(v === '__none__' ? '' : v)}>
         <SelectTrigger>
           <SelectValue placeholder="Seleccionar template..." />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="__none__">(Nenhum)</SelectItem>
           {Object.entries(grouped).map(([category, items]) => (
             <SelectGroup key={category}>
               <SelectLabel>{category}</SelectLabel>
@@ -211,6 +216,8 @@ export function SubtaskConfigDialog({
   taskDependencyOptions,
   allSubtasksContext,
   currentTaskId,
+  mode = 'template',
+  availableOwners,
 }: SubtaskConfigDialogProps) {
   const [activeSection, setActiveSection] = useState<NavSection>('dados')
   const [enabledFeatures, setEnabledFeatures] = useState<Set<NavSection>>(new Set())
@@ -218,24 +225,36 @@ export function SubtaskConfigDialog({
 
   // Initialize state when dialog opens
   useEffect(() => {
-    if (!open || !subtask) return
-    setLocal({ ...subtask, config: { ...subtask.config } })
+    if (!open) return
+    const initial: SubtaskData = subtask
+      ? { ...subtask, config: { ...subtask.config } }
+      : {
+          id: crypto.randomUUID(),
+          title: '',
+          is_mandatory: true,
+          order_index: 0,
+          type: 'checklist',
+          config: {},
+        }
+    setLocal(initial)
     setActiveSection('dados')
 
     // Detect already-enabled features
     const enabled = new Set<NavSection>()
-    if (subtask.sla_days || subtask.assigned_role || (subtask.priority && subtask.priority !== 'normal')) {
-      enabled.add('prazos')
-    }
-    if (subtask.config.owner_scope && subtask.config.owner_scope !== 'none') {
-      enabled.add('proprietarios')
-    }
-    if (subtask.dependency_type && subtask.dependency_type !== 'none') {
-      enabled.add('dependencias')
-    }
-    const alerts = subtask.config.alerts
-    if (alerts && Object.values(alerts).some((e) => e?.enabled)) {
-      enabled.add('alertas')
+    if (subtask) {
+      if (subtask.sla_days || subtask.assigned_role || (subtask.priority && subtask.priority !== 'normal')) {
+        enabled.add('prazos')
+      }
+      if (subtask.config.owner_scope && subtask.config.owner_scope !== 'none') {
+        enabled.add('proprietarios')
+      }
+      if (subtask.dependency_type && subtask.dependency_type !== 'none') {
+        enabled.add('dependencias')
+      }
+      const alerts = subtask.config.alerts
+      if (alerts && Object.values(alerts).some((e) => e?.enabled)) {
+        enabled.add('alertas')
+      }
     }
     setEnabledFeatures(enabled)
   }, [open, subtask])
@@ -301,7 +320,8 @@ export function SubtaskConfigDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-3xl w-full p-0 gap-0 flex flex-col overflow-hidden"
+        className="sm:max-w-3xl w-full p-0 gap-0 flex flex-col overflow-hidden z-[60]"
+        overlayClassName="z-[60]"
         style={{ maxHeight: '85vh' }}
         showCloseButton
       >
@@ -409,7 +429,13 @@ export function SubtaskConfigDialog({
                   roles={roles}
                 />
               )}
-              {activeSection === 'proprietarios' && (
+              {activeSection === 'proprietarios' && mode === 'adhoc' && availableOwners ? (
+                <SectionProprietariosAdhoc
+                  local={local}
+                  update={update}
+                  availableOwners={availableOwners}
+                />
+              ) : activeSection === 'proprietarios' && (
                 <SectionProprietarios
                   local={local}
                   updateConfig={updateConfig}
@@ -515,13 +541,14 @@ function SectionDados({
           </h3>
           {local.type === 'upload' && (
             <Select
-              value={local.config.doc_type_id || ''}
-              onValueChange={(v) => updateConfig({ doc_type_id: v })}
+              value={local.config.doc_type_id || '__none__'}
+              onValueChange={(v) => updateConfig({ doc_type_id: v === '__none__' ? undefined : v })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar tipo de documento..." />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">(Nenhum)</SelectItem>
                 {Object.entries(docTypesByCategory).map(([category, types]) => (
                   <SelectGroup key={category}>
                     <SelectLabel>{category}</SelectLabel>
@@ -535,13 +562,14 @@ function SectionDados({
           )}
           {local.type === 'email' && (
             <Select
-              value={local.config.email_library_id || ''}
-              onValueChange={(v) => updateConfig({ email_library_id: v })}
+              value={local.config.email_library_id || '__none__'}
+              onValueChange={(v) => updateConfig({ email_library_id: v === '__none__' ? undefined : v })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar template de email..." />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">(Nenhum)</SelectItem>
                 {emailTemplates.map((et) => (
                   <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
                 ))}
@@ -550,13 +578,14 @@ function SectionDados({
           )}
           {local.type === 'generate_doc' && (
             <Select
-              value={local.config.doc_library_id || ''}
-              onValueChange={(v) => updateConfig({ doc_library_id: v })}
+              value={local.config.doc_library_id || '__none__'}
+              onValueChange={(v) => updateConfig({ doc_library_id: v === '__none__' ? undefined : v })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar template de documento..." />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">(Nenhum)</SelectItem>
                 {docTemplates.map((dt) => (
                   <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
                 ))}
@@ -887,13 +916,14 @@ function VariantSelect({
   if (type === 'upload') {
     return (
       <Select
-        value={config.doc_type_id || ''}
-        onValueChange={(v) => onChange({ ...config, doc_type_id: v })}
+        value={config.doc_type_id || '__none__'}
+        onValueChange={(v) => onChange({ ...config, doc_type_id: v === '__none__' ? undefined : v })}
       >
         <SelectTrigger className="h-9 text-sm">
           <SelectValue placeholder="Tipo de documento..." />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="__none__">(Nenhum)</SelectItem>
           {Object.entries(docTypesByCategory).map(([category, types]) => (
             <SelectGroup key={category}>
               <SelectLabel>{category}</SelectLabel>
@@ -909,13 +939,14 @@ function VariantSelect({
   if (type === 'email') {
     return (
       <Select
-        value={config.email_library_id || ''}
-        onValueChange={(v) => onChange({ ...config, email_library_id: v })}
+        value={config.email_library_id || '__none__'}
+        onValueChange={(v) => onChange({ ...config, email_library_id: v === '__none__' ? undefined : v })}
       >
         <SelectTrigger className="h-9 text-sm">
           <SelectValue placeholder="Template de email..." />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="__none__">(Nenhum)</SelectItem>
           {emailTemplates.map((et) => (
             <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
           ))}
@@ -926,13 +957,14 @@ function VariantSelect({
   if (type === 'generate_doc') {
     return (
       <Select
-        value={config.doc_library_id || ''}
-        onValueChange={(v) => onChange({ ...config, doc_library_id: v })}
+        value={config.doc_library_id || '__none__'}
+        onValueChange={(v) => onChange({ ...config, doc_library_id: v === '__none__' ? undefined : v })}
       >
         <SelectTrigger className="h-9 text-sm">
           <SelectValue placeholder="Template de documento..." />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="__none__">(Nenhum)</SelectItem>
           {docTemplates.map((dt) => (
             <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
           ))}
@@ -1094,6 +1126,49 @@ function SectionAlertas({
           onChange={(alerts) => updateConfig({ alerts })}
           defaultOpen
         />
+      </div>
+    </div>
+  )
+}
+
+// ─── Section: Proprietários (modo ad-hoc) ────────────────
+
+function SectionProprietariosAdhoc({
+  local,
+  update,
+  availableOwners,
+}: {
+  local: SubtaskData
+  update: (data: Partial<SubtaskData>) => void
+  availableOwners: { id: string; name: string; person_type: 'singular' | 'coletiva'; nif?: string | null }[]
+}) {
+  const selectedId = (local as any).owner_id as string | undefined
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-medium mb-1">Associar Proprietário</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Seleccione o proprietário para associar a esta subtarefa.
+        </p>
+        <OwnerSelector
+          owners={availableOwners.map(o => ({
+            ...o,
+            nif: o.nif ?? null,
+            email: null,
+            phone: null,
+            ownership_percentage: 0,
+            is_main_contact: false,
+          }))}
+          selectedOwnerIds={selectedId ? [selectedId] : []}
+          onChange={(ids) => update({ owner_id: ids[0] || undefined } as any)}
+          placeholder="Sem proprietário associado"
+        />
+        {selectedId && (
+          <p className="text-xs text-muted-foreground mt-2">
+            A subtarefa será associada a este proprietário específico.
+          </p>
+        )}
       </div>
     </div>
   )

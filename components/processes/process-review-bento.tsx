@@ -1,10 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/shared/status-badge'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from '@/components/ui/carousel'
 import {
   Building2,
   MapPin,
@@ -42,7 +48,6 @@ interface ProcessReviewBentoProps {
 }
 
 export function ProcessReviewBento({
-  process,
   property,
   owners,
   documents,
@@ -51,18 +56,18 @@ export function ProcessReviewBento({
   const internal = property.internal
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="columns-1 lg:columns-2 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
       {/* ── Imóvel Hero ── */}
       <PropertyHeroCard property={property} />
 
-      {/* ── Localização + Mapa (row-span-2) ── */}
-      <LocationMapCard property={property} className="lg:row-span-2" />
+      {/* ── Localização + Mapa ── */}
+      <LocationMapCard property={property} />
 
-      {/* ── Preço + Specs side by side ── */}
-      <div className="grid grid-cols-2 gap-4">
-        <PriceCard property={property} />
-        <SpecsCard specs={specs} />
-      </div>
+      {/* ── Preço ── */}
+      <PriceCard property={property} />
+
+      {/* ── Especificações ── */}
+      <SpecsCard specs={specs} />
 
       {/* ── Proprietários ── */}
       <OwnersCard owners={owners} />
@@ -85,45 +90,122 @@ function PropertyHeroCard({ property }: { property: NonNullable<ProcessInstance[
   const condition = PROPERTY_CONDITIONS[property.property_condition as keyof typeof PROPERTY_CONDITIONS] || property.property_condition
   const energy = ENERGY_CERTIFICATES[property.energy_certificate as keyof typeof ENERGY_CERTIFICATES] || property.energy_certificate
 
+  // Ordenar imagens por order_index, cover primeiro
+  const images = (property.media || [])
+    .filter((m) => m.media_type === 'image')
+    .sort((a, b) => {
+      if (a.is_cover && !b.is_cover) return -1
+      if (!a.is_cover && b.is_cover) return 1
+      return a.order_index - b.order_index
+    })
+
+  const hasImages = images.length > 0
+  const hasMultipleImages = images.length > 1
+
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
+  const [currentSlide, setCurrentSlide] = useState(0)
+
+  const onSelect = useCallback(() => {
+    if (!carouselApi) return
+    setCurrentSlide(carouselApi.selectedScrollSnap())
+  }, [carouselApi])
+
+  useEffect(() => {
+    if (!carouselApi) return
+    onSelect()
+    carouselApi.on('select', onSelect)
+    return () => { carouselApi.off('select', onSelect) }
+  }, [carouselApi, onSelect])
+
   return (
-    <Card className="overflow-hidden">
-      {/* Cover image */}
-      {property.cover_url ? (
-        <div className="relative h-48 w-full overflow-hidden">
-          <img
-            src={property.cover_url}
-            alt={property.title || 'Imóvel'}
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          <div className="absolute bottom-3 left-4 right-4">
-            <h3 className="text-lg font-semibold text-white line-clamp-1">
+    <Card className="overflow-hidden py-0 gap-0">
+      {/* Imagens — carousel quando >1, imagem simples quando =1, fallback header quando 0 */}
+      {hasImages ? (
+        <div className="relative w-full">
+          {hasMultipleImages ? (
+            <Carousel
+              opts={{ loop: true }}
+              setApi={setCarouselApi}
+              className="w-full"
+            >
+              <CarouselContent className="ml-0">
+                {images.map((img, idx) => (
+                  <CarouselItem key={img.id} className="pl-0">
+                    <div className="relative h-48 w-full">
+                      <img
+                        src={img.url}
+                        alt={`${property.title || 'Imóvel'} — foto ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+
+              {/* Dot indicators */}
+              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {images.map((img, idx) => (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => carouselApi?.scrollTo(idx)}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === currentSlide
+                        ? 'w-4 bg-white'
+                        : 'w-1.5 bg-white/50 hover:bg-white/70'
+                    }`}
+                    aria-label={`Ir para imagem ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              {/* Counter badge */}
+              <div className="absolute top-3 left-3 z-10">
+                <Badge variant="secondary" className="bg-black/50 text-white border-0 text-[10px] backdrop-blur-sm">
+                  {currentSlide + 1} / {images.length}
+                </Badge>
+              </div>
+            </Carousel>
+          ) : (
+            <div className="relative h-48 w-full">
+              <img
+                src={images[0].url}
+                alt={property.title || 'Imóvel'}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+
+          {/* Overlay gradient para a cor do card */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent pointer-events-none" />
+          <div className="absolute bottom-3 left-4 right-4 z-10">
+            <h3 className="text-lg font-semibold text-foreground line-clamp-1">
               {property.title}
             </h3>
             {property.external_ref && (
-              <p className="text-xs text-white/70">Ref. {property.external_ref}</p>
+              <p className="text-xs text-muted-foreground">Ref. {property.external_ref}</p>
             )}
           </div>
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-3 z-10">
             <StatusBadge status={property.status || 'pending_approval'} type="property" />
           </div>
         </div>
       ) : (
-        <CardHeader className="pb-3">
+        <div className="px-4 pt-4 pb-1">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
+            <h3 className="text-base font-medium flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
               {property.title || 'Imóvel'}
-            </CardTitle>
+            </h3>
             <StatusBadge status={property.status || 'pending_approval'} type="property" />
           </div>
           {property.external_ref && (
-            <p className="text-xs text-muted-foreground">Ref. {property.external_ref}</p>
+            <p className="text-xs text-muted-foreground mt-1">Ref. {property.external_ref}</p>
           )}
-        </CardHeader>
+        </div>
       )}
 
-      <CardContent className={property.cover_url ? 'pt-4' : 'pt-0'}>
+      <div className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <DetailRow label="Tipo" value={propertyType} />
           <DetailRow label="Negócio" value={businessType} />
@@ -142,16 +224,16 @@ function PropertyHeroCard({ property }: { property: NonNullable<ProcessInstance[
         {property.description && (
           typeof property.description === 'string' && property.description.startsWith('<') ? (
             <div
-              className="mt-3 text-xs text-muted-foreground line-clamp-3 border-t pt-3 prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0"
+              className="text-xs text-muted-foreground line-clamp-3 border-t pt-3 prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0"
               dangerouslySetInnerHTML={{ __html: property.description }}
             />
           ) : (
-            <p className="mt-3 text-xs text-muted-foreground line-clamp-3 border-t pt-3">
+            <p className="text-xs text-muted-foreground line-clamp-3 border-t pt-3">
               {property.description}
             </p>
           )
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }
@@ -161,10 +243,8 @@ function PropertyHeroCard({ property }: { property: NonNullable<ProcessInstance[
 // ────────────────────────────────────────────────────────────
 function LocationMapCard({
   property,
-  className,
 }: {
   property: NonNullable<ProcessInstance['property']>
-  className?: string
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -202,39 +282,43 @@ function LocationMapCard({
   }, [hasCoords, property.latitude, property.longitude])
 
   return (
-    <Card className={`overflow-hidden ${className || ''}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+    <Card className="overflow-hidden py-0 gap-0">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3">
+        <h3 className="text-base font-medium flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
           Localização
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Mapa */}
-        {hasCoords ? (
+        </h3>
+      </div>
+
+      {/* Mapa — com padding lateral e border radius */}
+      {hasCoords ? (
+        <div className="px-4">
           <div
             ref={mapContainerRef}
-            className="h-[220px] rounded-lg overflow-hidden border"
+            className="h-[200px] w-full rounded-lg overflow-hidden border"
           />
-        ) : (
-          <div className="h-[220px] rounded-lg border bg-muted/30 flex flex-col items-center justify-center text-muted-foreground">
+        </div>
+      ) : (
+        <div className="px-4">
+          <div className="h-[200px] rounded-lg border bg-muted/30 flex flex-col items-center justify-center text-muted-foreground">
             <MapPin className="h-8 w-8 mb-2 opacity-40" />
             <p className="text-sm">Sem coordenadas</p>
           </div>
-        )}
-
-        {/* Detalhes de morada */}
-        <div className="space-y-2 text-sm">
-          {property.address_street && (
-            <DetailRow label="Morada" value={property.address_street} />
-          )}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-            <DetailRow label="Código Postal" value={property.postal_code} />
-            <DetailRow label="Cidade" value={property.city} />
-            <DetailRow label="Zona" value={property.zone} />
-          </div>
         </div>
-      </CardContent>
+      )}
+
+      {/* Detalhes de morada */}
+      <div className="p-4 space-y-2 text-sm">
+        {property.address_street && (
+          <DetailRow label="Morada" value={property.address_street} />
+        )}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+          <DetailRow label="Código Postal" value={property.postal_code} />
+          <DetailRow label="Cidade" value={property.city} />
+          <DetailRow label="Zona" value={property.zone} />
+        </div>
+      </div>
     </Card>
   )
 }
@@ -247,7 +331,7 @@ function PriceCard({ property }: { property: NonNullable<ProcessInstance['proper
 
   return (
     <Card>
-      <CardContent className="flex flex-col items-center justify-center h-full py-6 text-center">
+      <CardContent className="flex flex-col items-center justify-center text-center">
         <Euro className="h-5 w-5 text-muted-foreground mb-2" />
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Preço</p>
         <p className="text-2xl font-bold tabular-nums">
@@ -270,7 +354,7 @@ function SpecsCard({ specs }: { specs: NonNullable<ProcessInstance['property']>[
   if (!specs) {
     return (
       <Card>
-        <CardContent className="flex flex-col items-center justify-center h-full py-6 text-center text-muted-foreground">
+        <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground">
           <Layers className="h-5 w-5 mb-2 opacity-40" />
           <p className="text-sm">Sem especificações</p>
         </CardContent>
@@ -289,7 +373,7 @@ function SpecsCard({ specs }: { specs: NonNullable<ProcessInstance['property']>[
 
   return (
     <Card>
-      <CardContent className="py-4">
+      <CardContent>
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => (
             <div key={item.label} className="flex items-center gap-2">
@@ -316,7 +400,7 @@ function OwnersCard({ owners }: { owners: ProcessOwner[] }) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-0">
         <CardTitle className="text-base flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           Proprietários
@@ -395,7 +479,7 @@ function InternalDataCard({ internal }: { internal: PropertyInternal }) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-0">
         <CardTitle className="text-base flex items-center gap-2">
           <Shield className="h-4 w-4 text-muted-foreground" />
           Dados Internos
@@ -443,7 +527,7 @@ function DocumentsCard({ documents }: { documents: ProcessDocument[] }) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-0">
         <CardTitle className="text-base flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
           Documentos

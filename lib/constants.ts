@@ -428,6 +428,30 @@ export const MARITAL_STATUS = {
   uniao_facto: 'União de Facto',
 } as const
 
+// Regimes Matrimoniais (Portugal)
+export const MARITAL_REGIMES = {
+  comunhao_adquiridos: 'Comunhão de Adquiridos',
+  comunhao_geral: 'Comunhão Geral de Bens',
+  separacao_bens: 'Separação de Bens',
+  uniao_facto: 'União de Facto',
+} as const
+
+// Estados civis que indicam cônjuge
+export const MARRIED_STATUSES = ['casado', 'uniao_facto'] as const
+
+// Cores para roles de proprietário (fallback se BD não tiver)
+export const OWNER_ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  proprietario: { bg: 'bg-blue-100', text: 'text-blue-800' },
+  conjuge: { bg: 'bg-pink-100', text: 'text-pink-800' },
+  socio: { bg: 'bg-amber-100', text: 'text-amber-800' },
+  herdeiro: { bg: 'bg-purple-100', text: 'text-purple-800' },
+  usufrutuario: { bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  nu_proprietario: { bg: 'bg-slate-100', text: 'text-slate-800' },
+} as const
+
+// Roles que podem gerir tarefas manuais (criar, remover)
+export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+
 // Tipos de Acção de Tarefa
 export const ACTION_TYPES = {
   UPLOAD: 'Upload de Documento',
@@ -502,6 +526,14 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   template_reset:     { icon: 'RotateCcw',         label: 'Template resetado',    color: 'text-orange-500' },
   document_replaced:  { icon: 'RefreshCw',          label: 'Documento substituído', color: 'text-blue-500' },
   upload_completed:   { icon: 'Upload',             label: 'Upload concluído',     color: 'text-emerald-500' },
+  // Ad-hoc tasks
+  task_created:            { icon: 'Plus',           label: 'Tarefa criada',              color: 'text-violet-600' },
+  task_deleted:            { icon: 'Trash2',         label: 'Tarefa removida',            color: 'text-red-600' },
+  subtask_added:           { icon: 'ListPlus',       label: 'Subtarefa adicionada',       color: 'text-violet-600' },
+  subtask_deleted:         { icon: 'ListMinus',      label: 'Subtarefa removida',         color: 'text-red-600' },
+  adhoc_task_completed:    { icon: 'CheckCircle2',   label: 'Tarefa manual concluída',    color: 'text-emerald-600' },
+  adhoc_subtask_completed: { icon: 'CircleCheck',    label: 'Subtarefa manual concluída', color: 'text-emerald-500' },
+  adhoc_subtask_reverted:  { icon: 'RotateCcw',      label: 'Subtarefa manual revertida', color: 'text-amber-600' },
 }
 
 export const EMAIL_STATUS_CONFIG: Record<string, {
@@ -848,6 +880,22 @@ export const CHAT_LABELS = {
 } as const
 
 export const CHAT_EMOJI_QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅'] as const
+
+export const VOICE_LABELS = {
+  record: 'Gravar áudio',
+  stop: 'Parar gravação',
+  play: 'Ouvir',
+  pause: 'Pausar',
+  send: 'Enviar',
+  cancel: 'Cancelar',
+  discard: 'Descartar',
+  recording: 'A gravar...',
+  voice_message: 'Mensagem de voz',
+  sending: 'A enviar áudio...',
+  sent: 'Áudio enviado com sucesso',
+  error: 'Erro ao enviar áudio',
+  mic_denied: 'Permissão de microfone negada',
+} as const
 
 // --- NOTIFICAÇÕES ---
 

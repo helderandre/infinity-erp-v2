@@ -25,6 +25,13 @@ export type TaskActivityType =
   | 'template_reset'
   | 'document_replaced'
   | 'upload_completed'
+  | 'task_created'
+  | 'task_deleted'
+  | 'subtask_added'
+  | 'subtask_deleted'
+  | 'adhoc_task_completed'
+  | 'adhoc_subtask_completed'
+  | 'adhoc_subtask_reverted'
 
 export async function logTaskActivity(
   supabase: SupabaseClient,

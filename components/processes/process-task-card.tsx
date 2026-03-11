@@ -29,6 +29,7 @@ import {
   Lock,
   FormInput,
   TextCursorInput,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
@@ -104,21 +105,26 @@ interface ProcessTaskCardProps {
   task: ProcessTask
   variant: 'kanban' | 'list'
   isProcessing: boolean
+  canDeleteAdhoc?: boolean
   onAction: (taskId: string, action: string) => void
   onBypass: (task: ProcessTask) => void
   onAssign: (task: ProcessTask) => void
   onClick?: (task: ProcessTask) => void
+  onDelete?: (task: ProcessTask) => void
 }
 
 export function ProcessTaskCard({
   task,
   variant,
   isProcessing,
+  canDeleteAdhoc,
   onAction,
   onBypass,
   onAssign,
   onClick,
+  onDelete,
 }: ProcessTaskCardProps) {
+  const isAdhoc = !task.tpl_task_id
   const isBlocked = !!task.is_blocked
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !['completed', 'skipped'].includes(task.status ?? '')
   const statusIcon = isBlocked
@@ -173,6 +179,18 @@ export function ProcessTaskCard({
             Reactivar
           </DropdownMenuItem>
         )}
+        {isAdhoc && canDeleteAdhoc && !['completed'].includes(task.status ?? '') && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete?.(task)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remover tarefa
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -222,6 +240,13 @@ export function ProcessTaskCard({
             <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
               {actionIcon}
               {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
+            </Badge>
+          )}
+
+          {/* Manual badge */}
+          {isAdhoc && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200">
+              Manual
             </Badge>
           )}
 
@@ -328,6 +353,13 @@ export function ProcessTaskCard({
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
           <Lock className="h-2.5 w-2.5 mr-0.5" />
           Bloqueada
+        </Badge>
+      )}
+
+      {/* Manual badge */}
+      {isAdhoc && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 shrink-0">
+          Manual
         </Badge>
       )}
 

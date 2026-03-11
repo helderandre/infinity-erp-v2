@@ -25,19 +25,23 @@ const STAGE_COLORS = [
 interface ProcessListViewProps {
   stages: ProcessStageWithTasks[]
   isProcessing: boolean
+  canDeleteAdhoc?: boolean
   onTaskAction: (taskId: string, action: string) => void
   onTaskBypass: (task: ProcessTask) => void
   onTaskAssign: (task: ProcessTask) => void
   onTaskClick?: (task: ProcessTask) => void
+  onTaskDelete?: (task: ProcessTask) => void
 }
 
 export function ProcessListView({
   stages,
   isProcessing,
+  canDeleteAdhoc,
   onTaskAction,
   onTaskBypass,
   onTaskAssign,
   onTaskClick,
+  onTaskDelete,
 }: ProcessListViewProps) {
   const [openStages, setOpenStages] = useState<Set<string>>(() =>
     new Set(stages.filter((s) => s.status !== 'completed').map((s) => s.name))
@@ -88,10 +92,12 @@ export function ProcessListView({
                     task={task}
                     variant="list"
                     isProcessing={isProcessing}
+                    canDeleteAdhoc={canDeleteAdhoc}
                     onAction={onTaskAction}
                     onBypass={onTaskBypass}
                     onAssign={onTaskAssign}
                     onClick={onTaskClick}
+                    onDelete={onTaskDelete}
                   />
                 ))}
               </div>

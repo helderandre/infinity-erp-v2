@@ -6,10 +6,28 @@ export type OwnerUpdate = Database['public']['Tables']['owners']['Update']
 
 export type PropertyOwnerRow = Database['public']['Tables']['property_owners']['Row']
 
+export type OwnerRoleTypeRow = Database['public']['Tables']['owner_role_types']['Row']
+
+export interface OwnerRoleType {
+  id: string
+  name: string
+  label: string
+  color?: string | null
+  order_index?: number
+}
+
+export interface OwnerWithRole extends OwnerRow {
+  ownership_percentage?: number | null
+  is_main_contact?: boolean
+  owner_role_id?: string | null
+  owner_role?: OwnerRoleType | null
+}
+
 export interface OwnerWithProperties extends OwnerRow {
   property_owners: {
     ownership_percentage: number | null
     is_main_contact: boolean | null
+    owner_role_id?: string | null
     dev_properties: {
       id: string
       title: string | null

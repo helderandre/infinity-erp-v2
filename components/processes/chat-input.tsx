@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
 import { Button } from '@/components/ui/button'
-import { Paperclip, Send, X, ClipboardList, Pin, FileText } from 'lucide-react'
+import { Paperclip, Send, X, ClipboardList, Pin, FileText, Mic } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
-import { CHAT_LABELS } from '@/lib/constants'
+import { CHAT_LABELS, VOICE_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
+import { VoiceRecorder } from './voice-recorder'
 import type { ChatMention, ChatMessage } from '@/types/process'
 
 interface ChatInputProps {
@@ -62,6 +63,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
   const [mentionUsers, setMentionUsers] = useState<{ id: string; display: string }[]>([])
   const [mentionEntities, setMentionEntities] = useState<{ id: string; display: string; type?: string; status?: string; extra?: string }[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
@@ -188,6 +190,39 @@ export function ChatInput({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // Voice message: create a text message, then upload the audio blob as attachment
+  const handleVoiceSend = useCallback(async (audioBlob: Blob, durationMs: number) => {
+    try {
+      const durationSec = Math.ceil(durationMs / 1000)
+      const minutes = Math.floor(durationSec / 60)
+      const seconds = durationSec % 60
+      const durationLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`
+
+      const msg = await onSend(`🎤 ${VOICE_LABELS.voice_message} (${durationLabel})`, [])
+      if (!msg?.id) throw new Error('Mensagem não criada')
+
+      const ext = audioBlob.type.includes('webm') ? 'webm' : 'ogg'
+      const file = new File([audioBlob], `voice-message-${Date.now()}.${ext}`, {
+        type: audioBlob.type,
+      })
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('processId', processId)
+      formData.append('messageId', msg.id)
+
+      const res = await fetch('/api/chat/upload', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || VOICE_LABELS.error)
+      }
+
+      toast.success(VOICE_LABELS.sent)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : VOICE_LABELS.error)
+    }
+  }, [onSend, processId])
+
   return (
     <div className="space-y-2">
       {/* Reply preview */}
@@ -205,7 +240,7 @@ export function ChatInput({
       )}
 
       {/* Attachment previews */}
-      {attachments.length > 0 && (
+      {!isRecording && attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {attachments.map((file, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs bg-muted/50">
@@ -219,96 +254,121 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Input row */}
-      <div className="flex items-end gap-2">
-        <div className="flex-1 relative">
-          <MentionsInput
-            value={value}
-            onChange={(_e, newValue) => handleValueChange(newValue)}
-            placeholder={CHAT_LABELS.placeholder}
-            style={mentionsInputStyle}
-            a11ySuggestionsListLabel="Utilizadores sugeridos"
-            forceSuggestionsAboveCursor
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
-            disabled={disabled || isSubmitting}
-          >
-            <Mention
-              trigger="@"
-              data={mentionUsers}
-              markup="@[__display__](__id__)"
-              displayTransform={(_id, display) => `@${display}`}
-              style={mentionStyle}
-              renderSuggestion={(suggestion, _search, highlightedDisplay) => (
-                <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted">
-                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                    {(suggestion as { display?: string }).display?.[0]?.toUpperCase()}
-                  </div>
-                  <span className="text-sm">{highlightedDisplay}</span>
-                </div>
-              )}
-            />
-            <Mention
-              trigger="/"
-              data={mentionEntities}
-              markup="/[__display__](__id__)"
-              displayTransform={(_id, display) => `/${display}`}
-              style={{
-                backgroundColor: 'hsl(var(--accent) / 0.3)',
-                borderRadius: 4,
-                padding: '1px 2px',
+      {/* Voice recorder — single instance, always mounted to preserve state.
+          When active (recording/preview) it takes full width; when idle it renders just the mic icon. */}
+      {isRecording && (
+        <VoiceRecorder
+          autoStart
+          onSend={handleVoiceSend}
+          onCancel={() => setIsRecording(false)}
+          disabled={disabled}
+        />
+      )}
+
+      {/* Text input row — hidden when voice recorder is active */}
+      {!isRecording && (
+        <div className="flex items-end gap-2">
+          <div className="flex-1 relative">
+            <MentionsInput
+              value={value}
+              onChange={(_e, newValue) => handleValueChange(newValue)}
+              placeholder={CHAT_LABELS.placeholder}
+              style={mentionsInputStyle}
+              a11ySuggestionsListLabel="Utilizadores sugeridos"
+              forceSuggestionsAboveCursor
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSubmit()
+                }
               }}
-              renderSuggestion={(suggestion, _search, highlightedDisplay) => {
-                const s = suggestion as { id?: string; type?: string; status?: string; extra?: string }
-                const EntityIcon = s.type === 'task' ? ClipboardList : s.type === 'subtask' ? Pin : FileText
-                const statusColor = s.status === 'completed' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-slate-400' : 'bg-blue-500'
-                return (
+              disabled={disabled || isSubmitting}
+            >
+              <Mention
+                trigger="@"
+                data={mentionUsers}
+                markup="@[__display__](__id__)"
+                displayTransform={(_id, display) => `@${display}`}
+                style={mentionStyle}
+                renderSuggestion={(suggestion, _search, highlightedDisplay) => (
                   <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted">
-                    <EntityIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm block truncate">{highlightedDisplay}</span>
-                      {s.extra && <span className="text-[10px] text-muted-foreground">{s.extra}</span>}
+                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                      {(suggestion as { display?: string }).display?.[0]?.toUpperCase()}
                     </div>
-                    <span className={`h-2 w-2 rounded-full shrink-0 ${statusColor}`} />
+                    <span className="text-sm">{highlightedDisplay}</span>
                   </div>
-                )
-              }}
-            />
-          </MentionsInput>
+                )}
+              />
+              <Mention
+                trigger="/"
+                data={mentionEntities}
+                markup="/[__display__](__id__)"
+                displayTransform={(_id, display) => `/${display}`}
+                style={{
+                  backgroundColor: 'hsl(var(--accent) / 0.3)',
+                  borderRadius: 4,
+                  padding: '1px 2px',
+                }}
+                renderSuggestion={(suggestion, _search, highlightedDisplay) => {
+                  const s = suggestion as { id?: string; type?: string; status?: string; extra?: string }
+                  const EntityIcon = s.type === 'task' ? ClipboardList : s.type === 'subtask' ? Pin : FileText
+                  const statusColor = s.status === 'completed' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-slate-400' : 'bg-blue-500'
+                  return (
+                    <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted">
+                      <EntityIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm block truncate">{highlightedDisplay}</span>
+                        {s.extra && <span className="text-[10px] text-muted-foreground">{s.extra}</span>}
+                      </div>
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${statusColor}`} />
+                    </div>
+                  )
+                }}
+              />
+            </MentionsInput>
+          </div>
+
+          {/* Attach */}
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isSubmitting}
+            title={CHAT_LABELS.attach_file}
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
+
+          {/* Mic — clicking sets isRecording which mounts the full VoiceRecorder above */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground"
+            onClick={() => setIsRecording(true)}
+            disabled={disabled || isSubmitting}
+            title={VOICE_LABELS.record}
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+
+          {/* Send */}
+          <Button
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={handleSubmit}
+            disabled={!value.trim() || isSubmitting || disabled}
+            title={CHAT_LABELS.send}
+          >
+            {isSubmitting ? (
+              <Spinner variant="infinite" size={14} />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-
-        {/* Attach button */}
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 gap-1.5 shrink-0"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || isSubmitting}
-        >
-          <Paperclip className="h-3.5 w-3.5" />
-          <span className="text-xs">{CHAT_LABELS.attach_file}</span>
-        </Button>
-
-        {/* Send button */}
-        <Button
-          size="sm"
-          className="h-9 gap-1.5 shrink-0"
-          onClick={handleSubmit}
-          disabled={!value.trim() || isSubmitting || disabled}
-        >
-          {isSubmitting ? (
-            <Spinner variant="infinite" size={14} />
-          ) : (
-            <Send className="h-3.5 w-3.5" />
-          )}
-          <span className="text-xs">{CHAT_LABELS.send}</span>
-        </Button>
-      </div>
+      )}
     </div>
   )
 }

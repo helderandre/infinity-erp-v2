@@ -238,7 +238,7 @@ export async function GET(
         assigned_to_user:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name, dev_consultant_profiles(profile_photo_url)),
         owner:owners!proc_tasks_owner_id_fkey(id, name, person_type),
         subtasks:proc_subtasks!proc_subtasks_proc_task_id_fkey(
-          id, title, is_mandatory, is_completed,
+          id, tpl_subtask_id, title, is_mandatory, is_completed,
           completed_at, completed_by, order_index, config,
           owner_id, is_blocked, dependency_type,
           dependency_proc_subtask_id, dependency_proc_task_id, unblocked_at,
@@ -342,14 +342,9 @@ export async function GET(
         `
         ownership_percentage,
         is_main_contact,
-        owner:owners(
-          id,
-          name,
-          nif,
-          person_type,
-          email,
-          phone
-        )
+        owner_role_id,
+        owner_role:owner_role_types(id, name, label, color),
+        owner:owners(*)
       `
       )
       .eq('property_id', data.property?.id)
@@ -426,6 +421,8 @@ export async function GET(
         ...po.owner,
         ownership_percentage: po.ownership_percentage,
         is_main_contact: po.is_main_contact,
+        owner_role_id: po.owner_role_id,
+        owner_role: po.owner_role || null,
       })) || [],
       documents: documents || [],
     }

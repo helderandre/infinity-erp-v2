@@ -5,6 +5,7 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
+import { ADHOC_TASK_ROLES } from '@/lib/constants'
 
 const taskUpdateSchema = z.object({
   action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset', 'update_priority', 'update_due_date']),
@@ -137,20 +138,36 @@ export async function PUT(
         updateData.assigned_to = assigned_to
         break
 
-      case 'reset':
-        if (task.status !== 'skipped') {
+      case 'reset': {
+        if (!['skipped', 'completed'].includes(task.status as string)) {
           return NextResponse.json(
-            { error: 'Apenas tarefas dispensadas podem ser reactivadas' },
+            { error: 'Apenas tarefas concluídas ou dispensadas podem ser reactivadas' },
             { status: 400 }
           )
+        }
+        // Reverter tarefa completed requer role autorizado
+        if (task.status === 'completed') {
+          const { data: resetRole } = await supabase
+            .from('user_roles')
+            .select('role:roles(name)')
+            .eq('user_id', user.id)
+            .limit(1)
+            .single()
+          const resetRoleName = (resetRole?.role as any)?.name
+          if (!resetRoleName || !ADHOC_TASK_ROLES.includes(resetRoleName as any)) {
+            return NextResponse.json(
+              { error: 'Sem permissão para reverter tarefas concluídas' },
+              { status: 403 }
+            )
+          }
         }
         updateData.status = 'pending'
         updateData.is_bypassed = false
         updateData.bypass_reason = null
         updateData.bypassed_by = null
         updateData.completed_at = null
-        updateData.assigned_to = null
         break
+      }
 
       case 'update_priority':
         if (!priority) {
@@ -258,7 +275,7 @@ export async function PUT(
           break
         case 'reset':
           await logTaskActivity(supabase, taskId, user.id, 'status_change', `${userName} reactivou a tarefa`, {
-            old_status: 'skipped',
+            old_status: task.status,
             new_status: 'pending',
           })
           break
@@ -361,6 +378,41 @@ export async function PUT(
       console.error('[TaskUpdate] Erro ao processar alertas:', alertError)
     }
 
+    // --- Trigger on_unblock para tarefas dependentes ---
+    if (action === 'complete') {
+      try {
+        const { data: dependentTasks } = await supabase
+          .from('proc_tasks')
+          .select('id, title, config, assigned_to')
+          .eq('proc_instance_id', id)
+          .eq('dependency_proc_task_id', taskId)
+          .in('status', ['pending', 'blocked'])
+
+        if (dependentTasks?.length) {
+          const { alertService: als } = await import('@/lib/alerts/service')
+          const procRefUnblock = (task as any).proc_instance?.external_ref || ''
+
+          for (const depTask of dependentTasks) {
+            const depConfig = (depTask.config as Record<string, any>)?.alerts?.on_unblock
+            if (depConfig?.enabled) {
+              await als.processAlert(depConfig, {
+                procInstanceId: id,
+                entityType: 'proc_task',
+                entityId: depTask.id,
+                eventType: 'on_unblock',
+                title: depTask.title,
+                processRef: procRefUnblock,
+                triggeredBy: user.id,
+                assignedTo: depTask.assigned_to,
+              })
+            }
+          }
+        }
+      } catch (unblockError) {
+        console.error('[TaskUpdate] Erro ao processar on_unblock:', unblockError)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Tarefa actualizada com sucesso',
@@ -371,5 +423,170 @@ export async function PUT(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     )
+  }
+}
+
+// DELETE — Remover tarefa ad-hoc
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string; taskId: string }> }
+) {
+  try {
+    const { id, taskId } = await params
+    const supabase = await createClient()
+    const admin = createAdminClient()
+    const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+
+    // 1. Autenticar
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    // 2. Verificar role autorizado
+    const { data: devUser } = await supabase
+      .from('dev_users')
+      .select('id, commercial_name')
+      .eq('id', user.id)
+      .single()
+
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    const roleName = (userRole?.role as any)?.name
+    if (!roleName || !ADHOC_TASK_ROLES.includes(roleName as any)) {
+      return NextResponse.json(
+        { error: 'Sem permissão para remover tarefas' },
+        { status: 403 }
+      )
+    }
+
+    // 3. Obter tarefa
+    const { data: task, error: taskError } = await supabase
+      .from('proc_tasks')
+      .select('id, title, tpl_task_id, stage_name, status, proc_instance_id')
+      .eq('id', taskId)
+      .eq('proc_instance_id', id)
+      .single()
+
+    if (taskError || !task) {
+      return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
+    }
+
+    // 4. Verificar que é ad-hoc (tpl_task_id IS NULL)
+    if (task.tpl_task_id !== null) {
+      return NextResponse.json(
+        { error: 'Apenas tarefas ad-hoc podem ser removidas. Tarefas de template podem ser dispensadas.' },
+        { status: 403 }
+      )
+    }
+
+    // 5. Validar processo activo
+    const { data: process } = await supabase
+      .from('proc_instances')
+      .select('current_status')
+      .eq('id', id)
+      .single()
+
+    if (!process || !['active', 'on_hold'].includes(process.current_status as string)) {
+      return NextResponse.json(
+        { error: 'Apenas processos activos ou pausados permitem remover tarefas' },
+        { status: 400 }
+      )
+    }
+
+    // 6. Verificar dependências
+    const { data: dependentTasks } = await supabase
+      .from('proc_tasks')
+      .select('id, title')
+      .eq('proc_instance_id', id)
+      .eq('dependency_proc_task_id', taskId)
+
+    if (dependentTasks && dependentTasks.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Existem tarefas que dependem desta tarefa. Remova as dependências primeiro.',
+          dependent_tasks: dependentTasks.map(t => t.title),
+        },
+        { status: 409 }
+      )
+    }
+
+    // Verificar dependências de subtarefas de outras tarefas
+    const { data: dependentSubtasks } = await adminDb.from('proc_subtasks')
+      .select('id')
+      .eq('dependency_proc_task_id', taskId)
+
+    if (dependentSubtasks && (dependentSubtasks as any[]).length > 0) {
+      return NextResponse.json(
+        { error: 'Existem subtarefas que dependem desta tarefa. Remova as dependências primeiro.' },
+        { status: 409 }
+      )
+    }
+
+    // 7. Contar subtarefas antes de eliminar
+    const { data: subtasks } = await adminDb.from('proc_subtasks')
+      .select('id')
+      .eq('proc_task_id', taskId)
+    const subtaskCount = (subtasks as any[] | null)?.length || 0
+
+    // 8. Registar actividade ANTES da eliminação
+    try {
+      const userName = devUser?.commercial_name || 'Utilizador'
+      await logTaskActivity(
+        supabase, taskId, user.id,
+        'task_deleted',
+        `${userName} removeu tarefa ad-hoc "${task.title}" da fase "${task.stage_name}"`,
+        {
+          is_adhoc: true,
+          deleted_task_title: task.title,
+          stage_name: task.stage_name,
+          deleted_subtask_count: subtaskCount,
+          task_status_at_deletion: task.status,
+          deleted_by_role: roleName,
+        }
+      )
+    } catch (activityError) {
+      console.error('[AdhocTaskDelete] Erro ao registar actividade:', activityError)
+    }
+
+    // 9. Eliminar subtarefas
+    if (subtaskCount > 0) {
+      const { error: delSubError } = await adminDb.from('proc_subtasks')
+        .delete()
+        .eq('proc_task_id', taskId)
+      if (delSubError) {
+        console.error('[AdhocTaskDelete] Erro ao eliminar subtarefas:', delSubError)
+      }
+    }
+
+    // 10. Eliminar tarefa
+    const { error: delError } = await supabase
+      .from('proc_tasks')
+      .delete()
+      .eq('id', taskId)
+
+    if (delError) {
+      return NextResponse.json(
+        { error: 'Erro ao eliminar tarefa', details: delError.message },
+        { status: 500 }
+      )
+    }
+
+    // 11. Recalcular progresso
+    await recalculateProgress(id)
+
+    return NextResponse.json({
+      message: 'Tarefa removida com sucesso',
+      deleted_task_id: taskId,
+      deleted_subtask_count: subtaskCount,
+    })
+  } catch (error) {
+    console.error('Erro ao eliminar tarefa ad-hoc:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

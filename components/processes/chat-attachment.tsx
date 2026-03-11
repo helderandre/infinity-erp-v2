@@ -3,6 +3,7 @@
 import { Download } from 'lucide-react'
 import { DocIcon } from '@/components/icons/doc-icon'
 import { Button } from '@/components/ui/button'
+import { VoiceMessagePlayer } from './voice-recorder'
 import type { ChatAttachment as ChatAttachmentType } from '@/types/process'
 
 interface ChatAttachmentProps {
@@ -14,6 +15,14 @@ function formatFileSize(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isVoiceMessage(attachment: ChatAttachmentType): boolean {
+  return (
+    attachment.attachment_type === 'audio' &&
+    (attachment.file_name.startsWith('voice-message') ||
+      attachment.file_name.includes('voice'))
+  )
 }
 
 export function ChatAttachment({ attachment }: ChatAttachmentProps) {
@@ -32,6 +41,16 @@ export function ChatAttachment({ attachment }: ChatAttachmentProps) {
   }
 
   if (attachment.attachment_type === 'audio') {
+    // Voice messages get the WhatsApp-style player
+    if (isVoiceMessage(attachment)) {
+      return (
+        <VoiceMessagePlayer
+          src={attachment.file_url}
+        />
+      )
+    }
+
+    // Regular audio files keep the native player
     return (
       <div className="mt-1">
         <audio controls className="max-w-xs">

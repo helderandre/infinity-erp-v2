@@ -60,6 +60,8 @@ import {
   ClipboardList,
   FileText,
   Kanban,
+  UserPlus,
+  Plus,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -74,10 +76,14 @@ import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
 import { FloatingChat } from '@/components/processes/floating-chat'
 import { ProcessPropertyTab } from '@/components/processes/process-property-tab'
 import { ProcessOwnersTab } from '@/components/processes/process-owners-tab'
+import { ProcessOwnerCard } from '@/components/processes/process-owner-card'
 import { ProcessDocumentsManager } from '@/components/processes/process-documents-manager'
+import { AdHocTaskSheet } from '@/components/processes/adhoc-task-sheet'
+import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
+import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
 import { cn, formatDate } from '@/lib/utils'
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, ADHOC_TASK_ROLES } from '@/lib/constants'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
@@ -130,6 +136,18 @@ export default function ProcessoDetailPage() {
   // Task detail sheet
   const [selectedTask, setSelectedTask] = useState<ProcessTask | null>(null)
 
+  // Ad-hoc task sheet
+  const [adhocTaskSheetOpen, setAdhocTaskSheetOpen] = useState(false)
+  const [adhocPreselectedStage, setAdhocPreselectedStage] = useState<{ name: string; order_index: number } | undefined>()
+
+  // Ad-hoc task delete
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState<ProcessTask | null>(null)
+  const [isDeletingTask, setIsDeletingTask] = useState(false)
+
+  // Add owner dialog (for the cards overview)
+  const [addOwnerDialogOpen, setAddOwnerDialogOpen] = useState(false)
+  const [ownerRoleTypes, setOwnerRoleTypes] = useState<OwnerRoleType[]>([])
+
   // Soft-delete info
   const [deletedInfo, setDeletedInfo] = useState<{
     deleted: boolean
@@ -141,6 +159,14 @@ export default function ProcessoDetailPage() {
   useEffect(() => {
     loadProcess()
   }, [params.id])
+
+  // Fetch owner role types (for add owner dialog)
+  useEffect(() => {
+    fetch('/api/owner-role-types')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setOwnerRoleTypes(data) })
+      .catch(() => {})
+  }, [])
 
   const loadProcess = async () => {
     setIsLoading(true)
@@ -268,6 +294,30 @@ export default function ProcessoDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
+
+  const handleDeleteAdhocTask = useCallback(async () => {
+    if (!deleteTaskTarget) return
+    setIsDeletingTask(true)
+    try {
+      const res = await fetch(`/api/processes/${params.id}/tasks/${deleteTaskTarget.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao remover tarefa')
+      }
+      toast.success('Tarefa removida com sucesso!')
+      setDeleteTaskTarget(null)
+      loadProcess()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao remover tarefa')
+    } finally {
+      setIsDeletingTask(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deleteTaskTarget, params.id])
+
+  const canDeleteAdhoc = !!user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any)
 
   const handleBypassOpen = useCallback((task: ProcessTask) => {
     setBypassTask(task)
@@ -561,6 +611,32 @@ export default function ProcessoDetailPage() {
       setActiveSection('detalhes')
     }
   }, [isPending, activeSection])
+
+  // Build ownerHasTasksMap: which owners already have tasks or subtasks in the process
+  // Also build ownerExistingSubtaskIds: owner_id → Set<tpl_subtask_id>
+  const { ownerHasTasksMap, ownerExistingSubtaskIds } = useMemo(() => {
+    const hasMap: Record<string, boolean> = {}
+    const subMap: Record<string, Set<string>> = {}
+    if (process?.stages) {
+      for (const stage of process.stages) {
+        for (const task of stage.tasks || []) {
+          if (task.owner_id) {
+            hasMap[task.owner_id] = true
+          }
+          for (const subtask of task.subtasks || []) {
+            if (subtask.owner_id) {
+              hasMap[subtask.owner_id] = true
+              if (subtask.tpl_subtask_id) {
+                if (!subMap[subtask.owner_id]) subMap[subtask.owner_id] = new Set()
+                subMap[subtask.owner_id].add(subtask.tpl_subtask_id)
+              }
+            }
+          }
+        }
+      }
+    }
+    return { ownerHasTasksMap: hasMap, ownerExistingSubtaskIds: subMap }
+  }, [process?.stages])
 
   // Build owner sub-items for the sidebar (use process?.owners since destructuring happens after guards)
   const ownerSubItems = (process?.owners || []).map((owner: { id: string; name?: string; is_main_contact?: boolean }) => ({
@@ -872,7 +948,20 @@ export default function ProcessoDetailPage() {
                       </SelectContent>
                     </Select>
 
-                    <div className="ml-auto">
+                    <div className="ml-auto flex items-center gap-2">
+                      {user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any) && ['active', 'on_hold'].includes(instance.current_status) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAdhocPreselectedStage(undefined)
+                            setAdhocTaskSheetOpen(true)
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Nova Tarefa
+                        </Button>
+                      )}
                       <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
                         <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
                           <LayoutGrid className="h-4 w-4" />
@@ -895,19 +984,23 @@ export default function ProcessoDetailPage() {
                     <ProcessKanbanView
                       stages={filteredStages}
                       isProcessing={isProcessing}
+                      canDeleteAdhoc={canDeleteAdhoc}
                       onTaskAction={handleTaskAction}
                       onTaskBypass={handleBypassOpen}
                       onTaskAssign={handleAssignOpen}
                       onTaskClick={handleTaskClick}
+                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
                     />
                   ) : viewMode === 'list' ? (
                     <ProcessListView
                       stages={filteredStages}
                       isProcessing={isProcessing}
+                      canDeleteAdhoc={canDeleteAdhoc}
                       onTaskAction={handleTaskAction}
                       onTaskBypass={handleBypassOpen}
                       onTaskAssign={handleAssignOpen}
                       onTaskClick={handleTaskClick}
+                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
                     />
                   ) : (
                     <ProcessTimelineView
@@ -928,9 +1021,57 @@ export default function ProcessoDetailPage() {
             </div>
           )}
 
-          {/* ── PROPRIETÁRIOS section — all owners (cards overview) ── */}
+          {/* ── PROPRIETÁRIOS section — cards overview ── */}
           {activeSection === 'proprietarios' && (
-            <ProcessOwnersTab owners={owners} documents={documents} onDocumentUploaded={loadProcess} />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {owners.length === 0 ? (
+                  <Card className="col-span-full">
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">Nenhum proprietário associado</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  owners.map((owner: any) => (
+                    <ProcessOwnerCard
+                      key={owner.id}
+                      owner={owner}
+                      hasTasks={ownerHasTasksMap[owner.id]}
+                      processId={instance.id}
+                      existingSubtaskIds={ownerExistingSubtaskIds[owner.id] || new Set()}
+                      allPopulated={false}
+                      onTasksPopulated={loadProcess}
+                      onClick={() => setActiveSection(`proprietarios:${owner.id}`)}
+                    />
+                  ))
+                )}
+
+                {/* Card para adicionar novo proprietário */}
+                <Card
+                  className="cursor-pointer transition-all py-0 hover:shadow-md hover:border-primary/30 border-dashed"
+                  onClick={() => setAddOwnerDialogOpen(true)}
+                >
+                  <CardContent className="flex flex-col items-center justify-center text-center pt-6 pb-5 px-5 min-h-[200px]">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
+                      <Plus className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">Adicionar Proprietário</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Add Owner Dialog */}
+              <AddOwnerDialog
+                open={addOwnerDialogOpen}
+                onOpenChange={setAddOwnerDialogOpen}
+                propertyId={instance.property_id}
+                processId={instance.id}
+                roleTypes={ownerRoleTypes}
+                existingOwnerIds={owners.map((o: any) => o.id)}
+                onAdded={loadProcess}
+              />
+            </div>
           )}
 
           {/* ── PROPRIETÁRIO individual ── */}
@@ -939,7 +1080,18 @@ export default function ProcessoDetailPage() {
             const singleOwner = (owners || []).find((o: { id: string }) => o.id === ownerId)
             if (!singleOwner) return null
             return (
-              <ProcessOwnersTab owners={[singleOwner]} documents={documents} onDocumentUploaded={loadProcess} />
+              <ProcessOwnersTab
+                owners={[singleOwner]}
+                documents={documents}
+                propertyId={instance.property_id}
+                processId={instance.id}
+                ownerHasTasksMap={ownerHasTasksMap}
+                ownerExistingSubtaskIds={ownerExistingSubtaskIds}
+                totalOwners={owners.length}
+                hideHeader
+                onDocumentUploaded={loadProcess}
+                onOwnersChanged={loadProcess}
+              />
             )
           })()}
 
@@ -959,6 +1111,20 @@ export default function ProcessoDetailPage() {
             name: user.commercial_name || 'Utilizador',
           }}
           onEntityClick={handleEntityClick}
+        />
+      )}
+
+      {/* Ad-hoc Task Sheet */}
+      {stages && (
+        <AdHocTaskSheet
+          open={adhocTaskSheetOpen}
+          onOpenChange={setAdhocTaskSheetOpen}
+          processId={instance.id}
+          stages={stages}
+          owners={owners || []}
+          existingTasks={stages.flatMap((s: ProcessStageWithTasks) => s.tasks)}
+          preselectedStage={adhocPreselectedStage}
+          onTaskCreated={loadProcess}
         />
       )}
 
@@ -1148,6 +1314,29 @@ export default function ProcessoDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Ad-hoc Task Dialog */}
+      <AlertDialog open={!!deleteTaskTarget} onOpenChange={(open) => { if (!open) setDeleteTaskTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover tarefa ad-hoc</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende remover a tarefa &ldquo;{deleteTaskTarget?.title}&rdquo;?
+              Todas as subtarefas associadas serão também eliminadas. Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingTask}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleDeleteAdhocTask}
+              disabled={isDeletingTask}
+            >
+              {isDeletingTask ? 'A remover...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

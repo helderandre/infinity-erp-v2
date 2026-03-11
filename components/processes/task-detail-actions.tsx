@@ -13,9 +13,25 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TaskUploadAction } from './task-upload-action'
 import { SubtaskCardList } from './subtask-card-list'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   PlayCircle,
   CheckCircle2,
@@ -34,6 +50,11 @@ import {
   Clock,
   ShieldAlert,
   Lock,
+  Plus,
+  Upload,
+  CheckSquare,
+  FormInput,
+  Type,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -41,7 +62,8 @@ import { cn, formatDate } from '@/lib/utils'
 import { wrapEmailHtml } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
 import { useEmailStatus } from '@/hooks/use-email-status'
-import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
+import { EMAIL_STATUS_CONFIG, ADHOC_TASK_ROLES } from '@/lib/constants'
+import { SubtaskConfigDialog } from '@/components/templates/subtask-config-dialog'
 import type { ProcessTask, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
 
@@ -72,6 +94,27 @@ export function TaskDetailActions({
   const [isProcessing, setIsProcessing] = useState(false)
   const [showBypassInput, setShowBypassInput] = useState(false)
   const [bypassReason, setBypassReason] = useState('')
+  const [addSubtaskOpen, setAddSubtaskOpen] = useState(false)
+  const [addSubtaskType, setAddSubtaskType] = useState<string>('checklist')
+  const [deletingSubtask, setDeletingSubtask] = useState<ProcSubtask | null>(null)
+  const [isDeletingSubtask, setIsDeletingSubtask] = useState(false)
+
+  const userRole = (user as any)?.role?.name as string | undefined
+  const canManageAdhoc = !!userRole && ADHOC_TASK_ROLES.includes(userRole as any)
+
+  const SUBTASK_TYPE_OPTIONS = [
+    { type: 'checklist', label: 'Checklist', icon: CheckSquare },
+    { type: 'upload', label: 'Upload de Documento', icon: Upload },
+    { type: 'email', label: 'Email', icon: Mail },
+    { type: 'generate_doc', label: 'Gerar Documento', icon: FileText },
+    { type: 'form', label: 'Formulário', icon: FormInput },
+    { type: 'field', label: 'Campo', icon: Type },
+  ]
+
+  const openAddSubtask = (type: string) => {
+    setAddSubtaskType(type)
+    setAddSubtaskOpen(true)
+  }
 
   // Email status + resend
   const { emails: emailLogs } = useEmailStatus(task.action_type === 'EMAIL' ? task.id : null)
@@ -206,6 +249,60 @@ export function TaskDetailActions({
     }
   }
 
+  const handleAddSubtask = async (subtaskData: any) => {
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${task.id}/subtasks`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: subtaskData.title,
+            is_mandatory: subtaskData.is_mandatory ?? true,
+            order_index: (task.subtasks?.length ?? 0),
+            priority: subtaskData.priority || 'normal',
+            config: {
+              type: subtaskData.type || 'checklist',
+              ...subtaskData.config,
+            },
+            owner_id: subtaskData.config?.owner_id || undefined,
+          }),
+        }
+      )
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao adicionar subtarefa')
+      }
+      toast.success('Subtarefa adicionada com sucesso!')
+      setAddSubtaskOpen(false)
+      onTaskUpdate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao adicionar subtarefa')
+    }
+  }
+
+  const handleDeleteSubtask = async () => {
+    if (!deletingSubtask) return
+    setIsDeletingSubtask(true)
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${task.id}/subtasks/${deletingSubtask.id}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao remover subtarefa')
+      }
+      toast.success('Subtarefa removida com sucesso!')
+      setDeletingSubtask(null)
+      onTaskUpdate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao remover subtarefa')
+    } finally {
+      setIsDeletingSubtask(false)
+    }
+  }
+
   // Render action-type specific content
   const renderActionContent = () => {
     switch (task.action_type) {
@@ -290,29 +387,51 @@ export function TaskDetailActions({
 
       case 'COMPOSITE':
       case 'FORM': {
-        if (!task.subtasks || task.subtasks.length === 0) return null
-
         return (
-          <SubtaskCardList
-            task={task as ProcessTask & { subtasks: ProcSubtask[] }}
-            processId={processId}
-            propertyId={propertyId}
-            consultantId={consultantId}
-            owners={owners}
-            processDocuments={processDocuments}
-            onSubtaskToggle={async (taskId, subtaskId, completed) => {
-              const res = await fetch(
-                `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtaskId}`,
-                {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ is_completed: completed }),
-                }
-              )
-              if (!res.ok) throw new Error('Erro ao actualizar subtarefa')
-            }}
-            onTaskUpdate={onTaskUpdate}
-          />
+          <div className="space-y-3">
+            {task.subtasks && task.subtasks.length > 0 && (
+              <SubtaskCardList
+                task={task as ProcessTask & { subtasks: ProcSubtask[] }}
+                processId={processId}
+                propertyId={propertyId}
+                consultantId={consultantId}
+                owners={owners}
+                processDocuments={processDocuments}
+                canDeleteAdhocSubtask={canManageAdhoc}
+                onSubtaskToggle={async (taskId, subtaskId, completed) => {
+                  const res = await fetch(
+                    `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtaskId}`,
+                    {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ is_completed: completed }),
+                    }
+                  )
+                  if (!res.ok) throw new Error('Erro ao actualizar subtarefa')
+                }}
+                onTaskUpdate={onTaskUpdate}
+                onDeleteSubtask={(subtask) => setDeletingSubtask(subtask)}
+              />
+            )}
+            {canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '') && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Subtarefa
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-56">
+                  {SUBTASK_TYPE_OPTIONS.map(opt => (
+                    <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
+                      <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         )
       }
 
@@ -362,6 +481,27 @@ export function TaskDetailActions({
       }
 
       default:
+        // For MANUAL or other types, allow adding subtasks ad-hoc
+        if (canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '')) {
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar Subtarefa
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56">
+                {SUBTASK_TYPE_OPTIONS.map(opt => (
+                  <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
+                    <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
         return null
     }
   }
@@ -413,6 +553,21 @@ export function TaskDetailActions({
               </div>
             )
           })()}
+          {canManageAdhoc && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAction('reset')}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <Spinner variant="infinite" size={16} className="mr-2" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Reabrir Tarefa
+            </Button>
+          )}
         </div>
       )
     }
@@ -563,6 +718,50 @@ export function TaskDetailActions({
 
       {/* State transition buttons */}
       {renderStateButtons()}
+
+      {/* Add Subtask Dialog */}
+      {addSubtaskOpen && (
+        <SubtaskConfigDialog
+          open={addSubtaskOpen}
+          onOpenChange={setAddSubtaskOpen}
+          subtask={{ id: '', title: '', is_mandatory: true, order_index: 0, type: addSubtaskType as any, config: {} }}
+          docTypes={[]}
+          docTypesByCategory={{}}
+          emailTemplates={[]}
+          docTemplates={[]}
+          sameTaskSubtasks={[]}
+          mode="adhoc"
+          availableOwners={owners?.map((o) => ({
+            id: o.id,
+            name: o.name,
+            person_type: o.person_type as 'singular' | 'coletiva',
+            nif: o.nif || undefined,
+          })) || []}
+          onSave={(data) => handleAddSubtask(data)}
+        />
+      )}
+
+      {/* Delete Subtask Confirmation */}
+      <AlertDialog open={!!deletingSubtask} onOpenChange={(open) => { if (!open) setDeletingSubtask(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover subtarefa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende remover a subtarefa &ldquo;{deletingSubtask?.title}&rdquo;? Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSubtask}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleDeleteSubtask}
+              disabled={isDeletingSubtask}
+            >
+              {isDeletingSubtask ? 'A remover...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Email Send Dialog */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>

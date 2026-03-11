@@ -253,10 +253,10 @@ function AlertEventEditor({
             {event.channels?.whatsapp?.enabled && (
               <div className="pl-6">
                 <Select
-                  value={event.channels.whatsapp.wpp_instance_id || ''}
+                  value={event.channels.whatsapp.wpp_instance_id || '__none__'}
                   onValueChange={(v) =>
                     onUpdateChannels({
-                      whatsapp: { enabled: true, wpp_instance_id: v || null },
+                      whatsapp: { enabled: true, wpp_instance_id: v === '__none__' ? null : v },
                     })
                   }
                 >
@@ -264,6 +264,7 @@ function AlertEventEditor({
                     <SelectValue placeholder="Seleccionar instância..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Seleccionar instância...</SelectItem>
                     {wppInstances.map((inst) => (
                       <SelectItem key={inst.id} value={inst.id}>
                         {inst.name} ({inst.phone})
@@ -304,13 +305,14 @@ function AlertEventEditor({
           {event.recipients?.type === 'role' && (
             <div className="pt-1">
               <Select
-                value={event.recipients.roles?.[0] || ''}
-                onValueChange={(v) => onUpdateRecipients({ type: 'role', roles: [v] })}
+                value={event.recipients.roles?.[0] || '__none__'}
+                onValueChange={(v) => onUpdateRecipients({ type: 'role', roles: v === '__none__' ? [] : [v] })}
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="Seleccionar role..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Seleccionar role...</SelectItem>
                   {ALERT_ROLES.map((r) => (
                     <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                   ))}

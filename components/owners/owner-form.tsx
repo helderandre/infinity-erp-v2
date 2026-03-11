@@ -16,8 +16,10 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { PERSON_TYPES, MARITAL_STATUS } from '@/lib/constants'
-import { Loader2 } from 'lucide-react'
+import { DatePicker } from '@/components/ui/date-picker'
+import { OwnerSearch } from '@/components/owners/owner-search'
+import { PERSON_TYPES, MARITAL_STATUS, MARITAL_REGIMES } from '@/lib/constants'
+import { Loader2, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { OwnerRow } from '@/types/owner'
 
@@ -208,11 +210,10 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="birth_date">Data de Nascimento</Label>
-                <Input
-                  id="birth_date"
-                  type="date"
-                  {...form.register('birth_date')}
+                <Label>Data de Nascimento</Label>
+                <DatePicker
+                  value={form.watch('birth_date')}
+                  onChange={(v) => form.setValue('birth_date', v)}
                 />
               </div>
               <div className="space-y-2">
@@ -248,11 +249,20 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="marital_regime">Regime Matrimonial</Label>
-                <Input
-                  id="marital_regime"
-                  {...form.register('marital_regime')}
-                />
+                <Label>Regime Matrimonial</Label>
+                <Select
+                  value={form.watch('marital_regime') || ''}
+                  onValueChange={(v) => form.setValue('marital_regime', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(MARITAL_REGIMES).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -285,11 +295,10 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="id_doc_expiry">Validade</Label>
-                <Input
-                  id="id_doc_expiry"
-                  type="date"
-                  {...form.register('id_doc_expiry')}
+                <Label>Validade</Label>
+                <DatePicker
+                  value={form.watch('id_doc_expiry')}
+                  onChange={(v) => form.setValue('id_doc_expiry', v)}
                 />
               </div>
               <div className="space-y-2">
@@ -372,6 +381,23 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
             <h3 className="text-sm font-medium text-muted-foreground">
               Representante Legal
             </h3>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Link2 className="h-3.5 w-3.5" />
+                Vincular pessoa existente
+              </Label>
+              <OwnerSearch
+                placeholder="Pesquisar pessoa singular por nome, NIF ou email..."
+                onSelect={(selected) => {
+                  form.setValue('legal_representative_name', selected.name || '')
+                  form.setValue('legal_representative_nif', selected.nif || '')
+                  const docParts = [selected.id_doc_type, selected.id_doc_number].filter(Boolean)
+                  form.setValue('legal_rep_id_doc', docParts.join(' - '))
+                }}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="legal_representative_name">

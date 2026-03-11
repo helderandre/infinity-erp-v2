@@ -276,6 +276,11 @@ export function TaskDetailSheet({
             <SheetTitle className="text-lg">{task.title}</SheetTitle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {!task.tpl_task_id && (
+              <Badge variant="outline" className="text-xs bg-violet-100 text-violet-700 border-violet-200">
+                Manual
+              </Badge>
+            )}
             {task.is_blocked && (
               <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary bg-primary/5">
                 <Lock className="h-3 w-3" />
