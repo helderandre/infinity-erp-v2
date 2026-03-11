@@ -29,6 +29,7 @@ const subtaskUpdateSchema = z
     task_result: z.object({
       doc_registry_id: z.string().optional(),
     }).optional(),
+    reset_template: z.boolean().optional(),
   })
   .refine(
     (data) =>
@@ -36,8 +37,9 @@ const subtaskUpdateSchema = z
       data.rendered_content !== undefined ||
       data.assigned_to !== undefined ||
       data.priority !== undefined ||
-      data.due_date !== undefined,
-    { message: 'is_completed, rendered_content, assigned_to, priority ou due_date são obrigatórios' }
+      data.due_date !== undefined ||
+      data.reset_template === true,
+    { message: 'is_completed, rendered_content, assigned_to, priority, due_date ou reset_template são obrigatórios' }
   )
 
 export async function PUT(
@@ -69,7 +71,7 @@ export async function PUT(
       )
     }
 
-    const { is_completed, rendered_content, resend_email_id, email_metadata, assigned_to, priority, due_date } = validation.data
+    const { is_completed, rendered_content, resend_email_id, email_metadata, assigned_to, priority, due_date, reset_template } = validation.data
 
     // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
     const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
@@ -124,6 +126,20 @@ export async function PUT(
         { error: 'Este tipo de subtarefa não suporta actualização manual' },
         { status: 400 }
       )
+    }
+
+    // Reset template — limpar config.rendered e retornar
+    if (reset_template) {
+      const { rendered: _removed, ...cleanConfig } = config as Record<string, unknown>
+      const { error: resetError } = await adminDb.from('proc_subtasks')
+        .update({ config: cleanConfig })
+        .eq('id', subtaskId)
+
+      if (resetError) {
+        return NextResponse.json({ error: 'Erro ao resetar template', details: resetError.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, reset: true })
     }
 
     // Construir o update

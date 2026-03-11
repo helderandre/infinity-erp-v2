@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { FileText, CheckCircle2, FileCheck2, ChevronDown } from 'lucide-react'
+import { CheckCircle2, FileCheck2, ChevronDown } from 'lucide-react'
+import { DocIcon } from '@/components/icons/doc-icon'
 import { Badge } from '@/components/ui/badge'
 import { UploadZone } from './UploadZone'
 import type { DocType } from '@/types/document'
@@ -70,7 +71,7 @@ export function DocRow({
           transition-colors duration-150
         `}
       >
-        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <DocIcon className="h-6 w-6 shrink-0" />
         <span className="text-sm flex-1 min-w-0 truncate">{docType.name}</span>
 
         {isUploaded ? (

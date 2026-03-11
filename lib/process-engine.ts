@@ -103,8 +103,9 @@ export async function autoCompleteTasks(
 }
 
 /**
- * Recalcula o progresso do processo baseado nas tarefas
- * Chamado após qualquer mudança em tarefas
+ * Recalcula o progresso do processo baseado nas subtarefas e tarefas.
+ * Tarefas com subtarefas contribuem proporcionalmente (subtarefas concluídas / total).
+ * Tarefas sem subtarefas: concluída/dispensada = 1, caso contrário = 0.
  */
 export async function recalculateProgress(procInstanceId: string) {
   const supabase = createAdminClient()
@@ -122,14 +123,45 @@ export async function recalculateProgress(procInstanceId: string) {
       return { percent_complete: 0 }
     }
 
-    // 2. Calcular progresso
-    const total = tasks.length
-    const completed = tasks.filter(
-      (t) => t.status === 'completed' || t.is_bypassed
-    ).length
-    const percentComplete = Math.round((completed / total) * 100)
+    // 2. Buscar subtarefas de todas as tarefas do processo
+    const taskIds = tasks.map((t) => t.id)
+    const { data: subtasks, error: subtasksError } = await supabase
+      .from('proc_subtasks')
+      .select('id, proc_task_id, is_completed')
+      .in('proc_task_id', taskIds)
 
-    // 3. Determinar a fase actual (primeira fase não-completa)
+    if (subtasksError) throw subtasksError
+
+    // Agrupar subtarefas por tarefa
+    const subtasksByTask = new Map<string, { total: number; completed: number }>()
+    for (const st of subtasks ?? []) {
+      const entry = subtasksByTask.get(st.proc_task_id) ?? { total: 0, completed: 0 }
+      entry.total++
+      if (st.is_completed) entry.completed++
+      subtasksByTask.set(st.proc_task_id, entry)
+    }
+
+    // 3. Calcular progresso com granularidade de subtarefas
+    let totalWeight = 0
+    let completedWeight = 0
+
+    for (const t of tasks) {
+      totalWeight++
+      const stInfo = subtasksByTask.get(t.id)
+
+      if (t.status === 'completed' || t.is_bypassed) {
+        // Tarefa totalmente concluída
+        completedWeight++
+      } else if (stInfo && stInfo.total > 0) {
+        // Tarefa com subtarefas — contribuição proporcional
+        completedWeight += stInfo.completed / stInfo.total
+      }
+      // Tarefa sem subtarefas e não concluída = 0
+    }
+
+    const percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0
+
+    // 4. Determinar a fase actual (primeira fase não-completa)
     const stageProgress = new Map<number, { total: number; completed: number }>()
     for (const t of tasks) {
       const stageIdx = t.stage_order_index ?? 0

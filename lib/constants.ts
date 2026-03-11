@@ -796,14 +796,6 @@ export const DOC_FOLDER_ICONS = {
   consultant: 'Briefcase',
 } as const
 
-export const FILE_TYPE_ICONS: Record<string, { icon: string; color: string; abbr: string }> = {
-  'application/pdf': { icon: 'FileText', color: 'text-red-500', abbr: 'PDF' },
-  'image/jpeg': { icon: 'Image', color: 'text-blue-500', abbr: 'JPG' },
-  'image/png': { icon: 'Image', color: 'text-blue-500', abbr: 'PNG' },
-  'application/msword': { icon: 'FileText', color: 'text-blue-700', abbr: 'DOC' },
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { icon: 'FileText', color: 'text-blue-700', abbr: 'DOCX' },
-}
-
 export const KYC_LABELS = {
   birth_date: 'Data de Nascimento',
   id_doc_type: 'Tipo de Documento',

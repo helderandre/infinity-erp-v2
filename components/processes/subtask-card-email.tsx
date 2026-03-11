@@ -21,10 +21,11 @@ interface SubtaskCardEmailProps {
   onOpenSheet: (subtask: ProcSubtask) => void
   onRevert: (subtaskId: string) => void
   onResend: (subtask: ProcSubtask) => void
+  onResetTemplate: (subtaskId: string) => void
 }
 
 export function SubtaskCardEmail({
-  subtask, ownerEmail, emails, onOpenSheet, onRevert, onResend,
+  subtask, ownerEmail, emails, onOpenSheet, onRevert, onResend, onResetTemplate,
 }: SubtaskCardEmailProps) {
   const isBlocked = !!(subtask as any).is_blocked
   const hasRendered = !!(subtask.config as Record<string, unknown>).rendered
@@ -72,16 +73,29 @@ export function SubtaskCardEmail({
         {/* Action buttons */}
         <div className="flex items-center gap-1.5">
           {!subtask.is_completed && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => onOpenSheet(subtask)}
-              disabled={isBlocked}
-            >
-              <Edit className="mr-1 h-3 w-3" />
-              {hasRendered ? 'Continuar Edição' : 'Editar Email'}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onOpenSheet(subtask)}
+                disabled={isBlocked}
+              >
+                <Edit className="mr-1 h-3 w-3" />
+                {hasRendered ? 'Continuar Edição' : 'Editar Email'}
+              </Button>
+              {hasRendered && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-orange-600 hover:text-orange-700"
+                  onClick={() => onResetTemplate(subtask.id)}
+                >
+                  <RotateCcw className="mr-1 h-3 w-3" />
+                  Resetar Template
+                </Button>
+              )}
+            </>
           )}
 
           {subtask.is_completed && (

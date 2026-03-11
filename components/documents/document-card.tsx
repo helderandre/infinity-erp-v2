@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { FileTypeBadge } from '@/components/shared/file-type-badge'
+import { DocIcon } from '@/components/icons/doc-icon'
 import { formatDate } from '@/lib/utils'
 import { STATUS_COLORS } from '@/lib/constants'
 import type { Document } from '@/types/document'
@@ -23,7 +23,7 @@ export function DocumentCard({ document, onPreview, compact = false }: DocumentC
     <Card className="hover:bg-accent/50 transition-colors py-0">
       <CardContent className={compact ? 'p-3' : 'p-4'}>
         <div className="flex items-start gap-3">
-          <FileTypeBadge fileName={document.file_name} />
+          <DocIcon className="h-9 w-9" extension={document.file_name.split('.').pop()} />
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium truncate">{document.doc_type?.name || document.file_name}</p>

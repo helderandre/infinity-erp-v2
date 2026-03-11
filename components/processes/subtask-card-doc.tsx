@@ -1,8 +1,9 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { FileText, Eye, RotateCcw, Edit } from 'lucide-react'
-import { cn, formatDateTime } from '@/lib/utils'
+import { Eye, RotateCcw, Edit } from 'lucide-react'
+import { formatDateTime } from '@/lib/utils'
+import { DocIcon } from '@/components/icons/doc-icon'
 import { SubtaskCardBase, type CardState } from './subtask-card-base'
 import type { ProcSubtask } from '@/types/subtask'
 
@@ -23,7 +24,7 @@ export function SubtaskCardDoc({
     <SubtaskCardBase
       subtask={subtask}
       state={state}
-      icon={<FileText className={cn('h-4 w-4', state === 'completed' ? 'text-emerald-500' : 'text-purple-500')} />}
+      icon={<DocIcon className="h-5 w-5" />}
       typeLabel="Documento"
     >
       <div className="space-y-2 text-xs">

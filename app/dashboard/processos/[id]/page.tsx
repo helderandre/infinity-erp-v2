@@ -491,28 +491,38 @@ export default function ProcessoDetailPage() {
   }, [searchParams, process?.stages])
 
   // Compute stats and filtered stages
-  const { filteredStages, totalTasks, completedTasks, overdueTasks, assignees } = useMemo(() => {
+  const { filteredStages, totalTasks, completedTasks, completedWeight, overdueTasks, assignees } = useMemo(() => {
     if (!process?.stages) {
-      return { filteredStages: [], totalTasks: 0, completedTasks: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[] }
+      return { filteredStages: [], totalTasks: 0, completedTasks: 0, completedWeight: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[] }
     }
 
     const allTasks: ProcessTask[] = process.stages.flatMap((s: ProcessStageWithTasks) => s.tasks)
 
     let total = 0
-    let completed = 0
+    let completedWeight = 0
+    let completedFull = 0
     let overdue = 0
     const assigneeMap = new Map<string, string>()
 
     for (const t of allTasks) {
       total++
-      if (t.status === 'completed' || t.status === 'skipped') completed++
-      if (t.due_date && new Date(t.due_date) < new Date() && !['completed', 'skipped'].includes(t.status ?? '')) {
+      const isComplete = t.status === 'completed' || t.status === 'skipped'
+      if (isComplete) {
+        completedWeight++
+        completedFull++
+      } else if (t.subtasks && t.subtasks.length > 0) {
+        // Contribuição proporcional das subtarefas
+        const done = t.subtasks.filter((s) => s.is_completed).length
+        completedWeight += done / t.subtasks.length
+      }
+      if (t.due_date && new Date(t.due_date) < new Date() && !isComplete) {
         overdue++
       }
       if (t.assigned_to_user) {
         assigneeMap.set(t.assigned_to_user.id, t.assigned_to_user.commercial_name)
       }
     }
+    const completed = completedFull
 
     const assigneeList = Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }))
 
@@ -532,10 +542,10 @@ export default function ProcessoDetailPage() {
       }
     }).filter((s: ProcessStageWithTasks) => s.tasks.length > 0)
 
-    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, overdueTasks: overdue, assignees: assigneeList }
+    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, completedWeight: completedWeight, overdueTasks: overdue, assignees: assigneeList }
   }, [process?.stages, filterStatus, filterPriority, filterAssignee])
 
-  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  const progressPercent = totalTasks > 0 ? Math.round((completedWeight / totalTasks) * 100) : 0
 
   // Determine if process is pending (locks sidebar to 'detalhes' only)
   const isPending = process?.instance

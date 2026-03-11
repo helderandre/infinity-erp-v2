@@ -17,14 +17,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  FileText,
   MoreHorizontal,
   Eye,
   Archive,
   Download,
   ExternalLink,
 } from 'lucide-react'
-import { FileTypeBadge } from '@/components/shared/file-type-badge'
+import { DocIcon } from '@/components/icons/doc-icon'
 import { formatDate } from '@/lib/utils'
 import { STATUS_COLORS } from '@/lib/constants'
 import type { Document } from '@/types/document'
@@ -45,7 +44,7 @@ export function DocumentList({
   if (documents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+        <DocIcon className="h-12 w-12 mb-4" />
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       </div>
     )
@@ -73,7 +72,7 @@ export function DocumentList({
             <TableRow key={doc.id}>
               <TableCell>
                 <div className="flex items-center gap-2.5">
-                  <FileTypeBadge fileName={doc.file_name} className="h-7 w-7" />
+                  <DocIcon className="h-8 w-8" extension={doc.file_name.split('.').pop()} />
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate max-w-[200px]">{doc.doc_type?.name || doc.file_name}</p>
                     <p className="text-xs text-muted-foreground truncate max-w-[200px]">{doc.file_name}</p>

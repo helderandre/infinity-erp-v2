@@ -34,6 +34,45 @@ import { cn } from '@/lib/utils'
 import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { ProcessTask, TaskPriority } from '@/types/process'
+import type { ProcSubtask } from '@/types/subtask'
+
+// Mini progress bar for kanban cards
+function SubtaskProgressBar({ subtasks }: { subtasks: ProcSubtask[] }) {
+  const done = subtasks.filter((s) => s.is_completed).length
+  const total = subtasks.length
+  const pct = Math.round((done / total) * 100)
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all', pct === 100 ? 'bg-emerald-500' : 'bg-primary')}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+        {done}/{total}
+      </span>
+    </div>
+  )
+}
+
+// Compact badge for list variant
+function SubtaskProgressBadge({ subtasks }: { subtasks: ProcSubtask[] }) {
+  const done = subtasks.filter((s) => s.is_completed).length
+  const total = subtasks.length
+  const pct = Math.round((done / total) * 100)
+  return (
+    <Badge variant="outline" className="text-[10px] gap-1.5 px-1.5 py-0 shrink-0 tabular-nums">
+      <div className="h-1 w-8 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {done}/{total}
+    </Badge>
+  )
+}
 
 const STATUS_ICONS = {
   completed: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
@@ -221,6 +260,11 @@ export function ProcessTaskCard({
           )}
         </div>
 
+        {/* Subtask progress bar */}
+        {task.subtasks && task.subtasks.length > 0 && !['completed', 'skipped'].includes(task.status ?? '') && (
+          <SubtaskProgressBar subtasks={task.subtasks} />
+        )}
+
         {/* Row 3: due date + assignee */}
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           {task.due_date ? (
@@ -312,6 +356,11 @@ export function ProcessTaskCard({
           )}
           <span className="truncate max-w-[80px]">{task.owner.name}</span>
         </Badge>
+      )}
+
+      {/* Subtask progress (list variant) */}
+      {task.subtasks && task.subtasks.length > 0 && !['completed', 'skipped'].includes(task.status ?? '') && (
+        <SubtaskProgressBadge subtasks={task.subtasks} />
       )}
 
       {/* Due date */}

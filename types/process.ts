@@ -91,9 +91,12 @@ export interface ProcessOwner {
 export interface ProcessDocument {
   id: string
   doc_type: { id: string; name: string; category: string }
+  doc_type_id: string | null
+  owner_id: string | null
   file_name: string
   file_url: string
   status: string
+  valid_until: string | null
   created_at: string
 }
 

@@ -246,6 +246,7 @@ export function TaskDetailSheet({
         return (
           <TaskDocumentsPanel
             documents={processDocuments || []}
+            owners={owners}
             taskTitle={task.title}
           />
         )

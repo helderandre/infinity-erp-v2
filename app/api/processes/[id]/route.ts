@@ -355,11 +355,10 @@ export async function GET(
       .eq('property_id', data.property?.id)
 
     // Obter documentos do imóvel
-    const { data: documents, error: docsError } = await supabase
-      .from('doc_registry')
-      .select(
-        `
+    const docSelect = `
         id,
+        doc_type_id,
+        owner_id,
         file_name,
         file_url,
         status,
@@ -368,10 +367,29 @@ export async function GET(
         uploaded_by,
         doc_type:doc_types(id, name, category)
       `
-      )
+
+    const { data: propertyDocs } = await supabase
+      .from('doc_registry')
+      .select(docSelect)
       .eq('property_id', data.property?.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
+
+    // Obter documentos reutilizáveis dos proprietários (property_id IS NULL)
+    const ownerIds = owners?.map((po: any) => po.owner?.id).filter(Boolean) ?? []
+    let ownerDocs: typeof propertyDocs = []
+    if (ownerIds.length > 0) {
+      const { data: oDocs } = await supabase
+        .from('doc_registry')
+        .select(docSelect)
+        .in('owner_id', ownerIds)
+        .is('property_id', null)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+      ownerDocs = oDocs ?? []
+    }
+
+    const documents = [...(propertyDocs ?? []), ...(ownerDocs ?? [])]
 
     // Processar dados do imóvel — extrair cover, specs, internal
     if (data.property) {

@@ -126,6 +126,30 @@ export function SubtaskCardList({
     }
   }
 
+  const [resetTemplateTarget, setResetTemplateTarget] = useState<string | null>(null)
+
+  const handleResetTemplate = async (subtaskId: string) => {
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${task.id}/subtasks/${subtaskId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reset_template: true }),
+        }
+      )
+      if (res.ok) {
+        onTaskUpdate()
+        toast.success('Template resetado para o original')
+      } else {
+        toast.error('Erro ao resetar template')
+      }
+    } catch {
+      toast.error('Erro ao resetar template')
+    }
+    setResetTemplateTarget(null)
+  }
+
   const handleOpenEmailSheet = (subtask: ProcSubtask) => {
     const ownerEmail = owners.find(o => o.id === subtask.owner_id)?.email || ''
     setOpenEmailOwnerEmail(ownerEmail)
@@ -148,6 +172,7 @@ export function SubtaskCardList({
             onOpenSheet={handleOpenEmailSheet}
             onRevert={(id) => setRevertTarget(id)}
             onResend={handleResend}
+            onResetTemplate={(id) => setResetTemplateTarget(id)}
           />
         )
       case 'generate_doc':
@@ -268,6 +293,27 @@ export function SubtaskCardList({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Reset template confirmation dialog */}
+      <AlertDialog open={!!resetTemplateTarget} onOpenChange={(open) => { if (!open) setResetTemplateTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resetar template de email</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende resetar o email para o template original? Todas as edições feitas serão perdidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => resetTemplateTarget && handleResetTemplate(resetTemplateTarget)}
+            >
+              Resetar Template
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Sheets */}
       {openEmailSubtask && (
         <SubtaskEmailSheet
@@ -280,6 +326,7 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setOpenEmailSubtask(null) }}
           onComplete={() => onTaskUpdate()}
           onSaveDraft={onTaskUpdate}
+          onResetTemplate={onTaskUpdate}
         />
       )}
 

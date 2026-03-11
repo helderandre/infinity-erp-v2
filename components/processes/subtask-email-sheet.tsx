@@ -90,6 +90,7 @@ interface SubtaskEmailSheetProps {
   onOpenChange: (v: boolean) => void
   onComplete: () => void
   onSaveDraft?: () => void
+  onResetTemplate?: () => void
 }
 
 type SavePayload = { state: string; html: string }
@@ -122,9 +123,12 @@ interface EditorCanvasProps {
   onSaveDraft: (p: SavePayload) => Promise<void>
   onMarkAsSent: (p: SavePayload) => Promise<void>
   onSendEmail: (p: SavePayload) => void
+  onResetTemplate?: () => void
   isSaving: boolean
   isCompleting: boolean
+  isResettingTemplate: boolean
   isCompleted: boolean
+  hasRendered: boolean
 }
 
 function RightSidebar() {
@@ -158,9 +162,12 @@ function EditorCanvas({
   onSaveDraft,
   onMarkAsSent,
   onSendEmail,
+  onResetTemplate,
   isSaving,
   isCompleting,
+  isResettingTemplate,
   isCompleted,
+  hasRendered,
 }: EditorCanvasProps) {
   const { query } = useEditor()
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
@@ -277,25 +284,43 @@ function EditorCanvas({
       {/* Footer */}
       {!isCompleted ? (
         <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onSaveDraft(getPayload())}
-            disabled={isSaving || isCompleting}
-          >
-            {isSaving ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onSaveDraft(getPayload())}
+              disabled={isSaving || isCompleting || isResettingTemplate}
+            >
+              {isSaving ? (
+                <Spinner variant="infinite" size={16} className="mr-2" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Guardar Rascunho
+            </Button>
+            {hasRendered && onResetTemplate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-orange-600 hover:text-orange-700"
+                onClick={onResetTemplate}
+                disabled={isSaving || isCompleting || isResettingTemplate}
+              >
+                {isResettingTemplate ? (
+                  <Spinner variant="infinite" size={16} className="mr-2" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                Resetar Template
+              </Button>
             )}
-            Guardar Rascunho
-          </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onMarkAsSent(getPayload())}
-              disabled={isSaving || isCompleting}
+              disabled={isSaving || isCompleting || isResettingTemplate}
             >
               {isCompleting ? (
                 <Spinner variant="infinite" size={16} className="mr-2" />
@@ -307,7 +332,7 @@ function EditorCanvas({
             <Button
               size="sm"
               onClick={() => onSendEmail(getPayload())}
-              disabled={isSaving || isCompleting}
+              disabled={isSaving || isCompleting || isResettingTemplate}
             >
               <Send className="mr-2 h-4 w-4" />
               Enviar Email
@@ -338,6 +363,7 @@ export function SubtaskEmailSheet({
   onOpenChange,
   onComplete,
   onSaveDraft: onSaveDraftProp,
+  onResetTemplate: onResetTemplateProp,
 }: SubtaskEmailSheetProps) {
   const { user } = useUser()
   const [isLoading, setIsLoading] = useState(false)
@@ -374,6 +400,32 @@ export function SubtaskEmailSheet({
       toast.error('Erro ao reenviar email')
     } finally {
       setIsResending(false)
+    }
+  }
+
+  // Reset template
+  const [isResettingTemplate, setIsResettingTemplate] = useState(false)
+
+  const handleResetTemplate = async () => {
+    setIsResettingTemplate(true)
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtask.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reset_template: true }),
+        }
+      )
+      if (!res.ok) throw new Error('Falha ao resetar')
+      localDraftRef.current = null
+      toast.success('Template resetado para o original')
+      onResetTemplateProp?.()
+      onOpenChange(false)
+    } catch {
+      toast.error('Erro ao resetar template')
+    } finally {
+      setIsResettingTemplate(false)
     }
   }
 
@@ -717,9 +769,12 @@ export function SubtaskEmailSheet({
                   onSaveDraft={handleSaveDraft}
                   onMarkAsSent={handleMarkAsSent}
                   onSendEmail={handleInitiateSend}
+                  onResetTemplate={handleResetTemplate}
                   isSaving={isSaving}
                   isCompleting={isCompleting}
+                  isResettingTemplate={isResettingTemplate}
                   isCompleted={subtask.is_completed}
+                  hasRendered={hasRendered}
                 />
               </Editor>
             </EmailVariablesProvider>

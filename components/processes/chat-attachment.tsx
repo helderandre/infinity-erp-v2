@@ -1,6 +1,7 @@
 'use client'
 
-import { FileText, File, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
+import { DocIcon } from '@/components/icons/doc-icon'
 import { Button } from '@/components/ui/button'
 import type { ChatAttachment as ChatAttachmentType } from '@/types/process'
 
@@ -52,11 +53,11 @@ export function ChatAttachment({ attachment }: ChatAttachmentProps) {
     )
   }
 
-  const Icon = attachment.attachment_type === 'document' ? FileText : File
+  const ext = attachment.file_name.split('.').pop()
 
   return (
     <div className="flex items-center gap-2 rounded-lg border px-3 py-2 mt-1 max-w-xs bg-muted/50">
-      <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+      <DocIcon className="h-8 w-8 shrink-0" extension={ext} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{attachment.file_name}</p>
         {sizeLabel && (

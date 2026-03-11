@@ -367,7 +367,7 @@ function PhoneFieldRenderer({ field, name, control }: FieldRendererProps) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const FIELD_COMPONENTS: Record<FormFieldType, React.ComponentType<any>> = {
   text: TextFieldRenderer,
-  textarea: RichTextFieldRenderer,
+  textarea: TextareaFieldRenderer,
   rich_text: RichTextFieldRenderer,
   number: NumberFieldRenderer,
   currency: CurrencyFieldRenderer,
