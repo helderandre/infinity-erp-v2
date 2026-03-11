@@ -45,7 +45,7 @@ export function DocumentVariablesSidebar({
   }
 
   return (
-    <div className="flex flex-col border-l border-border bg-card w-72 overflow-hidden">
+    <div className="flex flex-col border-l border-border bg-card w-72 h-full max-h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">Variáveis</h3>
         <Button
@@ -58,7 +58,7 @@ export function DocumentVariablesSidebar({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-4">
           {filtered.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma variável.</p>

@@ -1,10 +1,8 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
-import { SearchCommand } from '@/components/layout/search-command'
-import { QuickActions } from '@/components/layout/quick-actions'
-import { NotificationPopover } from '@/components/notifications/notification-popover'
 import { Separator } from '@/components/ui/separator'
 import {
   SidebarInset,
@@ -13,6 +11,19 @@ import {
 } from '@/components/ui/sidebar'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+
+const SearchCommand = dynamic(
+  () => import('@/components/layout/search-command').then((m) => m.SearchCommand),
+  { ssr: false }
+)
+const QuickActions = dynamic(
+  () => import('@/components/layout/quick-actions').then((m) => m.QuickActions),
+  { ssr: false }
+)
+const NotificationPopover = dynamic(
+  () => import('@/components/notifications/notification-popover').then((m) => m.NotificationPopover),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
