@@ -58,14 +58,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, ...orderData } = parsed.data
+    const { items } = parsed.data
     const total_amount = items.reduce((sum, item) => sum + item.price, 0)
 
     // Create order
     const { data: order, error: orderError } = await supabase
       .from('marketing_orders')
       .insert({
-        ...orderData,
         agent_id: user.id,
         total_amount,
         status: 'pending',

@@ -529,6 +529,42 @@ export type Database = {
           },
         ]
       }
+      competitors: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          followers_count: number | null
+          id: string
+          last_synced_at: string | null
+          media_count: number | null
+          profile_pic_url: string | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          followers_count?: number | null
+          id?: string
+          last_synced_at?: string | null
+          media_count?: number | null
+          profile_pic_url?: string | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          followers_count?: number | null
+          id?: string
+          last_synced_at?: string | null
+          media_count?: number | null
+          profile_pic_url?: string | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       consultant_documents: {
         Row: {
           consultant_id: string
@@ -1379,6 +1415,27 @@ export type Database = {
         }
         Relationships: []
       }
+      hidden_ig_conversations: {
+        Row: {
+          conversation_id: string
+          hidden_at: string
+          hidden_by: string
+          id: string
+        }
+        Insert: {
+          conversation_id: string
+          hidden_at?: string
+          hidden_by: string
+          id?: string
+        }
+        Update: {
+          conversation_id?: string
+          hidden_at?: string
+          hidden_by?: string
+          id?: string
+        }
+        Relationships: []
+      }
       kv_store_6f39db24: {
         Row: {
           key: string
@@ -1451,8 +1508,10 @@ export type Database = {
           full_name: string | null
           genero: string | null
           id: string
+          ig_username: string | null
           localidade: string | null
           meio_contacto_preferencial: string | null
+          meta_data: Json | null
           morada: string | null
           morada_empresa: string | null
           nacionalidade: string | null
@@ -1464,6 +1523,7 @@ export type Database = {
           origem: string | null
           pais: string | null
           pais_emissor: string | null
+          platform: string | null
           telefone: string | null
           telefone_empresa: string | null
           telefone_fixo: string | null
@@ -1498,8 +1558,10 @@ export type Database = {
           full_name?: string | null
           genero?: string | null
           id?: string
+          ig_username?: string | null
           localidade?: string | null
           meio_contacto_preferencial?: string | null
+          meta_data?: Json | null
           morada?: string | null
           morada_empresa?: string | null
           nacionalidade?: string | null
@@ -1511,6 +1573,7 @@ export type Database = {
           origem?: string | null
           pais?: string | null
           pais_emissor?: string | null
+          platform?: string | null
           telefone?: string | null
           telefone_empresa?: string | null
           telefone_fixo?: string | null
@@ -1545,8 +1608,10 @@ export type Database = {
           full_name?: string | null
           genero?: string | null
           id?: string
+          ig_username?: string | null
           localidade?: string | null
           meio_contacto_preferencial?: string | null
+          meta_data?: Json | null
           morada?: string | null
           morada_empresa?: string | null
           nacionalidade?: string | null
@@ -1558,6 +1623,7 @@ export type Database = {
           origem?: string | null
           pais?: string | null
           pais_emissor?: string | null
+          platform?: string | null
           telefone?: string | null
           telefone_empresa?: string | null
           telefone_fixo?: string | null
@@ -1709,12 +1775,14 @@ export type Database = {
       }
       marketing_catalog: {
         Row: {
+          billing_cycle: string | null
           category: string
           created_at: string
           description: string
           estimated_delivery_days: number
           id: string
           is_active: boolean
+          is_subscription: boolean
           name: string
           price: number
           requires_property: boolean
@@ -1723,12 +1791,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_cycle?: string | null
           category: string
           created_at?: string
           description?: string
           estimated_delivery_days?: number
           id?: string
           is_active?: boolean
+          is_subscription?: boolean
           name: string
           price: number
           requires_property?: boolean
@@ -1737,12 +1807,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_cycle?: string | null
           category?: string
           created_at?: string
           description?: string
           estimated_delivery_days?: number
           id?: string
           is_active?: boolean
+          is_subscription?: boolean
           name?: string
           price?: number
           requires_property?: boolean
@@ -1751,6 +1823,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      marketing_catalog_addons: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          parent_service_id: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_service_id: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_service_id?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_catalog_addons_parent_service_id_fkey"
+            columns: ["parent_service_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marketing_order_deliverables: {
         Row: {
@@ -1808,6 +1921,9 @@ export type Database = {
           order_id: string
           pack_id: string | null
           price: number
+          quantity: number
+          status: string
+          used_count: number
         }
         Insert: {
           catalog_item_id?: string | null
@@ -1816,6 +1932,9 @@ export type Database = {
           order_id: string
           pack_id?: string | null
           price: number
+          quantity?: number
+          status?: string
+          used_count?: number
         }
         Update: {
           catalog_item_id?: string | null
@@ -1824,6 +1943,9 @@ export type Database = {
           order_id?: string
           pack_id?: string | null
           price?: number
+          quantity?: number
+          status?: string
+          used_count?: number
         }
         Relationships: [
           {
@@ -2059,6 +2181,149 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      marketing_requests: {
+        Row: {
+          access_instructions: string | null
+          address: string | null
+          agent_id: string
+          alternative_date: string | null
+          alternative_time: string | null
+          area_m2: number | null
+          assigned_to: string | null
+          city: string | null
+          confirmed_date: string | null
+          confirmed_time: string | null
+          contact_is_agent: boolean | null
+          contact_name: string | null
+          contact_observations: string | null
+          contact_phone: string | null
+          contact_relationship: string | null
+          created_at: string
+          floor_door: string | null
+          has_exteriors: boolean | null
+          has_facades: boolean | null
+          id: string
+          internal_notes: string | null
+          is_occupied: boolean | null
+          is_staged: boolean | null
+          number_of_divisions: number | null
+          order_item_id: string
+          parish: string | null
+          parking_available: boolean | null
+          postal_code: string | null
+          preferred_date: string | null
+          preferred_time: string | null
+          property_id: string | null
+          property_type: string | null
+          status: string
+          typology: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_instructions?: string | null
+          address?: string | null
+          agent_id: string
+          alternative_date?: string | null
+          alternative_time?: string | null
+          area_m2?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          confirmed_date?: string | null
+          confirmed_time?: string | null
+          contact_is_agent?: boolean | null
+          contact_name?: string | null
+          contact_observations?: string | null
+          contact_phone?: string | null
+          contact_relationship?: string | null
+          created_at?: string
+          floor_door?: string | null
+          has_exteriors?: boolean | null
+          has_facades?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          is_occupied?: boolean | null
+          is_staged?: boolean | null
+          number_of_divisions?: number | null
+          order_item_id: string
+          parish?: string | null
+          parking_available?: boolean | null
+          postal_code?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          property_id?: string | null
+          property_type?: string | null
+          status?: string
+          typology?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_instructions?: string | null
+          address?: string | null
+          agent_id?: string
+          alternative_date?: string | null
+          alternative_time?: string | null
+          area_m2?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          confirmed_date?: string | null
+          confirmed_time?: string | null
+          contact_is_agent?: boolean | null
+          contact_name?: string | null
+          contact_observations?: string | null
+          contact_phone?: string | null
+          contact_relationship?: string | null
+          created_at?: string
+          floor_door?: string | null
+          has_exteriors?: boolean | null
+          has_facades?: boolean | null
+          id?: string
+          internal_notes?: string | null
+          is_occupied?: boolean | null
+          is_staged?: boolean | null
+          number_of_divisions?: number | null
+          order_item_id?: string
+          parish?: string | null
+          parking_available?: boolean | null
+          postal_code?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          property_id?: string | null
+          property_type?: string | null
+          status?: string
+          typology?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       negocios: {
         Row: {
@@ -3551,6 +3816,57 @@ export type Database = {
           id?: string
           name?: string
           permissions?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          ig_container_id: string | null
+          media_type: string | null
+          media_url: string | null
+          platform: string | null
+          published_at: string | null
+          published_post_id: string | null
+          scheduled_for: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          ig_container_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          platform?: string | null
+          published_at?: string | null
+          published_post_id?: string | null
+          scheduled_for: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          ig_container_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          platform?: string | null
+          published_at?: string | null
+          published_post_id?: string | null
+          scheduled_for?: string
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []

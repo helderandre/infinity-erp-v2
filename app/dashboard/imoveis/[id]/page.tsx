@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
+import { PropertyMarketingTab } from '@/components/marketing/property-marketing-tab'
 import {
   ArrowLeft,
   Pencil,
@@ -23,6 +24,7 @@ import {
   User,
   FileText,
   Layers,
+  Megaphone,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -157,6 +159,10 @@ export default function ImovelDetalhePage() {
           <TabsTrigger value="media">Media</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
+          <TabsTrigger value="marketing" className="gap-1.5">
+            <Megaphone className="h-4 w-4" />
+            Marketing
+          </TabsTrigger>
           <TabsTrigger value="processo">Processo</TabsTrigger>
         </TabsList>
 
@@ -377,6 +383,20 @@ export default function ImovelDetalhePage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: Marketing */}
+        <TabsContent value="marketing">
+          <PropertyMarketingTab
+            propertyId={property.id}
+            propertyData={{
+              address_street: property.address_street,
+              postal_code: property.postal_code,
+              city: property.city,
+              zone: property.zone,
+              property_type: property.property_type,
+            }}
+          />
         </TabsContent>
 
         {/* Tab: Processo */}

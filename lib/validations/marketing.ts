@@ -42,41 +42,15 @@ export const createPackSchema = z.object({
 
 export const updatePackSchema = createPackSchema.partial()
 
-// --- Orders ---
+// --- Orders (purchase only — no property/scheduling data needed) ---
 
 export const createOrderSchema = z.object({
-  property_id: z.string().uuid().optional().nullable(),
   items: z.array(z.object({
-    catalog_item_id: z.string().uuid().optional().nullable(),
-    pack_id: z.string().uuid().optional().nullable(),
+    catalog_item_id: z.string().optional().nullable(),
+    pack_id: z.string().optional().nullable(),
     name: z.string().min(1),
     price: z.coerce.number().min(0),
   })).min(1, 'Seleccione pelo menos um item'),
-  // Form data
-  address: z.string().optional().nullable(),
-  postal_code: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  parish: z.string().optional().nullable(),
-  floor_door: z.string().optional().nullable(),
-  access_instructions: z.string().optional().nullable(),
-  preferred_date: z.string().optional().nullable(),
-  preferred_time: z.enum(['morning', 'afternoon', 'all_day']).optional().nullable(),
-  alternative_date: z.string().optional().nullable(),
-  alternative_time: z.enum(['morning', 'afternoon', 'all_day']).optional().nullable(),
-  property_type: z.string().optional().nullable(),
-  typology: z.string().optional().nullable(),
-  area_m2: z.coerce.number().positive().optional().nullable(),
-  has_exteriors: z.boolean().default(false),
-  has_facades: z.boolean().default(false),
-  is_occupied: z.boolean().default(false),
-  is_staged: z.boolean().default(false),
-  number_of_divisions: z.coerce.number().int().positive().optional().nullable(),
-  parking_available: z.boolean().default(false),
-  contact_is_agent: z.boolean().default(true),
-  contact_name: z.string().optional().nullable(),
-  contact_phone: z.string().optional().nullable(),
-  contact_relationship: z.string().optional().nullable(),
-  contact_observations: z.string().optional().nullable(),
 })
 
 // --- Conta Corrente ---

@@ -4,6 +4,8 @@ export type MarketingCategory = 'photography' | 'video' | 'design' | 'physical_m
 
 export type MarketingOrderStatus = 'pending' | 'accepted' | 'scheduled' | 'in_production' | 'delivered' | 'completed' | 'rejected' | 'cancelled'
 
+export type MarketingRequestStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+
 export type ContaCorrenteType = 'DEBIT' | 'CREDIT'
 
 export type ContaCorrenteCategory =
@@ -73,35 +75,8 @@ export interface MarketingOrder {
   total_amount: number
   rejection_reason: string | null
   cancellation_reason: string | null
-  address: string | null
-  postal_code: string | null
-  city: string | null
-  parish: string | null
-  floor_door: string | null
-  access_instructions: string | null
-  preferred_date: string | null
-  preferred_time: string | null
-  alternative_date: string | null
-  alternative_time: string | null
-  property_type: string | null
-  typology: string | null
-  area_m2: number | null
-  has_exteriors: boolean
-  has_facades: boolean
-  is_occupied: boolean
-  is_staged: boolean
-  number_of_divisions: number | null
-  parking_available: boolean
-  contact_is_agent: boolean
-  contact_name: string | null
-  contact_phone: string | null
-  contact_relationship: string | null
-  contact_observations: string | null
   internal_notes: string | null
   assigned_to: string | null
-  confirmed_date: string | null
-  confirmed_time: string | null
-  calendar_event_id: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -117,6 +92,12 @@ export interface MarketingOrderItem {
   pack_id: string | null
   name: string
   price: number
+  status: 'available' | 'used' | 'expired'
+  quantity: number
+  used_count: number
+  // Joined
+  catalog_item?: MarketingCatalogItem
+  pack?: MarketingPack
 }
 
 export interface MarketingOrderDeliverable {
@@ -128,6 +109,50 @@ export interface MarketingOrderDeliverable {
   file_size: number | null
   uploaded_by: string | null
   created_at: string
+}
+
+// --- Marketing Requests (when user "uses" a purchased item) ---
+
+export interface MarketingRequest {
+  id: string
+  order_item_id: string
+  agent_id: string
+  status: MarketingRequestStatus
+  property_id: string | null
+  address: string | null
+  postal_code: string | null
+  city: string | null
+  parish: string | null
+  floor_door: string | null
+  access_instructions: string | null
+  preferred_date: string | null
+  preferred_time: string | null
+  alternative_date: string | null
+  alternative_time: string | null
+  confirmed_date: string | null
+  confirmed_time: string | null
+  property_type: string | null
+  typology: string | null
+  area_m2: number | null
+  has_exteriors: boolean
+  has_facades: boolean
+  is_occupied: boolean
+  is_staged: boolean
+  number_of_divisions: number | null
+  parking_available: boolean
+  contact_is_agent: boolean
+  contact_name: string | null
+  contact_phone: string | null
+  contact_relationship: string | null
+  contact_observations: string | null
+  assigned_to: string | null
+  internal_notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  order_item?: MarketingOrderItem
+  agent?: { id: string; commercial_name: string }
+  property?: { id: string; title: string; slug: string } | null
 }
 
 // --- Conta Corrente ---

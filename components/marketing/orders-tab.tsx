@@ -142,11 +142,7 @@ export function OrdersTab() {
                       {formatCurrency(order.total_amount)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {order.confirmed_date
-                        ? formatDate(order.confirmed_date)
-                        : order.preferred_date
-                          ? formatDate(order.preferred_date)
-                          : '—'}
+                      {formatDate(order.created_at)}
                     </TableCell>
                     <TableCell>
                       {statusConfig && (

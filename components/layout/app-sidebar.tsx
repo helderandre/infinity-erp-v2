@@ -26,6 +26,14 @@ import {
   Bot,
   MessageCircle,
   MessageSquareText,
+  Instagram,
+  BarChart3,
+  Plug,
+  Store,
+  ClipboardList,
+  Blocks,
+  UserCog,
+  UserPlus,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -120,12 +128,6 @@ export const menuItems = [
     permission: 'commissions',
   },
   {
-    title: 'Marketing',
-    icon: Megaphone,
-    href: '/dashboard/marketing',
-    permission: 'marketing',
-  },
-  {
     title: 'Definições',
     icon: Settings,
     href: '/dashboard/definicoes',
@@ -153,6 +155,55 @@ export const builderItems = [
     title: 'Variáveis de Template',
     icon: Braces,
     href: '/dashboard/templates-variaveis',
+  },
+]
+
+export const marketingItems = [
+  {
+    title: 'Loja',
+    icon: Store,
+    href: '/dashboard/marketing/loja',
+  },
+  {
+    title: 'Gestão',
+    icon: ClipboardList,
+    href: '/dashboard/marketing/gestao',
+  },
+  {
+    title: 'Redes Sociais',
+    icon: UserCog,
+    href: '/dashboard/marketing/redes-sociais',
+  },
+]
+
+export const metaItems = [
+  {
+    title: 'Meta Ads',
+    icon: BarChart3,
+    href: '/dashboard/meta-ads',
+  },
+  {
+    title: 'Instagram',
+    icon: Instagram,
+    href: '/dashboard/instagram',
+  },
+  {
+    title: 'Integrações Meta',
+    icon: Plug,
+    href: '/dashboard/definicoes/integracoes/meta',
+  },
+]
+
+export const recrutamentoItems = [
+  {
+    title: 'Candidatos',
+    icon: Users,
+    href: '/dashboard/recrutamento',
+  },
+  {
+    title: 'Formulário',
+    icon: FileText,
+    href: '/dashboard/recrutamento/formulario',
   },
 ]
 
@@ -277,6 +328,7 @@ export function AppSidebar() {
             >
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center">
+                  <Blocks className="mr-1.5 size-3.5" />
                   Builder
                   <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
@@ -285,6 +337,127 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {builderItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {hasPermission('recruitment' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/recrutamento')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  <UserPlus className="mr-1.5 size-3.5" />
+                  Recrutamento
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {recrutamentoItems.map((item) => {
+                      const isActive = item.href === '/dashboard/recrutamento'
+                        ? pathname === item.href || (pathname?.startsWith('/dashboard/recrutamento/') && !pathname?.startsWith('/dashboard/recrutamento/formulario'))
+                        : pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {hasPermission('marketing' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/marketing')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  <Megaphone className="mr-1.5 size-3.5" />
+                  Marketing
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {marketingItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {hasPermission('marketing' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/meta-ads') ||
+                pathname?.startsWith('/dashboard/instagram') ||
+                pathname?.startsWith('/dashboard/definicoes/integracoes/meta')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  <Instagram className="mr-1.5 size-3.5" />
+                  Meta & Instagram
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {metaItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
                       return (
