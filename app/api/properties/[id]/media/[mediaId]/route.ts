@@ -2,22 +2,18 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { deleteImageFromR2 } from '@/lib/r2/images'
 import { R2_PUBLIC_DOMAIN } from '@/lib/r2/client'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string; mediaId: string }> }
 ) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     const { id, mediaId } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
 
@@ -56,16 +52,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; mediaId: string }> }
 ) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     const { mediaId } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Get the media record to extract the R2 key
     const { data: media, error: fetchError } = await supabase

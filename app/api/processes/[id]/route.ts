@@ -2,23 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Verificar se o processo existe e não está já eliminado
     const { data: procRaw, error: procError } = await supabase
@@ -44,7 +40,7 @@ export async function DELETE(
       .from('proc_instances')
       .update({
         deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
+        deleted_by: auth.user.id,
       })
       .eq('id', id)
 
@@ -76,16 +72,16 @@ export async function DELETE(
     const { data: deleter } = await adminSupabase
       .from('dev_users')
       .select('commercial_name')
-      .eq('id', user.id)
+      .eq('id', auth.user.id)
       .single()
 
     const deleterName = deleter?.commercial_name || 'Utilizador'
 
     // Enviar notificação ao criador do processo (se for diferente de quem eliminou)
-    if (proc.requested_by && proc.requested_by !== user.id) {
+    if (proc.requested_by && proc.requested_by !== auth.user.id) {
       await notificationService.create({
         recipientId: proc.requested_by,
-        senderId: user.id,
+        senderId: auth.user.id,
         notificationType: 'process_deleted',
         entityType: 'proc_instance',
         entityId: id,
@@ -100,16 +96,13 @@ export async function DELETE(
     }
 
     // Notificar também gestoras processuais e brokers
-    const managerIds = await notificationService.getUserIdsByRoles([
-      'Broker/CEO',
-      'Gestora Processual',
-    ])
+    const managerIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
     const recipientIds = managerIds.filter(
-      (rid) => rid !== user.id && rid !== proc.requested_by
+      (rid) => rid !== auth.user.id && rid !== proc.requested_by
     )
     if (recipientIds.length > 0) {
       await notificationService.createBatch(recipientIds, {
-        senderId: user.id,
+        senderId: auth.user.id,
         notificationType: 'process_deleted',
         entityType: 'proc_instance',
         entityId: id,
@@ -138,6 +131,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 

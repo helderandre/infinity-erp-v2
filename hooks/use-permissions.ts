@@ -1,30 +1,10 @@
 'use client'
 
 import { useUser } from './use-user'
+import { ADMIN_ROLES } from '@/lib/auth/roles'
+import type { ALL_PERMISSION_MODULES } from '@/lib/auth/roles'
 
-type PermissionModule =
-  | 'dashboard'
-  | 'properties'
-  | 'leads'
-  | 'processes'
-  | 'documents'
-  | 'consultants'
-  | 'owners'
-  | 'teams'
-  | 'commissions'
-  | 'marketing'
-  | 'templates'
-  | 'settings'
-  | 'goals'
-  | 'store'
-  | 'users'
-  | 'buyers'
-  | 'credit'
-  | 'calendar'
-  | 'pipeline'
-  | 'financial'
-  | 'integration'
-  | 'recruitment'
+type PermissionModule = (typeof ALL_PERMISSION_MODULES)[number]
 
 interface Permissions {
   [key: string]: boolean
@@ -49,7 +29,7 @@ export function usePermissions() {
   }
 
   const isBroker = (): boolean => {
-    return user?.role?.name?.toLowerCase() === 'broker/ceo'
+    return ADMIN_ROLES.some((r) => r.toLowerCase() === user?.role?.name?.toLowerCase())
   }
 
   const isTeamLeader = (): boolean => {

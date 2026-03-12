@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { documentStatusSchema } from '@/lib/validations/document'
+import { requirePermission } from '@/lib/auth/permissions'
 
 // GET — detalhe do documento com doc_type e uploaded_by
 export async function GET(
@@ -8,6 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('documents')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -38,15 +42,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('documents')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
     const parsed = documentStatusSchema.safeParse(body)
@@ -81,15 +81,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('documents')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
-    }
 
     const { error } = await supabase
       .from('doc_registry')

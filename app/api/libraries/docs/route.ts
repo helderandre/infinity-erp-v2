@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { requirePermission } from '@/lib/auth/permissions'
 
 const docTemplateCreateSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -15,6 +16,9 @@ const docTemplateCreateSchema = z.object({
 // GET — listar templates de documentos
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
@@ -44,14 +48,10 @@ export async function GET(request: Request) {
 // POST — criar template de documento
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const body = await request.json()
     const parsed = docTemplateCreateSchema.safeParse(body)

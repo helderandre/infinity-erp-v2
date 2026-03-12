@@ -1,8 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('documents')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 

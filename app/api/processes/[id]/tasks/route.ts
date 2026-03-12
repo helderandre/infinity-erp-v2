@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
-import { ADHOC_TASK_ROLES } from '@/lib/constants'
+import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 import { z } from 'zod'
 
 const uuidRegex = /^[0-9a-f-]{36}$/
@@ -49,28 +50,25 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
     const admin = createAdminClient()
     const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
 
-    // 1. Autenticar
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
-
-    // 2. Verificar role autorizado
+    // Verificar role autorizado para tarefas ad-hoc
     const { data: devUser } = await supabase
       .from('dev_users')
       .select('id, commercial_name')
-      .eq('id', user.id)
+      .eq('id', auth.user.id)
       .single()
 
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role:roles(name)')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
       .limit(1)
       .single()
 
@@ -269,7 +267,7 @@ export async function POST(
     try {
       const userName = devUser?.commercial_name || 'Utilizador'
       await logTaskActivity(
-        supabase, taskId, user.id,
+        supabase, taskId, auth.user.id,
         'task_created',
         `${userName} criou tarefa ad-hoc "${data.title}" na fase "${data.stage_name}"`,
         {

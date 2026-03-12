@@ -2,19 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
 import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
 
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     // Parse e validação
     const body = await request.json()
@@ -45,7 +41,7 @@ export async function POST(request: Request) {
         postal_code: data.postal_code,
         latitude: data.latitude,
         longitude: data.longitude,
-        consultant_id: user.id,
+        consultant_id: auth.user.id,
         property_condition: data.property_condition,
         energy_certificate: data.energy_certificate,
       })
@@ -233,7 +229,7 @@ export async function POST(request: Request) {
           doc_type_id: doc.doc_type_id,
           file_url: doc.file_url!,
           file_name: doc.file_name!,
-          uploaded_by: user.id,
+          uploaded_by: auth.user.id,
           valid_until: doc.valid_until || null,
           status: 'active',
           metadata: (doc.metadata || {}) as any,
@@ -258,7 +254,7 @@ export async function POST(request: Request) {
         tpl_process_id: null,
         current_status: 'pending_approval',
         process_type: 'angariacao',
-        requested_by: user.id,
+        requested_by: auth.user.id,
         percent_complete: 0,
       } as any)
       .select('id')
@@ -273,10 +269,10 @@ export async function POST(request: Request) {
 
     // Notificar Gestora Processual + Broker/CEO (evento #1)
     try {
-      const approverIds = await notificationService.getUserIdsByRoles(['Broker/CEO', 'Gestora Processual'])
+      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
         await notificationService.createBatch(approverIds, {
-          senderId: user.id,
+          senderId: auth.user.id,
           notificationType: 'process_created',
           entityType: 'proc_instance',
           entityId: procInstance.id,

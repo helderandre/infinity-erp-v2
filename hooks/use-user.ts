@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import type { Database } from '@/types/database'
+import { ADMIN_ROLES, ALL_PERMISSION_MODULES } from '@/lib/auth/roles'
 
 type DevUser = Database['public']['Tables']['dev_users']['Row']
 type Role = Database['public']['Tables']['roles']['Row']
@@ -73,14 +74,9 @@ export function useUser() {
         // Combinar permissões de todos os roles (OR lógico)
         const userData = devUser as unknown as DevUserWithRoles
 
-        console.log('userData:', userData)
-        console.log('user_roles:', userData.user_roles)
-
         // Se tiver role admin ou Broker/CEO, dar todas as permissões
         const hasAdminRole = userData.user_roles?.some(
-          (ur) =>
-            ur.role.name?.toLowerCase() === 'admin' ||
-            ur.role.name?.toLowerCase() === 'broker/ceo'
+          (ur) => ADMIN_ROLES.some((ar) => ar.toLowerCase() === ur.role.name?.toLowerCase())
         )
 
         // Combinar permissões de todas as roles (qualquer role que tenha a permissão = true)
@@ -88,31 +84,7 @@ export function useUser() {
 
         if (hasAdminRole) {
           // Admin tem todas as permissões
-          const allModules = [
-            'dashboard',
-            'properties',
-            'leads',
-            'processes',
-            'documents',
-            'consultants',
-            'owners',
-            'teams',
-            'commissions',
-            'marketing',
-            'templates',
-            'settings',
-            'goals',
-            'store',
-            'users',
-            'buyers',
-            'credit',
-            'calendar',
-            'pipeline',
-            'financial',
-            'integration',
-            'recruitment',
-          ]
-          allModules.forEach((module) => {
+          ALL_PERMISSION_MODULES.forEach((module) => {
             mergedPermissions[module] = true
           })
         } else {
@@ -151,13 +123,6 @@ export function useUser() {
         })
       } catch (err) {
         console.error('Erro ao carregar utilizador:', err)
-        console.error('Tipo do erro:', typeof err)
-        console.error('Erro stringificado:', JSON.stringify(err, null, 2))
-
-        if (err && typeof err === 'object' && 'message' in err) {
-          console.error('Mensagem do erro:', (err as any).message)
-        }
-
         setError(err instanceof Error ? err : new Error('Erro desconhecido'))
         setUser(null)
       } finally {

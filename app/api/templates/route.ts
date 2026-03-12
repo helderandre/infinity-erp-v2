@@ -1,9 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { templateSchema } from '@/lib/validations/template'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
 
     const { searchParams } = new URL(request.url)
@@ -65,6 +69,9 @@ export async function GET(request: Request) {
 // POST — Criar template completo
 export async function POST(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const body = await request.json()
 

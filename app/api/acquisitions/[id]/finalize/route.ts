@@ -1,22 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Load the proc_instance
     const { data: proc, error: procError } = await supabase
@@ -98,10 +95,10 @@ export async function POST(
 
     // Send notifications
     try {
-      const approverIds = await notificationService.getUserIdsByRoles(['Broker/CEO', 'Gestora Processual'])
+      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
         await notificationService.createBatch(approverIds, {
-          senderId: user.id,
+          senderId: auth.user.id,
           notificationType: 'process_created',
           entityType: 'proc_instance',
           entityId: id,

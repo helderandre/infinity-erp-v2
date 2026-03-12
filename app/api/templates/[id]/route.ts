@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { templateSchema } from '@/lib/validations/template'
+import { requirePermission } from '@/lib/auth/permissions'
 
 // GET — Detalhe do template com fases e tarefas
 export async function GET(
@@ -9,6 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -59,6 +63,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
     const body = await request.json()
@@ -349,6 +356,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)

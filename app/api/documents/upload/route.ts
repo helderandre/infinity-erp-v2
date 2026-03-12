@@ -2,19 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { uploadDocumentToR2, type DocumentContext } from '@/lib/r2/documents'
 import { MAX_FILE_SIZE } from '@/lib/validations/document'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('documents')
+    if (!auth.authorized) return auth.response
 
-    // 1. Autenticacao
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     // 2. Ler FormData
     const formData = await request.formData()
@@ -133,7 +128,7 @@ export async function POST(request: Request) {
           doc_type_id: docTypeId,
           file_url: url,
           file_name: file.name,
-          uploaded_by: user.id,
+          uploaded_by: auth.user.id,
           valid_until: validUntil || null,
           status: 'active',
           metadata: { size: file.size, mimetype: file.type, r2_key: key },
@@ -164,7 +159,7 @@ export async function POST(request: Request) {
         doc_type_id: docTypeId,
         file_url: url,
         file_name: file.name,
-        uploaded_by: user.id,
+        uploaded_by: auth.user.id,
         valid_until: validUntil || null,
         status: 'active',
         metadata: { size: file.size, mimetype: file.type, r2_key: key },

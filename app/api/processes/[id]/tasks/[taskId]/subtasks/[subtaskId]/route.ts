@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
-import { ADHOC_TASK_ROLES } from '@/lib/constants'
+import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 import { z } from 'zod'
 
 const subtaskUpdateSchema = z
@@ -48,19 +49,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; taskId: string; subtaskId: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id, taskId, subtaskId } = await params
     const supabase = await createClient()
     const admin = createAdminClient()
     const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
-
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    }
 
     // Parse e validação
     const body = await request.json()
@@ -145,7 +140,7 @@ export async function PUT(
         const { data: currentUser } = await supabase
           .from('dev_users')
           .select('commercial_name')
-          .eq('id', user.id)
+          .eq('id', auth.user.id)
           .single()
         const userName = currentUser?.commercial_name || 'Utilizador'
         const subtaskTitle = (subtask as any).title as string | undefined
@@ -156,7 +151,7 @@ export async function PUT(
         if (ownerData?.name) parts.push(`para ${ownerData.name}`)
         const suffix = parts.length > 0 ? ` — ${parts.join(' ')}` : ''
 
-        await logTaskActivity(supabase, taskId, user.id, 'template_reset', `${userName} resetou o template de email${suffix}`, {
+        await logTaskActivity(supabase, taskId, auth.user.id, 'template_reset', `${userName} resetou o template de email${suffix}`, {
           subtask_id: subtaskId,
           subtask_title: subtaskTitle,
           ...(ownerData?.name && { owner_name: ownerData.name, owner_id: (subtask as any).owner_id }),
@@ -178,7 +173,7 @@ export async function PUT(
     if (is_completed !== undefined) {
       updateData.is_completed = is_completed
       updateData.completed_at = is_completed ? new Date().toISOString() : null
-      updateData.completed_by = is_completed ? user.id : null
+      updateData.completed_by = is_completed ? auth.user.id : null
     }
 
     if (validation.data.task_result) {
@@ -231,7 +226,7 @@ export async function PUT(
       const { data: currentUser } = await supabase
         .from('dev_users')
         .select('commercial_name')
-        .eq('id', user.id)
+        .eq('id', auth.user.id)
         .single()
       const userName = currentUser?.commercial_name || 'Utilizador'
       const effectiveType = subtaskType || checkType || 'checklist'
@@ -280,11 +275,11 @@ export async function PUT(
       if (is_completed === undefined && rendered_content) {
         // Rascunho guardado
         const label = effectiveType === 'email' ? 'rascunho de email' : 'rascunho de documento'
-        await logTaskActivity(supabase, taskId, user.id, 'draft_generated', `${userName} gerou ${label}${suffix}`, metadata)
+        await logTaskActivity(supabase, taskId, auth.user.id, 'draft_generated', `${userName} gerou ${label}${suffix}`, metadata)
       } else if (is_completed === false) {
         // Subtarefa revertida
         await logTaskActivity(
-          supabase, taskId, user.id,
+          supabase, taskId, auth.user.id,
           'subtask_reverted',
           `${userName} reverteu "${subtaskTitle}"${suffix}`,
           { ...metadata, previous_completed_at: (subtask as any).completed_at }
@@ -292,17 +287,17 @@ export async function PUT(
       } else if (is_completed) {
         // Subtarefa concluída
         if (effectiveType === 'email') {
-          await logTaskActivity(supabase, taskId, user.id, 'email_sent', `${userName} enviou email${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'email_sent', `${userName} enviou email${suffix}`, metadata)
         } else if (effectiveType === 'generate_doc') {
-          await logTaskActivity(supabase, taskId, user.id, 'doc_generated', `${userName} gerou documento${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'doc_generated', `${userName} gerou documento${suffix}`, metadata)
         } else if (effectiveType === 'upload') {
-          await logTaskActivity(supabase, taskId, user.id, 'upload', `${userName} carregou documento${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'upload', `${userName} carregou documento${suffix}`, metadata)
         } else if (effectiveType === 'form') {
-          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} preencheu formulário "${subtaskTitle}"${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'completed', `${userName} preencheu formulário "${subtaskTitle}"${suffix}`, metadata)
         } else if (effectiveType === 'field') {
-          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} preencheu campo "${subtaskTitle}"${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'completed', `${userName} preencheu campo "${subtaskTitle}"${suffix}`, metadata)
         } else {
-          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} concluiu item da checklist${suffix}`, metadata)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'completed', `${userName} concluiu item da checklist${suffix}`, metadata)
         }
       }
     } catch (activityError) {
@@ -329,7 +324,7 @@ export async function PUT(
             eventType: 'on_complete',
             title: (subtask as any).title,
             processRef: proc?.external_ref || '',
-            triggeredBy: user.id,
+            triggeredBy: auth.user.id,
             assignedTo: (subtask as any).assigned_to,
           })
         }
@@ -350,7 +345,7 @@ export async function PUT(
             eventType: 'on_assign',
             title: (subtask as any).title,
             processRef: proc?.external_ref || '',
-            triggeredBy: user.id,
+            triggeredBy: auth.user.id,
             assignedTo: assigned_to,
           })
         }
@@ -386,7 +381,7 @@ export async function PUT(
                 eventType: 'on_unblock',
                 title: depSt.title,
                 processRef: proc?.external_ref || '',
-                triggeredBy: user.id,
+                triggeredBy: auth.user.id,
                 assignedTo: depSt.assigned_to,
               })
             }
@@ -458,7 +453,7 @@ export async function PUT(
             eventType: 'on_complete',
             title: (parentTaskFull as any)?.title || '',
             processRef: procRefParent,
-            triggeredBy: user.id,
+            triggeredBy: auth.user.id,
             assignedTo: (parentTaskFull as any)?.assigned_to,
           })
         }
@@ -480,28 +475,25 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; taskId: string; subtaskId: string }> }
 ) {
   try {
+    const authDel = await requirePermission('processes')
+    if (!authDel.authorized) return authDel.response
+
     const { id, taskId, subtaskId } = await params
     const supabase = await createClient()
     const admin = createAdminClient()
     const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
 
-    // 1. Autenticar
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
-
-    // 2. Verificar role autorizado
+    // Verificar role autorizado para remover subtarefas
     const { data: devUser } = await supabase
       .from('dev_users')
       .select('id, commercial_name')
-      .eq('id', user.id)
+      .eq('id', authDel.user.id)
       .single()
 
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role:roles(name)')
-      .eq('user_id', user.id)
+      .eq('user_id', authDel.user.id)
       .limit(1)
       .single()
 
@@ -575,7 +567,7 @@ export async function DELETE(
       const userName = devUser?.commercial_name || 'Utilizador'
       const stConfig = (subtask as any).config || {}
       await logTaskActivity(
-        supabase, taskId, user.id,
+        supabase, taskId, authDel.user.id,
         'subtask_deleted',
         `${userName} removeu subtarefa "${(subtask as any).title}" da tarefa "${task.title}"`,
         {

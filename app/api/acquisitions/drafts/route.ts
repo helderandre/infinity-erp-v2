@@ -1,17 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     // Get all draft proc_instances for the current user
     const { data: drafts, error } = await supabase
@@ -31,7 +27,7 @@ export async function GET() {
         )
       `)
       .eq('current_status', 'draft')
-      .eq('requested_by', user.id)
+      .eq('requested_by', auth.user.id)
       .order('updated_at', { ascending: false })
 
     if (error) {

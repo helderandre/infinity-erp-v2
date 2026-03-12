@@ -1,9 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { propertySchema } from '@/lib/validations/property'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
@@ -99,15 +103,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const body = await request.json()
 
@@ -123,7 +122,7 @@ export async function POST(request: Request) {
 
     const insertData = {
       ...validation.data,
-      consultant_id: validation.data.consultant_id || user.id,
+      consultant_id: validation.data.consultant_id || auth.user.id,
     }
 
     const { data: property, error } = await supabase

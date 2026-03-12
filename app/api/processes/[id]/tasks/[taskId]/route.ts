@@ -5,7 +5,8 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
-import { ADHOC_TASK_ROLES } from '@/lib/constants'
+import { ADHOC_TASK_ROLES, APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 
 const taskUpdateSchema = z.object({
   action: z.enum(['complete', 'bypass', 'assign', 'start', 'reset', 'update_priority', 'update_due_date']),
@@ -30,17 +31,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id, taskId } = await params
     const supabase = await createClient()
-
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Parse e validação
     const body = await request.json()
@@ -91,7 +86,7 @@ export async function PUT(
         }
         updateData.status = 'in_progress'
         updateData.started_at = new Date().toISOString()
-        updateData.assigned_to = user.id
+        updateData.assigned_to = auth.user.id
         break
 
       case 'complete':
@@ -124,7 +119,7 @@ export async function PUT(
         updateData.status = 'skipped'
         updateData.is_bypassed = true
         updateData.bypass_reason = bypass_reason
-        updateData.bypassed_by = user.id
+        updateData.bypassed_by = auth.user.id
         updateData.completed_at = new Date().toISOString()
         break
 
@@ -150,7 +145,7 @@ export async function PUT(
           const { data: resetRole } = await supabase
             .from('user_roles')
             .select('role:roles(name)')
-            .eq('user_id', user.id)
+            .eq('user_id', auth.user.id)
             .limit(1)
             .single()
           const resetRoleName = (resetRole?.role as any)?.name
@@ -234,19 +229,19 @@ export async function PUT(
       const { data: currentUser } = await supabase
         .from('dev_users')
         .select('commercial_name')
-        .eq('id', user.id)
+        .eq('id', auth.user.id)
         .single()
       const userName = currentUser?.commercial_name || 'Utilizador'
 
       switch (action) {
         case 'start':
-          await logTaskActivity(supabase, taskId, user.id, 'started', `${userName} iniciou a tarefa`)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'started', `${userName} iniciou a tarefa`)
           break
         case 'complete':
-          await logTaskActivity(supabase, taskId, user.id, 'completed', `${userName} concluiu a tarefa`)
+          await logTaskActivity(supabase, taskId, auth.user.id, 'completed', `${userName} concluiu a tarefa`)
           break
         case 'bypass':
-          await logTaskActivity(supabase, taskId, user.id, 'bypass', `${userName} dispensou a tarefa: ${bypass_reason}`, { reason: bypass_reason })
+          await logTaskActivity(supabase, taskId, auth.user.id, 'bypass', `${userName} dispensou a tarefa: ${bypass_reason}`, { reason: bypass_reason })
           break
         case 'assign': {
           const { data: assignedUser } = await supabase
@@ -254,7 +249,7 @@ export async function PUT(
             .select('commercial_name')
             .eq('id', assigned_to!)
             .single()
-          await logTaskActivity(supabase, taskId, user.id, 'assignment', `${userName} atribuiu a tarefa a ${assignedUser?.commercial_name || 'utilizador'}`, {
+          await logTaskActivity(supabase, taskId, auth.user.id, 'assignment', `${userName} atribuiu a tarefa a ${assignedUser?.commercial_name || 'utilizador'}`, {
             old_user_id: task.assigned_to,
             new_user_id: assigned_to,
             new_user_name: assignedUser?.commercial_name,
@@ -262,19 +257,19 @@ export async function PUT(
           break
         }
         case 'update_priority':
-          await logTaskActivity(supabase, taskId, user.id, 'priority_change', `${userName} alterou a prioridade de ${task.priority || 'normal'} para ${priority}`, {
+          await logTaskActivity(supabase, taskId, auth.user.id, 'priority_change', `${userName} alterou a prioridade de ${task.priority || 'normal'} para ${priority}`, {
             old_priority: task.priority || 'normal',
             new_priority: priority,
           })
           break
         case 'update_due_date':
-          await logTaskActivity(supabase, taskId, user.id, 'due_date_change', `${userName} alterou a data limite`, {
+          await logTaskActivity(supabase, taskId, auth.user.id, 'due_date_change', `${userName} alterou a data limite`, {
             old_due_date: task.due_date,
             new_due_date: due_date,
           })
           break
         case 'reset':
-          await logTaskActivity(supabase, taskId, user.id, 'status_change', `${userName} reactivou a tarefa`, {
+          await logTaskActivity(supabase, taskId, auth.user.id, 'status_change', `${userName} reactivou a tarefa`, {
             old_status: task.status,
             new_status: 'pending',
           })
@@ -288,11 +283,11 @@ export async function PUT(
     try {
       const procRef = (task as any).proc_instance?.external_ref || ''
 
-      if (action === 'assign' && assigned_to && assigned_to !== user.id) {
+      if (action === 'assign' && assigned_to && assigned_to !== auth.user.id) {
         // #3: Tarefa atribuída
         await notificationService.create({
           recipientId: assigned_to,
-          senderId: user.id,
+          senderId: auth.user.id,
           notificationType: 'task_assigned',
           entityType: 'proc_task',
           entityId: taskId,
@@ -305,10 +300,10 @@ export async function PUT(
 
       if (action === 'complete') {
         // #4: Tarefa concluída — notificar Gestora Processual
-        const gestoraIds = await notificationService.getUserIdsByRoles(['Gestora Processual'])
+        const gestoraIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
         if (gestoraIds.length > 0) {
           await notificationService.createBatch(gestoraIds, {
-            senderId: user.id,
+            senderId: auth.user.id,
             notificationType: 'task_completed',
             entityType: 'proc_task',
             entityId: taskId,
@@ -320,14 +315,14 @@ export async function PUT(
         }
       }
 
-      if ((action === 'update_priority' || action === 'update_due_date') && task.assigned_to && task.assigned_to !== user.id) {
+      if ((action === 'update_priority' || action === 'update_due_date') && task.assigned_to && task.assigned_to !== auth.user.id) {
         // #9: Tarefa actualizada
         const detail = action === 'update_priority'
           ? `prioridade alterada para ${priority}`
           : `data limite alterada`
         await notificationService.create({
           recipientId: task.assigned_to,
-          senderId: user.id,
+          senderId: auth.user.id,
           notificationType: 'task_updated',
           entityType: 'proc_task',
           entityId: taskId,
@@ -356,7 +351,7 @@ export async function PUT(
             eventType: 'on_complete',
             title: task.title,
             processRef: procRef,
-            triggeredBy: user.id,
+            triggeredBy: auth.user.id,
             assignedTo: task.assigned_to,
           })
         }
@@ -369,7 +364,7 @@ export async function PUT(
             eventType: 'on_assign',
             title: task.title,
             processRef: procRef,
-            triggeredBy: user.id,
+            triggeredBy: auth.user.id,
             assignedTo: assigned_to,
           })
         }
@@ -402,7 +397,7 @@ export async function PUT(
                 eventType: 'on_unblock',
                 title: depTask.title,
                 processRef: procRefUnblock,
-                triggeredBy: user.id,
+                triggeredBy: auth.user.id,
                 assignedTo: depTask.assigned_to,
               })
             }
@@ -432,28 +427,25 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
   try {
+    const authDel = await requirePermission('processes')
+    if (!authDel.authorized) return authDel.response
+
     const { id, taskId } = await params
     const supabase = await createClient()
     const admin = createAdminClient()
     const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
 
-    // 1. Autenticar
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
-
-    // 2. Verificar role autorizado
+    // Verificar role autorizado para remover tarefas
     const { data: devUser } = await supabase
       .from('dev_users')
       .select('id, commercial_name')
-      .eq('id', user.id)
+      .eq('id', authDel.user.id)
       .single()
 
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role:roles(name)')
-      .eq('user_id', user.id)
+      .eq('user_id', authDel.user.id)
       .limit(1)
       .single()
 
@@ -538,7 +530,7 @@ export async function DELETE(
     try {
       const userName = devUser?.commercial_name || 'Utilizador'
       await logTaskActivity(
-        supabase, taskId, user.id,
+        supabase, taskId, authDel.user.id,
         'task_deleted',
         `${userName} removeu tarefa ad-hoc "${task.title}" da fase "${task.stage_name}"`,
         {

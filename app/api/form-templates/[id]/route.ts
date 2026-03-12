@@ -1,19 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
 // GET: Obter form template por ID
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('recruitment')
+    if (!auth.authorized) return auth.response
 
+    const { id } = await params
     const admin = createAdminClient()
     const { data, error } = await admin
       .from('tpl_form_templates')
@@ -35,13 +32,10 @@ export async function GET(_request: Request, { params }: Params) {
 // PUT: Actualizar form template
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('recruitment')
+    if (!auth.authorized) return auth.response
 
+    const { id } = await params
     const body = await request.json()
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
@@ -72,13 +66,10 @@ export async function PUT(request: Request, { params }: Params) {
 // DELETE: Soft delete (is_active = false)
 export async function DELETE(_request: Request, { params }: Params) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('recruitment')
+    if (!auth.authorized) return auth.response
 
+    const { id } = await params
     const admin = createAdminClient()
     const { error } = await admin
       .from('tpl_form_templates')

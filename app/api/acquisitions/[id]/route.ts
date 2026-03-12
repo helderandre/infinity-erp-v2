@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 // GET — Load draft data for resuming
 export async function GET(
@@ -7,16 +8,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Load proc_instance
     const { data: proc, error: procError } = await supabase
@@ -181,16 +177,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authDel = await requirePermission('processes')
+    if (!authDel.authorized) return authDel.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Load proc_instance
     const { data: proc, error: procError } = await supabase

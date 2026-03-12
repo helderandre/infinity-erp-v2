@@ -1,11 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { ownerSchema } from '@/lib/validations/owner'
+import { requirePermission } from '@/lib/auth/permissions'
 
 const PAGE_SIZE = 20
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -69,6 +73,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
 
     // Parse e validação

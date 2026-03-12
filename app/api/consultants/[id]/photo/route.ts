@@ -3,22 +3,18 @@ import { NextResponse } from 'next/server'
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, R2_PUBLIC_DOMAIN } from '@/lib/r2/client'
 import { sanitizeFileName } from '@/lib/r2/documents'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('consultants')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null

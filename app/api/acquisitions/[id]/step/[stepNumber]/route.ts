@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { upsertOwners } from '@/lib/acquisitions/owners'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string; stepNumber: string }> }
 ) {
   try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
     const { id, stepNumber: stepStr } = await params
     const step = parseInt(stepStr, 10)
 
@@ -15,14 +19,6 @@ export async function PUT(
     }
 
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Verify proc_instance exists and belongs to user
     const { data: proc, error: procError } = await supabase
@@ -140,7 +136,7 @@ export async function PUT(
         const d = data as any
         if (d.documents && d.documents.length > 0) {
           const { upsertDocuments } = await import('@/lib/acquisitions/documents')
-          await upsertDocuments(supabase, proc.property_id, user.id, d.documents)
+          await upsertDocuments(supabase, proc.property_id, auth.user.id, d.documents)
         }
         break
       }

@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { ownerSchema } from '@/lib/validations/owner'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -66,6 +70,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -138,6 +145,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 

@@ -1,9 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { emailTemplateSchema } from '@/lib/validations/email-template'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
@@ -32,13 +36,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
     const parsed = emailTemplateSchema.safeParse(body)
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('tpl_email_library')
-      .insert({ ...parsed.data, created_by: user.id })
+      .insert({ ...parsed.data, created_by: auth.user.id })
       .select()
       .single()
 

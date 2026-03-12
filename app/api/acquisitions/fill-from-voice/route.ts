@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(request: Request) {
   try {
@@ -12,12 +12,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
 
     const body = await request.json()
     const { text } = body as { text: string }

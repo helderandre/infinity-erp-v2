@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { requirePermission } from '@/lib/auth/permissions'
 
 const reorderSchema = z.object({
   items: z.array(
@@ -16,16 +17,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
     const validation = reorderSchema.safeParse(body)

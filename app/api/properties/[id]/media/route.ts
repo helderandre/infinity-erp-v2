@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { uploadImageToR2 } from '@/lib/r2/images'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -38,16 +42,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('properties')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null

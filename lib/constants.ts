@@ -440,8 +440,8 @@ export const OWNER_ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   nu_proprietario: { bg: 'bg-slate-100', text: 'text-slate-800' },
 } as const
 
-// Roles que podem gerir tarefas manuais (criar, remover)
-export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+// Re-export de lib/auth/roles.ts (fonte única de verdade)
+export { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 
 // Tipos de Acção de Tarefa
 export const ACTION_TYPES = {

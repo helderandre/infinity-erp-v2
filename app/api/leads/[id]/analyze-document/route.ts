@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import OpenAI from 'openai'
 
 export async function POST(
@@ -7,6 +8,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('leads')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
 
     const apiKey = process.env.OPENAI_API_KEY
@@ -18,11 +22,6 @@ export async function POST(
     }
 
     const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     // Buscar URLs do documento
     const { data: lead, error: leadError } = await supabase

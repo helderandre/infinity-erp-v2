@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createLeadSchema } from '@/lib/validations/lead'
+import { requirePermission } from '@/lib/auth/permissions'
 import type { Database } from '@/types/database'
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert']
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('leads')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
@@ -58,12 +62,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('leads')
+    if (!auth.authorized) return auth.response
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const body = await request.json()
     const validation = createLeadSchema.safeParse(body)

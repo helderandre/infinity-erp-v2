@@ -1,18 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ attachmentId: string }> }
 ) {
   try {
+    const auth = await requirePermission('leads')
+    if (!auth.authorized) return auth.response
+
     const { attachmentId } = await params
     const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const { error } = await supabase
       .from('lead_attachments')

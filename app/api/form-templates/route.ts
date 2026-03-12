@@ -1,15 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 // GET: Listar form templates (filtro opcional por category)
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('recruitment')
+    if (!auth.authorized) return auth.response
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -42,11 +39,8 @@ export async function GET(request: Request) {
 // POST: Criar novo form template
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const auth = await requirePermission('recruitment')
+    if (!auth.authorized) return auth.response
 
     const body = await request.json()
     const { name, description, category, sections } = body
@@ -67,7 +61,7 @@ export async function POST(request: Request) {
         description: description || null,
         category: category || null,
         sections,
-        created_by: user.id,
+        created_by: auth.user.id,
       })
       .select()
       .single()

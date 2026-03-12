@@ -1,18 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
 
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''

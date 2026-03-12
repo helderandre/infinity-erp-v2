@@ -2,9 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { consultantUserSchema } from '@/lib/validations/consultant'
+import { CONSULTANT_ROLES } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('consultants')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
@@ -47,8 +52,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Roles considered as "consultores" (not back-office/admin)
-    const CONSULTANT_ROLES = ['Consultor', 'Consultora Executiva', 'Team Leader']
+    // Filtrar por roles de consultores (importado de lib/auth/roles.ts)
 
     let filtered = data || []
 
@@ -83,16 +87,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requirePermission('consultants')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const admin = createAdminClient()
-
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !authUser) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
     const { user, profile, private_data, role_id, email, password } = body
@@ -171,7 +170,7 @@ export async function POST(request: Request) {
     if (role_id) {
       const { error: roleError } = await admin
         .from('user_roles')
-        .insert({ user_id: userId, role_id, assigned_by: authUser.id })
+        .insert({ user_id: userId, role_id, assigned_by: auth.user.id })
 
       if (roleError) {
         console.error('Erro ao atribuir role:', roleError)

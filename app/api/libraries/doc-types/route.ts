@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { docTypeCreateSchema } from '@/lib/validations/document'
+import { requirePermission } from '@/lib/auth/permissions'
 
 // GET — listar tipos de documento (com filtro opcional por categoria)
 export async function GET(request: Request) {
   try {
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -35,14 +39,10 @@ export async function GET(request: Request) {
 // POST — criar novo tipo de documento
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('settings')
+    if (!auth.authorized) return auth.response
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const body = await request.json()
     const parsed = docTypeCreateSchema.safeParse(body)

@@ -2,12 +2,16 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { updateConsultantSchema } from '@/lib/validations/consultant'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('consultants')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
 
@@ -54,16 +58,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requirePermission('consultants')
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const supabase = await createClient()
-
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !authUser) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
 
     const body = await request.json()
     const validation = updateConsultantSchema.safeParse(body)
@@ -127,7 +126,7 @@ export async function PUT(
       // Assign new role
       const { error: roleError } = await admin
         .from('user_roles')
-        .insert({ user_id: id, role_id: body.role_id, assigned_by: authUser.id })
+        .insert({ user_id: id, role_id: body.role_id, assigned_by: auth.user.id })
 
       if (roleError) {
         console.error('Erro ao actualizar role:', roleError)

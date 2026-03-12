@@ -1,17 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const body = await request.json().catch(() => ({}))
     const { prefillData, negocioId } = body as {
@@ -37,7 +33,7 @@ export async function POST(request: Request) {
         postal_code: prefillData?.postal_code || null,
         latitude: prefillData?.latitude || null,
         longitude: prefillData?.longitude || null,
-        consultant_id: user.id,
+        consultant_id: auth.user.id,
         status: 'draft',
       })
       .select('id')
@@ -79,7 +75,7 @@ export async function POST(request: Request) {
         tpl_process_id: null,
         current_status: 'draft',
         process_type: 'angariacao',
-        requested_by: user.id,
+        requested_by: auth.user.id,
         percent_complete: 0,
         last_completed_step: 0,
         negocio_id: negocioId || null,

@@ -26,6 +26,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
+import { CONSULTANT_ROLES } from '@/lib/auth/roles'
 import type { ConsultantWithProfile } from '@/types/consultant'
 
 const PAGE_SIZE = 50
@@ -109,14 +110,13 @@ function ConsultoresPageContent() {
   }, [debouncedSearch, status, role, page])
 
   const loadRoles = useCallback(async () => {
-    const CONSULTANT_ROLES = ['Consultor', 'Consultora Executiva', 'Team Leader']
     try {
       const res = await fetch('/api/libraries/roles')
       if (res.ok) {
         const data = await res.json()
         setRoles(
           (data || [])
-            .filter((r: { name: string }) => CONSULTANT_ROLES.includes(r.name))
+            .filter((r: { name: string }) => (CONSULTANT_ROLES as readonly string[]).includes(r.name))
             .map((r: { id: string; name: string }) => ({
               id: r.id,
               name: r.name,

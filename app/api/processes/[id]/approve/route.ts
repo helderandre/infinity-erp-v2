@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { autoCompleteTasks, recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
+import { requireRoles } from '@/lib/auth/permissions'
+import { PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 
 const approveSchema = z.object({
   tpl_process_id: z.string().min(1, 'Template obrigatório').regex(
@@ -19,51 +21,12 @@ export async function POST(
     const { id } = await params
     console.log('[APPROVE] Início — process id:', id)
 
+    // Autenticação + verificação de roles
+    const auth = await requireRoles(PROCESS_MANAGER_ROLES)
+    if (!auth.authorized) return auth.response
+    const user = auth.user
+
     const supabase = await createClient()
-
-    // Verificar autenticação
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      console.log('[APPROVE] Auth falhou:', authError?.message)
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
-    console.log('[APPROVE] User autenticado:', user.id)
-
-    // Verificar permissões (apenas Broker/CEO ou Gestora Processual)
-    const { data: devUser, error: devUserError } = await supabase
-      .from('dev_users')
-      .select(
-        `
-        *,
-        user_roles!user_roles_user_id_fkey!inner(
-          role:roles(name, permissions)
-        )
-      `
-      )
-      .eq('id', user.id)
-      .single()
-
-    console.log('[APPROVE] devUser:', devUser ? 'encontrado' : 'null', 'erro:', devUserError?.message)
-
-    const userRoles = ((devUser as any)?.user_roles || []).map(
-      (ur: any) => ur.role?.name
-    ) as string[]
-    console.log('[APPROVE] Roles do user:', userRoles)
-
-    const canApprove = userRoles.some((role) =>
-      ['Broker/CEO', 'Gestora Processual', 'admin'].includes(role)
-    )
-
-    if (!canApprove) {
-      console.log('[APPROVE] Sem permissão — roles:', userRoles)
-      return NextResponse.json(
-        { error: 'Sem permissão para aprovar processos' },
-        { status: 403 }
-      )
-    }
 
     // Parse e validação do body
     console.log('[APPROVE] Request method:', request.method)
