@@ -26,9 +26,9 @@ Fundação da base de dados, migrations, validações e estrutura de templates.
 
 ---
 
-## M03 — Imóveis (Fev 17 – Fev 24)
+## M03 — Imóveis (Fev 17 – Mar 12)
 
-Gestão de propriedades, integração Mapbox, relações proprietários/documentos.
+Gestão de propriedades, integração Mapbox, relações proprietários/documentos, links de anúncios.
 
 | Data | Ficheiro | Tipo |
 |------|----------|------|
@@ -36,6 +36,7 @@ Gestão de propriedades, integração Mapbox, relações proprietários/document
 | 2026-02-17 | mapbox-integration.md | Referência Técnica |
 | 2026-02-24 | PRD-M03-IMOVEIS.md | PRD |
 | 2026-02-24 | SPEC-M03-IMOVEIS.md | Especificação |
+| 2026-03-12 | SPEC-LISTING-LINKS.md | Especificação |
 
 ---
 
@@ -232,4 +233,4 @@ Máscaras de input para percentagem, monetário, data e telefone com Dice UI.
 | Mar 3–6 | M10 Automações, M12 (editor + status/resend) |
 | Mar 10 | M06 (tipos processo), M07 (form subtasks), M08 (document manager), M11 (layout fixes) |
 | Mar 11 | M07 (fix alertas ponta-a-ponta), M09 (proprietários editáveis, dropdown tarefas por owner) |
-| Mar 12 | M13 UI Inputs (mask inputs: percentagem, monetário, data, telefone) |
+| Mar 12 | M03 (listing links), M13 UI Inputs (mask inputs: percentagem, monetário, data, telefone) |

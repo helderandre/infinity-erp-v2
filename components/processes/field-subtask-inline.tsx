@@ -10,10 +10,78 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Check, Loader2, Pencil, Maximize2, Eye } from 'lucide-react'
+import { Check, Loader2, Pencil, Maximize2, Eye, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { FIELD_COMPONENTS } from './dynamic-form-renderer'
-import type { ProcSubtask, FormFieldConfig } from '@/types/subtask'
+import {
+  Glimpse,
+  GlimpseContent,
+  GlimpseTrigger,
+  GlimpseTitle,
+  GlimpseDescription,
+  GlimpseImage,
+} from '@/components/kibo-ui/glimpse'
+import type { ProcSubtask, FormFieldConfig, ListingLink } from '@/types/subtask'
+
+// ─── OG Preview cache + fetcher ──────────────────────────
+type OgData = { title: string | null; description: string | null; image: string | null }
+const ogCache = new Map<string, OgData>()
+
+function LinkPreviewCard({ link }: { link: ListingLink }) {
+  const [og, setOg] = useState<OgData | null>(null)
+
+  useEffect(() => {
+    if (!link.url) return
+    if (ogCache.has(link.url)) {
+      setOg(ogCache.get(link.url)!)
+      return
+    }
+    fetch(`/api/og-preview?url=${encodeURIComponent(link.url)}`)
+      .then((r) => r.json())
+      .then((data: OgData) => {
+        ogCache.set(link.url, data)
+        setOg(data)
+      })
+      .catch(() => setOg({ title: null, description: null, image: null }))
+  }, [link.url])
+
+  return (
+    <Glimpse openDelay={200} closeDelay={100}>
+      <GlimpseTrigger asChild>
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+          {link.site_name}
+        </a>
+      </GlimpseTrigger>
+      <GlimpseContent side="top" className="w-80 p-0 overflow-hidden">
+        {og?.image && (
+          <GlimpseImage
+            src={og.image}
+            alt={og.title || link.site_name}
+            className="mb-0 rounded-none border-0 border-b"
+          />
+        )}
+        <div className="p-3 space-y-1">
+          <GlimpseTitle>{og?.title || link.site_name}</GlimpseTitle>
+          {og?.description && (
+            <GlimpseDescription>{og.description}</GlimpseDescription>
+          )}
+          <p className="truncate text-xs text-muted-foreground/70">{link.url}</p>
+          {link.published_at && (
+            <p className="text-xs text-muted-foreground">
+              Publicado: {new Date(link.published_at).toLocaleDateString('pt-PT')}
+            </p>
+          )}
+        </div>
+      </GlimpseContent>
+    </Glimpse>
+  )
+}
 
 interface FieldSubtaskInlineProps {
   subtask: ProcSubtask
@@ -118,13 +186,43 @@ export function FieldSubtaskInline({
 
   // Read-only state
   if (!editing && subtask.is_completed) {
+    // Special display for link_external (array of objects)
+    if (fieldConfig.field_type === 'link_external' && Array.isArray(currentValue)) {
+      const links = currentValue as ListingLink[]
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{fieldConfig.label}</span>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          {links.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum link adicionado</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {links.map((link, i) => (
+                <LinkPreviewCard key={i} link={link} />
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     const isHtml = typeof currentValue === 'string' && currentValue.startsWith('<')
     const displayValue = currentValue === null || currentValue === undefined
       ? '—'
       : typeof currentValue === 'boolean'
         ? (currentValue ? 'Sim' : 'Não')
         : Array.isArray(currentValue)
-          ? currentValue.join(', ')
+          ? currentValue.map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join(', ')
           : isHtml
             ? '' // rendered below as HTML
             : String(currentValue)

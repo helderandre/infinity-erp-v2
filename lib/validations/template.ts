@@ -55,7 +55,7 @@ export const subtaskSchema = z
             field_type: z.enum([
               'text', 'textarea', 'rich_text', 'number', 'currency', 'percentage',
               'select', 'multiselect', 'checkbox', 'date', 'email', 'phone',
-              'address_map', 'media_upload',
+              'address_map', 'media_upload', 'link_external',
             ]),
             target_entity: z.enum([
               'property', 'property_specs', 'property_internal',
@@ -82,7 +82,7 @@ export const subtaskSchema = z
           field_type: z.enum([
             'text', 'textarea', 'rich_text', 'number', 'currency', 'percentage',
             'select', 'multiselect', 'checkbox', 'date', 'email', 'phone',
-            'address_map', 'media_upload',
+            'address_map', 'media_upload', 'link_external',
           ]),
           target_entity: z.enum([
             'property', 'property_specs', 'property_internal',

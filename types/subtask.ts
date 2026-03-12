@@ -49,6 +49,14 @@ export type FormFieldType =
   | 'rich_text'      // Editor Tiptap (texto rico HTML)
   | 'address_map'    // Mapbox autocomplete + mapa (campo composto)
   | 'media_upload'   // Upload de imagens do imóvel
+  | 'link_external'  // Array de links externos (nome, url, data publicação)
+
+// Estrutura de um link externo de anúncio (listing_links JSONB)
+export interface ListingLink {
+  site_name: string
+  url: string
+  published_at?: string  // ISO date YYYY-MM-DD (opcional)
+}
 
 export interface FormFieldConfig {
   field_name: string

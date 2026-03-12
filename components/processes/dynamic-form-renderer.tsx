@@ -29,6 +29,7 @@ import { resolveOptionsFromConstant } from '@/lib/form-options-resolver'
 import { AddressMapFieldRenderer } from './address-map-field-renderer'
 import { MediaUploadFieldRenderer } from './media-upload-field-renderer'
 import { RichTextFieldRenderer } from './rich-text-field-renderer'
+import { LinkExternalFieldRenderer } from './link-external-field-renderer'
 import type { FormSectionConfig, FormFieldConfig, FormFieldType } from '@/types/subtask'
 import type { Control } from 'react-hook-form'
 
@@ -380,6 +381,7 @@ export const FIELD_COMPONENTS: Record<FormFieldType, React.ComponentType<any>> =
   phone: PhoneFieldRenderer,
   address_map: AddressMapFieldRenderer,
   media_upload: MediaUploadFieldRenderer,
+  link_external: LinkExternalFieldRenderer,
 }
 
 // ─── Zod Schema Builder ──────────────────────────────────
@@ -405,6 +407,19 @@ export function buildZodSchema(sections: FormSectionConfig[]): z.ZodObject<Recor
       if (field.field_type === 'media_upload') {
         const key = `${field.target_entity}__${field.field_name}`
         shape[key] = z.coerce.number().optional().nullable()
+        continue
+      }
+
+      // link_external: array de objectos { site_name, url, published_at? }
+      if (field.field_type === 'link_external') {
+        const key = `${field.target_entity}__${field.field_name}`
+        shape[key] = z.array(
+          z.object({
+            site_name: z.string().min(1, 'Nome do site é obrigatório'),
+            url: z.string().url('URL inválido').min(1, 'Link é obrigatório'),
+            published_at: z.string().optional().default(''),
+          })
+        ).default([])
         continue
       }
 
@@ -532,8 +547,8 @@ export function DynamicFormRenderer({
                       const Component = FIELD_COMPONENTS[field.field_type]
                       if (!Component) return null
 
-                      // address_map e media_upload são sempre full width
-                      const isComposite = field.field_type === 'address_map' || field.field_type === 'media_upload'
+                      // address_map, media_upload e link_external são sempre full width
+                      const isComposite = field.field_type === 'address_map' || field.field_type === 'media_upload' || field.field_type === 'link_external'
                       const colSpan = isComposite ? 'col-span-12' :
                         field.width === 'third' ? 'col-span-12 sm:col-span-4' :
                         field.width === 'half' ? 'col-span-12 sm:col-span-6' :

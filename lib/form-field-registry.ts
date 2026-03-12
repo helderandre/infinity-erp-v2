@@ -297,6 +297,13 @@ export const FIELD_REGISTRY: FieldRegistryEntry[] = [
     target_entity: 'property_internal',
     category: 'Contrato / Dados Internos',
   },
+  {
+    field_name: 'listing_links',
+    label: 'Links de Anúncios',
+    field_type: 'link_external',
+    target_entity: 'property_internal',
+    category: 'Contrato / Dados Internos',
+  },
 
   // ═══════════════════════════════════
   // PROPRIETÁRIO — owners
