@@ -6,7 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createLeadSchema, type CreateLeadInput } from '@/lib/validations/lead'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
+import { phonePTMask } from '@/lib/masks'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -98,10 +100,12 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="telemovel">Telemóvel</Label>
-            <Input
-              id="telemovel"
+            <MaskInput
+              mask={phonePTMask}
               placeholder="+351 9XX XXX XXX"
-              {...register('telemovel')}
+              onValueChange={(_masked, unmasked) => {
+                setValue('telemovel', unmasked)
+              }}
             />
           </div>
         </div>

@@ -6,7 +6,9 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import { MaskInput, type MaskPattern } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
+import { phonePTMask, nifMask } from '@/lib/masks'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,6 +61,7 @@ function EditField({
   type = 'text',
   placeholder,
   onChange,
+  mask,
 }: {
   label: string
   value?: string | null
@@ -67,6 +70,7 @@ function EditField({
   type?: string
   placeholder?: string
   onChange: (v: string) => void
+  mask?: MaskPattern
 }) {
   return (
     <div
@@ -76,13 +80,23 @@ function EditField({
         {icon && <span className="mr-1">{icon}</span>}
         {label}
       </p>
-      <Input
-        type={type}
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || '—'}
-        className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
-      />
+      {mask ? (
+        <MaskInput
+          mask={mask}
+          value={value || ''}
+          onValueChange={(_masked, unmasked) => onChange(unmasked)}
+          placeholder={placeholder || '—'}
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        />
+      ) : (
+        <Input
+          type={type}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || '—'}
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        />
+      )}
     </div>
   )
 }
@@ -288,8 +302,8 @@ export function LeadDataCard({
             <div className="grid grid-cols-2 gap-3">
               {isEditing ? (
                 <>
-                  <EditField icon="📱" label="Telemóvel" value={val('telemovel')} onChange={(v) => onFieldChange('telemovel', v)} />
-                  <EditField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} onChange={(v) => onFieldChange('telefone_fixo', v)} />
+                  <EditField icon="📱" label="Telemóvel" value={val('telemovel')} onChange={(v) => onFieldChange('telemovel', v)} mask={phonePTMask} />
+                  <EditField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} onChange={(v) => onFieldChange('telefone_fixo', v)} mask={phonePTMask} />
                   <EditField icon="✉️" label="Email" value={val('email')} type="email" onChange={(v) => onFieldChange('email', v)} />
                   <SelectField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} options={LEAD_MEIOS_CONTACTO} onChange={(v) => onFieldChange('meio_contacto_preferencial', v)} isEditing />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={(v) => onFieldChange('consentimento_contacto', v)} isEditing />
@@ -334,7 +348,7 @@ export function LeadDataCard({
                   <EditField icon="📅" label="Data de Validade" value={val('data_validade_documento')} type="date" onChange={(v) => onFieldChange('data_validade_documento', v)} />
                   <EditField icon="🌍" label="Nacionalidade" value={val('nacionalidade')} onChange={(v) => onFieldChange('nacionalidade', v)} />
                   <EditField icon="🌐" label="País Emissor" value={val('pais_emissor')} onChange={(v) => onFieldChange('pais_emissor', v)} />
-                  <EditField icon="🏛️" label="NIF" value={val('nif')} onChange={(v) => onFieldChange('nif', v)} />
+                  <EditField icon="🏛️" label="NIF" value={val('nif')} onChange={(v) => onFieldChange('nif', v)} mask={nifMask} />
                 </>
               ) : (
                 <>
@@ -477,7 +491,7 @@ export function LeadDataCard({
                       </div>
                       <EditField icon="🏢" label="Nome da Empresa" value={val('empresa')} onChange={(v) => onFieldChange('empresa', v)} />
                       <EditField icon="📍" label="Morada da Empresa" value={val('morada_empresa')} fullWidth onChange={(v) => onFieldChange('morada_empresa', v)} />
-                      <EditField icon="📞" label="Telefone" value={val('telefone_empresa')} onChange={(v) => onFieldChange('telefone_empresa', v)} />
+                      <EditField icon="📞" label="Telefone" value={val('telefone_empresa')} onChange={(v) => onFieldChange('telefone_empresa', v)} mask={phonePTMask} />
                       <EditField icon="✉️" label="Email" value={val('email_empresa')} type="email" onChange={(v) => onFieldChange('email_empresa', v)} />
                       <EditField icon="🌐" label="Website" value={val('website_empresa')} placeholder="https://" onChange={(v) => onFieldChange('website_empresa', v)} />
                     </>

@@ -29,7 +29,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, HandCoins, ShoppingCart, LayoutList, LayoutGrid, List } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -262,8 +262,7 @@ export default function ProcessosPage() {
   const TYPE_SIDEBAR_ITEMS = [
     { key: 'all', bg: 'bg-foreground', text: 'text-background', dot: '', label: 'Todos', icon: LayoutList },
     { ...PROCESS_TYPES.angariacao, key: 'angariacao', label: 'Angariações', icon: FileSearch },
-    { ...PROCESS_TYPES.venda, key: 'venda', label: 'Vendas', icon: HandCoins },
-    { ...PROCESS_TYPES.compra, key: 'compra', label: 'Compras', icon: ShoppingCart },
+    { ...PROCESS_TYPES.negocio, key: 'negocio', label: 'Negócios', icon: Handshake },
   ]
 
   const sidebarActions: PageSidebarAction[] = [

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -31,6 +32,7 @@ import { OwnerSearch } from '@/components/owners/owner-search'
 import { Loader2, Star, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PERSON_TYPES, MARITAL_STATUS, MARITAL_REGIMES, OWNER_ROLE_COLORS, MARRIED_STATUSES } from '@/lib/constants'
+import { phonePTMask, nifMask, postalCodePTMask } from '@/lib/masks'
 import { cn } from '@/lib/utils'
 import type { OwnerRoleType } from '@/types/owner'
 
@@ -266,7 +268,12 @@ export function OwnerEditSheet({
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-nif">NIF{personType === 'coletiva' ? '/NIPC' : ''}</Label>
-                  <Input id="edit-nif" {...form.register('nif')} maxLength={9} />
+                  <MaskInput
+                    mask={nifMask}
+                    placeholder="123 456 789"
+                    value={form.watch('nif') || ''}
+                    onValueChange={(_masked, unmasked) => form.setValue('nif', unmasked)}
+                  />
                   {form.formState.errors.nif && (
                     <p className="text-sm text-destructive">{form.formState.errors.nif.message}</p>
                   )}
@@ -279,7 +286,12 @@ export function OwnerEditSheet({
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-phone">Telefone</Label>
-                  <Input id="edit-phone" {...form.register('phone')} />
+                  <MaskInput
+                    mask={phonePTMask}
+                    placeholder="+351 9XX XXX XXX"
+                    value={form.watch('phone') || ''}
+                    onValueChange={(_masked, unmasked) => form.setValue('phone', unmasked)}
+                  />
                 </div>
               </div>
 
@@ -290,7 +302,12 @@ export function OwnerEditSheet({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-postal_code">Código Postal</Label>
-                  <Input id="edit-postal_code" {...form.register('postal_code')} />
+                  <MaskInput
+                    mask={postalCodePTMask}
+                    placeholder="1234-567"
+                    value={form.watch('postal_code') || ''}
+                    onValueChange={(_masked, unmasked) => form.setValue('postal_code', unmasked)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-city">Localidade</Label>
@@ -483,7 +500,12 @@ export function OwnerEditSheet({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-legal_representative_nif">NIF do Representante Legal *</Label>
-                      <Input id="edit-legal_representative_nif" {...form.register('legal_representative_nif')} maxLength={9} />
+                      <MaskInput
+                        mask={nifMask}
+                        placeholder="123 456 789"
+                        value={form.watch('legal_representative_nif') || ''}
+                        onValueChange={(_masked, unmasked) => form.setValue('legal_representative_nif', unmasked)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-legal_rep_id_doc">Documento do Representante Legal</Label>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -44,6 +45,24 @@ function NumberInput({
   placeholder?: string
   suffix?: string
 }) {
+  if (suffix === '€') {
+    return (
+      <div className="space-y-2">
+        <Label>{label}</Label>
+        <MaskInput
+          mask="currency"
+          currency="EUR"
+          locale="pt-PT"
+          placeholder="0,00 €"
+          value={form[field] != null ? String(form[field]) : ''}
+          onValueChange={(_masked, unmasked) => {
+            updateField(field, unmasked ? Number(unmasked) : null)
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>

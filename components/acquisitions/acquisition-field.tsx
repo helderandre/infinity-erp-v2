@@ -1,7 +1,9 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
+import { phonePTMask, nifMask, postalCodePTMask } from '@/lib/masks'
 import {
   Select,
   SelectContent,
@@ -79,6 +81,7 @@ export function AcqInputField({
   type = 'text',
   placeholder,
   suffix,
+  maskType,
   required,
   fullWidth,
   className,
@@ -90,11 +93,72 @@ export function AcqInputField({
   type?: string
   placeholder?: string
   suffix?: string
+  maskType?: 'phone' | 'nif' | 'postal_code'
   required?: boolean
   fullWidth?: boolean
   className?: string
   error?: string
 }) {
+  const maskMap = {
+    phone: { mask: phonePTMask, placeholder: '+351 9XX XXX XXX' },
+    nif: { mask: nifMask, placeholder: '123 456 789' },
+    postal_code: { mask: postalCodePTMask, placeholder: '1234-567' },
+  }
+
+  // Currency mask for suffix="€"
+  if (suffix === '€') {
+    return (
+      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+        <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
+        <MaskInput
+          mask="currency"
+          currency="EUR"
+          locale="pt-PT"
+          placeholder="0,00 €"
+          value={value != null ? String(value) : ''}
+          onValueChange={(_masked, unmasked) => onChange(unmasked)}
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        />
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      </AcqFieldWrapper>
+    )
+  }
+
+  // Percentage mask for suffix="%"
+  if (suffix === '%') {
+    return (
+      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+        <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
+        <MaskInput
+          mask="percentage"
+          placeholder="0,00%"
+          value={value != null ? String(value) : ''}
+          onValueChange={(_masked, unmasked) => onChange(unmasked)}
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        />
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      </AcqFieldWrapper>
+    )
+  }
+
+  // Custom mask types (phone, nif, postal_code)
+  if (maskType && maskMap[maskType]) {
+    const { mask, placeholder: maskPlaceholder } = maskMap[maskType]
+    return (
+      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+        <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
+        <MaskInput
+          mask={mask}
+          placeholder={placeholder || maskPlaceholder}
+          value={value != null ? String(value) : ''}
+          onValueChange={(_masked, unmasked) => onChange(unmasked)}
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        />
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      </AcqFieldWrapper>
+    )
+  }
+
   return (
     <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
       <AcqFieldLabel required={required}>{label}</AcqFieldLabel>

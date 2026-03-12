@@ -6,7 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
+import { phonePTMask, nifMask, ibanPTMask, datePTMask, datePTtoISO, isoToDatePT } from '@/lib/masks'
 import { Switch } from '@/components/ui/switch'
 import {
   Form,
@@ -188,10 +190,14 @@ export function ConsultantForm({
                   <FormItem>
                     <FormLabel>Telemóvel Comercial</FormLabel>
                     <FormControl>
-                      <Input
+                      <MaskInput
+                        mask={phonePTMask}
                         placeholder="+351 9XX XXX XXX"
-                        {...field}
                         value={field.value || ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked)
+                        }}
+                        onBlur={field.onBlur}
                       />
                     </FormControl>
                     <FormMessage />
@@ -418,10 +424,14 @@ export function ConsultantForm({
                       <FormItem>
                         <FormLabel>NIF</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="123456789"
-                            {...field}
+                          <MaskInput
+                            mask={nifMask}
+                            placeholder="123 456 789"
                             value={field.value || ''}
+                            onValueChange={(_masked, unmasked) => {
+                              field.onChange(unmasked)
+                            }}
+                            onBlur={field.onBlur}
                           />
                         </FormControl>
                         <FormMessage />
@@ -437,10 +447,14 @@ export function ConsultantForm({
                     <FormItem>
                       <FormLabel>IBAN</FormLabel>
                       <FormControl>
-                        <Input
+                        <MaskInput
+                          mask={ibanPTMask}
                           placeholder="PT50 0000 0000 0000 0000 0000 0"
-                          {...field}
                           value={field.value || ''}
+                          onValueChange={(_masked, unmasked) => {
+                            field.onChange(unmasked)
+                          }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -474,18 +488,18 @@ export function ConsultantForm({
                       <FormItem>
                         <FormLabel>Salário Mensal</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(e.target.value ? Number(e.target.value) : null)
-                            }
+                          <MaskInput
+                            mask="currency"
+                            currency="EUR"
+                            locale="pt-PT"
+                            placeholder="0,00 €"
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(_masked, unmasked) => {
+                              field.onChange(unmasked ? Number(unmasked) : null)
+                            }}
+                            onBlur={field.onBlur}
                           />
                         </FormControl>
-                        <FormDescription>EUR/mês</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -497,20 +511,16 @@ export function ConsultantForm({
                       <FormItem>
                         <FormLabel>Taxa de Comissão</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="100"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(e.target.value ? Number(e.target.value) : null)
-                            }
+                          <MaskInput
+                            mask="percentage"
+                            placeholder="0,00%"
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(_masked, unmasked) => {
+                              field.onChange(unmasked ? Number(unmasked) : null)
+                            }}
+                            onBlur={field.onBlur}
                           />
                         </FormControl>
-                        <FormDescription>%</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -522,7 +532,19 @@ export function ConsultantForm({
                       <FormItem>
                         <FormLabel>Data de Contratação</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} value={field.value || ''} />
+                          <MaskInput
+                            mask={datePTMask}
+                            placeholder="DD/MM/AAAA"
+                            value={field.value ? isoToDatePT(field.value) : ''}
+                            onValueChange={(_masked, unmasked) => {
+                              if (unmasked.length === 8) {
+                                field.onChange(datePTtoISO(unmasked))
+                              } else {
+                                field.onChange(unmasked ? unmasked : '')
+                              }
+                            }}
+                            onBlur={field.onBlur}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -1,7 +1,7 @@
 import type { Database } from './database'
 import type { ProcSubtask } from './subtask'
 
-export type ProcessType = 'angariacao' | 'venda' | 'compra'
+export type ProcessType = 'angariacao' | 'negocio'
 
 type ProcInstance = Database['public']['Tables']['proc_instances']['Row']
 type ProcTask = Database['public']['Tables']['proc_tasks']['Row']

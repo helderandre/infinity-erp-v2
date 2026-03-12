@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { OwnerSearch } from '@/components/owners/owner-search'
 import { OWNER_ROLE_COLORS } from '@/lib/constants'
+import { phonePTMask, nifMask } from '@/lib/masks'
 import { Loader2, Search, UserPlus, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -286,10 +288,11 @@ export function AddOwnerDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label>NIF</Label>
-                  <Input
+                  <MaskInput
+                    mask={nifMask}
+                    placeholder="123 456 789"
                     value={newOwner.nif}
-                    onChange={(e) => setNewOwner((p) => ({ ...p, nif: e.target.value }))}
-                    maxLength={9}
+                    onValueChange={(_masked, unmasked) => setNewOwner((p) => ({ ...p, nif: unmasked }))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -302,9 +305,11 @@ export function AddOwnerDialog({
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label>Telefone</Label>
-                  <Input
+                  <MaskInput
+                    mask={phonePTMask}
+                    placeholder="+351 9XX XXX XXX"
                     value={newOwner.phone}
-                    onChange={(e) => setNewOwner((p) => ({ ...p, phone: e.target.value }))}
+                    onValueChange={(_masked, unmasked) => setNewOwner((p) => ({ ...p, phone: unmasked }))}
                   />
                 </div>
               </div>

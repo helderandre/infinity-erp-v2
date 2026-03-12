@@ -198,7 +198,7 @@ export const stageSchema = z.object({
 export const templateSchema = z.object({
   name: z.string().min(1, 'O nome do template é obrigatório'),
   description: z.string().optional(),
-  process_type: z.enum(['angariacao', 'venda', 'compra'], {
+  process_type: z.enum(['angariacao', 'negocio'], {
     message: 'Tipo de processo obrigatório',
   }),
   stages: z

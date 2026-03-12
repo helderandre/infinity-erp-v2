@@ -1,7 +1,7 @@
-# PRD — Tipos de Processo (Angariação, Compra, Venda)
+# PRD — Tipos de Processo (Angariação, Negócio)
 
-**Data:** 2026-03-10
-**Objectivo:** Adicionar `process_type` a processos e templates para distinguir Angariação, Compra e Venda, com referências sequenciais por tipo (PROC-ANG-YYYY-XXXX, PROC-VND-YYYY-XXXX, PROC-COMP-YYYY-XXXX).
+**Data:** 2026-03-10 (actualizado 2026-03-12)
+**Objectivo:** Adicionar `process_type` a processos e templates para distinguir Angariação e Negócio, com referências sequenciais por tipo (PROC-ANG-YYYY-XXXX, PROC-NEG-YYYY-XXXX).
 
 ---
 
@@ -53,13 +53,11 @@ END;
 | Tipo | Prefixo | Templates | Descrição |
 |------|---------|-----------|-----------|
 | `angariacao` | `ANG` | 1 tipo de template | Captação documental de imóvel |
-| `venda` | `VND` | ~4 tipos de template | Processo de venda (normal, golden visa, etc.) |
-| `compra` | `COMP` | ~4 tipos de template | Processo de compra (normal, crédito, etc.) |
+| `negocio` | `NEG` | ~4 tipos de template | Processo de negócio (venda, compra, golden visa, etc.) |
 
 **Formato da referência:** `PROC-{PREFIXO}-{ANO}-{SEQ_POR_TIPO}`
 - `PROC-ANG-2026-0001`
-- `PROC-VND-2026-0001`
-- `PROC-COMP-2026-0001`
+- `PROC-NEG-2026-0001`
 
 ---
 
@@ -145,11 +143,11 @@ ADD COLUMN process_type TEXT NOT NULL DEFAULT 'angariacao';
 -- Constraint para valores válidos
 ALTER TABLE proc_instances
 ADD CONSTRAINT chk_process_type
-CHECK (process_type IN ('angariacao', 'venda', 'compra'));
+CHECK (process_type IN ('angariacao', 'negocio'));
 
 ALTER TABLE tpl_processes
 ADD CONSTRAINT chk_tpl_process_type
-CHECK (process_type IN ('angariacao', 'venda', 'compra'));
+CHECK (process_type IN ('angariacao', 'negocio'));
 
 -- Índice para queries filtradas por tipo
 CREATE INDEX idx_proc_instances_type ON proc_instances (process_type);
@@ -174,8 +172,7 @@ BEGIN
   -- Determinar prefixo pelo tipo de processo
   v_prefix := CASE NEW.process_type
     WHEN 'angariacao' THEN 'ANG'
-    WHEN 'venda'      THEN 'VND'
-    WHEN 'compra'     THEN 'COMP'
+    WHEN 'negocio'    THEN 'NEG'
     ELSE 'GEN'
   END;
 
@@ -212,8 +209,7 @@ UPDATE proc_instances
 SET external_ref = REPLACE(external_ref, 'PROC-', 'PROC-ANG-')
 WHERE external_ref LIKE 'PROC-20%'
   AND external_ref NOT LIKE 'PROC-ANG-%'
-  AND external_ref NOT LIKE 'PROC-VND-%'
-  AND external_ref NOT LIKE 'PROC-COMP-%';
+  AND external_ref NOT LIKE 'PROC-NEG-%';
 ```
 
 ---
@@ -308,23 +304,14 @@ export const PROCESS_TYPES = {
     icon: 'FileSearch',      // Lucide icon name
     description: 'Captação e validação documental de imóveis',
   },
-  venda: {
-    label: 'Venda',
-    prefix: 'VND',
+  negocio: {
+    label: 'Negócio',
+    prefix: 'NEG',
     bg: 'bg-emerald-100',
     text: 'text-emerald-800',
     dot: 'bg-emerald-500',
-    icon: 'HandCoins',
-    description: 'Processo de venda de imóvel',
-  },
-  compra: {
-    label: 'Compra',
-    prefix: 'COMP',
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
-    dot: 'bg-blue-500',
-    icon: 'ShoppingCart',
-    description: 'Processo de compra de imóvel',
+    icon: 'Handshake',
+    description: 'Processo de negócio de imóvel',
   },
 } as const
 
@@ -335,7 +322,7 @@ export type ProcessType = keyof typeof PROCESS_TYPES
 
 Em [types/process.ts](types/process.ts):
 ```typescript
-export type ProcessType = 'angariacao' | 'venda' | 'compra'
+export type ProcessType = 'angariacao' | 'negocio'
 
 export interface ProcessInstance extends ProcInstance {
   process_type: ProcessType  // ← NOVO
@@ -351,7 +338,7 @@ Em [lib/validations/template.ts](lib/validations/template.ts):
 export const templateSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   description: z.string().optional(),
-  process_type: z.enum(['angariacao', 'venda', 'compra'], {  // ← NOVO
+  process_type: z.enum(['angariacao', 'negocio'], {  // ← NOVO
     required_error: 'Tipo de processo obrigatório',
   }),
   stages: z.array(stageSchema).min(1, 'Pelo menos 1 fase'),
@@ -429,8 +416,7 @@ Duas abordagens possíveis:
   items: [
     { title: 'Todos', url: '/dashboard/processos' },
     { title: 'Angariações', url: '/dashboard/processos?type=angariacao' },
-    { title: 'Vendas', url: '/dashboard/processos?type=venda' },
-    { title: 'Compras', url: '/dashboard/processos?type=compra' },
+    { title: 'Negócios', url: '/dashboard/processos?type=negocio' },
   ],
 }
 ```

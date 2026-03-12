@@ -1,7 +1,7 @@
 # ERP Infinity — Índice de Documentação
 
 > Organizado por módulos, ficheiros ordenados por data de implementação.
-> Total: **99 documentos** | **12 módulos**
+> Total: **100 documentos** | **13 módulos**
 
 ---
 
@@ -210,6 +210,16 @@ Templates de email, editor de email, envio, status e reenvio.
 
 ---
 
+## M13 — UI Inputs (Mar 12)
+
+Máscaras de input para percentagem, monetário, data e telefone com Dice UI.
+
+| Data | Ficheiro | Tipo |
+|------|----------|------|
+| 2026-03-12 | SPEC-MASK-INPUTS.md | Especificação |
+
+---
+
 ## Timeline Geral
 
 | Período | Módulos |
@@ -222,3 +232,4 @@ Templates de email, editor de email, envio, status e reenvio.
 | Mar 3–6 | M10 Automações, M12 (editor + status/resend) |
 | Mar 10 | M06 (tipos processo), M07 (form subtasks), M08 (document manager), M11 (layout fixes) |
 | Mar 11 | M07 (fix alertas ponta-a-ponta), M09 (proprietários editáveis, dropdown tarefas por owner) |
+| Mar 12 | M13 UI Inputs (mask inputs: percentagem, monetário, data, telefone) |

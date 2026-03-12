@@ -19,7 +19,9 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
+import { postalCodePTMask, datePTMask, datePTtoISO, isoToDatePT } from '@/lib/masks'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
@@ -283,13 +285,18 @@ export function PropertyForm({
                 name="listing_price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preco (EUR)</FormLabel>
+                    <FormLabel>Preço (EUR)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      <MaskInput
+                        mask="currency"
+                        currency="EUR"
+                        locale="pt-PT"
+                        placeholder="0,00 €"
+                        value={field.value != null ? String(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked ? Number(unmasked) : undefined)
+                        }}
+                        onBlur={field.onBlur}
                       />
                     </FormControl>
                     <FormMessage />
@@ -716,9 +723,19 @@ export function PropertyForm({
                 name="commission_agreed"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Comissao Acordada</FormLabel>
+                    <FormLabel>Comissão Acordada (EUR)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
+                      <MaskInput
+                        mask="currency"
+                        currency="EUR"
+                        locale="pt-PT"
+                        placeholder="0,00 €"
+                        value={field.value != null ? String(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked ? Number(unmasked) : undefined)
+                        }}
+                        onBlur={field.onBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -766,9 +783,21 @@ export function PropertyForm({
                 name="contract_expiry"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Data de Expiracao</FormLabel>
+                    <FormLabel>Data de Expiração</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <MaskInput
+                        mask={datePTMask}
+                        placeholder="DD/MM/AAAA"
+                        value={field.value ? isoToDatePT(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          if (unmasked.length === 8) {
+                            field.onChange(datePTtoISO(unmasked))
+                          } else {
+                            field.onChange(unmasked ? unmasked : '')
+                          }
+                        }}
+                        onBlur={field.onBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -782,7 +811,17 @@ export function PropertyForm({
                   <FormItem>
                     <FormLabel>IMI (EUR)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
+                      <MaskInput
+                        mask="currency"
+                        currency="EUR"
+                        locale="pt-PT"
+                        placeholder="0,00 €"
+                        value={field.value != null ? String(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked ? Number(unmasked) : undefined)
+                        }}
+                        onBlur={field.onBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -794,9 +833,19 @@ export function PropertyForm({
                 name="condominium_fee"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Condominio (EUR)</FormLabel>
+                    <FormLabel>Condomínio (EUR)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
+                      <MaskInput
+                        mask="currency"
+                        currency="EUR"
+                        locale="pt-PT"
+                        placeholder="0,00 €"
+                        value={field.value != null ? String(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked ? Number(unmasked) : undefined)
+                        }}
+                        onBlur={field.onBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -810,7 +859,15 @@ export function PropertyForm({
                   <FormItem>
                     <FormLabel>CPCV (%)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} max={100} step="0.1" placeholder="0" {...field} />
+                      <MaskInput
+                        mask="percentage"
+                        placeholder="0,00%"
+                        value={field.value != null ? String(field.value) : ''}
+                        onValueChange={(_masked, unmasked) => {
+                          field.onChange(unmasked ? Number(unmasked) : undefined)
+                        }}
+                        onBlur={field.onBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

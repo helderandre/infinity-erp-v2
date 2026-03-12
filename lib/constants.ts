@@ -212,23 +212,14 @@ export const PROCESS_TYPES = {
     icon: 'FileSearch',
     description: 'Captação e validação documental de imóveis',
   },
-  venda: {
-    label: 'Venda',
-    prefix: 'VND',
+  negocio: {
+    label: 'Negócio',
+    prefix: 'NEG',
     bg: 'bg-emerald-100',
     text: 'text-emerald-800',
     dot: 'bg-emerald-500',
-    icon: 'HandCoins',
-    description: 'Processo de venda de imóvel',
-  },
-  compra: {
-    label: 'Compra',
-    prefix: 'COMP',
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
-    dot: 'bg-blue-500',
-    icon: 'ShoppingCart',
-    description: 'Processo de compra de imóvel',
+    icon: 'Handshake',
+    description: 'Processo de negócio de imóvel',
   },
 } as const
 

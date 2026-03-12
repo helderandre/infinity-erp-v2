@@ -5,7 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { ownerSchema, type OwnerFormData } from '@/lib/validations/owner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MaskInput } from '@/components/ui/mask-input'
 import { Label } from '@/components/ui/label'
+import { phonePTMask, nifMask, postalCodePTMask } from '@/lib/masks'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -160,7 +162,14 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="nif">NIF{personType === 'coletiva' ? '/NIPC' : ''}</Label>
-            <Input id="nif" {...form.register('nif')} maxLength={9} />
+            <MaskInput
+              mask={nifMask}
+              placeholder="123 456 789"
+              value={form.watch('nif') || ''}
+              onValueChange={(_masked, unmasked) => {
+                form.setValue('nif', unmasked, { shouldDirty: true })
+              }}
+            />
             {form.formState.errors.nif && (
               <p className="text-sm text-destructive">
                 {form.formState.errors.nif.message}
@@ -180,7 +189,14 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="phone">Telefone</Label>
-            <Input id="phone" {...form.register('phone')} />
+            <MaskInput
+              mask={phonePTMask}
+              placeholder="+351 9XX XXX XXX"
+              value={form.watch('phone') || ''}
+              onValueChange={(_masked, unmasked) => {
+                form.setValue('phone', unmasked, { shouldDirty: true })
+              }}
+            />
           </div>
         </div>
 
@@ -191,7 +207,14 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="postal_code">Código Postal</Label>
-            <Input id="postal_code" {...form.register('postal_code')} />
+            <MaskInput
+              mask={postalCodePTMask}
+              placeholder="1234-567"
+              value={form.watch('postal_code') || ''}
+              onValueChange={(_masked, unmasked) => {
+                form.setValue('postal_code', unmasked, { shouldDirty: true })
+              }}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="city">Localidade</Label>
@@ -417,10 +440,13 @@ export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
                 <Label htmlFor="legal_representative_nif">
                   NIF do Representante Legal *
                 </Label>
-                <Input
-                  id="legal_representative_nif"
-                  {...form.register('legal_representative_nif')}
-                  maxLength={9}
+                <MaskInput
+                  mask={nifMask}
+                  placeholder="123 456 789"
+                  value={form.watch('legal_representative_nif') || ''}
+                  onValueChange={(_masked, unmasked) => {
+                    form.setValue('legal_representative_nif', unmasked, { shouldDirty: true })
+                  }}
                 />
               </div>
               <div className="space-y-2">

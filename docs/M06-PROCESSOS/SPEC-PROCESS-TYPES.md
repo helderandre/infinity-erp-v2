@@ -2,7 +2,7 @@
 
 **Data:** 2026-03-10
 **PRD:** [PRD-PROCESS-TYPES.md](PRD-PROCESS-TYPES.md)
-**Objectivo:** Adicionar `process_type` (`angariacao` | `venda` | `compra`) a processos e templates, com referências sequenciais por tipo.
+**Objectivo:** Adicionar `process_type` (`angariacao` | `negocio`) a processos e templates, com referências sequenciais por tipo.
 
 ---
 
@@ -51,11 +51,11 @@ ADD COLUMN process_type TEXT NOT NULL DEFAULT 'angariacao';
 
 ALTER TABLE proc_instances
 ADD CONSTRAINT chk_process_type
-CHECK (process_type IN ('angariacao', 'venda', 'compra'));
+CHECK (process_type IN ('angariacao', 'negocio'));
 
 ALTER TABLE tpl_processes
 ADD CONSTRAINT chk_tpl_process_type
-CHECK (process_type IN ('angariacao', 'venda', 'compra'));
+CHECK (process_type IN ('angariacao', 'negocio'));
 
 CREATE INDEX idx_proc_instances_type ON proc_instances (process_type);
 CREATE INDEX idx_tpl_processes_type ON tpl_processes (process_type);
@@ -73,8 +73,7 @@ UPDATE proc_instances
 SET external_ref = REPLACE(external_ref, 'PROC-', 'PROC-ANG-')
 WHERE external_ref LIKE 'PROC-20%'
   AND external_ref NOT LIKE 'PROC-ANG-%'
-  AND external_ref NOT LIKE 'PROC-VND-%'
-  AND external_ref NOT LIKE 'PROC-COMP-%';
+  AND external_ref NOT LIKE 'PROC-NEG-%';
 ```
 
 4. **Substituir função `generate_proc_ref()`** — novo formato com prefixo por tipo
@@ -93,8 +92,7 @@ BEGIN
 
   v_prefix := CASE NEW.process_type
     WHEN 'angariacao' THEN 'ANG'
-    WHEN 'venda'      THEN 'VND'
-    WHEN 'compra'     THEN 'COMP'
+    WHEN 'negocio'    THEN 'NEG'
     ELSE 'GEN'
   END;
 
@@ -130,7 +128,7 @@ O trigger `trg_generate_proc_ref` já existe — a função é substituída in-p
 
 ```typescript
 // Adicionar no topo (após imports)
-export type ProcessType = 'angariacao' | 'venda' | 'compra'
+export type ProcessType = 'angariacao' | 'negocio'
 
 // Adicionar à interface ProcessInstance (que extends ProcInstance):
 // O campo virá do DB via ProcInstance, mas declarar explicitamente para clareza:
@@ -171,7 +169,7 @@ export const templateSchema = z.object({
 export const templateSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   description: z.string().optional(),
-  process_type: z.enum(['angariacao', 'venda', 'compra'], {
+  process_type: z.enum(['angariacao', 'negocio'], {
     required_error: 'Tipo de processo obrigatório',
   }),
   stages: z.array(stageSchema).min(1, 'Pelo menos 1 fase'),
@@ -193,23 +191,14 @@ export const PROCESS_TYPES = {
     icon: 'FileSearch',
     description: 'Captação e validação documental de imóveis',
   },
-  venda: {
-    label: 'Venda',
-    prefix: 'VND',
+  negocio: {
+    label: 'Negócio',
+    prefix: 'NEG',
     bg: 'bg-emerald-100',
     text: 'text-emerald-800',
     dot: 'bg-emerald-500',
-    icon: 'HandCoins',
-    description: 'Processo de venda de imóvel',
-  },
-  compra: {
-    label: 'Compra',
-    prefix: 'COMP',
-    bg: 'bg-blue-100',
-    text: 'text-blue-800',
-    dot: 'bg-blue-500',
-    icon: 'ShoppingCart',
-    description: 'Processo de compra de imóvel',
+    icon: 'Handshake',
+    description: 'Processo de negócio de imóvel',
   },
 } as const
 
@@ -346,7 +335,7 @@ const { data: procInstance } = await supabase
   })
 ```
 
-**Nota:** Este endpoint é específico de angariações. Quando se criarem fluxos de venda/compra, terão os seus próprios endpoints.
+**Nota:** Este endpoint é específico de angariações. Quando se criarem fluxos de negócio, terão os seus próprios endpoints.
 
 ### Ficheiro: `app/api/acquisitions/draft/route.ts`
 
@@ -524,11 +513,11 @@ Nota: O card de processo na listagem já mostra template name e status. Se o tip
 
 ### Automatizada:
 - [ ] `npm run build` — sem erros de tipo
-- [ ] Criar template com `process_type: 'venda'` → confirmar que grava correctamente
+- [ ] Criar template com `process_type: 'negocio'` → confirmar que grava correctamente
 - [ ] Criar angariação → `external_ref` deve ser `PROC-ANG-2026-XXXX`
 - [ ] GET `/api/processes?process_type=angariacao` → retorna só angariações
-- [ ] GET `/api/templates?process_type=venda` → retorna só templates de venda
-- [ ] Aprovar processo de angariação com template de venda → deve retornar 400
+- [ ] GET `/api/templates?process_type=negocio` → retorna só templates de negócio
+- [ ] Aprovar processo de angariação com template de negócio → deve retornar 400
 
 ### Manual:
 - [ ] Tabs de tipo na página de processos filtram correctamente
