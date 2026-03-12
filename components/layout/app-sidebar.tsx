@@ -316,47 +316,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {hasPermission('settings' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/templates-email') ||
-                pathname?.startsWith('/dashboard/processos/templates') ||
-                pathname?.startsWith('/dashboard/templates-documentos')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Blocks className="mr-1.5 size-3.5" />
-                  Builder
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {builderItems.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
-        )}
-
         {hasPermission('recruitment' as any) && (
           <SidebarGroup>
             <Collapsible
@@ -500,6 +459,47 @@ export function AppSidebar() {
                       const isActive = item.href === '/dashboard/automacao'
                         ? pathname === item.href
                         : pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                            <Link href={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {hasPermission('settings' as any) && (
+          <SidebarGroup>
+            <Collapsible
+              defaultOpen={
+                pathname?.startsWith('/dashboard/templates-email') ||
+                pathname?.startsWith('/dashboard/processos/templates') ||
+                pathname?.startsWith('/dashboard/templates-documentos')
+              }
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center">
+                  <Blocks className="mr-1.5 size-3.5" />
+                  Builder
+                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {builderItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
 
                       return (
                         <SidebarMenuItem key={item.href}>
