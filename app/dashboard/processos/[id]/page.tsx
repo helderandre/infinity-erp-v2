@@ -649,7 +649,15 @@ export default function ProcessoDetailPage() {
   const sidebarItems: PageSidebarItem[] = [
     { key: 'detalhes', label: 'Detalhes', icon: ClipboardList },
     { key: 'pipeline', label: 'Pipeline', icon: Kanban },
-    { key: 'imovel', label: 'Imóvel', icon: Building2 },
+    {
+      key: 'imovel',
+      label: 'Imóvel',
+      icon: Building2,
+      subItems: [
+        { key: 'imovel:dados', label: 'Dados' },
+        { key: 'imovel:documentos', label: 'Documentos' },
+      ],
+    },
     {
       key: 'proprietarios',
       label: 'Proprietários',
@@ -661,6 +669,11 @@ export default function ProcessoDetailPage() {
 
   const handleSidebarSelect = (key: string) => {
     if (isPending && key !== 'detalhes') return
+    // Clicking parent "Imóvel" defaults to Dados sub-item
+    if (key === 'imovel') {
+      setActiveSection('imovel:dados')
+      return
+    }
     setActiveSection(key)
   }
 
@@ -874,8 +887,12 @@ export default function ProcessoDetailPage() {
           )}
 
           {/* ── IMÓVEL section ── */}
-          {activeSection === 'imovel' && (
-            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} />
+          {(activeSection === 'imovel' || activeSection === 'imovel:dados') && (
+            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} view="dados" />
+          )}
+
+          {activeSection === 'imovel:documentos' && (
+            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} view="documentos" />
           )}
 
           {/* ── PIPELINE section ── */}

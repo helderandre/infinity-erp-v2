@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import { PropertyMarketingTab } from '@/components/marketing/property-marketing-tab'
+import { Progress } from '@/components/ui/progress'
 import {
   ArrowLeft,
   Pencil,
@@ -25,6 +26,10 @@ import {
   FileText,
   Layers,
   Megaphone,
+  ClipboardList,
+  Clock,
+  ExternalLink,
+  FolderOpen,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -35,6 +40,8 @@ import {
   PROPERTY_CONDITIONS,
   ENERGY_CERTIFICATES,
   CONTRACT_REGIMES,
+  PROCESS_STATUS,
+  PROCESS_TYPES,
 } from '@/lib/constants'
 
 export default function ImovelDetalhePage() {
@@ -43,18 +50,22 @@ export default function ImovelDetalhePage() {
   const { property, isLoading, refetch } = useProperty(id)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
-  const [processData, setProcessData] = useState<any>(null)
+  const [processes, setProcesses] = useState<any[]>([])
+  const [processesLoading, setProcessesLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('geral')
 
   // Load process data
   useEffect(() => {
     if (!id) return
+    setProcessesLoading(true)
     fetch(`/api/processes?property_id=${id}`)
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        if (data?.data?.length) setProcessData(data.data[0])
+        const list = Array.isArray(data) ? data : data?.data || []
+        setProcesses(list)
       })
-      .catch(() => {})
+      .catch(() => setProcesses([]))
+      .finally(() => setProcessesLoading(false))
   }, [id])
 
   // Init map for location tab
@@ -401,34 +412,98 @@ export default function ImovelDetalhePage() {
 
         {/* Tab: Processo */}
         <TabsContent value="processo">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Processo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {processData ? (
-                <div className="space-y-3">
-                  <DetailRow label="Referência" value={processData.external_ref} />
-                  <DetailRow label="Estado" value={processData.current_status} />
-                  <DetailRow label="Progresso" value={`${processData.percent_complete || 0}%`} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/processos/${processData.id}`)}
+          {processesLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : processes.length > 0 ? (
+            <div className="space-y-4">
+              {processes.map((proc) => {
+                const statusInfo = PROCESS_STATUS[proc.current_status as keyof typeof PROCESS_STATUS]
+                const typeInfo = proc.process_type ? PROCESS_TYPES[proc.process_type as keyof typeof PROCESS_TYPES] : null
+                const percent = proc.percent_complete || 0
+
+                return (
+                  <Card
+                    key={proc.id}
+                    className="cursor-pointer transition-all hover:shadow-md hover:border-primary/30 p-0"
+                    onClick={() => router.push(`/dashboard/processos/${proc.id}`)}
                   >
-                    Ver Processo
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum processo associado a este imóvel.
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                            <ClipboardList className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">
+                              {proc.external_ref || 'Sem referência'}
+                            </p>
+                            {typeInfo && (
+                              <p className="text-xs text-muted-foreground">{typeInfo.label}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={proc.current_status} type="process" />
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+
+                      {/* Progress */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Progresso</span>
+                          <span className="font-medium">{percent}%</span>
+                        </div>
+                        <Progress value={percent} className="h-2" />
+                      </div>
+
+                      {/* Info Grid */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {proc.tpl_processes?.name && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{proc.tpl_processes.name}</span>
+                          </div>
+                        )}
+                        {proc.requested_by_user?.commercial_name && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <User className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{proc.requested_by_user.commercial_name}</span>
+                          </div>
+                        )}
+                        {proc.started_at && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                            <span>Início: {formatDate(proc.started_at)}</span>
+                          </div>
+                        )}
+                        {proc.updated_at && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5 shrink-0" />
+                            <span>Actualizado: {formatDate(proc.updated_at)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <ClipboardList className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Nenhum processo associado a este imóvel
                 </p>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Os processos serão criados quando o imóvel for submetido para aprovação.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

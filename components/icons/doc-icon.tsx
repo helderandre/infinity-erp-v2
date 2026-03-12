@@ -26,7 +26,7 @@ const EXTENSION_COLORS: Record<string, { bg: string; text: string }> = {
   json: { bg: '#38A169', text: '#FFFFFF' },
 }
 
-const DEFAULT_COLOR = { bg: '#A0AEC0', text: '#FFFFFF' }
+const DEFAULT_COLOR = { bg: 'hsl(var(--primary))', text: '#FFFFFF' }
 
 /** Badge sizing per variant */
 const BADGE_STYLES = {
@@ -60,7 +60,9 @@ function detectSize(className?: string): 'sm' | 'md' | 'lg' {
  */
 export function DocIcon({ className, extension, size }: DocIconProps) {
   const ext = extension?.toLowerCase().replace(/^\./, '')
-  const color = ext ? (EXTENSION_COLORS[ext] ?? DEFAULT_COLOR) : null
+  const hasKnownExt = ext && EXTENSION_COLORS[ext]
+  const badgeLabel = hasKnownExt ? ext : 'doc'
+  const color = hasKnownExt ? EXTENSION_COLORS[ext] : DEFAULT_COLOR
   const badgeSize = size ?? detectSize(className)
 
   return (
@@ -185,14 +187,12 @@ export function DocIcon({ className, extension, size }: DocIconProps) {
       </svg>
 
       {/* Extension badge — bottom-center of document */}
-      {ext && color && (
-        <div
-          className={cn('absolute left-1/2 -translate-x-1/2 uppercase leading-none tracking-wide select-none', BADGE_STYLES[badgeSize])}
-          style={{ backgroundColor: color.bg, color: color.text }}
-        >
-          {ext}
-        </div>
-      )}
+      <div
+        className={cn('absolute left-1/2 -translate-x-1/2 uppercase leading-none tracking-wide select-none', BADGE_STYLES[badgeSize])}
+        style={{ backgroundColor: color.bg, color: color.text }}
+      >
+        {badgeLabel}
+      </div>
     </div>
   )
 }
