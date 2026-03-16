@@ -43,6 +43,7 @@ import {
   Bell,
   ClipboardList,
   TextCursorInput,
+  CalendarPlus,
 } from 'lucide-react'
 import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -60,6 +61,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FileText,
   ClipboardList,
   TextCursorInput,
+  CalendarPlus,
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {

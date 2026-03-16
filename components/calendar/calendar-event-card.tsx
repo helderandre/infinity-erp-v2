@@ -8,17 +8,18 @@ import { cn } from '@/lib/utils'
 // Colors that work in both light and dark mode
 const EVENT_COLORS: Record<CalendarCategory, { bg: string; text: string; dot: string }> = {
   contract_expiry:   { bg: 'bg-amber-500/15 dark:bg-amber-500/25',     text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500' },
-  lead_expiry:       { bg: 'bg-red-500/15 dark:bg-red-500/25',         text: 'text-red-700 dark:text-red-300',         dot: 'bg-red-400' },
+  lead_expiry:       { bg: 'bg-red-500/15 dark:bg-red-500/25',         text: 'text-red-700 dark:text-red-300',         dot: 'bg-red-500' },
   lead_followup:     { bg: 'bg-yellow-500/15 dark:bg-yellow-500/25',   text: 'text-yellow-700 dark:text-yellow-300',   dot: 'bg-yellow-500' },
   process_task:      { bg: 'bg-violet-500/15 dark:bg-violet-500/25',   text: 'text-violet-700 dark:text-violet-300',   dot: 'bg-violet-500' },
-  process_subtask:   { bg: 'bg-fuchsia-500/15 dark:bg-fuchsia-500/25', text: 'text-fuchsia-700 dark:text-fuchsia-300', dot: 'bg-fuchsia-500' },
+  process_subtask:   { bg: 'bg-teal-500/15 dark:bg-teal-500/25',       text: 'text-teal-700 dark:text-teal-300',       dot: 'bg-teal-500' },
   birthday:          { bg: 'bg-pink-500/15 dark:bg-pink-500/25',       text: 'text-pink-700 dark:text-pink-300',       dot: 'bg-pink-500' },
   vacation:          { bg: 'bg-slate-500/15 dark:bg-slate-500/25',     text: 'text-slate-700 dark:text-slate-300',     dot: 'bg-slate-400' },
-  company_event:     { bg: 'bg-purple-500/15 dark:bg-purple-500/25',   text: 'text-purple-700 dark:text-purple-300',   dot: 'bg-purple-500' },
+  company_event:     { bg: 'bg-emerald-500/15 dark:bg-emerald-500/25', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500' },
   marketing_event:   { bg: 'bg-orange-500/15 dark:bg-orange-500/25',   text: 'text-orange-700 dark:text-orange-300',   dot: 'bg-orange-500' },
+  process_event:     { bg: 'bg-cyan-500/15 dark:bg-cyan-500/25',       text: 'text-cyan-700 dark:text-cyan-300',       dot: 'bg-cyan-500' },
   meeting:           { bg: 'bg-indigo-500/15 dark:bg-indigo-500/25',   text: 'text-indigo-700 dark:text-indigo-300',   dot: 'bg-indigo-500' },
-  reminder:          { bg: 'bg-cyan-500/15 dark:bg-cyan-500/25',       text: 'text-cyan-700 dark:text-cyan-300',       dot: 'bg-cyan-500' },
-  custom:            { bg: 'bg-gray-500/15 dark:bg-gray-500/25',       text: 'text-gray-700 dark:text-gray-300',       dot: 'bg-gray-500' },
+  reminder:          { bg: 'bg-sky-500/15 dark:bg-sky-500/25',         text: 'text-sky-700 dark:text-sky-300',         dot: 'bg-sky-500' },
+  custom:            { bg: 'bg-stone-500/15 dark:bg-stone-500/25',     text: 'text-stone-700 dark:text-stone-300',     dot: 'bg-stone-500' },
 }
 
 interface CalendarEventCardProps {

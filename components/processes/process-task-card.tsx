@@ -29,6 +29,7 @@ import {
   Lock,
   FormInput,
   TextCursorInput,
+  CalendarPlus,
   Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -98,6 +99,7 @@ const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
   generate_doc: <FileText className="h-3 w-3" />,
   form: <FormInput className="h-3 w-3" />,
   field: <TextCursorInput className="h-3 w-3" />,
+  schedule_event: <CalendarPlus className="h-3 w-3" />,
 }
 
 
@@ -231,7 +233,7 @@ export function ProcessTaskCard({
                 return types.map((t) => (
                   <Badge key={t} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
                     {SUBTASK_TYPE_ICONS_MAP[t] || <Circle className="h-3 w-3" />}
-                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'form' ? 'Formulário' : t === 'field' ? 'Campo' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
+                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'form' ? 'Formulário' : t === 'field' ? 'Campo' : t === 'schedule_event' ? 'Evento' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
                   </Badge>
                 ))
               })()}

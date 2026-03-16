@@ -6,6 +6,7 @@ export type CalendarCategory =
   // Automáticas (derivadas de processos)
   | 'process_task'
   | 'process_subtask'
+  | 'process_event'
   // Manuais (TEMP_calendar_events)
   | 'birthday'
   | 'vacation'
@@ -44,6 +45,12 @@ export interface CalendarEvent {
   subtask_id?: string
   priority?: 'urgent' | 'normal' | 'low'
   stage_name?: string
+
+  // Evento de processo (schedule_event subtask)
+  proc_subtask_id?: string
+  owner_ids?: string[]
+  owners?: { id: string; name: string }[]
+  attendees?: { id: string; name: string }[]
 }
 
 export interface CalendarFilters {
@@ -71,7 +78,7 @@ export interface CreateCalendarEventInput {
 
 export const ALL_CATEGORIES: CalendarCategory[] = [
   'contract_expiry', 'lead_expiry', 'lead_followup',
-  'process_task', 'process_subtask',
+  'process_task', 'process_subtask', 'process_event',
   'birthday', 'vacation', 'company_event',
   'marketing_event', 'meeting', 'reminder', 'custom',
 ]
@@ -87,6 +94,7 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
   lead_followup: 'Follow-up Lead',
   process_task: 'Tarefa de Processo',
   process_subtask: 'Subtarefa de Processo',
+  process_event: 'Evento de Processo',
   birthday: 'Aniversários',
   vacation: 'Férias / Ausências',
   company_event: 'Eventos Empresa',
@@ -97,18 +105,19 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
 }
 
 export const CALENDAR_CATEGORY_COLORS: Record<CalendarCategory, { bg: string; text: string; dot: string }> = {
-  contract_expiry:   { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500' },
-  lead_expiry:       { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-400' },
-  lead_followup:     { bg: 'bg-yellow-500/15',  text: 'text-yellow-600',  dot: 'bg-yellow-500' },
-  process_task:      { bg: 'bg-violet-500/15',  text: 'text-violet-600',  dot: 'bg-violet-500' },
-  process_subtask:   { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-600', dot: 'bg-fuchsia-500' },
-  birthday:          { bg: 'bg-pink-500/15',    text: 'text-pink-600',    dot: 'bg-pink-500' },
-  vacation:          { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-400' },
-  company_event:     { bg: 'bg-purple-500/15',  text: 'text-purple-600',  dot: 'bg-purple-500' },
-  marketing_event:   { bg: 'bg-orange-500/15',  text: 'text-orange-600',  dot: 'bg-orange-500' },
-  meeting:           { bg: 'bg-indigo-500/15',  text: 'text-indigo-600',  dot: 'bg-indigo-500' },
-  reminder:          { bg: 'bg-cyan-500/15',    text: 'text-cyan-600',    dot: 'bg-cyan-500' },
-  custom:            { bg: 'bg-gray-500/15',    text: 'text-gray-600',    dot: 'bg-gray-500' },
+  contract_expiry:   { bg: 'bg-amber-500/15',    text: 'text-amber-600',    dot: 'bg-amber-500' },
+  lead_expiry:       { bg: 'bg-red-500/15',      text: 'text-red-600',      dot: 'bg-red-500' },
+  lead_followup:     { bg: 'bg-yellow-500/15',   text: 'text-yellow-600',   dot: 'bg-yellow-500' },
+  process_task:      { bg: 'bg-violet-500/15',   text: 'text-violet-600',   dot: 'bg-violet-500' },
+  process_subtask:   { bg: 'bg-teal-500/15',     text: 'text-teal-600',     dot: 'bg-teal-500' },
+  process_event:     { bg: 'bg-cyan-500/15',     text: 'text-cyan-600',     dot: 'bg-cyan-500' },
+  birthday:          { bg: 'bg-pink-500/15',     text: 'text-pink-600',     dot: 'bg-pink-500' },
+  vacation:          { bg: 'bg-slate-500/15',    text: 'text-slate-600',    dot: 'bg-slate-400' },
+  company_event:     { bg: 'bg-emerald-500/15',  text: 'text-emerald-600',  dot: 'bg-emerald-500' },
+  marketing_event:   { bg: 'bg-orange-500/15',   text: 'text-orange-600',   dot: 'bg-orange-500' },
+  meeting:           { bg: 'bg-indigo-500/15',   text: 'text-indigo-600',   dot: 'bg-indigo-500' },
+  reminder:          { bg: 'bg-sky-500/15',      text: 'text-sky-600',      dot: 'bg-sky-500' },
+  custom:            { bg: 'bg-stone-500/15',    text: 'text-stone-600',    dot: 'bg-stone-500' },
 }
 
 // Presets por role — categorias activas por defeito
@@ -117,19 +126,19 @@ export const CALENDAR_ROLE_PRESETS: Record<string, { categories: CalendarCategor
   'admin': { categories: ALL_CATEGORIES, filterSelf: false },
   'Office Manager': { categories: ALL_CATEGORIES, filterSelf: false },
   'Consultor': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: true,
   },
   'Consultora Executiva': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: true,
   },
   'Team Leader': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: false,
   },
   'Gestora Processual': {
-    categories: ['contract_expiry', 'lead_expiry', 'process_task', 'process_subtask', 'meeting', 'reminder'],
+    categories: ['contract_expiry', 'lead_expiry', 'process_task', 'process_subtask', 'process_event', 'meeting', 'reminder'],
     filterSelf: false,
   },
   'Marketing': {

@@ -13,6 +13,9 @@ import {
   GripVertical,
   Pencil,
   Trash2,
+  FormInput,
+  TextCursorInput,
+  CalendarPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskData } from './template-builder'
@@ -34,6 +37,9 @@ function getTaskIcon(subtasks: SubtaskData[]) {
       email: <Mail className="h-3.5 w-3.5 text-amber-500" />,
       generate_doc: <FileText className="h-3.5 w-3.5 text-purple-500" />,
       checklist: <CheckSquare className="h-3.5 w-3.5 text-slate-500" />,
+      form: <FormInput className="h-3.5 w-3.5 text-emerald-500" />,
+      field: <TextCursorInput className="h-3.5 w-3.5 text-cyan-500" />,
+      schedule_event: <CalendarPlus className="h-3.5 w-3.5 text-indigo-500" />,
     }
     return iconMap[subtasks[0].type] || <Layers className="h-3.5 w-3.5 text-muted-foreground" />
   }

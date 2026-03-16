@@ -1,6 +1,6 @@
 import type { AlertsConfig } from './alert'
 
-export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field'
+export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field' | 'schedule_event'
 
 // Tipos de multiplicação por proprietário
 export type OwnerScope = 'none' | 'all_owners' | 'main_contact_only'

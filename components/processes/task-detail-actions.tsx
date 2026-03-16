@@ -55,6 +55,7 @@ import {
   CheckSquare,
   FormInput,
   Type,
+  CalendarPlus,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -110,6 +111,7 @@ export function TaskDetailActions({
     { type: 'generate_doc', label: 'Gerar Documento', icon: FileText },
     { type: 'form', label: 'Formulário', icon: FormInput },
     { type: 'field', label: 'Campo', icon: Type },
+    { type: 'schedule_event', label: 'Agendar Evento', icon: CalendarPlus },
   ]
 
   const openAddSubtask = (type: string) => {

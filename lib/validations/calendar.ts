@@ -14,9 +14,21 @@ export const calendarEventSchema = z.object({
   user_id: z.string().regex(UUID_REGEX).optional().nullable(),
   property_id: z.string().regex(UUID_REGEX).optional().nullable(),
   lead_id: z.string().regex(UUID_REGEX).optional().nullable(),
-  process_id: z.string().regex(UUID_REGEX).optional().nullable(),
   visibility: z.enum(['all', 'team', 'private']).default('all'),
   color: z.string().max(30).optional().nullable(),
 })
 
 export type CalendarEventFormData = z.infer<typeof calendarEventSchema>
+
+// Schema para o modal de agendar evento (subtarefa schedule_event)
+export const scheduleEventSchema = z.object({
+  title: z.string().min(1, 'Título é obrigatório').max(200, 'Título demasiado longo'),
+  description: z.string().max(2000).optional().nullable(),
+  start_date: z.string().min(1, 'Data de início é obrigatória'),
+  end_date: z.string().optional().nullable(),
+  all_day: z.boolean().default(true),
+  owner_ids: z.array(z.string().regex(UUID_REGEX)).default([]),
+  attendee_user_ids: z.array(z.string().regex(UUID_REGEX)).default([]),
+})
+
+export type ScheduleEventFormData = z.infer<typeof scheduleEventSchema>

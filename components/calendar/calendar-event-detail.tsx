@@ -49,18 +49,19 @@ interface CalendarEventDetailProps {
 
 // Dark-mode-safe colors (same as event-card)
 const DETAIL_COLORS: Record<string, { bg: string; text: string; dot: string; border: string }> = {
-  contract_expiry:   { bg: 'bg-amber-500/10',   text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500',   border: 'border-amber-500/20' },
-  lead_expiry:       { bg: 'bg-red-500/10',     text: 'text-red-700 dark:text-red-300',         dot: 'bg-red-400',     border: 'border-red-500/20' },
-  lead_followup:     { bg: 'bg-yellow-500/10',  text: 'text-yellow-700 dark:text-yellow-300',   dot: 'bg-yellow-500',  border: 'border-yellow-500/20' },
-  process_task:      { bg: 'bg-violet-500/10',  text: 'text-violet-700 dark:text-violet-300',   dot: 'bg-violet-500',  border: 'border-violet-500/20' },
-  process_subtask:   { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-700 dark:text-fuchsia-300', dot: 'bg-fuchsia-500', border: 'border-fuchsia-500/20' },
-  birthday:          { bg: 'bg-pink-500/10',    text: 'text-pink-700 dark:text-pink-300',       dot: 'bg-pink-500',    border: 'border-pink-500/20' },
-  vacation:          { bg: 'bg-slate-500/10',   text: 'text-slate-700 dark:text-slate-300',     dot: 'bg-slate-400',   border: 'border-slate-500/20' },
-  company_event:     { bg: 'bg-purple-500/10',  text: 'text-purple-700 dark:text-purple-300',   dot: 'bg-purple-500',  border: 'border-purple-500/20' },
-  marketing_event:   { bg: 'bg-orange-500/10',  text: 'text-orange-700 dark:text-orange-300',   dot: 'bg-orange-500',  border: 'border-orange-500/20' },
-  meeting:           { bg: 'bg-indigo-500/10',  text: 'text-indigo-700 dark:text-indigo-300',   dot: 'bg-indigo-500',  border: 'border-indigo-500/20' },
-  reminder:          { bg: 'bg-cyan-500/10',    text: 'text-cyan-700 dark:text-cyan-300',       dot: 'bg-cyan-500',    border: 'border-cyan-500/20' },
-  custom:            { bg: 'bg-gray-500/10',    text: 'text-gray-700 dark:text-gray-300',       dot: 'bg-gray-500',    border: 'border-gray-500/20' },
+  contract_expiry:   { bg: 'bg-amber-500/10',    text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500',   border: 'border-amber-500/20' },
+  lead_expiry:       { bg: 'bg-red-500/10',      text: 'text-red-700 dark:text-red-300',         dot: 'bg-red-500',     border: 'border-red-500/20' },
+  lead_followup:     { bg: 'bg-yellow-500/10',   text: 'text-yellow-700 dark:text-yellow-300',   dot: 'bg-yellow-500',  border: 'border-yellow-500/20' },
+  process_task:      { bg: 'bg-violet-500/10',   text: 'text-violet-700 dark:text-violet-300',   dot: 'bg-violet-500',  border: 'border-violet-500/20' },
+  process_subtask:   { bg: 'bg-teal-500/10',     text: 'text-teal-700 dark:text-teal-300',       dot: 'bg-teal-500',    border: 'border-teal-500/20' },
+  process_event:     { bg: 'bg-cyan-500/10',     text: 'text-cyan-700 dark:text-cyan-300',       dot: 'bg-cyan-500',    border: 'border-cyan-500/20' },
+  birthday:          { bg: 'bg-pink-500/10',     text: 'text-pink-700 dark:text-pink-300',       dot: 'bg-pink-500',    border: 'border-pink-500/20' },
+  vacation:          { bg: 'bg-slate-500/10',    text: 'text-slate-700 dark:text-slate-300',     dot: 'bg-slate-400',   border: 'border-slate-500/20' },
+  company_event:     { bg: 'bg-emerald-500/10',  text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', border: 'border-emerald-500/20' },
+  marketing_event:   { bg: 'bg-orange-500/10',   text: 'text-orange-700 dark:text-orange-300',   dot: 'bg-orange-500',  border: 'border-orange-500/20' },
+  meeting:           { bg: 'bg-indigo-500/10',   text: 'text-indigo-700 dark:text-indigo-300',   dot: 'bg-indigo-500',  border: 'border-indigo-500/20' },
+  reminder:          { bg: 'bg-sky-500/10',      text: 'text-sky-700 dark:text-sky-300',         dot: 'bg-sky-500',     border: 'border-sky-500/20' },
+  custom:            { bg: 'bg-stone-500/10',    text: 'text-stone-700 dark:text-stone-300',     dot: 'bg-stone-500',   border: 'border-stone-500/20' },
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -83,7 +84,8 @@ export function CalendarEventDetail({
   const colors = DETAIL_COLORS[event.category] ?? DETAIL_COLORS.custom
   const categoryLabel = CALENDAR_CATEGORY_LABELS[event.category]
   const isManual = event.source === 'manual'
-  const isProcessEvent = event.category === 'process_task' || event.category === 'process_subtask'
+  const isProcessEvent = event.category === 'process_task' || event.category === 'process_subtask' || event.category === 'process_event'
+  const isScheduledEvent = event.category === 'process_event'
 
   const formatEventDate = (dateStr: string, allDay: boolean) => {
     const date = parseISO(dateStr)
@@ -250,6 +252,46 @@ export function CalendarEventDetail({
                     </div>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </Link>
+                </div>
+              </>
+            )}
+
+            {/* Owners (for process_event) */}
+            {isScheduledEvent && event.owners && event.owners.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <User className="h-3.5 w-3.5" />
+                    Proprietários
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {event.owners.map((owner) => (
+                      <Badge key={owner.id} variant="secondary" className="text-xs">
+                        {owner.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Attendees (for process_event) */}
+            {isScheduledEvent && event.attendees && event.attendees.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <User className="h-3.5 w-3.5" />
+                    Participantes
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {event.attendees.map((attendee) => (
+                      <Badge key={attendee.id} variant="outline" className="text-xs">
+                        {attendee.name}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

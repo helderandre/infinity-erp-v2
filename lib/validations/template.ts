@@ -8,7 +8,7 @@ export const subtaskSchema = z
     description: z.string().optional(),
     is_mandatory: z.boolean().default(true),
     order_index: z.number().int().min(0),
-    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field'], {
+    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field', 'schedule_event'], {
       message: 'Tipo de subtarefa inválido',
     }),
     // Prazo, responsável, prioridade

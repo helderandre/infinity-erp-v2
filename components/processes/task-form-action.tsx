@@ -21,6 +21,7 @@ import {
   Mail,
   FileText,
   CheckSquare,
+  CalendarPlus,
   Eye,
   MailCheck,
   MailOpen,
@@ -94,6 +95,7 @@ export function TaskFormAction({
     checklist: <CheckSquare className="h-3.5 w-3.5 text-slate-500" />,
     email: <Mail className="h-3.5 w-3.5 text-amber-500" />,
     generate_doc: <FileText className="h-3.5 w-3.5 text-purple-500" />,
+    schedule_event: <CalendarPlus className="h-3.5 w-3.5 text-indigo-500" />,
   }
 
   const handleToggle = async (subtask: ProcSubtask) => {

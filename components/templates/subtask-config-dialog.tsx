@@ -36,6 +36,7 @@ import {
   Info,
   ClipboardList,
   TextCursorInput,
+  CalendarPlus,
 } from 'lucide-react'
 import {
   SUBTASK_TYPE_LABELS,
@@ -73,6 +74,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   generate_doc: FileText,
   form: ClipboardList,
   field: TextCursorInput,
+  schedule_event: CalendarPlus,
 }
 
 // ─── Dependency types (passed from SubtaskEditor) ────────
@@ -599,6 +601,19 @@ function SectionDados({
         <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex items-start gap-2">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>Subtarefas do tipo <strong>Checklist</strong> não requerem configuração adicional — basta o título.</span>
+        </div>
+      )}
+
+      {local.type === 'schedule_event' && (
+        <div className="rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-4 py-3 text-sm flex items-start gap-2">
+          <CalendarPlus className="h-4 w-4 mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+          <div>
+            <p className="font-medium text-indigo-700 dark:text-indigo-300">Agendar Evento no Calendário</p>
+            <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mt-1">
+              Ao executar esta subtarefa, o utilizador definirá a data, horário, participantes e proprietários.
+              O evento ficará visível no calendário e vinculado a este processo.
+            </p>
+          </div>
         </div>
       )}
 

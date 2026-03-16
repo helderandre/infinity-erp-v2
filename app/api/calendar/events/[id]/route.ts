@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { calendarEventSchema } from '@/lib/validations/calendar'
+import { calendarEventSchema, scheduleEventSchema } from '@/lib/validations/calendar'
 
 // ---------------------------------------------------------------------------
 // GET — Fetch a single manual calendar event
@@ -57,21 +57,13 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const parsed = calendarEventSchema.safeParse(body)
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Dados inválidos.', details: parsed.error.flatten().fieldErrors },
-        { status: 400 },
-      )
-    }
 
     const admin = createAdminClient() as any // temp tables not in generated types
 
-    // Check event exists
+    // Check event exists and get its category
     const { data: existing, error: findError } = await admin
       .from('temp_calendar_events')
-      .select('id')
+      .select('id, category, proc_subtask_id')
       .eq('id', id)
       .single()
 
@@ -79,12 +71,57 @@ export async function PUT(
       return NextResponse.json({ error: 'Evento não encontrado.' }, { status: 404 })
     }
 
-    const { data, error } = await admin
-      .from('temp_calendar_events')
-      .update({
+    // Use different validation depending on category
+    const isProcessEvent = existing.category === 'process_event'
+    let updatePayload: Record<string, unknown>
+
+    if (isProcessEvent) {
+      const parsed = scheduleEventSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Dados inválidos.', details: parsed.error.flatten().fieldErrors },
+          { status: 400 },
+        )
+      }
+      updatePayload = {
+        title: parsed.data.title,
+        description: parsed.data.description || null,
+        start_date: parsed.data.start_date,
+        end_date: parsed.data.end_date || null,
+        all_day: parsed.data.all_day,
+        owner_ids: parsed.data.owner_ids || [],
+        updated_at: new Date().toISOString(),
+      }
+
+      // Update attendees if provided
+      if (parsed.data.attendee_user_ids) {
+        await admin.from('temp_calendar_event_attendees').delete().eq('event_id', id)
+        const attendeeRows = parsed.data.attendee_user_ids.map((userId: string) => ({
+          event_id: id,
+          user_id: userId,
+          status: 'accepted',
+        }))
+        if (attendeeRows.length > 0) {
+          await admin.from('temp_calendar_event_attendees').insert(attendeeRows)
+        }
+      }
+    } else {
+      const parsed = calendarEventSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Dados inválidos.', details: parsed.error.flatten().fieldErrors },
+          { status: 400 },
+        )
+      }
+      updatePayload = {
         ...parsed.data,
         updated_at: new Date().toISOString(),
-      })
+      }
+    }
+
+    const { data, error } = await admin
+      .from('temp_calendar_events')
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single()

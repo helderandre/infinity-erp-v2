@@ -22,6 +22,7 @@ import { SubtaskCardDoc } from './subtask-card-doc'
 import { SubtaskCardUpload } from './subtask-card-upload'
 import { SubtaskCardForm } from './subtask-card-form'
 import { SubtaskCardField } from './subtask-card-field'
+import { SubtaskCardScheduleEvent } from './subtask-card-schedule-event'
 import { FormSubtaskDialog } from './form-subtask-dialog'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
@@ -225,6 +226,18 @@ export function SubtaskCardList({
               await onSubtaskToggle(task.id, subtask.id, true)
               onTaskUpdate()
             }}
+          />
+        )
+      case 'schedule_event':
+        return (
+          <SubtaskCardScheduleEvent
+            key={subtask.id}
+            subtask={subtask}
+            processId={processId}
+            taskId={task.id}
+            owners={owners.map(o => ({ id: o.id, name: o.name, person_type: o.person_type }))}
+            consultants={[]}
+            onRefresh={onTaskUpdate}
           />
         )
       default:

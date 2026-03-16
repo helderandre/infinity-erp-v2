@@ -9,17 +9,18 @@ import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
 // ---------------------------------------------------------------------------
 const CATEGORY_COLORS: Record<CalendarCategory, string> = {
   contract_expiry: 'amber-500',
-  lead_expiry: 'red-400',
+  lead_expiry: 'red-500',
   lead_followup: 'yellow-500',
   process_task: 'violet-500',
-  process_subtask: 'fuchsia-500',
+  process_subtask: 'teal-500',
+  process_event: 'cyan-500',
   birthday: 'pink-500',
   vacation: 'slate-400',
-  company_event: 'purple-500',
+  company_event: 'emerald-500',
   marketing_event: 'orange-500',
   meeting: 'indigo-500',
-  reminder: 'cyan-500',
-  custom: 'gray-500',
+  reminder: 'sky-500',
+  custom: 'stone-500',
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
       // 1. Manual events from temp_calendar_events
       admin
         .from('temp_calendar_events')
-        .select('*, creator:dev_users!temp_calendar_events_created_by_fkey(commercial_name), linked_user:dev_users!temp_calendar_events_user_id_fkey(commercial_name)')
+        .select('*, creator:dev_users!temp_calendar_events_created_by_fkey(commercial_name), linked_user:dev_users!temp_calendar_events_user_id_fkey(commercial_name), proc_instances(id, external_ref)')
         .or(
           `and(is_recurring.eq.false,start_date.gte.${start},start_date.lte.${end}),` +
           `and(is_recurring.eq.false,end_date.gte.${start},end_date.lte.${end}),` +
@@ -130,6 +131,22 @@ export async function GET(request: Request) {
     ])
 
     const events: CalendarEvent[] = []
+
+    // ------ Resolve owner names for process_event events ------
+    const processEvents = (manualRes.data ?? []).filter(
+      (ev: any) => ev.category === 'process_event' && ev.owner_ids?.length,
+    )
+    const allOwnerIds = [...new Set(processEvents.flatMap((ev: any) => ev.owner_ids as string[]))]
+    let ownerNameMap: Record<string, string> = {}
+    if (allOwnerIds.length > 0) {
+      const { data: ownerRows } = await admin
+        .from('owners')
+        .select('id, name')
+        .in('id', allOwnerIds)
+      if (ownerRows) {
+        ownerNameMap = Object.fromEntries(ownerRows.map((o: any) => [o.id, o.name]))
+      }
+    }
 
     // ------ 1. Manual events ------
     if (manualRes.data) {
@@ -202,6 +219,9 @@ export async function GET(request: Request) {
           }
         } else {
           // Non-recurring event already in range
+          const proc = ev.proc_instances as { id: string; external_ref: string } | null
+          const isProcessEvent = ev.category === 'process_event'
+
           events.push({
             id: ev.id,
             title: ev.title,
@@ -218,6 +238,19 @@ export async function GET(request: Request) {
             user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
             property_id: ev.property_id ?? undefined,
             lead_id: ev.lead_id ?? undefined,
+            // Campos de processo (para process_event)
+            ...(isProcessEvent && proc ? {
+              process_id: proc.id,
+              process_ref: proc.external_ref,
+            } : {}),
+            ...(isProcessEvent ? {
+              proc_subtask_id: ev.proc_subtask_id ?? undefined,
+              owner_ids: ev.owner_ids ?? undefined,
+              owners: (ev.owner_ids ?? []).map((oid: string) => ({
+                id: oid,
+                name: ownerNameMap[oid] ?? oid,
+              })),
+            } : {}),
           })
         }
       }
