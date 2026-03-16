@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ArrowLeft, ChevronDown, Circle, CheckCircle2, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { getDeal, updatePaymentStatus, updatePaymentInvoice } from '@/app/dashboard/comissoes/deals/actions'
+import { DealComplianceTab } from '@/components/financial/deal-compliance-tab'
 import type {
   Deal, DealPayment, ConsultantInvoiceType,
 } from '@/types/deal'
@@ -190,6 +191,9 @@ export default function DealDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Compliance IMPIC */}
+      <DealComplianceTab dealId={deal.id} dealValue={deal.deal_value} dealDate={deal.deal_date} />
     </div>
   )
 }
