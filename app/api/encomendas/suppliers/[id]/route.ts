@@ -1,0 +1,90 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { updateSupplierSchema } from '@/lib/validations/encomenda'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient() as any
+    const { id } = await params
+
+    const { data, error } = await supabase
+      .from('temp_suppliers')
+      .select('*, orders:temp_supplier_orders(*)')
+      .eq('id', id)
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Fornecedor não encontrado' }, { status: 404 })
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Erro ao obter fornecedor:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient() as any
+    const { id } = await params
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const parsed = updateSupplierSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const { data, error } = await supabase
+      .from('temp_suppliers')
+      .update(parsed.data)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Fornecedor não encontrado' }, { status: 404 })
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Erro ao actualizar fornecedor:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient() as any
+    const { id } = await params
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    const { data, error } = await supabase
+      .from('temp_suppliers')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Fornecedor não encontrado' }, { status: 404 })
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Erro ao desactivar fornecedor:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
