@@ -586,3 +586,893 @@ export async function updateEntrySubmission(
   if (error) return { success: false, error: error.message }
   return { success: true, error: null }
 }
+
+// ─── Communication History ──────────────────────────────────────────────────
+
+export type CommunicationType = 'call' | 'email' | 'whatsapp' | 'sms' | 'meeting' | 'note'
+
+export interface RecruitmentCommunication {
+  id: string
+  candidate_id: string
+  type: CommunicationType
+  subject: string | null
+  content: string | null
+  direction: 'inbound' | 'outbound'
+  logged_by: string | null
+  created_at: string
+  user?: { id: string; commercial_name: string } | null
+}
+
+export async function getCommunications(candidateId: string): Promise<{ communications: RecruitmentCommunication[]; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any).from("temp_recruitment_communications")
+    .select("*, user:dev_users!temp_recruitment_communications_logged_by_fkey(id, commercial_name)")
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false })
+
+  if (error) return { communications: [], error: error.message }
+  return { communications: (data ?? []) as RecruitmentCommunication[], error: null }
+}
+
+export async function createCommunication(
+  candidateId: string,
+  commData: {
+    type: CommunicationType
+    subject?: string
+    content?: string
+    direction: 'inbound' | 'outbound'
+  }
+): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("temp_recruitment_communications").insert({
+    candidate_id: candidateId,
+    type: commData.type,
+    subject: commData.subject || null,
+    content: commData.content || null,
+    direction: commData.direction,
+    logged_by: user?.id ?? null,
+  })
+
+  if (error) return { success: false, error: error.message }
+
+  // Update candidate last_interaction_date
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any).from("recruitment_candidates").update({
+    last_interaction_date: new Date().toISOString().split("T")[0],
+  }).eq("id", candidateId)
+
+  return { success: true, error: null }
+}
+
+// ─── Probation Tracking ────────────────────────────────────────────────────
+
+export interface RecruitmentProbation {
+  id: string
+  candidate_id: string
+  start_date: string
+  end_date: string | null
+  milestone_30_days: boolean
+  milestone_30_notes: string | null
+  milestone_60_days: boolean
+  milestone_60_notes: string | null
+  milestone_90_days: boolean
+  milestone_90_notes: string | null
+  billing_target_month_1: number | null
+  billing_actual_month_1: number | null
+  billing_target_month_2: number | null
+  billing_actual_month_2: number | null
+  billing_target_month_3: number | null
+  billing_actual_month_3: number | null
+  status: 'active' | 'completed' | 'failed'
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function getProbation(candidateId: string): Promise<{ probation: RecruitmentProbation | null; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any).from("temp_recruitment_probation")
+    .select("*")
+    .eq("candidate_id", candidateId)
+    .maybeSingle()
+
+  if (error) return { probation: null, error: error.message }
+  return { probation: data as RecruitmentProbation | null, error: null }
+}
+
+export async function upsertProbation(
+  candidateId: string,
+  probationData: Partial<RecruitmentProbation>
+): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("temp_recruitment_probation").upsert({
+    ...probationData,
+    candidate_id: candidateId,
+  }, { onConflict: "candidate_id" })
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+// ─── Communication Templates ───────────────────────────────────────────────
+
+export interface RecruitmentCommTemplate {
+  id: string
+  name: string
+  stage: CandidateStatus
+  channel: 'email' | 'whatsapp' | 'sms'
+  subject: string | null
+  body: string
+  variables: string[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function getCommTemplates(stage?: CandidateStatus): Promise<{ templates: RecruitmentCommTemplate[]; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (admin as any).from("temp_recruitment_comm_templates")
+    .select("*")
+    .order("created_at", { ascending: false })
+
+  if (stage) query = query.eq("stage", stage)
+
+  const { data, error } = await query
+  if (error) return { templates: [], error: error.message }
+  return { templates: (data ?? []) as RecruitmentCommTemplate[], error: null }
+}
+
+export async function createCommTemplate(
+  templateData: {
+    name: string
+    stage: CandidateStatus
+    channel: 'email' | 'whatsapp' | 'sms'
+    subject?: string
+    body: string
+    variables?: string[]
+    is_active?: boolean
+  }
+): Promise<{ template: RecruitmentCommTemplate | null; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any).from("temp_recruitment_comm_templates").insert({
+    name: templateData.name,
+    stage: templateData.stage,
+    channel: templateData.channel,
+    subject: templateData.subject || null,
+    body: templateData.body,
+    variables: templateData.variables || [],
+    is_active: templateData.is_active ?? true,
+  }).select().single()
+
+  if (error) return { template: null, error: error.message }
+  return { template: data as RecruitmentCommTemplate, error: null }
+}
+
+export async function updateCommTemplate(
+  id: string,
+  updates: Partial<RecruitmentCommTemplate>
+): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("temp_recruitment_comm_templates")
+    .update(updates)
+    .eq("id", id)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+export async function deleteCommTemplate(id: string): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("temp_recruitment_comm_templates").delete().eq("id", id)
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+// ─── Duplicate Detection ───────────────────────────────────────────────────
+
+export async function findDuplicates(candidateId: string): Promise<{
+  duplicates: (RecruitmentCandidate & { match_reason: 'phone' | 'email' | 'both' })[]
+  error: string | null
+}> {
+  const admin = createAdminClient()
+
+  // Get the target candidate
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: candidate, error: fetchError } = await (admin as any).from("recruitment_candidates")
+    .select("*")
+    .eq("id", candidateId)
+    .single()
+
+  if (fetchError || !candidate) return { duplicates: [], error: fetchError?.message ?? "Candidato não encontrado" }
+
+  const phoneMatches: RecruitmentCandidate[] = []
+  const emailMatches: RecruitmentCandidate[] = []
+
+  // Find by phone
+  if (candidate.phone) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: byPhone } = await (admin as any).from("recruitment_candidates")
+      .select("*, recruiter:dev_users!recruitment_candidates_assigned_recruiter_id_fkey(id, commercial_name)")
+      .eq("phone", candidate.phone)
+      .neq("id", candidateId)
+    if (byPhone) phoneMatches.push(...(byPhone as RecruitmentCandidate[]))
+  }
+
+  // Find by email
+  if (candidate.email) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: byEmail } = await (admin as any).from("recruitment_candidates")
+      .select("*, recruiter:dev_users!recruitment_candidates_assigned_recruiter_id_fkey(id, commercial_name)")
+      .eq("email", candidate.email)
+      .neq("id", candidateId)
+    if (byEmail) emailMatches.push(...(byEmail as RecruitmentCandidate[]))
+  }
+
+  // Merge and deduplicate, determine match_reason
+  const phoneIds = new Set(phoneMatches.map((c) => c.id))
+  const emailIds = new Set(emailMatches.map((c) => c.id))
+  const allIds = new Set([...phoneIds, ...emailIds])
+
+  const duplicates: (RecruitmentCandidate & { match_reason: 'phone' | 'email' | 'both' })[] = []
+  const seen = new Map<string, RecruitmentCandidate>()
+
+  for (const c of [...phoneMatches, ...emailMatches]) {
+    if (!seen.has(c.id)) seen.set(c.id, c)
+  }
+
+  for (const dupId of allIds) {
+    const c = seen.get(dupId)!
+    const matchPhone = phoneIds.has(dupId)
+    const matchEmail = emailIds.has(dupId)
+    duplicates.push({
+      ...c,
+      match_reason: matchPhone && matchEmail ? 'both' : matchPhone ? 'phone' : 'email',
+    })
+  }
+
+  return { duplicates, error: null }
+}
+
+export async function mergeCandidates(
+  keepId: string,
+  mergeId: string
+): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+
+  try {
+    // Update all related records to point to the kept candidate
+    const tables = [
+      { table: "temp_recruitment_communications", column: "candidate_id" },
+      { table: "recruitment_interviews", column: "candidate_id" },
+      { table: "recruitment_pain_pitch", column: "candidate_id" },
+      { table: "recruitment_stage_log", column: "candidate_id" },
+    ]
+
+    for (const { table, column } of tables) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (admin as any).from(table)
+        .update({ [column]: keepId })
+        .eq(column, mergeId)
+      if (error) return { success: false, error: `Erro ao migrar ${table}: ${error.message}` }
+    }
+
+    // Delete the merged candidate (cascade should handle remaining 1:1 records)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: deleteError } = await (admin as any).from("recruitment_candidates")
+      .delete()
+      .eq("id", mergeId)
+
+    if (deleteError) return { success: false, error: deleteError.message }
+
+    return { success: true, error: null }
+  } catch (err) {
+    return { success: false, error: `Erro inesperado: ${(err as Error).message}` }
+  }
+}
+
+// ─── Alerts / Pending Tasks ────────────────────────────────────────────────
+
+export interface RecruitmentAlert {
+  type: 'no_contact' | 'follow_up_today' | 'interview_tomorrow' | 'onboarding_incomplete' | 'probation_milestone'
+  severity: 'info' | 'warning' | 'urgent'
+  candidate_id: string
+  candidate_name: string
+  message: string
+  date: string | null
+}
+
+export async function getRecruitmentAlerts(): Promise<{ alerts: RecruitmentAlert[]; error: string | null }> {
+  const admin = createAdminClient()
+  const alerts: RecruitmentAlert[] = []
+  const today = new Date()
+  const todayStr = today.toISOString().split("T")[0]
+  const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().split("T")[0]
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0]
+  const fourteenDaysAgo = new Date(today.getTime() - 14 * 86400000).toISOString().split("T")[0]
+  const threeDaysFromNow = new Date(today.getTime() + 3 * 86400000).toISOString().split("T")[0]
+  const fifteenDaysAgo = new Date(today.getTime() - 15 * 86400000).toISOString().split("T")[0]
+
+  // Terminal statuses that should not trigger no_contact alerts
+  const terminalStatuses = ['joined', 'declined']
+
+  // 1. No contact alerts — candidates not in terminal status with stale last_interaction_date
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: staleCandidates } = await (admin as any).from("recruitment_candidates")
+    .select("id, full_name, last_interaction_date, status")
+    .not("status", "in", `(${terminalStatuses.join(",")})`)
+
+  if (staleCandidates) {
+    for (const c of staleCandidates as RecruitmentCandidate[]) {
+      const lastDate = c.last_interaction_date
+      if (!lastDate || lastDate <= fourteenDaysAgo) {
+        alerts.push({
+          type: 'no_contact',
+          severity: 'urgent',
+          candidate_id: c.id,
+          candidate_name: c.full_name,
+          message: `Sem contacto há mais de 14 dias`,
+          date: lastDate || null,
+        })
+      } else if (lastDate <= sevenDaysAgo) {
+        alerts.push({
+          type: 'no_contact',
+          severity: 'warning',
+          candidate_id: c.id,
+          candidate_name: c.full_name,
+          message: `Sem contacto há mais de 7 dias`,
+          date: lastDate,
+        })
+      }
+    }
+  }
+
+  // 2. Follow-up today — interviews with follow_up_date = today
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: followUps } = await (admin as any).from("recruitment_interviews")
+    .select("id, candidate_id, follow_up_date")
+    .eq("follow_up_date", todayStr)
+
+  if (followUps) {
+    const candidateIds = [...new Set((followUps as any[]).map((f) => f.candidate_id))]
+    if (candidateIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: candidates } = await (admin as any).from("recruitment_candidates")
+        .select("id, full_name")
+        .in("id", candidateIds)
+      const nameMap = new Map((candidates as any[] ?? []).map((c: any) => [c.id, c.full_name]))
+
+      for (const f of followUps as any[]) {
+        alerts.push({
+          type: 'follow_up_today',
+          severity: 'info',
+          candidate_id: f.candidate_id,
+          candidate_name: nameMap.get(f.candidate_id) || 'Desconhecido',
+          message: `Follow-up agendado para hoje`,
+          date: todayStr,
+        })
+      }
+    }
+  }
+
+  // 3. Interview tomorrow
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tomorrowInterviews } = await (admin as any).from("recruitment_interviews")
+    .select("id, candidate_id, interview_date")
+    .eq("interview_date", tomorrowStr)
+
+  if (tomorrowInterviews) {
+    const candidateIds = [...new Set((tomorrowInterviews as any[]).map((i) => i.candidate_id))]
+    if (candidateIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: candidates } = await (admin as any).from("recruitment_candidates")
+        .select("id, full_name")
+        .in("id", candidateIds)
+      const nameMap = new Map((candidates as any[] ?? []).map((c: any) => [c.id, c.full_name]))
+
+      for (const i of tomorrowInterviews as any[]) {
+        alerts.push({
+          type: 'interview_tomorrow',
+          severity: 'info',
+          candidate_id: i.candidate_id,
+          candidate_name: nameMap.get(i.candidate_id) || 'Desconhecido',
+          message: `Entrevista agendada para amanhã`,
+          date: tomorrowStr,
+        })
+      }
+    }
+  }
+
+  // 4. Onboarding incomplete — candidates with status 'joined' where onboarding is incomplete after 15 days
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: joinedCandidates } = await (admin as any).from("recruitment_candidates")
+    .select("id, full_name, updated_at")
+    .eq("status", "joined")
+
+  if (joinedCandidates) {
+    const joinedIds = (joinedCandidates as any[]).map((c) => c.id)
+    if (joinedIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: onboardings } = await (admin as any).from("recruitment_onboarding")
+        .select("candidate_id, contract_sent, form_sent, access_created")
+        .in("candidate_id", joinedIds)
+
+      const onboardingMap = new Map((onboardings as any[] ?? []).map((o: any) => [o.candidate_id, o]))
+      const nameMap = new Map((joinedCandidates as any[]).map((c: any) => [c.id, c.full_name]))
+
+      for (const c of joinedCandidates as any[]) {
+        // Check if joined > 15 days ago (use stage log or updated_at)
+        const joinedDate = c.updated_at?.split("T")[0]
+        if (joinedDate && joinedDate <= fifteenDaysAgo) {
+          const ob = onboardingMap.get(c.id)
+          if (!ob || !ob.contract_sent || !ob.form_sent || !ob.access_created) {
+            const missing: string[] = []
+            if (!ob || !ob.contract_sent) missing.push("contrato")
+            if (!ob || !ob.form_sent) missing.push("formulário")
+            if (!ob || !ob.access_created) missing.push("acessos")
+            alerts.push({
+              type: 'onboarding_incomplete',
+              severity: 'warning',
+              candidate_id: c.id,
+              candidate_name: nameMap.get(c.id) || 'Desconhecido',
+              message: `Onboarding incompleto (falta: ${missing.join(", ")})`,
+              date: joinedDate,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Probation milestones approaching (within 3 days)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: probations } = await (admin as any).from("temp_recruitment_probation")
+    .select("candidate_id, start_date, milestone_30_days, milestone_60_days, milestone_90_days, status")
+    .eq("status", "active")
+
+  if (probations) {
+    const candidateIds = (probations as any[]).map((p) => p.candidate_id)
+    if (candidateIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: candidates } = await (admin as any).from("recruitment_candidates")
+        .select("id, full_name")
+        .in("id", candidateIds)
+      const nameMap = new Map((candidates as any[] ?? []).map((c: any) => [c.id, c.full_name]))
+
+      for (const p of probations as any[]) {
+        if (!p.start_date) continue
+        const start = new Date(p.start_date)
+        const milestones = [
+          { days: 30, done: p.milestone_30_days, label: "30 dias" },
+          { days: 60, done: p.milestone_60_days, label: "60 dias" },
+          { days: 90, done: p.milestone_90_days, label: "90 dias" },
+        ]
+
+        for (const m of milestones) {
+          if (m.done) continue
+          const milestoneDate = new Date(start.getTime() + m.days * 86400000).toISOString().split("T")[0]
+          if (milestoneDate >= todayStr && milestoneDate <= threeDaysFromNow) {
+            alerts.push({
+              type: 'probation_milestone',
+              severity: 'info',
+              candidate_id: p.candidate_id,
+              candidate_name: nameMap.get(p.candidate_id) || 'Desconhecido',
+              message: `Marco de ${m.label} a aproximar-se (${milestoneDate})`,
+              date: milestoneDate,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  return { alerts, error: null }
+}
+
+// ─── Extended KPIs for Reports ─────────────────────────────────────────────
+
+export async function getRecruitmentReportData(dateFrom?: string, dateTo?: string): Promise<{
+  candidatesByMonth: { month: string; count: number }[]
+  sourceEffectiveness: { source: string; total: number; joined: number; rate: number }[]
+  avgTimeByStage: Record<string, number>
+  recruiterPerformance: { recruiter_name: string; total: number; joined: number; avg_time: number }[]
+  conversionFunnel: { stage: string; count: number }[]
+  error: string | null
+}> {
+  const admin = createAdminClient()
+  const emptyResult = {
+    candidatesByMonth: [] as { month: string; count: number }[],
+    sourceEffectiveness: [] as { source: string; total: number; joined: number; rate: number }[],
+    avgTimeByStage: {} as Record<string, number>,
+    recruiterPerformance: [] as { recruiter_name: string; total: number; joined: number; avg_time: number }[],
+    conversionFunnel: [] as { stage: string; count: number }[],
+    error: null as string | null,
+  }
+
+  // Fetch all candidates (optionally filtered by date range)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let candidateQuery = (admin as any).from("recruitment_candidates")
+    .select("*, recruiter:dev_users!recruitment_candidates_assigned_recruiter_id_fkey(id, commercial_name)")
+  if (dateFrom) candidateQuery = candidateQuery.gte("created_at", dateFrom)
+  if (dateTo) candidateQuery = candidateQuery.lte("created_at", dateTo)
+
+  const { data: candidatesData, error: candidatesError } = await candidateQuery
+  if (candidatesError) return { ...emptyResult, error: candidatesError.message }
+
+  const candidates = (candidatesData ?? []) as (RecruitmentCandidate & { recruiter?: { id: string; commercial_name: string } | null })[]
+
+  // 1. Candidates by month (last 12 months)
+  const monthCounts: Record<string, number> = {}
+  const now = new Date()
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    monthCounts[key] = 0
+  }
+  for (const c of candidates) {
+    const month = c.created_at.substring(0, 7) // YYYY-MM
+    if (month in monthCounts) monthCounts[month]++
+  }
+  const candidatesByMonth = Object.entries(monthCounts).map(([month, count]) => ({ month, count }))
+
+  // 2. Source effectiveness
+  const sourceGroups: Record<string, { total: number; joined: number }> = {}
+  for (const c of candidates) {
+    if (!sourceGroups[c.source]) sourceGroups[c.source] = { total: 0, joined: 0 }
+    sourceGroups[c.source].total++
+    if (c.status === "joined") sourceGroups[c.source].joined++
+  }
+  const sourceEffectiveness = Object.entries(sourceGroups).map(([source, sData]) => ({
+    source,
+    total: sData.total,
+    joined: sData.joined,
+    rate: sData.total > 0 ? Math.round((sData.joined / sData.total) * 100) : 0,
+  }))
+
+  // 3. Average time by stage (from stage_log)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let stageLogQuery = (admin as any).from("recruitment_stage_log")
+    .select("candidate_id, from_status, to_status, created_at")
+    .order("created_at")
+  if (dateFrom) stageLogQuery = stageLogQuery.gte("created_at", dateFrom)
+  if (dateTo) stageLogQuery = stageLogQuery.lte("created_at", dateTo)
+
+  const { data: stageLogsData } = await stageLogQuery
+  const stageLogs = (stageLogsData ?? []) as { candidate_id: string; from_status: string | null; to_status: string; created_at: string }[]
+
+  // Group logs by candidate to compute time in each stage
+  const logsByCandidate: Record<string, typeof stageLogs> = {}
+  for (const log of stageLogs) {
+    if (!logsByCandidate[log.candidate_id]) logsByCandidate[log.candidate_id] = []
+    logsByCandidate[log.candidate_id].push(log)
+  }
+
+  const stageDurations: Record<string, number[]> = {}
+  for (const logs of Object.values(logsByCandidate)) {
+    for (let i = 0; i < logs.length - 1; i++) {
+      const stage = logs[i].to_status
+      const enteredAt = new Date(logs[i].created_at)
+      const leftAt = new Date(logs[i + 1].created_at)
+      const days = Math.round((leftAt.getTime() - enteredAt.getTime()) / (1000 * 60 * 60 * 24))
+      if (!stageDurations[stage]) stageDurations[stage] = []
+      stageDurations[stage].push(days)
+    }
+  }
+
+  const avgTimeByStage: Record<string, number> = {}
+  for (const [stage, durations] of Object.entries(stageDurations)) {
+    avgTimeByStage[stage] = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+  }
+
+  // 4. Recruiter performance
+  const recruiterGroups: Record<string, { name: string; total: number; joined: number; totalDays: number; decisionCount: number }> = {}
+  for (const c of candidates) {
+    const recruiterId = c.assigned_recruiter_id
+    if (!recruiterId) continue
+    const recruiterName = c.recruiter?.commercial_name || 'Desconhecido'
+    if (!recruiterGroups[recruiterId]) {
+      recruiterGroups[recruiterId] = { name: recruiterName, total: 0, joined: 0, totalDays: 0, decisionCount: 0 }
+    }
+    recruiterGroups[recruiterId].total++
+    if (c.status === "joined") recruiterGroups[recruiterId].joined++
+    if (c.first_contact_date && c.decision_date) {
+      const days = Math.round((new Date(c.decision_date).getTime() - new Date(c.first_contact_date).getTime()) / (1000 * 60 * 60 * 24))
+      recruiterGroups[recruiterId].totalDays += days
+      recruiterGroups[recruiterId].decisionCount++
+    }
+  }
+  const recruiterPerformance = Object.values(recruiterGroups).map((r) => ({
+    recruiter_name: r.name,
+    total: r.total,
+    joined: r.joined,
+    avg_time: r.decisionCount > 0 ? Math.round(r.totalDays / r.decisionCount) : 0,
+  }))
+
+  // 5. Conversion funnel (in pipeline order)
+  const pipelineOrder: CandidateStatus[] = ['prospect', 'in_contact', 'in_process', 'decision_pending', 'joined', 'declined', 'on_hold']
+  const statusCounts: Record<string, number> = {}
+  for (const c of candidates) {
+    statusCounts[c.status] = (statusCounts[c.status] || 0) + 1
+  }
+  const conversionFunnel = pipelineOrder.map((stage) => ({
+    stage,
+    count: statusCounts[stage] || 0,
+  }))
+
+  return {
+    candidatesByMonth,
+    sourceEffectiveness,
+    avgTimeByStage,
+    recruiterPerformance,
+    conversionFunnel,
+    error: null,
+  }
+}
+
+// ─── Bulk Actions ──────────────────────────────────────────────────────────
+
+export async function bulkUpdateStatus(
+  ids: string[],
+  newStatus: CandidateStatus
+): Promise<{ success: boolean; error: string | null }> {
+  if (ids.length === 0) return { success: true, error: null }
+
+  const admin = createAdminClient()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Get current statuses for stage log
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: currentCandidates } = await (admin as any).from("recruitment_candidates")
+    .select("id, status")
+    .in("id", ids)
+
+  // Log stage transitions
+  if (currentCandidates) {
+    const logEntries = (currentCandidates as any[])
+      .filter((c) => c.status !== newStatus)
+      .map((c) => ({
+        candidate_id: c.id,
+        from_status: c.status,
+        to_status: newStatus,
+        changed_by: user?.id ?? null,
+        notes: "Alteração em massa",
+      }))
+
+    if (logEntries.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any).from("recruitment_stage_log").insert(logEntries)
+    }
+  }
+
+  // Update all candidates
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: Record<string, any> = {
+    status: newStatus,
+    last_interaction_date: new Date().toISOString().split("T")[0],
+  }
+
+  if (newStatus === "joined" || newStatus === "declined") {
+    updateData.decision_date = new Date().toISOString().split("T")[0]
+    if (newStatus === "joined") updateData.decision = "joined"
+    if (newStatus === "declined") updateData.decision = "declined"
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("recruitment_candidates")
+    .update(updateData)
+    .in("id", ids)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+export async function bulkAssignRecruiter(
+  ids: string[],
+  recruiterId: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (ids.length === 0) return { success: true, error: null }
+
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("recruitment_candidates")
+    .update({
+      assigned_recruiter_id: recruiterId,
+      last_interaction_date: new Date().toISOString().split("T")[0],
+    })
+    .in("id", ids)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
+export async function exportCandidatesCsv(filters?: {
+  status?: CandidateStatus
+  source?: CandidateSource
+  recruiterId?: string
+}): Promise<{ csv: string; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (admin as any).from("recruitment_candidates")
+    .select("*, recruiter:dev_users!recruitment_candidates_assigned_recruiter_id_fkey(id, commercial_name)")
+    .order("created_at", { ascending: false })
+
+  if (filters?.status) query = query.eq("status", filters.status)
+  if (filters?.source) query = query.eq("source", filters.source)
+  if (filters?.recruiterId) query = query.eq("assigned_recruiter_id", filters.recruiterId)
+
+  const { data, error } = await query
+  if (error) return { csv: "", error: error.message }
+
+  const candidates = (data ?? []) as (RecruitmentCandidate & { recruiter?: { id: string; commercial_name: string } | null })[]
+
+  // Build CSV
+  const headers = [
+    "Nome", "Telefone", "Email", "Origem", "Estado", "Recrutador",
+    "Primeiro Contacto", "Última Interacção", "Data Decisão", "Decisão",
+    "Notas", "Criado Em",
+  ]
+
+  const rows = candidates.map((c) => [
+    c.full_name,
+    c.phone || "",
+    c.email || "",
+    c.source,
+    c.status,
+    c.recruiter?.commercial_name || "",
+    c.first_contact_date || "",
+    c.last_interaction_date || "",
+    c.decision_date || "",
+    c.decision || "",
+    (c.notes || "").replace(/"/g, '""'),
+    c.created_at.split("T")[0],
+  ])
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+  ].join("\n")
+
+  return { csv: csvContent, error: null }
+}
+
+// ─── Candidate Scoring ─────────────────────────────────────────────────────
+
+export async function calculateCandidateScore(candidateId: string): Promise<{
+  score: number
+  breakdown: Record<string, number>
+  error: string | null
+}> {
+  const admin = createAdminClient()
+  const breakdown: Record<string, number> = {}
+  let score = 0
+
+  // Fetch candidate
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: candidate, error: candidateError } = await (admin as any).from("recruitment_candidates")
+    .select("*")
+    .eq("id", candidateId)
+    .single()
+
+  if (candidateError || !candidate) {
+    return { score: 0, breakdown: {}, error: candidateError?.message ?? "Candidato não encontrado" }
+  }
+
+  // 1. Has phone & email: +10
+  if (candidate.phone && candidate.email) {
+    breakdown.contacto_completo = 10
+    score += 10
+  } else {
+    breakdown.contacto_completo = 0
+  }
+
+  // 2. Has origin profile filled: +15
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: originProfile } = await (admin as any).from("recruitment_origin_profiles")
+    .select("id")
+    .eq("candidate_id", candidateId)
+    .maybeSingle()
+
+  if (originProfile) {
+    breakdown.perfil_origem = 15
+    score += 15
+  } else {
+    breakdown.perfil_origem = 0
+  }
+
+  // 3. Number of interviews (max 3 = +10 each, cap at +30)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: interviews } = await (admin as any).from("recruitment_interviews")
+    .select("id")
+    .eq("candidate_id", candidateId)
+
+  const interviewCount = interviews?.length || 0
+  const interviewScore = Math.min(interviewCount, 3) * 10
+  breakdown.entrevistas = interviewScore
+  score += interviewScore
+
+  // 4. Has pain/pitch records with fit_score >= 4: +20
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: painPitch } = await (admin as any).from("recruitment_pain_pitch")
+    .select("fit_score")
+    .eq("candidate_id", candidateId)
+
+  const hasGoodFit = (painPitch as any[] ?? []).some((pp) => pp.fit_score && pp.fit_score >= 4)
+  if (hasGoodFit) {
+    breakdown.pain_pitch = 20
+    score += 20
+  } else {
+    breakdown.pain_pitch = 0
+  }
+
+  // 5. Response time (days between creation and first_contact_date, lower is better): +15 max
+  if (candidate.first_contact_date) {
+    const createdDate = new Date(candidate.created_at)
+    const firstContact = new Date(candidate.first_contact_date)
+    const daysDiff = Math.round((firstContact.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    let responseScore = 0
+    if (daysDiff <= 1) responseScore = 15
+    else if (daysDiff <= 3) responseScore = 12
+    else if (daysDiff <= 7) responseScore = 8
+    else if (daysDiff <= 14) responseScore = 4
+    else responseScore = 0
+
+    breakdown.tempo_resposta = responseScore
+    score += responseScore
+  } else {
+    breakdown.tempo_resposta = 0
+  }
+
+  // 6. Has recruiter assigned: +10
+  if (candidate.assigned_recruiter_id) {
+    breakdown.recrutador_atribuido = 10
+    score += 10
+  } else {
+    breakdown.recrutador_atribuido = 0
+  }
+
+  return { score: Math.min(score, 100), breakdown, error: null }
+}
+
+// ─── Calendar: All Interviews ────────────────────────────────────────────────
+
+export async function getAllInterviews(monthStart: string, monthEnd: string) {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any)
+    .from("recruitment_interviews")
+    .select(
+      "id, candidate_id, interview_date, format, interview_number, notes, follow_up_date, candidate:recruitment_candidates!recruitment_interviews_candidate_id_fkey(id, full_name), interviewer:dev_users!recruitment_interviews_conducted_by_fkey(id, commercial_name)"
+    )
+    .gte("interview_date", monthStart)
+    .lte("interview_date", monthEnd)
+    .order("interview_date")
+
+  if (error) return { interviews: [], error: error.message }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const interviews = ((data ?? []) as any[]).map((d: any) => ({
+    id: d.id,
+    candidate_id: d.candidate?.id ?? d.candidate_id,
+    candidate_name: d.candidate?.full_name ?? "Desconhecido",
+    interview_date: d.interview_date,
+    format: d.format,
+    interviewer_name: d.interviewer?.commercial_name ?? null,
+    follow_up_date: d.follow_up_date,
+    interview_number: d.interview_number,
+    notes: d.notes,
+  }))
+
+  return { interviews, error: null }
+}

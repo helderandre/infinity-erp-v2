@@ -201,3 +201,130 @@ export const PIPELINE_STAGES: CandidateStatus[] = [
   'declined',
   'on_hold',
 ]
+
+// ─── Communication History ──────────────────────────────────────────────────
+
+export type CommunicationType = 'call' | 'email' | 'whatsapp' | 'sms' | 'meeting' | 'note'
+export type CommunicationDirection = 'inbound' | 'outbound'
+
+export interface RecruitmentCommunication {
+  id: string
+  candidate_id: string
+  type: CommunicationType
+  subject: string | null
+  content: string | null
+  direction: CommunicationDirection
+  logged_by: string | null
+  created_at: string
+  user?: { id: string; commercial_name: string } | null
+}
+
+export const COMMUNICATION_TYPES: Record<CommunicationType, { label: string; icon: string }> = {
+  call: { label: 'Chamada', icon: 'Phone' },
+  email: { label: 'Email', icon: 'Mail' },
+  whatsapp: { label: 'WhatsApp', icon: 'MessageCircle' },
+  sms: { label: 'SMS', icon: 'MessageSquare' },
+  meeting: { label: 'Reunião', icon: 'Users' },
+  note: { label: 'Nota', icon: 'StickyNote' },
+}
+
+export const COMMUNICATION_DIRECTIONS: Record<CommunicationDirection, string> = {
+  inbound: 'Recebida',
+  outbound: 'Enviada',
+}
+
+// ─── Probation Tracking ─────────────────────────────────────────────────────
+
+export type ProbationStatus = 'active' | 'completed' | 'failed'
+
+export interface RecruitmentProbation {
+  id: string
+  candidate_id: string
+  start_date: string
+  end_date: string | null
+  milestone_30_days: boolean
+  milestone_30_notes: string | null
+  milestone_60_days: boolean
+  milestone_60_notes: string | null
+  milestone_90_days: boolean
+  milestone_90_notes: string | null
+  billing_target_month_1: number | null
+  billing_actual_month_1: number | null
+  billing_target_month_2: number | null
+  billing_actual_month_2: number | null
+  billing_target_month_3: number | null
+  billing_actual_month_3: number | null
+  status: ProbationStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const PROBATION_STATUSES: Record<ProbationStatus, { label: string; color: string }> = {
+  active: { label: 'Activo', color: 'bg-blue-100 text-blue-700' },
+  completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700' },
+  failed: { label: 'Não Aprovado', color: 'bg-red-100 text-red-700' },
+}
+
+// ─── Communication Templates ────────────────────────────────────────────────
+
+export type CommTemplateChannel = 'email' | 'whatsapp' | 'sms'
+
+export interface RecruitmentCommTemplate {
+  id: string
+  name: string
+  stage: CandidateStatus
+  channel: CommTemplateChannel
+  subject: string | null
+  body: string
+  variables: string[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export const COMM_TEMPLATE_CHANNELS: Record<CommTemplateChannel, string> = {
+  email: 'Email',
+  whatsapp: 'WhatsApp',
+  sms: 'SMS',
+}
+
+// ─── Alerts ─────────────────────────────────────────────────────────────────
+
+export type AlertType = 'no_contact' | 'follow_up_today' | 'interview_tomorrow' | 'onboarding_incomplete' | 'probation_milestone'
+export type AlertSeverity = 'info' | 'warning' | 'urgent'
+
+export interface RecruitmentAlert {
+  type: AlertType
+  severity: AlertSeverity
+  candidate_id: string
+  candidate_name: string
+  message: string
+  date: string | null
+}
+
+export const ALERT_TYPES: Record<AlertType, { label: string; icon: string }> = {
+  no_contact: { label: 'Sem Contacto', icon: 'AlertTriangle' },
+  follow_up_today: { label: 'Follow-up Hoje', icon: 'CalendarCheck' },
+  interview_tomorrow: { label: 'Entrevista Amanhã', icon: 'Calendar' },
+  onboarding_incomplete: { label: 'Onboarding Incompleto', icon: 'ClipboardList' },
+  probation_milestone: { label: 'Marco de Experiência', icon: 'Flag' },
+}
+
+export const ALERT_SEVERITIES: Record<AlertSeverity, { label: string; color: string }> = {
+  info: { label: 'Info', color: 'bg-blue-100 text-blue-700' },
+  warning: { label: 'Aviso', color: 'bg-amber-100 text-amber-700' },
+  urgent: { label: 'Urgente', color: 'bg-red-100 text-red-700' },
+}
+
+// ─── Scoring ────────────────────────────────────────────────────────────────
+
+export interface CandidateScoreBreakdown {
+  contact_info: number      // 0-10
+  origin_profile: number    // 0-15
+  interviews: number        // 0-30
+  fit_score: number         // 0-20
+  response_time: number     // 0-15
+  recruiter_assigned: number // 0-10
+  total: number             // 0-100
+}

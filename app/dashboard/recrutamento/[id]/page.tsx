@@ -27,6 +27,13 @@ import {
   upsertOnboarding,
   getStageLog,
   getRecruiters,
+  getCommunications,
+  createCommunication,
+  getProbation,
+  upsertProbation,
+  calculateCandidateScore,
+  findDuplicates,
+  mergeCandidates,
 } from '@/app/dashboard/recrutamento/actions'
 
 import type {
@@ -38,10 +45,16 @@ import type {
   RecruitmentBudget,
   RecruitmentOnboarding,
   RecruitmentStageLog,
+  RecruitmentCommunication,
+  RecruitmentProbation,
   CandidateStatus,
+  CommunicationType,
+  CommunicationDirection,
+  ProbationStatus,
   InterviewFormat,
   OriginBrand,
   CampaignPlatform,
+  CandidateScoreBreakdown,
 } from '@/types/recruitment'
 
 import {
@@ -51,6 +64,9 @@ import {
   ORIGIN_BRANDS,
   INTERVIEW_FORMATS,
   CAMPAIGN_PLATFORMS,
+  COMMUNICATION_TYPES,
+  COMMUNICATION_DIRECTIONS,
+  PROBATION_STATUSES,
 } from '@/types/recruitment'
 
 import {
@@ -96,6 +112,8 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { Progress } from '@/components/ui/progress'
 
 import {
   ArrowLeft,
@@ -117,6 +135,14 @@ import {
   Euro,
   ChevronRight,
   ExternalLink,
+  MessageCircle,
+  StickyNote,
+  Users,
+  ArrowDownRight,
+  ArrowUpRight,
+  Target,
+  Merge,
+  AlertTriangle,
 } from 'lucide-react'
 
 // ─── Pipeline stages for the progress bar ──────────────────────────────────
@@ -176,6 +202,10 @@ export default function CandidateDetailPage() {
   const [onboarding, setOnboarding] = useState<RecruitmentOnboarding | null>(null)
   const [stageLogs, setStageLogs] = useState<RecruitmentStageLog[]>([])
   const [recruiters, setRecruiters] = useState<Array<{ id: string; commercial_name: string }>>([])
+  const [communications, setCommunications] = useState<RecruitmentCommunication[]>([])
+  const [probation, setProbation] = useState<RecruitmentProbation | null>(null)
+  const [scoreData, setScoreData] = useState<{ score: number; breakdown: Record<string, number> } | null>(null)
+  const [duplicates, setDuplicates] = useState<(RecruitmentCandidate & { match_reason: 'phone' | 'email' | 'both' })[]>([])
 
   // UI state
   const [editMode, setEditMode] = useState(false)
@@ -185,6 +215,8 @@ export default function CandidateDetailPage() {
   const [interviewDialog, setInterviewDialog] = useState(false)
   const [editingInterview, setEditingInterview] = useState<RecruitmentInterview | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; id: string } | null>(null)
+  const [commDialog, setCommDialog] = useState(false)
+  const [mergeConfirm, setMergeConfirm] = useState<string | null>(null)
 
   // Saving states
   const [savingCandidate, setSavingCandidate] = useState(false)
@@ -196,6 +228,9 @@ export default function CandidateDetailPage() {
   const [savingBudget, setSavingBudget] = useState(false)
   const [savingOnboarding, setSavingOnboarding] = useState(false)
   const [changingStatus, setChangingStatus] = useState(false)
+  const [savingComm, setSavingComm] = useState(false)
+  const [savingProbation, setSavingProbation] = useState(false)
+  const [merging, setMerging] = useState(false)
 
   // ─── Local form states ─────────────────────────────────────────────────
   const [editForm, setEditForm] = useState({
@@ -262,6 +297,32 @@ export default function CandidateDetailPage() {
     onboarding_start_date: '',
   })
 
+  const [commForm, setCommForm] = useState({
+    type: 'call' as string,
+    direction: 'outbound' as string,
+    subject: '',
+    content: '',
+  })
+
+  const [probationForm, setProbationForm] = useState({
+    start_date: '',
+    end_date: '',
+    milestone_30_days: false,
+    milestone_30_notes: '',
+    milestone_60_days: false,
+    milestone_60_notes: '',
+    milestone_90_days: false,
+    milestone_90_notes: '',
+    billing_target_month_1: '',
+    billing_actual_month_1: '',
+    billing_target_month_2: '',
+    billing_actual_month_2: '',
+    billing_target_month_3: '',
+    billing_actual_month_3: '',
+    status: 'active' as string,
+    notes: '',
+  })
+
   // ─── Load data ─────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -275,6 +336,10 @@ export default function CandidateDetailPage() {
       onboardingRes,
       logRes,
       recruitersRes,
+      commRes,
+      probationRes,
+      scoreRes,
+      duplicatesRes,
     ] = await Promise.all([
       getCandidate(candidateId),
       getOriginProfile(candidateId),
@@ -285,6 +350,10 @@ export default function CandidateDetailPage() {
       getOnboarding(candidateId),
       getStageLog(candidateId),
       getRecruiters(),
+      getCommunications(candidateId),
+      getProbation(candidateId),
+      calculateCandidateScore(candidateId),
+      findDuplicates(candidateId),
     ])
 
     if (candidateRes.candidate) {
@@ -304,6 +373,11 @@ export default function CandidateDetailPage() {
     if (onboardingRes.onboarding) populateOnboardingForm(onboardingRes.onboarding)
     setStageLogs(logRes.logs)
     setRecruiters(recruitersRes.recruiters)
+    setCommunications(commRes.communications)
+    setProbation(probationRes.probation)
+    if (probationRes.probation) populateProbationForm(probationRes.probation)
+    if (!scoreRes.error) setScoreData({ score: scoreRes.score, breakdown: scoreRes.breakdown })
+    setDuplicates(duplicatesRes.duplicates)
 
     setLoading(false)
   }, [candidateId])
@@ -367,6 +441,27 @@ export default function CandidateDetailPage() {
       form_sent: o.form_sent,
       access_created: o.access_created,
       onboarding_start_date: o.onboarding_start_date || '',
+    })
+  }
+
+  function populateProbationForm(p: RecruitmentProbation) {
+    setProbationForm({
+      start_date: p.start_date || '',
+      end_date: p.end_date || '',
+      milestone_30_days: p.milestone_30_days,
+      milestone_30_notes: p.milestone_30_notes || '',
+      milestone_60_days: p.milestone_60_days,
+      milestone_60_notes: p.milestone_60_notes || '',
+      milestone_90_days: p.milestone_90_days,
+      milestone_90_notes: p.milestone_90_notes || '',
+      billing_target_month_1: p.billing_target_month_1?.toString() || '',
+      billing_actual_month_1: p.billing_actual_month_1?.toString() || '',
+      billing_target_month_2: p.billing_target_month_2?.toString() || '',
+      billing_actual_month_2: p.billing_actual_month_2?.toString() || '',
+      billing_target_month_3: p.billing_target_month_3?.toString() || '',
+      billing_actual_month_3: p.billing_actual_month_3?.toString() || '',
+      status: p.status || 'active',
+      notes: p.notes || '',
     })
   }
 
@@ -633,6 +728,70 @@ export default function CandidateDetailPage() {
     }
   }
 
+  async function handleSaveCommunication() {
+    setSavingComm(true)
+    const { success, error } = await createCommunication(candidateId, {
+      type: commForm.type as CommunicationType,
+      subject: commForm.subject || undefined,
+      content: commForm.content || undefined,
+      direction: commForm.direction as CommunicationDirection,
+    })
+    setSavingComm(false)
+    if (error) { toast.error(error); return }
+    toast.success('Comunicacao registada')
+    setCommDialog(false)
+    setCommForm({ type: 'call', direction: 'outbound', subject: '', content: '' })
+    const res = await getCommunications(candidateId)
+    setCommunications(res.communications)
+  }
+
+  async function handleSaveProbation() {
+    if (!probationForm.start_date) { toast.error('Indique a data de inicio'); return }
+    setSavingProbation(true)
+    const { success, error } = await upsertProbation(candidateId, {
+      start_date: probationForm.start_date,
+      end_date: probationForm.end_date || null,
+      milestone_30_days: probationForm.milestone_30_days,
+      milestone_30_notes: probationForm.milestone_30_notes || null,
+      milestone_60_days: probationForm.milestone_60_days,
+      milestone_60_notes: probationForm.milestone_60_notes || null,
+      milestone_90_days: probationForm.milestone_90_days,
+      milestone_90_notes: probationForm.milestone_90_notes || null,
+      billing_target_month_1: probationForm.billing_target_month_1 ? parseFloat(probationForm.billing_target_month_1) : null,
+      billing_actual_month_1: probationForm.billing_actual_month_1 ? parseFloat(probationForm.billing_actual_month_1) : null,
+      billing_target_month_2: probationForm.billing_target_month_2 ? parseFloat(probationForm.billing_target_month_2) : null,
+      billing_actual_month_2: probationForm.billing_actual_month_2 ? parseFloat(probationForm.billing_actual_month_2) : null,
+      billing_target_month_3: probationForm.billing_target_month_3 ? parseFloat(probationForm.billing_target_month_3) : null,
+      billing_actual_month_3: probationForm.billing_actual_month_3 ? parseFloat(probationForm.billing_actual_month_3) : null,
+      status: probationForm.status as ProbationStatus,
+      notes: probationForm.notes || null,
+    })
+    setSavingProbation(false)
+    if (error) { toast.error(error); return }
+    toast.success('Periodo de experiencia guardado')
+    const res = await getProbation(candidateId)
+    setProbation(res.probation)
+  }
+
+  async function handleMerge(mergeId: string) {
+    setMerging(true)
+    const { success, error } = await mergeCandidates(candidateId, mergeId)
+    setMerging(false)
+    setMergeConfirm(null)
+    if (error) { toast.error(error); return }
+    toast.success('Candidatos fundidos com sucesso')
+    await loadData()
+  }
+
+  const COMM_ICON_MAP: Record<string, React.ReactNode> = {
+    call: <Phone className="h-4 w-4" />,
+    email: <Mail className="h-4 w-4" />,
+    whatsapp: <MessageCircle className="h-4 w-4" />,
+    sms: <MessageSquare className="h-4 w-4" />,
+    meeting: <Users className="h-4 w-4" />,
+    note: <StickyNote className="h-4 w-4" />,
+  }
+
   // ─── Loading state ─────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -789,6 +948,8 @@ export default function CandidateDetailPage() {
           {isJoined && <TabsTrigger value="financeiro">Evolucao Financeira</TabsTrigger>}
           <TabsTrigger value="orcamento">Orcamento &amp; Recursos</TabsTrigger>
           {isJoined && <TabsTrigger value="onboarding">Onboarding</TabsTrigger>}
+          <TabsTrigger value="comunicacoes">Comunicacoes</TabsTrigger>
+          {isJoined && <TabsTrigger value="experiencia">Experiencia</TabsTrigger>}
         </TabsList>
 
         {/* ─── Tab: Resumo ───────────────────────────────────────────────────── */}
@@ -871,6 +1032,81 @@ export default function CandidateDetailPage() {
                         </p>
                         {log.notes && <p className="text-xs mt-1">{log.notes}</p>}
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Score */}
+          {scoreData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Score do Candidato</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-6">
+                  <div className={cn(
+                    'flex items-center justify-center h-20 w-20 rounded-full border-4 text-2xl font-bold',
+                    scoreData.score >= 70 ? 'border-emerald-500 text-emerald-700' :
+                    scoreData.score >= 40 ? 'border-amber-500 text-amber-700' :
+                    'border-red-400 text-red-600'
+                  )}>
+                    {scoreData.score}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    {Object.entries(scoreData.breakdown).map(([key, val]) => (
+                      <div key={key} className="flex items-center gap-2 text-sm">
+                        <span className="w-40 text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</span>
+                        <Progress value={val * (100 / 30)} className="h-2 flex-1" />
+                        <span className="w-8 text-right font-medium">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Duplicados */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Duplicados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {duplicates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum duplicado detectado.</p>
+              ) : (
+                <div className="space-y-3">
+                  {duplicates.map((dup) => (
+                    <div key={dup.id} className="flex items-center justify-between border rounded-lg p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <User className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{dup.full_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{dup.email || dup.phone || '-'}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {dup.match_reason === 'both' ? 'Telefone + Email' :
+                           dup.match_reason === 'phone' ? 'Telefone' : 'Email'}
+                        </Badge>
+                        <Badge className={cn(CANDIDATE_STATUSES[dup.status]?.color, 'text-xs')}>
+                          {CANDIDATE_STATUSES[dup.status]?.label}
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMergeConfirm(dup.id)}
+                        disabled={merging}
+                      >
+                        <Merge className="mr-1.5 h-3.5 w-3.5" />
+                        Fundir
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1322,7 +1558,215 @@ export default function CandidateDetailPage() {
             </Card>
           </TabsContent>
         )}
+
+        {/* ─── Tab: Comunicacoes ────────────────────────────────────────────────── */}
+        <TabsContent value="comunicacoes" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">Historico de Comunicacoes</h3>
+            <Button size="sm" onClick={() => { setCommForm({ type: 'call', direction: 'outbound', subject: '', content: '' }); setCommDialog(true) }}>
+              <Plus className="mr-2 h-4 w-4" />Nova Comunicacao
+            </Button>
+          </div>
+          {communications.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-8 text-center">
+                <MessageSquare className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Sem comunicacoes registadas.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {communications.map((comm) => (
+                <Card key={comm.id}>
+                  <CardContent className="flex items-start gap-3 py-3 px-4">
+                    <div className="mt-0.5 text-muted-foreground">{COMM_ICON_MAP[comm.type] || <MessageSquare className="h-4 w-4" />}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs">{COMMUNICATION_TYPES[comm.type]?.label || comm.type}</Badge>
+                        <Badge className={cn(comm.direction === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700', 'text-xs')}>
+                          {comm.direction === 'inbound' ? <ArrowDownRight className="mr-1 h-3 w-3" /> : <ArrowUpRight className="mr-1 h-3 w-3" />}
+                          {COMMUNICATION_DIRECTIONS[comm.direction]}
+                        </Badge>
+                      </div>
+                      {comm.subject && <p className="text-sm font-medium">{comm.subject}</p>}
+                      {comm.content && <p className="text-sm text-muted-foreground line-clamp-2">{comm.content}</p>}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDateTime(comm.created_at)}
+                        {comm.user && ` - ${comm.user.commercial_name}`}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── Tab: Experiencia ──────────────────────────────────────────────────── */}
+        {isJoined && (
+          <TabsContent value="experiencia" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Periodo de Experiencia</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data de Inicio *</Label>
+                    <Input type="date" value={probationForm.start_date} onChange={(e) => setProbationForm({ ...probationForm, start_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de Fim</Label>
+                    <Input type="date" value={probationForm.end_date} onChange={(e) => setProbationForm({ ...probationForm, end_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select value={probationForm.status} onValueChange={(v) => setProbationForm({ ...probationForm, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.entries(PROBATION_STATUSES) as [ProbationStatus, { label: string; color: string }][]).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Milestones */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold">Marcos</h4>
+                  {[
+                    { days: 30, checked: probationForm.milestone_30_days, notes: probationForm.milestone_30_notes, setChecked: (v: boolean) => setProbationForm({ ...probationForm, milestone_30_days: v }), setNotes: (v: string) => setProbationForm({ ...probationForm, milestone_30_notes: v }) },
+                    { days: 60, checked: probationForm.milestone_60_days, notes: probationForm.milestone_60_notes, setChecked: (v: boolean) => setProbationForm({ ...probationForm, milestone_60_days: v }), setNotes: (v: string) => setProbationForm({ ...probationForm, milestone_60_notes: v }) },
+                    { days: 90, checked: probationForm.milestone_90_days, notes: probationForm.milestone_90_notes, setChecked: (v: boolean) => setProbationForm({ ...probationForm, milestone_90_days: v }), setNotes: (v: string) => setProbationForm({ ...probationForm, milestone_90_notes: v }) },
+                  ].map((m) => (
+                    <div key={m.days} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Checkbox checked={m.checked} onCheckedChange={(v) => m.setChecked(!!v)} />
+                        <Label className="font-medium">{m.days} Dias</Label>
+                        {m.checked && <Badge className="bg-emerald-100 text-emerald-700 text-xs">Concluido</Badge>}
+                      </div>
+                      <Textarea value={m.notes} onChange={(e) => m.setNotes(e.target.value)} rows={2} placeholder={`Notas do marco de ${m.days} dias...`} />
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
+                {/* Billing targets */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4" />Objectivos de Facturacao</h4>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Mes 1', target: probationForm.billing_target_month_1, actual: probationForm.billing_actual_month_1, setTarget: (v: string) => setProbationForm({ ...probationForm, billing_target_month_1: v }), setActual: (v: string) => setProbationForm({ ...probationForm, billing_actual_month_1: v }) },
+                      { label: 'Mes 2', target: probationForm.billing_target_month_2, actual: probationForm.billing_actual_month_2, setTarget: (v: string) => setProbationForm({ ...probationForm, billing_target_month_2: v }), setActual: (v: string) => setProbationForm({ ...probationForm, billing_actual_month_2: v }) },
+                      { label: 'Mes 3', target: probationForm.billing_target_month_3, actual: probationForm.billing_actual_month_3, setTarget: (v: string) => setProbationForm({ ...probationForm, billing_target_month_3: v }), setActual: (v: string) => setProbationForm({ ...probationForm, billing_actual_month_3: v }) },
+                    ].map((row) => {
+                      const target = parseFloat(row.target) || 0
+                      const actual = parseFloat(row.actual) || 0
+                      const pct = target > 0 ? Math.min(Math.round((actual / target) * 100), 100) : 0
+                      return (
+                        <div key={row.label} className="grid grid-cols-[100px_1fr_1fr_80px] items-center gap-3">
+                          <Label className="text-sm font-medium">{row.label}</Label>
+                          <Input type="number" placeholder="Objectivo" value={row.target} onChange={(e) => row.setTarget(e.target.value)} />
+                          <Input type="number" placeholder="Real" value={row.actual} onChange={(e) => row.setActual(e.target.value)} />
+                          <div className="flex items-center gap-1.5">
+                            <Progress value={pct} className="h-2 flex-1" />
+                            <span className={cn('text-xs font-medium', pct >= 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600')}>{pct}%</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Notas</Label>
+                  <Textarea value={probationForm.notes} onChange={(e) => setProbationForm({ ...probationForm, notes: e.target.value })} rows={3} placeholder="Notas sobre o periodo de experiencia..." />
+                </div>
+
+                <Button onClick={handleSaveProbation} disabled={savingProbation}>
+                  {savingProbation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Guardar
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
+
+      {/* ─── Communication Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={commDialog} onOpenChange={setCommDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nova Comunicacao</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={commForm.type} onValueChange={(v) => setCommForm({ ...commForm, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(COMMUNICATION_TYPES) as [CommunicationType, { label: string }][]).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Direccao</Label>
+                <Select value={commForm.direction} onValueChange={(v) => setCommForm({ ...commForm, direction: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(COMMUNICATION_DIRECTIONS) as [CommunicationDirection, string][]).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Assunto</Label>
+              <Input value={commForm.subject} onChange={(e) => setCommForm({ ...commForm, subject: e.target.value })} placeholder="Assunto da comunicacao" />
+            </div>
+            <div className="space-y-2">
+              <Label>Conteudo</Label>
+              <Textarea value={commForm.content} onChange={(e) => setCommForm({ ...commForm, content: e.target.value })} rows={4} placeholder="Detalhes da comunicacao..." />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCommDialog(false)}>Cancelar</Button>
+              <Button onClick={handleSaveCommunication} disabled={savingComm}>
+                {savingComm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Merge Confirmation ────────────────────────────────────────────────── */}
+      <AlertDialog open={!!mergeConfirm} onOpenChange={() => setMergeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fundir candidatos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende fundir este candidato com o actual? Os dados do duplicado serao transferidos e o duplicado sera eliminado. Esta accao e irreversivel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => mergeConfirm && handleMerge(mergeConfirm)} disabled={merging}>
+              {merging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Merge className="mr-2 h-4 w-4" />}
+              Fundir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Edit Candidate Dialog ───────────────────────────────────────────── */}
       <Dialog open={editMode} onOpenChange={setEditMode}>

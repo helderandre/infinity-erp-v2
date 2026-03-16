@@ -126,6 +126,9 @@ export const pessoasItems = [
 
 export const financeiroItems = [
   { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
+  { title: 'Rankings', icon: TrendingUp, href: '/dashboard/comissoes/rankings', permission: 'commissions' },
+  { title: 'Relatórios', icon: BarChart3, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
+  { title: 'Definições', icon: Settings, href: '/dashboard/comissoes/definicoes', permission: 'commissions' },
 ]
 
 export const recrutamentoItems = [
@@ -182,6 +185,7 @@ function CollapsibleGroup({
   pathname,
   hasPermission,
   pathPrefixes,
+  defaultOpenOverride,
 }: {
   label: string
   icon: any
@@ -189,13 +193,14 @@ function CollapsibleGroup({
   pathname: string | null
   hasPermission: (p: any) => boolean
   pathPrefixes: string[]
+  defaultOpenOverride?: boolean
 }) {
   const visibleItems = items.filter(
     (item) => !item.permission || hasPermission(item.permission as any)
   )
   if (visibleItems.length === 0) return null
 
-  const isDefaultOpen = pathPrefixes.some((p) => pathname?.startsWith(p))
+  const isDefaultOpen = defaultOpenOverride || pathPrefixes.some((p) => pathname?.startsWith(p))
 
   return (
     <SidebarGroup>
@@ -222,7 +227,12 @@ function CollapsibleGroup({
 
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className={!isActive ? 'rounded-lg border border-transparent hover:border-sidebar-border hover:bg-sidebar-accent/60 hover:shadow-sm transition-all' : 'rounded-lg shadow-sm'}
+                    >
                       <Link href={item.href}>
                         <item.icon />
                         <span>{item.title}</span>
@@ -297,28 +307,15 @@ export function AppSidebar() {
 
       <SidebarContent>
         {/* O Meu Espaço */}
-        <SidebarGroup>
-          <SidebarGroupLabel>O Meu Espaço</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {meuEspacoItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
-                const isActive = item.href === '/dashboard'
-                  ? pathname === '/dashboard'
-                  : pathname === item.href || pathname?.startsWith(`${item.href}/`)
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <CollapsibleGroup
+          label="O Meu Espaço"
+          icon={LayoutDashboard}
+          items={meuEspacoItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
+          defaultOpenOverride={pathname === '/dashboard'}
+        />
 
         {/* Negócio */}
         <CollapsibleGroup
@@ -430,7 +427,12 @@ export function AppSidebar() {
                 const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className={!isActive ? 'rounded-lg border border-transparent hover:border-sidebar-border hover:bg-sidebar-accent/60 hover:shadow-sm transition-all' : 'rounded-lg shadow-sm'}
+                    >
                       <Link href={item.href}>
                         <item.icon />
                         <span>{item.title}</span>

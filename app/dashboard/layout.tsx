@@ -24,6 +24,10 @@ const NotificationPopover = dynamic(
   () => import('@/components/notifications/notification-popover').then((m) => m.NotificationPopover),
   { ssr: false }
 )
+const GoalDailyPopup = dynamic(
+  () => import('@/components/goals/goal-daily-popup').then((m) => m.GoalDailyPopup),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
@@ -80,6 +84,7 @@ export default function DashboardLayout({
           {children}
         </main>
       </SidebarInset>
+      <GoalDailyPopup />
     </SidebarProvider>
   )
 }
