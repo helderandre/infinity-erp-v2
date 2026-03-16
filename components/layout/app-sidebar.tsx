@@ -42,6 +42,7 @@ import {
   Briefcase,
   Boxes,
   TrendingUp,
+  Wallet,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -126,6 +127,7 @@ export const pessoasItems = [
 
 export const financeiroItems = [
   { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
+  { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
   { title: 'Rankings', icon: TrendingUp, href: '/dashboard/comissoes/rankings', permission: 'commissions' },
   { title: 'Relatórios', icon: BarChart3, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
   { title: 'Definições', icon: Settings, href: '/dashboard/comissoes/definicoes', permission: 'commissions' },

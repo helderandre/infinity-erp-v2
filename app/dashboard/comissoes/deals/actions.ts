@@ -345,11 +345,81 @@ export async function updatePaymentStatus(
       .from('temp_deal_payments')
       .update(updateData)
       .eq('id', paymentId)
-      .select('deal_id')
+      .select('*')
       .single()
 
     if (error) {
       return { success: false, error: error.message }
+    }
+
+    // ── Register conta corrente transaction when consultant_paid changes ──
+    if (field === 'consultant_paid' && payment.consultant_amount) {
+      try {
+        // Get deal with property info and consultant
+        const { data: deal } = await (admin as any)
+          .from('temp_deals')
+          .select('id, consultant_id, reference, property:dev_properties!temp_deals_property_id_fkey(id, title, external_ref)')
+          .eq('id', payment.deal_id)
+          .single()
+
+        if (deal && deal.consultant_id) {
+          // Build description label from payment_moment
+          const momentLabels: Record<string, string> = {
+            cpcv: 'CPCV',
+            escritura: 'Escritura',
+            pagamento: 'Pagamento',
+            unico: 'Pagamento',
+          }
+          const momentLabel = momentLabels[payment.payment_moment] ?? payment.payment_moment
+          const propertyLabel = deal.property?.title || deal.property?.external_ref || deal.reference || deal.id
+
+          // Get consultant's current balance (last transaction)
+          const { data: lastTx } = await (admin as any)
+            .from('conta_corrente_transactions')
+            .select('balance_after')
+            .eq('agent_id', deal.consultant_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          const currentBalance = lastTx?.balance_after ?? 0
+
+          if (value === true) {
+            // CREDIT — consultant marked as paid
+            await (admin as any)
+              .from('conta_corrente_transactions')
+              .insert({
+                agent_id: deal.consultant_id,
+                date: new Date().toISOString(),
+                type: 'CREDIT',
+                category: 'commission_payment',
+                amount: payment.consultant_amount,
+                description: `Comissão ${momentLabel} — ${propertyLabel}`,
+                reference_id: deal.id,
+                reference_type: 'deal_payment',
+                balance_after: currentBalance + Number(payment.consultant_amount),
+              })
+          } else {
+            // DEBIT — undo consultant paid (reversal)
+            await (admin as any)
+              .from('conta_corrente_transactions')
+              .insert({
+                agent_id: deal.consultant_id,
+                date: new Date().toISOString(),
+                type: 'DEBIT',
+                category: 'commission_payment',
+                amount: payment.consultant_amount,
+                description: `Estorno comissão — ${propertyLabel}`,
+                reference_id: deal.id,
+                reference_type: 'deal_payment_reversal',
+                balance_after: currentBalance - Number(payment.consultant_amount),
+              })
+          }
+        }
+      } catch (ccError: any) {
+        // Log but don't fail the main operation
+        console.error('Erro ao registar transacção conta corrente:', ccError.message)
+      }
     }
 
     // Check if all payments of this deal are fully complete
