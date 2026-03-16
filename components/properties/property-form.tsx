@@ -23,6 +23,7 @@ import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
 import { postalCodePTMask, datePTMask, datePTtoISO, isoToDatePT } from '@/lib/masks'
 import { Checkbox } from '@/components/ui/checkbox'
+import { BadgeMultiSelect } from '@/components/ui/badge-multi-select'
 import {
   Select,
   SelectContent,
@@ -574,89 +575,48 @@ export function PropertyForm({
               )}
             />
 
-            {/* Multi-select checkboxes */}
+            {/* Multi-select badges */}
             <div className="space-y-3">
-              <FormLabel>Orientacao Solar</FormLabel>
-              <div className="flex flex-wrap gap-3">
-                {SOLAR_ORIENTATIONS.map((o) => (
-                  <label key={o} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={form.watch('solar_orientation')?.includes(o) || false}
-                      onCheckedChange={(checked) => {
-                        const current = form.getValues('solar_orientation') || []
-                        form.setValue(
-                          'solar_orientation',
-                          checked ? [...current, o] : current.filter((v) => v !== o)
-                        )
-                      }}
-                    />
-                    {o}
-                  </label>
-                ))}
-              </div>
+              <FormLabel>Orientação Solar</FormLabel>
+              <BadgeMultiSelect
+                options={SOLAR_ORIENTATIONS.map((o) => ({ value: o, label: o }))}
+                value={form.watch('solar_orientation') || []}
+                onChange={(v) => form.setValue('solar_orientation', v)}
+                allowCustom={false}
+              />
             </div>
 
             <div className="space-y-3">
               <FormLabel>Vistas</FormLabel>
-              <div className="flex flex-wrap gap-3">
-                {VIEWS.map((v) => (
-                  <label key={v} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={form.watch('views_list')?.includes(v) || false}
-                      onCheckedChange={(checked) => {
-                        const current = form.getValues('views_list') || []
-                        form.setValue(
-                          'views_list',
-                          checked ? [...current, v] : current.filter((x) => x !== v)
-                        )
-                      }}
-                    />
-                    {v}
-                  </label>
-                ))}
-              </div>
+              <BadgeMultiSelect
+                options={VIEWS.map((v) => ({ value: v, label: v }))}
+                value={form.watch('views_list') || []}
+                onChange={(v) => form.setValue('views_list', v)}
+                allowCustom
+                customPlaceholder="Nova vista..."
+              />
             </div>
 
             <div className="space-y-3">
               <FormLabel>Equipamento</FormLabel>
-              <div className="flex flex-wrap gap-3">
-                {EQUIPMENT.map((e) => (
-                  <label key={e} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={form.watch('equipment_list')?.includes(e) || false}
-                      onCheckedChange={(checked) => {
-                        const current = form.getValues('equipment_list') || []
-                        form.setValue(
-                          'equipment_list',
-                          checked ? [...current, e] : current.filter((x) => x !== e)
-                        )
-                      }}
-                    />
-                    {e}
-                  </label>
-                ))}
-              </div>
+              <BadgeMultiSelect
+                options={EQUIPMENT.map((e) => ({ value: e, label: e }))}
+                value={form.watch('equipment_list') || []}
+                onChange={(v) => form.setValue('equipment_list', v)}
+                allowCustom
+                customPlaceholder="Novo equipamento..."
+              />
             </div>
 
             <div className="space-y-3">
-              <FormLabel>Caracteristicas</FormLabel>
-              <div className="flex flex-wrap gap-3">
-                {FEATURES.map((f) => (
-                  <label key={f} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={form.watch('features')?.includes(f) || false}
-                      onCheckedChange={(checked) => {
-                        const current = form.getValues('features') || []
-                        form.setValue(
-                          'features',
-                          checked ? [...current, f] : current.filter((x) => x !== f)
-                        )
-                      }}
-                    />
-                    {f}
-                  </label>
-                ))}
-              </div>
+              <FormLabel>Características</FormLabel>
+              <BadgeMultiSelect
+                options={FEATURES.map((f) => ({ value: f, label: f }))}
+                value={form.watch('features') || []}
+                onChange={(v) => form.setValue('features', v)}
+                allowCustom
+                customPlaceholder="Nova característica..."
+              />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -720,34 +680,10 @@ export function PropertyForm({
 
               <FormField
                 control={form.control}
-                name="commission_agreed"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Comissão Acordada (EUR)</FormLabel>
-                    <FormControl>
-                      <MaskInput
-                        mask="currency"
-                        currency="EUR"
-                        locale="pt-PT"
-                        placeholder="0,00 €"
-                        value={field.value != null ? String(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          field.onChange(unmasked ? Number(unmasked) : undefined)
-                        }}
-                        onBlur={field.onBlur}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="commission_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo de Comissao</FormLabel>
+                    <FormLabel>Tipo de Comissão</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || 'percentage'}>
                       <FormControl>
                         <SelectTrigger>
@@ -759,6 +695,44 @@ export function PropertyForm({
                         <SelectItem value="fixed">Valor Fixo</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="commission_agreed"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {form.watch('commission_type') === 'fixed' ? 'Comissão Acordada (€)' : 'Comissão Acordada (%)'}
+                    </FormLabel>
+                    <FormControl>
+                      {form.watch('commission_type') === 'fixed' ? (
+                        <MaskInput
+                          mask="currency"
+                          currency="EUR"
+                          locale="pt-PT"
+                          placeholder="0,00 €"
+                          value={field.value != null ? String(field.value) : ''}
+                          onValueChange={(_masked, unmasked) => {
+                            field.onChange(unmasked ? Number(unmasked) : undefined)
+                          }}
+                          onBlur={field.onBlur}
+                        />
+                      ) : (
+                        <MaskInput
+                          mask="percentage"
+                          placeholder="0,00%"
+                          value={field.value != null ? String(field.value) : ''}
+                          onValueChange={(_masked, unmasked) => {
+                            field.onChange(unmasked ? Number(unmasked) : undefined)
+                          }}
+                          onBlur={field.onBlur}
+                        />
+                      )}
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

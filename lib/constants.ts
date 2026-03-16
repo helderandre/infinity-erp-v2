@@ -688,7 +688,6 @@ export const VIEWS = [
   'Cidade',
   'Campo',
   'Jardim',
-  'Piscina',
 ] as const
 
 // Equipamentos
@@ -718,7 +717,6 @@ export const FEATURES = [
   'Ginásio',
   'Condomínio Fechado',
   'Portaria',
-  'Elevador',
   'Cozinha Equipada',
   'Mobilado',
   'Suite',
