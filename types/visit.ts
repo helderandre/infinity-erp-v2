@@ -50,7 +50,7 @@ export interface VisitWithRelations extends Visit {
   lead?: {
     id: string
     name: string
-    phone_primary: string | null
+    telemovel: string | null
     email: string | null
   }
 }

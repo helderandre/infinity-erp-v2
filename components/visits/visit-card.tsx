@@ -53,7 +53,7 @@ export function VisitCard({
 }: VisitCardProps) {
   const statusStyle = VISIT_STATUS_COLORS[visit.status as keyof typeof VISIT_STATUS_COLORS]
   const clientName = visit.lead?.name || visit.client_name || 'Cliente não definido'
-  const clientPhone = visit.lead?.phone_primary || visit.client_phone
+  const clientPhone = visit.lead?.telemovel || visit.client_phone
 
   const visitDateTime = new Date(`${visit.visit_date}T${visit.visit_time}`)
   const isUpcoming = visitDateTime > new Date() && ['scheduled', 'confirmed'].includes(visit.status)

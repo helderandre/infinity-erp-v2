@@ -38,7 +38,7 @@ interface PropertyOption {
 interface LeadOption {
   id: string
   name: string
-  phone_primary: string | null
+  telemovel: string | null
 }
 
 interface ConsultantOption {
@@ -110,7 +110,7 @@ export function VisitForm({
             (leadJson.data || leadJson || []).map((l: any) => ({
               id: l.id,
               name: l.full_name,
-              phone_primary: l.phone_primary || l.telemovel,
+              telemovel: l.telemovel || l.telemovel,
             }))
           )
         }
@@ -229,7 +229,7 @@ export function VisitForm({
               <SelectContent>
                 {leads.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.full_name}{l.phone_primary ? ` (${l.phone_primary})` : ''}
+                    {l.full_name}{l.telemovel ? ` (${l.telemovel})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -7,7 +7,7 @@ const VISIT_SELECT = `
   *,
   property:dev_properties!property_id(id, title, external_ref, city, zone, address_street, slug),
   consultant:dev_users!consultant_id(id, commercial_name),
-  lead:leads!lead_id(id, full_name, phone_primary, email)
+  lead:leads!lead_id(id, full_name, telemovel, email)
 `
 
 export async function GET(request: Request) {
