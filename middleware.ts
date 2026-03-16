@@ -36,10 +36,24 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Rotas públicas
-  const publicPaths = ['/login', '/forgot-password', '/verify-otp', '/reset-password']
+  const publicPaths = ['/login', '/forgot-password', '/verify-otp', '/reset-password', '/entryform']
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
+
+  // Portal do cliente — auth separada (redireciona para /portal/login se não autenticado)
+  const isPortalPath = request.nextUrl.pathname.startsWith('/portal')
+  const isPortalLogin = request.nextUrl.pathname === '/portal/login'
+
+  if (isPortalPath) {
+    if (user && isPortalLogin) {
+      return NextResponse.redirect(new URL('/portal', request.url))
+    }
+    if (!user && !isPortalLogin) {
+      return NextResponse.redirect(new URL('/portal/login', request.url))
+    }
+    return response
+  }
 
   // Redirecionar utilizadores autenticados da página de login para o dashboard
   if (user && isPublicPath) {
