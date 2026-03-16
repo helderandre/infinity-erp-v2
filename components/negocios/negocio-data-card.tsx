@@ -550,7 +550,7 @@ export function NegocioDataCard({
           )}
           <div className="col-span-2 mt-2">
             <Link
-              href={`/dashboard/credito/novo?lead_id=${data?.lead_id || ''}&negocio_id=${data?.id || ''}`}
+              href={`/dashboard/credito/novo?lead_id=${val('lead_id')}&negocio_id=${negocioId}`}
               className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <Landmark className="h-4 w-4" />
