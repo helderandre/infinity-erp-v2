@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Plus, Search, CheckCheck, Check, Banknote, X, Loader2,
   ChevronLeft, ChevronRight, Clock, CheckCircle2, TrendingUp,
+  Briefcase, Activity, CircleDollarSign, AlertCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -24,13 +26,18 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import {
   getTransactions, createTransaction, updateTransactionStatus, bulkApproveTransactions,
 } from '@/app/dashboard/comissoes/actions'
 import { getRecruiters } from '@/app/dashboard/recrutamento/actions'
+import { getDeals, getDealStats, getConsultantsForSelect } from '@/app/dashboard/comissoes/deals/actions'
+import { DealForm } from '@/components/financial/deal-form'
 import type { FinancialTransaction, TransactionStatus } from '@/types/financial'
 import { TRANSACTION_TYPES, TRANSACTION_STATUSES } from '@/types/financial'
+import type { Deal, DealStatus, DealType } from '@/types/deal'
+import { DEAL_TYPES, DEAL_STATUSES, PAYMENT_MOMENTS } from '@/types/deal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -59,8 +66,8 @@ const emptyForm: Partial<FinancialTransaction> = {
 
 // ─── KPI Card ───────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, icon: Icon, color }: {
-  label: string; value: number; icon: React.ElementType; color: string
+function KpiCard({ label, value, icon: Icon, color, isCurrency = true }: {
+  label: string; value: number; icon: React.ElementType; color: string; isCurrency?: boolean
 }) {
   return (
     <Card>
@@ -68,27 +75,53 @@ function KpiCard({ label, value, icon: Icon, color }: {
         <Icon className={`h-5 w-5 shrink-0 ${color}`} />
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold">{fmtCurrency(value)}</p>
+          <p className="text-xl font-bold">{isCurrency ? fmtCurrency(value) : value}</p>
         </div>
       </CardContent>
     </Card>
   )
 }
 
+// ─── Payment Moment Dots ────────────────────────────────────────────────────
+
+function PaymentMomentBadges({ payments }: { payments: Deal['payments'] }) {
+  if (!payments || payments.length === 0) return <span className="text-muted-foreground">—</span>
+
+  return (
+    <div className="flex items-center gap-3">
+      {payments.map((p) => {
+        let dotColor = 'bg-slate-300' // not signed
+        if (p.is_received) dotColor = 'bg-emerald-500'
+        else if (p.is_signed) dotColor = 'bg-amber-500'
+
+        return (
+          <span key={p.id} className="inline-flex items-center gap-1 text-xs whitespace-nowrap">
+            <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+            {PAYMENT_MOMENTS[p.payment_moment] ?? p.payment_moment}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function ComissoesPage() {
-  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  // ── Transaction state (existing) ──
+  const [txLoading, setTxLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
+  const [txTotal, setTxTotal] = useState(0)
+  const [txPage, setTxPage] = useState(1)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
 
-  // KPIs
-  const [kpis, setKpis] = useState({ pending: 0, approved: 0, paidMonth: 0, paidYtd: 0 })
+  // Transaction KPIs
+  const [txKpis, setTxKpis] = useState({ pending: 0, approved: 0, paidMonth: 0, paidYtd: 0 })
 
-  // Filters
+  // Transaction Filters
   const [filterConsultant, setFilterConsultant] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
@@ -98,16 +131,37 @@ export default function ComissoesPage() {
   // Multi-select
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Dialog
+  // Transaction Dialog
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<Partial<FinancialTransaction>>({ ...emptyForm })
 
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
+  const txTotalPages = Math.ceil(txTotal / ITEMS_PER_PAGE)
 
-  // Load consultants once
-  useEffect(() => { getRecruiters().then(r => setConsultants(r.recruiters)) }, [])
+  // ── Deal state (new) ──
+  const [dealLoading, setDealLoading] = useState(true)
+  const [deals, setDeals] = useState<Deal[]>([])
+  const [dealTotal, setDealTotal] = useState(0)
+  const [dealPage, setDealPage] = useState(1)
+  const [dealStats, setDealStats] = useState({ total_deals: 0, active_deals: 0, total_commission: 0, pending_payments: 0 })
+  const [dealFormOpen, setDealFormOpen] = useState(false)
+  const [dealConsultants, setDealConsultants] = useState<{ id: string; commercial_name: string }[]>([])
 
-  // Compute KPIs from a separate unfiltered call
+  // Deal Filters
+  const [dealFilterConsultant, setDealFilterConsultant] = useState('')
+  const [dealFilterType, setDealFilterType] = useState('')
+  const [dealFilterStatus, setDealFilterStatus] = useState('')
+  const [dealFilterDateFrom, setDealFilterDateFrom] = useState('')
+  const [dealFilterDateTo, setDealFilterDateTo] = useState('')
+
+  const dealTotalPages = Math.ceil(dealTotal / ITEMS_PER_PAGE)
+
+  // ── Load consultants once ──
+  useEffect(() => {
+    getRecruiters().then(r => setConsultants(r.recruiters))
+    getConsultantsForSelect().then(r => { if (!r.error) setDealConsultants(r.consultants) })
+  }, [])
+
+  // ── Transaction KPIs ──
   useEffect(() => {
     getTransactions({ page: 1 }).then(({ transactions: all }) => {
       const now = new Date()
@@ -121,12 +175,13 @@ export default function ComissoesPage() {
         if (t.status === 'paid' && t.paid_at && t.paid_at >= monthStart) paidMonth += amt
         if (t.status === 'paid' && t.paid_at && t.paid_at >= yearStart) paidYtd += amt
       }
-      setKpis({ pending, approved, paidMonth, paidYtd })
+      setTxKpis({ pending, approved, paidMonth, paidYtd })
     })
   }, [])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  // ── Transaction data ──
+  const loadTransactions = useCallback(async () => {
+    setTxLoading(true)
     try {
       const { transactions: data, total: count } = await getTransactions({
         consultant_id: filterConsultant || undefined,
@@ -134,21 +189,60 @@ export default function ComissoesPage() {
         type: filterType || undefined,
         date_from: filterDateFrom || undefined,
         date_to: filterDateTo || undefined,
-        page,
+        page: txPage,
       })
       setTransactions(data)
-      setTotal(count)
+      setTxTotal(count)
       setSelected(new Set())
     } catch {
       toast.error('Erro ao carregar transacções.')
     } finally {
-      setLoading(false)
+      setTxLoading(false)
     }
-  }, [filterConsultant, filterStatus, filterType, filterDateFrom, filterDateTo, page])
+  }, [filterConsultant, filterStatus, filterType, filterDateFrom, filterDateTo, txPage])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { loadTransactions() }, [loadTransactions])
 
-  // ── Handlers ──
+  // ── Deal stats ──
+  const loadDealStats = useCallback(async () => {
+    const stats = await getDealStats()
+    if (!stats.error) {
+      setDealStats({
+        total_deals: stats.total_deals,
+        active_deals: stats.active_deals,
+        total_commission: stats.total_commission,
+        pending_payments: stats.pending_payments,
+      })
+    }
+  }, [])
+
+  useEffect(() => { loadDealStats() }, [loadDealStats])
+
+  // ── Deal data ──
+  const loadDeals = useCallback(async () => {
+    setDealLoading(true)
+    try {
+      const { deals: data, total: count, error } = await getDeals({
+        consultant_id: dealFilterConsultant || undefined,
+        deal_type: dealFilterType || undefined,
+        status: dealFilterStatus || undefined,
+        date_from: dealFilterDateFrom || undefined,
+        date_to: dealFilterDateTo || undefined,
+        page: dealPage,
+      })
+      if (error) throw new Error(error)
+      setDeals(data)
+      setDealTotal(count)
+    } catch {
+      toast.error('Erro ao carregar negócios.')
+    } finally {
+      setDealLoading(false)
+    }
+  }, [dealFilterConsultant, dealFilterType, dealFilterStatus, dealFilterDateFrom, dealFilterDateTo, dealPage])
+
+  useEffect(() => { loadDeals() }, [loadDeals])
+
+  // ── Transaction Handlers ──
 
   const handleCreate = async () => {
     if (!form.consultant_id) { toast.error('Seleccione um consultor.'); return }
@@ -159,7 +253,7 @@ export default function ComissoesPage() {
       toast.success('Transacção criada com sucesso.')
       setDialogOpen(false)
       setForm({ ...emptyForm })
-      loadData()
+      loadTransactions()
     }
   }
 
@@ -167,7 +261,7 @@ export default function ComissoesPage() {
     const { error } = await updateTransactionStatus(id, status)
     if (error) { toast.error(error) } else {
       toast.success(`Estado actualizado para "${TRANSACTION_STATUSES[status].label}".`)
-      loadData()
+      loadTransactions()
     }
   }
 
@@ -177,7 +271,7 @@ export default function ComissoesPage() {
     const { error } = await bulkApproveTransactions(ids)
     if (error) { toast.error(error) } else {
       toast.success(`${ids.length} transacção(ões) aprovada(s).`)
-      loadData()
+      loadTransactions()
     }
   }
 
@@ -197,12 +291,21 @@ export default function ComissoesPage() {
 
   const updateForm = (key: string, value: unknown) => setForm(prev => ({ ...prev, [key]: value }))
 
+  // ── Deal Handlers ──
+
+  const handleDealFormSuccess = () => {
+    setDealFormOpen(false)
+    loadDeals()
+    loadDealStats()
+  }
+
   // ── Skeleton ──
 
-  if (loading && transactions.length === 0) {
+  if (txLoading && transactions.length === 0 && dealLoading && deals.length === 0) {
     return (
       <div className="space-y-6 p-6">
         <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-64" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20" />)}
         </div>
@@ -214,172 +317,334 @@ export default function ComissoesPage() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Comissões</h1>
-        <Button className="gap-2" onClick={() => { setForm({ ...emptyForm }); setDialogOpen(true) }}>
-          <Plus className="h-4 w-4" />
-          Nova Transacção
-        </Button>
-      </div>
+      <h1 className="text-3xl font-bold tracking-tight">Comissões</h1>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Comissões Pendentes" value={kpis.pending} icon={Clock} color="text-amber-600" />
-        <KpiCard label="Comissões Aprovadas" value={kpis.approved} icon={CheckCircle2} color="text-blue-600" />
-        <KpiCard label="Pagas (Mês)" value={kpis.paidMonth} icon={Banknote} color="text-emerald-600" />
-        <KpiCard label="Pagas (YTD)" value={kpis.paidYtd} icon={TrendingUp} color="text-indigo-600" />
-      </div>
+      <Tabs defaultValue="negocios">
+        <TabsList>
+          <TabsTrigger value="negocios">Negócios</TabsTrigger>
+          <TabsTrigger value="transaccoes">Transacções</TabsTrigger>
+        </TabsList>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="w-44">
-              <Label className="text-xs text-muted-foreground mb-1 block">Consultor</Label>
-              <Select value={filterConsultant} onValueChange={v => { setFilterConsultant(v === 'all' ? '' : v); setPage(1) }}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-36">
-              <Label className="text-xs text-muted-foreground mb-1 block">Estado</Label>
-              <Select value={filterStatus} onValueChange={v => { setFilterStatus(v === 'all' ? '' : v); setPage(1) }}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {Object.entries(TRANSACTION_STATUSES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-44">
-              <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
-              <Select value={filterType} onValueChange={v => { setFilterType(v === 'all' ? '' : v); setPage(1) }}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {Object.entries(TRANSACTION_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-36">
-              <Label className="text-xs text-muted-foreground mb-1 block">De</Label>
-              <Input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1) }} />
-            </div>
-            <div className="w-36">
-              <Label className="text-xs text-muted-foreground mb-1 block">Até</Label>
-              <Input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1) }} />
-            </div>
-            {selected.size > 0 && (
-              <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={handleBulkApprove}>
-                <CheckCheck className="h-4 w-4" />
-                Aprovar {selected.size}
-              </Button>
-            )}
+        {/* ═══════════════════════════════════════════════════════════════════════
+            TAB: Negócios (Deals)
+            ═══════════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="negocios" className="space-y-6 mt-6">
+          {/* Deal KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KpiCard label="Total Negócios" value={dealStats.total_deals} icon={Briefcase} color="text-slate-600" isCurrency={false} />
+            <KpiCard label="Negócios Activos" value={dealStats.active_deals} icon={Activity} color="text-blue-600" isCurrency={false} />
+            <KpiCard label="Comissão Total" value={dealStats.total_commission} icon={CircleDollarSign} color="text-emerald-600" />
+            <KpiCard label="Pagamentos Pendentes" value={dealStats.pending_payments} icon={AlertCircle} color="text-amber-600" />
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={transactions.filter(t => t.status === 'pending').length > 0 && transactions.filter(t => t.status === 'pending').every(t => selected.has(t.id))}
-                    onCheckedChange={toggleAll}
-                  />
-                </TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Consultor</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Imóvel</TableHead>
-                <TableHead className="text-right">Valor Negócio</TableHead>
-                <TableHead className="text-right">Com. Agência</TableHead>
-                <TableHead className="text-right">Com. Consultor</TableHead>
-                <TableHead>Partilha</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-12">
-                    Nenhuma transacção encontrada.
-                  </TableCell>
-                </TableRow>
-              ) : transactions.map(t => {
-                const statusInfo = TRANSACTION_STATUSES[t.status as TransactionStatus]
-                return (
-                  <TableRow key={t.id}>
-                    <TableCell>
-                      {t.status === 'pending' && (
-                        <Checkbox checked={selected.has(t.id)} onCheckedChange={() => toggleSelect(t.id)} />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm whitespace-nowrap">{fmtDate(t.transaction_date)}</TableCell>
-                    <TableCell className="text-sm">{t.consultant?.commercial_name ?? '—'}</TableCell>
-                    <TableCell className="text-sm">{TRANSACTION_TYPES[t.transaction_type] ?? t.transaction_type}</TableCell>
-                    <TableCell className="text-sm max-w-[150px] truncate">
-                      {t.property ? `${t.property.external_ref ?? ''} ${t.property.title}`.trim() : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-right">{t.deal_value ? fmtCurrency(t.deal_value) : '—'}</TableCell>
-                    <TableCell className="text-sm text-right">{t.agency_commission_amount ? fmtCurrency(t.agency_commission_amount) : '—'}</TableCell>
-                    <TableCell className="text-sm text-right font-medium">{t.consultant_commission_amount ? fmtCurrency(t.consultant_commission_amount) : '—'}</TableCell>
-                    <TableCell className="text-sm">{t.is_shared_deal ? (t.share_pct ? `${t.share_pct}%` : 'Sim') : '—'}</TableCell>
-                    <TableCell>
-                      {statusInfo && <Badge variant="secondary" className={statusInfo.color}>{statusInfo.label}</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {t.status === 'pending' && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Aprovar" onClick={() => handleStatusChange(t.id, 'approved')}>
-                            <Check className="h-4 w-4 text-blue-600" />
-                          </Button>
-                        )}
-                        {t.status === 'approved' && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar pago" onClick={() => handleStatusChange(t.id, 'paid')}>
-                            <Banknote className="h-4 w-4 text-emerald-600" />
-                          </Button>
-                        )}
-                        {(t.status === 'pending' || t.status === 'approved') && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Cancelar" onClick={() => handleStatusChange(t.id, 'cancelled')}>
-                            <X className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+          {/* Filters + Action */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="w-44">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Consultor</Label>
+                  <Select value={dealFilterConsultant} onValueChange={v => { setDealFilterConsultant(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {dealConsultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-40">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+                  <Select value={dealFilterType} onValueChange={v => { setDealFilterType(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(DEAL_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Estado</Label>
+                  <Select value={dealFilterStatus} onValueChange={v => { setDealFilterStatus(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(DEAL_STATUSES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">De</Label>
+                  <Input type="date" value={dealFilterDateFrom} onChange={e => { setDealFilterDateFrom(e.target.value); setDealPage(1) }} />
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Até</Label>
+                  <Input type="date" value={dealFilterDateTo} onChange={e => { setDealFilterDateTo(e.target.value); setDealPage(1) }} />
+                </div>
+                <Button className="gap-2 ml-auto" onClick={() => setDealFormOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Registar Negócio
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Deals Table */}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Imóvel</TableHead>
+                    <TableHead>Consultor</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">Comissão</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Momentos</TableHead>
                   </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {dealLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 8 }).map((_, j) => (
+                          <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : deals.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                        Nenhum negócio encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : deals.map(d => {
+                    const statusInfo = DEAL_STATUSES[d.status as DealStatus]
+                    return (
+                      <TableRow
+                        key={d.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => router.push(`/dashboard/comissoes/deals/${d.id}`)}
+                      >
+                        <TableCell className="text-sm whitespace-nowrap">{fmtDate(d.deal_date)}</TableCell>
+                        <TableCell className="text-sm max-w-[180px] truncate">
+                          {d.property ? `${d.property.external_ref ?? ''} ${d.property.title}`.trim() : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">{d.consultant?.commercial_name ?? '—'}</TableCell>
+                        <TableCell className="text-sm">{DEAL_TYPES[d.deal_type as DealType] ?? d.deal_type}</TableCell>
+                        <TableCell className="text-sm text-right">{fmtCurrency(d.deal_value)}</TableCell>
+                        <TableCell className="text-sm text-right font-medium">{fmtCurrency(d.commission_total)}</TableCell>
+                        <TableCell>
+                          {statusInfo && <Badge variant="secondary" className={statusInfo.color}>{statusInfo.label}</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          <PaymentMomentBadges payments={d.payments} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {total} transacção(ões) &middot; Página {page} de {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-              Seguinte <ChevronRight className="h-4 w-4 ml-1" />
+          {/* Deal Pagination */}
+          {dealTotalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {dealTotal} negócio(s) &middot; Página {dealPage} de {dealTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={dealPage <= 1} onClick={() => setDealPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={dealPage >= dealTotalPages} onClick={() => setDealPage(p => p + 1)}>
+                  Seguinte <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Deal Form Dialog */}
+          <DealForm
+            open={dealFormOpen}
+            onOpenChange={setDealFormOpen}
+            onSuccess={handleDealFormSuccess}
+          />
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════════════════════
+            TAB: Transacções (existing)
+            ═══════════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="transaccoes" className="space-y-6 mt-6">
+          {/* Header with button */}
+          <div className="flex items-center justify-end">
+            <Button className="gap-2" onClick={() => { setForm({ ...emptyForm }); setDialogOpen(true) }}>
+              <Plus className="h-4 w-4" />
+              Nova Transacção
             </Button>
           </div>
-        </div>
-      )}
 
-      {/* Create Dialog */}
+          {/* Transaction KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KpiCard label="Comissões Pendentes" value={txKpis.pending} icon={Clock} color="text-amber-600" />
+            <KpiCard label="Comissões Aprovadas" value={txKpis.approved} icon={CheckCircle2} color="text-blue-600" />
+            <KpiCard label="Pagas (Mês)" value={txKpis.paidMonth} icon={Banknote} color="text-emerald-600" />
+            <KpiCard label="Pagas (YTD)" value={txKpis.paidYtd} icon={TrendingUp} color="text-indigo-600" />
+          </div>
+
+          {/* Transaction Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="w-44">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Consultor</Label>
+                  <Select value={filterConsultant} onValueChange={v => { setFilterConsultant(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Estado</Label>
+                  <Select value={filterStatus} onValueChange={v => { setFilterStatus(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(TRANSACTION_STATUSES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-44">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+                  <Select value={filterType} onValueChange={v => { setFilterType(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(TRANSACTION_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">De</Label>
+                  <Input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setTxPage(1) }} />
+                </div>
+                <div className="w-36">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Até</Label>
+                  <Input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setTxPage(1) }} />
+                </div>
+                {selected.size > 0 && (
+                  <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={handleBulkApprove}>
+                    <CheckCheck className="h-4 w-4" />
+                    Aprovar {selected.size}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Transaction Table */}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={transactions.filter(t => t.status === 'pending').length > 0 && transactions.filter(t => t.status === 'pending').every(t => selected.has(t.id))}
+                        onCheckedChange={toggleAll}
+                      />
+                    </TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Consultor</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Imóvel</TableHead>
+                    <TableHead className="text-right">Valor Negócio</TableHead>
+                    <TableHead className="text-right">Com. Agência</TableHead>
+                    <TableHead className="text-right">Com. Consultor</TableHead>
+                    <TableHead>Partilha</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acções</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-12">
+                        Nenhuma transacção encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : transactions.map(t => {
+                    const statusInfo = TRANSACTION_STATUSES[t.status as TransactionStatus]
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          {t.status === 'pending' && (
+                            <Checkbox checked={selected.has(t.id)} onCheckedChange={() => toggleSelect(t.id)} />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{fmtDate(t.transaction_date)}</TableCell>
+                        <TableCell className="text-sm">{t.consultant?.commercial_name ?? '—'}</TableCell>
+                        <TableCell className="text-sm">{TRANSACTION_TYPES[t.transaction_type] ?? t.transaction_type}</TableCell>
+                        <TableCell className="text-sm max-w-[150px] truncate">
+                          {t.property ? `${t.property.external_ref ?? ''} ${t.property.title}`.trim() : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-right">{t.deal_value ? fmtCurrency(t.deal_value) : '—'}</TableCell>
+                        <TableCell className="text-sm text-right">{t.agency_commission_amount ? fmtCurrency(t.agency_commission_amount) : '—'}</TableCell>
+                        <TableCell className="text-sm text-right font-medium">{t.consultant_commission_amount ? fmtCurrency(t.consultant_commission_amount) : '—'}</TableCell>
+                        <TableCell className="text-sm">{t.is_shared_deal ? (t.share_pct ? `${t.share_pct}%` : 'Sim') : '—'}</TableCell>
+                        <TableCell>
+                          {statusInfo && <Badge variant="secondary" className={statusInfo.color}>{statusInfo.label}</Badge>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {t.status === 'pending' && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Aprovar" onClick={() => handleStatusChange(t.id, 'approved')}>
+                                <Check className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
+                            {t.status === 'approved' && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar pago" onClick={() => handleStatusChange(t.id, 'paid')}>
+                                <Banknote className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                            )}
+                            {(t.status === 'pending' || t.status === 'approved') && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Cancelar" onClick={() => handleStatusChange(t.id, 'cancelled')}>
+                                <X className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Transaction Pagination */}
+          {txTotalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {txTotal} transacção(ões) &middot; Página {txPage} de {txTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={txPage <= 1} onClick={() => setTxPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={txPage >= txTotalPages} onClick={() => setTxPage(p => p + 1)}>
+                  Seguinte <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Create Transaction Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Transacção</DialogTitle></DialogHeader>

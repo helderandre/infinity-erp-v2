@@ -41,7 +41,7 @@ const MONTH_OPTIONS = [
 ]
 
 interface SettingConfig {
-  key: string; label: string; description: string; type: 'percent' | 'number' | 'month'
+  key: string; label: string; description: string; type: 'text' | 'percent' | 'number' | 'month'
 }
 
 const SETTING_CONFIGS: SettingConfig[] = [
@@ -50,6 +50,15 @@ const SETTING_CONFIGS: SettingConfig[] = [
   { key: 'default_commission_sale', label: 'Comissão Venda Defeito', description: 'Percentagem de comissão padrão para vendas.', type: 'percent' },
   { key: 'default_commission_rent', label: 'Comissão Arrendamento Defeito', description: 'Valor de comissão padrão para arrendamentos.', type: 'number' },
   { key: 'fiscal_year_start', label: 'Início Ano Fiscal', description: 'Mês de início do ano fiscal para cálculos.', type: 'month' },
+]
+
+const NETWORK_CONFIGS: SettingConfig[] = [
+  { key: 'network_name', label: 'Nome da Rede', description: 'Nome da rede imobiliária (ex: RE/MAX).', type: 'text' },
+  { key: 'network_pct', label: 'Percentagem da Rede', description: 'Percentagem fixa da rede sobre o report.', type: 'percent' },
+  { key: 'default_cpcv_pct', label: '% CPCV Padrão', description: 'Percentagem padrão paga no momento do CPCV.', type: 'percent' },
+  { key: 'default_escritura_pct', label: '% Escritura Padrão', description: 'Percentagem padrão paga no momento da Escritura.', type: 'percent' },
+  { key: 'default_rent_commission', label: 'Comissão Arrendamento', description: 'Número de rendas de comissão no arrendamento.', type: 'number' },
+  { key: 'vat_rate_services', label: 'Taxa IVA Mediação', description: 'Taxa de IVA para serviços de mediação imobiliária.', type: 'percent' },
 ]
 
 const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
@@ -164,6 +173,7 @@ export default function DefinicoesPage() {
         <TabsList>
           <TabsTrigger value="geral">Configurações Gerais</TabsTrigger>
           <TabsTrigger value="escaloes">Escalões de Comissão</TabsTrigger>
+          <TabsTrigger value="rede">Rede e Pagamentos</TabsTrigger>
         </TabsList>
 
         {/* ── Tab: Configurações Gerais ── */}
@@ -249,6 +259,51 @@ export default function DefinicoesPage() {
                 />
               ))}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* ── Tab: Rede e Pagamentos ── */}
+        <TabsContent value="rede" className="mt-6">
+          <div className="space-y-4 max-w-2xl">
+            {NETWORK_CONFIGS.map(config => (
+              <Card key={config.key}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{config.label}</CardTitle>
+                  <CardDescription>{config.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end gap-3">
+                    {config.type === 'text' ? (
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          value={values[config.key] ?? ''}
+                          onChange={e => setValues(prev => ({ ...prev, [config.key]: e.target.value }))}
+                          placeholder={config.label}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex-1 relative">
+                        <Input
+                          type="number"
+                          step={config.type === 'percent' ? '0.1' : '1'}
+                          value={values[config.key] ?? ''}
+                          onChange={e => setValues(prev => ({ ...prev, [config.key]: e.target.value }))}
+                          className={config.type === 'percent' ? 'pr-8' : ''}
+                        />
+                        {config.type === 'percent' && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                        )}
+                      </div>
+                    )}
+                    <Button size="sm" className="gap-2" disabled={savingKey === config.key} onClick={() => handleSaveSetting(config.key)}>
+                      {savingKey === config.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Guardar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </TabsContent>
       </Tabs>
