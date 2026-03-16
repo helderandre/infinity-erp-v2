@@ -1,0 +1,612 @@
+# SPEC-M23 — Google Calendar Sync (Per User)
+
+## Visão Geral
+
+Sincronização bidireccional entre o calendário do ERP e o Google Calendar de cada utilizador. Cada consultor liga a sua própria conta Google via OAuth2. O ERP envia eventos (visitas, entrevistas, tarefas, escrituras) para o Google Calendar do utilizador e lê eventos externos para mostrar ocupação.
+
+---
+
+## 1. Setup Inicial (Uma Vez, pelo Admin)
+
+### 1.1 Google Cloud Console
+
+1. Criar projecto no Google Cloud Console
+2. Activar **Google Calendar API**
+3. Criar credenciais **OAuth 2.0 Client ID** (tipo: Web Application)
+4. Configurar:
+   - Authorized JavaScript Origins: `https://erp.infinitygroup.pt` (produção) + `http://localhost:3000` (dev)
+   - Authorized Redirect URIs: `https://erp.infinitygroup.pt/api/auth/google/callback` + `http://localhost:3000/api/auth/google/callback`
+5. Guardar `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`
+6. Configurar OAuth Consent Screen:
+   - App name: "Infinity ERP"
+   - Scopes: `https://www.googleapis.com/auth/calendar` (read/write)
+   - User type: External (ou Internal se Google Workspace)
+
+### 1.2 Variáveis de Ambiente
+
+```env
+# .env.local
+GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPx-xxx
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+# Encryption key for tokens (32 bytes hex)
+GOOGLE_TOKEN_ENCRYPTION_KEY=abc123...
+```
+
+---
+
+## 2. Fluxo OAuth2 (Per User)
+
+```
+Utilizador clica "Ligar Google Calendar"
+  │
+  ▼
+GET /api/auth/google
+  → Gera state token (CSRF protection)
+  → Guarda state em cookie httpOnly
+  → Redirect para:
+    https://accounts.google.com/o/oauth2/v2/auth
+      ?client_id=XXX
+      &redirect_uri=XXX
+      &response_type=code
+      &scope=https://www.googleapis.com/auth/calendar
+      &access_type=offline        ← IMPORTANTE: pede refresh_token
+      &prompt=consent              ← Força consent para garantir refresh_token
+      &state=CSRF_TOKEN
+  │
+  ▼
+Google mostra ecrã de consentimento
+  → Utilizador autoriza
+  │
+  ▼
+Google redirect para /api/auth/google/callback?code=XXX&state=XXX
+  │
+  ├─ Validar state vs cookie
+  ├─ Trocar code por tokens:
+  │    POST https://oauth2.googleapis.com/token
+  │      grant_type=authorization_code
+  │      code=XXX
+  │      client_id=XXX
+  │      client_secret=XXX
+  │      redirect_uri=XXX
+  │    → Recebe: access_token, refresh_token, expires_in
+  │
+  ├─ Encriptar tokens (AES-256-GCM)
+  ├─ Guardar em temp_user_google_tokens
+  ├─ Fazer sync inicial (últimos 30 dias)
+  │
+  └─ Redirect para /dashboard/definicoes com toast "Google Calendar ligado"
+```
+
+### Refresh do Access Token
+
+O access_token expira em ~1 hora. Antes de cada chamada à API:
+
+```typescript
+async function getValidAccessToken(userId: string): Promise<string> {
+  const tokenRecord = await getGoogleTokens(userId)
+  if (!tokenRecord) throw new Error('Google Calendar não ligado')
+
+  // Se ainda válido, usar
+  if (new Date(tokenRecord.expires_at) > new Date(Date.now() + 60000)) {
+    return decrypt(tokenRecord.access_token)
+  }
+
+  // Senão, refresh
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: decrypt(tokenRecord.refresh_token),
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  })
+
+  const data = await res.json()
+  // Actualizar tokens na DB
+  await updateGoogleTokens(userId, {
+    access_token: encrypt(data.access_token),
+    expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+  })
+
+  return data.access_token
+}
+```
+
+---
+
+## 3. Tabelas de Base de Dados
+
+### `temp_user_google_tokens`
+
+```sql
+CREATE TABLE temp_user_google_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES dev_users(id) ON DELETE CASCADE,
+  access_token TEXT NOT NULL,        -- encrypted
+  refresh_token TEXT NOT NULL,       -- encrypted
+  expires_at TIMESTAMPTZ NOT NULL,
+  calendar_id TEXT DEFAULT 'primary', -- Google Calendar ID (usually 'primary')
+  sync_enabled BOOLEAN DEFAULT true,
+  last_sync_at TIMESTAMPTZ,
+  sync_channel_id TEXT,              -- for push notifications (webhook)
+  sync_channel_expiration TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id)
+);
+```
+
+### Adicionar a `temp_calendar_events`
+
+O calendário do ERP já tem `temp_calendar_events`. Adicionar campo:
+
+```sql
+ALTER TABLE temp_calendar_events ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+ALTER TABLE temp_calendar_events ADD COLUMN IF NOT EXISTS google_sync_status TEXT DEFAULT 'pending';
+  -- 'pending' | 'synced' | 'error' | 'local_only'
+ALTER TABLE temp_calendar_events ADD COLUMN IF NOT EXISTS google_last_synced_at TIMESTAMPTZ;
+ALTER TABLE temp_calendar_events ADD COLUMN IF NOT EXISTS is_external BOOLEAN DEFAULT false;
+  -- true = veio do Google, read-only no ERP
+```
+
+### Adicionar a `temp_visits`
+
+```sql
+ALTER TABLE temp_visits ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+```
+
+---
+
+## 4. Sincronização
+
+### 4.1 ERP → Google (Push)
+
+Quando um evento é criado/actualizado/cancelado no ERP, enviar para o Google Calendar do utilizador.
+
+**Eventos que fazem push:**
+
+| Origem | Condição | Título no Google | Cor |
+|--------|----------|-----------------|-----|
+| Visita (temp_visits) | Sempre que criada | "🏠 Visita: [imóvel] — [cliente]" | Lavender (1) |
+| Entrevista recrutamento | Sempre que criada | "👤 Entrevista: [candidato]" | Sage (2) |
+| Tarefa processo (proc_tasks) | Se tem due_date e assigned_to | "📋 [tarefa] — [imóvel]" | Basil (10) |
+| CPCV/Escritura (temp_deal_payments) | Se signed_date definida | "✍️ [CPCV/Escritura]: [imóvel]" | Tomato (11) |
+| Evento calendário | Sempre | Título original | Blueberry (9) |
+
+**Google Calendar API — Criar evento:**
+
+```typescript
+async function pushEventToGoogle(userId: string, event: {
+  summary: string
+  description?: string
+  location?: string
+  start: { dateTime: string; timeZone: string }
+  end: { dateTime: string; timeZone: string }
+  colorId?: string
+  // Link para o ERP
+  source?: { title: string; url: string }
+}): Promise<string> {  // returns google event ID
+  const accessToken = await getValidAccessToken(userId)
+  const calendarId = await getCalendarId(userId) // usually 'primary'
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...event,
+        // Extended properties para identificar eventos do ERP
+        extendedProperties: {
+          private: { erp_source: 'infinity_erp' },
+        },
+      }),
+    }
+  )
+
+  const data = await res.json()
+  return data.id  // guardar como google_event_id
+}
+```
+
+**Actualizar evento:**
+
+```typescript
+async function updateGoogleEvent(userId: string, googleEventId: string, updates: Partial<GoogleEvent>) {
+  const accessToken = await getValidAccessToken(userId)
+  const calendarId = await getCalendarId(userId)
+
+  await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${googleEventId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    }
+  )
+}
+```
+
+**Cancelar evento:**
+
+```typescript
+async function deleteGoogleEvent(userId: string, googleEventId: string) {
+  const accessToken = await getValidAccessToken(userId)
+  const calendarId = await getCalendarId(userId)
+
+  await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${googleEventId}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+}
+```
+
+### 4.2 Google → ERP (Pull)
+
+Ler eventos do Google Calendar para mostrar no calendário do ERP como "ocupação externa".
+
+**Duas estratégias:**
+
+#### Estratégia A: Polling (mais simples, recomendado para início)
+
+Cron job que corre a cada 15 minutos:
+
+```typescript
+// /api/cron/sync-google-calendars
+async function syncAllUsers() {
+  const users = await getUsersWithGoogleSync()
+
+  for (const user of users) {
+    try {
+      const accessToken = await getValidAccessToken(user.id)
+      const calendarId = user.calendar_id || 'primary'
+
+      // Buscar eventos dos próximos 30 dias
+      const timeMin = new Date().toISOString()
+      const timeMax = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events` +
+        `?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+
+      const data = await res.json()
+      const googleEvents = data.items || []
+
+      for (const ge of googleEvents) {
+        // Ignorar eventos criados pelo ERP
+        if (ge.extendedProperties?.private?.erp_source === 'infinity_erp') continue
+
+        // Upsert no calendário ERP como evento externo
+        await upsertExternalEvent(user.id, {
+          google_event_id: ge.id,
+          title: ge.summary || 'Evento Google',
+          description: ge.description,
+          start_time: ge.start?.dateTime || ge.start?.date,
+          end_time: ge.end?.dateTime || ge.end?.date,
+          location: ge.location,
+          is_external: true,
+          google_sync_status: 'synced',
+        })
+      }
+
+      // Actualizar last_sync_at
+      await updateLastSync(user.id)
+    } catch (err) {
+      console.error(`Sync failed for user ${user.id}:`, err)
+    }
+  }
+}
+```
+
+#### Estratégia B: Push Notifications (mais eficiente, fase futura)
+
+Google pode enviar webhooks quando um calendário muda:
+
+```typescript
+// Registar webhook (válido até 7 dias, renova automaticamente)
+async function registerGoogleWatch(userId: string) {
+  const accessToken = await getValidAccessToken(userId)
+  const channelId = crypto.randomUUID()
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/watch`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: channelId,
+        type: 'web_hook',
+        address: 'https://erp.infinitygroup.pt/api/webhooks/google-calendar',
+        expiration: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 dias
+      }),
+    }
+  )
+
+  // Guardar channel_id e expiration para renovação
+}
+
+// Webhook endpoint
+// POST /api/webhooks/google-calendar
+// Google envia notificação → trigger sync para o user afectado
+```
+
+---
+
+## 5. UI — Interface do Utilizador
+
+### 5.1 Botão "Ligar Google Calendar"
+
+**Localização:** Definições do utilizador (perfil) ou `/dashboard/definicoes`
+
+```
+┌────────────────────────────────────────────────┐
+│  Google Calendar                               │
+│                                                │
+│  ○ Não ligado                                  │
+│                                                │
+│  [🔗 Ligar Google Calendar]                    │
+│                                                │
+│  Sincronize automaticamente visitas,           │
+│  entrevistas e tarefas com o seu               │
+│  Google Calendar pessoal.                      │
+└────────────────────────────────────────────────┘
+```
+
+Depois de ligar:
+
+```
+┌────────────────────────────────────────────────┐
+│  Google Calendar                    ✅ Ligado   │
+│                                                │
+│  Conta: joao.silva@gmail.com                   │
+│  Último sync: há 5 minutos                     │
+│                                                │
+│  Sincronizar:                                  │
+│  ☑ Visitas a imóveis                           │
+│  ☑ Entrevistas de recrutamento                 │
+│  ☑ Tarefas de processos                        │
+│  ☑ CPCV e Escrituras                           │
+│  ☐ Todos os eventos do calendário              │
+│                                                │
+│  [🔄 Sincronizar agora]  [❌ Desligar]         │
+└────────────────────────────────────────────────┘
+```
+
+### 5.2 Indicador no Calendário do ERP
+
+Eventos vindos do Google mostram um badge "Google" e são read-only no ERP:
+
+```
+┌──────────────────────────────────────┐
+│  15:00  Reunião equipa  🔵 Google    │  ← read-only, veio do Google
+│  16:00  🏠 Visita T2 Cascais  ↔     │  ← synced bidireccional
+│  17:00  📋 Upload docs processo      │  ← synced para Google
+└──────────────────────────────────────┘
+```
+
+### 5.3 Sync Status no Evento
+
+No detalhe de um evento do ERP, mostrar:
+- "✅ Sincronizado com Google Calendar" (com link para abrir no Google)
+- "⏳ Pendente de sincronização"
+- "❌ Erro de sincronização" (com retry)
+- "📍 Local apenas" (não sincronizado)
+
+---
+
+## 6. Encriptação de Tokens
+
+Os tokens OAuth devem ser encriptados em repouso (at rest) na base de dados.
+
+```typescript
+// lib/google/crypto.ts
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+
+const ALGORITHM = 'aes-256-gcm'
+const KEY = Buffer.from(process.env.GOOGLE_TOKEN_ENCRYPTION_KEY!, 'hex')
+
+export function encrypt(text: string): string {
+  const iv = randomBytes(16)
+  const cipher = createCipheriv(ALGORITHM, KEY, iv)
+  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
+  const authTag = cipher.getAuthTag()
+  // iv:authTag:encrypted (all base64)
+  return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted.toString('base64')}`
+}
+
+export function decrypt(encoded: string): string {
+  const [ivB64, tagB64, encB64] = encoded.split(':')
+  const iv = Buffer.from(ivB64, 'base64')
+  const authTag = Buffer.from(tagB64, 'base64')
+  const encrypted = Buffer.from(encB64, 'base64')
+  const decipher = createDecipheriv(ALGORITHM, KEY, iv)
+  decipher.setAuthTag(authTag)
+  return decipher.update(encrypted) + decipher.final('utf8')
+}
+```
+
+---
+
+## 7. Ficheiros a Criar
+
+### API Routes
+| Ficheiro | Descrição |
+|----------|-----------|
+| `app/api/auth/google/route.ts` | Inicia OAuth flow (redirect para Google) |
+| `app/api/auth/google/callback/route.ts` | Callback, troca code por tokens, guarda |
+| `app/api/google-calendar/sync/route.ts` | Manual sync trigger |
+| `app/api/google-calendar/disconnect/route.ts` | Desligar conta Google |
+| `app/api/cron/sync-google-calendars/route.ts` | Cron job polling (15 min) |
+| `app/api/webhooks/google-calendar/route.ts` | Push notification webhook (fase 2) |
+
+### Lib
+| Ficheiro | Descrição |
+|----------|-----------|
+| `lib/google/crypto.ts` | Encrypt/decrypt tokens |
+| `lib/google/calendar.ts` | Google Calendar API wrapper (push, update, delete, list) |
+| `lib/google/auth.ts` | OAuth helpers (getValidAccessToken, refresh) |
+
+### Components
+| Ficheiro | Descrição |
+|----------|-----------|
+| `components/settings/google-calendar-settings.tsx` | Card de ligação/configuração |
+
+### Server Actions
+| Ficheiro | Descrição |
+|----------|-----------|
+| `app/dashboard/definicoes/google-actions.ts` | Actions para settings de sync |
+
+---
+
+## 8. Integração com Módulos Existentes
+
+### Visitas (M22)
+Quando uma visita é criada:
+```typescript
+// Em createVisit (app/dashboard/visitas/actions.ts ou API)
+const visit = await insertVisit(data)
+
+// Se user tem Google sync ligado
+if (await hasGoogleSync(visit.consultant_id)) {
+  const googleEventId = await pushEventToGoogle(visit.consultant_id, {
+    summary: `🏠 Visita: ${property.title}`,
+    description: `Cliente: ${clientName}\nImóvel: ${property.external_ref}\n\nNotas: ${visit.notes}`,
+    location: property.address_street,
+    start: { dateTime: `${visit.visit_date}T${visit.visit_time}`, timeZone: 'Europe/Lisbon' },
+    end: { dateTime: addMinutes(`${visit.visit_date}T${visit.visit_time}`, visit.duration_minutes), timeZone: 'Europe/Lisbon' },
+    colorId: '1', // Lavender
+    source: { title: 'Infinity ERP', url: `${BASE_URL}/dashboard/visitas/${visit.id}` },
+  })
+
+  await updateVisitGoogleId(visit.id, googleEventId)
+}
+```
+
+### Recrutamento (M20)
+Quando uma entrevista é criada:
+```typescript
+if (await hasGoogleSync(interview.conducted_by)) {
+  await pushEventToGoogle(interview.conducted_by, {
+    summary: `👤 Entrevista #${interview.interview_number}: ${candidate.full_name}`,
+    description: `Formato: ${formatLabel}\nNotas: ${interview.notes}`,
+    start: { dateTime: `${interview.interview_date}T10:00:00`, timeZone: 'Europe/Lisbon' },
+    end: { dateTime: `${interview.interview_date}T11:00:00`, timeZone: 'Europe/Lisbon' },
+    colorId: '2', // Sage
+  })
+}
+```
+
+### Deals (M21)
+Quando uma data de CPCV/Escritura é definida:
+```typescript
+if (payment.signed_date && await hasGoogleSync(deal.consultant_id)) {
+  await pushEventToGoogle(deal.consultant_id, {
+    summary: `✍️ ${momentLabel}: ${property.title}`,
+    description: `Valor: ${formatCurrency(payment.amount)}\nRef: ${deal.reference}`,
+    start: { dateTime: `${payment.signed_date}T10:00:00`, timeZone: 'Europe/Lisbon' },
+    end: { dateTime: `${payment.signed_date}T11:00:00`, timeZone: 'Europe/Lisbon' },
+    colorId: '11', // Tomato
+  })
+}
+```
+
+### Processos (M06)
+Quando uma tarefa tem due_date e assigned_to:
+```typescript
+if (task.due_date && task.assigned_to && await hasGoogleSync(task.assigned_to)) {
+  await pushEventToGoogle(task.assigned_to, {
+    summary: `📋 ${task.title}`,
+    description: `Processo: ${process.external_ref}\nImóvel: ${property.title}`,
+    start: { dateTime: `${task.due_date}T09:00:00`, timeZone: 'Europe/Lisbon' },
+    end: { dateTime: `${task.due_date}T09:30:00`, timeZone: 'Europe/Lisbon' },
+    colorId: '10', // Basil
+  })
+}
+```
+
+---
+
+## 9. Limites e Considerações
+
+### Google Calendar API Limits
+- **Queries por dia:** 1.000.000 (mais que suficiente)
+- **Queries por utilizador por 100 segundos:** 500
+- **Tamanho máximo de descrição:** 8192 caracteres
+
+### Segurança
+- Tokens encriptados com AES-256-GCM em repouso
+- Refresh tokens armazenados encriptados
+- State parameter para CSRF protection no OAuth
+- Cada utilizador só acede ao seu próprio calendário
+
+### Revogação
+- Se o utilizador revoga acesso no Google → refresh falha → marcar como desligado
+- Se o utilizador clica "Desligar" no ERP → revogar token via Google API + apagar da DB
+
+### Offline Access
+- `access_type=offline` no OAuth garante que recebemos refresh_token
+- `prompt=consent` força novo consent para garantir refresh_token mesmo se já autorizou antes
+
+---
+
+## 10. Dependências
+
+```bash
+# Nenhuma dependência extra necessária!
+# Usa fetch nativo para chamadas à API do Google
+# Usa crypto nativo do Node.js para encriptação
+```
+
+A Google Calendar API é REST pura — não precisa de SDK.
+
+---
+
+## 11. Variáveis de Ambiente Necessárias
+
+```env
+GOOGLE_CLIENT_ID=             # OAuth Client ID
+GOOGLE_CLIENT_SECRET=         # OAuth Client Secret
+GOOGLE_REDIRECT_URI=          # Callback URL
+GOOGLE_TOKEN_ENCRYPTION_KEY=  # 32 bytes hex for AES-256
+```
+
+Para gerar a encryption key:
+```bash
+openssl rand -hex 32
+```
+
+---
+
+## 12. Fases de Implementação
+
+### Fase 1 (Core)
+- OAuth flow (connect/disconnect)
+- Token storage (encrypted)
+- Push events to Google (visitas, entrevistas, deals)
+- Settings UI ("Ligar Google Calendar")
+- Sync status indicators
+
+### Fase 2 (Pull)
+- Cron polling (15 min) para ler eventos do Google
+- Mostrar eventos externos no calendário ERP (read-only)
+- Indicadores de ocupação no agendamento de visitas
+
+### Fase 3 (Advanced)
+- Push notifications (webhooks) em vez de polling
+- Sync de múltiplos calendários por utilizador
+- Conflict detection (mesmo horário no Google e no ERP)
+- Cores customizáveis por tipo de evento

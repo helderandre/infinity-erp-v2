@@ -109,7 +109,7 @@ export function VisitForm({
           setLeads(
             (leadJson.data || leadJson || []).map((l: any) => ({
               id: l.id,
-              name: l.name,
+              name: l.full_name,
               phone_primary: l.phone_primary || l.telemovel,
             }))
           )
@@ -229,7 +229,7 @@ export function VisitForm({
               <SelectContent>
                 {leads.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.name}{l.phone_primary ? ` (${l.phone_primary})` : ''}
+                    {l.full_name}{l.phone_primary ? ` (${l.phone_primary})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

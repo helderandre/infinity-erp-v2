@@ -1324,6 +1324,54 @@ export const GOAL_PERIOD_LABELS = {
   daily: 'Diário',
 } as const
 
+// === VISITAS ===
+
+export const VISIT_STATUS_COLORS = {
+  scheduled:  { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Agendada' },
+  confirmed:  { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Confirmada' },
+  completed:  { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-500',   label: 'Realizada' },
+  cancelled:  { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Cancelada' },
+  no_show:    { bg: 'bg-orange-500/15',  text: 'text-orange-600',  dot: 'bg-orange-500',  label: 'Não Compareceu' },
+} as const
+
+export const VISIT_STATUS_OPTIONS = [
+  { value: 'scheduled' as const, label: 'Agendada' },
+  { value: 'confirmed' as const, label: 'Confirmada' },
+  { value: 'completed' as const, label: 'Realizada' },
+  { value: 'cancelled' as const, label: 'Cancelada' },
+  { value: 'no_show' as const, label: 'Não Compareceu' },
+] as const
+
+export const VISIT_FEEDBACK_INTEREST_OPTIONS = [
+  { value: 'very_interested' as const, label: 'Muito Interessado' },
+  { value: 'interested' as const, label: 'Interessado' },
+  { value: 'neutral' as const, label: 'Neutro' },
+  { value: 'not_interested' as const, label: 'Sem Interesse' },
+] as const
+
+export const VISIT_FEEDBACK_NEXT_STEP_OPTIONS = [
+  { value: 'second_visit' as const, label: 'Segunda Visita' },
+  { value: 'proposal' as const, label: 'Proposta' },
+  { value: 'thinking' as const, label: 'A Pensar' },
+  { value: 'discard' as const, label: 'Descartar' },
+] as const
+
+export const VISIT_CONFIRMATION_METHOD_OPTIONS = [
+  { value: 'whatsapp' as const, label: 'WhatsApp' },
+  { value: 'phone' as const, label: 'Telefone' },
+  { value: 'email' as const, label: 'Email' },
+  { value: 'sms' as const, label: 'SMS' },
+] as const
+
+export const VISIT_DURATION_OPTIONS = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hora' },
+  { value: 90, label: '1h 30min' },
+  { value: 120, label: '2 horas' },
+] as const
+
 // === CALENDÁRIO ===
 
 export const CALENDAR_CATEGORY_OPTIONS = [
