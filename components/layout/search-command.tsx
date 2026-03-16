@@ -37,7 +37,7 @@ export function SearchCommand() {
   }, [])
 
   const visibleMenuItems = menuItems.filter((item) =>
-    hasPermission(item.permission as any)
+    'permission' in item ? hasPermission(item.permission as any) : true
   )
 
   const visibleBuilderItems = hasPermission('settings' as any)
