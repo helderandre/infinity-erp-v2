@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       : null
 
     const now = new Date().toISOString()
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any // temp tables not in generated types
 
     // Run all queries in parallel
     const [
@@ -420,7 +420,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any // temp tables not in generated types
 
     const { data, error } = await admin
       .from('temp_calendar_events')

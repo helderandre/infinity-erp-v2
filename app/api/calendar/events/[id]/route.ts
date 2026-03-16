@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any // temp tables not in generated types
 
     const { data, error } = await admin
       .from('temp_calendar_events')
@@ -66,7 +66,7 @@ export async function PUT(
       )
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any // temp tables not in generated types
 
     // Check event exists
     const { data: existing, error: findError } = await admin
@@ -118,7 +118,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any // temp tables not in generated types
 
     // Check event exists
     const { data: existing, error: findError } = await admin
