@@ -1,11 +1,11 @@
 export type CalendarCategory =
   // Automáticas (derivadas de tabelas existentes)
-  | 'process_task'
-  | 'process_subtask'
-  | 'process_milestone'
   | 'contract_expiry'
   | 'lead_expiry'
   | 'lead_followup'
+  // Automáticas (derivadas de processos)
+  | 'process_task'
+  | 'process_subtask'
   // Manuais (TEMP_calendar_events)
   | 'birthday'
   | 'vacation'
@@ -36,10 +36,14 @@ export interface CalendarEvent {
   property_title?: string
   lead_id?: string
   lead_name?: string
+
+  // Relações de processo (para navegação)
   process_id?: string
   process_ref?: string
   task_id?: string
-  task_title?: string
+  subtask_id?: string
+  priority?: 'urgent' | 'normal' | 'low'
+  stage_name?: string
 }
 
 export interface CalendarFilters {
@@ -47,7 +51,6 @@ export interface CalendarFilters {
   userId?: string
   teamOnly?: boolean
   propertyId?: string
-  processId?: string
 }
 
 export interface CreateCalendarEventInput {
@@ -62,14 +65,13 @@ export interface CreateCalendarEventInput {
   user_id?: string
   property_id?: string
   lead_id?: string
-  process_id?: string
   visibility?: 'all' | 'team' | 'private'
   color?: string
 }
 
 export const ALL_CATEGORIES: CalendarCategory[] = [
-  'process_task', 'process_subtask', 'process_milestone',
   'contract_expiry', 'lead_expiry', 'lead_followup',
+  'process_task', 'process_subtask',
   'birthday', 'vacation', 'company_event',
   'marketing_event', 'meeting', 'reminder', 'custom',
 ]
@@ -80,12 +82,11 @@ export const MANUAL_CATEGORIES = [
 ] as const
 
 export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
-  process_task: 'Tarefas de Processo',
-  process_subtask: 'Subtarefas',
-  process_milestone: 'Marcos de Processo',
   contract_expiry: 'Expiração Contrato',
   lead_expiry: 'Expiração Lead',
   lead_followup: 'Follow-up Lead',
+  process_task: 'Tarefa de Processo',
+  process_subtask: 'Subtarefa de Processo',
   birthday: 'Aniversários',
   vacation: 'Férias / Ausências',
   company_event: 'Eventos Empresa',
@@ -96,12 +97,11 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
 }
 
 export const CALENDAR_CATEGORY_COLORS: Record<CalendarCategory, { bg: string; text: string; dot: string }> = {
-  process_task:      { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500' },
-  process_subtask:   { bg: 'bg-sky-500/15',     text: 'text-sky-600',     dot: 'bg-sky-400' },
-  process_milestone: { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500' },
   contract_expiry:   { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500' },
   lead_expiry:       { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-400' },
   lead_followup:     { bg: 'bg-yellow-500/15',  text: 'text-yellow-600',  dot: 'bg-yellow-500' },
+  process_task:      { bg: 'bg-violet-500/15',  text: 'text-violet-600',  dot: 'bg-violet-500' },
+  process_subtask:   { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-600', dot: 'bg-fuchsia-500' },
   birthday:          { bg: 'bg-pink-500/15',    text: 'text-pink-600',    dot: 'bg-pink-500' },
   vacation:          { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-400' },
   company_event:     { bg: 'bg-purple-500/15',  text: 'text-purple-600',  dot: 'bg-purple-500' },
@@ -117,19 +117,19 @@ export const CALENDAR_ROLE_PRESETS: Record<string, { categories: CalendarCategor
   'admin': { categories: ALL_CATEGORIES, filterSelf: false },
   'Office Manager': { categories: ALL_CATEGORIES, filterSelf: false },
   'Consultor': {
-    categories: ['process_task', 'process_subtask', 'contract_expiry', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: true,
   },
   'Consultora Executiva': {
-    categories: ['process_task', 'process_subtask', 'contract_expiry', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: true,
   },
   'Team Leader': {
-    categories: ['process_task', 'process_subtask', 'contract_expiry', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'birthday', 'vacation', 'company_event', 'meeting'],
     filterSelf: false,
   },
   'Gestora Processual': {
-    categories: ['process_task', 'process_subtask', 'process_milestone', 'contract_expiry', 'lead_expiry'],
+    categories: ['contract_expiry', 'lead_expiry', 'process_task', 'process_subtask', 'meeting', 'reminder'],
     filterSelf: false,
   },
   'Marketing': {
@@ -141,7 +141,7 @@ export const CALENDAR_ROLE_PRESETS: Record<string, { categories: CalendarCategor
     filterSelf: false,
   },
   'intermediario_credito': {
-    categories: ['process_task', 'process_subtask', 'meeting', 'reminder'],
+    categories: ['meeting', 'reminder', 'contract_expiry'],
     filterSelf: true,
   },
 }

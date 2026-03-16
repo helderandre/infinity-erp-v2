@@ -21,17 +21,18 @@ import {
   Clock,
   User,
   Building2,
-  FileStack,
   Zap,
   Trash2,
   Pencil,
   ExternalLink,
   CalendarDays,
   AlertTriangle,
-  Tag,
   Info,
   ArrowRight,
   CheckCircle2,
+  ClipboardList,
+  Layers,
+  Flag,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -48,12 +49,11 @@ interface CalendarEventDetailProps {
 
 // Dark-mode-safe colors (same as event-card)
 const DETAIL_COLORS: Record<string, { bg: string; text: string; dot: string; border: string }> = {
-  process_task:      { bg: 'bg-blue-500/10',    text: 'text-blue-700 dark:text-blue-300',       dot: 'bg-blue-500',    border: 'border-blue-500/20' },
-  process_subtask:   { bg: 'bg-sky-500/10',     text: 'text-sky-700 dark:text-sky-300',         dot: 'bg-sky-400',     border: 'border-sky-500/20' },
-  process_milestone: { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', border: 'border-emerald-500/20' },
   contract_expiry:   { bg: 'bg-amber-500/10',   text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500',   border: 'border-amber-500/20' },
   lead_expiry:       { bg: 'bg-red-500/10',     text: 'text-red-700 dark:text-red-300',         dot: 'bg-red-400',     border: 'border-red-500/20' },
   lead_followup:     { bg: 'bg-yellow-500/10',  text: 'text-yellow-700 dark:text-yellow-300',   dot: 'bg-yellow-500',  border: 'border-yellow-500/20' },
+  process_task:      { bg: 'bg-violet-500/10',  text: 'text-violet-700 dark:text-violet-300',   dot: 'bg-violet-500',  border: 'border-violet-500/20' },
+  process_subtask:   { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-700 dark:text-fuchsia-300', dot: 'bg-fuchsia-500', border: 'border-fuchsia-500/20' },
   birthday:          { bg: 'bg-pink-500/10',    text: 'text-pink-700 dark:text-pink-300',       dot: 'bg-pink-500',    border: 'border-pink-500/20' },
   vacation:          { bg: 'bg-slate-500/10',   text: 'text-slate-700 dark:text-slate-300',     dot: 'bg-slate-400',   border: 'border-slate-500/20' },
   company_event:     { bg: 'bg-purple-500/10',  text: 'text-purple-700 dark:text-purple-300',   dot: 'bg-purple-500',  border: 'border-purple-500/20' },
@@ -83,6 +83,7 @@ export function CalendarEventDetail({
   const colors = DETAIL_COLORS[event.category] ?? DETAIL_COLORS.custom
   const categoryLabel = CALENDAR_CATEGORY_LABELS[event.category]
   const isManual = event.source === 'manual'
+  const isProcessEvent = event.category === 'process_task' || event.category === 'process_subtask'
 
   const formatEventDate = (dateStr: string, allDay: boolean) => {
     const date = parseISO(dateStr)
@@ -96,15 +97,7 @@ export function CalendarEventDetail({
 
   const relatedLinks: { label: string; href: string; icon: React.ReactNode; sublabel?: string }[] = []
 
-  if (event.process_id) {
-    relatedLinks.push({
-      label: event.process_ref ?? 'Processo',
-      sublabel: event.property_title ?? undefined,
-      href: `/dashboard/processos/${event.process_id}`,
-      icon: <FileStack className="h-4 w-4" />,
-    })
-  }
-  if (event.property_id && !event.process_id) {
+  if (event.property_id) {
     relatedLinks.push({
       label: event.property_title ?? 'Imóvel',
       href: `/dashboard/imoveis/${event.property_id}`,
@@ -143,6 +136,14 @@ export function CalendarEventDetail({
                   {event.is_recurring && (
                     <Badge variant="secondary" className="text-[11px]">
                       Recorrente
+                    </Badge>
+                  )}
+                  {isProcessEvent && event.priority && (
+                    <Badge
+                      variant={event.priority === 'urgent' ? 'destructive' : 'secondary'}
+                      className="text-[11px]"
+                    >
+                      {event.priority === 'urgent' ? 'Urgente' : event.priority === 'low' ? 'Baixa' : 'Normal'}
                     </Badge>
                   )}
                 </SheetDescription>
@@ -221,17 +222,37 @@ export function CalendarEventDetail({
                 </div>
               )}
 
-              {/* Task title (for process events) */}
-              {event.task_title && event.task_title !== event.title && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    <Tag className="h-3.5 w-3.5" />
-                    Tarefa
-                  </div>
-                  <span className="text-sm font-medium text-right max-w-[200px] truncate">{event.task_title}</span>
-                </div>
-              )}
             </div>
+
+            {/* Process info */}
+            {isProcessEvent && event.process_id && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Processo
+                  </div>
+                  <Link
+                    href={`/dashboard/processos/${event.process_id}`}
+                    className="flex items-center gap-3 rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/20">
+                      <ClipboardList className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{event.process_ref}</p>
+                      {event.stage_name && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          Fase: {event.stage_name}
+                        </p>
+                      )}
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
+                </div>
+              </>
+            )}
 
             {/* Related entities */}
             {relatedLinks.length > 0 && (
@@ -310,11 +331,19 @@ export function CalendarEventDetail({
               Eliminar
             </Button>
           )}
-          {!isManual && relatedLinks.length > 0 && (
+          {isProcessEvent && event.process_id && (
+            <Button variant="default" size="sm" className="flex-1" asChild>
+              <Link href={`/dashboard/processos/${event.process_id}`}>
+                <ClipboardList className="mr-2 h-3.5 w-3.5" />
+                Abrir Processo
+              </Link>
+            </Button>
+          )}
+          {!isManual && !isProcessEvent && relatedLinks.length > 0 && (
             <Button variant="default" size="sm" className="flex-1" asChild>
               <Link href={relatedLinks[0].href}>
                 <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                Abrir {event.process_id ? 'Processo' : event.property_id ? 'Imóvel' : 'Lead'}
+                Abrir {event.property_id ? 'Imóvel' : 'Lead'}
               </Link>
             </Button>
           )}

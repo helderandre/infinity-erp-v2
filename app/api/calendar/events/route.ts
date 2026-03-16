@@ -8,12 +8,11 @@ import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
 // Color mapping by category
 // ---------------------------------------------------------------------------
 const CATEGORY_COLORS: Record<CalendarCategory, string> = {
-  process_task: 'blue-500',
-  process_subtask: 'sky-400',
-  process_milestone: 'emerald-500',
   contract_expiry: 'amber-500',
   lead_expiry: 'red-400',
   lead_followup: 'yellow-500',
+  process_task: 'violet-500',
+  process_subtask: 'fuchsia-500',
   birthday: 'pink-500',
   vacation: 'slate-400',
   company_event: 'purple-500',
@@ -61,11 +60,10 @@ export async function GET(request: Request) {
     // Run all queries in parallel
     const [
       manualRes,
-      procTasksRes,
-      procSubtasksRes,
-      procMilestonesRes,
       contractExpiryRes,
       leadExpiryRes,
+      procTasksRes,
+      procSubtasksRes,
     ] = await Promise.all([
       // 1. Manual events from temp_calendar_events
       admin
@@ -77,42 +75,58 @@ export async function GET(request: Request) {
           `is_recurring.eq.true`
         ),
 
-      // 2. Process tasks with due_date in range
-      admin
-        .from('proc_tasks')
-        .select('id, title, status, due_date, completed_at, assigned_to, stage_name, proc_instance_id, proc_instances(id, external_ref, property_id, dev_properties(id, title)), assignee:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)')
-        .gte('due_date', start)
-        .lte('due_date', end),
-
-      // 3. Process subtasks with due_date in range
-      admin
-        .from('proc_subtasks')
-        .select('id, title, status, due_date, completed_at, assigned_to, proc_task_id, proc_tasks(id, title, proc_instance_id, proc_instances(id, external_ref, property_id)), assignee:dev_users!proc_subtasks_assigned_to_fkey(id, commercial_name)')
-        .gte('due_date', start)
-        .lte('due_date', end),
-
-      // 4. Process milestones (approved_at or completed_at in range)
-      admin
-        .from('proc_instances')
-        .select('id, external_ref, current_status, approved_at, completed_at, property_id, requested_by, dev_properties(id, title)')
-        .or(
-          `and(approved_at.gte.${start},approved_at.lte.${end}),` +
-          `and(completed_at.gte.${start},completed_at.lte.${end})`
-        ),
-
-      // 5. Contract expiry dates in range
+      // 2. Contract expiry dates in range
       admin
         .from('dev_property_internal')
         .select('property_id, contract_expiry, dev_properties(id, title, consultant_id)')
         .gte('contract_expiry', start)
         .lte('contract_expiry', end),
 
-      // 6. Lead expiry dates in range
+      // 3. Lead expiry dates in range
       admin
         .from('leads')
         .select('id, nome, expires_at, assigned_agent_id, agent:dev_users!leads_assigned_agent_id_fkey(id, commercial_name)')
         .gte('expires_at', start)
         .lte('expires_at', end),
+
+      // 4a. Process tasks with due_date (from active/on_hold processes, not deleted)
+      admin
+        .from('proc_tasks')
+        .select(`
+          id, title, due_date, status, priority, assigned_to, stage_name,
+          proc_instance_id,
+          proc_instances!inner(id, external_ref, current_status, deleted_at, property_id,
+            dev_properties(id, title)
+          ),
+          assignee:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
+        `)
+        .not('due_date', 'is', null)
+        .not('status', 'in', '("completed","skipped")')
+        .is('proc_instances.deleted_at', null)
+        .in('proc_instances.current_status', ['active', 'on_hold'])
+        .gte('due_date', start)
+        .lte('due_date', end),
+
+      // 4b. Process subtasks with due_date (from active/on_hold processes, not deleted)
+      admin
+        .from('proc_subtasks')
+        .select(`
+          id, title, due_date, is_completed, priority, assigned_to, owner_id,
+          config, proc_task_id,
+          proc_tasks!inner(id, title, stage_name, proc_instance_id,
+            proc_instances!inner(id, external_ref, current_status, deleted_at, property_id,
+              dev_properties(id, title)
+            )
+          ),
+          assignee:dev_users!proc_subtasks_assigned_to_fkey(id, commercial_name),
+          owners(id, name)
+        `)
+        .not('due_date', 'is', null)
+        .eq('is_completed', false)
+        .is('proc_tasks.proc_instances.deleted_at', null)
+        .in('proc_tasks.proc_instances.current_status', ['active', 'on_hold'])
+        .gte('due_date', start)
+        .lte('due_date', end),
     ])
 
     const events: CalendarEvent[] = []
@@ -142,7 +156,6 @@ export async function GET(request: Request) {
               user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
               property_id: ev.property_id ?? undefined,
               lead_id: ev.lead_id ?? undefined,
-              process_id: ev.process_id ?? undefined,
             })
           }
         } else if (ev.is_recurring && ev.recurrence_rule === 'monthly') {
@@ -164,7 +177,6 @@ export async function GET(request: Request) {
               user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
               property_id: ev.property_id ?? undefined,
               lead_id: ev.lead_id ?? undefined,
-              process_id: ev.process_id ?? undefined,
             })
           }
         } else if (ev.is_recurring && ev.recurrence_rule === 'weekly') {
@@ -186,7 +198,6 @@ export async function GET(request: Request) {
               user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
               property_id: ev.property_id ?? undefined,
               lead_id: ev.lead_id ?? undefined,
-              process_id: ev.process_id ?? undefined,
             })
           }
         } else {
@@ -207,123 +218,12 @@ export async function GET(request: Request) {
             user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
             property_id: ev.property_id ?? undefined,
             lead_id: ev.lead_id ?? undefined,
-            process_id: ev.process_id ?? undefined,
           })
         }
       }
     }
 
-    // ------ 2. Process tasks ------
-    if (procTasksRes.data) {
-      for (const task of procTasksRes.data) {
-        const instance = task.proc_instances as { id: string; external_ref: string; property_id: string; dev_properties: { id: string; title: string } | null } | null
-        const assignee = task.assignee as { id: string; commercial_name: string } | null
-        const isOverdue = task.due_date < now && !['completed', 'skipped'].includes(task.status)
-
-        events.push({
-          id: `proc_task_${task.id}`,
-          title: task.title,
-          description: `Fase: ${task.stage_name ?? '—'}`,
-          category: 'process_task',
-          start_date: task.due_date,
-          all_day: true,
-          color: CATEGORY_COLORS.process_task,
-          source: 'auto',
-          is_recurring: false,
-          is_overdue: isOverdue,
-          status: task.status,
-          user_id: assignee?.id,
-          user_name: assignee?.commercial_name,
-          property_id: instance?.property_id ?? undefined,
-          property_title: instance?.dev_properties?.title ?? undefined,
-          process_id: instance?.id ?? undefined,
-          process_ref: instance?.external_ref ?? undefined,
-          task_id: task.id,
-          task_title: task.title,
-        })
-      }
-    }
-
-    // ------ 3. Process subtasks ------
-    if (procSubtasksRes.data) {
-      for (const sub of procSubtasksRes.data) {
-        const parentTask = sub.proc_tasks as { id: string; title: string; proc_instance_id: string; proc_instances: { id: string; external_ref: string; property_id: string } | null } | null
-        const assignee = sub.assignee as { id: string; commercial_name: string } | null
-        const isOverdue = sub.due_date < now && !['completed', 'skipped'].includes(sub.status)
-
-        events.push({
-          id: `proc_subtask_${sub.id}`,
-          title: sub.title,
-          description: parentTask ? `Tarefa-mãe: ${parentTask.title}` : undefined,
-          category: 'process_subtask',
-          start_date: sub.due_date,
-          all_day: true,
-          color: CATEGORY_COLORS.process_subtask,
-          source: 'auto',
-          is_recurring: false,
-          is_overdue: isOverdue,
-          status: sub.status,
-          user_id: assignee?.id,
-          user_name: assignee?.commercial_name,
-          property_id: parentTask?.proc_instances?.property_id ?? undefined,
-          process_id: parentTask?.proc_instances?.id ?? undefined,
-          process_ref: parentTask?.proc_instances?.external_ref ?? undefined,
-          task_id: parentTask?.id ?? undefined,
-          task_title: parentTask?.title ?? undefined,
-        })
-      }
-    }
-
-    // ------ 4. Process milestones ------
-    if (procMilestonesRes.data) {
-      for (const proc of procMilestonesRes.data) {
-        const property = proc.dev_properties as { id: string; title: string } | null
-
-        // Approved milestone
-        if (proc.approved_at && proc.approved_at >= start && proc.approved_at <= end) {
-          events.push({
-            id: `proc_milestone_approved_${proc.id}`,
-            title: `Processo aprovado: ${proc.external_ref}`,
-            description: property?.title ?? undefined,
-            category: 'process_milestone',
-            start_date: proc.approved_at,
-            all_day: false,
-            color: CATEGORY_COLORS.process_milestone,
-            source: 'auto',
-            is_recurring: false,
-            is_overdue: false,
-            status: 'approved',
-            property_id: proc.property_id ?? undefined,
-            property_title: property?.title ?? undefined,
-            process_id: proc.id,
-            process_ref: proc.external_ref,
-          })
-        }
-
-        // Completed milestone
-        if (proc.completed_at && proc.completed_at >= start && proc.completed_at <= end) {
-          events.push({
-            id: `proc_milestone_completed_${proc.id}`,
-            title: `Processo concluído: ${proc.external_ref}`,
-            description: property?.title ?? undefined,
-            category: 'process_milestone',
-            start_date: proc.completed_at,
-            all_day: false,
-            color: CATEGORY_COLORS.process_milestone,
-            source: 'auto',
-            is_recurring: false,
-            is_overdue: false,
-            status: 'completed',
-            property_id: proc.property_id ?? undefined,
-            property_title: property?.title ?? undefined,
-            process_id: proc.id,
-            process_ref: proc.external_ref,
-          })
-        }
-      }
-    }
-
-    // ------ 5. Contract expiry ------
+    // ------ 2. Contract expiry ------
     if (contractExpiryRes.data) {
       for (const row of contractExpiryRes.data) {
         const property = row.dev_properties as { id: string; title: string; consultant_id: string } | null
@@ -346,7 +246,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // ------ 6. Lead expiry ------
+    // ------ 3. Lead expiry ------
     if (leadExpiryRes.data) {
       for (const lead of leadExpiryRes.data) {
         const agent = lead.agent as { id: string; commercial_name: string } | null
@@ -366,6 +266,74 @@ export async function GET(request: Request) {
           lead_name: lead.nome,
           user_id: agent?.id ?? undefined,
           user_name: agent?.commercial_name ?? undefined,
+        })
+      }
+    }
+
+    // ------ 4a. Process tasks ------
+    if (procTasksRes.data) {
+      for (const task of procTasksRes.data) {
+        const proc = task.proc_instances as { id: string; external_ref: string; current_status: string; deleted_at: string | null; property_id: string; dev_properties: { id: string; title: string } | null } | null
+        if (!proc) continue
+        const property = proc.dev_properties
+        const assignee = task.assignee as { id: string; commercial_name: string } | null
+
+        events.push({
+          id: `proc_task:${task.id}`,
+          title: task.title,
+          description: `${proc.external_ref} · ${task.stage_name ?? ''}${property ? ` · ${property.title}` : ''}`,
+          category: 'process_task',
+          start_date: task.due_date,
+          all_day: true,
+          color: CATEGORY_COLORS.process_task,
+          source: 'auto',
+          is_recurring: false,
+          is_overdue: task.due_date < now,
+          status: task.status,
+          user_id: assignee?.id ?? undefined,
+          user_name: assignee?.commercial_name ?? undefined,
+          property_id: property?.id ?? undefined,
+          property_title: property?.title ?? undefined,
+          process_id: proc.id,
+          process_ref: proc.external_ref,
+          task_id: task.id,
+          priority: task.priority ?? undefined,
+          stage_name: task.stage_name ?? undefined,
+        })
+      }
+    }
+
+    // ------ 4b. Process subtasks ------
+    if (procSubtasksRes.data) {
+      for (const sub of procSubtasksRes.data) {
+        const parentTask = sub.proc_tasks as { id: string; title: string; stage_name: string; proc_instance_id: string; proc_instances: { id: string; external_ref: string; current_status: string; deleted_at: string | null; property_id: string; dev_properties: { id: string; title: string } | null } | null } | null
+        if (!parentTask?.proc_instances) continue
+        const proc = parentTask.proc_instances
+        const property = proc.dev_properties
+        const assignee = sub.assignee as { id: string; commercial_name: string } | null
+        const owner = sub.owners as { id: string; name: string } | null
+
+        events.push({
+          id: `proc_subtask:${sub.id}`,
+          title: owner ? `${sub.title} (${owner.name})` : sub.title,
+          description: `${proc.external_ref} · ${parentTask.stage_name ?? ''} · ${parentTask.title}${property ? ` · ${property.title}` : ''}`,
+          category: 'process_subtask',
+          start_date: sub.due_date,
+          all_day: true,
+          color: CATEGORY_COLORS.process_subtask,
+          source: 'auto',
+          is_recurring: false,
+          is_overdue: sub.due_date < now,
+          user_id: assignee?.id ?? undefined,
+          user_name: assignee?.commercial_name ?? undefined,
+          property_id: property?.id ?? undefined,
+          property_title: property?.title ?? undefined,
+          process_id: proc.id,
+          process_ref: proc.external_ref,
+          task_id: parentTask.id,
+          subtask_id: sub.id,
+          priority: sub.priority ?? undefined,
+          stage_name: parentTask.stage_name ?? undefined,
         })
       }
     }

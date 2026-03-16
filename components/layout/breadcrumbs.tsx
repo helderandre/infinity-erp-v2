@@ -26,6 +26,7 @@ const pathTranslations: Record<string, string> = {
   consultores: 'Consultores',
   equipas: 'Equipas',
   comissoes: 'Comissões',
+  calendario: 'Calendário',
   marketing: 'Marketing',
   definicoes: 'Definições',
   notificacoes: 'Notificações',

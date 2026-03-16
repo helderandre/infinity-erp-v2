@@ -16,13 +16,15 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Filter, Users, User } from 'lucide-react'
+import { Filter, Users, User, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Group categories for a cleaner UI
 const AUTO_CATEGORIES: CalendarCategory[] = [
-  'process_task', 'process_subtask', 'process_milestone',
   'contract_expiry', 'lead_expiry', 'lead_followup',
+]
+const PROCESS_CATEGORIES: CalendarCategory[] = [
+  'process_task', 'process_subtask',
 ]
 const MANUAL_CATEGORIES: CalendarCategory[] = [
   'birthday', 'vacation', 'company_event',
@@ -84,10 +86,30 @@ export function CalendarFilters({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Processos & Leads</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Automáticos</h3>
           </div>
           <div className="space-y-0.5">
             {AUTO_CATEGORIES.map((cat) => (
+              <CategoryItem
+                key={cat}
+                cat={cat}
+                isActive={categories.includes(cat)}
+                onToggle={() => onToggleCategory(cat)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Processos */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Processos</h3>
+          </div>
+          <div className="space-y-0.5">
+            {PROCESS_CATEGORIES.map((cat) => (
               <CategoryItem
                 key={cat}
                 cat={cat}
