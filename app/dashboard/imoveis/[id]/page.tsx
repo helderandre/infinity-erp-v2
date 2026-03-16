@@ -322,18 +322,11 @@ export default function ImovelDetalhePage() {
 
         {/* Tab: Media */}
         <TabsContent value="media">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Galeria de Imagens</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PropertyMediaGallery
-                propertyId={property.id}
-                media={property.dev_property_media || []}
-                onMediaChange={refetch}
-              />
-            </CardContent>
-          </Card>
+          <PropertyMediaGallery
+            propertyId={property.id}
+            media={property.dev_property_media || []}
+            onMediaChange={refetch}
+          />
         </TabsContent>
 
         {/* Tab: Documentos */}
