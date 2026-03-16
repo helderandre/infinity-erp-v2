@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Check } from 'lucide-react'
+import { Pencil, Check, Landmark } from 'lucide-react'
+import Link from 'next/link'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -547,6 +548,15 @@ export function NegocioDataCard({
               <DisplayField label="Valor do crédito aprovado" value={formatCurrency(numVal('valor_credito'))} fullWidth />
             </>
           )}
+          <div className="col-span-2 mt-2">
+            <Link
+              href={`/dashboard/credito/novo?lead_id=${data?.lead_id || ''}&negocio_id=${data?.id || ''}`}
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <Landmark className="h-4 w-4" />
+              Iniciar Pedido de Crédito
+            </Link>
+          </div>
         </>
       )}
     </div>

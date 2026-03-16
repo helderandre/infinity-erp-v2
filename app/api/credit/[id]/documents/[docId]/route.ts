@@ -1,0 +1,100 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/auth/permissions'
+import { creditDocumentSchema } from '@/lib/validations/credit'
+
+const uuidRegex = /^[0-9a-f-]{36}$/
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string; docId: string }> }
+) {
+  try {
+    const auth = await requirePermission('credit')
+    if (!auth.authorized) return auth.response
+
+    const { id, docId } = await params
+
+    if (!uuidRegex.test(id) || !uuidRegex.test(docId)) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+    const db = supabase as any // TEMP tables not in generated types
+
+    const body = await request.json()
+    const validation = creditDocumentSchema.partial().safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', details: validation.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const { data: document, error } = await db
+      .from('temp_credito_documentos')
+      .update(validation.data)
+      .eq('id', docId)
+      .eq('pedido_credito_id', id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Documento não encontrado' }, { status: 404 })
+      }
+      return NextResponse.json(
+        { error: 'Erro ao actualizar documento', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(document)
+  } catch (error) {
+    console.error('Erro ao actualizar documento:', error)
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string; docId: string }> }
+) {
+  try {
+    const auth = await requirePermission('credit')
+    if (!auth.authorized) return auth.response
+
+    const { id, docId } = await params
+
+    if (!uuidRegex.test(id) || !uuidRegex.test(docId)) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+    const db = supabase as any // TEMP tables not in generated types
+
+    const { error } = await db
+      .from('temp_credito_documentos')
+      .delete()
+      .eq('id', docId)
+      .eq('pedido_credito_id', id)
+
+    if (error) {
+      return NextResponse.json(
+        { error: 'Erro ao eliminar documento', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('Erro ao eliminar documento:', error)
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}

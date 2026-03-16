@@ -24,6 +24,7 @@ export const ALL_PERMISSION_MODULES = [
   'consultants', 'owners', 'teams', 'commissions', 'marketing',
   'templates', 'settings', 'goals', 'store', 'users', 'buyers',
   'credit', 'calendar', 'pipeline', 'financial', 'integration', 'recruitment',
+  'training',
 ] as const
 
 /** Todos os agrupamentos disponíveis (para referência) */

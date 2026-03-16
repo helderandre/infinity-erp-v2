@@ -12,6 +12,7 @@ import {
   Euro,
   Megaphone,
   FileStack,
+  CalendarDays,
   LogOut,
   ChevronDown,
   Sun,
@@ -34,6 +35,13 @@ import {
   Blocks,
   UserCog,
   UserPlus,
+  Target,
+  Landmark,
+  Package,
+  GraduationCap,
+  Briefcase,
+  Boxes,
+  TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -72,61 +80,27 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-export const menuItems = [
-  {
-    title: 'Dashboard',
-    icon: LayoutDashboard,
-    href: '/dashboard',
-    permission: 'dashboard',
-  },
-  {
-    title: 'Imóveis',
-    icon: Building2,
-    href: '/dashboard/imoveis',
-    permission: 'properties',
-  },
-  {
-    title: 'Leads',
-    icon: Zap,
-    href: '/dashboard/leads',
-    permission: 'leads',
-  },
-  {
-    title: 'Processos',
-    icon: FileStack,
-    href: '/dashboard/processos',
-    permission: 'processes',
-  },
-  {
-    title: 'Documentos',
-    icon: FileText,
-    href: '/dashboard/documentos',
-    permission: 'documents',
-  },
-  {
-    title: 'Proprietários',
-    icon: UserCircle,
-    href: '/dashboard/proprietarios',
-    permission: 'owners',
-  },
-  {
-    title: 'Consultores',
-    icon: Users,
-    href: '/dashboard/consultores',
-    permission: 'consultants',
-  },
-  {
-    title: 'Equipas',
-    icon: UsersRound,
-    href: '/dashboard/equipas',
-    permission: 'teams',
-  },
-  {
-    title: 'Comissões',
-    icon: Euro,
-    href: '/dashboard/comissoes',
-    permission: 'commissions',
-  },
+// ─── Solo items (always visible) ─────────────────────────
+
+// ─── O Meu Espaço (always visible, no collapsible) ───────
+
+export const meuEspacoItems = [
+  { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
+  { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
+  { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
+  { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
+]
+
+export const soloItems: { title: string; icon: any; href: string; permission: string }[] = []
+
+export const creditoItems = [
+  { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/credito' },
+  { title: 'Processos', icon: FileStack, href: '/dashboard/credito/pedidos' },
+  { title: 'Simulador', icon: TrendingUp, href: '/dashboard/credito/simulador' },
+  { title: 'Bancos', icon: Building2, href: '/dashboard/credito/bancos' },
+]
+
+export const bottomItems = [
   {
     title: 'Definições',
     icon: Settings,
@@ -135,105 +109,137 @@ export const menuItems = [
   },
 ]
 
-export const builderItems = [
-  {
-    title: 'Template de Email',
-    icon: Mail,
-    href: '/dashboard/templates-email',
-  },
-  {
-    title: 'Template de Processos',
-    icon: Workflow,
-    href: '/dashboard/processos/templates',
-  },
-  {
-    title: 'Template de Documentos',
-    icon: FileCode2,
-    href: '/dashboard/templates-documentos',
-  },
-  {
-    title: 'Variáveis de Template',
-    icon: Braces,
-    href: '/dashboard/templates-variaveis',
-  },
+// ─── Collapsible groups ──────────────────────────────────
+
+export const negocioItems = [
+  { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
+  { title: 'Leads', icon: Zap, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
+  { title: 'Documentos', icon: FileText, href: '/dashboard/documentos', permission: 'documents' },
+  { title: 'Proprietários', icon: UserCircle, href: '/dashboard/proprietarios', permission: 'owners' },
 ]
 
-export const marketingItems = [
-  {
-    title: 'Loja',
-    icon: Store,
-    href: '/dashboard/marketing/loja',
-  },
-  {
-    title: 'Gestão',
-    icon: ClipboardList,
-    href: '/dashboard/marketing/gestao',
-  },
-  {
-    title: 'Redes Sociais',
-    icon: UserCog,
-    href: '/dashboard/marketing/redes-sociais',
-  },
+export const pessoasItems = [
+  { title: 'Consultores', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
+  { title: 'Equipas', icon: UsersRound, href: '/dashboard/equipas', permission: 'teams' },
 ]
 
-export const metaItems = [
-  {
-    title: 'Meta Ads',
-    icon: BarChart3,
-    href: '/dashboard/meta-ads',
-  },
-  {
-    title: 'Instagram',
-    icon: Instagram,
-    href: '/dashboard/instagram',
-  },
-  {
-    title: 'Integrações Meta',
-    icon: Plug,
-    href: '/dashboard/definicoes/integracoes/meta',
-  },
+export const financeiroItems = [
+  { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
 ]
 
 export const recrutamentoItems = [
-  {
-    title: 'Candidatos',
-    icon: Users,
-    href: '/dashboard/recrutamento',
-  },
-  {
-    title: 'Formulário',
-    icon: FileText,
-    href: '/dashboard/recrutamento/formulario',
-  },
+  { title: 'Candidatos', icon: Users, href: '/dashboard/recrutamento' },
+  { title: 'Formulário', icon: FileText, href: '/dashboard/recrutamento/formulario' },
+]
+
+export const marketingItems = [
+  { title: 'Loja', icon: Store, href: '/dashboard/marketing/loja' },
+  { title: 'Gestão', icon: ClipboardList, href: '/dashboard/marketing/gestao' },
+  { title: 'Minhas Encomendas', icon: Package, href: '/dashboard/encomendas/minhas' },
+  { title: 'Gestão Encomendas', icon: Blocks, href: '/dashboard/encomendas/gestao' },
+  { title: 'Stock', icon: Boxes, href: '/dashboard/encomendas/stock' },
+  { title: 'Redes Sociais', icon: UserCog, href: '/dashboard/marketing/redes-sociais' },
+]
+
+export const metaItems = [
+  { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
+  { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
+  { title: 'Integrações Meta', icon: Plug, href: '/dashboard/definicoes/integracoes/meta' },
 ]
 
 export const automationItems = [
-  {
-    title: 'Dashboard',
-    icon: Zap,
-    href: '/dashboard/automacao',
-  },
-  {
-    title: 'Fluxos',
-    icon: Workflow,
-    href: '/dashboard/automacao/fluxos',
-  },
-  {
-    title: 'Execuções',
-    icon: Braces,
-    href: '/dashboard/automacao/execucoes',
-  },
-  {
-    title: 'Instâncias WhatsApp',
-    icon: MessageCircle,
-    href: '/dashboard/automacao/instancias',
-  },
-  {
-    title: 'Templates WhatsApp',
-    icon: MessageSquareText,
-    href: '/dashboard/automacao/templates-wpp',
-  },
+  { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
+  { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
+  { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
+  { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
+  { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
 ]
+
+export const builderItems = [
+  { title: 'Template de Email', icon: Mail, href: '/dashboard/templates-email' },
+  { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates' },
+  { title: 'Template de Documentos', icon: FileCode2, href: '/dashboard/templates-documentos' },
+  { title: 'Variáveis de Template', icon: Braces, href: '/dashboard/templates-variaveis' },
+]
+
+// ─── Backward compat: menuItems includes all items for other code that imports it
+export const menuItems = [
+  ...meuEspacoItems,
+  ...negocioItems,
+  ...pessoasItems,
+  ...financeiroItems,
+  ...creditoItems,
+  ...bottomItems,
+]
+
+// ─── Helper to render a collapsible group ────────────────
+
+function CollapsibleGroup({
+  label,
+  icon: Icon,
+  items,
+  pathname,
+  hasPermission,
+  pathPrefixes,
+}: {
+  label: string
+  icon: any
+  items: Array<{ title: string; icon: any; href: string; permission?: string }>
+  pathname: string | null
+  hasPermission: (p: any) => boolean
+  pathPrefixes: string[]
+}) {
+  const visibleItems = items.filter(
+    (item) => !item.permission || hasPermission(item.permission as any)
+  )
+  if (visibleItems.length === 0) return null
+
+  const isDefaultOpen = pathPrefixes.some((p) => pathname?.startsWith(p))
+
+  return (
+    <SidebarGroup>
+      <Collapsible defaultOpen={isDefaultOpen} className="group/collapsible">
+        <SidebarGroupLabel asChild>
+          <CollapsibleTrigger className="flex w-full items-center">
+            <Icon className="mr-1.5 size-3.5" />
+            {label}
+            <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+          </CollapsibleTrigger>
+        </SidebarGroupLabel>
+        <CollapsibleContent>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {visibleItems.map((item) => {
+                // Exact match for index routes (e.g. /dashboard/credito)
+                // to avoid them staying active on sub-routes
+                const hasSubItems = visibleItems.some(
+                  (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`)
+                )
+                const isActive = hasSubItems
+                  ? pathname === item.href
+                  : pathname === item.href || pathname?.startsWith(`${item.href}/`)
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarGroup>
+  )
+}
+
+// ─── Component ───────────────────────────────────────────
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -259,10 +265,6 @@ export function AppSidebar() {
       toast.error('Erro ao terminar sessão')
     }
   }
-
-  const visibleMenuItems = menuItems.filter((item) =>
-    hasPermission(item.permission as any)
-  )
 
   const userInitials = user?.commercial_name
     ?.split(' ')
@@ -294,15 +296,15 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* O Meu Espaço */}
         <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
+          <SidebarGroupLabel>O Meu Espaço</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => {
+              {meuEspacoItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
                 const isActive = item.href === '/dashboard'
                   ? pathname === '/dashboard'
                   : pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
@@ -318,208 +320,128 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Negócio */}
+        <CollapsibleGroup
+          label="Negócio"
+          icon={Briefcase}
+          items={negocioItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/imoveis', '/dashboard/leads', '/dashboard/processos', '/dashboard/documentos', '/dashboard/proprietarios', '/dashboard/objetivos']}
+        />
+
+        {/* Pessoas */}
+        <CollapsibleGroup
+          label="Pessoas"
+          icon={Users}
+          items={pessoasItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/consultores', '/dashboard/equipas', '/dashboard/formacoes']}
+        />
+
+        {/* Financeiro */}
+        <CollapsibleGroup
+          label="Financeiro"
+          icon={Euro}
+          items={financeiroItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/comissoes']}
+        />
+
+        {/* Crédito */}
+        {hasPermission('credit' as any) && (
+          <CollapsibleGroup
+            label="Crédito"
+            icon={Landmark}
+            items={creditoItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/credito']}
+          />
+        )}
+
+        {/* Recrutamento */}
         {hasPermission('recruitment' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/recrutamento')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <UserPlus className="mr-1.5 size-3.5" />
-                  Recrutamento
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {recrutamentoItems.map((item) => {
-                      const isActive = item.href === '/dashboard/recrutamento'
-                        ? pathname === item.href || (pathname?.startsWith('/dashboard/recrutamento/') && !pathname?.startsWith('/dashboard/recrutamento/formulario'))
-                        : pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+          <CollapsibleGroup
+            label="Recrutamento"
+            icon={UserPlus}
+            items={recrutamentoItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/recrutamento']}
+          />
         )}
 
+        {/* Marketing */}
         {hasPermission('marketing' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/marketing')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Megaphone className="mr-1.5 size-3.5" />
-                  Marketing
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {marketingItems.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+          <CollapsibleGroup
+            label="Marketing"
+            icon={Megaphone}
+            items={marketingItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/marketing', '/dashboard/encomendas']}
+          />
         )}
 
+        {/* Meta & Instagram */}
         {hasPermission('marketing' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/meta-ads') ||
-                pathname?.startsWith('/dashboard/instagram') ||
-                pathname?.startsWith('/dashboard/definicoes/integracoes/meta')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Instagram className="mr-1.5 size-3.5" />
-                  Meta & Instagram
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {metaItems.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+          <CollapsibleGroup
+            label="Meta & Instagram"
+            icon={Instagram}
+            items={metaItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/definicoes/integracoes/meta']}
+          />
         )}
 
+        {/* Automações */}
         {hasPermission('settings' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/automacao')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Bot className="mr-1.5 size-3.5" />
-                  Automações
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {automationItems.map((item) => {
-                      const isActive = item.href === '/dashboard/automacao'
-                        ? pathname === item.href
-                        : pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+          <CollapsibleGroup
+            label="Automações"
+            icon={Bot}
+            items={automationItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/automacao']}
+          />
         )}
 
+        {/* Builder */}
         {hasPermission('settings' as any) && (
-          <SidebarGroup>
-            <Collapsible
-              defaultOpen={
-                pathname?.startsWith('/dashboard/templates-email') ||
-                pathname?.startsWith('/dashboard/processos/templates') ||
-                pathname?.startsWith('/dashboard/templates-documentos')
-              }
-              className="group/collapsible"
-            >
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Blocks className="mr-1.5 size-3.5" />
-                  Builder
-                  <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {builderItems.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                            <Link href={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+          <CollapsibleGroup
+            label="Builder"
+            icon={Blocks}
+            items={builderItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/templates-email', '/dashboard/processos/templates', '/dashboard/templates-documentos', '/dashboard/templates-variaveis']}
+          />
         )}
+
+        {/* Definições (solo) */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {bottomItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
+                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>

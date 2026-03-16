@@ -763,6 +763,7 @@ export const MODULES = {
   financial: 'Financeiro',
   integration: 'Integração',
   recruitment: 'Recrutamento',
+  training: 'Formações',
 } as const
 
 // Roles do Sistema
@@ -1291,6 +1292,61 @@ export const ALERT_MESSAGE_VARIABLES = {
   '{triggered_by}': 'Nome de quem executou a acção',
 } as const
 
+// === OBJETIVOS (M16) ===
+
+export const GOAL_ACTIVITY_TYPES = {
+  call: 'Chamada',
+  visit: 'Visita',
+  listing: 'Angariação',
+  sale_close: 'Fecho Venda',
+  buyer_close: 'Fecho Comprador',
+  lead_contact: 'Contacto Lead',
+  buyer_qualify: 'Qualificação Comprador',
+  follow_up: 'Follow-up',
+} as const
+
+export const GOAL_ORIGINS = {
+  sellers: 'Vendedores',
+  buyers: 'Compradores',
+} as const
+
+export const GOAL_STATUS_COLORS = {
+  green: { bg: 'bg-emerald-500/15', text: 'text-emerald-500', label: 'Acima do objetivo' },
+  orange: { bg: 'bg-amber-500/15', text: 'text-amber-500', label: 'No limite' },
+  red: { bg: 'bg-red-500/15', text: 'text-red-500', label: 'Abaixo do mínimo' },
+} as const
+
+export const GOAL_PERIOD_LABELS = {
+  annual: 'Anual',
+  monthly: 'Mensal',
+  weekly: 'Semanal',
+  daily: 'Diário',
+} as const
+
+// === CALENDÁRIO ===
+
+export const CALENDAR_CATEGORY_OPTIONS = [
+  { value: 'birthday' as const, label: 'Aniversário' },
+  { value: 'vacation' as const, label: 'Férias / Ausência' },
+  { value: 'company_event' as const, label: 'Evento de Empresa' },
+  { value: 'marketing_event' as const, label: 'Evento de Marketing' },
+  { value: 'meeting' as const, label: 'Reunião' },
+  { value: 'reminder' as const, label: 'Lembrete' },
+  { value: 'custom' as const, label: 'Outro' },
+] as const
+
+export const CALENDAR_RECURRENCE_OPTIONS = [
+  { value: 'yearly' as const, label: 'Anual' },
+  { value: 'monthly' as const, label: 'Mensal' },
+  { value: 'weekly' as const, label: 'Semanal' },
+] as const
+
+export const CALENDAR_VISIBILITY_OPTIONS = [
+  { value: 'all' as const, label: 'Visível para todos' },
+  { value: 'team' as const, label: 'Apenas a minha equipa' },
+  { value: 'private' as const, label: 'Apenas eu' },
+] as const
+
 // Módulos de Permissão — labels PT-PT
 export const PERMISSION_MODULES: { key: string; label: string; group: string }[] = [
   // Core
@@ -1319,4 +1375,292 @@ export const PERMISSION_MODULES: { key: string; label: string; group: string }[]
   { key: 'store', label: 'Loja', group: 'Sistema' },
   { key: 'integration', label: 'Integrações', group: 'Sistema' },
   { key: 'settings', label: 'Definições', group: 'Sistema' },
+  { key: 'training', label: 'Formações', group: 'Pessoas' },
 ] as const
+
+// =============================================
+// M17 — Intermediação de Crédito Habitação
+// =============================================
+
+// Status do Pedido de Crédito
+export const CREDIT_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  novo:                { bg: 'bg-sky-500/15',     text: 'text-sky-500',     dot: 'bg-sky-500',     label: 'Novo' },
+  recolha_docs:        { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Recolha de Documentos' },
+  analise_financeira:  { bg: 'bg-orange-500/15',  text: 'text-orange-500',  dot: 'bg-orange-500',  label: 'Análise Financeira' },
+  submetido_bancos:    { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Submetido a Bancos' },
+  pre_aprovado:        { bg: 'bg-indigo-500/15',  text: 'text-indigo-500',  dot: 'bg-indigo-500',  label: 'Pré-Aprovado' },
+  aprovado:            { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Aprovado' },
+  contratado:          { bg: 'bg-teal-500/15',    text: 'text-teal-500',    dot: 'bg-teal-500',    label: 'Contratado' },
+  escriturado:         { bg: 'bg-violet-500/15',  text: 'text-violet-500',  dot: 'bg-violet-500',  label: 'Escriturado' },
+  concluido:           { bg: 'bg-green-500/15',   text: 'text-green-500',   dot: 'bg-green-500',   label: 'Concluído' },
+  recusado:            { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Recusado' },
+  desistencia:         { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Desistência' },
+  expirado:            { bg: 'bg-gray-500/15',    text: 'text-gray-500',    dot: 'bg-gray-400',    label: 'Expirado' },
+}
+
+export const CREDIT_STATUS_PIPELINE = [
+  'novo',
+  'recolha_docs',
+  'analise_financeira',
+  'submetido_bancos',
+  'pre_aprovado',
+  'aprovado',
+  'contratado',
+  'escriturado',
+  'concluido',
+] as const
+
+export const CREDIT_TERMINAL_STATUSES = ['concluido', 'recusado', 'desistencia', 'expirado'] as const
+
+export const PROPOSAL_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  rascunho:     { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Rascunho' },
+  submetida:    { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Submetida' },
+  em_analise:   { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Em Análise' },
+  pre_aprovada: { bg: 'bg-indigo-500/15',  text: 'text-indigo-500',  dot: 'bg-indigo-500',  label: 'Pré-Aprovada' },
+  aprovada:     { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Aprovada' },
+  recusada:     { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Recusada' },
+  expirada:     { bg: 'bg-gray-500/15',    text: 'text-gray-500',    dot: 'bg-gray-400',    label: 'Expirada' },
+  aceite:       { bg: 'bg-teal-500/15',    text: 'text-teal-500',    dot: 'bg-teal-500',    label: 'Aceite pelo Cliente' },
+  contratada:   { bg: 'bg-green-500/15',   text: 'text-green-500',   dot: 'bg-green-500',   label: 'Contratada' },
+}
+
+export const CREDIT_DOC_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  pendente:   { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Pendente' },
+  solicitado: { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Solicitado' },
+  recebido:   { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Recebido' },
+  validado:   { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Validado' },
+  rejeitado:  { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Rejeitado' },
+  expirado:   { bg: 'bg-gray-500/15',    text: 'text-gray-500',    dot: 'bg-gray-400',    label: 'Expirado' },
+}
+
+export const CREDIT_DOC_CATEGORY_LABELS: Record<string, string> = {
+  identificacao: 'Identificação',
+  rendimentos: 'Rendimentos',
+  patrimonio: 'Património',
+  imovel: 'Imóvel',
+  fiscal: 'Fiscal',
+  empresa: 'Empresa',
+  geral: 'Geral',
+}
+
+export const EMPLOYMENT_CONTRACT_OPTIONS = [
+  { value: 'efetivo', label: 'Contrato Efectivo (sem termo)' },
+  { value: 'termo_certo', label: 'Contrato a Termo Certo' },
+  { value: 'termo_incerto', label: 'Contrato a Termo Incerto' },
+  { value: 'independente', label: 'Trabalhador Independente' },
+  { value: 'reformado', label: 'Reformado/Pensionista' },
+  { value: 'outro', label: 'Outro' },
+] as const
+
+export const PROPERTY_PURPOSE_OPTIONS = [
+  { value: 'habitacao_propria_permanente', label: 'Habitação Própria Permanente' },
+  { value: 'habitacao_propria_secundaria', label: 'Habitação Própria Secundária' },
+  { value: 'investimento', label: 'Investimento' },
+] as const
+
+export const RATE_TYPE_OPTIONS = [
+  { value: 'variavel', label: 'Taxa Variável (Euribor + Spread)' },
+  { value: 'fixa', label: 'Taxa Fixa' },
+  { value: 'mista', label: 'Taxa Mista (fixa + variável)' },
+] as const
+
+export const CAPITAL_ORIGIN_OPTIONS = [
+  { value: 'poupanca', label: 'Poupança' },
+  { value: 'venda_imovel', label: 'Venda de Imóvel' },
+  { value: 'doacao', label: 'Doação' },
+  { value: 'heranca', label: 'Herança' },
+  { value: 'outro', label: 'Outro' },
+] as const
+
+export const CIVIL_STATUS_OPTIONS = [
+  { value: 'solteiro', label: 'Solteiro(a)' },
+  { value: 'casado', label: 'Casado(a)' },
+  { value: 'uniao_facto', label: 'União de Facto' },
+  { value: 'divorciado', label: 'Divorciado(a)' },
+  { value: 'viuvo', label: 'Viúvo(a)' },
+] as const
+
+export const CREDIT_ACTIVITY_TYPE_OPTIONS = [
+  { value: 'nota', label: 'Nota', icon: 'FileText' },
+  { value: 'chamada_banco', label: 'Chamada ao Banco', icon: 'Phone' },
+  { value: 'chamada_cliente', label: 'Chamada ao Cliente', icon: 'Phone' },
+  { value: 'email_banco', label: 'Email ao Banco', icon: 'Mail' },
+  { value: 'email_cliente', label: 'Email ao Cliente', icon: 'Mail' },
+  { value: 'reuniao', label: 'Reunião', icon: 'Users' },
+  { value: 'documento_recebido', label: 'Documento Recebido', icon: 'FileCheck' },
+  { value: 'documento_enviado', label: 'Documento Enviado', icon: 'Send' },
+  { value: 'proposta_recebida', label: 'Proposta Recebida', icon: 'FileSpreadsheet' },
+  { value: 'avaliacao_imovel', label: 'Avaliação do Imóvel', icon: 'Home' },
+  { value: 'escritura', label: 'Escritura', icon: 'FileSignature' },
+] as const
+
+export const DEFAULT_PORTUGUESE_BANKS = [
+  'CGD', 'Millennium BCP', 'Novo Banco', 'BPI', 'Santander',
+  'Bankinter', 'Crédito Agrícola', 'Montepio', 'EuroBic', 'Banco CTT', 'UCI',
+] as const
+
+export const EURIBOR_REFERENCE_OPTIONS = [
+  { value: 'Euribor 3M', label: 'Euribor 3 Meses' },
+  { value: 'Euribor 6M', label: 'Euribor 6 Meses' },
+  { value: 'Euribor 12M', label: 'Euribor 12 Meses' },
+] as const
+
+export const CREDIT_LIMITS = {
+  TAXA_ESFORCO_MAX: 50,
+  TAXA_ESFORCO_RECOMENDADO: 35,
+  TAXA_ESFORCO_ALERTA: 40,
+  LTV_MAX_HPP: 90,
+  LTV_MAX_HPS: 80,
+  LTV_MAX_INVESTIMENTO: 70,
+  LTV_MAX_TERRENO: 50,
+  PRAZO_MAX_ANOS: 40,
+  IDADE_MAX_FIM_CONTRATO: 75,
+  MIN_PROPOSTAS_REGULATORIO: 3,
+  IMPOSTO_SELO_CREDITO: 0.006,
+  IMPOSTO_SELO_JUROS: 0.04,
+  IMPOSTO_SELO_COMISSOES: 0.04,
+  EURIBOR_PERIODO_DEFAULT: 6,
+} as const
+
+// ─── FORMAÇÕES (Training) ────────────────────────────────
+
+export const TRAINING_DIFFICULTY_OPTIONS = [
+  { value: 'beginner', label: 'Iniciante' },
+  { value: 'intermediate', label: 'Intermédio' },
+  { value: 'advanced', label: 'Avançado' },
+] as const
+
+export const TRAINING_DIFFICULTY_COLORS = {
+  beginner: { bg: 'bg-emerald-500/15', text: 'text-emerald-500', label: 'Iniciante' },
+  intermediate: { bg: 'bg-amber-500/15', text: 'text-amber-500', label: 'Intermédio' },
+  advanced: { bg: 'bg-red-500/15', text: 'text-red-500', label: 'Avançado' },
+} as const
+
+export const TRAINING_COURSE_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Rascunho' },
+  { value: 'published', label: 'Publicado' },
+  { value: 'archived', label: 'Arquivado' },
+] as const
+
+export const TRAINING_ENROLLMENT_STATUS = {
+  enrolled: { bg: 'bg-sky-500/15', text: 'text-sky-500', dot: 'bg-sky-500', label: 'Inscrito' },
+  in_progress: { bg: 'bg-blue-500/15', text: 'text-blue-500', dot: 'bg-blue-500', label: 'Em Progresso' },
+  completed: { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Concluído' },
+  failed: { bg: 'bg-red-500/15', text: 'text-red-500', dot: 'bg-red-500', label: 'Reprovado' },
+  expired: { bg: 'bg-slate-500/15', text: 'text-slate-500', dot: 'bg-slate-500', label: 'Expirado' },
+} as const
+
+export const TRAINING_CONTENT_TYPE_OPTIONS = [
+  { value: 'video', label: 'Vídeo', icon: 'Play' },
+  { value: 'pdf', label: 'PDF', icon: 'FileText' },
+  { value: 'text', label: 'Texto', icon: 'AlignLeft' },
+  { value: 'external_link', label: 'Link Externo', icon: 'ExternalLink' },
+] as const
+
+export const TRAINING_QUESTION_TYPE_OPTIONS = [
+  { value: 'single_choice', label: 'Escolha única' },
+  { value: 'multiple_choice', label: 'Escolha múltipla' },
+  { value: 'true_false', label: 'Verdadeiro / Falso' },
+] as const
+
+export const TRAINING_NOTIFICATION_LABELS: Record<string, string> = {
+  new_course: 'Nova Formação',
+  course_assigned: 'Formação Atribuída',
+  deadline_reminder: 'Lembrete de Prazo',
+  certificate_expiring: 'Certificado a Expirar',
+  quiz_passed: 'Quiz Aprovado',
+  quiz_failed: 'Quiz Reprovado',
+  course_completed: 'Formação Concluída',
+  new_comment_reply: 'Nova Resposta',
+}
+
+export const TRAINING_CATEGORY_SUGGESTIONS = [
+  'Comercial',
+  'Processual',
+  'Marketing',
+  'Liderança',
+  'Jurídico / Legal',
+  'Tecnologia / Ferramentas',
+  'Desenvolvimento Pessoal',
+  'Onboarding',
+] as const
+
+// --- Encomendas (Materiais Físicos & Stock) ---
+
+export const REQUISITION_STATUS = {
+  pending:             { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Pendente' },
+  approved:            { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Aprovada' },
+  rejected:            { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Rejeitada' },
+  in_production:       { bg: 'bg-purple-500/15',  text: 'text-purple-500',  dot: 'bg-purple-500',  label: 'Em Produção' },
+  ready:               { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Pronta' },
+  delivered:           { bg: 'bg-green-500/15',   text: 'text-green-500',   dot: 'bg-green-500',   label: 'Entregue' },
+  cancelled:           { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Cancelada' },
+  partially_delivered: { bg: 'bg-teal-500/15',    text: 'text-teal-500',    dot: 'bg-teal-500',    label: 'Entrega Parcial' },
+} as const
+
+export const SUPPLIER_ORDER_STATUS = {
+  draft:              { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Rascunho' },
+  sent:               { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Enviada' },
+  confirmed:          { bg: 'bg-indigo-500/15',  text: 'text-indigo-500',  dot: 'bg-indigo-500',  label: 'Confirmada' },
+  in_production:      { bg: 'bg-purple-500/15',  text: 'text-purple-500',  dot: 'bg-purple-500',  label: 'Em Produção' },
+  shipped:            { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Expedida' },
+  partially_received: { bg: 'bg-teal-500/15',    text: 'text-teal-500',    dot: 'bg-teal-500',    label: 'Recepção Parcial' },
+  received:           { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Recebida' },
+  cancelled:          { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Cancelada' },
+} as const
+
+export const REQUISITION_PRIORITY = {
+  low:    { bg: 'bg-slate-500/15',  text: 'text-slate-500',  label: 'Baixa' },
+  normal: { bg: 'bg-blue-500/15',   text: 'text-blue-500',   label: 'Normal' },
+  high:   { bg: 'bg-orange-500/15', text: 'text-orange-500', label: 'Alta' },
+  urgent: { bg: 'bg-red-500/15',    text: 'text-red-500',    label: 'Urgente' },
+} as const
+
+export const DELIVERY_TYPE_LABELS = {
+  pickup:   'Recolha no Escritório',
+  delivery: 'Entrega em Morada',
+} as const
+
+export const RETURN_CONDITION_LABELS = {
+  good:      'Bom Estado (Reutilizável)',
+  damaged:   'Danificado',
+  destroyed: 'Destruído',
+} as const
+
+export const STOCK_MOVEMENT_LABELS = {
+  in_purchase:     'Entrada (Compra)',
+  in_return:       'Entrada (Devolução)',
+  in_adjustment:   'Entrada (Ajuste Manual)',
+  out_requisition: 'Saída (Requisição)',
+  out_damage:      'Saída (Dano/Perda)',
+  out_adjustment:  'Saída (Ajuste Manual)',
+} as const
+
+export const ENCOMENDA_LABELS = {
+  pageTitle: 'Encomendas',
+  catalog: 'Catálogo',
+  myRequisitions: 'Minhas Requisições',
+  management: 'Gestão',
+  stock: 'Stock',
+  suppliers: 'Fornecedores',
+  supplierOrders: 'Encomendas a Fornecedores',
+  reports: 'Relatórios',
+  newRequisition: 'Nova Requisição',
+  newProduct: 'Novo Produto',
+  newSupplier: 'Novo Fornecedor',
+  newSupplierOrder: 'Nova Encomenda',
+  noProducts: 'Nenhum produto encontrado',
+  noRequisitions: 'Nenhuma requisição encontrada',
+  noSuppliers: 'Nenhum fornecedor encontrado',
+  confirmDelete: 'Tem a certeza de que pretende eliminar?',
+} as const
+
+export const PRODUCT_CATEGORY_ICONS: Record<string, string> = {
+  signpost: 'Signpost',
+  'credit-card': 'CreditCard',
+  'file-text': 'FileText',
+  gift: 'Gift',
+  flag: 'Flag',
+  presentation: 'Presentation',
+  'pen-tool': 'PenTool',
+} as const
