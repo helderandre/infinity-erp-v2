@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/permissions'
 import { scheduleEventSchema } from '@/lib/validations/calendar'
 import { recalculateProgress } from '@/lib/process-engine'
+import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 // ---------------------------------------------------------------------------
 // POST — Criar ou actualizar evento de calendário a partir de subtarefa
@@ -149,6 +150,26 @@ export async function POST(
     // Recalcular progresso do processo
     await recalculateProgress(processId)
 
+    // Registar actividade
+    const isUpdate = !!existingEventId
+    await logTaskActivity(
+      admin,
+      taskId,
+      user.id,
+      isUpdate ? 'event_updated' : 'event_scheduled',
+      isUpdate
+        ? `Actualizou o evento "${title}" na subtarefa "${(subtask as any).title}"`
+        : `Agendou o evento "${title}" na subtarefa "${(subtask as any).title}"`,
+      {
+        subtask_id: subtaskId,
+        event_id: eventId,
+        event_title: title,
+        start_date,
+        end_date: end_date || null,
+        all_day,
+      }
+    )
+
     return NextResponse.json({
       data: { event_id: eventId, updated: !!existingEventId },
     }, { status: existingEventId ? 200 : 201 })
@@ -156,6 +177,88 @@ export async function POST(
     console.error('[schedule-event POST]', err)
     return NextResponse.json(
       { error: 'Erro interno ao agendar evento.' },
+      { status: 500 },
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE — Cancelar evento de calendário e reverter subtarefa
+// ---------------------------------------------------------------------------
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; taskId: string; subtaskId: string }> }
+) {
+  try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
+    const { id: processId, taskId, subtaskId } = await params
+    const supabase = await createClient()
+    const admin = createAdminClient()
+    const adminDb = admin as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+    }
+
+    // Verificar subtarefa
+    const { data: subtask, error: subtaskError } = await adminDb
+      .from('proc_subtasks')
+      .select('id, title, config, proc_task_id')
+      .eq('id', subtaskId)
+      .eq('proc_task_id', taskId)
+      .single()
+
+    if (subtaskError || !subtask) {
+      return NextResponse.json({ error: 'Subtarefa não encontrada.' }, { status: 404 })
+    }
+
+    const config = (subtask as any).config || {}
+    const calendarEventId = config.calendar_event_id
+
+    // Reverter subtarefa
+    const updatedConfig = { ...config, calendar_event_id: null }
+    await adminDb
+      .from('proc_subtasks')
+      .update({
+        config: updatedConfig,
+        is_completed: false,
+        completed_at: null,
+        completed_by: null,
+      })
+      .eq('id', subtaskId)
+
+    // Eliminar evento do calendário
+    if (calendarEventId) {
+      await adminDb.from('temp_calendar_event_attendees').delete().eq('event_id', calendarEventId)
+      await adminDb.from('temp_calendar_events').delete().eq('id', calendarEventId)
+    }
+
+    // Recalcular progresso
+    await recalculateProgress(processId)
+
+    // Registar actividade
+    await logTaskActivity(
+      admin,
+      taskId,
+      user.id,
+      'event_cancelled',
+      `Cancelou o evento da subtarefa "${(subtask as any).title}"`,
+      {
+        subtask_id: subtaskId,
+        event_id: calendarEventId || null,
+      }
+    )
+
+    return NextResponse.json({ data: { cancelled: true } })
+  } catch (err) {
+    console.error('[schedule-event DELETE]', err)
+    return NextResponse.json(
+      { error: 'Erro interno ao cancelar evento.' },
       { status: 500 },
     )
   }

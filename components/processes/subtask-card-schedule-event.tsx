@@ -115,28 +115,15 @@ export function SubtaskCardScheduleEvent({
     onRefresh?.()
   }
 
-  // Cancelar agendamento — reverte subtarefa e elimina evento
+  // Cancelar agendamento — reverte subtarefa e elimina evento (server-side com activity log)
   const handleCancel = async () => {
     setIsCancelling(true)
     try {
-      // 1. Reverter subtarefa (is_completed = false, limpar calendar_event_id)
       const res = await fetch(
-        `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtask.id}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            is_completed: false,
-            config: { ...subtask.config, calendar_event_id: null },
-          }),
-        }
+        `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtask.id}/schedule-event`,
+        { method: 'DELETE' }
       )
-      if (!res.ok) throw new Error('Erro ao reverter subtarefa')
-
-      // 2. Eliminar evento do calendário
-      if (calendarEventId) {
-        await fetch(`/api/calendar/events/${calendarEventId}`, { method: 'DELETE' })
-      }
+      if (!res.ok) throw new Error('Erro ao cancelar agendamento')
 
       setEventDetails(null)
       toast.success('Agendamento cancelado')

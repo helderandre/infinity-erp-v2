@@ -525,6 +525,10 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   adhoc_task_completed:    { icon: 'CheckCircle2',   label: 'Tarefa manual concluída',    color: 'text-emerald-600' },
   adhoc_subtask_completed: { icon: 'CircleCheck',    label: 'Subtarefa manual concluída', color: 'text-emerald-500' },
   adhoc_subtask_reverted:  { icon: 'RotateCcw',      label: 'Subtarefa manual revertida', color: 'text-amber-600' },
+  // Eventos de calendário
+  event_scheduled:         { icon: 'CalendarPlus',    label: 'Evento agendado',            color: 'text-indigo-500' },
+  event_updated:           { icon: 'CalendarClock',   label: 'Evento actualizado',         color: 'text-indigo-500' },
+  event_cancelled:         { icon: 'CalendarX',       label: 'Evento cancelado',           color: 'text-red-500' },
 }
 
 export const EMAIL_STATUS_CONFIG: Record<string, {

@@ -32,6 +32,9 @@ export type TaskActivityType =
   | 'adhoc_task_completed'
   | 'adhoc_subtask_completed'
   | 'adhoc_subtask_reverted'
+  | 'event_scheduled'
+  | 'event_updated'
+  | 'event_cancelled'
 
 export async function logTaskActivity(
   supabase: SupabaseClient,
