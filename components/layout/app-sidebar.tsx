@@ -141,19 +141,18 @@ export const recrutamentoItems = [
   { title: 'Formulário', icon: FileText, href: '/dashboard/recrutamento/formulario' },
 ]
 
-export const marketingItems = [
+export const lojaItems = [
   { title: 'Loja', icon: Store, href: '/dashboard/marketing/loja' },
-  { title: 'Gestão', icon: ClipboardList, href: '/dashboard/marketing/gestao' },
-  { title: 'Minhas Encomendas', icon: Package, href: '/dashboard/encomendas/minhas' },
-  { title: 'Gestão Encomendas', icon: Blocks, href: '/dashboard/encomendas/gestao' },
+  { title: 'Os Meus Pedidos', icon: Package, href: '/dashboard/marketing/gestao' },
+  { title: 'Gestão', icon: Blocks, href: '/dashboard/encomendas/gestao' },
   { title: 'Stock', icon: Boxes, href: '/dashboard/encomendas/stock' },
-  { title: 'Redes Sociais', icon: UserCog, href: '/dashboard/marketing/redes-sociais' },
 ]
 
-export const metaItems = [
+export const digitalItems = [
+  { title: 'Redes Sociais', icon: UserCog, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
-  { title: 'Integrações Meta', icon: Plug, href: '/dashboard/definicoes/integracoes/meta' },
+  { title: 'Integrações', icon: Plug, href: '/dashboard/definicoes/integracoes/meta' },
 ]
 
 export const automationItems = [
@@ -178,6 +177,8 @@ export const menuItems = [
   ...pessoasItems,
   ...financeiroItems,
   ...creditoItems,
+  ...lojaItems,
+  ...digitalItems,
   ...bottomItems,
 ]
 
@@ -376,27 +377,27 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Marketing */}
+        {/* Loja */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
-            label="Marketing"
-            icon={Megaphone}
-            items={marketingItems}
+            label="Loja"
+            icon={Store}
+            items={lojaItems}
             pathname={pathname}
             hasPermission={() => true}
             pathPrefixes={['/dashboard/marketing', '/dashboard/encomendas']}
           />
         )}
 
-        {/* Meta & Instagram */}
+        {/* Digital */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
-            label="Meta & Instagram"
-            icon={Instagram}
-            items={metaItems}
+            label="Digital"
+            icon={Megaphone}
+            items={digitalItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/definicoes/integracoes/meta']}
+            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/definicoes/integracoes/meta']}
           />
         )}
 
