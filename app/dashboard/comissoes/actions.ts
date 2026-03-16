@@ -87,10 +87,10 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     // ── Forecasts ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: goals } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_target")
+      .select("annual_revenue_target")
       .eq("year", now.getFullYear())
 
-    const expectedRevenue = (goals ?? []).reduce((sum: number, g: { annual_target: number }) => sum + (g.annual_target || 0), 0)
+    const expectedRevenue = (goals ?? []).reduce((sum: number, g: { annual_revenue_target: number }) => sum + (g.annual_revenue_target || 0), 0)
 
     const { count: pendingCount } = await admin
       .from("dev_properties")
@@ -100,7 +100,7 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     const { count: activePropsCount } = await admin
       .from("dev_properties")
       .select("id", { count: "exact", head: true })
-      .eq("status", "active")
+      .eq("status", "available")
 
     const { count: activeDeals } = await admin
       .from("proc_instances")
@@ -116,7 +116,7 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     const { count: acquired } = await admin
       .from("dev_properties")
       .select("id", { count: "exact", head: true })
-      .eq("status", "active")
+      .eq("status", "available")
 
     const { count: reserved } = await admin
       .from("dev_properties")
@@ -152,15 +152,16 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: monthRevenue } = await (admin as any).from("temp_goal_activity_log")
       .select("revenue_amount")
-      .eq("reporting_month", currentReportingMonth)
+      .gte("activity_date", startOfMonth(now))
+      .lte("activity_date", endOfMonth(now))
 
     const reportedThisMonth = (monthRevenue ?? []).reduce((sum: number, r: { revenue_amount: number }) => sum + (r.revenue_amount || 0), 0)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: yearRevenue } = await (admin as any).from("temp_goal_activity_log")
       .select("revenue_amount")
-      .gte("reporting_month", `${now.getFullYear()}-01`)
-      .lte("reporting_month", currentReportingMonth)
+      .gte("activity_date", `${now.getFullYear()}-01-01`)
+      .lte("activity_date", endOfMonth(now))
 
     const reportedThisYear = (yearRevenue ?? []).reduce((sum: number, r: { revenue_amount: number }) => sum + (r.revenue_amount || 0), 0)
 
@@ -184,7 +185,7 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     const { data: activeProps } = await admin
       .from("dev_properties")
       .select("listing_price")
-      .eq("status", "active")
+      .eq("status", "available")
 
     const activeVolume = (activeProps ?? []).reduce((sum, p) => sum + (p.listing_price || 0), 0)
 
@@ -196,7 +197,7 @@ export async function getManagementDashboard(): Promise<ManagementDashboard & { 
     const { data: activeIds } = await admin
       .from("dev_properties")
       .select("id")
-      .eq("status", "active")
+      .eq("status", "available")
 
     const activeIdSet = new Set((activeIds ?? []).map((p) => p.id))
     const potentialRevenue = (internalData ?? [])
@@ -276,17 +277,22 @@ export async function getRevenueChart(
     const toMonth = monthList[monthList.length - 1]
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fromDate = `${fromMonth}-01`
+    const toMonthDate = new Date(parseInt(toMonth.split("-")[0]), parseInt(toMonth.split("-")[1]), 0)
+    const toDate = `${toMonth}-${String(toMonthDate.getDate()).padStart(2, "0")}`
+
     const { data: logs } = await (admin as any).from("temp_goal_activity_log")
-      .select("reporting_month, revenue_amount")
-      .gte("reporting_month", fromMonth)
-      .lte("reporting_month", toMonth)
+      .select("activity_date, revenue_amount")
+      .gte("activity_date", fromDate)
+      .lte("activity_date", toDate)
 
     // Aggregate by month
     const revenueMap: Record<string, number> = {}
     for (const m of monthList) revenueMap[m] = 0
     for (const log of (logs ?? [])) {
-      if (log.reporting_month && revenueMap[log.reporting_month] !== undefined) {
-        revenueMap[log.reporting_month] += log.revenue_amount || 0
+      const logMonth = log.activity_date?.slice(0, 7)
+      if (logMonth && revenueMap[logMonth] !== undefined) {
+        revenueMap[logMonth] += log.revenue_amount || 0
       }
     }
 
@@ -329,19 +335,19 @@ export async function getPerformanceAlerts(): Promise<{ alerts: PerformanceAlert
     // Get goals for current year
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: goals } = await (admin as any).from("temp_consultant_goals")
-      .select("consultant_id, annual_target")
+      .select("consultant_id, annual_revenue_target")
       .eq("year", now.getFullYear())
 
     const goalMap: Record<string, number> = {}
     for (const g of (goals ?? [])) {
-      goalMap[g.consultant_id] = g.annual_target || 0
+      goalMap[g.consultant_id] = g.annual_revenue_target || 0
     }
 
     // Get YTD revenue per consultant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: activityLogs } = await (admin as any).from("temp_goal_activity_log")
       .select("consultant_id, revenue_amount")
-      .gte("reporting_month", `${now.getFullYear()}-01`)
+      .gte("activity_date", `${now.getFullYear()}-01-01`)
 
     const revenueMap: Record<string, number> = {}
     for (const log of (activityLogs ?? [])) {
@@ -472,17 +478,17 @@ export async function getAgentRankings(
     // Get goals
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: goals } = await (admin as any).from("temp_consultant_goals")
-      .select("consultant_id, annual_target")
+      .select("consultant_id, annual_revenue_target")
       .eq("year", now.getFullYear())
 
     const goalMap: Record<string, number> = {}
-    for (const g of (goals ?? [])) goalMap[g.consultant_id] = g.annual_target || 0
+    for (const g of (goals ?? [])) goalMap[g.consultant_id] = g.annual_revenue_target || 0
 
     if (metric === "revenue") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: logs } = await (admin as any).from("temp_goal_activity_log")
         .select("consultant_id, revenue_amount")
-        .gte("reporting_month", monthFrom)
+        .gte("activity_date", `${monthFrom}-01`)
 
       const revenueMap: Record<string, number> = {}
       for (const log of (logs ?? [])) {
@@ -678,8 +684,8 @@ export async function getAgentDashboard(
     // ── Revenue YTD & This Month ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
-      .select("consultant_id, revenue_amount, reporting_month")
-      .gte("reporting_month", `${now.getFullYear()}-01`)
+      .select("consultant_id, revenue_amount, activity_date")
+      .gte("activity_date", `${now.getFullYear()}-01-01`)
 
     let revenueYtd = 0
     let revenueThisMonth = 0
@@ -690,19 +696,19 @@ export async function getAgentDashboard(
       allConsultantRevenue[log.consultant_id] = (allConsultantRevenue[log.consultant_id] || 0) + amt
       if (log.consultant_id === consultantId) {
         revenueYtd += amt
-        if (log.reporting_month === currentMonth) revenueThisMonth += amt
+        if (log.activity_date?.slice(0, 7) === currentMonth) revenueThisMonth += amt
       }
     }
 
     // ── Target ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: goal } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_target")
+      .select("annual_revenue_target")
       .eq("consultant_id", consultantId)
       .eq("year", now.getFullYear())
       .single()
 
-    const annualTarget = goal?.annual_target || 0
+    const annualTarget = goal?.annual_revenue_target || 0
 
     // ── Ranking ──
     const sorted = Object.entries(allConsultantRevenue).sort(([, a], [, b]) => b - a)
@@ -836,7 +842,7 @@ export async function getAgentDashboard(
 
       let monthRev = 0
       for (const log of (allLogs ?? [])) {
-        if (log.consultant_id === consultantId && log.reporting_month === m) {
+        if (log.consultant_id === consultantId && log.activity_date?.slice(0, 7) === m) {
           monthRev += log.revenue_amount || 0
         }
       }
@@ -1193,19 +1199,19 @@ export async function generateAgentReport(
     // ── Goal ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: goal } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_target")
+      .select("annual_revenue_target")
       .eq("consultant_id", consultantId)
       .eq("year", year)
       .single()
 
-    const annualTarget = goal?.annual_target || 0
+    const annualTarget = goal?.annual_revenue_target || 0
 
     // ── Ranking ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
       .select("consultant_id, revenue_amount")
-      .gte("reporting_month", `${year}-01`)
-      .lte("reporting_month", `${year}-12`)
+      .gte("activity_date", `${year}-01-01`)
+      .lte("activity_date", `${year}-12-31`)
 
     const revenueMap: Record<string, number> = {}
     for (const log of (allLogs ?? [])) {

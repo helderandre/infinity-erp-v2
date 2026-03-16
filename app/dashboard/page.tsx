@@ -293,14 +293,14 @@ function ManagementDashboard() {
           onClick={() => openDrillDown({
             title: 'Pipeline Activo',
             description: 'Imóveis com processos activos',
-            fetcher: () => getDrillDownProperties({ status: ['active'] }),
+            fetcher: () => getDrillDownProperties({ status: ['available'] }),
           })}
         />
         <StatCard label="Carteira Activa" value={fmt.format(pf.active_volume)} sub={`${fmt.format(pf.potential_revenue)} potencial`} icon={Building2} accent="amber"
           onClick={() => openDrillDown({
             title: 'Imóveis Activos',
             description: 'Todos os imóveis activos em carteira',
-            fetcher: () => getDrillDownProperties({ status: 'active' }),
+            fetcher: () => getDrillDownProperties({ status: 'available' }),
           })}
         />
       </div>
@@ -351,13 +351,13 @@ function ManagementDashboard() {
             <MiniStat label="Activas" value={acq.active}
               onClick={() => openDrillDown({
                 title: 'Angariações Activas',
-                fetcher: () => getDrillDownProperties({ status: 'active' }),
+                fetcher: () => getDrillDownProperties({ status: 'available' }),
               })}
             />
             <MiniStat label="Reservadas" value={acq.reserved}
               onClick={() => openDrillDown({
                 title: 'Imóveis Reservados',
-                fetcher: () => getDrillDownProperties({ business_status: 'reserved' }),
+                fetcher: () => getDrillDownProperties({ status: 'reserved' }),
               })}
             />
             <MiniStat label="Vendidas (período)" value={acq.sold} accent="text-emerald-600"
@@ -650,7 +650,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Activas', value: data.my_properties.active, color: 'blue', status: 'active' },
+                { label: 'Activas', value: data.my_properties.active, color: 'blue', status: 'available' },
                 { label: 'Reservadas', value: data.my_properties.reserved, color: 'amber', status: 'reserved' },
                 { label: 'Vendidas', value: data.my_properties.sold_year, color: 'emerald', status: 'sold' },
               ].map(tile => (
