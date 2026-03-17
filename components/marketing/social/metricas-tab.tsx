@@ -336,7 +336,7 @@ export function SocialMetricasTab() {
           return (
             <div key={m.month} className="flex flex-col items-center gap-0.5 flex-1">
               <div
-                className="w-full rounded-sm bg-primary/70 transition-all"
+                className="w-full rounded-sm bg-primary/70 transition-all duration-300"
                 style={{ height: `${height}%` }}
                 title={`${formatMonthShort(m.month)}: ${formatNumber(m.followers_count)}`}
               />
@@ -412,7 +412,7 @@ export function SocialMetricasTab() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="flex items-center gap-2 flex-1 flex-wrap">
           <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Todos os agentes" />
             </SelectTrigger>
             <SelectContent>
@@ -426,7 +426,7 @@ export function SocialMetricasTab() {
           </Select>
 
           <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Todas as plataformas" />
             </SelectTrigger>
             <SelectContent>
@@ -441,11 +441,11 @@ export function SocialMetricasTab() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center border rounded-md">
+          <div className="flex items-center rounded-full border overflow-hidden">
             <Button
               variant={view === "cards" ? "secondary" : "ghost"}
               size="sm"
-              className="h-8 px-2"
+              className="h-8 px-2 rounded-full"
               onClick={() => setView("cards")}
             >
               <LayoutGrid className="h-4 w-4" />
@@ -453,14 +453,14 @@ export function SocialMetricasTab() {
             <Button
               variant={view === "table" ? "secondary" : "ghost"}
               size="sm"
-              className="h-8 px-2"
+              className="h-8 px-2 rounded-full"
               onClick={() => setView("table")}
             >
               <LayoutList className="h-4 w-4" />
             </Button>
           </div>
 
-          <Button onClick={openAddDialog} size="sm">
+          <Button onClick={openAddDialog} size="sm" className="rounded-full">
             <Plus className="h-4 w-4 mr-1" />
             Adicionar Metricas
           </Button>
@@ -469,7 +469,7 @@ export function SocialMetricasTab() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Agentes Monitorizados
@@ -481,7 +481,7 @@ export function SocialMetricasTab() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Media de Seguidores
@@ -493,7 +493,7 @@ export function SocialMetricasTab() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Engagement Medio
@@ -505,7 +505,7 @@ export function SocialMetricasTab() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Posts Este Mes
@@ -528,7 +528,7 @@ export function SocialMetricasTab() {
           <p className="text-sm text-muted-foreground mb-4">
             Comece por adicionar metricas mensais para os agentes.
           </p>
-          <Button onClick={openAddDialog} size="sm">
+          <Button onClick={openAddDialog} size="sm" className="rounded-full">
             <Plus className="h-4 w-4 mr-1" />
             Adicionar Metricas
           </Button>
@@ -539,7 +539,7 @@ export function SocialMetricasTab() {
       {metrics.length > 0 && view === "cards" && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from(latestMetricsByAgent.entries()).map(([agentId, platformMap]) => (
-            <Card key={agentId} className="overflow-hidden">
+            <Card key={agentId} className="overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold">
@@ -547,14 +547,13 @@ export function SocialMetricasTab() {
                   </CardTitle>
                   <div className="flex items-center gap-1">
                     {Array.from(platformMap.keys()).map((p) => (
-                      <Badge
+                      <span
                         key={p}
-                        variant="secondary"
-                        className={cn("text-xs gap-1", platformColor(p))}
+                        className={cn("rounded-full text-[11px] px-2 py-0.5 font-medium inline-flex items-center gap-1", platformColor(p))}
                       >
                         {platformIcon(p)}
                         {SOCIAL_PLATFORMS[p]}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -628,7 +627,7 @@ export function SocialMetricasTab() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="h-7 px-2 text-xs rounded-full"
                         onClick={() => openEditDialog(metric)}
                       >
                         <Pencil className="h-3 w-3 mr-1" />
@@ -649,69 +648,66 @@ export function SocialMetricasTab() {
 
       {/* Table view */}
       {metrics.length > 0 && view === "table" && (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agente</TableHead>
-                  <TableHead>Mes</TableHead>
-                  <TableHead>Plataforma</TableHead>
-                  <TableHead className="text-right">Seguidores</TableHead>
-                  <TableHead className="text-right">Posts</TableHead>
-                  <TableHead className="text-right">Engagement</TableHead>
-                  <TableHead className="text-right">Alcance</TableHead>
-                  <TableHead>Notas</TableHead>
-                  <TableHead className="w-[50px]" />
+        <div className="rounded-xl border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead>Agente</TableHead>
+                <TableHead>Mes</TableHead>
+                <TableHead>Plataforma</TableHead>
+                <TableHead className="text-right">Seguidores</TableHead>
+                <TableHead className="text-right">Posts</TableHead>
+                <TableHead className="text-right">Engagement</TableHead>
+                <TableHead className="text-right">Alcance</TableHead>
+                <TableHead>Notas</TableHead>
+                <TableHead className="w-[50px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {metrics.map((m) => (
+                <TableRow key={m.id} className="transition-colors hover:bg-muted/50">
+                  <TableCell className="font-medium">
+                    {getAgentName(m.agent_id, m)}
+                  </TableCell>
+                  <TableCell>{formatMonth(m.month)}</TableCell>
+                  <TableCell>
+                    <span
+                      className={cn("rounded-full text-[11px] px-2 py-0.5 font-medium inline-flex items-center gap-1", platformColor(m.platform))}
+                    >
+                      {platformIcon(m.platform)}
+                      {SOCIAL_PLATFORMS[m.platform]}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatNumber(m.followers_count)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatNumber(m.posts_count)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatPercent(m.avg_engagement)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatNumber(m.avg_reach)}
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
+                    {m.notes ?? "--"}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full"
+                      onClick={() => openEditDialog(m)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {metrics.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="font-medium">
-                      {getAgentName(m.agent_id, m)}
-                    </TableCell>
-                    <TableCell>{formatMonth(m.month)}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={cn("text-xs gap-1", platformColor(m.platform))}
-                      >
-                        {platformIcon(m.platform)}
-                        {SOCIAL_PLATFORMS[m.platform]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatNumber(m.followers_count)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatNumber(m.posts_count)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatPercent(m.avg_engagement)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatNumber(m.avg_reach)}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
-                      {m.notes ?? "--"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => openEditDialog(m)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* Add/Edit Dialog */}
@@ -727,7 +723,7 @@ export function SocialMetricasTab() {
             <div className="space-y-2">
               <Label>Agente *</Label>
               <Select value={formAgentId} onValueChange={setFormAgentId}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar agente" />
                 </SelectTrigger>
                 <SelectContent>
@@ -747,6 +743,7 @@ export function SocialMetricasTab() {
                   type="month"
                   value={formMonth}
                   onChange={(e) => setFormMonth(e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
 
@@ -756,7 +753,7 @@ export function SocialMetricasTab() {
                   value={formPlatform}
                   onValueChange={(v) => setFormPlatform(v as SocialPlatform)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -781,6 +778,7 @@ export function SocialMetricasTab() {
                   placeholder="0"
                   value={formFollowers}
                   onChange={(e) => setFormFollowers(e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
 
@@ -792,6 +790,7 @@ export function SocialMetricasTab() {
                   placeholder="0"
                   value={formPosts}
                   onChange={(e) => setFormPosts(e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
 
@@ -804,6 +803,7 @@ export function SocialMetricasTab() {
                   placeholder="0.00"
                   value={formEngagement}
                   onChange={(e) => setFormEngagement(e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
 
@@ -815,6 +815,7 @@ export function SocialMetricasTab() {
                   placeholder="0"
                   value={formReach}
                   onChange={(e) => setFormReach(e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -830,10 +831,10 @@ export function SocialMetricasTab() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button variant="outline" className="rounded-full" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button className="rounded-full" onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 {editingMetric ? "Guardar" : "Adicionar"}
               </Button>

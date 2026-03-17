@@ -1,58 +1,65 @@
 'use client'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { ShopTab } from '@/components/marketing/shop-tab'
 import { OrdersTab } from '@/components/marketing/orders-tab'
-import { CatalogTab } from '@/components/marketing/catalog-tab'
-import { PacksTab } from '@/components/marketing/packs-tab'
-import { Store, ClipboardList, ShoppingBag, PackageOpen } from 'lucide-react'
+import { GestaoAnalyticsTab } from '@/components/marketing/gestao-analytics-tab'
+import { ArrowLeft, ClipboardList, BarChart3 } from 'lucide-react'
+
+type OrdersView = 'orders' | 'analytics'
 
 export default function MarketingLojaPage() {
+  const [activeView, setActiveView] = useState<'shop' | 'orders'>('shop')
+  const [ordersTab, setOrdersTab] = useState<OrdersView>('orders')
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Loja</h1>
-        <p className="text-sm text-muted-foreground">
-          Catálogo de serviços, packs e encomendas de marketing.
-        </p>
-      </div>
+    <div>
+      {activeView === 'shop' ? (
+        <ShopTab onSwitchToOrders={() => setActiveView('orders')} showGerirLoja />
+      ) : (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-6 duration-400">
+          {/* Header */}
+          <div className="flex items-center justify-between gap-4">
+            <Button variant="ghost" size="sm" onClick={() => setActiveView('shop')} className="gap-1.5 rounded-full">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar à Loja
+            </Button>
 
-      <Tabs defaultValue="shop" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="shop" className="gap-1.5">
-            <Store className="h-4 w-4" />
-            Loja
-          </TabsTrigger>
-          <TabsTrigger value="orders" className="gap-1.5">
-            <ClipboardList className="h-4 w-4" />
-            Encomendas
-          </TabsTrigger>
-          <TabsTrigger value="catalog" className="gap-1.5">
-            <ShoppingBag className="h-4 w-4" />
-            Catálogo
-          </TabsTrigger>
-          <TabsTrigger value="packs" className="gap-1.5">
-            <PackageOpen className="h-4 w-4" />
-            Packs
-          </TabsTrigger>
-        </TabsList>
+            {/* Tab pills */}
+            <div className="inline-flex items-center gap-1.5 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+              <button
+                onClick={() => setOrdersTab('orders')}
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 ${
+                  ordersTab === 'orders'
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                Encomendas
+              </button>
+              <button
+                onClick={() => setOrdersTab('analytics')}
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 ${
+                  ordersTab === 'analytics'
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Análise
+              </button>
+            </div>
+          </div>
 
-        <TabsContent value="shop">
-          <ShopTab />
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <OrdersTab />
-        </TabsContent>
-
-        <TabsContent value="catalog">
-          <CatalogTab />
-        </TabsContent>
-
-        <TabsContent value="packs">
-          <PacksTab />
-        </TabsContent>
-      </Tabs>
+          {/* Content */}
+          <div key={ordersTab} className="animate-in fade-in duration-300">
+            {ordersTab === 'orders' && <OrdersTab />}
+            {ordersTab === 'analytics' && <GestaoAnalyticsTab />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

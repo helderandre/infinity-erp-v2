@@ -314,12 +314,12 @@ export function SocialPublicacoesTab() {
           ))}
         </div>
         <div className="flex gap-3">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-48 rounded-full" />
+          <Skeleton className="h-10 w-40 rounded-full" />
+          <Skeleton className="h-10 flex-1 rounded-full" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Skeleton key={i} className="h-72 rounded-xl" />
           ))}
         </div>
@@ -333,9 +333,9 @@ export function SocialPublicacoesTab() {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="rounded-lg bg-blue-50 p-3">
+            <div className="rounded-full bg-blue-50 p-3">
               <Newspaper className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -344,9 +344,9 @@ export function SocialPublicacoesTab() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="rounded-lg bg-pink-50 p-3">
+            <div className="rounded-full bg-pink-50 p-3">
               <Heart className="h-5 w-5 text-pink-600" />
             </div>
             <div>
@@ -357,9 +357,9 @@ export function SocialPublicacoesTab() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-xl transition-all duration-300 hover:shadow-lg">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="rounded-lg bg-emerald-50 p-3">
+            <div className="rounded-full bg-emerald-50 p-3">
               <TrendingUp className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
@@ -375,7 +375,7 @@ export function SocialPublicacoesTab() {
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={filterAgent} onValueChange={setFilterAgent}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48 rounded-full bg-muted/50 border-0">
             <SelectValue placeholder="Consultor" />
           </SelectTrigger>
           <SelectContent>
@@ -389,7 +389,7 @@ export function SocialPublicacoesTab() {
         </Select>
 
         <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 rounded-full bg-muted/50 border-0">
             <SelectValue placeholder="Plataforma" />
           </SelectTrigger>
           <SelectContent>
@@ -408,11 +408,11 @@ export function SocialPublicacoesTab() {
             placeholder="Pesquisar publicacoes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 rounded-full bg-muted/50 border-0"
           />
         </div>
 
-        <Button onClick={openCreate}>
+        <Button className="rounded-full" onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Nova Publicacao
         </Button>
@@ -427,11 +427,11 @@ export function SocialPublicacoesTab() {
           action={{ label: 'Nova Publicacao', onClick: openCreate }}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((pub) => (
             <Card
               key={pub.id}
-              className="group overflow-hidden transition-shadow hover:shadow-md"
+              className="group overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg"
             >
               {/* Thumbnail */}
               {pub.thumbnail_url ? (
@@ -439,7 +439,7 @@ export function SocialPublicacoesTab() {
                   <img
                     src={pub.thumbnail_url}
                     alt={pub.title ?? 'Publicacao'}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               ) : (
@@ -463,18 +463,17 @@ export function SocialPublicacoesTab() {
 
                 {/* Badges */}
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge
-                    variant="secondary"
+                  <span
                     className={cn(
-                      'text-xs',
+                      'rounded-full text-[11px] px-2 py-0.5 font-medium',
                       PLATFORM_COLORS[pub.platform] ?? PLATFORM_COLORS.other
                     )}
                   >
                     {SOCIAL_PLATFORMS[pub.platform] ?? pub.platform}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
+                  </span>
+                  <span className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
                     {CONTENT_TYPES[pub.content_type] ?? pub.content_type}
-                  </Badge>
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(pub.published_at)}
                   </span>
@@ -509,7 +508,7 @@ export function SocialPublicacoesTab() {
                       variant="outline"
                       size="sm"
                       asChild
-                      className="flex-1"
+                      className="flex-1 rounded-full"
                     >
                       <a
                         href={pub.post_url}
@@ -524,7 +523,7 @@ export function SocialPublicacoesTab() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 rounded-full"
                     onClick={() => openEdit(pub)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -532,7 +531,7 @@ export function SocialPublicacoesTab() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
                     onClick={() => setDeleteId(pub.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -561,7 +560,7 @@ export function SocialPublicacoesTab() {
                 value={form.agent_id}
                 onValueChange={(v) => setField('agent_id', v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar consultor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -584,7 +583,7 @@ export function SocialPublicacoesTab() {
                     setField('platform', v as SocialPlatform)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -604,7 +603,7 @@ export function SocialPublicacoesTab() {
                     setField('content_type', v as ContentType)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -625,6 +624,7 @@ export function SocialPublicacoesTab() {
                 value={form.title}
                 onChange={(e) => setField('title', e.target.value)}
                 placeholder="Titulo da publicacao"
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -646,6 +646,7 @@ export function SocialPublicacoesTab() {
                 type="date"
                 value={form.published_at}
                 onChange={(e) => setField('published_at', e.target.value)}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -656,6 +657,7 @@ export function SocialPublicacoesTab() {
                 value={form.post_url}
                 onChange={(e) => setField('post_url', e.target.value)}
                 placeholder="https://..."
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -666,6 +668,7 @@ export function SocialPublicacoesTab() {
                 value={form.thumbnail_url}
                 onChange={(e) => setField('thumbnail_url', e.target.value)}
                 placeholder="https://..."
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -686,6 +689,7 @@ export function SocialPublicacoesTab() {
                   min={0}
                   value={form.likes}
                   onChange={(e) => setField('likes', Number(e.target.value))}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-2">
@@ -698,6 +702,7 @@ export function SocialPublicacoesTab() {
                   min={0}
                   value={form.comments}
                   onChange={(e) => setField('comments', Number(e.target.value))}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-2">
@@ -710,6 +715,7 @@ export function SocialPublicacoesTab() {
                   min={0}
                   value={form.shares}
                   onChange={(e) => setField('shares', Number(e.target.value))}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-2">
@@ -722,6 +728,7 @@ export function SocialPublicacoesTab() {
                   min={0}
                   value={form.reach}
                   onChange={(e) => setField('reach', Number(e.target.value))}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-2">
@@ -733,6 +740,7 @@ export function SocialPublicacoesTab() {
                   onChange={(e) =>
                     setField('impressions', Number(e.target.value))
                   }
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -755,12 +763,13 @@ export function SocialPublicacoesTab() {
           <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="outline"
+              className="rounded-full"
               onClick={() => setDialogOpen(false)}
               disabled={submitting}
             >
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button className="rounded-full" onClick={handleSubmit} disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingId ? 'Guardar' : 'Criar'}
             </Button>
@@ -786,6 +795,7 @@ export function SocialPublicacoesTab() {
           <div className="flex justify-end gap-2 pt-4">
             <Button
               variant="outline"
+              className="rounded-full"
               onClick={() => setDeleteId(null)}
               disabled={deleting}
             >
@@ -793,6 +803,7 @@ export function SocialPublicacoesTab() {
             </Button>
             <Button
               variant="destructive"
+              className="rounded-full"
               onClick={handleDelete}
               disabled={deleting}
             >

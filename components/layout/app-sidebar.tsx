@@ -144,8 +144,6 @@ export const recrutamentoItems = [
 export const lojaItems = [
   { title: 'Loja', icon: Store, href: '/dashboard/marketing/loja' },
   { title: 'Os Meus Pedidos', icon: Package, href: '/dashboard/marketing/gestao' },
-  { title: 'Gestão', icon: Blocks, href: '/dashboard/encomendas/gestao' },
-  { title: 'Stock', icon: Boxes, href: '/dashboard/encomendas/stock' },
 ]
 
 export const digitalItems = [

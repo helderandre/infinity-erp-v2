@@ -231,7 +231,7 @@ function EntryPill({
         onClick()
       }}
       className={cn(
-        "group flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left text-[11px] leading-tight transition-all hover:opacity-80",
+        "group flex w-full items-center gap-1 rounded-full px-1.5 py-0.5 text-left text-[11px] leading-tight transition-all duration-300 hover:opacity-80",
         statusInfo.color
       )}
     >
@@ -266,7 +266,7 @@ function DayCell({
     <div
       onClick={() => cell.isCurrentMonth && onClickDay(cell.dateStr)}
       className={cn(
-        "group relative flex min-h-[100px] flex-col border-b border-r p-1 transition-colors",
+        "group relative flex min-h-[100px] flex-col border-b border-r p-1 transition-colors duration-300",
         cell.isCurrentMonth
           ? "cursor-pointer bg-background hover:bg-muted/40"
           : "cursor-default bg-muted/20",
@@ -276,7 +276,7 @@ function DayCell({
       <div className="mb-0.5 flex items-center justify-between">
         <span
           className={cn(
-            "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+            "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors duration-300",
             !cell.isCurrentMonth && "text-muted-foreground/40",
             cell.isCurrentMonth && "text-foreground",
             today && "bg-primary text-primary-foreground font-bold"
@@ -290,7 +290,7 @@ function DayCell({
               e.stopPropagation()
               onClickDay(cell.dateStr)
             }}
-            className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+            className="rounded-full p-0.5 opacity-0 transition-all duration-300 hover:bg-muted group-hover:opacity-100"
           >
             <Plus className="h-3 w-3 text-muted-foreground" />
           </button>
@@ -311,7 +311,7 @@ function DayCell({
             <PopoverTrigger asChild>
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="mt-0.5 rounded px-1.5 py-0.5 text-left text-[10px] font-medium text-muted-foreground hover:bg-muted"
+                className="mt-0.5 rounded-full px-1.5 py-0.5 text-left text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors duration-300"
               >
                 +{overflow} mais
               </button>
@@ -523,16 +523,16 @@ export function SocialCalendarioTab() {
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPrevMonth}>
+          <Button variant="outline" size="icon" className="rounded-full" onClick={goToPrevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h2 className="min-w-[180px] text-center text-lg font-semibold">
             {MONTHS[month]} {year}
           </h2>
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
+          <Button variant="outline" size="icon" className="rounded-full" onClick={goToNextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={goToToday} className="ml-1 text-xs">
+          <Button variant="ghost" size="sm" onClick={goToToday} className="ml-1 text-xs rounded-full">
             Hoje
           </Button>
         </div>
@@ -540,7 +540,7 @@ export function SocialCalendarioTab() {
         <div className="flex items-center gap-2">
           {/* Agent filter */}
           <Select value={agentFilter} onValueChange={setAgentFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Todos os consultores" />
             </SelectTrigger>
             <SelectContent>
@@ -553,7 +553,7 @@ export function SocialCalendarioTab() {
             </SelectContent>
           </Select>
 
-          <Button onClick={() => openCreateDialog()} size="sm">
+          <Button onClick={() => openCreateDialog()} size="sm" className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" />
             Novo
           </Button>
@@ -574,10 +574,10 @@ export function SocialCalendarioTab() {
       </div>
 
       {/* Calendar grid */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden rounded-xl">
         <CardContent className="p-0">
           {/* Days header */}
-          <div className="grid grid-cols-7 border-b bg-muted/40">
+          <div className="grid grid-cols-7 border-b bg-muted/30">
             {DAYS_OF_WEEK.map((d) => (
               <div
                 key={d}
@@ -641,7 +641,7 @@ export function SocialCalendarioTab() {
             <div className="grid gap-1.5">
               <Label>Consultor *</Label>
               <Select value={form.agent_id} onValueChange={(v) => updateForm("agent_id", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar consultor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -662,7 +662,7 @@ export function SocialCalendarioTab() {
                   value={form.platform}
                   onValueChange={(v) => updateForm("platform", v as SocialPlatform)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -683,7 +683,7 @@ export function SocialCalendarioTab() {
                   value={form.content_type}
                   onValueChange={(v) => updateForm("content_type", v as ContentType)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -704,6 +704,7 @@ export function SocialCalendarioTab() {
                 value={form.title}
                 onChange={(e) => updateForm("title", e.target.value)}
                 placeholder="Ex: Post de imovel novo"
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -726,6 +727,7 @@ export function SocialCalendarioTab() {
                   type="date"
                   value={form.scheduled_date}
                   onChange={(e) => updateForm("scheduled_date", e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -734,6 +736,7 @@ export function SocialCalendarioTab() {
                   type="time"
                   value={form.scheduled_time}
                   onChange={(e) => updateForm("scheduled_time", e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -742,7 +745,7 @@ export function SocialCalendarioTab() {
                   value={form.status}
                   onValueChange={(v) => updateForm("status", v as CalendarStatus)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -767,6 +770,7 @@ export function SocialCalendarioTab() {
                   value={form.property_id}
                   onChange={(e) => updateForm("property_id", e.target.value)}
                   placeholder="UUID do imovel"
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -775,6 +779,7 @@ export function SocialCalendarioTab() {
                   value={form.post_url}
                   onChange={(e) => updateForm("post_url", e.target.value)}
                   placeholder="https://..."
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -790,6 +795,7 @@ export function SocialCalendarioTab() {
                     <Button
                       variant="destructive"
                       size="sm"
+                      className="rounded-full"
                       disabled={saving}
                       onClick={() => handleDelete(form.id!)}
                     >
@@ -799,6 +805,7 @@ export function SocialCalendarioTab() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="rounded-full"
                       onClick={() => setDeleteConfirmId(null)}
                     >
                       Cancelar
@@ -808,7 +815,7 @@ export function SocialCalendarioTab() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive hover:text-destructive"
+                    className="rounded-full text-destructive hover:text-destructive"
                     onClick={() => setDeleteConfirmId(form.id!)}
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" />
@@ -818,10 +825,10 @@ export function SocialCalendarioTab() {
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button variant="outline" className="rounded-full" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button className="rounded-full" onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 {form.id ? "Guardar" : "Criar"}
               </Button>

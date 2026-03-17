@@ -241,7 +241,7 @@ export function SocialAssetsTab() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Filtrar por consultor" />
             </SelectTrigger>
             <SelectContent>
@@ -255,7 +255,7 @@ export function SocialAssetsTab() {
           </Select>
 
           <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -271,17 +271,17 @@ export function SocialAssetsTab() {
           </Select>
 
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Pesquisar assets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 rounded-full bg-muted/50 border-0"
             />
           </div>
         </div>
 
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button className="rounded-full" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Asset
         </Button>
@@ -293,9 +293,9 @@ export function SocialAssetsTab() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="animate-pulse rounded-xl">
               <CardContent className="p-4">
-                <div className="mb-3 h-32 rounded-md bg-muted" />
+                <div className="mb-3 h-32 rounded-lg bg-muted" />
                 <div className="mb-2 h-4 w-3/4 rounded bg-muted" />
                 <div className="h-3 w-1/2 rounded bg-muted" />
               </CardContent>
@@ -314,7 +314,7 @@ export function SocialAssetsTab() {
               : 'Comece por adicionar o primeiro asset.'}
           </p>
           {!searchQuery && filterCategory === 'all' && filterAgent === 'all' && (
-            <Button className="mt-4" variant="outline" onClick={() => setCreateOpen(true)}>
+            <Button className="mt-4 rounded-full" variant="outline" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Adicionar Asset
             </Button>
@@ -329,27 +329,27 @@ export function SocialAssetsTab() {
             return (
               <Card
                 key={asset.id}
-                className="group overflow-hidden transition-shadow hover:shadow-md"
+                className="group overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg"
               >
                 <CardContent className="p-0">
                   {/* Thumbnail / Icon Area */}
-                  <div className="relative flex h-36 items-center justify-center bg-muted/50">
+                  <div className="relative flex h-36 items-center justify-center bg-muted/50 overflow-hidden">
                     {isImage ? (
                       <img
                         src={asset.file_url}
                         alt={asset.file_name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
                       <FileIcon className="h-12 w-12 text-muted-foreground/40" />
                     )}
 
                     {/* Overlay actions */}
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all duration-300 group-hover:bg-black/40 group-hover:opacity-100">
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="h-8 w-8"
+                        className="h-8 w-8 rounded-full"
                         asChild
                       >
                         <a
@@ -364,7 +364,7 @@ export function SocialAssetsTab() {
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="h-8 w-8"
+                        className="h-8 w-8 rounded-full"
                         asChild
                       >
                         <a
@@ -380,7 +380,7 @@ export function SocialAssetsTab() {
                           <Button
                             size="icon"
                             variant="destructive"
-                            className="h-8 w-8"
+                            className="h-8 w-8 rounded-full"
                             title="Eliminar"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -395,10 +395,10 @@ export function SocialAssetsTab() {
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDelete(asset.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
                               Eliminar
                             </AlertDialogAction>
@@ -418,15 +418,14 @@ export function SocialAssetsTab() {
                     </p>
 
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
+                      <span
                         className={cn(
-                          'text-xs',
+                          'rounded-full text-[11px] px-2 py-0.5 font-medium',
                           getCategoryColor(asset.category)
                         )}
                       >
                         {ASSET_CATEGORIES[asset.category]}
-                      </Badge>
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -474,7 +473,7 @@ export function SocialAssetsTab() {
                 value={form.agent_id}
                 onValueChange={(v) => setForm((f) => ({ ...f, agent_id: v }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar consultor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -495,7 +494,7 @@ export function SocialAssetsTab() {
                   setForm((f) => ({ ...f, category: v as AssetCategory }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar categoria" />
                 </SelectTrigger>
                 <SelectContent>
@@ -516,6 +515,7 @@ export function SocialAssetsTab() {
                 placeholder="https://pub-xxx.r2.dev/..."
                 value={form.file_url}
                 onChange={(e) => setForm((f) => ({ ...f, file_url: e.target.value }))}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -525,6 +525,7 @@ export function SocialAssetsTab() {
                 placeholder="logo-infinity.png"
                 value={form.file_name}
                 onChange={(e) => setForm((f) => ({ ...f, file_name: e.target.value }))}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -534,6 +535,7 @@ export function SocialAssetsTab() {
                 placeholder="image/png"
                 value={form.file_type}
                 onChange={(e) => setForm((f) => ({ ...f, file_type: e.target.value }))}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -543,6 +545,7 @@ export function SocialAssetsTab() {
                 placeholder="Descricao do asset..."
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
           </div>
@@ -550,6 +553,7 @@ export function SocialAssetsTab() {
           <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="outline"
+              className="rounded-full"
               onClick={() => {
                 setCreateOpen(false)
                 resetForm()
@@ -557,7 +561,7 @@ export function SocialAssetsTab() {
             >
               Cancelar
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
+            <Button className="rounded-full" onClick={handleCreate} disabled={submitting}>
               {submitting ? 'A guardar...' : 'Adicionar'}
             </Button>
           </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ContaCorrenteTransaction, AgentBalance } from '@/types/marketing'
 
-export function useContaCorrente(agentId?: string) {
+export function useContaCorrente(agentId?: string, dateRange?: { from: string; to: string }) {
   const [transactions, setTransactions] = useState<ContaCorrenteTransaction[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -15,6 +15,8 @@ export function useContaCorrente(agentId?: string) {
       const params = new URLSearchParams()
       if (agentId) params.set('agent_id', agentId)
       if (typeFilter) params.set('type', typeFilter)
+      if (dateRange?.from) params.set('from', dateRange.from)
+      if (dateRange?.to) params.set('to', dateRange.to)
 
       const res = await fetch(`/api/marketing/conta-corrente?${params}`)
       const data = await res.json()
@@ -25,7 +27,7 @@ export function useContaCorrente(agentId?: string) {
     } finally {
       setLoading(false)
     }
-  }, [agentId, typeFilter])
+  }, [agentId, typeFilter, dateRange?.from, dateRange?.to])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 

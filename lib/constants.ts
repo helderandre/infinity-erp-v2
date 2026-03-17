@@ -1717,3 +1717,25 @@ export const PRODUCT_CATEGORY_ICONS: Record<string, string> = {
   presentation: 'Presentation',
   'pen-tool': 'PenTool',
 } as const
+
+// ─── Marketing Subscriptions ────────────────────────────
+
+export const SUBSCRIPTION_STATUS = {
+  active:         { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Activa' },
+  paused:         { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pausada' },
+  cancelled:      { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Cancelada' },
+  expired:        { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Expirada' },
+  billing_failed: { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Falha de Cobrança' },
+} as const
+
+export const BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: '/mês',
+  quarterly: '/trimestre',
+  yearly: '/ano',
+}
+
+export const CALENDAR_EVENT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  service_scheduled:    { bg: 'bg-blue-100',    text: 'text-blue-800',    dot: 'bg-blue-500' },
+  purchase:             { bg: 'bg-emerald-100', text: 'text-emerald-800', dot: 'bg-emerald-500' },
+  subscription_renewal: { bg: 'bg-purple-100',  text: 'text-purple-800',  dot: 'bg-purple-500' },
+}

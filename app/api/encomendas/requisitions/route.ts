@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, ...requisitionData } = parsed.data
+    const { items, checkout_group_id, ...requisitionData } = parsed.data
 
     // Lookup products to get prices and check approval requirements
     let needsApproval = false
@@ -122,6 +122,7 @@ export async function POST(request: Request) {
         agent_id: user.id,
         total_amount: totalAmount,
         status,
+        ...(checkout_group_id ? { checkout_group_id } : {}),
         ...(status === 'approved' ? { approved_by: user.id, approved_at: new Date().toISOString() } : {}),
       })
       .select()

@@ -54,6 +54,7 @@ export const createRequisitionSchema = z.object({
   delivery_notes: z.string().optional().nullable(),
   requested_delivery_date: z.string().optional().nullable(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  checkout_group_id: z.string().optional().nullable(),
 })
 
 export const createSupplierSchema = z.object({

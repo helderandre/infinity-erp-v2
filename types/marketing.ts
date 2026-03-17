@@ -77,6 +77,7 @@ export interface MarketingOrder {
   cancellation_reason: string | null
   internal_notes: string | null
   assigned_to: string | null
+  checkout_group_id: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -185,6 +186,67 @@ export interface ContaCorrenteLimit {
 export interface AgentBalance {
   agent_id: string
   commercial_name: string
+  profile_photo_url: string | null
   current_balance: number
   credit_limit: number | null
+}
+
+// --- Subscriptions ---
+
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'expired' | 'billing_failed'
+
+export interface MarketingSubscription {
+  id: string
+  agent_id: string
+  order_item_id: string
+  catalog_item_id: string
+  status: SubscriptionStatus
+  billing_cycle: 'monthly' | 'quarterly' | 'yearly'
+  price_per_cycle: number
+  started_at: string
+  current_period_start: string
+  current_period_end: string
+  next_billing_date: string
+  cancelled_at: string | null
+  cancel_at_period_end: boolean
+  paused_at: string | null
+  failed_billing_count: number
+  last_billing_error: string | null
+  last_billing_attempt: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  catalog_item?: MarketingCatalogItem
+  order_item?: MarketingOrderItem
+}
+
+export interface SubscriptionBillingLog {
+  id: string
+  subscription_id: string
+  billing_date: string
+  amount: number
+  status: 'success' | 'failed'
+  transaction_id: string | null
+  error_message: string | null
+  created_at: string
+}
+
+// --- Gestão calendar/history ---
+
+export type CalendarEventType = 'service_scheduled' | 'purchase' | 'subscription_renewal'
+
+export interface GestaoCalendarEvent {
+  date: string
+  type: CalendarEventType
+  label: string
+  metadata: Record<string, unknown>
+}
+
+export interface GestaoHistoryItem {
+  id: string
+  type: 'service_used' | 'material_delivered'
+  name: string
+  date: string
+  amount?: number
+  metadata: Record<string, unknown>
 }

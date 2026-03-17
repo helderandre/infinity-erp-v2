@@ -51,6 +51,15 @@ export const createOrderSchema = z.object({
     name: z.string().min(1),
     price: z.coerce.number().min(0),
   })).min(1, 'Seleccione pelo menos um item'),
+  checkout_group_id: z.string().optional().nullable(),
+})
+
+// --- Conta Corrente ---
+
+// --- Subscriptions ---
+
+export const cancelSubscriptionSchema = z.object({
+  immediate: z.boolean().default(false),
 })
 
 // --- Conta Corrente ---

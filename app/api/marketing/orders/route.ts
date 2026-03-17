@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items } = parsed.data
+    const { items, checkout_group_id } = parsed.data
     const total_amount = items.reduce((sum, item) => sum + item.price, 0)
 
     // Create order
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
         agent_id: user.id,
         total_amount,
         status: 'pending',
+        ...(checkout_group_id ? { checkout_group_id } : {}),
       })
       .select()
       .single()
@@ -83,15 +84,80 @@ export async function POST(request: Request) {
       pack_id: item.pack_id || null,
       name: item.name,
       price: item.price,
+      status: 'available',
     }))
 
-    const { error: itemsError } = await supabase
+    const { data: createdItems, error: itemsError } = await supabase
       .from('marketing_order_items')
       .insert(orderItems)
+      .select()
 
     if (itemsError) {
       await supabase.from('marketing_orders').delete().eq('id', order.id)
       return NextResponse.json({ error: itemsError.message }, { status: 500 })
+    }
+
+    // Create subscriptions for subscription-based catalog items
+    if (createdItems && createdItems.length > 0) {
+      const catalogItemIds = createdItems
+        .filter((ci: any) => ci.catalog_item_id)
+        .map((ci: any) => ci.catalog_item_id)
+
+      if (catalogItemIds.length > 0) {
+        const { data: catalogItems } = await supabase
+          .from('marketing_catalog')
+          .select('id, is_subscription, billing_cycle')
+          .in('id', catalogItemIds)
+
+        const subscriptionCatalogMap = new Map<string, any>()
+        for (const ci of (catalogItems || [])) {
+          if (ci.is_subscription) {
+            subscriptionCatalogMap.set(ci.id, ci)
+          }
+        }
+
+        if (subscriptionCatalogMap.size > 0) {
+          const now = new Date()
+          const subscriptionRows = createdItems
+            .filter((oi: any) => oi.catalog_item_id && subscriptionCatalogMap.has(oi.catalog_item_id))
+            .map((oi: any) => {
+              const catalogItem = subscriptionCatalogMap.get(oi.catalog_item_id)
+              const billingCycle = catalogItem.billing_cycle || 'monthly'
+              const periodEnd = new Date(now)
+
+              if (billingCycle === 'quarterly') {
+                periodEnd.setMonth(periodEnd.getMonth() + 3)
+              } else if (billingCycle === 'yearly') {
+                periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+              } else {
+                // monthly (default)
+                periodEnd.setMonth(periodEnd.getMonth() + 1)
+              }
+
+              return {
+                agent_id: user.id,
+                order_item_id: oi.id,
+                catalog_item_id: oi.catalog_item_id,
+                billing_cycle: billingCycle,
+                price_per_cycle: oi.price,
+                current_period_start: now.toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                next_billing_date: periodEnd.toISOString(),
+                status: 'active',
+              }
+            })
+
+          if (subscriptionRows.length > 0) {
+            const { error: subError } = await supabase
+              .from('marketing_subscriptions')
+              .insert(subscriptionRows)
+
+            if (subError) {
+              console.error('Erro ao criar subscrições:', subError.message)
+            }
+          }
+        }
+      }
     }
 
     // Debit conta corrente

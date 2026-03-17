@@ -182,10 +182,10 @@ export function SocialTemplatesTab() {
             placeholder="Pesquisar templates..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 rounded-full bg-muted/50 border-0"
           />
         </div>
-        <Button onClick={handleCreate}>
+        <Button className="rounded-full" onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Template
         </Button>
@@ -193,14 +193,14 @@ export function SocialTemplatesTab() {
 
       {/* Loading */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full rounded-lg" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
         /* Empty state */
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
           <Palette className="mb-4 h-12 w-12 text-muted-foreground/50" />
           <h3 className="text-lg font-medium">Nenhum template encontrado</h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -209,7 +209,7 @@ export function SocialTemplatesTab() {
               : 'Crie o primeiro template para organizar os seus designs.'}
           </p>
           {!search && (
-            <Button className="mt-4" onClick={handleCreate}>
+            <Button className="mt-4 rounded-full" onClick={handleCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Criar Template
             </Button>
@@ -223,15 +223,15 @@ export function SocialTemplatesTab() {
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 <Palette className="h-4 w-4" />
                 {group.label}
-                <Badge variant="secondary" className="ml-1 text-[10px]">
+                <span className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium ml-1">
                   {group.items.length}
-                </Badge>
+                </span>
               </h3>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {group.items.map((template) => (
                   <Card
                     key={template.id}
-                    className="group relative overflow-hidden transition-shadow hover:shadow-md"
+                    className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg"
                   >
                     {/* Thumbnail */}
                     {template.thumbnail_url ? (
@@ -240,7 +240,7 @@ export function SocialTemplatesTab() {
                         <img
                           src={template.thumbnail_url}
                           alt={template.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       </div>
                     ) : (
@@ -253,9 +253,9 @@ export function SocialTemplatesTab() {
                         <CardTitle className="line-clamp-1 text-sm font-medium">
                           {template.name}
                         </CardTitle>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                        <span className="shrink-0 rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
                           {TEMPLATE_CATEGORIES[template.category]}
-                        </Badge>
+                        </span>
                       </div>
                     </CardHeader>
                     <CardContent className="pb-3 pt-0">
@@ -269,7 +269,7 @@ export function SocialTemplatesTab() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs"
+                            className="h-7 text-xs rounded-full"
                             asChild
                           >
                             <a
@@ -286,7 +286,7 @@ export function SocialTemplatesTab() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-7 w-7 p-0 rounded-full"
                             onClick={() => handleEdit(template)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -295,7 +295,7 @@ export function SocialTemplatesTab() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            className="h-7 w-7 p-0 rounded-full text-destructive hover:text-destructive"
                             onClick={() => setDeleteTarget(template)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -327,6 +327,7 @@ export function SocialTemplatesTab() {
                 placeholder="Ex: Post Imóvel Destaque"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
             <div className="space-y-2">
@@ -337,7 +338,7 @@ export function SocialTemplatesTab() {
                   setForm({ ...form, category: v as TemplateCategory })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,6 +360,7 @@ export function SocialTemplatesTab() {
                 onChange={(e) =>
                   setForm({ ...form, canva_url: e.target.value || null })
                 }
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
             <div className="space-y-2">
@@ -369,6 +371,7 @@ export function SocialTemplatesTab() {
                 onChange={(e) =>
                   setForm({ ...form, thumbnail_url: e.target.value || null })
                 }
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
             <div className="space-y-2">
@@ -384,10 +387,10 @@ export function SocialTemplatesTab() {
             </div>
           </div>
           <div className="mt-2 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" className="rounded-full" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button className="rounded-full" onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.id ? 'Guardar' : 'Criar'}
             </Button>
@@ -410,13 +413,11 @@ export function SocialTemplatesTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} className="rounded-full">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className={cn(
-                'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              )}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Eliminar

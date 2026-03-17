@@ -1,6 +1,7 @@
 'use client'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { Users, FolderOpen, Palette, Calendar, Newspaper, MessageSquareText, BarChart3 } from 'lucide-react'
 import { SocialConsultoresTab } from '@/components/marketing/social/consultores-tab'
 import { SocialAssetsTab } from '@/components/marketing/social/assets-tab'
@@ -10,76 +11,76 @@ import { SocialPublicacoesTab } from '@/components/marketing/social/publicacoes-
 import { SocialPedidosTab } from '@/components/marketing/social/pedidos-tab'
 import { SocialMetricasTab } from '@/components/marketing/social/metricas-tab'
 
+const tabs = [
+  { key: 'consultores', label: 'Consultores', icon: Users },
+  { key: 'assets', label: 'Assets', icon: FolderOpen },
+  { key: 'templates', label: 'Templates', icon: Palette },
+  { key: 'calendario', label: 'Calendário', icon: Calendar },
+  { key: 'publicacoes', label: 'Publicações', icon: Newspaper },
+  { key: 'pedidos', label: 'Pedidos', icon: MessageSquareText },
+  { key: 'metricas', label: 'Métricas', icon: BarChart3 },
+] as const
+
+type TabKey = (typeof tabs)[number]['key']
+
+const tabContent: Record<TabKey, React.ReactNode> = {
+  consultores: <SocialConsultoresTab />,
+  assets: <SocialAssetsTab />,
+  templates: <SocialTemplatesTab />,
+  calendario: <SocialCalendarioTab />,
+  publicacoes: <SocialPublicacoesTab />,
+  pedidos: <SocialPedidosTab />,
+  metricas: <SocialMetricasTab />,
+}
+
 export default function RedesSociaisPage() {
+  const [activeTab, setActiveTab] = useState<TabKey>('consultores')
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Redes Sociais</h1>
-        <p className="text-sm text-muted-foreground">
-          Gestão de perfis, conteúdos e métricas das redes sociais dos consultores.
-        </p>
+      {/* Hero header card */}
+      <div className="relative overflow-hidden rounded-xl bg-neutral-900 h-32 flex items-center px-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Redes Sociais
+          </h1>
+          <p className="text-sm text-neutral-400 mt-1">
+            Gestão de perfis, conteúdos e métricas das redes sociais dos consultores.
+          </p>
+        </div>
       </div>
 
-      <Tabs defaultValue="consultores" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="consultores" className="gap-1.5">
-            <Users className="h-4 w-4" />
-            Consultores
-          </TabsTrigger>
-          <TabsTrigger value="assets" className="gap-1.5">
-            <FolderOpen className="h-4 w-4" />
-            Assets
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5">
-            <Palette className="h-4 w-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="calendario" className="gap-1.5">
-            <Calendar className="h-4 w-4" />
-            Calendário
-          </TabsTrigger>
-          <TabsTrigger value="publicacoes" className="gap-1.5">
-            <Newspaper className="h-4 w-4" />
-            Publicações
-          </TabsTrigger>
-          <TabsTrigger value="pedidos" className="gap-1.5">
-            <MessageSquareText className="h-4 w-4" />
-            Pedidos
-          </TabsTrigger>
-          <TabsTrigger value="metricas" className="gap-1.5">
-            <BarChart3 className="h-4 w-4" />
-            Métricas
-          </TabsTrigger>
-        </TabsList>
+      {/* Pill navigation */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors shrink-0',
+                isActive
+                  ? 'bg-neutral-900 text-white'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
 
-        <TabsContent value="consultores">
-          <SocialConsultoresTab />
-        </TabsContent>
-
-        <TabsContent value="assets">
-          <SocialAssetsTab />
-        </TabsContent>
-
-        <TabsContent value="templates">
-          <SocialTemplatesTab />
-        </TabsContent>
-
-        <TabsContent value="calendario">
-          <SocialCalendarioTab />
-        </TabsContent>
-
-        <TabsContent value="publicacoes">
-          <SocialPublicacoesTab />
-        </TabsContent>
-
-        <TabsContent value="pedidos">
-          <SocialPedidosTab />
-        </TabsContent>
-
-        <TabsContent value="metricas">
-          <SocialMetricasTab />
-        </TabsContent>
-      </Tabs>
+      {/* Tab content with fade transition */}
+      <div
+        key={activeTab}
+        className="animate-in fade-in duration-300"
+      >
+        {tabContent[activeTab]}
+      </div>
     </div>
   )
 }

@@ -10,6 +10,8 @@ export async function GET(request: Request) {
 
     const agent_id = searchParams.get('agent_id')
     const type = searchParams.get('type')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 200)
     const offset = Number(searchParams.get('offset')) || 0
 
@@ -29,6 +31,8 @@ export async function GET(request: Request) {
 
     if (agent_id) query = query.eq('agent_id', agent_id)
     if (type === 'DEBIT' || type === 'CREDIT') query = query.eq('type', type)
+    if (from) query = query.gte('created_at', from)
+    if (to) query = query.lte('created_at', to)
 
     const { data, error, count } = await query
 
@@ -96,10 +100,10 @@ export async function POST(request: Request) {
 }
 
 async function getBalancesSummary(supabase: any) {
-  // Get all agents with their latest balance
+  // Get all agents with their latest balance and profile photo
   const { data: agents, error: agentsError } = await supabase
     .from('dev_users')
-    .select('id, commercial_name')
+    .select('id, commercial_name, dev_consultant_profiles(profile_photo_url)')
     .eq('is_active', true)
     .order('commercial_name')
 
@@ -124,6 +128,7 @@ async function getBalancesSummary(supabase: any) {
       return {
         agent_id: agent.id,
         commercial_name: agent.commercial_name,
+        profile_photo_url: agent.dev_consultant_profiles?.profile_photo_url ?? null,
         current_balance: lastTx?.balance_after ?? 0,
         credit_limit: limitData?.credit_limit ?? null,
       }

@@ -293,6 +293,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="outline"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => handleStatusChange(req.id, "in_progress")}
             >
@@ -302,6 +303,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="ghost"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => openCancelDialog(req.id)}
             >
@@ -315,6 +317,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="outline"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => handleStatusChange(req.id, "draft_ready")}
             >
@@ -324,6 +327,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="ghost"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => openCancelDialog(req.id)}
             >
@@ -337,6 +341,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="default"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => handleStatusChange(req.id, "approved")}
             >
@@ -346,6 +351,7 @@ export function SocialPedidosTab() {
             <Button
               size="sm"
               variant="outline"
+              className="rounded-full"
               disabled={isLoading}
               onClick={() => openChangesDialog(req.id)}
             >
@@ -359,6 +365,7 @@ export function SocialPedidosTab() {
           <Button
             size="sm"
             variant="outline"
+            className="rounded-full"
             disabled={isLoading}
             onClick={() => handleStatusChange(req.id, "draft_ready")}
           >
@@ -371,6 +378,7 @@ export function SocialPedidosTab() {
           <Button
             size="sm"
             variant="default"
+            className="rounded-full"
             disabled={isLoading}
             onClick={() => handleStatusChange(req.id, "completed")}
           >
@@ -390,31 +398,30 @@ export function SocialPedidosTab() {
       {/* Summary Badges */}
       <div className="flex flex-wrap gap-2">
         {(Object.keys(REQUEST_STATUS) as RequestStatus[]).map((s) => (
-          <Badge
+          <span
             key={s}
-            variant="secondary"
-            className={cn("text-xs", REQUEST_STATUS[s].color)}
+            className={cn("rounded-full text-[11px] px-2 py-0.5 font-medium", REQUEST_STATUS[s].color)}
           >
             {REQUEST_STATUS[s].label}: {statusCounts[s] || 0}
-          </Badge>
+          </span>
         ))}
       </div>
 
       {/* Filter Bar */}
-      <Card>
+      <Card className="rounded-xl">
         <CardContent className="flex flex-wrap items-center gap-3 py-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Pesquisar por titulo, consultor ou ref..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 rounded-full bg-muted/50 border-0"
             />
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
@@ -428,7 +435,7 @@ export function SocialPedidosTab() {
           </Select>
 
           <Select value={agentFilter} onValueChange={setAgentFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Consultor" />
             </SelectTrigger>
             <SelectContent>
@@ -441,7 +448,7 @@ export function SocialPedidosTab() {
             </SelectContent>
           </Select>
 
-          <Button onClick={() => { setForm(EMPTY_FORM); setCreateOpen(true) }}>
+          <Button className="rounded-full" onClick={() => { setForm(EMPTY_FORM); setCreateOpen(true) }}>
             <Plus className="mr-1 h-4 w-4" />
             Novo Pedido
           </Button>
@@ -449,73 +456,71 @@ export function SocialPedidosTab() {
       </Card>
 
       {/* Requests Table */}
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Clock className="mr-2 h-5 w-5 animate-spin" />
-              A carregar pedidos...
-            </div>
-          ) : filteredRequests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <MessageSquareText className="mb-2 h-10 w-10" />
-              <p className="text-sm">Nenhum pedido encontrado</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Titulo</TableHead>
-                  <TableHead>Consultor</TableHead>
-                  <TableHead>Plataforma</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Prazo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Accoes</TableHead>
+      <div className="rounded-xl border overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Clock className="mr-2 h-5 w-5 animate-spin" />
+            A carregar pedidos...
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <MessageSquareText className="mb-2 h-10 w-10" />
+            <p className="text-sm">Nenhum pedido encontrado</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead>Titulo</TableHead>
+                <TableHead>Consultor</TableHead>
+                <TableHead>Plataforma</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Prazo</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Accoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRequests.map((req) => (
+                <TableRow
+                  key={req.id}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                  onClick={() => openDetail(req)}
+                >
+                  <TableCell className="font-medium max-w-[250px] truncate">
+                    {req.title}
+                    {req.property_reference && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({req.property_reference})
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {req.agent?.commercial_name || "--"}
+                  </TableCell>
+                  <TableCell>
+                    <span className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
+                      {SOCIAL_PLATFORMS[req.platform] || req.platform}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {CONTENT_TYPES[req.content_type] || req.content_type}
+                  </TableCell>
+                  <TableCell>{renderDeadline(req.deadline)}</TableCell>
+                  <TableCell>
+                    <span className={cn("rounded-full text-[11px] px-2 py-0.5 font-medium", REQUEST_STATUS[req.status]?.color)}>
+                      {REQUEST_STATUS[req.status]?.label || req.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    {renderActions(req)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequests.map((req) => (
-                  <TableRow
-                    key={req.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openDetail(req)}
-                  >
-                    <TableCell className="font-medium max-w-[250px] truncate">
-                      {req.title}
-                      {req.property_reference && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({req.property_reference})
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {req.agent?.commercial_name || "--"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {SOCIAL_PLATFORMS[req.platform] || req.platform}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {CONTENT_TYPES[req.content_type] || req.content_type}
-                    </TableCell>
-                    <TableCell>{renderDeadline(req.deadline)}</TableCell>
-                    <TableCell>
-                      <Badge className={cn("text-xs", REQUEST_STATUS[req.status]?.color)}>
-                        {REQUEST_STATUS[req.status]?.label || req.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      {renderActions(req)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       {/* ─── Create Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -527,7 +532,7 @@ export function SocialPedidosTab() {
             <div className="grid gap-1.5">
               <Label>Consultor *</Label>
               <Select value={form.agent_id} onValueChange={(v) => setForm({ ...form, agent_id: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Seleccionar consultor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -546,6 +551,7 @@ export function SocialPedidosTab() {
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="Ex: Post de novo imovel na Av. Liberdade"
+                className="rounded-full bg-muted/50 border-0"
               />
             </div>
 
@@ -566,7 +572,7 @@ export function SocialPedidosTab() {
                   value={form.platform}
                   onValueChange={(v) => setForm({ ...form, platform: v as SocialPlatform })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -585,7 +591,7 @@ export function SocialPedidosTab() {
                   value={form.content_type}
                   onValueChange={(v) => setForm({ ...form, content_type: v as ContentType })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -606,6 +612,7 @@ export function SocialPedidosTab() {
                   type="date"
                   value={form.deadline}
                   onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
 
@@ -615,6 +622,7 @@ export function SocialPedidosTab() {
                   value={form.property_reference}
                   onChange={(e) => setForm({ ...form, property_reference: e.target.value })}
                   placeholder="Ex: INF-001"
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -622,7 +630,7 @@ export function SocialPedidosTab() {
             <div className="grid gap-1.5">
               <Label>Atribuir a</Label>
               <Select value={form.assigned_to} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full bg-muted/50 border-0">
                   <SelectValue placeholder="Nao atribuido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -636,10 +644,10 @@ export function SocialPedidosTab() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button variant="outline" className="rounded-full" onClick={() => setCreateOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreate} disabled={actionLoading === "create"}>
+              <Button className="rounded-full" onClick={handleCreate} disabled={actionLoading === "create"}>
                 {actionLoading === "create" ? "A criar..." : "Criar Pedido"}
               </Button>
             </div>
@@ -678,9 +686,9 @@ export function SocialPedidosTab() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Estado:</span>
-                  <Badge className={cn("text-xs", REQUEST_STATUS[selectedRequest.status]?.color)}>
+                  <span className={cn("rounded-full text-[11px] px-2 py-0.5 font-medium", REQUEST_STATUS[selectedRequest.status]?.color)}>
                     {REQUEST_STATUS[selectedRequest.status]?.label}
-                  </Badge>
+                  </span>
                 </div>
                 {selectedRequest.property_reference && (
                   <div>
@@ -704,7 +712,7 @@ export function SocialPedidosTab() {
               )}
 
               {selectedRequest.approval_notes && (
-                <div className="text-sm rounded-md bg-muted p-3">
+                <div className="text-sm rounded-xl bg-muted p-3">
                   <span className="font-medium text-muted-foreground">Notas de aprovacao:</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{selectedRequest.approval_notes}</p>
                 </div>
@@ -717,11 +725,13 @@ export function SocialPedidosTab() {
                     value={editDraftUrl}
                     onChange={(e) => setEditDraftUrl(e.target.value)}
                     placeholder="https://..."
+                    className="rounded-full bg-muted/50 border-0"
                   />
                   {editDraftUrl && (
                     <Button
                       size="icon"
                       variant="outline"
+                      className="rounded-full"
                       asChild
                     >
                       <a href={editDraftUrl} target="_blank" rel="noopener noreferrer">
@@ -743,10 +753,10 @@ export function SocialPedidosTab() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setDetailOpen(false)}>
+                <Button variant="outline" className="rounded-full" onClick={() => setDetailOpen(false)}>
                   Fechar
                 </Button>
-                <Button onClick={handleSaveDetail} disabled={actionLoading === "detail"}>
+                <Button className="rounded-full" onClick={handleSaveDetail} disabled={actionLoading === "detail"}>
                   {actionLoading === "detail" ? "A guardar..." : "Guardar"}
                 </Button>
               </div>
@@ -772,10 +782,10 @@ export function SocialPedidosTab() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>
+              <Button variant="outline" className="rounded-full" onClick={() => setNotesDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={confirmChangesRequested}>
+              <Button className="rounded-full" onClick={confirmChangesRequested}>
                 Enviar
               </Button>
             </div>
@@ -793,9 +803,9 @@ export function SocialPedidosTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full">Voltar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={confirmCancel}
             >
               Cancelar Pedido

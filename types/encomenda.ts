@@ -170,6 +170,7 @@ export interface Requisition {
   delivered_by: string | null
   internal_notes: string | null
   conta_corrente_tx_id: string | null
+  checkout_group_id: string | null
   created_at: string
   updated_at: string
   // Joined

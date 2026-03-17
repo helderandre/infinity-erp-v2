@@ -159,7 +159,7 @@ function AgentProfileCard({
   const socialCount = countActiveSocials(profile)
 
   return (
-    <Card className="group relative overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer" onClick={onClick}>
+    <Card className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg cursor-pointer" onClick={onClick}>
       <CardContent className="p-5">
         {/* Header */}
         <div className="flex items-start gap-3">
@@ -177,9 +177,9 @@ function AgentProfileCard({
             {profile.agent_profile?.specializations?.length ? (
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {profile.agent_profile.specializations.slice(0, 2).map((s) => (
-                  <Badge key={s} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  <span key={s} className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
                     {s}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             ) : null}
@@ -187,7 +187,7 @@ function AgentProfileCard({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
             onClick={(e) => { e.stopPropagation(); onEdit() }}
           >
             <Pencil className="h-4 w-4" />
@@ -221,9 +221,9 @@ function AgentProfileCard({
 
           <div className="ml-auto">
             {socialCount > 0 && (
-              <Badge variant="outline" className="text-[10px]">
+              <span className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
                 {socialCount} {socialCount === 1 ? 'rede' : 'redes'}
-              </Badge>
+              </span>
             )}
           </div>
         </div>
@@ -239,7 +239,7 @@ function AgentProfileCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-7 w-7 rounded-full"
                     asChild
                   >
                     <a
@@ -256,7 +256,7 @@ function AgentProfileCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-7 w-7 rounded-full"
                     asChild
                   >
                     <a
@@ -285,7 +285,7 @@ function AgentProfileCard({
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
                   <Globe className="h-3 w-3 shrink-0" />
                   <span className="truncate">{link.label}</span>
@@ -319,7 +319,7 @@ function SocialIconButton({
   if (!url) {
     return (
       <div
-        className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground/30"
+        className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground/30"
         title={`${label} (nao configurado)`}
       >
         {icon}
@@ -328,7 +328,7 @@ function SocialIconButton({
   }
 
   return (
-    <Button variant="ghost" size="icon" className="h-8 w-8" asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
       <a href={url} target="_blank" rel="noopener noreferrer" title={label}>
         {icon}
       </a>
@@ -383,7 +383,7 @@ function ProfileViewDialog({
           {profile.agent_profile?.specializations?.length ? (
             <div className="flex flex-wrap gap-1.5">
               {profile.agent_profile.specializations.map((s) => (
-                <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                <span key={s} className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">{s}</span>
               ))}
             </div>
           ) : null}
@@ -399,7 +399,7 @@ function ProfileViewDialog({
                     href={s.url!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                   >
                     {s.icon}
                     <span>{s.label}</span>
@@ -422,7 +422,7 @@ function ProfileViewDialog({
                       href={profile.canva_workspace_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                     >
                       <Palette className="h-4 w-4 text-purple-500" />
                       <span>Canva Workspace</span>
@@ -434,7 +434,7 @@ function ProfileViewDialog({
                       href={profile.google_drive_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                     >
                       <FolderOpen className="h-4 w-4 text-yellow-600" />
                       <span>Google Drive</span>
@@ -459,7 +459,7 @@ function ProfileViewDialog({
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                     >
                       <Globe className="h-4 w-4" />
                       <span>{link.label}</span>
@@ -502,10 +502,10 @@ function ProfileViewDialog({
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
               Fechar
             </Button>
-            <Button onClick={() => { onOpenChange(false); onEdit() }}>
+            <Button className="rounded-full" onClick={() => { onOpenChange(false); onEdit() }}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
             </Button>
@@ -623,7 +623,7 @@ function ProfileEditDialog({
                 </p>
               ) : (
                 <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-full bg-muted/50 border-0">
                     <SelectValue placeholder="Seleccionar consultor..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -650,6 +650,7 @@ function ProfileEditDialog({
                   placeholder="https://instagram.com/..."
                   value={form.instagram_url}
                   onChange={(e) => updateField('instagram_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-1.5">
@@ -660,6 +661,7 @@ function ProfileEditDialog({
                   placeholder="https://facebook.com/..."
                   value={form.facebook_url}
                   onChange={(e) => updateField('facebook_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-1.5">
@@ -670,6 +672,7 @@ function ProfileEditDialog({
                   placeholder="https://linkedin.com/in/..."
                   value={form.linkedin_url}
                   onChange={(e) => updateField('linkedin_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-1.5">
@@ -680,6 +683,7 @@ function ProfileEditDialog({
                   placeholder="https://tiktok.com/@..."
                   value={form.tiktok_url}
                   onChange={(e) => updateField('tiktok_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -699,6 +703,7 @@ function ProfileEditDialog({
                   placeholder="https://canva.com/..."
                   value={form.canva_workspace_url}
                   onChange={(e) => updateField('canva_workspace_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
               <div className="space-y-1.5">
@@ -709,6 +714,7 @@ function ProfileEditDialog({
                   placeholder="https://drive.google.com/..."
                   value={form.google_drive_url}
                   onChange={(e) => updateField('google_drive_url', e.target.value)}
+                  className="rounded-full bg-muted/50 border-0"
                 />
               </div>
             </div>
@@ -720,7 +726,7 @@ function ProfileEditDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium">Outros Links</h4>
-              <Button variant="ghost" size="sm" onClick={addOtherLink} className="h-7 text-xs">
+              <Button variant="ghost" size="sm" onClick={addOtherLink} className="h-7 text-xs rounded-full">
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Adicionar
               </Button>
@@ -736,6 +742,7 @@ function ProfileEditDialog({
                     placeholder="Ex: Website pessoal"
                     value={link.label}
                     onChange={(e) => updateOtherLink(i, 'label', e.target.value)}
+                    className="rounded-full bg-muted/50 border-0"
                   />
                 </div>
                 <div className="flex-1 space-y-1.5">
@@ -744,12 +751,13 @@ function ProfileEditDialog({
                     placeholder="https://..."
                     value={link.url}
                     onChange={(e) => updateOtherLink(i, 'url', e.target.value)}
+                    className="rounded-full bg-muted/50 border-0"
                   />
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
+                  className="h-9 w-9 shrink-0 rounded-full text-destructive hover:text-destructive"
                   onClick={() => removeOtherLink(i)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -784,10 +792,10 @@ function ProfileEditDialog({
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={saving || (isNew && !selectedAgentId)}>
+            <Button className="rounded-full" onClick={handleSubmit} disabled={saving || (isNew && !selectedAgentId)}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -811,7 +819,7 @@ function ProfileEditDialog({
 
 function CardSkeleton() {
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start gap-3">
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -822,10 +830,10 @@ function CardSkeleton() {
         </div>
         <Skeleton className="h-px w-full" />
         <div className="flex gap-1.5">
-          <Skeleton className="h-8 w-8 rounded-md" />
-          <Skeleton className="h-8 w-8 rounded-md" />
-          <Skeleton className="h-8 w-8 rounded-md" />
-          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </CardContent>
     </Card>
@@ -927,9 +935,10 @@ export function SocialConsultoresTab() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-40 rounded-full" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
@@ -947,7 +956,7 @@ export function SocialConsultoresTab() {
             {profiles.length} {profiles.length === 1 ? 'consultor configurado' : 'consultores configurados'}
           </h3>
         </div>
-        <Button size="sm" onClick={handleAddNew}>
+        <Button size="sm" className="rounded-full" onClick={handleAddNew}>
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Consultor
         </Button>
@@ -962,7 +971,7 @@ export function SocialConsultoresTab() {
           action={{ label: 'Adicionar Primeiro Consultor', onClick: handleAddNew }}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {profiles.map((profile) => (
             <AgentProfileCard
               key={profile.id}

@@ -75,15 +75,15 @@ export function CatalogTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Filters + Actions */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-2 flex-1 w-full sm:w-auto">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Pesquisar serviços..."
-              className="pl-9"
+              className="pl-9 h-9 text-sm rounded-full bg-muted/50 border-0 focus-visible:ring-1"
               value={filters.search || ''}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             />
@@ -92,7 +92,7 @@ export function CatalogTab() {
             value={filters.category || 'all'}
             onValueChange={(v) => setFilters({ ...filters, category: v === 'all' ? '' : v as MarketingCategory })}
           >
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -103,7 +103,7 @@ export function CatalogTab() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { setEditItem(null); setFormOpen(true) }}>
+        <Button className="rounded-full" onClick={() => { setEditItem(null); setFormOpen(true) }}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Serviço
         </Button>
@@ -112,7 +112,7 @@ export function CatalogTab() {
       {/* Table */}
       {loading ? (
         <div className="space-y-2">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
         </div>
       ) : items.length === 0 ? (
         <EmptyState
@@ -122,17 +122,17 @@ export function CatalogTab() {
           action={{ label: 'Novo Serviço', onClick: () => { setEditItem(null); setFormOpen(true) } }}
         />
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-xl border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Preço</TableHead>
-                <TableHead className="text-center">Prazo</TableHead>
-                <TableHead className="text-center">Add-ons</TableHead>
-                <TableHead className="text-center">Flags</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="font-semibold">Serviço</TableHead>
+                <TableHead className="font-semibold">Categoria</TableHead>
+                <TableHead className="text-right font-semibold">Preço</TableHead>
+                <TableHead className="text-center font-semibold">Prazo</TableHead>
+                <TableHead className="text-center font-semibold">Add-ons</TableHead>
+                <TableHead className="text-center font-semibold">Flags</TableHead>
+                <TableHead className="text-center font-semibold">Estado</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
@@ -141,10 +141,10 @@ export function CatalogTab() {
                 const Icon = CATEGORY_ICONS[item.category] || Package
                 const addonCount = (item.addons || []).length
                 return (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted/80">
                           <Icon className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
@@ -156,21 +156,22 @@ export function CatalogTab() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-xs">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                        <Icon className="h-3 w-3" />
                         {MARKETING_CATEGORIES[item.category]}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-semibold tabular-nums">
                       {formatCurrency(item.price)}
                     </TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground">
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
                       {item.estimated_delivery_days}d
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 gap-1.5 text-xs"
+                        className="h-7 gap-1.5 text-xs rounded-full"
                         onClick={() => setAddonsItem(item)}
                       >
                         <Puzzle className="h-3.5 w-3.5" />
@@ -180,28 +181,36 @@ export function CatalogTab() {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         {item.requires_scheduling && (
-                          <span title="Requer Agendamento" className="inline-flex h-6 w-6 items-center justify-center rounded bg-blue-500/10">
+                          <span title="Requer Agendamento" className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
                             <Calendar className="h-3.5 w-3.5 text-blue-500" />
                           </span>
                         )}
                         {item.requires_property && (
-                          <span title="Requer Imóvel" className="inline-flex h-6 w-6 items-center justify-center rounded bg-amber-500/10">
+                          <span title="Requer Imóvel" className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10">
                             <Building2 className="h-3.5 w-3.5 text-amber-500" />
                           </span>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={item.is_active ? 'default' : 'secondary'} className="text-xs">
-                        {item.is_active ? 'Activo' : 'Inactivo'}
-                      </Badge>
+                      {item.is_active ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full">
+                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          Inactivo
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-full"
                           onClick={() => { setEditItem(item); setFormOpen(true) }}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -209,7 +218,7 @@ export function CatalogTab() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive"
+                          className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
                           onClick={() => setDeleteId(item.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

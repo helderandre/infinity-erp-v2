@@ -42,6 +42,13 @@ const SIDEBAR_PAGE_ROUTES = [
   '/dashboard/processos',
 ] as const
 
+/** Rotas que usam layout com padding reduzido (p-2) para conteúdo edge-to-edge */
+const COMPACT_PADDING_ROUTES = [
+  '/dashboard/marketing/loja',
+  '/dashboard/marketing/gestao',
+  '/dashboard/marketing/redes-sociais',
+] as const
+
 /** Rotas dentro de SIDEBAR_PAGE_ROUTES que devem usar o layout padrão (com padding) */
 const SIDEBAR_PAGE_EXCEPTIONS = [
   '/dashboard/processos/templates',
@@ -56,6 +63,7 @@ export default function DashboardLayout({
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
     && !SIDEBAR_PAGE_EXCEPTIONS.some((r) => pathname === r || pathname?.startsWith(r + '/'))
+  const isCompactPadding = COMPACT_PADDING_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
 
   return (
     <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
@@ -78,7 +86,9 @@ export default function DashboardLayout({
               ? "min-h-0"
               : isSidebarPage
                 ? "min-h-0"
-                : "gap-4 p-4 md:gap-6 md:p-6"
+                : isCompactPadding
+                  ? "p-2"
+                  : "gap-4 p-4 md:gap-6 md:p-6"
           )}
         >
           {children}
