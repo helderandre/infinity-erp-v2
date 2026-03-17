@@ -28,7 +28,7 @@ export async function POST(
     const admin = createAdminClient() as any
 
     const { data, error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .update({
         status: 'cancelled',
         cancelled_reason: parsed.data.cancelled_reason,
@@ -46,7 +46,7 @@ export async function POST(
     // Update calendar event title to indicate cancellation
     if (data?.calendar_event_id) {
       await admin
-        .from('temp_calendar_events')
+        .from('calendar_events')
         .update({
           title: `[CANCELADA] ${data.notes || 'Visita cancelada'}`,
           color: '#ef4444',

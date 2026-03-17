@@ -72,7 +72,7 @@ export async function POST(
     if (existingEventId) {
       // UPDATE — evento já existe, actualizar
       const { error: updateError } = await adminDb
-        .from('temp_calendar_events')
+        .from('calendar_events')
         .update({
           title,
           description: description || null,
@@ -92,11 +92,11 @@ export async function POST(
       eventId = existingEventId
 
       // Actualizar attendees — delete e re-insert
-      await adminDb.from('temp_calendar_event_attendees').delete().eq('event_id', eventId)
+      await adminDb.from('calendar_event_attendees').delete().eq('event_id', eventId)
     } else {
       // INSERT — criar novo evento
       const { data: newEvent, error: insertError } = await adminDb
-        .from('temp_calendar_events')
+        .from('calendar_events')
         .insert({
           title,
           description: description || null,
@@ -131,7 +131,7 @@ export async function POST(
     }
 
     if (attendeeRows.length > 0) {
-      await adminDb.from('temp_calendar_event_attendees').insert(attendeeRows)
+      await adminDb.from('calendar_event_attendees').insert(attendeeRows)
     }
 
     // Actualizar config da subtarefa com o event_id
@@ -234,8 +234,8 @@ export async function DELETE(
 
     // Eliminar evento do calendário
     if (calendarEventId) {
-      await adminDb.from('temp_calendar_event_attendees').delete().eq('event_id', calendarEventId)
-      await adminDb.from('temp_calendar_events').delete().eq('id', calendarEventId)
+      await adminDb.from('calendar_event_attendees').delete().eq('event_id', calendarEventId)
+      await adminDb.from('calendar_events').delete().eq('id', calendarEventId)
     }
 
     // Recalcular progresso

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const upcoming = searchParams.get('upcoming')
 
     const admin = createAdminClient() as any
-    let query = admin.from('temp_visits').select(VISIT_SELECT, { count: 'exact' })
+    let query = admin.from('visits').select(VISIT_SELECT, { count: 'exact' })
 
     if (status) query = query.eq('status', status)
     if (consultant_id) query = query.eq('consultant_id', consultant_id)
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     const calendarTitle = `Visita: ${property?.title || 'Imóvel'} — ${clientName || 'Cliente'}`
 
     const { data: calendarEvent } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .insert({
         title: calendarTitle,
         description: parsed.data.notes || null,
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .insert(visitData)
       .select(VISIT_SELECT)
       .single()

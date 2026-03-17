@@ -16,11 +16,11 @@ export async function GET(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
-    const admin = createAdminClient() as any // temp tables not in generated types
+    const admin = createAdminClient() as any
 
     const { data, error } = await admin
-      .from('temp_calendar_events')
-      .select('*, creator:dev_users!temp_calendar_events_created_by_fkey(id, commercial_name), linked_user:dev_users!temp_calendar_events_user_id_fkey(id, commercial_name)')
+      .from('calendar_events')
+      .select('*, creator:dev_users!calendar_events_created_by_fkey(id, commercial_name), linked_user:dev_users!calendar_events_user_id_fkey(id, commercial_name)')
       .eq('id', id)
       .single()
 
@@ -58,11 +58,11 @@ export async function PUT(
 
     const body = await request.json()
 
-    const admin = createAdminClient() as any // temp tables not in generated types
+    const admin = createAdminClient() as any
 
     // Check event exists and get its category
     const { data: existing, error: findError } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .select('id, category, proc_subtask_id')
       .eq('id', id)
       .single()
@@ -95,14 +95,14 @@ export async function PUT(
 
       // Update attendees if provided
       if (parsed.data.attendee_user_ids) {
-        await admin.from('temp_calendar_event_attendees').delete().eq('event_id', id)
+        await admin.from('calendar_event_attendees').delete().eq('event_id', id)
         const attendeeRows = parsed.data.attendee_user_ids.map((userId: string) => ({
           event_id: id,
           user_id: userId,
           status: 'accepted',
         }))
         if (attendeeRows.length > 0) {
-          await admin.from('temp_calendar_event_attendees').insert(attendeeRows)
+          await admin.from('calendar_event_attendees').insert(attendeeRows)
         }
       }
     } else {
@@ -120,7 +120,7 @@ export async function PUT(
     }
 
     const { data, error } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .update(updatePayload)
       .eq('id', id)
       .select()
@@ -155,11 +155,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
-    const admin = createAdminClient() as any // temp tables not in generated types
+    const admin = createAdminClient() as any
 
     // Check event exists
     const { data: existing, error: findError } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .select('id')
       .eq('id', id)
       .single()
@@ -169,7 +169,7 @@ export async function DELETE(
     }
 
     const { error } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .delete()
       .eq('id', id)
 

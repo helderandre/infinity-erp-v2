@@ -29,7 +29,7 @@ export async function POST(
 
     // Verify visit exists and is completed or confirmed
     const { data: visit, error: fetchError } = await admin
-      .from('temp_visits')
+      .from('visits')
       .select('id, status')
       .eq('id', id)
       .single()
@@ -40,7 +40,7 @@ export async function POST(
 
     // Update visit with feedback and mark as completed
     const { data, error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .update({
         ...parsed.data,
         feedback_submitted_at: new Date().toISOString(),

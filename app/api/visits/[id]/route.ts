@@ -24,7 +24,7 @@ export async function GET(
 
     const admin = createAdminClient() as any
     const { data, error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .select(VISIT_SELECT)
       .eq('id', id)
       .single()
@@ -74,7 +74,7 @@ export async function PUT(
     }
 
     const { data, error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .update(updateData)
       .eq('id', id)
       .select(VISIT_SELECT)
@@ -94,7 +94,7 @@ export async function PUT(
       const endDate = new Date(new Date(startDate).getTime() + duration * 60000).toISOString()
 
       await admin
-        .from('temp_calendar_events')
+        .from('calendar_events')
         .update({ start_date: startDate, end_date: endDate })
         .eq('id', data.calendar_event_id)
     }
@@ -122,7 +122,7 @@ export async function DELETE(
 
     // Get visit to check calendar event
     const { data: visit } = await admin
-      .from('temp_visits')
+      .from('visits')
       .select('calendar_event_id')
       .eq('id', id)
       .single()
@@ -130,13 +130,13 @@ export async function DELETE(
     // Delete calendar event if exists
     if (visit?.calendar_event_id) {
       await admin
-        .from('temp_calendar_events')
+        .from('calendar_events')
         .delete()
         .eq('id', visit.calendar_event_id)
     }
 
     const { error } = await admin
-      .from('temp_visits')
+      .from('visits')
       .delete()
       .eq('id', id)
 

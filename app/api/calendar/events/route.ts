@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       : null
 
     const now = new Date().toISOString()
-    const admin = createAdminClient() as any // temp tables not in generated types
+    const admin = createAdminClient() as any
 
     // Run all queries in parallel
     const [
@@ -66,10 +66,10 @@ export async function GET(request: Request) {
       procTasksRes,
       procSubtasksRes,
     ] = await Promise.all([
-      // 1. Manual events from temp_calendar_events
+      // 1. Manual events from calendar_events
       admin
-        .from('temp_calendar_events')
-        .select('*, creator:dev_users!temp_calendar_events_created_by_fkey(commercial_name), linked_user:dev_users!temp_calendar_events_user_id_fkey(commercial_name), proc_instances(id, external_ref)')
+        .from('calendar_events')
+        .select('*, creator:dev_users!calendar_events_created_by_fkey(commercial_name), linked_user:dev_users!calendar_events_user_id_fkey(commercial_name), proc_instances(id, external_ref)')
         .or(
           `and(is_recurring.eq.false,start_date.gte.${start},start_date.lte.${end}),` +
           `and(is_recurring.eq.false,end_date.gte.${start},end_date.lte.${end}),` +
@@ -421,10 +421,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const admin = createAdminClient() as any // temp tables not in generated types
+    const admin = createAdminClient() as any
 
     const { data, error } = await admin
-      .from('temp_calendar_events')
+      .from('calendar_events')
       .insert({
         ...parsed.data,
         created_by: user.id,
