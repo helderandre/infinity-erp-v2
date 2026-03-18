@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendViaSMTP } from '@/lib/email/smtp-client'
-import { appendToSentFolder } from '@/lib/email/imap-client'
 import { injectOpenTrackingPixel } from '@/lib/email-renderer'
 import { z } from 'zod'
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || ''
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const EDGE_SMTP_SECRET = process.env.EDGE_SMTP_SECRET || ''
 
 const attachmentSchema = z.object({
   filename: z.string(),
@@ -114,23 +114,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Erro ao registar mensagem' }, { status: 500 })
     }
 
-    // 4. Resolve attachments (base64 or fetch from URL)
-    const smtpAttachments = await Promise.all(
+    // 4. Resolve attachments to base64 for the edge function
+    const edgeAttachments = await Promise.all(
       attachments.map(async (a) => {
-        let content: Buffer
+        let base64: string
         if (a.data_base64) {
-          content = Buffer.from(a.data_base64, 'base64')
+          base64 = a.data_base64
         } else if (a.path) {
           const res = await fetch(a.path)
           if (!res.ok) throw new Error(`Falha ao descarregar anexo: ${a.filename}`)
-          content = Buffer.from(await res.arrayBuffer())
+          const buf = Buffer.from(await res.arrayBuffer())
+          base64 = buf.toString('base64')
         } else {
           throw new Error(`Anexo sem conteúdo: ${a.filename}`)
         }
         return {
           filename: a.filename,
-          contentType: a.content_type,
-          content,
+          content_type: a.content_type,
+          data_base64: base64,
         }
       })
     )
@@ -140,29 +141,47 @@ export async function POST(req: Request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || requestOrigin
     const trackedHtml = injectOpenTrackingPixel(body_html, message.id, baseUrl)
 
-    const result = await sendViaSMTP(
-      {
+    // 5. Call Supabase Edge Function (smtp-send) to bypass serverless SMTP port restrictions
+    const edgePayload = {
+      smtp: {
         host: account.smtp_host,
         port: account.smtp_port,
         secure: account.smtp_secure,
         user: account.email_address,
         pass: password,
       },
-      {
-        from: { name: account.display_name, address: account.email_address },
-        to,
-        cc: cc.length > 0 ? cc : undefined,
-        bcc: bcc.length > 0 ? bcc : undefined,
-        subject,
-        html: trackedHtml,
-        text: body_text,
-        inReplyTo: in_reply_to,
-        references: in_reply_to,
-        attachments: smtpAttachments.length > 0 ? smtpAttachments : undefined,
-      }
-    )
+      imap: {
+        host: account.imap_host,
+        port: account.imap_port,
+        secure: account.imap_secure,
+        user: account.email_address,
+        pass: password,
+      },
+      from: { name: account.display_name, address: account.email_address },
+      to,
+      cc: cc.length > 0 ? cc : undefined,
+      bcc: bcc.length > 0 ? bcc : undefined,
+      subject,
+      html: trackedHtml,
+      text: body_text,
+      in_reply_to,
+      references: in_reply_to,
+      attachments: edgeAttachments.length > 0 ? edgeAttachments : undefined,
+    }
 
-    // 5. Update message status
+    const edgeUrl = `${SUPABASE_URL}/functions/v1/smtp-send`
+    const edgeRes = await fetch(edgeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(EDGE_SMTP_SECRET ? { 'x-edge-secret': EDGE_SMTP_SECRET } : {}),
+      },
+      body: JSON.stringify(edgePayload),
+    })
+
+    const result = await edgeRes.json()
+
+    // 6. Update message status based on edge function response
     if (result.ok) {
       await adminDb
         .from('email_messages')
@@ -174,35 +193,16 @@ export async function POST(req: Request) {
         .eq('id', message.id)
 
       // Store attachments metadata
-      if (smtpAttachments.length > 0) {
-        const attachmentRecords = smtpAttachments.map((a) => ({
+      if (edgeAttachments.length > 0) {
+        const attachmentRecords = edgeAttachments.map((a) => ({
           message_id: message.id,
           filename: a.filename,
-          content_type: a.contentType,
-          size_bytes: a.content.length,
+          content_type: a.content_type,
+          size_bytes: Math.ceil((a.data_base64.length * 3) / 4),
           storage_path: `email-inline/${message.id}/${a.filename}`,
         }))
 
         await adminDb.from('email_attachments').insert(attachmentRecords)
-      }
-
-      // 6. Append to IMAP Sent folder so it appears in Outlook/webmail
-      if (result.rawMessage) {
-        try {
-          await appendToSentFolder(
-            {
-              host: account.imap_host,
-              port: account.imap_port,
-              secure: account.imap_secure,
-              user: account.email_address,
-              pass: password,
-            },
-            result.rawMessage
-          )
-        } catch (imapErr) {
-          console.warn('[email/send] Failed to append to Sent folder:', imapErr)
-          // Non-fatal — the email was still sent successfully
-        }
       }
 
       return NextResponse.json({
