@@ -37,6 +37,7 @@ const FULL_BLEED_ROUTES = [
   '/dashboard/templates-documentos/',
   '/dashboard/processos/templates/',  // novo + [id]/editar
   '/dashboard/email',
+  '/dashboard/whatsapp',
 ]
 
 /** Rotas que usam sidebar interna (sem padding esquerdo, altura flex) */

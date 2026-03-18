@@ -157,6 +157,7 @@ export const automationItems = [
   { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
   { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
   { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
+  { title: 'WhatsApp Web', icon: MessageCircle, href: '/dashboard/whatsapp' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
   { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
 ]

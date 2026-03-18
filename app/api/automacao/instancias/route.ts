@@ -99,6 +99,42 @@ function extractPhone(statusData: Awaited<ReturnType<typeof fetchUazapiStatus>>)
   return null
 }
 
+// ── Webhook Registration ──
+
+async function registerWebhook(supabase: SupabaseAny, token: string, instanceId: string) {
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!SUPABASE_URL) return
+
+  const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook-receiver`
+
+  try {
+    await fetchUazapi("/webhook", {
+      method: "POST",
+      token,
+      body: {
+        enabled: true,
+        url: webhookUrl,
+        events: [
+          "messages", "messages_update", "connection",
+          "contacts", "presence", "labels", "chats",
+        ],
+      },
+    })
+
+    await supabase
+      .from("auto_wpp_instances")
+      .update({
+        webhook_url: webhookUrl,
+        webhook_registered_at: new Date().toISOString(),
+      })
+      .eq("id", instanceId)
+
+    console.log(`[webhook] Registered for instance ${instanceId}`)
+  } catch (e) {
+    console.error(`[webhook] Registration failed for ${instanceId}:`, e)
+  }
+}
+
 // ── GET: Listar instâncias ──
 
 export async function GET(request: Request) {
@@ -259,6 +295,11 @@ async function handleSync(supabase: SupabaseAny) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
+
+      // Registar webhook se instância está conectada
+      if (connectionStatus === "connected" && token) {
+        await registerWebhook(supabase, token, existing.id)
+      }
     } else {
       // Insert nova instância
       await supabase.from("auto_wpp_instances").insert({
@@ -420,6 +461,9 @@ async function handleConnect(
       updated_at: new Date().toISOString(),
     })
     .eq("id", instance_id)
+
+  // Registar webhook para receber mensagens
+  await registerWebhook(supabase, instance.uazapi_token, instance_id)
 
   const qrcode = connectData.qrcode || connectData.instance?.qrcode
   const paircode = connectData.paircode || connectData.instance?.paircode
