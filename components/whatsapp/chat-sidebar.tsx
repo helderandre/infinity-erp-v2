@@ -12,6 +12,7 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { useWhatsAppChats } from '@/hooks/use-whatsapp-chats'
 import { InstanceSelector } from './instance-selector'
 import { ChatListItem } from './chat-list-item'
+import { NewChatDialog } from './new-chat-dialog'
 
 interface Instance {
   id: string
@@ -91,6 +92,13 @@ export function ChatSidebar({
             onChange={onInstanceChange}
           />
         </div>
+        <NewChatDialog
+          instanceId={selectedInstance}
+          onChatCreated={(chatId) => {
+            onChatSelect(chatId)
+            refetch()
+          }}
+        />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

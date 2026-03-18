@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { X, Archive, VolumeX, Image as ImageIcon, FileText, Link2 } from 'lucide-react'
+import { X, Archive, VolumeX, Image as ImageIcon, FileText, Link2, Users, Shield, MessageSquare, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ErpLinkTags } from './erp-link-tags'
 import { ContactLinkDialog } from './contact-link-dialog'
@@ -13,6 +14,7 @@ interface ChatInfoPanelProps {
   chatId: string
   instanceId: string
   onClose: () => void
+  onChatSelect?: (chatId: string) => void
 }
 
 interface MediaItem {
@@ -24,20 +26,34 @@ interface MediaItem {
   timestamp: number
 }
 
-export function ChatInfoPanel({ chatId, instanceId, onClose }: ChatInfoPanelProps) {
+interface GroupParticipant {
+  jid: string
+  lid: string
+  phone: string
+  displayName: string
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  profilePicUrl: string | null
+  contactId: string | null
+  ownerId: string | null
+  leadId: string | null
+}
+
+export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: ChatInfoPanelProps) {
   const [chat, setChat] = useState<WppChat | null>(null)
   const [media, setMedia] = useState<MediaItem[]>([])
   const [docs, setDocs] = useState<MediaItem[]>([])
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [erpKey, setErpKey] = useState(0)
+  const [participants, setParticipants] = useState<GroupParticipant[]>([])
+  const [loadingParticipants, setLoadingParticipants] = useState(false)
 
   useEffect(() => {
     // Fetch chat
-    fetch(`/api/whatsapp/chats?instance_id=${instanceId}&limit=50`)
+    fetch(`/api/whatsapp/chats?chat_id=${chatId}`)
       .then((r) => r.json())
       .then((data) => {
-        const found = data.chats?.find((c: WppChat) => c.id === chatId)
-        if (found) setChat(found)
+        if (data.chat) setChat(data.chat)
       })
       .catch(() => {})
 
@@ -52,27 +68,63 @@ export function ChatInfoPanel({ chatId, instanceId, onClose }: ChatInfoPanelProp
       .catch(() => {})
   }, [chatId, instanceId])
 
-  const handleLinked = useCallback(() => {
-    // Re-fetch chat to update contact data + refresh ErpLinkTags
-    fetch(`/api/whatsapp/chats?instance_id=${instanceId}&limit=50`)
+  // Fetch group participants when it's a group
+  useEffect(() => {
+    if (!chat?.is_group || !chat?.wa_chat_id) return
+
+    setLoadingParticipants(true)
+    fetch(`/api/whatsapp/groups/${encodeURIComponent(chat.wa_chat_id)}?instance_id=${instanceId}`)
       .then((r) => r.json())
       .then((data) => {
-        const found = data.chats?.find((c: WppChat) => c.id === chatId)
-        if (found) setChat(found)
+        if (data.participants) {
+          // Sort: admins first, then alphabetically
+          const sorted = [...data.participants].sort((a: GroupParticipant, b: GroupParticipant) => {
+            if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1
+            return (a.displayName || '').localeCompare(b.displayName || '')
+          })
+          setParticipants(sorted)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingParticipants(false))
+  }, [chat?.is_group, chat?.wa_chat_id, instanceId])
+
+  const handleLinked = useCallback(() => {
+    fetch(`/api/whatsapp/chats?chat_id=${chatId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.chat) setChat(data.chat)
       })
       .catch(() => {})
     setErpKey((k) => k + 1)
-  }, [chatId, instanceId])
+  }, [chatId])
+
+  const handleOpenParticipantChat = useCallback(async (participant: GroupParticipant) => {
+    if (!onChatSelect || !participant.phone) return
+    // Find existing chat with this participant
+    try {
+      const res = await fetch(`/api/whatsapp/chats?instance_id=${instanceId}&phone=${participant.phone}`)
+      const data = await res.json()
+      if (data.chats?.[0]?.id) {
+        onChatSelect(data.chats[0].id)
+      }
+    } catch {
+      // silently fail
+    }
+  }, [instanceId, onChatSelect])
 
   const displayName = chat?.name || chat?.phone || 'Conversa'
-  const picUrl = chat?.contact?.profile_pic_url || chat?.profile_pic_url
+  const picUrl = chat?.contact?.profile_pic_url || chat?.profile_pic_url || chat?.image
   const phone = chat?.phone || chat?.contact?.phone
+  const isGroup = chat?.is_group
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <span className="text-sm font-semibold">Informação do contacto</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-background z-10">
+        <span className="text-sm font-semibold">
+          {isGroup ? 'Informação do grupo' : 'Informação do contacto'}
+        </span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -87,38 +139,102 @@ export function ChatInfoPanel({ chatId, instanceId, onClose }: ChatInfoPanelProp
           </AvatarFallback>
         </Avatar>
         <h3 className="text-base font-semibold">{displayName}</h3>
-        {phone && <p className="text-sm text-muted-foreground mt-0.5">{phone}</p>}
-      </div>
-
-      <Separator />
-
-      {/* ERP Link */}
-      <div className="px-4 py-3">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
-          <Link2 className="h-3.5 w-3.5" />
-          Vinculacao ERP
-        </h4>
-        {chat?.contact && (chat.contact.owner_id || chat.contact.lead_id) ? (
-          <ErpLinkTags key={erpKey} contactId={chat.contact.id} />
-        ) : (
-          <p className="text-sm text-muted-foreground mb-2">
-            Contacto sem vinculacao ERP
+        {phone && !isGroup && <p className="text-sm text-muted-foreground mt-0.5">{phone}</p>}
+        {isGroup && participants.length > 0 && (
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Grupo · {participants.length} participantes
           </p>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 w-full"
-          onClick={() => setLinkDialogOpen(true)}
-          disabled={!chat?.contact}
-        >
-          <Link2 className="h-3.5 w-3.5 mr-1.5" />
-          {chat?.contact?.owner_id || chat?.contact?.lead_id
-            ? 'Alterar vinculacao'
-            : 'Vincular a Owner/Lead'}
-        </Button>
       </div>
+
       <Separator />
+
+      {/* Group Participants */}
+      {isGroup && (
+        <>
+          <div className="px-4 py-3">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Participantes ({participants.length})
+            </h4>
+            {loadingParticipants ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-0.5 max-h-[300px] overflow-y-auto -mx-1">
+                {participants.map((p) => (
+                  <button
+                    key={p.jid || p.lid}
+                    type="button"
+                    onClick={() => handleOpenParticipantChat(p)}
+                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      {p.profilePicUrl && <AvatarImage src={p.profilePicUrl} />}
+                      <AvatarFallback className="text-xs">
+                        {(p.displayName || '?')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-medium truncate">
+                          {p.displayName || p.phone}
+                        </span>
+                        {(p.isAdmin || p.isSuperAdmin) && (
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 flex-shrink-0">
+                            <Shield className="h-2.5 w-2.5 mr-0.5" />
+                            Admin
+                          </Badge>
+                        )}
+                      </div>
+                      {p.phone && (
+                        <span className="text-xs text-muted-foreground">{p.phone}</span>
+                      )}
+                    </div>
+                    {onChatSelect && p.phone && (
+                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* ERP Link (only for non-group chats) */}
+      {!isGroup && (
+        <>
+          <div className="px-4 py-3">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5" />
+              Vinculacao ERP
+            </h4>
+            {chat?.contact && (chat.contact.owner_id || chat.contact.lead_id) ? (
+              <ErpLinkTags key={erpKey} contactId={chat.contact.id} />
+            ) : (
+              <p className="text-sm text-muted-foreground mb-2">
+                Contacto sem vinculacao ERP
+              </p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={() => setLinkDialogOpen(true)}
+              disabled={!chat?.contact}
+            >
+              <Link2 className="h-3.5 w-3.5 mr-1.5" />
+              {chat?.contact?.owner_id || chat?.contact?.lead_id
+                ? 'Alterar vinculacao'
+                : 'Vincular a Owner/Lead'}
+            </Button>
+          </div>
+          <Separator />
+        </>
+      )}
 
       {/* Link Dialog */}
       {chat?.contact && (

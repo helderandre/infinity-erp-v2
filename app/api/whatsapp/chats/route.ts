@@ -10,8 +10,42 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     const instanceId = searchParams.get("instance_id")
+    const chatId = searchParams.get("chat_id")
+
+    // Fetch single chat by ID
+    if (chatId) {
+      const { data, error } = await supabase
+        .from("wpp_chats")
+        .select(
+          `*, contact:wpp_contacts(id, name, phone, profile_pic_url, is_business, owner_id, lead_id, owner:owners(id, name, phone, email), lead:leads(id, nome, email, telemovel))`
+        )
+        .eq("id", chatId)
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      return NextResponse.json({ chat: data })
+    }
+
     if (!instanceId) {
       return NextResponse.json({ error: "instance_id é obrigatório" }, { status: 400 })
+    }
+
+    // Search by phone number (for participant click-to-chat)
+    const phoneSearch = searchParams.get("phone")
+    if (phoneSearch) {
+      const { data } = await supabase
+        .from("wpp_chats")
+        .select(
+          `*, contact:wpp_contacts(id, name, phone, profile_pic_url, is_business, owner_id, lead_id)`
+        )
+        .eq("instance_id", instanceId)
+        .eq("is_group", false)
+        .or(`phone.eq.${phoneSearch},wa_chat_id.eq.${phoneSearch}@s.whatsapp.net`)
+        .limit(1)
+
+      return NextResponse.json({ chats: data ?? [] })
     }
 
     const search = searchParams.get("search") || ""

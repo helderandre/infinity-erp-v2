@@ -94,7 +94,7 @@ async function handleSendText(body: any) {
 
 // ── SEND MEDIA (image, video, document) ──
 async function handleSendMedia(body: any) {
-  const { instance_id, wa_chat_id, type, file_url, caption, doc_name, reply_id } = body
+  const { instance_id, wa_chat_id, type, file_url, caption, doc_name, reply_id, file_name, mime_type, file_size } = body
   if (!instance_id || !wa_chat_id || !type || !file_url) {
     return jsonResponse({ error: "instance_id, wa_chat_id, type e file_url são obrigatórios" }, 400)
   }
@@ -112,6 +112,9 @@ async function handleSendMedia(body: any) {
   const savedMsg = await saveOutgoingMessage({
     instanceId: instance_id, waChatId: wa_chat_id, waMessageId,
     text: caption || "", messageType: type, mediaUrl: file_url, quotedId: reply_id || "",
+    mediaFileName: file_name || doc_name || "",
+    mediaMimeType: mime_type || "",
+    mediaFileSize: file_size || null,
   })
 
   return jsonResponse({ message: savedMsg, uazapi_response: result })
@@ -125,13 +128,13 @@ async function handleSendAudio(body: any) {
   }
 
   const token = await getInstanceToken(instance_id)
-  const endpoint = ptt ? "/send/ptt" : "/send/myaudio"
+  const mediaType = ptt ? "ptt" : "audio"
   const uazapiBody: Record<string, any> = {
-    number: wa_chat_id, file: file_url, readchat: true,
+    number: wa_chat_id, type: mediaType, file: file_url, readchat: true,
   }
   if (reply_id) uazapiBody.replyid = reply_id
 
-  const result = await callUazapi(token, endpoint, uazapiBody)
+  const result = await callUazapi(token, "/send/media", uazapiBody)
   const waMessageId = result?.messageid || result?.id || result?.key?.id || ""
   const savedMsg = await saveOutgoingMessage({
     instanceId: instance_id, waChatId: wa_chat_id, waMessageId,
@@ -305,8 +308,9 @@ async function handleMarkRead(body: any) {
   }
 
   const token = await getInstanceToken(instance_id)
-  const result = await callUazapi(token, "/message/markread", {
+  const result = await callUazapi(token, "/chat/read", {
     number: wa_chat_id,
+    read: true,
   })
 
   // Reset unread count no DB
@@ -326,10 +330,74 @@ async function handleForward(body: any) {
     return jsonResponse({ error: "Campos obrigatórios em falta" }, 400)
   }
 
+  // Fetch original message from DB
+  const { data: origMsg, error: msgErr } = await supabase
+    .from("wpp_messages")
+    .select("*")
+    .eq("instance_id", instance_id)
+    .eq("wa_message_id", wa_message_id)
+    .single()
+
+  if (msgErr || !origMsg) {
+    return jsonResponse({ error: "Mensagem original não encontrada" }, 404)
+  }
+
   const token = await getInstanceToken(instance_id)
-  const result = await callUazapi(token, "/message/forward", {
-    id: wa_message_id, number: to_chat_id,
-  })
+  const msgType = origMsg.message_type || "text"
+  let result: any
+
+  if (msgType === "text") {
+    // Forward text
+    result = await callUazapi(token, "/send/text", {
+      number: to_chat_id,
+      text: origMsg.text || "",
+      forward: true,
+      readchat: true,
+    })
+  } else if (["image", "video", "audio", "document", "sticker", "ptt"].includes(msgType)) {
+    // Forward media — need the file URL
+    let fileUrl = origMsg.media_url || ""
+
+    // If no URL stored, try to download from UAZAPI
+    if (!fileUrl) {
+      try {
+        const dlResult = await callUazapi(token, "/message/download", { id: wa_message_id })
+        fileUrl = dlResult?.url || dlResult?.file || dlResult?.fileURL || ""
+      } catch {
+        // ignore download errors
+      }
+    }
+
+    if (!fileUrl) {
+      return jsonResponse({ error: "Não foi possível obter o ficheiro da mensagem" }, 400)
+    }
+
+    const sendType = msgType === "ptt" ? "ptt" : msgType
+    result = await callUazapi(token, "/send/media", {
+      number: to_chat_id,
+      type: sendType,
+      file: fileUrl,
+      text: origMsg.text || "",
+      forward: true,
+      readchat: true,
+    })
+  } else if (msgType === "location") {
+    result = await callUazapi(token, "/send/location", {
+      number: to_chat_id,
+      lat: origMsg.latitude,
+      lng: origMsg.longitude,
+      name: origMsg.location_name || "",
+      forward: true,
+    })
+  } else {
+    // Fallback: send text content with forward flag
+    result = await callUazapi(token, "/send/text", {
+      number: to_chat_id,
+      text: origMsg.text || `[${msgType}]`,
+      forward: true,
+      readchat: true,
+    })
+  }
 
   return jsonResponse({ ok: true, uazapi_response: result })
 }
@@ -338,9 +406,10 @@ async function handleForward(body: any) {
 async function saveOutgoingMessage(params: {
   instanceId: string; waChatId: string; waMessageId: string;
   text: string; messageType: string; mediaUrl?: string; quotedId?: string;
+  mediaFileName?: string; mediaMimeType?: string; mediaFileSize?: number | null;
 }) {
-  const { instanceId, waChatId, waMessageId, text, messageType, mediaUrl, quotedId } = params
-  const now = Date.now()
+  const { instanceId, waChatId, waMessageId, text, messageType, mediaUrl, quotedId, mediaFileName, mediaMimeType, mediaFileSize } = params
+  const now = Math.floor(Date.now() / 1000)
 
   const { data: chat } = await supabase
     .from("wpp_chats")
@@ -369,6 +438,9 @@ async function saveOutgoingMessage(params: {
         message_type: messageType,
         text,
         media_url: mediaUrl || "",
+        media_file_name: mediaFileName || "",
+        media_mime_type: mediaMimeType || "",
+        media_file_size: mediaFileSize || null,
         quoted_message_id: quotedId || "",
         status: "sent",
         timestamp: now,

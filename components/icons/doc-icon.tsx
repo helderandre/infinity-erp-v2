@@ -22,8 +22,12 @@ const EXTENSION_COLORS: Record<string, { bg: string; text: string }> = {
   rar:  { bg: '#4A5568', text: '#FFFFFF' },
   mp4:  { bg: '#D53F8C', text: '#FFFFFF' },
   mp3:  { bg: '#ED64A6', text: '#FFFFFF' },
+  ogg:  { bg: '#ED64A6', text: '#FFFFFF' },
   html: { bg: '#DD6B20', text: '#FFFFFF' },
   json: { bg: '#38A169', text: '#FFFFFF' },
+  pages: { bg: '#FF9500', text: '#FFFFFF' },
+  key:  { bg: '#0070C9', text: '#FFFFFF' },
+  numbers: { bg: '#00A650', text: '#FFFFFF' },
 }
 
 const DEFAULT_COLOR = { bg: 'hsl(var(--primary))', text: '#FFFFFF' }

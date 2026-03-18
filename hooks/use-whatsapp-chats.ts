@@ -15,6 +15,7 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
   const [isLoading, setIsLoading] = useState(false)
   const [total, setTotal] = useState(0)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const fetchChats = useCallback(async () => {
     if (!instanceId) {
@@ -23,7 +24,9 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
       return
     }
 
-    setIsLoading(true)
+    // Only show skeleton on first load
+    if (!hasLoadedRef.current) setIsLoading(true)
+
     try {
       const params = new URLSearchParams({
         instance_id: instanceId,
@@ -37,6 +40,7 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
       const data = await res.json()
       setChats(data.chats)
       setTotal(data.total)
+      hasLoadedRef.current = true
     } catch {
       // silently fail
     } finally {
@@ -49,6 +53,7 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
     if (!instanceId) {
       setChats([])
       setTotal(0)
+      hasLoadedRef.current = false
       return
     }
 

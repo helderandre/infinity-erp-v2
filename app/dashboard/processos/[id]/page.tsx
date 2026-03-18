@@ -157,6 +157,9 @@ export default function ProcessoDetailPage() {
     external_ref: string | null
   } | null>(null)
 
+  // Silent refresh — refetches data without showing skeleton
+  const silentRefresh = useCallback(() => loadProcess(true), [params.id])
+
   useEffect(() => {
     loadProcess()
   }, [params.id])
@@ -169,8 +172,8 @@ export default function ProcessoDetailPage() {
       .catch(() => {})
   }, [])
 
-  const loadProcess = async () => {
-    setIsLoading(true)
+  const loadProcess = async (silent = false) => {
+    if (!silent) setIsLoading(true)
     try {
       const response = await fetch(`/api/processes/${params.id}`)
 
@@ -190,7 +193,7 @@ export default function ProcessoDetailPage() {
       toast.error(message)
       router.push('/dashboard/processos')
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -222,7 +225,7 @@ export default function ProcessoDetailPage() {
           ? `Processo aprovado com template "${result.template_name}"!`
           : 'Processo aprovado com sucesso!'
       )
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao aprovar processo'
       toast.error(message)
@@ -243,7 +246,7 @@ export default function ProcessoDetailPage() {
       }
 
       toast.success('Processo devolvido com sucesso!')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao devolver processo'
       toast.error(message)
@@ -264,7 +267,7 @@ export default function ProcessoDetailPage() {
       }
 
       toast.success('Processo rejeitado com sucesso!')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao rejeitar processo'
       toast.error(message)
@@ -286,7 +289,7 @@ export default function ProcessoDetailPage() {
       }
 
       toast.success('Tarefa actualizada com sucesso!')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao actualizar tarefa'
       toast.error(message)
@@ -309,7 +312,7 @@ export default function ProcessoDetailPage() {
       }
       toast.success('Tarefa removida com sucesso!')
       setDeleteTaskTarget(null)
-      loadProcess()
+      loadProcess(true)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao remover tarefa')
     } finally {
@@ -349,7 +352,7 @@ export default function ProcessoDetailPage() {
       setBypassDialogOpen(false)
       setBypassTask(null)
       setBypassReason('')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao dispensar tarefa'
       toast.error(message)
@@ -371,7 +374,7 @@ export default function ProcessoDetailPage() {
         throw new Error(error.error || `Erro ao ${action === 'pause' ? 'pausar' : 'retomar'} processo`)
       }
       toast.success(action === 'pause' ? 'Processo pausado' : 'Processo retomado')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro na operação'
       toast.error(message)
@@ -394,7 +397,7 @@ export default function ProcessoDetailPage() {
       }
       toast.success('Processo cancelado')
       setCancelDialogOpen(false)
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao cancelar'
       toast.error(message)
@@ -468,7 +471,7 @@ export default function ProcessoDetailPage() {
       )
       setReTemplateDialogOpen(false)
       setSelectedNewTemplateId('')
-      loadProcess()
+      loadProcess(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao alterar template'
       toast.error(message)
@@ -678,7 +681,7 @@ export default function ProcessoDetailPage() {
     setActiveSection(key)
   }
 
-  if (isLoading) {
+  if (isLoading && !process) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-4 px-4 md:px-6 py-4 border-b">
@@ -889,11 +892,11 @@ export default function ProcessoDetailPage() {
 
           {/* ── IMÓVEL section ── */}
           {(activeSection === 'imovel' || activeSection === 'imovel:dados') && (
-            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} view="dados" />
+            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={silentRefresh} view="dados" />
           )}
 
           {activeSection === 'imovel:documentos' && (
-            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={loadProcess} view="documentos" />
+            <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={silentRefresh} view="documentos" />
           )}
 
           {/* ── PIPELINE section ── */}
@@ -1059,7 +1062,7 @@ export default function ProcessoDetailPage() {
                       processId={instance.id}
                       existingSubtaskIds={ownerExistingSubtaskIds[owner.id] || new Set()}
                       allPopulated={false}
-                      onTasksPopulated={loadProcess}
+                      onTasksPopulated={silentRefresh}
                       onClick={() => setActiveSection(`proprietarios:${owner.id}`)}
                     />
                   ))
@@ -1087,7 +1090,7 @@ export default function ProcessoDetailPage() {
                 processId={instance.id}
                 roleTypes={ownerRoleTypes}
                 existingOwnerIds={owners.map((o: any) => o.id)}
-                onAdded={loadProcess}
+                onAdded={silentRefresh}
               />
             </div>
           )}
@@ -1107,8 +1110,8 @@ export default function ProcessoDetailPage() {
                 ownerExistingSubtaskIds={ownerExistingSubtaskIds}
                 totalOwners={owners.length}
                 hideHeader
-                onDocumentUploaded={loadProcess}
-                onOwnersChanged={loadProcess}
+                onDocumentUploaded={silentRefresh}
+                onOwnersChanged={silentRefresh}
               />
             )
           })()}
@@ -1142,7 +1145,7 @@ export default function ProcessoDetailPage() {
           owners={owners || []}
           existingTasks={stages.flatMap((s: ProcessStageWithTasks) => s.tasks)}
           preselectedStage={adhocPreselectedStage}
-          onTaskCreated={loadProcess}
+          onTaskCreated={silentRefresh}
         />
       )}
 
@@ -1167,7 +1170,7 @@ export default function ProcessoDetailPage() {
             }
           }
         }}
-        onTaskUpdate={loadProcess}
+        onTaskUpdate={silentRefresh}
       />
 
       {/* Bypass Dialog */}
@@ -1222,7 +1225,7 @@ export default function ProcessoDetailPage() {
           taskTitle={assignTask.title}
           processId={instance.id}
           currentAssignedTo={assignTask.assigned_to}
-          onAssigned={loadProcess}
+          onAssigned={silentRefresh}
         />
       )}
 

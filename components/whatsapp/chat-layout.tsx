@@ -64,6 +64,10 @@ export function ChatLayout({ instances }: ChatLayoutProps) {
             chatId={selectedChatId}
             instanceId={selectedInstance}
             onClose={() => setShowInfo(false)}
+            onChatSelect={(id) => {
+              setSelectedChatId(id)
+              setShowInfo(false)
+            }}
           />
         </div>
       )}

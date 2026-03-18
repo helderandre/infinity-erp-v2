@@ -68,12 +68,12 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <audio ref={audioRef} src={src} preload="metadata" />
+      {src && <audio ref={audioRef} src={src} preload="metadata" />}
 
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
+        className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0"
         onClick={togglePlay}
       >
         {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}

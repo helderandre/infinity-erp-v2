@@ -18,8 +18,8 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ chat, isTyping, onToggleInfo }: ChatHeaderProps) {
-  const displayName = chat?.name || chat?.phone || 'Conversa'
-  const picUrl = chat?.contact?.profile_pic_url || chat?.profile_pic_url
+  const displayName = chat?.name || chat?.contact?.name || chat?.phone || 'Conversa'
+  const picUrl = chat?.contact?.profile_pic_url || chat?.profile_pic_url || chat?.image
 
   const subtitle = isTyping
     ? 'A escrever...'

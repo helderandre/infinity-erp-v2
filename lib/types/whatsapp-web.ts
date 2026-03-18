@@ -33,6 +33,7 @@ export interface WppMessage {
   instance_id: string
   wa_message_id: string
   from_me: boolean
+  sender: string | null
   sender_name: string | null
   sender_phone: string | null
   text: string | null
@@ -94,9 +95,11 @@ export interface WppChat {
   mute_until: string | null
   unread_count: number
   last_message_text: string | null
+  last_message_type: WppMessageType | null
   last_message_timestamp: number | null
   last_message_from_me: boolean | null
   profile_pic_url: string | null
+  image: string | null
   created_at: string
   updated_at: string
   // Nested join

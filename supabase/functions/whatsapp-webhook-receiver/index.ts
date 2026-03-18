@@ -56,16 +56,7 @@ Deno.serve(async (req: Request) => {
   try {
     const payload = await req.json()
 
-    // Debug: salvar payload cru (apenas em desenvolvimento)
-    await supabase
-      .from("_debug_wpp_payloads")
-      .insert({
-        source: "whatsapp",
-        event_type: payload.EventType || payload.event || "unknown",
-        payload,
-      })
-      .then(() => {})
-      .catch(() => {})
+    const debugEvent = payload.EventType || payload.event || "unknown"
 
     const rawEvent = (payload.EventType || payload.event || "").toLowerCase().trim()
     const instanceToken = payload.token || ""
@@ -86,6 +77,18 @@ Deno.serve(async (req: Request) => {
 
     const instanceId = instance.id
 
+    // Debug: salvar todos os webhook events na tabela wpp_debug_log
+    await supabase
+      .from("wpp_debug_log")
+      .insert({
+        instance_id: instanceId,
+        endpoint: `webhook/${debugEvent}`,
+        response_body: payload,
+        notes: `Webhook event: ${debugEvent}`,
+      })
+      .then(() => {})
+      .catch(() => {})
+
     // Normalizar evento
     const event = rawEvent
       .replace("messages.upsert", "messages")
@@ -102,8 +105,7 @@ Deno.serve(async (req: Request) => {
       case "messages_update":
       case "status":
       case "messages.update": {
-        const msgData = payload.message || payload.data
-        await handleMessageUpdate(instanceId, msgData)
+        await handleMessageUpdate(instanceId, payload)
         break
       }
       case "connection": {
@@ -155,7 +157,9 @@ async function handleNewMessage(instanceId: string, msg: any, chatInfo?: any) {
   const sender = msg.sender || msg.participant || ""
   const senderName = msg.senderName || msg.pushName || ""
   const waMessageId = msg.messageid || msg.id || ""
-  const messageTimestamp = msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now()
+  // Normalizar timestamp para segundos (UAZAPI pode enviar em ms ou s)
+  let messageTimestamp = msg.messageTimestamp ? Number(msg.messageTimestamp) : Math.floor(Date.now() / 1000)
+  if (messageTimestamp > 10_000_000_000) messageTimestamp = Math.floor(messageTimestamp / 1000)
   const quotedId = msg.quoted || msg.content?.contextInfo?.stanzaId || ""
   const isForwarded = msg.isForwarded === true || msg.content?.contextInfo?.isForwarded === true
 
@@ -387,29 +391,60 @@ async function handleReaction(
     .eq("id", msg.id)
 }
 
-async function handleMessageUpdate(instanceId: string, msg: any) {
+async function handleMessageUpdate(instanceId: string, payload: any) {
+  if (!payload) return
+
+  // UAZAPI sends status updates in two formats:
+  // Format 1 (ReadReceipt): { type: "ReadReceipt", state: "Delivered"|"Read", event: { MessageIDs: [...] } }
+  // Format 2 (legacy):      { message: { messageid: "...", status: 2 } }
+
+  const statusOrder: Record<string, number> = { sent: 1, delivered: 2, read: 3, played: 4 }
+
+  // Format 1: ReadReceipt with MessageIDs array
+  if (payload.event?.MessageIDs && Array.isArray(payload.event.MessageIDs)) {
+    const rawStatus = (payload.state || payload.event?.Type || "").toLowerCase()
+    const statusText = rawStatus === "deliveryreceipt" ? "delivered" : rawStatus
+    const newOrder = statusOrder[statusText] || 0
+    if (newOrder === 0) return
+
+    for (const msgId of payload.event.MessageIDs) {
+      if (!msgId) continue
+
+      const { data: existing } = await supabase
+        .from("wpp_messages")
+        .select("status")
+        .eq("instance_id", instanceId)
+        .eq("wa_message_id", msgId)
+        .maybeSingle()
+
+      if (!existing) continue
+
+      const currentOrder = statusOrder[existing.status] || 0
+      if (newOrder > currentOrder) {
+        await supabase
+          .from("wpp_messages")
+          .update({ status: statusText })
+          .eq("instance_id", instanceId)
+          .eq("wa_message_id", msgId)
+      }
+    }
+    return
+  }
+
+  // Format 2: legacy single message update
+  const msg = payload.message || payload.data
   if (!msg) return
 
   const waMessageId = msg.messageid || msg.id || ""
   const newStatus = msg.status || msg.type || ""
   if (!waMessageId || !newStatus) return
 
-  let statusText = newStatus
+  let statusText = String(newStatus)
   if (typeof newStatus === "number") {
-    const statusMap: Record<number, string> = {
-      1: "sent",
-      2: "delivered",
-      3: "read",
-      4: "played",
-    }
+    const statusMap: Record<number, string> = { 1: "sent", 2: "delivered", 3: "read", 4: "played" }
     statusText = statusMap[newStatus] || String(newStatus)
   }
-
-  statusText = String(statusText).toLowerCase()
-
-  // Só actualizar se o novo status é "superior" ao actual
-  // sent < delivered < read < played
-  const statusOrder: Record<string, number> = { sent: 1, delivered: 2, read: 3, played: 4 }
+  statusText = statusText.toLowerCase()
 
   const { data: existing } = await supabase
     .from("wpp_messages")

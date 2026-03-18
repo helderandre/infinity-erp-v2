@@ -22,10 +22,11 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 async function callUazapi(token: string, endpoint: string, body?: any, method = "POST") {
+  const isGet = method.toUpperCase() === "GET" || method.toUpperCase() === "HEAD"
   const res = await fetch(`${UAZAPI_URL}${endpoint}`, {
     method,
     headers: { "Content-Type": "application/json", token },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body && !isGet ? { body: JSON.stringify(body) } : {}),
   })
   if (!res.ok) throw new Error(`UAZAPI Error ${res.status}: ${await res.text()}`)
   return res.json()
@@ -89,22 +90,42 @@ async function handleSyncChats(body: any) {
 
   const token = await getInstanceToken(instance_id)
 
-  // Buscar chats do UAZAPI
-  const result = await callUazapi(token, "/chat/list", {}, "GET")
-  const chats = Array.isArray(result) ? result : (result?.chats || result?.data || [])
+  // Buscar chats do UAZAPI via /chat/find (POST) com paginação
+  const allChats: any[] = []
+  let offset = 0
+  const pageSize = 100
+  const maxPages = 20
+
+  for (let page = 0; page < maxPages; page++) {
+    const response = await callUazapi(token, "/chat/find", {
+      sort: "-wa_lastMsgTimestamp",
+      limit: pageSize,
+      offset,
+    })
+    const chatsArray = response?.chats || (Array.isArray(response) ? response : [])
+    if (!Array.isArray(chatsArray) || chatsArray.length === 0) break
+    allChats.push(...chatsArray)
+    if (response?.pagination?.hasNextPage === false) break
+    if (chatsArray.length < pageSize) break
+    offset += pageSize
+  }
 
   let synced = 0
   let errors = 0
 
-  for (const chat of chats) {
-    try {
-      const waChatId = chat.id || chat.jid || ""
-      if (!waChatId || waChatId === "status@broadcast") continue
+  // Processar em batches para upsert
+  const upsertBatch: Record<string, unknown>[] = []
 
-      const phone = extractPhone(waChatId)
-      const isGroup = waChatId.includes("@g.us")
-      const chatName = cleanName(chat.name || chat.pushName || chat.notify || "")
-      const chatImage = chat.imgUrl || chat.profilePicUrl || ""
+  for (const chat of allChats) {
+    try {
+      // Campos UAZAPI: wa_chatid, wa_contactName, wa_name, wa_isGroup, wa_archived, etc.
+      const waChatId = chat.wa_chatid || chat.chatid || chat.id || ""
+      if (!waChatId) continue
+
+      const phone = chat.phone || extractPhone(waChatId)
+      const isGroup = chat.wa_isGroup || waChatId.includes("@g.us")
+      const chatName = cleanName(chat.name || chat.wa_contactName || chat.wa_name || "")
+      const chatImage = chat.imagePreview || chat.image || chat.imgUrl || chat.profilePicUrl || ""
 
       // Buscar ou criar contacto para vincular ao chat
       let contactId: string | null = null
@@ -125,40 +146,54 @@ async function handleSyncChats(body: any) {
         contactId = contactRow?.id || null
       }
 
-      // Extrair última mensagem
-      const lastMsg = chat.lastMessage || chat.last_message || {}
-      const lastMsgText = lastMsg.body || lastMsg.text || lastMsg.conversation || ""
-      const lastMsgTimestamp = lastMsg.messageTimestamp
-        ? Number(lastMsg.messageTimestamp)
-        : (chat.conversationTimestamp ? Number(chat.conversationTimestamp) : null)
-      const lastMsgFromMe = lastMsg.fromMe === true
+      // Normalizar timestamp (UAZAPI envia em ms)
+      let lastMsgTs = chat.wa_lastMsgTimestamp ? Number(chat.wa_lastMsgTimestamp) : 0
+      if (lastMsgTs > 10_000_000_000) lastMsgTs = Math.floor(lastMsgTs / 1000)
 
-      const chatData: Record<string, unknown> = {
+      // Normalizar tipo de mensagem
+      const rawType = (chat.wa_lastMessageType || "").toLowerCase().replace("message", "")
+      const typeMap: Record<string, string> = {
+        conversation: "text", extendedtext: "text",
+        image: "image", video: "video", audio: "audio",
+        document: "document", sticker: "sticker",
+        location: "location", livelocation: "location",
+        contact: "contact", contactsarray: "contact",
+        poll: "poll", pollcreation: "poll", viewonce: "view_once",
+      }
+      const lastMessageType = typeMap[rawType] || rawType || "text"
+
+      upsertBatch.push({
         instance_id,
         wa_chat_id: waChatId,
         contact_id: contactId,
         phone,
+        name: chatName || undefined,
         image: chatImage,
         is_group: isGroup,
-        is_archived: chat.archived === true || chat.archive === true,
-        is_pinned: chat.pinned === true || chat.pin === true,
-        is_muted: chat.mute !== undefined && chat.mute !== null && chat.mute !== 0,
-        unread_count: chat.unreadCount || chat.unread || 0,
+        is_archived: chat.wa_archived || false,
+        is_pinned: chat.wa_isPinned || false,
+        is_muted: chat.wa_isMuted || false,
+        unread_count: chat.wa_unreadCount || 0,
+        last_message_text: chat.wa_lastMessageTextVote || "",
+        last_message_type: lastMessageType,
+        last_message_timestamp: lastMsgTs,
         updated_at: new Date().toISOString(),
-      }
-      if (chatName) chatData.name = chatName
-      if (lastMsgText) chatData.last_message_text = lastMsgText
-      if (lastMsgTimestamp) chatData.last_message_timestamp = lastMsgTimestamp
-      if (lastMsg.fromMe !== undefined) chatData.last_message_from_me = lastMsgFromMe
-
-      await supabase
-        .from("wpp_chats")
-        .upsert(chatData, { onConflict: "instance_id,wa_chat_id" })
-
+      })
       synced++
     } catch (e) {
-      console.error("[sync_chats] Error syncing chat:", e)
+      console.error("[sync_chats] Error processing chat:", e)
       errors++
+    }
+  }
+
+  // Upsert em batches de 50
+  for (let i = 0; i < upsertBatch.length; i += 50) {
+    const batch = upsertBatch.slice(i, i + 50)
+    const { error } = await supabase
+      .from("wpp_chats")
+      .upsert(batch, { onConflict: "instance_id,wa_chat_id" })
+    if (error) {
+      console.error("[sync_chats] Upsert batch error:", error)
     }
   }
 
@@ -166,7 +201,7 @@ async function handleSyncChats(body: any) {
     ok: true,
     synced,
     errors,
-    total: chats.length,
+    total: allChats.length,
   })
 }
 
@@ -182,20 +217,37 @@ async function handleSyncContacts(body: any) {
 
   const token = await getInstanceToken(instance_id)
 
-  // Buscar contactos do UAZAPI
-  const result = await callUazapi(token, "/contacts/list", {}, "GET")
-  const contacts = Array.isArray(result) ? result : (result?.contacts || result?.data || [])
+  // Buscar contactos individuais via /chat/find (não existe endpoint /contacts/list)
+  const allChats: any[] = []
+  let offset = 0
+  const pageSize = 100
+  const maxPages = 20
+
+  for (let page = 0; page < maxPages; page++) {
+    const response = await callUazapi(token, "/chat/find", {
+      sort: "-wa_lastMsgTimestamp",
+      limit: pageSize,
+      offset,
+      wa_isGroup: false,
+    })
+    const chatsArray = response?.chats || (Array.isArray(response) ? response : [])
+    if (!Array.isArray(chatsArray) || chatsArray.length === 0) break
+    allChats.push(...chatsArray)
+    if (response?.pagination?.hasNextPage === false) break
+    if (chatsArray.length < pageSize) break
+    offset += pageSize
+  }
 
   let synced = 0
   let errors = 0
 
-  for (const contact of contacts) {
+  for (const chat of allChats) {
     try {
-      const jid = contact.id || contact.jid || ""
-      if (!jid || jid.includes("@broadcast") || jid === "status@broadcast") continue
+      const jid = chat.wa_chatid || chat.chatid || chat.id || ""
+      if (!jid || jid.includes("@broadcast") || jid.includes("@g.us")) continue
 
-      const phone = extractPhone(jid)
-      const name = cleanName(contact.name || contact.pushName || contact.notify || "")
+      const phone = chat.phone || extractPhone(jid)
+      const name = cleanName(chat.name || chat.wa_contactName || chat.wa_name || "")
 
       await supabase
         .from("wpp_contacts")
@@ -204,11 +256,8 @@ async function handleSyncContacts(body: any) {
           wa_contact_id: jid,
           phone,
           name: name || undefined,
-          short_name: contact.shortName || "",
-          profile_pic_url: contact.imgUrl || contact.profilePicUrl || "",
-          is_business: contact.isBusiness || false,
-          is_group: jid.includes("@g.us"),
-          raw_data: contact,
+          profile_pic_url: chat.imagePreview || chat.image || chat.imgUrl || "",
+          is_group: false,
           updated_at: new Date().toISOString(),
         }, { onConflict: "instance_id,wa_contact_id", ignoreDuplicates: false })
 
@@ -223,7 +272,7 @@ async function handleSyncContacts(body: any) {
     ok: true,
     synced,
     errors,
-    total: contacts.length,
+    total: allChats.length,
   })
 }
 

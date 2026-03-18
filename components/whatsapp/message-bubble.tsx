@@ -8,7 +8,32 @@ import { MessageMediaRenderer } from './message-media-renderer'
 import { MessageReactions } from './message-reactions'
 import { MessageContextMenu } from './message-context-menu'
 import { Badge } from '@/components/ui/badge'
+import { MessageText } from './message-text'
 import type { WppMessage, QuotedMessageMap } from '@/lib/types/whatsapp-web'
+
+// Consistent color palette for sender names in groups
+const SENDER_COLORS = [
+  'text-blue-600 dark:text-blue-400',
+  'text-emerald-600 dark:text-emerald-400',
+  'text-purple-600 dark:text-purple-400',
+  'text-orange-600 dark:text-orange-400',
+  'text-pink-600 dark:text-pink-400',
+  'text-teal-600 dark:text-teal-400',
+  'text-indigo-600 dark:text-indigo-400',
+  'text-rose-600 dark:text-rose-400',
+  'text-amber-600 dark:text-amber-400',
+  'text-cyan-600 dark:text-cyan-400',
+  'text-lime-600 dark:text-lime-400',
+  'text-fuchsia-600 dark:text-fuchsia-400',
+]
+
+function getSenderColor(sender: string): string {
+  let hash = 0
+  for (let i = 0; i < sender.length; i++) {
+    hash = ((hash << 5) - hash + sender.charCodeAt(i)) | 0
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length]
+}
 
 interface MessageBubbleProps {
   message: WppMessage
@@ -17,8 +42,15 @@ interface MessageBubbleProps {
   onReact: (emoji: string) => void
   onDelete: (forEveryone?: boolean) => void
   onForward: () => void
+  onSelect?: () => void
+  onSaveToErp?: () => void
+  onSenderClick?: (sender: string, senderName: string) => void
+  hasErpContact?: boolean
   showSenderName?: boolean
   isAdmin?: boolean
+  instanceId?: string
+  /** Map of lid → display name for resolving @mentions */
+  mentionMap?: Record<string, string>
 }
 
 export function MessageBubble({
@@ -28,11 +60,18 @@ export function MessageBubble({
   onReact,
   onDelete,
   onForward,
+  onSelect,
+  onSaveToErp,
+  onSenderClick,
+  hasErpContact,
   showSenderName,
   isAdmin,
+  instanceId,
+  mentionMap,
 }: MessageBubbleProps) {
   const isMe = message.from_me
   const time = format(new Date(message.timestamp * 1000), 'HH:mm')
+  const senderColor = message.sender ? getSenderColor(message.sender) : 'text-primary'
 
   return (
     <div className={cn('flex mb-1 group', isMe ? 'justify-end' : 'justify-start')}>
@@ -47,9 +86,13 @@ export function MessageBubble({
         >
           {/* Sender Name (groups) */}
           {showSenderName && !isMe && message.sender_name && (
-            <div className="text-xs font-semibold text-primary mb-0.5">
+            <button
+              type="button"
+              onClick={() => onSenderClick?.(message.sender || '', message.sender_name || '')}
+              className={cn('text-xs font-semibold mb-0.5 hover:underline cursor-pointer text-left', senderColor)}
+            >
               {message.sender_name}
-            </div>
+            </button>
           )}
 
           {/* Forwarded indicator */}
@@ -79,15 +122,11 @@ export function MessageBubble({
               {/* Media */}
               <div className={message.is_deleted && isAdmin ? 'opacity-50' : ''}>
                 {message.message_type !== 'text' && (
-                  <MessageMediaRenderer message={message} />
+                  <MessageMediaRenderer message={message} instanceId={instanceId} />
                 )}
 
                 {/* Text */}
-                {message.text && (
-                  <p className="text-sm whitespace-pre-wrap break-words">
-                    {message.text}
-                  </p>
-                )}
+                {message.text && <MessageText text={message.text} mentionMap={mentionMap} />}
               </div>
             </>
           )}
@@ -110,10 +149,14 @@ export function MessageBubble({
         {/* Context menu trigger */}
         <MessageContextMenu
           message={message}
+          isMe={isMe}
           onReply={onReply}
           onReact={onReact}
           onDelete={onDelete}
           onForward={onForward}
+          onSelect={onSelect}
+          onSaveToErp={onSaveToErp}
+          hasErpContact={hasErpContact}
         />
       </div>
     </div>

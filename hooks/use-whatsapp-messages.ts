@@ -84,7 +84,26 @@ export function useWhatsAppMessages(chatId: string | null) {
         (payload) => {
           const newMsg = payload.new as WppMessage
           setMessages((prev) => {
+            // Check if already exists by DB id
             if (prev.find((m) => m.id === newMsg.id)) return prev
+
+            // Check if same wa_message_id already exists (e.g. from fetchMessages)
+            if (newMsg.wa_message_id && prev.find((m) => m.wa_message_id === newMsg.wa_message_id)) return prev
+
+            // Check if this replaces an optimistic message
+            const optimisticIdx = prev.findIndex(
+              (m) => m.id.startsWith('optimistic-') &&
+                m.from_me === newMsg.from_me &&
+                m.text === newMsg.text
+            )
+
+            if (optimisticIdx >= 0) {
+              // Replace optimistic with real message
+              const updated = [...prev]
+              updated[optimisticIdx] = newMsg
+              return updated
+            }
+
             return [...prev, newMsg]
           })
         }
@@ -128,6 +147,7 @@ export function useWhatsAppMessages(chatId: string | null) {
         instance_id: '',
         wa_message_id: '',
         from_me: true,
+        sender: null,
         sender_name: null,
         sender_phone: null,
         text,
@@ -188,17 +208,58 @@ export function useWhatsAppMessages(chatId: string | null) {
         })
 
         if (!uploadRes.ok) throw new Error('Erro ao fazer upload')
-        const { url: fileUrl } = await uploadRes.json()
+        const uploadData = await uploadRes.json()
 
-        // 2. Send via messaging
+        // 2. Send via messaging (include file metadata for DB storage)
         await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'send_media',
             type,
-            file_url: fileUrl,
+            file_url: uploadData.url,
             caption,
+            reply_id: replyId,
+            file_name: uploadData.file_name || file.name,
+            mime_type: uploadData.mime_type || file.type,
+            file_size: uploadData.size || file.size,
+          }),
+        })
+      } finally {
+        setIsSending(false)
+      }
+    },
+    [chatId, isSending]
+  )
+
+  const sendAudio = useCallback(
+    async (file: File, replyId?: string) => {
+      if (!chatId || isSending) return
+      setIsSending(true)
+
+      try {
+        // 1. Upload to R2
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('instance_id', chatId)
+        formData.append('chat_id', chatId)
+
+        const uploadRes = await fetch('/api/whatsapp/media/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!uploadRes.ok) throw new Error('Erro ao fazer upload')
+        const uploadData = await uploadRes.json()
+
+        // 2. Send as PTT (voice note) — uses /send/ptt on UAZAPI
+        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_audio',
+            file_url: uploadData.url,
+            ptt: true,
             reply_id: replyId,
           }),
         })
@@ -250,6 +311,7 @@ export function useWhatsAppMessages(chatId: string | null) {
     loadMore,
     sendText,
     sendMedia,
+    sendAudio,
     react,
     deleteMessage,
     markRead,

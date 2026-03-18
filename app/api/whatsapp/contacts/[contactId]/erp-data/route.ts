@@ -64,6 +64,76 @@ export async function GET(
             .in("property_id", propertyIds)
 
           processes = procs || []
+
+          // Buscar tarefas UPLOAD pendentes dos processos activos
+          const activeProcessIds = processes
+            .filter((p: any) => ['in_progress', 'active'].includes(p.current_status))
+            .map((p: any) => p.id)
+
+          if (activeProcessIds.length > 0) {
+            // Buscar tarefas UPLOAD pendentes
+            const { data: pendingTasks } = await supabase
+              .from("proc_tasks")
+              .select("id, title, config, proc_instance_id, stage_name, action_type, status")
+              .in("proc_instance_id", activeProcessIds)
+              .in("status", ["pending", "in_progress"])
+
+            const taskIds = (pendingTasks || []).map((t: any) => t.id)
+
+            // Buscar subtarefas UPLOAD pendentes (config->type = 'upload')
+            let pendingSubtasks: any[] = []
+            if (taskIds.length > 0) {
+              const { data: subtasks } = await supabase
+                .from("proc_subtasks")
+                .select("id, title, config, proc_task_id, owner_id, is_completed")
+                .in("proc_task_id", taskIds)
+                .eq("is_completed", false)
+
+              pendingSubtasks = (subtasks || []).filter(
+                (st: any) => st.config?.type === "upload"
+              )
+            }
+
+            // Enriquecer processos com tarefas e subtarefas pendentes
+            for (const proc of processes) {
+              const procTasks = (pendingTasks || []).filter(
+                (t: any) => t.proc_instance_id === proc.id
+              )
+
+              // Tarefas UPLOAD directas (sem subtarefas)
+              proc.pending_upload_tasks = procTasks
+                .filter((t: any) => t.action_type === "UPLOAD" && t.status === "pending")
+                .map((t: any) => ({
+                  id: t.id,
+                  title: t.title,
+                  doc_type_id: t.config?.doc_type_id || null,
+                  stage_name: t.stage_name,
+                  type: "task" as const,
+                }))
+
+              // Subtarefas UPLOAD pendentes
+              const procTaskIds = procTasks.map((t: any) => t.id)
+              const procSubtasks = pendingSubtasks
+                .filter((st: any) => procTaskIds.includes(st.proc_task_id))
+                .map((st: any) => {
+                  const parentTask = procTasks.find((t: any) => t.id === st.proc_task_id)
+                  return {
+                    id: st.id,
+                    title: st.title,
+                    doc_type_id: st.config?.doc_type_id || null,
+                    stage_name: parentTask?.stage_name || null,
+                    type: "subtask" as const,
+                    proc_task_id: st.proc_task_id,
+                    owner_id: st.owner_id || null,
+                  }
+                })
+
+              proc.pending_upload_items = [
+                ...proc.pending_upload_tasks,
+                ...procSubtasks,
+              ]
+            }
+          }
         }
 
         ownerData = { ...owner, properties, processes }

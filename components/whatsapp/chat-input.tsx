@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
-import { Send, Paperclip, Smile, X, Image, Video, FileText } from 'lucide-react'
+import { Send, Paperclip, X, Image, Video, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -11,11 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { EmojiPicker } from './emoji-picker'
+import { AudioRecorder } from './audio-recorder'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface ChatInputProps {
   onSendText: (text: string) => void
   onSendMedia: (file: File, type: string, caption?: string) => void
+  onSendAudio?: (file: File) => void
   onSendPresence: () => void
   replyTo?: WppMessage | null
   onCancelReply?: () => void
@@ -25,6 +27,7 @@ interface ChatInputProps {
 export function ChatInput({
   onSendText,
   onSendMedia,
+  onSendAudio,
   onSendPresence,
   replyTo,
   onCancelReply,
@@ -32,6 +35,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('')
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string } | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const presenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -124,57 +128,76 @@ export function ChatInput({
 
       {/* Input area */}
       <div className="flex items-end gap-2 px-3 py-2">
-        <EmojiPicker onSelect={handleEmojiSelect} />
+        {!isRecording && (
+          <>
+            <EmojiPicker onSelect={handleEmojiSelect} />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
-              <Paperclip className="h-4.5 w-4.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
-            <DropdownMenuItem onClick={() => handleFileSelect('image/*', 'image')}>
-              <Image className="mr-2 h-4 w-4" />
-              Imagem
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleFileSelect('video/*', 'video')}>
-              <Video className="mr-2 h-4 w-4" />
-              Vídeo
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleFileSelect('.pdf,.doc,.docx,.xls,.xlsx', 'document')}>
-              <FileText className="mr-2 h-4 w-4" />
-              Documento
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
+                  <Paperclip className="h-4.5 w-4.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top">
+                <DropdownMenuItem onClick={() => handleFileSelect('image/*', 'image')}>
+                  <Image className="mr-2 h-4 w-4" />
+                  Imagem
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleFileSelect('video/*', 'video')}>
+                  <Video className="mr-2 h-4 w-4" />
+                  Vídeo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleFileSelect('.pdf,.doc,.docx,.xls,.xlsx', 'document')}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Documento
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={handleFileChange}
-        />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              title="Selecionar ficheiro"
+              onChange={handleFileChange}
+            />
 
-        <Textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => handleTextChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Escreva uma mensagem..."
-          className="min-h-[40px] max-h-[120px] resize-none flex-1"
-          rows={1}
-          disabled={disabled}
-        />
+            <Textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => handleTextChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Escreva uma mensagem..."
+              className="min-h-[40px] max-h-[120px] resize-none flex-1"
+              rows={1}
+              disabled={disabled}
+            />
+          </>
+        )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-9 w-9 flex-shrink-0 ${hasContent ? 'text-emerald-600 hover:text-emerald-700' : ''}`}
-          onClick={handleSend}
-          disabled={disabled || !hasContent}
-        >
-          <Send className="h-4.5 w-4.5" />
-        </Button>
+        {hasContent && !isRecording ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 flex-shrink-0 text-emerald-600 hover:text-emerald-700"
+            onClick={handleSend}
+            disabled={disabled}
+          >
+            <Send className="h-4.5 w-4.5" />
+          </Button>
+        ) : (
+          <AudioRecorder
+            onSend={(file) => {
+              if (onSendAudio) {
+                onSendAudio(file)
+              } else {
+                onSendMedia(file, 'audio')
+              }
+            }}
+            onStateChange={setIsRecording}
+            disabled={disabled}
+          />
+        )}
       </div>
     </div>
   )
