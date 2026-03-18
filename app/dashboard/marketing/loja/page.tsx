@@ -1,65 +1,236 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ShopTab } from '@/components/marketing/shop-tab'
 import { OrdersTab } from '@/components/marketing/orders-tab'
 import { GestaoAnalyticsTab } from '@/components/marketing/gestao-analytics-tab'
-import { ArrowLeft, ClipboardList, BarChart3 } from 'lucide-react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  ArrowLeft, ArrowRight, Store, ClipboardList, BarChart3, ShoppingCart, Settings,
+} from 'lucide-react'
 
+type View = 'hero' | 'shop' | 'orders'
 type OrdersView = 'orders' | 'analytics'
 
 export default function MarketingLojaPage() {
-  const [activeView, setActiveView] = useState<'shop' | 'orders'>('shop')
+  const router = useRouter()
+  const [view, setView] = useState<View>('hero')
   const [ordersTab, setOrdersTab] = useState<OrdersView>('orders')
+  const [cartCount, setCartCount] = useState(0)
+  const [showCartWarning, setShowCartWarning] = useState(false)
+  const pendingNavRef = useRef<string | null>(null)
+
+  const handleCartCountChange = useCallback((count: number) => {
+    setCartCount(count)
+  }, [])
+
+  // Track cart count in a ref so event listeners always have latest value
+  const cartCountRef = useRef(cartCount)
+  useEffect(() => { cartCountRef.current = cartCount }, [cartCount])
+
+  // 1. Browser beforeunload — warns on refresh/close/external nav
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (cartCountRef.current > 0) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
+  // 2. Intercept all <a> clicks in the page to catch sidebar/breadcrumb navigation
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (cartCountRef.current <= 0) return
+
+      const anchor = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return
+
+      // Only intercept internal navigation away from this page
+      if (href.startsWith('/dashboard/marketing/loja')) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      pendingNavRef.current = href
+      setShowCartWarning(true)
+    }
+
+    document.addEventListener('click', handler, true)
+    return () => document.removeEventListener('click', handler, true)
+  }, [])
+
+  const handleBackFromShop = () => {
+    if (cartCount > 0) {
+      pendingNavRef.current = null
+      setShowCartWarning(true)
+    } else {
+      setView('hero')
+    }
+  }
+
+  const confirmLeaveShop = () => {
+    setShowCartWarning(false)
+    const pendingNav = pendingNavRef.current
+    pendingNavRef.current = null
+
+    if (pendingNav) {
+      // Navigate to the intercepted link
+      router.push(pendingNav)
+    } else {
+      // Back to hero
+      setView('hero')
+    }
+  }
 
   return (
     <div>
-      {activeView === 'shop' ? (
-        <ShopTab onSwitchToOrders={() => setActiveView('orders')} showGerirLoja />
-      ) : (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-6 duration-400">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-4">
-            <Button variant="ghost" size="sm" onClick={() => setActiveView('shop')} className="gap-1.5 rounded-full">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar à Loja
-            </Button>
+      {/* ═══════════ HERO STATE ═══════════ */}
+      {view === 'hero' && (
+        <div className="animate-in fade-in duration-400">
+          <div className="relative overflow-hidden bg-neutral-900 rounded-2xl flex flex-col" style={{ minHeight: 'calc(100vh - 6rem)' }}>
+            <div
+              className="absolute inset-0 bg-cover bg-center opacity-35"
+              style={{
+                backgroundImage: `url('https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1600')`,
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/95 via-neutral-900/60 to-neutral-900/30" />
 
-            {/* Tab pills */}
-            <div className="inline-flex items-center gap-1.5 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-              <button
-                onClick={() => setOrdersTab('orders')}
-                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 ${
-                  ordersTab === 'orders'
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                Encomendas
-              </button>
-              <button
-                onClick={() => setOrdersTab('analytics')}
-                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 ${
-                  ordersTab === 'analytics'
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-                Análise
-              </button>
+            <a
+              href="/dashboard/marketing/loja/gerir"
+              className="absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Gerir Loja
+            </a>
+
+            <div className="relative z-10 flex flex-col justify-end flex-1 px-8 pb-10 sm:px-12 sm:pb-14">
+              <p className="text-neutral-400 text-sm font-medium tracking-widest uppercase mb-3">
+                Infinity Marketing
+              </p>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight">
+                Serviços de Marketing
+              </h2>
+              <p className="text-neutral-300 mt-3 text-base sm:text-lg leading-relaxed max-w-lg">
+                Fotografia, vídeo, design e materiais para elevar a apresentação dos seus imóveis.
+              </p>
+
+              <div className="flex items-center gap-3 mt-8">
+                <button
+                  onClick={() => setView('shop')}
+                  className="inline-flex items-center gap-2 bg-white text-neutral-900 px-7 py-3 rounded-full text-sm font-semibold hover:bg-neutral-100 transition-colors shadow-lg"
+                >
+                  <Store className="h-4 w-4" />
+                  Loja
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setView('orders')}
+                  className="inline-flex items-center gap-2 border border-white/30 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-white/10 transition-colors"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Encomendas
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* Content */}
-          <div key={ordersTab} className="animate-in fade-in duration-300">
-            {ordersTab === 'orders' && <OrdersTab />}
-            {ordersTab === 'analytics' && <GestaoAnalyticsTab />}
           </div>
         </div>
       )}
+
+      {/* ═══════════ SHOP STATE ═══════════ */}
+      {view === 'shop' && (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-400">
+          <ShopTab
+            showHero={false}
+            showGerirLoja={false}
+            onBack={handleBackFromShop}
+            onCartCountChange={handleCartCountChange}
+          />
+        </div>
+      )}
+
+      {/* ═══════════ ORDERS STATE ═══════════ */}
+      {view === 'orders' && (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-400">
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+            {/* Header — back + tabs */}
+            <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
+              <button
+                onClick={() => setView('hero')}
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shadow-sm"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+
+              <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+                <button
+                  onClick={() => setOrdersTab('orders')}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
+                    ordersTab === 'orders'
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Encomendas
+                </button>
+                <button
+                  onClick={() => setOrdersTab('analytics')}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
+                    ordersTab === 'analytics'
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Análise
+                </button>
+              </div>
+            </div>
+
+            {/* Content — scrollable */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div key={ordersTab} className="animate-in fade-in duration-300">
+                {ordersTab === 'orders' && <OrdersTab />}
+                {ordersTab === 'analytics' && <GestaoAnalyticsTab />}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════ CART WARNING DIALOG ═══════════ */}
+      <AlertDialog open={showCartWarning} onOpenChange={setShowCartWarning}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Carrinho com itens
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem {cartCount} {cartCount === 1 ? 'item' : 'itens'} no carrinho. Se sair da loja, o carrinho será perdido. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" onClick={() => { pendingNavRef.current = null }}>
+              Ficar na Loja
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLeaveShop} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sair e Perder Carrinho
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

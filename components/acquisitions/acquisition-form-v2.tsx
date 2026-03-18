@@ -9,7 +9,7 @@ import type { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { SheetHeader, SheetFooter, SheetTitle } from '@/components/ui/sheet'
+import { DialogHeader, DialogFooter, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Check, Sparkles, Save, X } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
@@ -461,11 +461,11 @@ export function AcquisitionFormV2({
         <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
 
         {/* Header */}
-        <SheetHeader className="flex-shrink-0 border-b px-6 py-4">
+        <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">
+            <DialogTitle className="text-lg font-semibold">
               {draftId ? 'Retomar Angariação' : 'Nova Angariação'}
-            </SheetTitle>
+            </DialogTitle>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -501,7 +501,7 @@ export function AcquisitionFormV2({
               </Button>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
         {/* Content with Tabs */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -526,7 +526,7 @@ export function AcquisitionFormV2({
         </div>
 
         {/* Footer */}
-        <SheetFooter className="flex-shrink-0 border-t px-6 py-4">
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
           <div className="flex items-center justify-end w-full">
             <Button
               type="button"
@@ -546,7 +546,7 @@ export function AcquisitionFormV2({
               )}
             </Button>
           </div>
-        </SheetFooter>
+        </DialogFooter>
       </form>
     </Form>
   )

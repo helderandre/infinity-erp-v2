@@ -153,6 +153,7 @@ export function RequisitionFormDialog({
         delivery_notes: deliveryNotes || null,
         requested_delivery_date: requestedDate || null,
         priority: priority as any,
+        payment_method: 'conta_corrente' as const,
       }
       await onSubmit(data)
       setCart([])

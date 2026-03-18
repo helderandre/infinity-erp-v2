@@ -1,9 +1,9 @@
 'use client'
 
 import {
-  Sheet,
-  SheetContent,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog'
 import { AcquisitionFormV2 } from './acquisition-form-v2'
 import type { AcquisitionFormData } from '@/lib/validations/acquisition'
 
@@ -29,11 +29,9 @@ export function AcquisitionDialog({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        showCloseButton={false}
-        className="!max-w-[800px] w-full p-0 gap-0 flex flex-col"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-[800px] w-full h-[90vh] p-0 gap-0 flex flex-col rounded-2xl overflow-hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -50,7 +48,7 @@ export function AcquisitionDialog({
             onClose={handleClose}
           />
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

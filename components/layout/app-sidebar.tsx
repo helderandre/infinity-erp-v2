@@ -44,6 +44,8 @@ import {
   TrendingUp,
   Wallet,
   MapPin,
+  Handshake,
+  UserCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -115,17 +117,17 @@ export const bottomItems = [
 // ─── Collapsible groups ──────────────────────────────────
 
 export const negocioItems = [
-  { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
   { title: 'Leads', icon: Zap, href: '/dashboard/leads', permission: 'leads' },
-  { title: 'Visitas', icon: MapPin, href: '/dashboard/visitas', permission: 'properties' },
+  { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
-  { title: 'Documentos', icon: FileText, href: '/dashboard/documentos', permission: 'documents' },
+  { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
   { title: 'Proprietários', icon: UserCircle, href: '/dashboard/proprietarios', permission: 'owners' },
+  { title: 'Documentos', icon: FileText, href: '/dashboard/documentos', permission: 'documents' },
 ]
 
 export const pessoasItems = [
   { title: 'Consultores', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
-  { title: 'Equipas', icon: UsersRound, href: '/dashboard/equipas', permission: 'teams' },
+  { title: 'Parceiros', icon: Handshake, href: '/dashboard/parceiros', permission: 'consultants' },
 ]
 
 export const financeiroItems = [
@@ -134,7 +136,6 @@ export const financeiroItems = [
   { title: 'Rankings', icon: TrendingUp, href: '/dashboard/comissoes/rankings', permission: 'commissions' },
   { title: 'Compliance', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
   { title: 'Relatórios', icon: BarChart3, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
-  { title: 'Definições', icon: Settings, href: '/dashboard/comissoes/definicoes', permission: 'commissions' },
 ]
 
 export const recrutamentoItems = [

@@ -88,9 +88,9 @@ export function VisitForm({
     const fetchData = async () => {
       try {
         const [propRes, leadRes, consultRes] = await Promise.all([
-          fetch('/api/properties?limit=200&status=active'),
+          fetch('/api/properties?limit=200'),
           fetch('/api/leads?limit=200'),
-          fetch('/api/users?role=consultant&limit=100'),
+          fetch('/api/consultants?per_page=100&status=active'),
         ])
 
         if (propRes.ok) {
@@ -109,8 +109,8 @@ export function VisitForm({
           setLeads(
             (leadJson.data || leadJson || []).map((l: any) => ({
               id: l.id,
-              name: l.full_name,
-              telemovel: l.telemovel || l.telemovel,
+              name: l.nome || l.full_name || l.name || '—',
+              telemovel: l.telemovel,
             }))
           )
         }
@@ -229,7 +229,7 @@ export function VisitForm({
               <SelectContent>
                 {leads.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.full_name}{l.telemovel ? ` (${l.telemovel})` : ''}
+                    {l.name}{l.telemovel ? ` (${l.telemovel})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

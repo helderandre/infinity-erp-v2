@@ -190,9 +190,9 @@ export function OrdersTab() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[160px] rounded-full bg-muted/50 border-0 h-9 text-sm">
             <SelectValue placeholder="Tipo" />

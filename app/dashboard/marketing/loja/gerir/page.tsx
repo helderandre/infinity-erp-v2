@@ -21,8 +21,7 @@ export default function GerirLojaPage() {
   return (
     <div>
       {/* ─── Hero Card ─── */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        {/* Gradient overlay */}
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
 
         {/* Back button */}
@@ -34,7 +33,7 @@ export default function GerirLojaPage() {
           Voltar
         </Link>
 
-        <div className="relative z-10 px-8 pt-14 pb-10 sm:px-10 sm:pt-16 sm:pb-10">
+        <div className="relative z-10 px-8 pt-14 pb-8 sm:px-10 sm:pt-16 sm:pb-8">
           <div className="flex items-center gap-2 mb-2">
             <Settings className="h-5 w-5 text-neutral-400" />
             <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">
@@ -50,39 +49,39 @@ export default function GerirLojaPage() {
         </div>
       </div>
 
-      {/* ─── Pill Toggle Navigation ─── */}
-      <div className="mt-6">
-        <div className="inline-flex items-center gap-2 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-          {TABS.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.key
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`
-                  inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium
-                  transition-colors duration-300
-                  ${isActive
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  }
-                `}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            )
-          })}
+      {/* ─── Card with tabs inside ─── */}
+      <div className="rounded-2xl border shadow-lg bg-card overflow-hidden mt-4">
+        {/* Tab navigation inside the card */}
+        <div className="px-5 pt-5 pb-4 border-b">
+          <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+            {TABS.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                    isActive
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* ─── Content ─── */}
-      <div className="mt-6 pb-6">
-        <div className="rounded-xl border border-border/50 bg-background p-4 sm:p-6">
-          {activeTab === 'catalog' && <CatalogTab />}
-          {activeTab === 'packs' && <PacksTab />}
-          {activeTab === 'stock' && <StockShopTab />}
+        {/* Content with generous padding */}
+        <div className="p-6 sm:p-8">
+          <div key={activeTab} className="animate-in fade-in duration-300">
+            {activeTab === 'catalog' && <CatalogTab />}
+            {activeTab === 'packs' && <PacksTab />}
+            {activeTab === 'stock' && <StockShopTab />}
+          </div>
         </div>
       </div>
     </div>

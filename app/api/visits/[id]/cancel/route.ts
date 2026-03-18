@@ -46,7 +46,7 @@ export async function POST(
     // Update calendar event title to indicate cancellation
     if (data?.calendar_event_id) {
       await admin
-        .from('calendar_events')
+        .from('temp_calendar_events')
         .update({
           title: `[CANCELADA] ${data.notes || 'Visita cancelada'}`,
           color: '#ef4444',

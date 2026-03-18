@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, checkout_group_id } = parsed.data
+    const { items, checkout_group_id, payment_method, property_bundle_data } = parsed.data
     const total_amount = items.reduce((sum, item) => sum + item.price, 0)
 
     // Create order
@@ -68,6 +68,8 @@ export async function POST(request: Request) {
         agent_id: user.id,
         total_amount,
         status: 'pending',
+        payment_method,
+        ...(property_bundle_data ? { property_bundle_data } : {}),
         ...(checkout_group_id ? { checkout_group_id } : {}),
       })
       .select()
@@ -160,30 +162,32 @@ export async function POST(request: Request) {
       }
     }
 
-    // Debit conta corrente
-    // Get current balance
-    const { data: lastTx } = await supabase
-      .from('conta_corrente_transactions')
-      .select('balance_after')
-      .eq('agent_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    // Debit conta corrente (skip if payment method is invoice)
+    if (payment_method !== 'invoice') {
+      // Get current balance
+      const { data: lastTx } = await supabase
+        .from('conta_corrente_transactions')
+        .select('balance_after')
+        .eq('agent_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
 
-    const currentBalance = lastTx?.balance_after ?? 0
-    const newBalance = currentBalance - total_amount
+      const currentBalance = lastTx?.balance_after ?? 0
+      const newBalance = currentBalance - total_amount
 
-    await supabase.from('conta_corrente_transactions').insert({
-      agent_id: user.id,
-      type: 'DEBIT',
-      category: 'marketing_purchase',
-      amount: total_amount,
-      description: `Encomenda Marketing — ${items.map(i => i.name).join(', ')}`,
-      reference_id: order.id,
-      reference_type: 'marketing_order',
-      balance_after: newBalance,
-      created_by: user.id,
-    })
+      await supabase.from('conta_corrente_transactions').insert({
+        agent_id: user.id,
+        type: 'DEBIT',
+        category: 'marketing_purchase',
+        amount: total_amount,
+        description: `Encomenda Marketing — ${items.map(i => i.name).join(', ')}`,
+        reference_id: order.id,
+        reference_type: 'marketing_order',
+        balance_after: newBalance,
+        created_by: user.id,
+      })
+    }
 
     return NextResponse.json(order, { status: 201 })
   } catch (error) {

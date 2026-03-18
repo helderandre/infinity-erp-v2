@@ -94,7 +94,7 @@ export async function PUT(
       const endDate = new Date(new Date(startDate).getTime() + duration * 60000).toISOString()
 
       await admin
-        .from('calendar_events')
+        .from('temp_calendar_events')
         .update({ start_date: startDate, end_date: endDate })
         .eq('id', data.calendar_event_id)
     }
@@ -130,7 +130,7 @@ export async function DELETE(
     // Delete calendar event if exists
     if (visit?.calendar_event_id) {
       await admin
-        .from('calendar_events')
+        .from('temp_calendar_events')
         .delete()
         .eq('id', visit.calendar_event_id)
     }

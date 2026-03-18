@@ -1,6 +1,6 @@
 'use client'
 
-import { Phone, Mail, Building2 } from 'lucide-react'
+import { Phone, Mail, Building2, UserCheck } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +41,9 @@ interface NegocioSidebarProps {
   onEstadoChange: (value: string) => void
   onQuickFillApply: (fields: Record<string, unknown>) => Promise<void>
   onStartAcquisition?: () => void
+  onStartAcompanhamento?: () => void
+  existingAcompanhamentoId?: string | null
+  leadId?: string
 }
 
 export function NegocioSidebar({
@@ -54,8 +57,12 @@ export function NegocioSidebar({
   onEstadoChange,
   onQuickFillApply,
   onStartAcquisition,
+  onStartAcompanhamento,
+  existingAcompanhamentoId,
+  leadId,
 }: NegocioSidebarProps) {
   const showAcquisitionButton = ['Venda', 'Compra e Venda'].includes(tipo)
+  const showAcompanhamentoButton = ['Compra', 'Compra e Venda'].includes(tipo)
   return (
     <Card className="w-full">
       <CardContent className="pt-6 pb-6 space-y-6">
@@ -160,6 +167,35 @@ export function NegocioSidebar({
               <Building2 className="mr-2 h-4 w-4" />
               Iniciar Angariação
             </Button>
+          </div>
+        )}
+
+        {/* Acompanhamento (Compra) */}
+        {showAcompanhamentoButton && (
+          <div className={showAcquisitionButton ? '' : 'border-t pt-4'}>
+            {existingAcompanhamentoId && leadId ? (
+              <Button
+                type="button"
+                variant="default"
+                className="w-full"
+                asChild
+              >
+                <a href={`/dashboard/leads/${leadId}/acompanhamentos/${existingAcompanhamentoId}`}>
+                  <UserCheck className="mr-2 h-4 w-4" />
+                  Ver Acompanhamento
+                </a>
+              </Button>
+            ) : onStartAcompanhamento ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onStartAcompanhamento}
+              >
+                <UserCheck className="mr-2 h-4 w-4" />
+                Iniciar Acompanhamento
+              </Button>
+            ) : null}
           </div>
         )}
 

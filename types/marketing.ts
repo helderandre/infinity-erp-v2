@@ -250,3 +250,81 @@ export interface GestaoHistoryItem {
   amount?: number
   metadata: Record<string, unknown>
 }
+
+// --- Campaigns ---
+
+export type CampaignStatus = 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected' | 'cancelled'
+
+export interface MarketingCampaign {
+  id: string
+  agent_id: string
+  property_id: string | null
+  promote_url: string | null
+  objective: string
+  target_zone: string | null
+  target_age_min: number | null
+  target_age_max: number | null
+  target_interests: string | null
+  budget_type: 'daily' | 'total'
+  budget_amount: number
+  duration_days: number
+  total_cost: number
+  creative_notes: string | null
+  status: CampaignStatus
+  rejection_reason: string | null
+  checkout_group_id: string | null
+  payment_method: string
+  created_at: string
+  updated_at: string
+  // Joined
+  agent?: { id: string; commercial_name: string }
+  property?: { id: string; title: string; slug: string } | null
+}
+
+// --- Cart types for shop (shared with shop-tab) ---
+
+export interface CartPropertyBundle {
+  type: 'property_bundle'
+  propertyId: string | null
+  propertyInfo: {
+    address: string
+    postal_code: string
+    city: string
+    parish: string
+    floor_door?: string
+    access_instructions?: string
+    property_type?: string
+    typology?: string
+    area_m2?: number
+    has_exteriors: boolean
+    has_facades: boolean
+    is_occupied: boolean
+    is_staged: boolean
+    parking_available: boolean
+    number_of_divisions?: number
+  }
+  propertyTitle: string
+  services: Array<{
+    service: MarketingCatalogItem
+    selectedAddons: MarketingCatalogAddon[]
+  }>
+}
+
+export interface CartCampaignItem {
+  type: 'campaign'
+  campaignData: {
+    objective: string
+    property_id?: string
+    promote_url?: string
+    target_zone?: string
+    target_age_min?: number
+    target_age_max?: number
+    target_interests?: string
+    budget_type: 'daily' | 'total'
+    budget_amount: number
+    duration_days: number
+    creative_notes?: string
+  }
+  totalCost: number
+  label: string
+}

@@ -55,6 +55,7 @@ export const createRequisitionSchema = z.object({
   requested_delivery_date: z.string().optional().nullable(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
   checkout_group_id: z.string().optional().nullable(),
+  payment_method: z.enum(['conta_corrente', 'invoice']).default('conta_corrente'),
 })
 
 export const createSupplierSchema = z.object({

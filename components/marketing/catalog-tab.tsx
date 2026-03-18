@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMarketingCatalog } from '@/hooks/use-marketing-catalog'
-import { MARKETING_CATEGORIES } from '@/lib/constants'
+import { MARKETING_CATEGORIES, BILLING_CYCLE_LABELS } from '@/lib/constants'
 import { formatCurrency } from '@/lib/constants'
 import type { MarketingCatalogItem, MarketingCategory } from '@/types/marketing'
 import { CatalogFormDialog } from './catalog-form-dialog'
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Separator } from '@/components/ui/separator'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table'
@@ -21,10 +22,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle
+} from '@/components/ui/sheet'
+import {
   Plus, Search, Pencil, Trash2, Camera, Video, Palette,
-  Package, Megaphone, MoreHorizontal, Calendar, Building2, Share2, Puzzle
+  Package, Megaphone, MoreHorizontal, Calendar, Building2, Share2, Puzzle, Clock, Repeat
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   photography: Camera,
@@ -42,6 +47,7 @@ export function CatalogTab() {
   const [editItem, setEditItem] = useState<MarketingCatalogItem | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [addonsItem, setAddonsItem] = useState<MarketingCatalogItem | null>(null)
+  const [sheetItem, setSheetItem] = useState<MarketingCatalogItem | null>(null)
 
   const handleCreate = async (data: any) => {
     try {
@@ -69,6 +75,7 @@ export function CatalogTab() {
       await deleteItem(deleteId)
       toast.success('Serviço desactivado')
       setDeleteId(null)
+      if (sheetItem?.id === deleteId) setSheetItem(null)
     } catch (e: any) {
       toast.error(e.message || 'Erro ao eliminar serviço')
     }
@@ -77,34 +84,32 @@ export function CatalogTab() {
   return (
     <div className="space-y-6">
       {/* Filters + Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-2 flex-1 w-full sm:w-auto">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar serviços..."
-              className="pl-9 h-9 text-sm rounded-full bg-muted/50 border-0 focus-visible:ring-1"
-              value={filters.search || ''}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            />
-          </div>
-          <Select
-            value={filters.category || 'all'}
-            onValueChange={(v) => setFilters({ ...filters, category: v === 'all' ? '' : v as MarketingCategory })}
-          >
-            <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {Object.entries(MARKETING_CATEGORIES).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar serviços..."
+            className="pl-9 h-9 text-sm rounded-full bg-muted/50 border-0"
+            value={filters.search || ''}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          />
         </div>
-        <Button className="rounded-full" onClick={() => { setEditItem(null); setFormOpen(true) }}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Select
+          value={filters.category || 'all'}
+          onValueChange={(v) => setFilters({ ...filters, category: v === 'all' ? '' : v as MarketingCategory })}
+        >
+          <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0">
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            {Object.entries(MARKETING_CATEGORIES).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" className="rounded-full ml-auto" onClick={() => { setEditItem(null); setFormOpen(true) }}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo Serviço
         </Button>
       </div>
@@ -112,7 +117,7 @@ export function CatalogTab() {
       {/* Table */}
       {loading ? (
         <div className="space-y-2">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
         </div>
       ) : items.length === 0 ? (
         <EmptyState
@@ -122,18 +127,17 @@ export function CatalogTab() {
           action={{ label: 'Novo Serviço', onClick: () => { setEditItem(null); setFormOpen(true) } }}
         />
       ) : (
-        <div className="rounded-xl border overflow-hidden">
+        <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="font-semibold">Serviço</TableHead>
-                <TableHead className="font-semibold">Categoria</TableHead>
-                <TableHead className="text-right font-semibold">Preço</TableHead>
-                <TableHead className="text-center font-semibold">Prazo</TableHead>
-                <TableHead className="text-center font-semibold">Add-ons</TableHead>
-                <TableHead className="text-center font-semibold">Flags</TableHead>
-                <TableHead className="text-center font-semibold">Estado</TableHead>
-                <TableHead className="w-[100px]" />
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Serviço</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Categoria</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Preço</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Prazo</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Add-ons</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Acções</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -141,88 +145,75 @@ export function CatalogTab() {
                 const Icon = CATEGORY_ICONS[item.category] || Package
                 const addonCount = (item.addons || []).length
                 return (
-                  <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
+                  <TableRow
+                    key={item.id}
+                    className="transition-colors duration-200 hover:bg-muted/30 cursor-pointer"
+                    onClick={() => setSheetItem(item)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted/80">
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{item.name}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1 max-w-[300px]">{item.description}</p>
-                          )}
-                        </div>
+                        {item.thumbnail ? (
+                          <img src={item.thumbnail} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <p className="text-sm font-medium truncate max-w-[220px]">{item.name}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                        <Icon className="h-3 w-3" />
+                      <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 bg-muted/50">
                         {MARKETING_CATEGORIES[item.category]}
-                      </span>
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {formatCurrency(item.price)}
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
-                      {item.estimated_delivery_days}d
+                    <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.price)}</TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">
+                      {item.estimated_delivery_days > 0 ? `${item.estimated_delivery_days}d` : '—'}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1.5 text-xs rounded-full"
-                        onClick={() => setAddonsItem(item)}
-                      >
-                        <Puzzle className="h-3.5 w-3.5" />
-                        {addonCount > 0 ? addonCount : 'Gerir'}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {item.requires_scheduling && (
-                          <span title="Requer Agendamento" className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
-                            <Calendar className="h-3.5 w-3.5 text-blue-500" />
-                          </span>
-                        )}
-                        {item.requires_property && (
-                          <span title="Requer Imóvel" className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/10">
-                            <Building2 className="h-3.5 w-3.5 text-amber-500" />
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.is_active ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Activo
-                        </span>
+                      {addonCount > 0 ? (
+                        <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5">
+                          {addonCount}
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full">
-                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                          Inactivo
-                        </span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full"
+                      {item.is_active ? (
+                        <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                          Activo
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
+                          Inactivo
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setAddonsItem(item)}
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Add-ons"
+                        >
+                          <Puzzle className="h-3.5 w-3.5" />
+                        </button>
+                        <button
                           onClick={() => { setEditItem(item); setFormOpen(true) }}
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Editar"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
+                        </button>
+                        <button
                           onClick={() => setDeleteId(item.id)}
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                          title="Eliminar"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -232,6 +223,125 @@ export function CatalogTab() {
           </Table>
         </div>
       )}
+
+      {/* ─── Detail Sheet ─── */}
+      <Sheet open={!!sheetItem} onOpenChange={(open) => !open && setSheetItem(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          {sheetItem && (() => {
+            const Icon = CATEGORY_ICONS[sheetItem.category] || Package
+            return (
+              <>
+                <SheetHeader className="space-y-3">
+                  {sheetItem.thumbnail && (
+                    <div className="relative aspect-video rounded-xl overflow-hidden -mx-2">
+                      <img src={sheetItem.thumbnail} alt={sheetItem.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <SheetTitle className="text-lg">{sheetItem.name}</SheetTitle>
+                </SheetHeader>
+
+                <div className="mt-4 space-y-5">
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="rounded-full text-[11px] gap-1">
+                      <Icon className="h-3 w-3" />{MARKETING_CATEGORIES[sheetItem.category]}
+                    </Badge>
+                    {sheetItem.is_subscription && (
+                      <Badge className="rounded-full text-[11px] gap-1 bg-blue-100 text-blue-700 hover:bg-blue-100">
+                        <Repeat className="h-3 w-3" />Subscrição
+                      </Badge>
+                    )}
+                    {sheetItem.requires_scheduling && (
+                      <Badge variant="secondary" className="rounded-full text-[11px] gap-1">
+                        <Calendar className="h-3 w-3" />Agendamento
+                      </Badge>
+                    )}
+                    {sheetItem.requires_property && (
+                      <Badge variant="secondary" className="rounded-full text-[11px] gap-1">
+                        <Building2 className="h-3 w-3" />Imóvel
+                      </Badge>
+                    )}
+                    {sheetItem.estimated_delivery_days > 0 && (
+                      <Badge variant="secondary" className="rounded-full text-[11px] gap-1">
+                        <Clock className="h-3 w-3" />{sheetItem.estimated_delivery_days} dias
+                      </Badge>
+                    )}
+                    {!sheetItem.is_active && (
+                      <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">Inactivo</Badge>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {sheetItem.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{sheetItem.description}</p>
+                  )}
+
+                  <Separator />
+
+                  {/* Price */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Preço</span>
+                    <span className="text-lg font-bold">
+                      {formatCurrency(sheetItem.price)}
+                      {sheetItem.is_subscription && (
+                        <span className="text-xs text-muted-foreground font-normal ml-1">
+                          {BILLING_CYCLE_LABELS[sheetItem.billing_cycle || 'monthly'] || '/mês'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Addons */}
+                  {(sheetItem.addons || []).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add-ons ({sheetItem.addons!.length})</p>
+                      <div className="rounded-xl border bg-muted/20 divide-y">
+                        {sheetItem.addons!.map((addon) => (
+                          <div key={addon.id} className="flex items-center justify-between px-3.5 py-2.5">
+                            <span className="text-sm">{addon.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {addon.price === 0 ? 'Grátis' : `+${formatCurrency(addon.price)}`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-full"
+                      onClick={() => { setEditItem(sheetItem); setFormOpen(true); setSheetItem(null) }}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-full"
+                      onClick={() => { setAddonsItem(sheetItem); setSheetItem(null) }}
+                    >
+                      <Puzzle className="mr-1.5 h-3.5 w-3.5" />
+                      Add-ons
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      onClick={() => { setDeleteId(sheetItem.id); setSheetItem(null) }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
 
       {/* Form Dialog */}
       <CatalogFormDialog
@@ -253,7 +363,7 @@ export function CatalogTab() {
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Desactivar serviço</AlertDialogTitle>
             <AlertDialogDescription>
@@ -261,8 +371,8 @@ export function CatalogTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-full bg-red-600 hover:bg-red-700">
               Desactivar
             </AlertDialogAction>
           </AlertDialogFooter>

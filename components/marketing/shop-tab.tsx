@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useMarketingCatalog } from '@/hooks/use-marketing-catalog'
 import { useMarketingPacks } from '@/hooks/use-marketing-packs'
 import { useEncomendaProducts } from '@/hooks/use-encomenda-products'
 import { MARKETING_CATEGORIES, BILLING_CYCLE_LABELS } from '@/lib/constants'
 import { formatCurrency } from '@/lib/constants'
 import type { MarketingCatalogItem, MarketingCategory, MarketingCatalogAddon, MarketingPack } from '@/types/marketing'
+import type { CartPropertyBundle, CartCampaignItem } from '@/types/marketing'
 import type { Product, ProductCategory } from '@/types/encomenda'
 import { OrderFormDialog } from './order-form-dialog'
+import { PropertyServiceDialog } from './property-service-dialog'
+import { CampaignRequestDialog } from './campaign-request-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +26,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import {
   Camera, Video, Palette, Package, Megaphone, Share2, MoreHorizontal,
   Search, Calendar, Building2, Clock, ShoppingCart, ChevronDown, ChevronUp,
-  Repeat, Gift, X, Plus, Minus, Boxes, ArrowRight, Sparkles, Puzzle
+  Repeat, Gift, X, Plus, Minus, Boxes, ArrowLeft, ArrowRight, Sparkles, Puzzle
 } from 'lucide-react'
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -65,19 +69,25 @@ export interface CartMaterialItem {
   categoryName: string
 }
 
-export type CartItem = CartServiceItem | CartPackItem | CartMaterialItem
+export type CartItem = CartServiceItem | CartPackItem | CartMaterialItem | CartPropertyBundle | CartCampaignItem
 
 export function cartItemPrice(item: CartItem): number {
   if (item.type === 'service') {
     return item.service.price + item.selectedAddons.reduce((s, a) => s + a.price, 0)
   }
   if (item.type === 'pack') return item.pack.price
+  if (item.type === 'property_bundle') {
+    return item.services.reduce((sum, s) => sum + s.service.price + s.selectedAddons.reduce((a, ad) => a + ad.price, 0), 0)
+  }
+  if (item.type === 'campaign') return item.totalCost
   return item.product.sell_price * item.quantity
 }
 
 export function cartItemName(item: CartItem): string {
   if (item.type === 'service') return item.service.name
   if (item.type === 'pack') return item.pack.name
+  if (item.type === 'property_bundle') return `Serviços — ${item.propertyTitle}`
+  if (item.type === 'campaign') return item.label
   return item.product.name
 }
 
@@ -90,9 +100,12 @@ type DetailItem =
 interface ShopTabProps {
   onSwitchToOrders?: () => void
   showGerirLoja?: boolean
+  showHero?: boolean
+  onBack?: () => void
+  onCartCountChange?: (count: number) => void
 }
 
-export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
+export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBack, onCartCountChange }: ShopTabProps) {
   const { items, loading, filters, setFilters } = useMarketingCatalog()
   const { packs, loading: packsLoading } = useMarketingPacks()
   const { products, categories: materialCategories, loading: materialsLoading } = useEncomendaProducts()
@@ -100,6 +113,11 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCheckout, setShowCheckout] = useState(false)
+
+  // Property & Campaign dialogs
+  const [showPropertyDialog, setShowPropertyDialog] = useState(false)
+  const [showCampaignDialog, setShowCampaignDialog] = useState(false)
+  const [shopSection, setShopSection] = useState<'imovel' | 'services' | 'materials' | 'campanhas'>('imovel')
 
   // Per-card addon selection state
   const [addonSelections, setAddonSelections] = useState<Record<string, boolean>>({})
@@ -117,6 +135,10 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
   const activeItems = items.filter(i => i.is_active)
   const activePacks = (packs || []).filter((p: MarketingPack) => p.is_active)
   const activeProducts = products.filter(p => p.is_active)
+
+  // Split catalog items into property-requiring vs general
+  const propertyServices = activeItems.filter(i => i.requires_property)
+  const generalServices = activeItems.filter(i => !i.requires_property)
 
   const filteredProducts = useMemo(() => {
     let result = activeProducts
@@ -150,6 +172,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + cartItemPrice(item), 0), [cart])
   const cartCount = cart.reduce((sum, item) => sum + (item.type === 'material' ? item.quantity : 1), 0)
 
+  useEffect(() => { onCartCountChange?.(cartCount) }, [cartCount, onCartCountChange])
+
   // Pack savings calculation for hero
   const maxSavingsPercent = useMemo(() => {
     let max = 0
@@ -162,6 +186,19 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
     }
     return max
   }, [activePacks])
+
+  // Filter general services by current filters
+  const filteredGeneralServices = useMemo(() => {
+    let result = generalServices
+    if (filters.search?.trim()) {
+      const q = filters.search.toLowerCase()
+      result = result.filter(s => s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q))
+    }
+    if (filters.category) {
+      result = result.filter(s => s.category === filters.category)
+    }
+    return result
+  }, [generalServices, filters.search, filters.category])
 
   const toggleAddon = (addonId: string) => {
     setAddonSelections(prev => ({ ...prev, [addonId]: !prev[addonId] }))
@@ -201,6 +238,14 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
     setMaterialQtys(prev => ({ ...prev, [product.id]: 1 }))
   }
 
+  const addPropertyBundleToCart = (bundle: CartPropertyBundle) => {
+    setCart(prev => [...prev, bundle])
+  }
+
+  const addCampaignToCart = (item: CartCampaignItem) => {
+    setCart(prev => [...prev, item])
+  }
+
   const removeFromCart = (index: number) => {
     setCart(prev => prev.filter((_, i) => i !== index))
   }
@@ -231,7 +276,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
   return (
     <div>
       {/* ─── Hero Banner ─── */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
+      {showHero && <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-40"
           style={{
@@ -261,13 +306,6 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             Fotografia, vídeo, design e materiais para elevar a apresentação dos seus imóveis.
           </p>
           <div className="flex items-center gap-3 mt-8">
-            <button
-              onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="inline-flex items-center gap-2 bg-white text-neutral-900 px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-neutral-100 transition-colors"
-            >
-              Explorar
-              <ArrowRight className="h-4 w-4" />
-            </button>
             {onSwitchToOrders && (
               <button
                 onClick={onSwitchToOrders}
@@ -279,85 +317,96 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* ─── Content ─── */}
-      <div className="space-y-12 mt-8">
+      {/* ─── Tab Content ─── */}
+      <div key={shopSection} className={`animate-in fade-in duration-300 ${showHero ? 'mt-6' : ''}`}>
 
-        {/* ═══════════ PACKS ═══════════ */}
-        {activePacks.length > 0 && (
-          <section id="packs">
-            <div className="flex items-center gap-3 mb-6">
-              <h3 className="text-xl font-bold tracking-tight">Packs</h3>
-              <Separator orientation="vertical" className="h-5" />
-              <span className="text-sm text-muted-foreground">
-                {maxSavingsPercent > 0 ? `Poupe até ${maxSavingsPercent}%` : 'Preços especiais'}
-              </span>
-            </div>
+        {/* ═══════════ TAB: IMÓVEL ═══════════ */}
+        {shopSection === 'imovel' && <section>
+          <div
+            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300"
+            style={{ height: 'calc(100vh - 7rem)' }}
+            onClick={() => setShowPropertyDialog(true)}
+          >
+            <img
+              src="https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1600"
+              alt="Serviços para Imóvel"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-neutral-900/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
 
-            {packsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {[...Array(4)].map((_, i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {activePacks.map((pack: MarketingPack) => {
-                  const itemsTotal = (pack.items || []).reduce((sum, i) => sum + i.price, 0)
-                  const savingsPercent = itemsTotal > 0 ? Math.round(((itemsTotal - pack.price) / itemsTotal) * 100) : 0
-
+            {/* Tab pills overlaid on image */}
+            <div className="absolute top-4 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+                {onBack && (
+                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-all">
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+                {([
+                  { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                  { key: 'services' as const, label: 'Serviços', icon: Camera },
+                  { key: 'materials' as const, label: 'Produtos', icon: Package },
+                  { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+                ]).map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = shopSection === tab.key
                   return (
-                    <div
-                      key={pack.id}
-                      className="group relative flex flex-col bg-background rounded-xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
-                      onClick={() => openDetail({ kind: 'pack', pack })}
-                    >
-                      {/* Image */}
-                      <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
-                        <img
-                          src={pack.thumbnail || 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800'}
-                          alt={pack.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        {/* Discount badge top-left */}
-                        {savingsPercent > 0 && (
-                          <div className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                            -{savingsPercent}%
-                          </div>
-                        )}
-                        {/* Price glassmorphism tag bottom-right */}
-                        <div className="absolute bottom-3 right-3">
-                          <span className="inline-flex items-center gap-1.5 bg-neutral-900 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-lg">
-                            {formatCurrency(pack.price)}
-                            {itemsTotal > 0 && itemsTotal !== pack.price && (
-                              <span className="text-white/60 text-xs line-through font-normal">{formatCurrency(itemsTotal)}</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Info — minimal */}
-                      <div className="p-3.5">
-                        <h4 className="font-semibold text-sm leading-snug">{pack.name}</h4>
-                      </div>
-                    </div>
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    </button>
                   )
                 })}
               </div>
-            )}
-          </section>
-        )}
-
-        {/* ═══════════ SERVICES ═══════════ */}
-        <section id="services">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <h3 className="text-xl font-bold tracking-tight">Serviços</h3>
-              <Separator orientation="vertical" className="h-5" />
-              <span className="text-sm text-muted-foreground">
-                {activeItems.length} {activeItems.length === 1 ? 'serviço' : 'serviços'}
-              </span>
             </div>
-            <div className="flex gap-2">
+
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
+              <Building2 className="h-8 w-8 text-white/80 mb-4" />
+              <h4 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                Serviços para Imóvel
+              </h4>
+              <p className="text-neutral-300 text-sm sm:text-base leading-relaxed mt-3 max-w-md">
+                Fotografia, vídeo e mais para o seu imóvel
+              </p>
+              <div className="mt-6">
+                <span className="inline-flex items-center gap-2 bg-white text-neutral-900 px-7 py-2.5 rounded-full text-sm font-semibold hover:bg-neutral-100 transition-colors shadow-lg">
+                  Fazer Novo Pedido
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>}
+
+        {/* ═══════════ TAB: SERVIÇOS ═══════════ */}
+        {shopSection === 'services' && <section>
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+            {/* Header — pills + filters */}
+            <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+                {onBack && (
+                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+                {([
+                  { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                  { key: 'services' as const, label: 'Serviços', icon: Camera },
+                  { key: 'materials' as const, label: 'Produtos', icon: Package },
+                  { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+                ]).map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = shopSection === tab.key
+                  return (
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
+                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -384,11 +433,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             </div>
           </div>
 
-          {loading ? (
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto p-4">
+          {loading || packsLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)}
             </div>
-          ) : activeItems.length === 0 ? (
+          ) : filteredGeneralServices.length === 0 && activePacks.length === 0 ? (
             <EmptyState
               icon={ShoppingCart}
               title="Nenhum serviço disponível"
@@ -396,7 +447,58 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {activeItems.map((item) => {
+              {/* Packs first */}
+              {activePacks.map((pack: MarketingPack) => {
+                const itemsTotal = (pack.items || []).reduce((sum, i) => sum + i.price, 0)
+                const savingsPercent = itemsTotal > 0 ? Math.round(((itemsTotal - pack.price) / itemsTotal) * 100) : 0
+
+                return (
+                  <div
+                    key={pack.id}
+                    className="group relative flex flex-col bg-background rounded-xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+                    onClick={() => openDetail({ kind: 'pack', pack })}
+                  >
+                    {/* Image */}
+                    <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
+                      <img
+                        src={pack.thumbnail || 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                        alt={pack.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {/* Discount badge top-left */}
+                      {savingsPercent > 0 && (
+                        <div className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                          -{savingsPercent}%
+                        </div>
+                      )}
+                      {/* Pack badge top-right */}
+                      <div className="absolute top-3 right-3">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-neutral-700 text-[11px] font-medium px-2.5 py-1 rounded-full shadow-sm">
+                          <Gift className="h-3 w-3" />
+                          Pack
+                        </span>
+                      </div>
+                      {/* Price glassmorphism tag bottom-right */}
+                      <div className="absolute bottom-3 right-3">
+                        <span className="inline-flex items-center gap-1.5 bg-neutral-900 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-lg">
+                          {formatCurrency(pack.price)}
+                          {itemsTotal > 0 && itemsTotal !== pack.price && (
+                            <span className="text-white/60 text-xs line-through font-normal">{formatCurrency(itemsTotal)}</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Info — minimal */}
+                    <div className="p-3.5">
+                      <h4 className="font-semibold text-sm leading-snug">{pack.name}</h4>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* General services */}
+              {filteredGeneralServices.map((item) => {
                 const Icon = CATEGORY_ICONS[item.category] || Package
                 const hasAddons = (item.addons || []).length > 0
 
@@ -495,17 +597,38 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
               })}
             </div>
           )}
-        </section>
+          </div>
+        </div>
+        </section>}
 
-        {/* ═══════════ MATERIALS ═══════════ */}
-        <section id="materials">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <h3 className="text-xl font-bold tracking-tight">Materiais</h3>
-              <Separator orientation="vertical" className="h-5" />
-              <span className="text-sm text-muted-foreground">Produtos físicos</span>
+        {/* ═══════════ TAB: PRODUTOS ═══════════ */}
+        {shopSection === 'materials' && <section>
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+            {/* Header — pills + filters */}
+            <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
+            {/* Tab pills inline with filters */}
+            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+              {onBack && (
+                <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              )}
+              {([
+                { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                { key: 'services' as const, label: 'Serviços', icon: Camera },
+                { key: 'materials' as const, label: 'Produtos', icon: Package },
+                { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+              ]).map((tab) => {
+                const Icon = tab.icon
+                const isActive = shopSection === tab.key
+                return (
+                  <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
+                    <Icon className="h-3.5 w-3.5" />{tab.label}
+                  </button>
+                )
+              })}
             </div>
-            <div className="flex gap-2">
+            <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -529,6 +652,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             </div>
           </div>
 
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto p-4">
           {materialsLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)}
@@ -588,15 +713,73 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
               ))}
             </div>
           )}
-        </section>
+          </div>
+        </div>
+        </section>}
+
+        {/* ═══════════ TAB: CAMPANHAS ═══════════ */}
+        {shopSection === 'campanhas' && <section>
+          <div
+            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300"
+            style={{ height: 'calc(100vh - 7rem)' }}
+            onClick={() => setShowCampaignDialog(true)}
+          >
+            <img
+              src="https://images.pexels.com/photos/6476808/pexels-photo-6476808.jpeg?auto=compress&cs=tinysrgb&w=1600"
+              alt="Campanhas Meta Ads"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-neutral-900/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
+
+            {/* Tab pills overlaid on image */}
+            <div className="absolute top-4 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
+                {onBack && (
+                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-all">
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+                {([
+                  { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                  { key: 'services' as const, label: 'Serviços', icon: Camera },
+                  { key: 'materials' as const, label: 'Produtos', icon: Package },
+                  { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+                ]).map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = shopSection === tab.key
+                  return (
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
+              <Megaphone className="h-8 w-8 text-white/80 mb-4" />
+              <h4 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                Campanhas Meta Ads
+              </h4>
+              <p className="text-neutral-300 text-sm sm:text-base leading-relaxed mt-3 max-w-md">
+                Peça uma campanha publicitária para os seus imóveis
+              </p>
+              <div className="mt-6">
+                <span className="inline-flex items-center gap-2 bg-white text-neutral-900 px-7 py-2.5 rounded-full text-sm font-semibold hover:bg-neutral-100 transition-colors shadow-lg">
+                  Fazer Novo Pedido
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>}
+
       </div>
 
-      {/* Spacer so fixed bar doesn't cover content */}
-      {cartCount > 0 && <div className="h-20" />}
-
-      {/* ─── Fixed Cart Bottom Bar ─── */}
-      {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      {/* ─── Cart Bottom Bar (portal to body so it's truly fixed) ─── */}
+      {cartCount > 0 && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-0 left-0 right-0 z-[60] border-t bg-background/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
           <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-screen-2xl mx-auto">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex items-center gap-2 shrink-0">
@@ -618,6 +801,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
                           {cartItemName(cartItem)}
                           {cartItem.type === 'pack' && <span className="text-[10px] opacity-60">Pack</span>}
                           {cartItem.type === 'material' && <span className="text-[10px] opacity-60">Material</span>}
+                          {cartItem.type === 'property_bundle' && <span className="text-[10px] opacity-60">Imóvel</span>}
+                          {cartItem.type === 'campaign' && <span className="text-[10px] opacity-60">Campanha</span>}
                           <button
                             onClick={() => removeFromCart(idx)}
                             className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
@@ -665,6 +850,50 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
                               <span>{formatCurrency(cartItem.pack.price)}</span>
                             </div>
                           </>
+                        ) : cartItem.type === 'property_bundle' ? (
+                          <>
+                            <p className="font-medium">{cartItem.propertyTitle}</p>
+                            <p className="text-xs opacity-80">Serviços para imóvel</p>
+                            {cartItem.services.map((s, sIdx) => (
+                              <div key={sIdx}>
+                                <div className="flex justify-between text-xs">
+                                  <span>{s.service.name}</span>
+                                  <span>{formatCurrency(s.service.price)}</span>
+                                </div>
+                                {s.selectedAddons.map(ad => (
+                                  <div key={ad.id} className="flex justify-between text-xs pl-2">
+                                    <span>+ {ad.name}</span>
+                                    <span>{ad.price === 0 ? 'Incluído' : formatCurrency(ad.price)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                            <div className="border-t border-background/20 pt-1 flex justify-between text-xs font-medium">
+                              <span>Total</span>
+                              <span>{formatCurrency(cartItemPrice(cartItem))}</span>
+                            </div>
+                          </>
+                        ) : cartItem.type === 'campaign' ? (
+                          <>
+                            <p className="font-medium">{cartItem.label}</p>
+                            <p className="text-xs opacity-80">Campanha Meta Ads</p>
+                            <div className="flex justify-between text-xs">
+                              <span>Objectivo</span>
+                              <span>{cartItem.campaignData.objective}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span>Orçamento</span>
+                              <span>{formatCurrency(cartItem.campaignData.budget_amount)} ({cartItem.campaignData.budget_type === 'daily' ? 'diário' : 'total'})</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span>Duração</span>
+                              <span>{cartItem.campaignData.duration_days} dias</span>
+                            </div>
+                            <div className="border-t border-background/20 pt-1 flex justify-between text-xs font-medium">
+                              <span>Custo total</span>
+                              <span>{formatCurrency(cartItem.totalCost)}</span>
+                            </div>
+                          </>
                         ) : (
                           <>
                             <p className="font-medium">{cartItem.product.name}</p>
@@ -689,12 +918,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── Detail Dialog ─── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0">
           {detailItem && (
             <>
               {/* Image header */}
@@ -897,6 +1127,21 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
         </DialogContent>
       </Dialog>
 
+      {/* ─── Property Service Dialog ─── */}
+      <PropertyServiceDialog
+        open={showPropertyDialog}
+        onOpenChange={setShowPropertyDialog}
+        propertyServices={propertyServices}
+        onAddToCart={addPropertyBundleToCart}
+      />
+
+      {/* ─── Campaign Request Dialog ─── */}
+      <CampaignRequestDialog
+        open={showCampaignDialog}
+        onOpenChange={setShowCampaignDialog}
+        onAddToCart={addCampaignToCart}
+      />
+
       {/* Checkout Dialog */}
       {showCheckout && (
         <OrderFormDialog
@@ -905,6 +1150,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja }: ShopTabProps) {
             if (!open) setShowCheckout(false)
           }}
           cartItems={cart}
+          onRemoveItem={removeFromCart}
           onOrderPlaced={() => {
             setCart([])
             setShowCheckout(false)

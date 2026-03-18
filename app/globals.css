@@ -131,6 +131,14 @@
   /* Meta/Instagram template tokens — inherit from :root mapping (dark vars auto-apply) */
 }
 
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

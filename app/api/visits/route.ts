@@ -124,16 +124,16 @@ export async function POST(request: Request) {
     if (parsed.data.lead_id && !clientName) {
       const { data: lead } = await admin
         .from('leads')
-        .select('name')
+        .select('nome, full_name')
         .eq('id', parsed.data.lead_id)
         .single()
-      clientName = lead?.full_name
+      clientName = lead?.full_name || lead?.nome
     }
 
     const calendarTitle = `Visita: ${property?.title || 'Imóvel'} — ${clientName || 'Cliente'}`
 
     const { data: calendarEvent } = await admin
-      .from('calendar_events')
+      .from('temp_calendar_events')
       .insert({
         title: calendarTitle,
         description: parsed.data.notes || null,

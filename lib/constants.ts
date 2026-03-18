@@ -1328,6 +1328,86 @@ export const GOAL_PERIOD_LABELS = {
   daily: 'Diário',
 } as const
 
+// === ACOMPANHAMENTOS ===
+
+export const ACOMPANHAMENTO_STATUS_COLORS = {
+  active:    { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Em Acompanhamento' },
+  paused:    { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-400',   label: 'Pausado' },
+  converted: { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Convertido' },
+  lost:      { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Perdido' },
+} as const
+
+export const ACOMPANHAMENTO_STATUS_OPTIONS = [
+  { value: 'active' as const, label: 'Em Acompanhamento' },
+  { value: 'paused' as const, label: 'Pausado' },
+  { value: 'converted' as const, label: 'Convertido' },
+  { value: 'lost' as const, label: 'Perdido' },
+] as const
+
+export const ACOMPANHAMENTO_PROPERTY_STATUS = {
+  suggested: { bg: 'bg-slate-500/15', text: 'text-slate-600', label: 'Sugerido' },
+  sent:      { bg: 'bg-blue-500/15',  text: 'text-blue-600',  label: 'Enviado' },
+  visited:   { bg: 'bg-amber-500/15', text: 'text-amber-600', label: 'Visitado' },
+  interested:{ bg: 'bg-emerald-500/15', text: 'text-emerald-600', label: 'Interessado' },
+  discarded: { bg: 'bg-red-500/15',   text: 'text-red-600',   label: 'Descartado' },
+} as const
+
+// === PARCEIROS ===
+
+export const PARTNER_CATEGORY_OPTIONS = [
+  { value: 'lawyer' as const, label: 'Advogado', icon: 'Scale' },
+  { value: 'notary' as const, label: 'Notário', icon: 'Stamp' },
+  { value: 'bank' as const, label: 'Banco', icon: 'Landmark' },
+  { value: 'photographer' as const, label: 'Fotógrafo', icon: 'Camera' },
+  { value: 'constructor' as const, label: 'Empreiteiro', icon: 'HardHat' },
+  { value: 'insurance' as const, label: 'Seguros', icon: 'Shield' },
+  { value: 'energy_cert' as const, label: 'Cert. Energética', icon: 'Zap' },
+  { value: 'cleaning' as const, label: 'Limpezas', icon: 'Sparkles' },
+  { value: 'moving' as const, label: 'Mudanças', icon: 'Truck' },
+  { value: 'appraiser' as const, label: 'Avaliador', icon: 'ClipboardCheck' },
+  { value: 'architect' as const, label: 'Arquitecto', icon: 'Ruler' },
+  { value: 'home_staging' as const, label: 'Home Staging', icon: 'Sofa' },
+  { value: 'credit_broker' as const, label: 'Interm. Crédito', icon: 'BadgePercent' },
+  { value: 'interior_design' as const, label: 'Design Interior', icon: 'Palette' },
+  { value: 'marketing' as const, label: 'Marketing', icon: 'Megaphone' },
+  { value: 'other' as const, label: 'Outro', icon: 'MoreHorizontal' },
+] as const
+
+export const PARTNER_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  PARTNER_CATEGORY_OPTIONS.map((o) => [o.value, o.label])
+)
+
+export const PARTNER_CATEGORY_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  lawyer:          { bg: 'bg-violet-500/15',  text: 'text-violet-600',  dot: 'bg-violet-500' },
+  notary:          { bg: 'bg-indigo-500/15',  text: 'text-indigo-600',  dot: 'bg-indigo-500' },
+  bank:            { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500' },
+  photographer:    { bg: 'bg-pink-500/15',    text: 'text-pink-600',    dot: 'bg-pink-500' },
+  constructor:     { bg: 'bg-orange-500/15',  text: 'text-orange-600',  dot: 'bg-orange-500' },
+  insurance:       { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+  energy_cert:     { bg: 'bg-yellow-500/15',  text: 'text-yellow-600',  dot: 'bg-yellow-500' },
+  cleaning:        { bg: 'bg-cyan-500/15',    text: 'text-cyan-600',    dot: 'bg-cyan-500' },
+  moving:          { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500' },
+  appraiser:       { bg: 'bg-teal-500/15',    text: 'text-teal-600',    dot: 'bg-teal-500' },
+  architect:       { bg: 'bg-sky-500/15',     text: 'text-sky-600',     dot: 'bg-sky-500' },
+  home_staging:    { bg: 'bg-rose-500/15',    text: 'text-rose-600',    dot: 'bg-rose-500' },
+  credit_broker:   { bg: 'bg-lime-500/15',    text: 'text-lime-600',    dot: 'bg-lime-500' },
+  interior_design: { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-600', dot: 'bg-fuchsia-500' },
+  marketing:       { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500' },
+  other:           { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-500' },
+}
+
+export const PARTNER_VISIBILITY_OPTIONS = [
+  { value: 'public' as const, label: 'Público' },
+  { value: 'private' as const, label: 'Privado' },
+] as const
+
+export const PARTNER_PAYMENT_OPTIONS = [
+  { value: 'transfer' as const, label: 'Transferência' },
+  { value: 'check' as const, label: 'Cheque' },
+  { value: 'cash' as const, label: 'Numerário' },
+  { value: 'other' as const, label: 'Outro' },
+] as const
+
 // === VISITAS ===
 
 export const VISIT_STATUS_COLORS = {
@@ -1738,4 +1818,28 @@ export const CALENDAR_EVENT_COLORS: Record<string, { bg: string; text: string; d
   service_scheduled:    { bg: 'bg-blue-100',    text: 'text-blue-800',    dot: 'bg-blue-500' },
   purchase:             { bg: 'bg-emerald-100', text: 'text-emerald-800', dot: 'bg-emerald-500' },
   subscription_renewal: { bg: 'bg-purple-100',  text: 'text-purple-800',  dot: 'bg-purple-500' },
+}
+
+// ─── Marketing Campaigns ────────────────────────────────
+
+export const CAMPAIGN_OBJECTIVES: Record<string, string> = {
+  notoriedade: 'Notoriedade',
+  trafego: 'Tráfego',
+  leads: 'Geração de Leads',
+  conversoes: 'Conversões',
+}
+
+export const CAMPAIGN_STATUS = {
+  pending:   { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pendente' },
+  approved:  { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Aprovada' },
+  active:    { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Activa' },
+  paused:    { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pausada' },
+  completed: { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Concluída' },
+  rejected:  { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Rejeitada' },
+  cancelled: { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Cancelada' },
+} as const
+
+export const PAYMENT_METHODS: Record<string, string> = {
+  conta_corrente: 'Conta Corrente',
+  invoice: 'Fatura',
 }

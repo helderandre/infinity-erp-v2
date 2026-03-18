@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { useUser } from '@/hooks/use-user'
 import { NegocioSidebar } from '@/components/negocios/negocio-sidebar'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
@@ -15,6 +16,7 @@ import type { NegocioWithLeadBasic } from '@/types/lead'
 export default function NegocioDetailPage() {
   const { id: leadId, negocioId } = useParams<{ id: string; negocioId: string }>()
   const router = useRouter()
+  const { user } = useUser()
 
   const [negocio, setNegocio] = useState<NegocioWithLeadBasic | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -22,6 +24,18 @@ export default function NegocioDetailPage() {
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [acquisitionDialogOpen, setAcquisitionDialogOpen] = useState(false)
+  const [existingAcompId, setExistingAcompId] = useState<string | null>(null)
+
+  // Check if acompanhamento already exists for this negocio
+  useEffect(() => {
+    fetch(`/api/acompanhamentos?lead_id=${leadId}&limit=100`)
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(json => {
+        const match = (json.data || []).find((a: any) => a.negocio_id === negocioId)
+        setExistingAcompId(match?.id || null)
+      })
+      .catch(() => {})
+  }, [leadId, negocioId])
 
   const loadNegocio = useCallback(async () => {
     setIsLoading(true)
@@ -143,6 +157,34 @@ export default function NegocioDetailPage() {
             onEstadoChange={(v) => saveSidebarField('estado', v)}
             onQuickFillApply={handleQuickFillApply}
             onStartAcquisition={() => setAcquisitionDialogOpen(true)}
+            existingAcompanhamentoId={existingAcompId}
+            leadId={leadId}
+            onStartAcompanhamento={async () => {
+              try {
+                const res = await fetch('/api/acompanhamentos', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    negocio_id: negocioId,
+                    lead_id: leadId,
+                    consultant_id: user?.id || '',
+                  }),
+                })
+                const body = await res.json().catch(() => ({}))
+                if (res.status === 409 && body.existing_id) {
+                  toast.info('Já existe um acompanhamento para este negócio. A redirecionar...')
+                  router.push(`/dashboard/leads/${leadId}/acompanhamentos/${body.existing_id}`)
+                  return
+                }
+                if (!res.ok) {
+                  throw new Error(body.error || 'Erro ao criar acompanhamento')
+                }
+                toast.success('Acompanhamento criado com sucesso')
+                router.push(`/dashboard/leads/${leadId}/acompanhamentos/${body.data.id}`)
+              } catch (err: any) {
+                toast.error(err?.message || 'Erro ao criar acompanhamento')
+              }
+            }}
           />
         </div>
 
