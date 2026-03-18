@@ -128,6 +128,16 @@ export async function PUT(
         updateData = { internal_notes: extra.internal_notes || '' }
         break
 
+      case 'edit':
+        // Admin can edit any field
+        if (extra.total_amount !== undefined) updateData.total_amount = extra.total_amount
+        if (extra.status !== undefined) updateData.status = extra.status
+        if (extra.internal_notes !== undefined) updateData.internal_notes = extra.internal_notes
+        if (extra.confirmed_date !== undefined) updateData.confirmed_date = extra.confirmed_date
+        if (extra.confirmed_time !== undefined) updateData.confirmed_time = extra.confirmed_time
+        if (extra.assigned_to !== undefined) updateData.assigned_to = extra.assigned_to
+        break
+
       default:
         return NextResponse.json({ error: 'Acção inválida' }, { status: 400 })
     }
@@ -143,6 +153,51 @@ export async function PUT(
     return NextResponse.json(data)
   } catch (error) {
     console.error('Erro ao actualizar encomenda:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
+// DELETE — Admin delete order
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = await createClient() as any
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    // Get order for potential refund
+    const { data: order } = await supabase
+      .from('marketing_orders')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (!order) {
+      return NextResponse.json({ error: 'Encomenda não encontrada' }, { status: 404 })
+    }
+
+    // Refund if not already rejected/cancelled/completed
+    if (!['rejected', 'cancelled', 'completed'].includes(order.status)) {
+      await refundOrder(supabase, order, user.id)
+    }
+
+    // Delete items first (FK constraint)
+    await supabase.from('marketing_order_items').delete().eq('order_id', id)
+    await supabase.from('marketing_order_deliverables').delete().eq('order_id', id)
+
+    // Delete the order
+    const { error } = await supabase.from('marketing_orders').delete().eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Erro ao eliminar encomenda:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

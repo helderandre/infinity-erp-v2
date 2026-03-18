@@ -25,6 +25,11 @@ export const propertySchema = z.object({
 
   // Contrato
   contract_regime: z.string().optional(),
+
+  // Portal URLs
+  url_remax: z.string().optional(),
+  url_idealista: z.string().optional(),
+  url_imovirtual: z.string().optional(),
 })
 
 export const propertySpecsSchema = z.object({

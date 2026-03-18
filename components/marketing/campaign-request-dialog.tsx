@@ -210,10 +210,12 @@ export function CampaignRequestDialog({
 
             {linkMode === 'property' ? (
               <Select value={propertyId} onValueChange={setPropertyId}>
-                <SelectTrigger className="rounded-full">
-                  <SelectValue
-                    placeholder={loadingProperties ? 'A carregar imóveis...' : 'Seleccionar imóvel'}
-                  />
+                <SelectTrigger className="rounded-full max-w-full overflow-hidden">
+                  <span className="truncate block text-left">
+                    <SelectValue
+                      placeholder={loadingProperties ? 'A carregar imóveis...' : 'Seleccionar imóvel'}
+                    />
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {properties.map((p) => (

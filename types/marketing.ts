@@ -308,6 +308,13 @@ export interface CartPropertyBundle {
     service: MarketingCatalogItem
     selectedAddons: MarketingCatalogAddon[]
   }>
+  availability?: {
+    will_be_present: boolean
+    replacement_name?: string
+    replacement_phone?: string
+    preferred_dates: Array<{ date: string; time_slot: string }>
+    notes?: string
+  }
 }
 
 export interface CartCampaignItem {

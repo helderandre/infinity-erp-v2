@@ -31,16 +31,29 @@ export function useImageCompress(): UseImageCompressReturn {
   }, [])
 
   const compressImages = useCallback(
-    async (files: File[]): Promise<File[]> => {
+    async (files: File[], concurrency = 2): Promise<File[]> => {
       setIsCompressing(true)
       setProgress(0)
 
-      const results: File[] = []
-      for (let i = 0; i < files.length; i++) {
-        const compressed = await compressImage(files[i])
-        results.push(compressed)
-        setProgress(Math.round(((i + 1) / files.length) * 100))
+      const results: File[] = new Array(files.length)
+      let completed = 0
+      let nextIndex = 0
+
+      async function worker(): Promise<void> {
+        while (nextIndex < files.length) {
+          const idx = nextIndex++
+          const compressed = await compressImage(files[idx])
+          results[idx] = compressed
+          completed++
+          setProgress(Math.round((completed / files.length) * 100))
+        }
       }
+
+      const workers = Array.from(
+        { length: Math.min(concurrency, files.length) },
+        () => worker()
+      )
+      await Promise.all(workers)
 
       setIsCompressing(false)
       return results

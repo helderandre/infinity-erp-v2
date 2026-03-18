@@ -22,7 +22,7 @@ export async function GET(
         dev_property_internal(*),
         dev_property_media(*),
         consultant:dev_users!consultant_id(id, commercial_name),
-        property_owners(ownership_percentage, is_main_contact, owners(id, name, email, phone, nif))`
+        property_owners(ownership_percentage, is_main_contact, owner_role_id, owners(*))`
       )
       .eq('id', id)
       .order('order_index', { referencedTable: 'dev_property_media', ascending: true })

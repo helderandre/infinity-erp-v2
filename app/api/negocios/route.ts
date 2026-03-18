@@ -14,12 +14,14 @@ export async function GET(request: Request) {
     const lead_id = searchParams.get('lead_id')
     const tipo = searchParams.get('tipo')
     const estado = searchParams.get('estado')
+    const search = searchParams.get('search')
+    const pageParam = Number(searchParams.get('page')) || 0
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 100)
-    const offset = Number(searchParams.get('offset')) || 0
+    const offset = pageParam > 0 ? (pageParam - 1) * limit : (Number(searchParams.get('offset')) || 0)
 
     let query = supabase
       .from('negocios')
-      .select('*, lead:leads(id, nome, agent_id, agent:dev_users(id, commercial_name))', { count: 'exact' })
+      .select('*, lead:leads(id, nome, full_name, telemovel, email, agent_id, agent:dev_users(id, commercial_name))', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -27,10 +29,13 @@ export async function GET(request: Request) {
       query = query.eq('lead_id', lead_id)
     }
     if (tipo) {
-      query = query.eq('tipo', tipo)
+      query = query.ilike('tipo', `%${tipo}%`)
     }
     if (estado) {
       query = query.eq('estado', estado)
+    }
+    if (search) {
+      query = query.or(`localizacao.ilike.%${search}%,observacoes.ilike.%${search}%`)
     }
 
     const { data, error, count } = await query

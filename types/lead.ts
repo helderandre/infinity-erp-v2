@@ -30,7 +30,40 @@ export type LeadAttachment = LeadAttachmentRow
 
 // Tipos de negocio
 export type NegocioTipo = 'Compra' | 'Venda' | 'Compra e Venda' | 'Arrendatário' | 'Arrendador' | 'Outro'
-export type NegocioEstado = 'Aberto' | 'Em progresso' | 'Fechado' | 'Cancelado'
+export type NegocioEstado = 'Aberto' | 'Em Acompanhamento' | 'Em progresso' | 'Proposta' | 'Fechado' | 'Cancelado' | 'Perdido'
+
+// Property tracking for buyer negócios
+export type NegocioPropertyStatus = 'suggested' | 'sent' | 'visited' | 'interested' | 'discarded'
+
+export interface NegocioProperty {
+  id: string
+  negocio_id: string
+  property_id: string | null
+  status: NegocioPropertyStatus
+  sent_at: string | null
+  visited_at: string | null
+  notes: string | null
+  external_url: string | null
+  external_title: string | null
+  external_price: number | null
+  external_source: string | null
+  created_at: string
+  updated_at: string
+  property?: {
+    id: string
+    title: string
+    external_ref: string | null
+    city: string | null
+    zone: string | null
+    listing_price: number | null
+    slug: string | null
+    dev_property_specifications?: {
+      bedrooms: number | null
+      area_util: number | null
+    } | null
+    dev_property_media?: { url: string; is_cover: boolean }[]
+  }
+}
 
 // Match de imovel (retornado pelo endpoint de matches)
 export interface PropertyMatch {

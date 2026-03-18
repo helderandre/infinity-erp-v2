@@ -53,7 +53,12 @@ export const createOrderSchema = z.object({
   })).min(1, 'Seleccione pelo menos um item'),
   checkout_group_id: z.string().optional().nullable(),
   payment_method: z.enum(['conta_corrente', 'invoice']).default('conta_corrente'),
+  property_id: z.string().optional().nullable(),
   property_bundle_data: z.any().optional().nullable(),
+  proposed_dates: z.array(z.object({
+    date: z.string(),
+    time_slot: z.string(),
+  })).optional().nullable(),
 })
 
 // --- Subscriptions ---

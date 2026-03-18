@@ -81,7 +81,14 @@ export function OrderFormDialog({ open, onOpenChange, cartItems, onRemoveItem, o
         }
         const res = await fetch('/api/marketing/orders', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items, checkout_group_id, payment_method: paymentMethod, property_id: bundle.propertyId, property_bundle_data: bundle.propertyInfo }),
+          body: JSON.stringify({
+            items,
+            checkout_group_id,
+            payment_method: paymentMethod,
+            property_id: bundle.propertyId,
+            property_bundle_data: { ...bundle.propertyInfo, availability: bundle.availability },
+            proposed_dates: bundle.availability?.preferred_dates || [],
+          }),
         })
         if (!res.ok) throw new Error((await res.json()).error || 'Erro ao criar encomenda')
       }
@@ -304,7 +311,7 @@ export function OrderFormDialog({ open, onOpenChange, cartItems, onRemoveItem, o
                 <div className="rounded-xl border bg-card/50 p-4">
                   <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
                     <FileText className="h-4 w-4 shrink-0" />
-                    Será emitida uma fatura pela administração para pagamento.
+                    O prestador de serviços emitirá uma fatura para pagamento.
                   </div>
                 </div>
               )}

@@ -133,8 +133,7 @@ export const pessoasItems = [
 export const financeiroItems = [
   { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
   { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
-  { title: 'Rankings', icon: TrendingUp, href: '/dashboard/comissoes/rankings', permission: 'commissions' },
-  { title: 'Compliance', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
+  { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
   { title: 'Relatórios', icon: BarChart3, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
 ]
 
@@ -144,8 +143,7 @@ export const recrutamentoItems = [
 ]
 
 export const lojaItems = [
-  { title: 'Loja', icon: Store, href: '/dashboard/marketing/loja' },
-  { title: 'Os Meus Pedidos', icon: Package, href: '/dashboard/marketing/gestao' },
+  { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
 ]
 
 export const digitalItems = [
@@ -377,10 +375,10 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Loja */}
+        {/* Infinity Store */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
-            label="Loja"
+            label="Infinity Store"
             icon={Store}
             items={lojaItems}
             pathname={pathname}

@@ -23,8 +23,12 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   ShoppingBag, CheckCircle2, XCircle, Calendar, Play, Truck, Star, Ban,
-  Loader2, Package, Camera, User, Clock, MapPin,
+  Loader2, Package, Camera, User, Clock, MapPin, Pencil, Trash2, Save,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -56,7 +60,7 @@ const ALL_STATUSES = {
 } as const
 
 export function OrdersTab() {
-  const { orders, loading: ordersLoading, updateOrder } = useMarketingOrders()
+  const { orders, loading: ordersLoading, updateOrder, deleteOrder } = useMarketingOrders()
   const { requisitions, loading: reqLoading } = useEncomendaRequisitions()
 
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -68,6 +72,15 @@ export function OrdersTab() {
   const [confirmedDate, setConfirmedDate] = useState('')
   const [confirmedTime, setConfirmedTime] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Admin edit state
+  const [isEditing, setIsEditing] = useState(false)
+  const [editPrice, setEditPrice] = useState('')
+  const [editStatus, setEditStatus] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loading = ordersLoading || reqLoading
 
@@ -130,6 +143,46 @@ export function OrdersTab() {
       setActionDialog(null); setReason(''); setConfirmedDate(''); setConfirmedTime('')
     } catch (e: any) { toast.error(e.message || 'Erro ao actualizar') }
     finally { setSubmitting(false) }
+  }
+
+  const startEditing = (g: GroupedPurchase) => {
+    setIsEditing(true)
+    setEditPrice(String(g.serviceOrder?.total_amount || g.totalAmount))
+    setEditStatus(g.serviceOrder?.status || '')
+    setEditNotes(g.serviceOrder?.internal_notes || '')
+  }
+
+  const handleEditSave = async () => {
+    if (!selectedPurchase?.serviceOrder) return
+    setEditSaving(true)
+    try {
+      const extra: Record<string, unknown> = {}
+      if (editPrice) extra.total_amount = parseFloat(editPrice)
+      if (editStatus) extra.status = editStatus
+      extra.internal_notes = editNotes
+      await updateOrder(selectedPurchase.serviceOrder.id, 'edit', extra)
+      toast.success('Encomenda actualizada')
+      setIsEditing(false)
+      setSelectedPurchase(null)
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao guardar')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDelete = async (orderId: string) => {
+    setDeleting(true)
+    try {
+      await deleteOrder(orderId)
+      toast.success('Encomenda eliminada')
+      setConfirmDelete(null)
+      setSelectedPurchase(null)
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao eliminar')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const getServiceActions = (status: string) => {
@@ -447,6 +500,93 @@ export function OrdersTab() {
                   </div>
                 )}
 
+                {/* Admin edit section */}
+                {!isEditing ? (
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full gap-1.5 text-xs"
+                      onClick={() => startEditing(selectedPurchase)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </Button>
+                    {selectedPurchase.serviceOrder && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full gap-1.5 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setConfirmDelete(selectedPurchase.serviceOrder!.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Eliminar
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                    <h4 className="font-medium text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Pencil className="h-3.5 w-3.5" />
+                      Editar Encomenda
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Preço Total (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="rounded-lg mt-1 h-8 text-sm"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Estado</Label>
+                        <Select value={editStatus} onValueChange={setEditStatus}>
+                          <SelectTrigger className="rounded-lg mt-1 h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ALL_STATUSES).map(([v, l]) => (
+                              <SelectItem key={v} value={v}>{l}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Notas Internas</Label>
+                      <Textarea
+                        className="rounded-lg mt-1 text-sm resize-none"
+                        rows={2}
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        placeholder="Notas internas..."
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="rounded-full gap-1.5 text-xs"
+                        onClick={handleEditSave}
+                        disabled={editSaving}
+                      >
+                        {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Guardar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-xs"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Timestamps */}
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -457,6 +597,32 @@ export function OrdersTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ─── Delete Confirmation ─── */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Eliminar Encomenda
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar esta encomenda? Se aplicável, o valor será reembolsado na conta corrente do consultor. Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDelete && handleDelete(confirmDelete)}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Action Dialog ─── */}
       <Dialog open={!!actionDialog} onOpenChange={(open) => !open && setActionDialog(null)}>

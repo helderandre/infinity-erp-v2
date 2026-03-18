@@ -1,13 +1,6 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Search, X } from 'lucide-react'
 import {
@@ -15,38 +8,77 @@ import {
   LEAD_TEMPERATURAS,
   LEAD_ORIGENS,
 } from '@/lib/constants'
+import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 
 interface LeadFiltersProps {
   search: string
   onSearchChange: (value: string) => void
-  estado: string
-  onEstadoChange: (value: string) => void
-  temperatura: string
-  onTemperaturaChange: (value: string) => void
-  origem: string
-  onOrigemChange: (value: string) => void
   consultants: { id: string; commercial_name: string }[]
-  agentId: string
-  onAgentChange: (value: string) => void
   onClearFilters: () => void
   hasActiveFilters: boolean
+  // Multi-select (optional — use these for new pages)
+  selectedEstados?: string[]
+  onEstadosChange?: (value: string[]) => void
+  selectedTemperaturas?: string[]
+  onTemperaturasChange?: (value: string[]) => void
+  selectedOrigens?: string[]
+  onOrigensChange?: (value: string[]) => void
+  selectedAgents?: string[]
+  onAgentsChange?: (value: string[]) => void
+  // Single-select (backward compat)
+  estado?: string
+  onEstadoChange?: (value: string) => void
+  temperatura?: string
+  onTemperaturaChange?: (value: string) => void
+  origem?: string
+  onOrigemChange?: (value: string) => void
+  agentId?: string
+  onAgentChange?: (value: string) => void
 }
+
+const estadoOptions = LEAD_ESTADOS.map((e) => ({ value: e, label: e }))
+const temperaturaOptions = LEAD_TEMPERATURAS.map((t) => ({ value: t.value, label: t.label, color: t.color?.split(' ')[0] }))
+const origemOptions = LEAD_ORIGENS.map((o) => ({ value: o, label: o }))
 
 export function LeadFilters({
   search,
   onSearchChange,
+  selectedEstados = [],
+  onEstadosChange,
+  selectedTemperaturas = [],
+  onTemperaturasChange,
+  selectedOrigens = [],
+  onOrigensChange,
+  selectedAgents = [],
+  onAgentsChange,
+  consultants,
+  onClearFilters,
+  hasActiveFilters,
+  // Backward compat
   estado,
   onEstadoChange,
   temperatura,
   onTemperaturaChange,
   origem,
   onOrigemChange,
-  consultants,
   agentId,
   onAgentChange,
-  onClearFilters,
-  hasActiveFilters,
 }: LeadFiltersProps) {
+  const handleEstados = onEstadosChange || ((vals: string[]) => onEstadoChange?.(vals[0] || 'all'))
+  const handleTemps = onTemperaturasChange || ((vals: string[]) => onTemperaturaChange?.(vals[0] || 'all'))
+  const handleOrigens = onOrigensChange || ((vals: string[]) => onOrigemChange?.(vals[0] || 'all'))
+  const handleAgents = onAgentsChange || ((vals: string[]) => onAgentChange?.(vals[0] || 'all'))
+
+  const effectiveEstados = onEstadosChange ? selectedEstados : (estado && estado !== 'all' ? [estado] : [])
+  const effectiveTemps = onTemperaturasChange ? selectedTemperaturas : (temperatura && temperatura !== 'all' ? [temperatura] : [])
+  const effectiveOrigens = onOrigensChange ? selectedOrigens : (origem && origem !== 'all' ? [origem] : [])
+  const effectiveAgents = onAgentsChange ? selectedAgents : (agentId && agentId !== 'all' ? [agentId] : [])
+
+  const consultantOptions = consultants.map((c) => ({
+    value: c.id,
+    label: c.commercial_name,
+  }))
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative flex-1 min-w-[200px]">
@@ -59,62 +91,35 @@ export function LeadFilters({
         />
       </div>
 
-      <Select value={estado} onValueChange={onEstadoChange}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os estados</SelectItem>
-          {LEAD_ESTADOS.map((e) => (
-            <SelectItem key={e} value={e}>
-              {e}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Estado"
+        options={estadoOptions}
+        selected={effectiveEstados}
+        onSelectedChange={handleEstados}
+      />
 
-      <Select value={temperatura} onValueChange={onTemperaturaChange}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Temperatura" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas</SelectItem>
-          {LEAD_TEMPERATURAS.map((t) => (
-            <SelectItem key={t.value} value={t.value}>
-              <span className={t.color.split(' ')[0]}>{t.label}</span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Temperatura"
+        options={temperaturaOptions}
+        selected={effectiveTemps}
+        onSelectedChange={handleTemps}
+      />
 
-      <Select value={origem} onValueChange={onOrigemChange}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Origem" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as origens</SelectItem>
-          {LEAD_ORIGENS.map((o) => (
-            <SelectItem key={o} value={o}>
-              {o}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Origem"
+        options={origemOptions}
+        selected={effectiveOrigens}
+        onSelectedChange={handleOrigens}
+      />
 
       {consultants.length > 0 && (
-        <Select value={agentId} onValueChange={onAgentChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.commercial_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          title="Consultor"
+          options={consultantOptions}
+          selected={effectiveAgents}
+          onSelectedChange={handleAgents}
+          searchable
+        />
       )}
 
       {hasActiveFilters && (

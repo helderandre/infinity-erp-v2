@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, DM_Sans } from "next/font/google";
 import "./globals.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Toaster } from "@/components/ui/sonner";
+import { UploadPanel } from "@/components/shared/upload-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -42,6 +43,7 @@ export default function RootLayout({
           <TooltipProvider>
             {children}
             <Toaster position="top-right" richColors />
+            <UploadPanel />
           </TooltipProvider>
         </ThemeProvider>
       </body>

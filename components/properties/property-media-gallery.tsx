@@ -31,8 +31,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { PropertyMediaUpload } from './property-media-upload'
 import { usePropertyMedia } from '@/hooks/use-property-media'
-import { Star, Trash2, GripVertical, LayoutGrid, List, Columns3 } from 'lucide-react'
+import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, Square, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type { PropertyMedia } from '@/types/property'
 
 type ViewMode = 'grid' | 'list'
@@ -54,10 +55,16 @@ function SortableGridItem({
   item,
   onSetCover,
   onDelete,
+  selectMode,
+  isSelected,
+  onToggleSelect,
 }: {
   item: PropertyMedia
   onSetCover: (id: string) => void
   onDelete: (id: string) => void
+  selectMode: boolean
+  isSelected: boolean
+  onToggleSelect: (id: string) => void
 }) {
   const {
     attributes,
@@ -78,7 +85,11 @@ function SortableGridItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="relative group aspect-[16/10] rounded-lg overflow-hidden bg-muted border"
+      className={cn(
+        'relative group aspect-[16/10] rounded-lg overflow-hidden bg-muted border transition-all',
+        selectMode && isSelected && 'ring-2 ring-primary border-primary',
+      )}
+      onClick={selectMode ? () => onToggleSelect(item.id) : undefined}
     >
       <Image
         src={item.url}
@@ -97,37 +108,54 @@ function SortableGridItem({
         </div>
       )}
 
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="absolute top-2 right-2 flex gap-1">
-          {!item.is_cover && (
+      {/* Select mode checkbox */}
+      {selectMode && (
+        <div className="absolute top-2 right-2 z-10">
+          <div className={cn(
+            'flex items-center justify-center h-6 w-6 rounded-md border-2 transition-colors',
+            isSelected
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'bg-white/80 border-white/60 backdrop-blur-sm'
+          )}>
+            {isSelected && <CheckSquare className="h-4 w-4" />}
+          </div>
+        </div>
+      )}
+
+      {/* Normal mode hover overlay */}
+      {!selectMode && (
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2 right-2 flex gap-1">
+            {!item.is_cover && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-white hover:bg-white/20"
+                onClick={() => onSetCover(item.id)}
+                title="Definir como capa"
+              >
+                <Star className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-white hover:bg-white/20"
-              onClick={() => onSetCover(item.id)}
-              title="Definir como capa"
+              onClick={() => onDelete(item.id)}
+              title="Eliminar"
             >
-              <Star className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-white hover:bg-white/20"
-            onClick={() => onDelete(item.id)}
-            title="Eliminar"
+          </div>
+          <div
+            className="absolute bottom-2 left-2 cursor-grab active:cursor-grabbing text-white"
+            {...attributes}
+            {...listeners}
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <GripVertical className="h-5 w-5" />
+          </div>
         </div>
-        <div
-          className="absolute bottom-2 left-2 cursor-grab active:cursor-grabbing text-white"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-5 w-5" />
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -137,11 +165,17 @@ function SortableListItem({
   index,
   onSetCover,
   onDelete,
+  selectMode,
+  isSelected,
+  onToggleSelect,
 }: {
   item: PropertyMedia
   index: number
   onSetCover: (id: string) => void
   onDelete: (id: string) => void
+  selectMode: boolean
+  isSelected: boolean
+  onToggleSelect: (id: string) => void
 }) {
   const {
     attributes,
@@ -162,15 +196,30 @@ function SortableListItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 rounded-lg border bg-card p-2 hover:bg-accent/50 transition-colors"
+      className={cn(
+        'flex items-center gap-3 rounded-lg border bg-card p-2 hover:bg-accent/50 transition-colors',
+        selectMode && isSelected && 'ring-2 ring-primary border-primary bg-primary/5',
+      )}
+      onClick={selectMode ? () => onToggleSelect(item.id) : undefined}
     >
-      <div
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-5 w-5" />
-      </div>
+      {selectMode ? (
+        <div className={cn(
+          'flex items-center justify-center h-6 w-6 rounded-md border-2 shrink-0 cursor-pointer transition-colors',
+          isSelected
+            ? 'bg-primary border-primary text-primary-foreground'
+            : 'border-border'
+        )}>
+          {isSelected && <CheckSquare className="h-4 w-4" />}
+        </div>
+      ) : (
+        <div
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </div>
+      )}
 
       <div className="relative h-16 w-24 shrink-0 rounded-md overflow-hidden bg-muted">
         <Image
@@ -197,28 +246,30 @@ function SortableListItem({
         </span>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        {!item.is_cover && (
+      {!selectMode && (
+        <div className="flex items-center gap-1 shrink-0">
+          {!item.is_cover && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onSetCover(item.id)}
+              title="Definir como capa"
+            >
+              <Star className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => onSetCover(item.id)}
-            title="Definir como capa"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(item.id)}
+            title="Eliminar"
           >
-            <Star className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-          onClick={() => onDelete(item.id)}
-          title="Eliminar"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -238,6 +289,10 @@ export function PropertyMediaGallery({
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [columns, setColumns] = useState<ColumnCount>('8')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const currentMedia = media.length > 0 ? media : initialMedia
 
@@ -246,6 +301,28 @@ export function PropertyMediaGallery({
       activationConstraint: { distance: 5 },
     })
   )
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectAll = () => {
+    setSelectedIds(new Set(currentMedia.map((m) => m.id)))
+  }
+
+  const deselectAll = () => {
+    setSelectedIds(new Set())
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
@@ -289,6 +366,30 @@ export function PropertyMediaGallery({
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+
+    const results = await Promise.allSettled(
+      Array.from(selectedIds).map((id) => deleteImage(id))
+    )
+
+    const deleted = results.filter((r) => r.status === 'fulfilled').length
+    const failed = results.filter((r) => r.status === 'rejected').length
+
+    if (deleted > 0) {
+      toast.success(`${deleted} ${deleted === 1 ? 'imagem eliminada' : 'imagens eliminadas'}`)
+      onMediaChange()
+    }
+    if (failed > 0) {
+      toast.error(`Falha ao eliminar ${failed} ${failed === 1 ? 'imagem' : 'imagens'}`)
+    }
+
+    setBulkDeleting(false)
+    setShowBulkDelete(false)
+    exitSelectMode()
+  }
+
   const handleUploadComplete = () => {
     refetch()
     onMediaChange()
@@ -296,14 +397,16 @@ export function PropertyMediaGallery({
 
   return (
     <div className="space-y-4">
-      {/* Toolbar: título + upload | toggles */}
-      <div className="flex items-center justify-between">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h3 className="text-base font-semibold">Galeria de Imagens</h3>
-          <PropertyMediaUpload
-            propertyId={propertyId}
-            onUploadComplete={handleUploadComplete}
-          />
+          {!selectMode && (
+            <PropertyMediaUpload
+              propertyId={propertyId}
+              onUploadComplete={handleUploadComplete}
+            />
+          )}
           {currentMedia.length > 0 && (
             <span className="text-xs text-muted-foreground">
               {currentMedia.length} {currentMedia.length === 1 ? 'imagem' : 'imagens'}
@@ -313,39 +416,88 @@ export function PropertyMediaGallery({
 
         {currentMedia.length > 0 && (
           <div className="flex items-center gap-2">
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={viewMode}
-              onValueChange={(v) => v && setViewMode(v as ViewMode)}
-              size="sm"
-            >
-              <ToggleGroupItem value="grid" aria-label="Vista em grelha">
-                <LayoutGrid className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="list" aria-label="Vista em lista">
-                <List className="h-4 w-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-
-            {viewMode === 'grid' && (
-              <ToggleGroup
-                type="single"
+            {/* Select mode toggle */}
+            {selectMode ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {selectedIds.size} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs rounded-full"
+                  onClick={selectedIds.size === currentMedia.length ? deselectAll : selectAll}
+                >
+                  {selectedIds.size === currentMedia.length ? 'Desmarcar tudo' : 'Seleccionar tudo'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 text-xs rounded-full gap-1"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setShowBulkDelete(true)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Eliminar ({selectedIds.size})
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full"
+                  onClick={exitSelectMode}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
                 variant="outline"
-                value={columns}
-                onValueChange={(v) => v && setColumns(v as ColumnCount)}
                 size="sm"
+                className="h-7 text-xs rounded-full gap-1.5"
+                onClick={() => setSelectMode(true)}
               >
-                <ToggleGroupItem value="4" aria-label="4 colunas">
-                  4
-                </ToggleGroupItem>
-                <ToggleGroupItem value="8" aria-label="8 colunas">
-                  8
-                </ToggleGroupItem>
-                <ToggleGroupItem value="12" aria-label="12 colunas">
-                  12
-                </ToggleGroupItem>
-              </ToggleGroup>
+                <CheckSquare className="h-3.5 w-3.5" />
+                Seleccionar
+              </Button>
+            )}
+
+            {!selectMode && (
+              <>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  value={viewMode}
+                  onValueChange={(v) => v && setViewMode(v as ViewMode)}
+                  size="sm"
+                >
+                  <ToggleGroupItem value="grid" aria-label="Vista em grelha">
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="list" aria-label="Vista em lista">
+                    <List className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+
+                {viewMode === 'grid' && (
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    value={columns}
+                    onValueChange={(v) => v && setColumns(v as ColumnCount)}
+                    size="sm"
+                  >
+                    <ToggleGroupItem value="4" aria-label="4 colunas">
+                      4
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="8" aria-label="8 colunas">
+                      8
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="12" aria-label="12 colunas">
+                      12
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                )}
+              </>
             )}
           </div>
         )}
@@ -353,7 +505,7 @@ export function PropertyMediaGallery({
 
       {currentMedia.length > 0 && (
         <DndContext
-          sensors={sensors}
+          sensors={selectMode ? undefined : sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
@@ -369,6 +521,9 @@ export function PropertyMediaGallery({
                     item={item}
                     onSetCover={handleSetCover}
                     onDelete={setDeleteId}
+                    selectMode={selectMode}
+                    isSelected={selectedIds.has(item.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </div>
@@ -381,6 +536,9 @@ export function PropertyMediaGallery({
                     index={index}
                     onSetCover={handleSetCover}
                     onDelete={setDeleteId}
+                    selectMode={selectMode}
+                    isSelected={selectedIds.has(item.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </div>
@@ -389,6 +547,7 @@ export function PropertyMediaGallery({
         </DndContext>
       )}
 
+      {/* Single delete dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -404,6 +563,28 @@ export function PropertyMediaGallery({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete dialog */}
+      <AlertDialog open={showBulkDelete} onOpenChange={() => setShowBulkDelete(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar {selectedIds.size} {selectedIds.size === 1 ? 'imagem' : 'imagens'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar {selectedIds.size === 1 ? 'esta imagem' : `estas ${selectedIds.size} imagens`}? Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? 'A eliminar...' : `Eliminar ${selectedIds.size}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

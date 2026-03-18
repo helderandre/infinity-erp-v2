@@ -57,7 +57,9 @@ export interface VisitWithRelations extends Visit {
 
 export interface VisitFilters {
   status?: VisitStatus
+  statuses?: string[]
   consultant_id?: string
+  consultant_ids?: string[]
   property_id?: string
   lead_id?: string
   date_from?: string

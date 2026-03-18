@@ -25,9 +25,12 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 const ESTADO_COLORS: Record<string, string> = {
   'Aberto': 'bg-sky-500',
-  'Em progresso': 'bg-blue-500',
+  'Em Acompanhamento': 'bg-blue-500',
+  'Em progresso': 'bg-indigo-500',
+  'Proposta': 'bg-violet-500',
   'Fechado': 'bg-emerald-500',
-  'Cancelado': 'bg-red-500',
+  'Cancelado': 'bg-slate-400',
+  'Perdido': 'bg-red-500',
 }
 
 interface NegocioSidebarProps {
@@ -41,9 +44,6 @@ interface NegocioSidebarProps {
   onEstadoChange: (value: string) => void
   onQuickFillApply: (fields: Record<string, unknown>) => Promise<void>
   onStartAcquisition?: () => void
-  onStartAcompanhamento?: () => void
-  existingAcompanhamentoId?: string | null
-  leadId?: string
 }
 
 export function NegocioSidebar({
@@ -57,12 +57,10 @@ export function NegocioSidebar({
   onEstadoChange,
   onQuickFillApply,
   onStartAcquisition,
-  onStartAcompanhamento,
-  existingAcompanhamentoId,
-  leadId,
 }: NegocioSidebarProps) {
   const showAcquisitionButton = ['Venda', 'Compra e Venda'].includes(tipo)
   const showAcompanhamentoButton = ['Compra', 'Compra e Venda'].includes(tipo)
+  const isInAcompanhamento = estado === 'Em Acompanhamento'
   return (
     <Card className="w-full">
       <CardContent className="pt-6 pb-6 space-y-6">
@@ -171,31 +169,17 @@ export function NegocioSidebar({
         )}
 
         {/* Acompanhamento (Compra) */}
-        {showAcompanhamentoButton && (
+        {showAcompanhamentoButton && !isInAcompanhamento && estado === 'Aberto' && (
           <div className={showAcquisitionButton ? '' : 'border-t pt-4'}>
-            {existingAcompanhamentoId && leadId ? (
-              <Button
-                type="button"
-                variant="default"
-                className="w-full"
-                asChild
-              >
-                <a href={`/dashboard/leads/${leadId}/acompanhamentos/${existingAcompanhamentoId}`}>
-                  <UserCheck className="mr-2 h-4 w-4" />
-                  Ver Acompanhamento
-                </a>
-              </Button>
-            ) : onStartAcompanhamento ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={onStartAcompanhamento}
-              >
-                <UserCheck className="mr-2 h-4 w-4" />
-                Iniciar Acompanhamento
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => onEstadoChange('Em Acompanhamento')}
+            >
+              <UserCheck className="mr-2 h-4 w-4" />
+              Iniciar Acompanhamento
+            </Button>
           </div>
         )}
 

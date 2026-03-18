@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Building2,
   MapPin,
@@ -47,6 +48,12 @@ import {
   Loader2,
   Search,
   PenLine,
+  CalendarDays,
+  UserCheck,
+  UserX,
+  Clock,
+  Plus,
+  X,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -114,6 +121,19 @@ interface PropertyInfo {
   number_of_divisions?: number
 }
 
+interface PreferredDateEntry {
+  date: string
+  time_slot: string
+}
+
+interface AvailabilityInfo {
+  will_be_present: boolean | null
+  replacement_name: string
+  replacement_phone: string
+  preferred_dates: PreferredDateEntry[]
+  notes: string
+}
+
 interface SelectedService {
   service: MarketingCatalogItem
   selectedAddons: MarketingCatalogAddon[]
@@ -163,6 +183,23 @@ const EMPTY_PROPERTY_INFO: PropertyInfo = {
   number_of_divisions: undefined,
 }
 
+const EMPTY_AVAILABILITY: AvailabilityInfo = {
+  will_be_present: null,
+  replacement_name: '',
+  replacement_phone: '',
+  preferred_dates: [],
+  notes: '',
+}
+
+const TIME_SLOTS = [
+  { key: 'morning', label: 'Manhã (9h-12h)' },
+  { key: 'afternoon', label: 'Tarde (14h-18h)' },
+  { key: 'late_afternoon', label: 'Fim de tarde (17h-20h)' },
+  { key: 'flexible', label: 'Flexível' },
+] as const
+
+const TIME_SLOT_LABELS: Record<string, string> = Object.fromEntries(TIME_SLOTS.map(s => [s.key, s.label]))
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -173,7 +210,7 @@ export function PropertyServiceDialog({
   propertyServices,
   onAddToCart,
 }: PropertyServiceDialogProps) {
-  // Step: 1 = property, 2 = services, 3 = review
+  // Step: 1 = property, 2 = services, 3 = availability, 4 = review
   const [step, setStep] = useState(1)
 
   // Step 1 state
@@ -190,6 +227,11 @@ export function PropertyServiceDialog({
   const [selectedServices, setSelectedServices] = useState<Map<string, SelectedService>>(new Map())
   const [expandedAddons, setExpandedAddons] = useState<Set<string>>(new Set())
 
+  // Step 3 state — availability
+  const [availability, setAvailability] = useState<AvailabilityInfo>(EMPTY_AVAILABILITY)
+  const [newDate, setNewDate] = useState('')
+  const [newTimeSlot, setNewTimeSlot] = useState('')
+
   // Reset on open/close
   useEffect(() => {
     if (!open) return
@@ -200,6 +242,8 @@ export function PropertyServiceDialog({
     setPropertyInfo(EMPTY_PROPERTY_INFO)
     setSelectedServices(new Map())
     setExpandedAddons(new Set())
+    setAvailability(EMPTY_AVAILABILITY)
+    setNewDate('')
     setPropertySearch('')
     setShowPropertyDropdown(false)
   }, [open])
@@ -359,6 +403,13 @@ export function PropertyServiceDialog({
         number_of_divisions: propertyInfo.number_of_divisions,
       },
       services: Array.from(selectedServices.values()),
+      availability: availability.will_be_present !== null ? {
+        will_be_present: availability.will_be_present,
+        replacement_name: availability.replacement_name || undefined,
+        replacement_phone: availability.replacement_phone || undefined,
+        preferred_dates: availability.preferred_dates,
+        notes: availability.notes || undefined,
+      } : undefined,
     }
     onAddToCart(bundle)
     onOpenChange(false)
@@ -367,6 +418,7 @@ export function PropertyServiceDialog({
     selectedPropertyTitle,
     propertyInfo,
     selectedServices,
+    availability,
     onAddToCart,
     onOpenChange,
   ])
@@ -375,7 +427,7 @@ export function PropertyServiceDialog({
   // Render helpers
   // ---------------------------------------------------------------------------
 
-  const stepLabel = step === 1 ? 'Seleccionar Imovel' : step === 2 ? 'Escolher Servicos' : 'Resumo'
+  const stepLabel = step === 1 ? 'Seleccionar Imovel' : step === 2 ? 'Escolher Servicos' : step === 3 ? 'Disponibilidade' : 'Resumo'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -392,13 +444,14 @@ export function PropertyServiceDialog({
             <DialogDescription className="text-neutral-400 mt-1">
               {step === 1 && 'Seleccione ou preencha os dados do imóvel.'}
               {step === 2 && 'Seleccione os serviços que pretende contratar.'}
-              {step === 3 && 'Reveja os detalhes antes de adicionar ao carrinho.'}
+              {step === 3 && 'Indique a sua disponibilidade para a realização dos serviços.'}
+              {step === 4 && 'Reveja os detalhes antes de adicionar ao carrinho.'}
             </DialogDescription>
           </DialogHeader>
 
           {/* Step dots */}
           <div className="flex items-center justify-center gap-2.5 mt-4">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <button
                 key={s}
                 type="button"
@@ -842,8 +895,180 @@ export function PropertyServiceDialog({
               </div>
             )}
 
-            {/* ────────────────── STEP 3: Review ────────────────── */}
+            {/* ────────────────── STEP 3: Availability ────────────────── */}
             {step === 3 && (
+              <div className="space-y-5">
+                {/* Will you be present? */}
+                <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                    Estará presente no local? *
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAvailability((prev) => ({ ...prev, will_be_present: true, replacement_name: '', replacement_phone: '' }))}
+                      className={`flex items-center gap-2.5 rounded-xl border p-3 transition-all ${
+                        availability.will_be_present === true
+                          ? 'border-neutral-900 bg-neutral-50 shadow-sm ring-1 ring-neutral-900/10'
+                          : 'hover:border-neutral-300 hover:bg-muted/30'
+                      }`}
+                    >
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                        availability.will_be_present === true ? 'bg-neutral-900 text-white' : 'bg-muted'
+                      }`}>
+                        <UserCheck className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">Sim</p>
+                        <p className="text-[10px] text-muted-foreground">Estarei presente</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAvailability((prev) => ({ ...prev, will_be_present: false }))}
+                      className={`flex items-center gap-2.5 rounded-xl border p-3 transition-all ${
+                        availability.will_be_present === false
+                          ? 'border-neutral-900 bg-neutral-50 shadow-sm ring-1 ring-neutral-900/10'
+                          : 'hover:border-neutral-300 hover:bg-muted/30'
+                      }`}
+                    >
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                        availability.will_be_present === false ? 'bg-neutral-900 text-white' : 'bg-muted'
+                      }`}>
+                        <UserX className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">Não</p>
+                        <p className="text-[10px] text-muted-foreground">Alguém irá no meu lugar</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Replacement person */}
+                {availability.will_be_present === false && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                      Pessoa de contacto no local
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Nome *</Label>
+                        <Input
+                          className="rounded-lg mt-1 h-8 text-sm"
+                          placeholder="Nome completo"
+                          value={availability.replacement_name}
+                          onChange={(e) => setAvailability((prev) => ({ ...prev, replacement_name: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Telemóvel *</Label>
+                        <Input
+                          className="rounded-lg mt-1 h-8 text-sm"
+                          placeholder="9XX XXX XXX"
+                          value={availability.replacement_phone}
+                          onChange={(e) => setAvailability((prev) => ({ ...prev, replacement_phone: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Preferred dates with per-date time slot */}
+                <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                    Datas e horários preferenciais
+                  </Label>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        type="date"
+                        className="rounded-lg h-8 text-sm flex-1"
+                        value={newDate}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setNewDate(e.target.value)}
+                      />
+                    </div>
+                    {newDate && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {TIME_SLOTS.map((slot) => (
+                          <button
+                            key={slot.key}
+                            type="button"
+                            onClick={() => {
+                              const alreadyExists = availability.preferred_dates.some(
+                                (entry) => entry.date === newDate && entry.time_slot === slot.key
+                              )
+                              if (!alreadyExists) {
+                                setAvailability((prev) => ({
+                                  ...prev,
+                                  preferred_dates: [...prev.preferred_dates, { date: newDate, time_slot: slot.key }].sort(
+                                    (a, b) => a.date.localeCompare(b.date) || a.time_slot.localeCompare(b.time_slot)
+                                  ),
+                                }))
+                              }
+                              setNewDate('')
+                              setNewTimeSlot('')
+                            }}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-all hover:border-neutral-300 hover:bg-muted/30`}
+                          >
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            {slot.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {availability.preferred_dates.length > 0 && (
+                    <div className="space-y-1.5">
+                      {availability.preferred_dates.map((entry, idx) => (
+                        <div
+                          key={`${entry.date}-${entry.time_slot}-${idx}`}
+                          className="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-800 text-xs font-medium px-2.5 py-1.5 rounded-full mr-1.5 mb-1"
+                        >
+                          <CalendarDays className="h-3 w-3" />
+                          {new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', weekday: 'short' })}
+                          <span className="text-muted-foreground">·</span>
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          {TIME_SLOT_LABELS[entry.time_slot] || entry.time_slot}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAvailability((prev) => ({
+                                ...prev,
+                                preferred_dates: prev.preferred_dates.filter((_, i) => i !== idx),
+                              }))
+                            }
+                            className="ml-0.5 hover:text-red-600 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                    Observações adicionais
+                  </Label>
+                  <Textarea
+                    className="rounded-xl resize-none text-sm"
+                    rows={2}
+                    placeholder="Ex: chave com o porteiro, tocar à campainha do 3.o andar..."
+                    value={availability.notes}
+                    onChange={(e) => setAvailability((prev) => ({ ...prev, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ────────────────── STEP 4: Review ────────────────── */}
+            {step === 4 && (
               <div className="space-y-4">
                 {/* Property summary */}
                 <div className="rounded-xl border bg-card/50 p-4 space-y-2">
@@ -945,6 +1170,40 @@ export function PropertyServiceDialog({
                   ))}
                 </div>
 
+                {/* Availability summary */}
+                <div className="rounded-xl border bg-card/50 p-4 space-y-2">
+                  <h4 className="font-medium text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    Disponibilidade
+                  </h4>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      {availability.will_be_present ? (
+                        <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <UserX className="h-3.5 w-3.5 text-amber-600" />
+                      )}
+                      <span>
+                        {availability.will_be_present
+                          ? 'Estará presente'
+                          : `Substituído por ${availability.replacement_name || '—'} (${availability.replacement_phone || '—'})`}
+                      </span>
+                    </div>
+                    {availability.preferred_dates.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {availability.preferred_dates.map((entry, idx) => (
+                          <Badge key={`${entry.date}-${entry.time_slot}-${idx}`} variant="secondary" className="rounded-full text-[10px]">
+                            {new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })} · {TIME_SLOT_LABELS[entry.time_slot] || entry.time_slot}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {availability.notes && (
+                      <p className="text-xs text-muted-foreground italic">{availability.notes}</p>
+                    )}
+                  </div>
+                </div>
+
                 {/* Total */}
                 <div className="rounded-xl bg-neutral-900 text-white p-4">
                   <div className="flex justify-between text-base font-bold">
@@ -977,10 +1236,15 @@ export function PropertyServiceDialog({
             </Button>
           )}
 
-          {step < 3 ? (
+          {step < 4 ? (
             <Button
               className="rounded-full px-6"
-              disabled={step === 1 ? !canProceedStep1 : !canProceedStep2}
+              disabled={
+                step === 1 ? !canProceedStep1 :
+                step === 2 ? !canProceedStep2 :
+                step === 3 ? availability.will_be_present === null :
+                false
+              }
               onClick={() => setStep((s) => s + 1)}
             >
               Seguinte

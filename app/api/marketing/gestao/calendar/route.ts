@@ -71,6 +71,81 @@ export async function GET(request: Request) {
       }
     }
 
+    // a2) marketing_orders with scheduled dates (confirmed_date or preferred_date)
+    const { data: scheduledOrders, error: schedOrdErr } = await supabase
+      .from('marketing_orders')
+      .select(`
+        id, status, confirmed_date, confirmed_time, preferred_date, preferred_time, address, city,
+        agent:dev_users!marketing_orders_agent_id_fkey(commercial_name),
+        marketing_order_items(id, name, price)
+      `)
+      .eq('agent_id', user.id)
+      .or(
+        `and(confirmed_date.gte.${firstDay},confirmed_date.lte.${lastDay}),` +
+        `and(preferred_date.gte.${firstDay},preferred_date.lte.${lastDay})`
+      )
+
+    if (!schedOrdErr && scheduledOrders) {
+      for (const o of scheduledOrders as any[]) {
+        const date = o.confirmed_date || o.preferred_date
+        if (!date || date < firstDay || date > lastDay) continue
+        const itemNames = (o.marketing_order_items || []).map((i: any) => i.name)
+        const shortLabel = itemNames.length > 0
+          ? itemNames.slice(0, 2).join(', ') + (itemNames.length > 2 ? ` +${itemNames.length - 2}` : '')
+          : 'Serviço agendado'
+
+        events.push({
+          date,
+          type: 'service_scheduled',
+          label: shortLabel,
+          metadata: {
+            order_id: o.id,
+            status: o.status,
+            is_confirmed: !!o.confirmed_date,
+            time: o.confirmed_time || o.preferred_time,
+            address: o.address,
+            city: o.city,
+          },
+        })
+      }
+    }
+
+    // a3) individual item confirmed dates (from marketing_order_items.confirmed_date)
+    const { data: confirmedItems, error: confItemErr } = await supabase
+      .from('marketing_order_items')
+      .select(`
+        id, name, price, confirmed_date, confirmed_time, status,
+        order:marketing_orders!inner(
+          id, agent_id, address, city,
+          agent:dev_users!marketing_orders_agent_id_fkey(commercial_name)
+        )
+      `)
+      .eq('order.agent_id', user.id)
+      .not('confirmed_date', 'is', null)
+      .gte('confirmed_date', firstDay)
+      .lte('confirmed_date', lastDay)
+
+    if (!confItemErr && confirmedItems) {
+      for (const ci of confirmedItems as any[]) {
+        if (!ci.confirmed_date) continue
+        events.push({
+          date: ci.confirmed_date,
+          type: 'service_scheduled',
+          label: ci.name || 'Serviço',
+          metadata: {
+            item_id: ci.id,
+            order_id: ci.order?.id,
+            status: ci.status,
+            is_confirmed: true,
+            time: ci.confirmed_time,
+            address: ci.order?.address,
+            city: ci.order?.city,
+            price: ci.price,
+          },
+        })
+      }
+    }
+
     // b) marketing_orders — purchases made in this month
     const { data: orders, error: ordError } = await supabase
       .from('marketing_orders')

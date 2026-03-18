@@ -58,8 +58,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, checkout_group_id, payment_method, property_bundle_data } = parsed.data
+    const { items, checkout_group_id, payment_method, property_id, property_bundle_data, proposed_dates } = parsed.data
     const total_amount = items.reduce((sum, item) => sum + item.price, 0)
+
+    // Extract address fields from property_bundle_data for indexed columns
+    const bundleData = property_bundle_data && typeof property_bundle_data === 'object' ? property_bundle_data : null
+    const addressFields = bundleData ? {
+      address: bundleData.address || null,
+      city: bundleData.city || null,
+      parish: bundleData.parish || null,
+      postal_code: bundleData.postal_code || null,
+      ...(bundleData.availability?.will_be_present !== undefined ? {
+        contact_is_agent: bundleData.availability.will_be_present,
+        contact_name: bundleData.availability.replacement_name || null,
+        contact_phone: bundleData.availability.replacement_phone || null,
+      } : {}),
+    } : {}
 
     // Create order
     const { data: order, error: orderError } = await supabase
@@ -69,8 +83,10 @@ export async function POST(request: Request) {
         total_amount,
         status: 'pending',
         payment_method,
+        ...(property_id ? { property_id } : {}),
         ...(property_bundle_data ? { property_bundle_data } : {}),
         ...(checkout_group_id ? { checkout_group_id } : {}),
+        ...addressFields,
       })
       .select()
       .single()
@@ -79,7 +95,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: orderError?.message || 'Erro ao criar encomenda' }, { status: 500 })
     }
 
-    // Create order items
+    // Create order items — attach proposed_dates from availability
+    const proposedDatesJson = proposed_dates && proposed_dates.length > 0 ? proposed_dates : []
     const orderItems = items.map(item => ({
       order_id: order.id,
       catalog_item_id: item.catalog_item_id || null,
@@ -87,6 +104,7 @@ export async function POST(request: Request) {
       name: item.name,
       price: item.price,
       status: 'available',
+      proposed_dates: proposedDatesJson,
     }))
 
     const { data: createdItems, error: itemsError } = await supabase

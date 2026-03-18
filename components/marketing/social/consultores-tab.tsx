@@ -174,15 +174,6 @@ function AgentProfileCard({
                 {profile.agent.professional_email}
               </p>
             )}
-            {profile.agent_profile?.specializations?.length ? (
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {profile.agent_profile.specializations.slice(0, 2).map((s) => (
-                  <span key={s} className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
           <Button
             variant="ghost"
@@ -379,15 +370,6 @@ function ProfileViewDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          {/* Specializations */}
-          {profile.agent_profile?.specializations?.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {profile.agent_profile.specializations.map((s) => (
-                <span key={s} className="rounded-full bg-muted text-[11px] px-2 py-0.5 font-medium">{s}</span>
-              ))}
-            </div>
-          ) : null}
-
           {/* Social Links */}
           {socials.length > 0 && (
             <div className="space-y-2">

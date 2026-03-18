@@ -2,38 +2,55 @@
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
+import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 
 interface ConsultantFiltersProps {
   search: string
   onSearchChange: (value: string) => void
-  status: string
-  onStatusChange: (value: string) => void
-  role: string
-  onRoleChange: (value: string) => void
   roles: { id: string; name: string }[]
   onClearFilters: () => void
   hasActiveFilters: boolean
+  // Multi-select (optional)
+  selectedStatuses?: string[]
+  onStatusesChange?: (value: string[]) => void
+  selectedRoles?: string[]
+  onRolesChange?: (value: string[]) => void
+  // Single-select (backward compat)
+  status?: string
+  onStatusChange?: (value: string) => void
+  role?: string
+  onRoleChange?: (value: string) => void
 }
+
+const statusOptions = [
+  { value: 'active', label: 'Activos' },
+  { value: 'inactive', label: 'Inactivos' },
+]
 
 export function ConsultantFilters({
   search,
   onSearchChange,
+  selectedStatuses = [],
+  onStatusesChange,
+  selectedRoles = [],
+  onRolesChange,
+  roles,
+  onClearFilters,
+  hasActiveFilters,
   status,
   onStatusChange,
   role,
   onRoleChange,
-  roles,
-  onClearFilters,
-  hasActiveFilters,
 }: ConsultantFiltersProps) {
+  const handleStatuses = onStatusesChange || ((vals: string[]) => onStatusChange?.(vals[0] || 'all'))
+  const handleRoles = onRolesChange || ((vals: string[]) => onRoleChange?.(vals[0] || 'all'))
+
+  const effectiveStatuses = onStatusesChange ? selectedStatuses : (status && status !== 'all' ? [status] : [])
+  const effectiveRoles = onRolesChange ? selectedRoles : (role && role !== 'all' ? [role] : [])
+
+  const roleOptions = roles.map((r) => ({ value: r.name, label: r.name }))
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 max-w-xs">
@@ -46,30 +63,22 @@ export function ConsultantFilters({
         />
       </div>
 
-      <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger className="h-9 w-[130px] text-sm rounded-full bg-muted/50 border-0">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos</SelectItem>
-          <SelectItem value="active">Activos</SelectItem>
-          <SelectItem value="inactive">Inactivos</SelectItem>
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Estado"
+        options={statusOptions}
+        selected={effectiveStatuses}
+        onSelectedChange={handleStatuses}
+      />
 
-      <Select value={role} onValueChange={onRoleChange}>
-        <SelectTrigger className="h-9 w-[170px] text-sm rounded-full bg-muted/50 border-0">
-          <SelectValue placeholder="Função" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as funções</SelectItem>
-          {roles.map((r) => (
-            <SelectItem key={r.id} value={r.name}>
-              {r.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {roles.length > 0 && (
+        <MultiSelectFilter
+          title="Função"
+          options={roleOptions}
+          selected={effectiveRoles}
+          onSelectedChange={handleRoles}
+          searchable
+        />
+      )}
 
       {hasActiveFilters && (
         <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 px-2 rounded-full text-xs">

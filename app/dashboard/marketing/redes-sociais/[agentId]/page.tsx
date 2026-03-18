@@ -1281,13 +1281,6 @@ export default function AgentDetailPage() {
           <div className="space-y-1">
             <h1 className="text-xl font-bold tracking-tight">{name}</h1>
             {email && <p className="text-sm text-muted-foreground">{email}</p>}
-            {specializations && specializations.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {specializations.map((s) => (
-                  <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
-                ))}
-              </div>
-            )}
 
             {/* Social & Quick Links */}
             <div className="flex items-center gap-1 pt-1">

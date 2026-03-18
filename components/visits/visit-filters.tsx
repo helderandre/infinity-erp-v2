@@ -5,13 +5,7 @@ import { Search, X } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 import type { VisitFilters } from '@/types/visit'
 
 interface VisitFiltersBarProps {
@@ -20,26 +14,30 @@ interface VisitFiltersBarProps {
   consultants?: Array<{ id: string; commercial_name: string | null }>
 }
 
+const statusOptions = VISIT_STATUS_OPTIONS.map((opt) => ({
+  value: opt.value,
+  label: opt.label,
+}))
+
 export function VisitFiltersBar({
   filters,
   onFiltersChange,
   consultants = [],
 }: VisitFiltersBarProps) {
   const hasActiveFilters = !!(
-    filters.status ||
-    filters.consultant_id ||
+    (filters.statuses && filters.statuses.length > 0) ||
+    (filters.consultant_ids && filters.consultant_ids.length > 0) ||
     filters.date_from ||
     filters.date_to ||
     filters.search
   )
 
-  const updateFilter = (key: keyof VisitFilters, value: string | undefined) => {
-    onFiltersChange({ ...filters, [key]: value || undefined })
-  }
-
-  const clearFilters = () => {
-    onFiltersChange({})
-  }
+  const consultantOptions = consultants
+    .filter((c) => c.commercial_name)
+    .map((c) => ({
+      value: c.id,
+      label: c.commercial_name!,
+    }))
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -50,46 +48,27 @@ export function VisitFiltersBar({
           placeholder="Pesquisar visitas..."
           className="pl-9"
           value={filters.search || ''}
-          onChange={(e) => updateFilter('search', e.target.value)}
+          onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
         />
       </div>
 
       {/* Status */}
-      <Select
-        value={filters.status || '_all'}
-        onValueChange={(v) => updateFilter('status', v === '_all' ? undefined : v)}
-      >
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="_all">Todos os estados</SelectItem>
-          {VISIT_STATUS_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Estado"
+        options={statusOptions}
+        selected={filters.statuses || []}
+        onSelectedChange={(vals) => onFiltersChange({ ...filters, statuses: vals })}
+      />
 
       {/* Consultant */}
-      {consultants.length > 0 && (
-        <Select
-          value={filters.consultant_id || '_all'}
-          onValueChange={(v) => updateFilter('consultant_id', v === '_all' ? undefined : v)}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todos os consultores</SelectItem>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.commercial_name || c.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {consultantOptions.length > 0 && (
+        <MultiSelectFilter
+          title="Consultor"
+          options={consultantOptions}
+          selected={filters.consultant_ids || []}
+          onSelectedChange={(vals) => onFiltersChange({ ...filters, consultant_ids: vals })}
+          searchable
+        />
       )}
 
       {/* Date range */}
@@ -97,20 +76,20 @@ export function VisitFiltersBar({
         type="date"
         className="w-[150px]"
         value={filters.date_from || ''}
-        onChange={(e) => updateFilter('date_from', e.target.value)}
+        onChange={(e) => onFiltersChange({ ...filters, date_from: e.target.value })}
         placeholder="De"
       />
       <Input
         type="date"
         className="w-[150px]"
         value={filters.date_to || ''}
-        onChange={(e) => updateFilter('date_to', e.target.value)}
+        onChange={(e) => onFiltersChange({ ...filters, date_to: e.target.value })}
         placeholder="Até"
       />
 
       {/* Clear */}
       {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
+        <Button variant="ghost" size="sm" onClick={() => onFiltersChange({})}>
           <X className="mr-1 h-4 w-4" />
           Limpar
         </Button>

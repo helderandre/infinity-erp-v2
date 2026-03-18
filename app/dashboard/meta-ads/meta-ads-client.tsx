@@ -41,6 +41,12 @@ import {
   MousePointerClick as CursorClickIcon,
   Target as TargetIcon,
   Calendar as CalendarIcon,
+  ShoppingBag as ShoppingBagIcon,
+  MapPin,
+  ExternalLink,
+  X as XIcon,
+  Check as CheckIcon,
+  ChevronRight,
 } from "lucide-react"
 import {
   Table,
@@ -56,7 +62,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { CAMPAIGN_OBJECTIVES } from "@/lib/constants"
 import type { Lead, LeadStatus } from "@/types/meta-lead"
 import type { MetaCampaign, MetaAdSet, MetaAd, MetaInsights, LeadQualityStats, MetaPage } from "./actions"
 import { syncMetaLeads, createMetaCampaign } from "./actions"
@@ -1128,9 +1138,437 @@ function CreateAdTab({ pages }: { pages: MetaPage[] }) {
   )
 }
 
+// ─── Campaign Request Status Config ──────────────────────────────────────────
+
+const PEDIDO_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  pending:   { label: "Pendente",   bg: "bg-amber-500/10", text: "text-amber-600", dot: "bg-amber-500" },
+  approved:  { label: "Aprovado",   bg: "bg-emerald-500/10", text: "text-emerald-600", dot: "bg-emerald-500" },
+  active:    { label: "Activo",     bg: "bg-blue-500/10", text: "text-blue-600", dot: "bg-blue-500" },
+  completed: { label: "Concluído",  bg: "bg-slate-500/10", text: "text-slate-600", dot: "bg-slate-500" },
+  rejected:  { label: "Rejeitado",  bg: "bg-red-500/10", text: "text-red-600", dot: "bg-red-500" },
+  cancelled: { label: "Cancelado",  bg: "bg-slate-400/10", text: "text-slate-500", dot: "bg-slate-400" },
+}
+
+interface CampaignRequest {
+  id: string
+  objective: string
+  property_id: string | null
+  promote_url: string | null
+  target_zone: string | null
+  target_age_min: number | null
+  target_age_max: number | null
+  target_interests: string | null
+  budget_type: string
+  budget_amount: number
+  duration_days: number
+  total_cost: number
+  creative_notes: string | null
+  status: string
+  rejection_reason: string | null
+  payment_method: string | null
+  created_at: string
+  updated_at: string | null
+  agent: { id: string; commercial_name: string } | null
+  property: { id: string; title: string; slug: string } | null
+}
+
+function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void }) {
+  const [requests, setRequests] = useState<CampaignRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<string>("all")
+  const [selectedRequest, setSelectedRequest] = useState<CampaignRequest | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [rejectionReason, setRejectionReason] = useState("")
+
+  useEffect(() => {
+    fetchRequests()
+  }, [])
+
+  async function fetchRequests() {
+    try {
+      const res = await fetch("/api/marketing/campaigns")
+      if (res.ok) {
+        const data = await res.json()
+        setRequests(data)
+        onCountChange?.(data.filter((r: CampaignRequest) => r.status === "pending").length)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleApprove(id: string) {
+    setActionLoading(id)
+    try {
+      const res = await fetch(`/api/marketing/campaigns/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      })
+      if (res.ok) {
+        setRequests((prev) => {
+          const next = prev.map((r) => (r.id === id ? { ...r, status: "approved" } : r))
+          onCountChange?.(next.filter((r) => r.status === "pending").length)
+          return next
+        })
+        if (selectedRequest?.id === id) setSelectedRequest((prev) => prev ? { ...prev, status: "approved" } : null)
+      }
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleReject(id: string) {
+    setActionLoading(id)
+    try {
+      const res = await fetch(`/api/marketing/campaigns/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "rejected", rejection_reason: rejectionReason || undefined }),
+      })
+      if (res.ok) {
+        setRequests((prev) => {
+          const next = prev.map((r) => (r.id === id ? { ...r, status: "rejected", rejection_reason: rejectionReason } : r))
+          onCountChange?.(next.filter((r) => r.status === "pending").length)
+          return next
+        })
+        if (selectedRequest?.id === id) setSelectedRequest((prev) => prev ? { ...prev, status: "rejected" } : null)
+        setRejectionReason("")
+      }
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter)
+
+  const statusCounts = requests.reduce<Record<string, number>>((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1
+    return acc
+  }, {})
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-24 rounded-2xl bg-muted/50 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Total pedidos", value: requests.length, color: "text-[#1877F2]" },
+          { label: "Pendentes", value: statusCounts.pending || 0, color: "text-amber-500" },
+          { label: "Aprovados", value: (statusCounts.approved || 0) + (statusCounts.active || 0), color: "text-emerald-500" },
+          { label: "Investimento", value: formatCurrency(requests.reduce((sum, r) => sum + Number(r.total_cost || 0), 0)), color: "text-foreground", isText: true },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/60 backdrop-blur-md p-4 shadow-sm dark:bg-white/5 dark:border-white/10"
+          >
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{stat.label}</p>
+            <p className={cn("text-2xl font-bold mt-1", stat.color)}>
+              {typeof stat.value === "number" ? stat.value : stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {[
+          { key: "all", label: "Todos" },
+          { key: "pending", label: "Pendentes" },
+          { key: "approved", label: "Aprovados" },
+          { key: "active", label: "Activos" },
+          { key: "rejected", label: "Rejeitados" },
+          { key: "completed", label: "Concluídos" },
+        ].map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+              filter === f.key
+                ? "bg-[#1877F2] text-white shadow-sm"
+                : "bg-white/60 backdrop-blur-sm border border-white/30 text-muted-foreground hover:text-foreground hover:bg-white/80 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10"
+            )}
+          >
+            {f.label}
+            {f.key !== "all" && statusCounts[f.key] ? (
+              <span className="ml-1.5 opacity-70">({statusCounts[f.key]})</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {/* Request list */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1877F2]/10 mb-5">
+            <ShoppingBagIcon className="h-7 w-7 text-[#1877F2]/50" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground mb-1">Sem pedidos</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            {filter === "all"
+              ? "Ainda não existem pedidos de campanha. Os consultores podem fazer pedidos através da Loja."
+              : "Nenhum pedido com este estado."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((req, i) => {
+            const status = PEDIDO_STATUS_CONFIG[req.status] || PEDIDO_STATUS_CONFIG.pending
+            const objectiveLabel = CAMPAIGN_OBJECTIVES[req.objective as keyof typeof CAMPAIGN_OBJECTIVES] || req.objective
+            return (
+              <button
+                key={req.id}
+                onClick={() => setSelectedRequest(req)}
+                className={cn(
+                  "w-full text-left group relative overflow-hidden rounded-2xl border border-white/20 bg-white/60 backdrop-blur-md p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-[1.005] dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/8",
+                  "animate-in fade-in slide-in-from-bottom-2"
+                )}
+                style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Agent avatar */}
+                  <div className="shrink-0">
+                    <Avatar className="h-10 w-10 ring-2 ring-white/50 dark:ring-white/10">
+                      <AvatarFallback className="bg-[#1877F2]/10 text-[#1877F2] text-xs font-semibold">
+                        {req.agent?.commercial_name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm text-foreground truncate">
+                        {objectiveLabel}
+                      </span>
+                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", status.bg, status.text)}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                        {status.label}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>{req.agent?.commercial_name || "—"}</span>
+                      {req.property && (
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
+                          <BuildingIcon className="h-3 w-3 shrink-0" />
+                          {req.property.title}
+                        </span>
+                      )}
+                      {req.promote_url && (
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          URL externa
+                        </span>
+                      )}
+                      {req.target_zone && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {req.target_zone}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3 shrink-0" />
+                        {req.duration_days} dias
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right side — price + arrow */}
+                  <div className="shrink-0 flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-foreground">{formatCurrency(Number(req.total_cost || 0))}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {req.budget_type === "daily" ? `${formatCurrency(Number(req.budget_amount))}/dia` : "total"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-foreground transition-colors" />
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Detail Sheet */}
+      <Sheet open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null) }}>
+        <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+          {selectedRequest && (() => {
+            const req = selectedRequest
+            const status = PEDIDO_STATUS_CONFIG[req.status] || PEDIDO_STATUS_CONFIG.pending
+            const objectiveLabel = CAMPAIGN_OBJECTIVES[req.objective as keyof typeof CAMPAIGN_OBJECTIVES] || req.objective
+            return (
+              <div className="flex flex-col h-full">
+                {/* Hero header */}
+                <div className="relative bg-gradient-to-br from-[#1877F2]/10 via-[#1877F2]/5 to-transparent px-6 pt-8 pb-6">
+                  <div className="flex items-start gap-4">
+                    <Avatar className="h-12 w-12 ring-2 ring-white/60 shadow-md dark:ring-white/10">
+                      <AvatarFallback className="bg-[#1877F2]/15 text-[#1877F2] text-sm font-bold">
+                        {req.agent?.commercial_name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-foreground leading-tight">{objectiveLabel}</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">{req.agent?.commercial_name || "—"}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold", status.bg, status.text)}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                          {status.label}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {new Date(req.created_at).toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Cost hero */}
+                  <div className="mt-5 rounded-2xl border border-white/30 bg-white/50 backdrop-blur-md p-4 text-center shadow-sm dark:bg-white/5 dark:border-white/10">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Investimento Total</p>
+                    <p className="text-3xl font-extrabold text-foreground mt-1">{formatCurrency(Number(req.total_cost || 0))}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {req.budget_type === "daily" ? `${formatCurrency(Number(req.budget_amount))}/dia × ${req.duration_days} dias` : `Orçamento total · ${req.duration_days} dias`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 px-6 py-5 space-y-4">
+                  {/* Property or URL */}
+                  {(req.property || req.promote_url) && (
+                    <div className="rounded-xl bg-muted/40 p-4">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-2.5">
+                        {req.property ? "Imóvel" : "URL de Promoção"}
+                      </p>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-[#1877F2]/10 flex items-center justify-center shrink-0">
+                          {req.property ? <BuildingIcon className="h-4 w-4 text-[#1877F2]" /> : <ExternalLink className="h-4 w-4 text-[#1877F2]" />}
+                        </div>
+                        {req.property ? (
+                          <Link
+                            href={`/dashboard/imoveis/${req.property.id}`}
+                            className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {req.property.title}
+                          </Link>
+                        ) : (
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {req.promote_url}
+                          </span>
+                        )}
+                        {req.property && (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 ml-auto" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Targeting */}
+                  {(req.target_zone || req.target_age_min || req.target_interests) && (
+                    <div className="rounded-xl bg-muted/40 p-4">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-3">Segmentação</p>
+                      <div className="flex flex-wrap gap-2">
+                        {req.target_zone && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border text-xs font-medium">
+                            <MapPin className="h-3 w-3 text-[#1877F2]" />
+                            {req.target_zone}
+                          </span>
+                        )}
+                        {(req.target_age_min || req.target_age_max) && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border text-xs font-medium">
+                            <UsersIcon className="h-3 w-3 text-[#1877F2]" />
+                            {req.target_age_min || 18}–{req.target_age_max || 65} anos
+                          </span>
+                        )}
+                        {req.target_interests && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border text-xs font-medium">
+                            <TargetIcon className="h-3 w-3 text-[#1877F2]" />
+                            {req.target_interests}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Creative notes */}
+                  {req.creative_notes && (
+                    <div className="rounded-xl bg-muted/40 p-4">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Notas Criativas</p>
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{req.creative_notes}</p>
+                    </div>
+                  )}
+
+                  {/* Rejection reason */}
+                  {req.rejection_reason && (
+                    <div className="rounded-xl border border-red-200/60 bg-red-50/40 p-4 dark:bg-red-500/5 dark:border-red-500/20">
+                      <p className="text-[9px] uppercase tracking-wider text-red-500 font-medium mb-2">Motivo de Rejeição</p>
+                      <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{req.rejection_reason}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sticky actions footer */}
+                {req.status === "pending" && (
+                  <div className="border-t bg-background/80 backdrop-blur-md px-6 py-4 space-y-3">
+                    <Textarea
+                      placeholder="Motivo de rejeição (opcional)"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="rounded-xl resize-none text-sm bg-muted/50 border-0 focus-visible:ring-1"
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleApprove(req.id)}
+                        disabled={actionLoading === req.id}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full gap-2 h-10"
+                      >
+                        {actionLoading === req.id ? (
+                          <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckIcon className="h-3.5 w-3.5" />
+                        )}
+                        Aprovar
+                      </Button>
+                      <Button
+                        onClick={() => handleReject(req.id)}
+                        disabled={actionLoading === req.id}
+                        variant="outline"
+                        className="flex-1 border-red-200 text-red-600 hover:bg-red-50 rounded-full gap-2 h-10 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                      >
+                        {actionLoading === req.id ? (
+                          <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <XIcon className="h-3.5 w-3.5" />
+                        )}
+                        Rejeitar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
+
 // ─── Main Client ─────────────────────────────────────────────────────────────
 
-type Tab = "leads" | "campanhas" | "criar"
+type Tab = "pedidos" | "leads" | "campanhas"
 
 export function MetaAdsClient({
   initialLeads,
@@ -1152,7 +1590,16 @@ export function MetaAdsClient({
   pages?: MetaPage[]
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>("leads")
+  const [tab, setTab] = useState<Tab>("pedidos")
+  const [pendingCount, setPendingCount] = useState(0)
+
+  // Fetch pending campaign count for badge
+  useEffect(() => {
+    fetch("/api/marketing/campaigns?status=pending")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: unknown[]) => setPendingCount(data.length))
+      .catch(() => {})
+  }, [])
   const [isSyncing, startSync] = useTransition()
   const [syncResult, setSyncResult] = useState<{ synced: number; skipped: number; error: string | null } | null>(null)
 
@@ -1189,10 +1636,10 @@ export function MetaAdsClient({
     router.push(`/meta-ads${params.toString() ? `?${params}` : ""}`)
   }
 
-  const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
+  const tabs: { key: Tab; label: string; icon: React.ElementType; badge?: number }[] = [
+    { key: "pedidos", label: "Pedidos", icon: ShoppingBagIcon, badge: pendingCount },
     { key: "leads", label: "Leads", icon: UsersIcon },
     { key: "campanhas", label: "Campanhas", icon: FunnelSimpleIcon },
-    { key: "criar", label: "Criar anuncio", icon: TargetIcon },
   ]
 
   return (
@@ -1253,6 +1700,11 @@ export function MetaAdsClient({
                 >
                   <Icon className="h-3.25 w-3.25" />
                   <span className="hidden sm:inline">{t.label}</span>
+                  {t.badge && t.badge > 0 ? (
+                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1877F2] px-1 text-[10px] font-bold text-white leading-none">
+                      {t.badge}
+                    </span>
+                  ) : null}
                 </button>
               )
             })}
@@ -1369,8 +1821,8 @@ export function MetaAdsClient({
         <CampanhasTab campaigns={campaigns} adSets={adSets} ads={ads} totalLeads={filteredLeads.length} leadQuality={leadQuality} />
       )}
 
-      {/* Tab content: Criar anuncio */}
-      {tab === "criar" && <CreateAdTab pages={pages} />}
+      {/* Tab content: Pedidos (campaign requests from loja) */}
+      {tab === "pedidos" && <PedidosTab onCountChange={setPendingCount} />}
     </div>
   )
 }

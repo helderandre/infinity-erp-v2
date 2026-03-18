@@ -23,7 +23,8 @@ export interface PropertyDetail extends PropertyRow {
   property_owners: {
     ownership_percentage: number
     is_main_contact: boolean
-    owners: Pick<OwnerRow, 'id' | 'name' | 'email' | 'phone' | 'nif'> | null
+    owner_role_id?: string | null
+    owners: OwnerRow | null
   }[]
 }
 

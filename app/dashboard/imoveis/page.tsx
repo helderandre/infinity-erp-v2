@@ -38,7 +38,6 @@ import {
   Building2,
   Plus,
   MoreHorizontal,
-  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -50,7 +49,8 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
-import { formatCurrency, formatDate, PROPERTY_TYPES, PROPERTY_STATUS } from '@/lib/constants'
+import { formatCurrency, formatDate, PROPERTY_TYPES, PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { PropertyWithRelations } from '@/types/property'
 
@@ -283,61 +283,59 @@ function ImoveisPageContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Imóveis</h1>
-          <p className="text-muted-foreground">Gestão de imóveis</p>
+    <div className="space-y-5">
+      {/* ═══ Hero header ═══ */}
+      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 sm:px-8 py-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Building2 className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Imóveis</h1>
+              <p className="text-neutral-400 text-sm">{total} imóve{total !== 1 ? 'is' : 'l'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 border border-white/15">
+              <button onClick={() => setViewMode('table')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'table' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400 hover:text-white')}>
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setViewMode('grid')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'grid' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400 hover:text-white')}>
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
+              <Plus className="h-3.5 w-3.5" />
+              Novo Imóvel
+            </button>
+          </div>
         </div>
-        <Button onClick={() => router.push('/dashboard/imoveis/novo')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Imóvel
-        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <PropertyFilters
-            search={search}
-            onSearchChange={setSearch}
-            selectedStatuses={selectedStatuses}
-            onStatusesChange={setSelectedStatuses}
-            propertyType={propertyType}
-            onPropertyTypeChange={setPropertyType}
-            businessType={businessType}
-            onBusinessTypeChange={setBusinessType}
-            condition={condition}
-            onConditionChange={setCondition}
-            consultants={consultants}
-            consultantId={consultantId}
-            onConsultantChange={setConsultantId}
-            onClearFilters={clearFilters}
-            hasActiveFilters={hasActiveFilters}
-          />
-        </div>
-        <div className="flex border rounded-md">
-          <Button
-            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="rounded-r-none"
-            onClick={() => setViewMode('table')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="rounded-l-none"
-            onClick={() => setViewMode('grid')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {/* ═══ Filters ═══ */}
+      <PropertyFilters
+        search={search}
+        onSearchChange={setSearch}
+        selectedStatuses={selectedStatuses}
+        onStatusesChange={setSelectedStatuses}
+        propertyType={propertyType}
+        onPropertyTypeChange={setPropertyType}
+        businessType={businessType}
+        onBusinessTypeChange={setBusinessType}
+        condition={condition}
+        onConditionChange={setCondition}
+        consultants={consultants}
+        consultantId={consultantId}
+        onConsultantChange={setConsultantId}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
       {isLoading ? (
         viewMode === 'table' ? (
-          <div className="rounded-lg border">
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -345,6 +343,7 @@ function ImoveisPageContent() {
                   <TableHead><SortableColumnHeader column="title" label="Título" /></TableHead>
                   <TableHead><SortableColumnHeader column="external_ref" label="Ref. Externa" /></TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Negócio</TableHead>
                   <TableHead>Cidade</TableHead>
                   <TableHead><SortableColumnHeader column="listing_price" label="Preço" /></TableHead>
                   <TableHead><SortableColumnHeader column="status" label="Estado" /></TableHead>
@@ -360,6 +359,7 @@ function ImoveisPageContent() {
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -405,7 +405,7 @@ function ImoveisPageContent() {
         />
       ) : viewMode === 'table' ? (
         <>
-          <div className="rounded-lg border">
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -413,6 +413,7 @@ function ImoveisPageContent() {
                   <TableHead><SortableColumnHeader column="title" label="Título" /></TableHead>
                   <TableHead><SortableColumnHeader column="external_ref" label="Ref. Externa" /></TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Negócio</TableHead>
                   <TableHead>Cidade</TableHead>
                   <TableHead><SortableColumnHeader column="listing_price" label="Preço" /></TableHead>
                   <TableHead><SortableColumnHeader column="status" label="Estado" /></TableHead>
@@ -425,12 +426,12 @@ function ImoveisPageContent() {
                 {properties.map((property) => (
                   <TableRow
                     key={property.id}
-                    className="cursor-pointer"
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
                   >
                     <TableCell>
                       {getCoverUrl(property) ? (
-                        <div className="relative h-10 w-10 rounded overflow-hidden bg-muted shrink-0">
+                        <div className="relative h-10 w-10 rounded-lg overflow-hidden bg-muted shrink-0 shadow-sm">
                           <Image
                             src={getCoverUrl(property)!}
                             alt=""
@@ -440,7 +441,7 @@ function ImoveisPageContent() {
                           />
                         </div>
                       ) : (
-                        <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
@@ -453,6 +454,20 @@ function ImoveisPageContent() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type || '—'}
+                    </TableCell>
+                    <TableCell>
+                      {property.business_type && (
+                        <span className={cn(
+                          'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap border',
+                          property.business_type === 'venda'
+                            ? 'bg-blue-500/15 text-blue-700 border-blue-400/30 dark:text-blue-300'
+                            : property.business_type === 'arrendamento'
+                              ? 'bg-amber-500/15 text-amber-700 border-amber-400/30 dark:text-amber-300'
+                              : 'bg-muted text-muted-foreground border-border'
+                        )}>
+                          {BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {property.city || '—'}
@@ -472,28 +487,18 @@ function ImoveisPageContent() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              router.push(`/dashboard/imoveis/${property.id}/editar`)
-                            }}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
+                        <DropdownMenuContent align="end" className="rounded-xl">
+                          <DropdownMenuItem className="rounded-lg" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/imoveis/${property.id}`) }}>
+                            <Building2 className="mr-2 h-3.5 w-3.5" />
+                            Ver Detalhe
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDeleteId(property.id)
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive rounded-lg" onClick={(e) => { e.stopPropagation(); setDeleteId(property.id) }}>
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
                             Eliminar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -506,31 +511,14 @@ function ImoveisPageContent() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {total} imóve{total !== 1 ? 'is' : 'l'} encontrado{total !== 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Página {page + 1} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           )}
         </>
@@ -547,50 +535,30 @@ function ImoveisPageContent() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {total} imóve{total !== 1 ? 'is' : 'l'} encontrado{total !== 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Página {page + 1} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           )}
         </>
       )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar imóvel</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-destructive" />Eliminar imóvel</AlertDialogTitle>
             <AlertDialogDescription>
               Tem a certeza de que pretende eliminar este imóvel? Esta acção é irreversível.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

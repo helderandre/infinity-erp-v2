@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { PropertyForm } from '@/components/properties/property-form'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function NovoImovelPage() {
@@ -43,15 +42,28 @@ export default function NovoImovelPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Novo Imóvel</h1>
-          <p className="text-muted-foreground">Criar um novo imóvel no sistema</p>
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 sm:px-8 py-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+        <div className="relative z-10 flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white hover:bg-white/25 transition-all shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Building2 className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Novo Imóvel</h1>
+              <p className="text-neutral-400 text-sm">Preencha os dados para criar um novo imóvel</p>
+            </div>
+          </div>
         </div>
       </div>
+
       <PropertyForm mode="create" onSubmit={handleSubmit} isSubmitting={isSubmitting} />
     </div>
   )

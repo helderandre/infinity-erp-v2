@@ -1,86 +1,106 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '@/components/ui/command'
-import { Search, X, PlusCircle, Check } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import {
   PROPERTY_STATUS,
   PROPERTY_TYPES,
   BUSINESS_TYPES,
   PROPERTY_CONDITIONS,
 } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 
 interface PropertyFiltersProps {
   search: string
   onSearchChange: (value: string) => void
   selectedStatuses: string[]
   onStatusesChange: (value: string[]) => void
-  propertyType: string
-  onPropertyTypeChange: (value: string) => void
-  businessType: string
-  onBusinessTypeChange: (value: string) => void
-  condition: string
-  onConditionChange: (value: string) => void
   consultants: { id: string; commercial_name: string }[]
-  consultantId: string
-  onConsultantChange: (value: string) => void
   onClearFilters: () => void
   hasActiveFilters: boolean
+  // Multi-select (optional)
+  selectedPropertyTypes?: string[]
+  onPropertyTypesChange?: (value: string[]) => void
+  selectedBusinessTypes?: string[]
+  onBusinessTypesChange?: (value: string[]) => void
+  selectedConditions?: string[]
+  onConditionsChange?: (value: string[]) => void
+  selectedConsultants?: string[]
+  onConsultantsChange?: (value: string[]) => void
+  // Single-select (backward compat)
+  propertyType?: string
+  onPropertyTypeChange?: (value: string) => void
+  businessType?: string
+  onBusinessTypeChange?: (value: string) => void
+  condition?: string
+  onConditionChange?: (value: string) => void
+  consultantId?: string
+  onConsultantChange?: (value: string) => void
 }
 
-const allStatusKeys = Object.keys(PROPERTY_STATUS)
+const statusOptions = Object.entries(PROPERTY_STATUS).map(([key, config]) => ({
+  value: key,
+  label: config.label,
+  dot: config.dot,
+}))
+
+const typeOptions = Object.entries(PROPERTY_TYPES).map(([key, label]) => ({
+  value: key,
+  label: label as string,
+}))
+
+const businessOptions = Object.entries(BUSINESS_TYPES).map(([key, label]) => ({
+  value: key,
+  label: label as string,
+}))
+
+const conditionOptions = Object.entries(PROPERTY_CONDITIONS).map(([key, label]) => ({
+  value: key,
+  label: label as string,
+}))
 
 export function PropertyFilters({
   search,
   onSearchChange,
   selectedStatuses,
   onStatusesChange,
+  selectedPropertyTypes = [],
+  onPropertyTypesChange,
+  selectedBusinessTypes = [],
+  onBusinessTypesChange,
+  selectedConditions = [],
+  onConditionsChange,
+  consultants,
+  selectedConsultants = [],
+  onConsultantsChange,
+  onClearFilters,
+  hasActiveFilters,
+  // Backward compat
   propertyType,
   onPropertyTypeChange,
   businessType,
   onBusinessTypeChange,
   condition,
   onConditionChange,
-  consultants,
   consultantId,
   onConsultantChange,
-  onClearFilters,
-  hasActiveFilters,
 }: PropertyFiltersProps) {
-  const toggleStatus = (key: string) => {
-    if (selectedStatuses.includes(key)) {
-      onStatusesChange(selectedStatuses.filter((s) => s !== key))
-    } else {
-      onStatusesChange([...selectedStatuses, key])
-    }
-  }
+  // Support both multi-select and legacy single-select
+  const handleTypesChange = onPropertyTypesChange || ((vals: string[]) => onPropertyTypeChange?.(vals[0] || 'all'))
+  const handleBusinessChange = onBusinessTypesChange || ((vals: string[]) => onBusinessTypeChange?.(vals[0] || 'all'))
+  const handleConditionsChange = onConditionsChange || ((vals: string[]) => onConditionChange?.(vals[0] || 'all'))
+  const handleConsultantsChange = onConsultantsChange || ((vals: string[]) => onConsultantChange?.(vals[0] || 'all'))
 
-  const isAllSelected = selectedStatuses.length === allStatusKeys.length
-  const hasStatusFilter = selectedStatuses.length > 0 && selectedStatuses.length < allStatusKeys.length
+  const effectiveTypes = onPropertyTypesChange ? selectedPropertyTypes : (propertyType && propertyType !== 'all' ? [propertyType] : [])
+  const effectiveBusiness = onBusinessTypesChange ? selectedBusinessTypes : (businessType && businessType !== 'all' ? [businessType] : [])
+  const effectiveConditions = onConditionsChange ? selectedConditions : (condition && condition !== 'all' ? [condition] : [])
+  const effectiveConsultants = onConsultantsChange ? selectedConsultants : (consultantId && consultantId !== 'all' ? [consultantId] : [])
+
+  const consultantOptions = consultants.map((c) => ({
+    value: c.id,
+    label: c.commercial_name,
+  }))
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -94,138 +114,43 @@ export function PropertyFilters({
         />
       </div>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 border-dashed">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Estado
-            {hasStatusFilter && (
-              <>
-                <Separator orientation="vertical" className="mx-2 h-4" />
-                <div className="flex gap-1">
-                  {selectedStatuses.length > 2 ? (
-                    <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                      {selectedStatuses.length} seleccionados
-                    </Badge>
-                  ) : (
-                    selectedStatuses.map((key) => (
-                      <Badge
-                        key={key}
-                        variant="secondary"
-                        className="rounded-sm px-1 font-normal"
-                      >
-                        {PROPERTY_STATUS[key as keyof typeof PROPERTY_STATUS]?.label || key}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[220px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Estado" />
-            <CommandList>
-              <CommandEmpty>Sem resultados.</CommandEmpty>
-              <CommandGroup>
-                {Object.entries(PROPERTY_STATUS).map(([key, config]) => {
-                  const isSelected = selectedStatuses.includes(key)
-                  return (
-                    <CommandItem
-                      key={key}
-                      onSelect={() => toggleStatus(key)}
-                    >
-                      <div
-                        className={cn(
-                          'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                          isSelected
-                            ? 'bg-primary text-primary-foreground'
-                            : 'opacity-50 [&_svg]:invisible'
-                        )}
-                      >
-                        <Check className="h-3 w-3" />
-                      </div>
-                      <span className={cn('mr-2 h-2 w-2 rounded-full shrink-0', config.dot)} />
-                      <span>{config.label}</span>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-              {hasStatusFilter && (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => onStatusesChange([])}
-                      className="justify-center text-center"
-                    >
-                      Limpar filtros
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <MultiSelectFilter
+        title="Estado"
+        options={statusOptions}
+        selected={selectedStatuses}
+        onSelectedChange={onStatusesChange}
+        searchable
+      />
 
-      <Select value={propertyType} onValueChange={onPropertyTypeChange}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Tipo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os tipos</SelectItem>
-          {Object.entries(PROPERTY_TYPES).map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Tipo"
+        options={typeOptions}
+        selected={effectiveTypes}
+        onSelectedChange={handleTypesChange}
+      />
 
-      <Select value={businessType} onValueChange={onBusinessTypeChange}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Negócio" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos</SelectItem>
-          {Object.entries(BUSINESS_TYPES).map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Negócio"
+        options={businessOptions}
+        selected={effectiveBusiness}
+        onSelectedChange={handleBusinessChange}
+      />
 
-      <Select value={condition} onValueChange={onConditionChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Condição" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as condições</SelectItem>
-          {Object.entries(PROPERTY_CONDITIONS).map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Condição"
+        options={conditionOptions}
+        selected={effectiveConditions}
+        onSelectedChange={handleConditionsChange}
+      />
 
       {consultants.length > 0 && (
-        <Select value={consultantId} onValueChange={onConsultantChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.commercial_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          title="Consultor"
+          options={consultantOptions}
+          selected={effectiveConsultants}
+          onSelectedChange={handleConsultantsChange}
+          searchable
+        />
       )}
 
       {hasActiveFilters && (

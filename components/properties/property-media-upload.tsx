@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { PropertyImageCropper } from './property-image-cropper'
 import { useImageCompress } from '@/hooks/use-image-compress'
+import { useBackgroundUpload } from '@/hooks/use-background-upload'
 import { ImagePlus, X, Crop, Upload } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -31,6 +32,7 @@ export function PropertyMediaUpload({
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { compressImages, isCompressing, progress: compressProgress } = useImageCompress()
+  const bgUpload = useBackgroundUpload()
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -85,33 +87,33 @@ export function PropertyMediaUpload({
       // Compress all images
       const filesToCompress = pendingImages.map((p) => p.croppedFile || p.file)
       const compressed = await compressImages(filesToCompress)
+      const count = compressed.length
 
-      // Upload each compressed image
-      for (let i = 0; i < compressed.length; i++) {
-        const formData = new FormData()
-        formData.append('file', compressed[i])
-
-        const res = await fetch(`/api/properties/${propertyId}/media`, {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || 'Erro ao fazer upload')
-        }
-
-        setUploadProgress(Math.round(((i + 1) / compressed.length) * 100))
-      }
-
-      // Cleanup previews
+      // Cleanup previews immediately so user can continue
       pendingImages.forEach((p) => URL.revokeObjectURL(p.preview))
       setPendingImages([])
-      toast.success(`${compressed.length} imagem(ns) enviada(s) com sucesso`)
-      onUploadComplete()
+      setIsUploading(false)
+      setUploadProgress(0)
+
+      // Upload in background via the upload panel
+      let completedCount = 0
+      await bgUpload.uploadMultiple(
+        compressed.map((file, i) => ({
+          url: `/api/properties/${propertyId}/media`,
+          file,
+          fileName: file.name || `imagem-${i + 1}.webp`,
+          context: `Imóvel — imagem ${i + 1}/${count}`,
+          thumbnailUrl: pendingImages[i]?.preview,
+          onSuccess: () => {
+            completedCount++
+            if (completedCount === count) {
+              onUploadComplete()
+            }
+          },
+        }))
+      )
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao fazer upload')
-    } finally {
+      toast.error(err instanceof Error ? err.message : 'Erro ao comprimir imagens')
       setIsUploading(false)
       setUploadProgress(0)
     }

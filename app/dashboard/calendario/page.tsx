@@ -38,6 +38,7 @@ export default function CalendarioPage() {
     userId: filterUserId,
     filterSelf,
     toggleCategory,
+    setCategories,
     setUserId: setFilterUserId,
     toggleFilterSelf,
   } = useCalendarFilters()
@@ -143,6 +144,7 @@ export default function CalendarioPage() {
           <CalendarFilters
             categories={categories}
             onToggleCategory={toggleCategory}
+            onSetCategories={setCategories}
             users={users}
             selectedUserId={filterUserId}
             onUserChange={setFilterUserId}

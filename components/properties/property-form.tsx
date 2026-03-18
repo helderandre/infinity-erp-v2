@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +10,6 @@ import {
   propertyInternalSchema,
 } from '@/lib/validations/property'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Form,
   FormControl,
@@ -23,7 +23,6 @@ import { MaskInput } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
 import { postalCodePTMask, datePTMask, datePTtoISO, isoToDatePT } from '@/lib/masks'
 import { Checkbox } from '@/components/ui/checkbox'
-import { BadgeMultiSelect } from '@/components/ui/badge-multi-select'
 import {
   Select,
   SelectContent,
@@ -33,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { PropertyAddressMapPicker } from './property-address-map-picker'
 import { Spinner } from '@/components/kibo-ui/spinner'
+import { cn } from '@/lib/utils'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -46,11 +46,26 @@ import {
   EQUIPMENT,
   FEATURES,
 } from '@/lib/constants'
+import {
+  Building2, MapPin, Layers, Euro,
+  ChevronLeft, ChevronRight, Check,
+} from 'lucide-react'
+
+const AMENITY_EMOJIS: Record<string, string> = {
+  'Varanda': '🌸', 'Terraço': '☀️', 'Jardim': '🌻', 'Piscina': '🏊', 'Garagem': '🚗',
+  'Arrecadação': '📦', 'Sótão': '🏠', 'Cave': '🏗️', 'Ginásio': '💪',
+  'Condomínio Fechado': '🔒', 'Portaria': '🛡️', 'Cozinha Equipada': '🍳',
+  'Mobilado': '🛋️', 'Suite': '🛏️',
+  'Ar Condicionado': '❄️', 'Aquecimento Central': '🔥', 'Lareira': '🪵',
+  'Painéis Solares': '♻️', 'Bomba de Calor': '🌡️', 'Vidros Duplos': '🪟',
+  'Estores Eléctricos': '🔌', 'Alarme': '🚨', 'Vídeo Porteiro': '📹', 'Sistema de Rega': '💧',
+  'Norte': '⬆️', 'Sul': '⬇️', 'Este': '➡️', 'Oeste': '⬅️', 'Nascente': '🌅', 'Poente': '🌇',
+  'Mar': '🌊', 'Serra': '🏔️', 'Rio': '🏞️', 'Cidade': '🏙️', 'Campo': '🌾',
+}
 import type { PropertyFormData, PropertySpecsFormData, PropertyInternalFormData } from '@/lib/validations/property'
 
-// Combined form schema (all optional except title + types)
+// Combined form schema
 const formSchema = propertySchema.extend({
-  // Specifications
   typology: z.string().optional(),
   bedrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   bathrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
@@ -71,7 +86,6 @@ const formSchema = propertySchema.extend({
   attic_area: z.coerce.number().nonnegative().optional().or(z.literal('')),
   pantry_area: z.coerce.number().nonnegative().optional().or(z.literal('')),
   gym_area: z.coerce.number().nonnegative().optional().or(z.literal('')),
-  // Internal
   internal_notes: z.string().optional(),
   commission_agreed: z.coerce.number().nonnegative().optional().or(z.literal('')),
   commission_type: z.string().optional(),
@@ -97,6 +111,21 @@ interface PropertyFormProps {
 
 const NONE_VALUE = '__none__'
 
+const STEPS = [
+  { key: 'geral', label: 'Dados Gerais', icon: Building2 },
+  { key: 'localizacao', label: 'Localização', icon: MapPin },
+  { key: 'especificacoes', label: 'Especificações', icon: Layers },
+  { key: 'contrato', label: 'Contrato & Internos', icon: Euro },
+] as const
+
+// Fields required per step for validation gating
+const STEP_REQUIRED_FIELDS: Record<string, (keyof FormValues)[]> = {
+  geral: ['title', 'property_type', 'business_type'],
+  localizacao: [],
+  especificacoes: [],
+  contrato: [],
+}
+
 function cleanNumber(val: unknown): number | undefined {
   if (val === '' || val === undefined || val === null) return undefined
   const n = Number(val)
@@ -109,6 +138,8 @@ export function PropertyForm({
   isSubmitting,
   mode,
 }: PropertyFormProps) {
+  const [step, setStep] = useState(0)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
@@ -126,6 +157,21 @@ export function PropertyForm({
       ...defaultValues,
     },
   })
+
+  const canGoNext = async () => {
+    const fields = STEP_REQUIRED_FIELDS[STEPS[step].key] || []
+    if (fields.length === 0) return true
+    const valid = await form.trigger(fields)
+    return valid
+  }
+
+  const goNext = async () => {
+    if (await canGoNext()) {
+      setStep((s) => Math.min(s + 1, STEPS.length - 1))
+    }
+  }
+
+  const goPrev = () => setStep((s) => Math.max(s - 1, 0))
 
   const handleSubmit = async (values: FormValues) => {
     const {
@@ -145,108 +191,103 @@ export function PropertyForm({
 
     const specifications: Partial<PropertySpecsFormData> = {}
     if (typology) specifications.typology = typology
-    const bedroomsN = cleanNumber(bedrooms)
-    if (bedroomsN !== undefined) specifications.bedrooms = bedroomsN
-    const bathroomsN = cleanNumber(bathrooms)
-    if (bathroomsN !== undefined) specifications.bathrooms = bathroomsN
-    const areaGrossN = cleanNumber(area_gross)
-    if (areaGrossN !== undefined) specifications.area_gross = areaGrossN
-    const areaUtilN = cleanNumber(area_util)
-    if (areaUtilN !== undefined) specifications.area_util = areaUtilN
-    const constructionYearN = cleanNumber(construction_year)
-    if (constructionYearN !== undefined) specifications.construction_year = constructionYearN
-    const parkingN = cleanNumber(parking_spaces)
-    if (parkingN !== undefined) specifications.parking_spaces = parkingN
-    const garageN = cleanNumber(garage_spaces)
-    if (garageN !== undefined) specifications.garage_spaces = garageN
+    const bedroomsN = cleanNumber(bedrooms); if (bedroomsN !== undefined) specifications.bedrooms = bedroomsN
+    const bathroomsN = cleanNumber(bathrooms); if (bathroomsN !== undefined) specifications.bathrooms = bathroomsN
+    const areaGrossN = cleanNumber(area_gross); if (areaGrossN !== undefined) specifications.area_gross = areaGrossN
+    const areaUtilN = cleanNumber(area_util); if (areaUtilN !== undefined) specifications.area_util = areaUtilN
+    const constructionYearN = cleanNumber(construction_year); if (constructionYearN !== undefined) specifications.construction_year = constructionYearN
+    const parkingN = cleanNumber(parking_spaces); if (parkingN !== undefined) specifications.parking_spaces = parkingN
+    const garageN = cleanNumber(garage_spaces); if (garageN !== undefined) specifications.garage_spaces = garageN
     if (has_elevator !== undefined) specifications.has_elevator = has_elevator
-    const frontsN = cleanNumber(fronts_count)
-    if (frontsN !== undefined) specifications.fronts_count = frontsN
+    const frontsN = cleanNumber(fronts_count); if (frontsN !== undefined) specifications.fronts_count = frontsN
     if (feats?.length) specifications.features = feats
     if (solar?.length) specifications.solar_orientation = solar
     if (views_list?.length) specifications.views = views_list
     if (equipment_list?.length) specifications.equipment = equipment_list
-    const storageN = cleanNumber(storage_area)
-    if (storageN !== undefined) specifications.storage_area = storageN
-    const balconyN = cleanNumber(balcony_area)
-    if (balconyN !== undefined) specifications.balcony_area = balconyN
-    const poolN = cleanNumber(pool_area)
-    if (poolN !== undefined) specifications.pool_area = poolN
-    const atticN = cleanNumber(attic_area)
-    if (atticN !== undefined) specifications.attic_area = atticN
-    const pantryN = cleanNumber(pantry_area)
-    if (pantryN !== undefined) specifications.pantry_area = pantryN
-    const gymN = cleanNumber(gym_area)
-    if (gymN !== undefined) specifications.gym_area = gymN
+    const storageN = cleanNumber(storage_area); if (storageN !== undefined) specifications.storage_area = storageN
+    const balconyN = cleanNumber(balcony_area); if (balconyN !== undefined) specifications.balcony_area = balconyN
+    const poolN = cleanNumber(pool_area); if (poolN !== undefined) specifications.pool_area = poolN
+    const atticN = cleanNumber(attic_area); if (atticN !== undefined) specifications.attic_area = atticN
+    const pantryN = cleanNumber(pantry_area); if (pantryN !== undefined) specifications.pantry_area = pantryN
+    const gymN = cleanNumber(gym_area); if (gymN !== undefined) specifications.gym_area = gymN
 
     const internal: Partial<PropertyInternalFormData> = {}
     if (internal_notes) internal.internal_notes = internal_notes
-    const commN = cleanNumber(commission_agreed)
-    if (commN !== undefined) internal.commission_agreed = commN
+    const commN = cleanNumber(commission_agreed); if (commN !== undefined) internal.commission_agreed = commN
     if (commission_type) internal.commission_type = commission_type
     if (values.contract_regime) internal.contract_regime = values.contract_regime
     if (contract_term) internal.contract_term = contract_term
     if (contract_expiry) internal.contract_expiry = contract_expiry
-    const imiN = cleanNumber(imi_value)
-    if (imiN !== undefined) internal.imi_value = imiN
-    const condoN = cleanNumber(condominium_fee)
-    if (condoN !== undefined) internal.condominium_fee = condoN
-    const cpcvN = cleanNumber(cpcv_percentage)
-    if (cpcvN !== undefined) internal.cpcv_percentage = cpcvN
+    const imiN = cleanNumber(imi_value); if (imiN !== undefined) internal.imi_value = imiN
+    const condoN = cleanNumber(condominium_fee); if (condoN !== undefined) internal.condominium_fee = condoN
+    const cpcvN = cleanNumber(cpcv_percentage); if (cpcvN !== undefined) internal.cpcv_percentage = cpcvN
 
     await onSubmit({ property, specifications, internal })
   }
 
+  const isLastStep = step === STEPS.length - 1
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Card 1 — Dados Gerais */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dados Gerais</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
+      <form onSubmit={form.handleSubmit(handleSubmit)}>
+        {/* ─── Step indicator ─── */}
+        <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30 shadow-sm mb-6 w-fit max-w-full overflow-x-auto scrollbar-hide">
+          {STEPS.map((s, i) => {
+            const Icon = s.icon
+            const isActive = i === step
+            const isDone = i < step
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => i < step && setStep(i)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300',
+                  isActive
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : isDone
+                      ? 'text-primary hover:bg-muted/50 cursor-pointer'
+                      : 'text-muted-foreground'
+                )}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Icon className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{s.label}</span>
+                <span className="sm:hidden">{i + 1}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ─── Step content ─── */}
+        <div className="rounded-xl border bg-card shadow-sm p-5 sm:p-6 space-y-5 animate-in fade-in duration-200">
+
+          {/* STEP 1: Dados Gerais */}
+          {step === 0 && (
+            <>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados Gerais</h3>
+
+              <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Titulo *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Apartamento T2 no centro de Lisboa" {...field} />
-                  </FormControl>
+                  <FormLabel>Título *</FormLabel>
+                  <FormControl><Input placeholder="Ex: Apartamento T2 no centro de Lisboa" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              )} />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
+              <FormField control={form.control} name="description" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descricao</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descreva o imovel..." className="min-h-[100px]" {...field} />
-                  </FormControl>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl><Textarea placeholder="Descreva o imóvel..." className="min-h-[100px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              )} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="property_type"
-                render={({ field }) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FormField control={form.control} name="property_type" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo de Imovel *</FormLabel>
+                    <FormLabel>Tipo de Imóvel *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         {Object.entries(PROPERTY_TYPES).map(([key, label]) => (
                           <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -255,21 +296,13 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="business_type"
-                render={({ field }) => (
+                <FormField control={form.control} name="business_type" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo de Negocio *</FormLabel>
+                    <FormLabel>Tipo de Negócio *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         {Object.entries(BUSINESS_TYPES).map(([key, label]) => (
                           <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -278,45 +311,23 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="listing_price"
-                render={({ field }) => (
+                <FormField control={form.control} name="listing_price" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Preço (EUR)</FormLabel>
                     <FormControl>
-                      <MaskInput
-                        mask="currency"
-                        currency="EUR"
-                        locale="pt-PT"
-                        placeholder="0,00 €"
-                        value={field.value != null ? String(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          field.onChange(unmasked ? Number(unmasked) : undefined)
-                        }}
-                        onBlur={field.onBlur}
-                      />
+                      <MaskInput mask="currency" currency="EUR" locale="pt-PT" placeholder="0,00 €" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="property_condition"
-                render={({ field }) => (
+                <FormField control={form.control} name="property_condition" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Condição</FormLabel>
                     <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
                         {Object.entries(PROPERTY_CONDITIONS).map(([key, label]) => (
@@ -326,21 +337,13 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="energy_certificate"
-                render={({ field }) => (
+                <FormField control={form.control} name="energy_certificate" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Certificado Energetico</FormLabel>
+                    <FormLabel>Certificado Energético</FormLabel>
                     <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
                         {Object.entries(ENERGY_CERTIFICATES).map(([key, label]) => (
@@ -350,36 +353,22 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="external_ref"
-                render={({ field }) => (
+                <FormField control={form.control} name="external_ref" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Referencia Externa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="REF-001" {...field} />
-                    </FormControl>
+                    <FormLabel>Referência Externa</FormLabel>
+                    <FormControl><Input placeholder="REF-001" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              {mode === 'edit' && (
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
+                {mode === 'edit' && (
+                  <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione..." />
-                          </SelectTrigger>
-                        </FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                         <SelectContent>
                           {Object.entries(PROPERTY_STATUS).map(([key, config]) => (
                             <SelectItem key={key} value={key}>{config.label}</SelectItem>
@@ -388,284 +377,118 @@ export function PropertyForm({
                       </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  )} />
+                )}
+              </div>
+            </>
+          )}
 
-        {/* Card 2 — Localizacao */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Localizacao</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PropertyAddressMapPicker
-              address={form.watch('address_street') || ''}
-              postalCode={form.watch('postal_code') || ''}
-              city={form.watch('city') || ''}
-              zone={form.watch('zone') || ''}
-              latitude={form.watch('latitude') ?? null}
-              longitude={form.watch('longitude') ?? null}
-              onAddressChange={(v) => form.setValue('address_street', v)}
-              onPostalCodeChange={(v) => form.setValue('postal_code', v)}
-              onCityChange={(v) => form.setValue('city', v)}
-              onZoneChange={(v) => form.setValue('zone', v)}
-              onLatitudeChange={(v) => form.setValue('latitude', v ?? undefined)}
-              onLongitudeChange={(v) => form.setValue('longitude', v ?? undefined)}
-            />
-          </CardContent>
-        </Card>
+          {/* STEP 2: Localização */}
+          {step === 1 && (
+            <>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Localização</h3>
+              <PropertyAddressMapPicker
+                address={form.watch('address_street') || ''}
+                postalCode={form.watch('postal_code') || ''}
+                city={form.watch('city') || ''}
+                zone={form.watch('zone') || ''}
+                latitude={form.watch('latitude') ?? null}
+                longitude={form.watch('longitude') ?? null}
+                onAddressChange={(v) => form.setValue('address_street', v)}
+                onPostalCodeChange={(v) => form.setValue('postal_code', v)}
+                onCityChange={(v) => form.setValue('city', v)}
+                onZoneChange={(v) => form.setValue('zone', v)}
+                onLatitudeChange={(v) => form.setValue('latitude', v ?? undefined)}
+                onLongitudeChange={(v) => form.setValue('longitude', v ?? undefined)}
+              />
+            </>
+          )}
 
-        {/* Card 3 — Especificacoes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Especificacoes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <FormField
-                control={form.control}
-                name="typology"
-                render={({ field }) => (
+          {/* STEP 3: Especificações */}
+          {step === 2 && (
+            <>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Especificações</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <FormField control={form.control} name="typology" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipologia</FormLabel>
                     <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
-                        {TYPOLOGIES.map((t) => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
+                        {TYPOLOGIES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="bedrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quartos</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                {(['bedrooms', 'bathrooms', 'construction_year', 'area_gross', 'area_util', 'parking_spaces', 'garage_spaces', 'fronts_count'] as const).map((name) => {
+                  const labels: Record<string, string> = {
+                    bedrooms: 'Quartos', bathrooms: 'Casas de banho', construction_year: 'Ano construção',
+                    area_gross: 'Área bruta (m²)', area_util: 'Área útil (m²)',
+                    parking_spaces: 'Estacionamentos', garage_spaces: 'Garagens', fronts_count: 'Frentes',
+                  }
+                  return (
+                    <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{labels[name]}</FormLabel>
+                        <FormControl><Input type="number" min={0} step={name.includes('area') ? '0.01' : '1'} placeholder="0" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )
+                })}
+              </div>
 
-              <FormField
-                control={form.control}
-                name="bathrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Casas de banho</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="construction_year"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ano de construcao</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="2024" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="area_gross"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Area bruta (m2)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="area_util"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Area util (m2)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="parking_spaces"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estacionamentos</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="garage_spaces"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Garagens</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="fronts_count"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Frentes</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="has_elevator"
-              render={({ field }) => (
+              <FormField control={form.control} name="has_elevator" render={({ field }) => (
                 <FormItem className="flex items-center gap-2 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
+                  <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   <FormLabel className="font-normal">Elevador</FormLabel>
                 </FormItem>
-              )}
-            />
+              )} />
 
-            {/* Multi-select badges */}
-            <div className="space-y-3">
-              <FormLabel>Orientação Solar</FormLabel>
-              <BadgeMultiSelect
-                options={SOLAR_ORIENTATIONS.map((o) => ({ value: o, label: o }))}
-                value={form.watch('solar_orientation') || []}
-                onChange={(v) => form.setValue('solar_orientation', v)}
-                allowCustom={false}
-              />
-            </div>
+              <div className="space-y-5">
+                <FormAmenityGrid label="Características" allItems={[...FEATURES]} value={form.watch('features') || []} onChange={(v) => form.setValue('features', v)} />
+                <FormAmenityGrid label="Equipamento" allItems={[...EQUIPMENT]} value={form.watch('equipment_list') || []} onChange={(v) => form.setValue('equipment_list', v)} />
+                <FormAmenityGrid label="Orientação Solar" allItems={[...SOLAR_ORIENTATIONS]} value={form.watch('solar_orientation') || []} onChange={(v) => form.setValue('solar_orientation', v)} />
+                <FormAmenityGrid label="Vistas" allItems={[...VIEWS]} value={form.watch('views_list') || []} onChange={(v) => form.setValue('views_list', v)} />
+              </div>
 
-            <div className="space-y-3">
-              <FormLabel>Vistas</FormLabel>
-              <BadgeMultiSelect
-                options={VIEWS.map((v) => ({ value: v, label: v }))}
-                value={form.watch('views_list') || []}
-                onChange={(v) => form.setValue('views_list', v)}
-                allowCustom
-                customPlaceholder="Nova vista..."
-              />
-            </div>
-
-            <div className="space-y-3">
-              <FormLabel>Equipamento</FormLabel>
-              <BadgeMultiSelect
-                options={EQUIPMENT.map((e) => ({ value: e, label: e }))}
-                value={form.watch('equipment_list') || []}
-                onChange={(v) => form.setValue('equipment_list', v)}
-                allowCustom
-                customPlaceholder="Novo equipamento..."
-              />
-            </div>
-
-            <div className="space-y-3">
-              <FormLabel>Características</FormLabel>
-              <BadgeMultiSelect
-                options={FEATURES.map((f) => ({ value: f, label: f }))}
-                value={form.watch('features') || []}
-                onChange={(v) => form.setValue('features', v)}
-                allowCustom
-                customPlaceholder="Nova característica..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {[
-                { name: 'storage_area' as const, label: 'Arrecadacao (m2)' },
-                { name: 'balcony_area' as const, label: 'Varanda (m2)' },
-                { name: 'pool_area' as const, label: 'Piscina (m2)' },
-                { name: 'attic_area' as const, label: 'Sotao (m2)' },
-                { name: 'pantry_area' as const, label: 'Despensa (m2)' },
-                { name: 'gym_area' as const, label: 'Ginasio (m2)' },
-              ].map(({ name, label }) => (
-                <FormField
-                  key={name}
-                  control={form.control}
-                  name={name}
-                  render={({ field }) => (
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">Áreas Extra (m²)</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {([
+                  { name: 'storage_area' as const, label: 'Arrecadação' },
+                  { name: 'balcony_area' as const, label: 'Varanda' },
+                  { name: 'pool_area' as const, label: 'Piscina' },
+                  { name: 'attic_area' as const, label: 'Sótão' },
+                  { name: 'pantry_area' as const, label: 'Despensa' },
+                  { name: 'gym_area' as const, label: 'Ginásio' },
+                ]).map(({ name, label }) => (
+                  <FormField key={name} control={form.control} name={name} render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">{label}</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} step="0.01" placeholder="0" {...field} />
-                      </FormControl>
+                      <FormControl><Input type="number" min={0} step="0.01" placeholder="0" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  )} />
+                ))}
+              </div>
+            </>
+          )}
 
-        {/* Card 4 — Dados Internos (Contrato) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dados Internos (Contrato)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="contract_regime"
-                render={({ field }) => (
+          {/* STEP 4: Contrato & Internos */}
+          {step === 3 && (
+            <>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Contrato & Dados Internos</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FormField control={form.control} name="contract_regime" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Regime de Contrato</FormLabel>
                     <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
                         {Object.entries(CONTRACT_REGIMES).map(([key, label]) => (
@@ -675,21 +498,13 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="commission_type"
-                render={({ field }) => (
+                <FormField control={form.control} name="commission_type" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo de Comissão</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || 'percentage'}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="percentage">Percentagem</SelectItem>
                         <SelectItem value="fixed">Valor Fixo</SelectItem>
@@ -697,182 +512,147 @@ export function PropertyForm({
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="commission_agreed"
-                render={({ field }) => (
+                <FormField control={form.control} name="commission_agreed" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {form.watch('commission_type') === 'fixed' ? 'Comissão Acordada (€)' : 'Comissão Acordada (%)'}
-                    </FormLabel>
+                    <FormLabel>{form.watch('commission_type') === 'fixed' ? 'Comissão Acordada (€)' : 'Comissão Acordada (%)'}</FormLabel>
                     <FormControl>
                       {form.watch('commission_type') === 'fixed' ? (
-                        <MaskInput
-                          mask="currency"
-                          currency="EUR"
-                          locale="pt-PT"
-                          placeholder="0,00 €"
-                          value={field.value != null ? String(field.value) : ''}
-                          onValueChange={(_masked, unmasked) => {
-                            field.onChange(unmasked ? Number(unmasked) : undefined)
-                          }}
-                          onBlur={field.onBlur}
-                        />
+                        <MaskInput mask="currency" currency="EUR" locale="pt-PT" placeholder="0,00 €" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                       ) : (
-                        <MaskInput
-                          mask="percentage"
-                          placeholder="0,00%"
-                          value={field.value != null ? String(field.value) : ''}
-                          onValueChange={(_masked, unmasked) => {
-                            field.onChange(unmasked ? Number(unmasked) : undefined)
-                          }}
-                          onBlur={field.onBlur}
-                        />
+                        <MaskInput mask="percentage" placeholder="0,00%" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                       )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="contract_term"
-                render={({ field }) => (
+                <FormField control={form.control} name="contract_term" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Prazo do Contrato</FormLabel>
-                    <FormControl>
-                      <Input placeholder="6 meses" {...field} />
-                    </FormControl>
+                    <FormControl><Input placeholder="6 meses" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="contract_expiry"
-                render={({ field }) => (
+                <FormField control={form.control} name="contract_expiry" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data de Expiração</FormLabel>
                     <FormControl>
-                      <MaskInput
-                        mask={datePTMask}
-                        placeholder="DD/MM/AAAA"
-                        value={field.value ? isoToDatePT(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          if (unmasked.length === 8) {
-                            field.onChange(datePTtoISO(unmasked))
-                          } else {
-                            field.onChange(unmasked ? unmasked : '')
-                          }
-                        }}
-                        onBlur={field.onBlur}
-                      />
+                      <MaskInput mask={datePTMask} placeholder="DD/MM/AAAA" value={field.value ? isoToDatePT(field.value) : ''} onValueChange={(_masked, unmasked) => { if (unmasked.length === 8) { field.onChange(datePTtoISO(unmasked)) } else { field.onChange(unmasked ? unmasked : '') } }} onBlur={field.onBlur} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="imi_value"
-                render={({ field }) => (
+                <FormField control={form.control} name="imi_value" render={({ field }) => (
                   <FormItem>
                     <FormLabel>IMI (EUR)</FormLabel>
                     <FormControl>
-                      <MaskInput
-                        mask="currency"
-                        currency="EUR"
-                        locale="pt-PT"
-                        placeholder="0,00 €"
-                        value={field.value != null ? String(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          field.onChange(unmasked ? Number(unmasked) : undefined)
-                        }}
-                        onBlur={field.onBlur}
-                      />
+                      <MaskInput mask="currency" currency="EUR" locale="pt-PT" placeholder="0,00 €" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="condominium_fee"
-                render={({ field }) => (
+                <FormField control={form.control} name="condominium_fee" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Condomínio (EUR)</FormLabel>
                     <FormControl>
-                      <MaskInput
-                        mask="currency"
-                        currency="EUR"
-                        locale="pt-PT"
-                        placeholder="0,00 €"
-                        value={field.value != null ? String(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          field.onChange(unmasked ? Number(unmasked) : undefined)
-                        }}
-                        onBlur={field.onBlur}
-                      />
+                      <MaskInput mask="currency" currency="EUR" locale="pt-PT" placeholder="0,00 €" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )} />
 
-              <FormField
-                control={form.control}
-                name="cpcv_percentage"
-                render={({ field }) => (
+                <FormField control={form.control} name="cpcv_percentage" render={({ field }) => (
                   <FormItem>
                     <FormLabel>CPCV (%)</FormLabel>
                     <FormControl>
-                      <MaskInput
-                        mask="percentage"
-                        placeholder="0,00%"
-                        value={field.value != null ? String(field.value) : ''}
-                        onValueChange={(_masked, unmasked) => {
-                          field.onChange(unmasked ? Number(unmasked) : undefined)
-                        }}
-                        onBlur={field.onBlur}
-                      />
+                      <MaskInput mask="percentage" placeholder="0,00%" value={field.value != null ? String(field.value) : ''} onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }} onBlur={field.onBlur} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
-            </div>
+                )} />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="internal_notes"
-              render={({ field }) => (
+              <FormField control={form.control} name="internal_notes" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notas Internas</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Notas internas sobre o imovel..." className="min-h-[80px]" {...field} />
-                  </FormControl>
+                  <FormControl><Textarea placeholder="Notas internas sobre o imóvel..." className="min-h-[80px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+              )} />
+            </>
+          )}
+        </div>
 
-        {/* Submit */}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Spinner variant="infinite" size={16} className="mr-2" />}
-            {mode === 'create' ? 'Criar Imovel' : 'Guardar'}
+        {/* ─── Navigation ─── */}
+        <div className="flex items-center justify-between mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full gap-1.5"
+            onClick={goPrev}
+            disabled={step === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
           </Button>
+
+          <span className="text-xs text-muted-foreground">
+            Passo {step + 1} de {STEPS.length}
+          </span>
+
+          {isLastStep ? (
+            <Button type="submit" className="rounded-full gap-1.5" disabled={isSubmitting}>
+              {isSubmitting && <Spinner variant="infinite" size={16} className="mr-1" />}
+              {mode === 'create' ? 'Criar Imóvel' : 'Guardar'}
+            </Button>
+          ) : (
+            <Button type="button" className="rounded-full gap-1.5" onClick={goNext}>
+              Seguinte
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </form>
     </Form>
+  )
+}
+
+function FormAmenityGrid({ label, allItems, value, onChange }: { label: string; allItems: string[]; value: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (item: string) => {
+    onChange(value.includes(item) ? value.filter(v => v !== item) : [...value, item])
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-10 gap-1">
+        {allItems.map((item) => {
+          const active = value.includes(item)
+          const emoji = AMENITY_EMOJIS[item] || '✨'
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => toggle(item)}
+              className={cn(
+                'rounded-md border px-1 py-2 flex flex-col items-center justify-center gap-0.5 text-center transition-all cursor-pointer',
+                active
+                  ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                  : 'border-border hover:bg-muted/50'
+              )}
+            >
+              <span className="text-sm">{emoji}</span>
+              <span className={cn('text-[8px] font-medium leading-tight px-0.5', active ? 'text-orange-700 dark:text-orange-300' : '')}>
+                {item.length > 12 ? item.slice(0, 10) + '…' : item}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }

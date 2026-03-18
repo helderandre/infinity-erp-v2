@@ -45,5 +45,11 @@ export function useMarketingOrders() {
     return res.json()
   }
 
-  return { orders, total, loading, filters, setFilters, updateOrder, refetch: fetchOrders }
+  const deleteOrder = async (id: string) => {
+    const res = await fetch(`/api/marketing/orders/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error((await res.json()).error)
+    await fetchOrders()
+  }
+
+  return { orders, total, loading, filters, setFilters, updateOrder, deleteOrder, refetch: fetchOrders }
 }

@@ -991,9 +991,12 @@ export const NEGOCIO_TIPOS = [
 
 export const NEGOCIO_ESTADOS = [
   'Aberto',
+  'Em Acompanhamento',
   'Em progresso',
+  'Proposta',
   'Fechado',
   'Cancelado',
+  'Perdido',
 ] as const
 
 export const NEGOCIO_TIPOS_IMOVEL = [
@@ -1328,29 +1331,40 @@ export const GOAL_PERIOD_LABELS = {
   daily: 'Diário',
 } as const
 
-// === ACOMPANHAMENTOS ===
+// === NEGÓCIO ESTADOS ===
 
-export const ACOMPANHAMENTO_STATUS_COLORS = {
-  active:    { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Em Acompanhamento' },
-  paused:    { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-400',   label: 'Pausado' },
-  converted: { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Convertido' },
-  lost:      { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Perdido' },
+export const NEGOCIO_ESTADO_COLORS = {
+  'Aberto':              { bg: 'bg-sky-500/15',     text: 'text-sky-600',     dot: 'bg-sky-500',     label: 'Aberto' },
+  'Em Acompanhamento':   { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Em Acompanhamento' },
+  'Em progresso':        { bg: 'bg-indigo-500/15',  text: 'text-indigo-600',  dot: 'bg-indigo-500',  label: 'Em Progresso' },
+  'Proposta':            { bg: 'bg-violet-500/15',  text: 'text-violet-600',  dot: 'bg-violet-500',  label: 'Proposta' },
+  'Fechado':             { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Fechado' },
+  'Cancelado':           { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-400',   label: 'Cancelado' },
+  'Perdido':             { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Perdido' },
 } as const
 
-export const ACOMPANHAMENTO_STATUS_OPTIONS = [
-  { value: 'active' as const, label: 'Em Acompanhamento' },
-  { value: 'paused' as const, label: 'Pausado' },
-  { value: 'converted' as const, label: 'Convertido' },
-  { value: 'lost' as const, label: 'Perdido' },
+export const NEGOCIO_ESTADO_OPTIONS = [
+  { value: 'Aberto' as const, label: 'Aberto' },
+  { value: 'Em Acompanhamento' as const, label: 'Em Acompanhamento' },
+  { value: 'Em progresso' as const, label: 'Em Progresso' },
+  { value: 'Proposta' as const, label: 'Proposta' },
+  { value: 'Fechado' as const, label: 'Fechado' },
+  { value: 'Cancelado' as const, label: 'Cancelado' },
+  { value: 'Perdido' as const, label: 'Perdido' },
 ] as const
 
-export const ACOMPANHAMENTO_PROPERTY_STATUS = {
-  suggested: { bg: 'bg-slate-500/15', text: 'text-slate-600', label: 'Sugerido' },
-  sent:      { bg: 'bg-blue-500/15',  text: 'text-blue-600',  label: 'Enviado' },
-  visited:   { bg: 'bg-amber-500/15', text: 'text-amber-600', label: 'Visitado' },
-  interested:{ bg: 'bg-emerald-500/15', text: 'text-emerald-600', label: 'Interessado' },
-  discarded: { bg: 'bg-red-500/15',   text: 'text-red-600',   label: 'Descartado' },
+export const NEGOCIO_PROPERTY_STATUS = {
+  suggested:  { bg: 'bg-slate-500/15',   text: 'text-slate-600',   label: 'Sugerido' },
+  sent:       { bg: 'bg-blue-500/15',    text: 'text-blue-600',    label: 'Enviado' },
+  visited:    { bg: 'bg-amber-500/15',   text: 'text-amber-600',   label: 'Visitado' },
+  interested: { bg: 'bg-emerald-500/15', text: 'text-emerald-600', label: 'Interessado' },
+  discarded:  { bg: 'bg-red-500/15',     text: 'text-red-600',     label: 'Descartado' },
 } as const
+
+// Backward compat aliases
+export const ACOMPANHAMENTO_STATUS_COLORS = NEGOCIO_ESTADO_COLORS
+export const ACOMPANHAMENTO_STATUS_OPTIONS = NEGOCIO_ESTADO_OPTIONS
+export const ACOMPANHAMENTO_PROPERTY_STATUS = NEGOCIO_PROPERTY_STATUS
 
 // === PARCEIROS ===
 

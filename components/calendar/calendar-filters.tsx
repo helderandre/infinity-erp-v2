@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Filter, Users, User, ClipboardList } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Filter, Users, User, ClipboardList, CheckCheck, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Group categories for a cleaner UI
@@ -34,6 +35,7 @@ const MANUAL_CATEGORIES: CalendarCategory[] = [
 interface CalendarFiltersProps {
   categories: CalendarCategory[]
   onToggleCategory: (category: CalendarCategory) => void
+  onSetCategories?: (categories: CalendarCategory[]) => void
   users: { id: string; name: string }[]
   selectedUserId?: string
   onUserChange: (userId?: string) => void
@@ -73,15 +75,45 @@ function CategoryItem({
 export function CalendarFilters({
   categories,
   onToggleCategory,
+  onSetCategories,
   users,
   selectedUserId,
   onUserChange,
   filterSelf,
   onToggleFilterSelf,
 }: CalendarFiltersProps) {
+  const allCategories = [...AUTO_CATEGORIES, ...PROCESS_CATEGORIES, ...MANUAL_CATEGORIES]
+  const allSelected = allCategories.every(c => categories.includes(c))
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-3 pr-3">
+        {/* Select All / Deselect All */}
+        {onSetCategories && (
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 rounded-full text-[10px] px-2 flex-1"
+              onClick={() => onSetCategories(allCategories)}
+              disabled={allSelected}
+            >
+              <CheckCheck className="mr-1 h-3 w-3" />
+              Seleccionar todos
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 rounded-full text-[10px] px-2 flex-1"
+              onClick={() => onSetCategories([allCategories[0]])}
+              disabled={categories.length <= 1}
+            >
+              <XCircle className="mr-1 h-3 w-3" />
+              Limpar
+            </Button>
+          </div>
+        )}
+
         {/* Processos & Leads */}
         <div>
           <div className="flex items-center gap-2 mb-2">
