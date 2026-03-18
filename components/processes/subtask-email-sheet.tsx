@@ -374,7 +374,7 @@ export function SubtaskEmailSheet({
   onResetTemplate: onResetTemplateProp,
 }: SubtaskEmailSheetProps) {
   const { user } = useUser()
-  const { account: emailAccount, isLoading: isLoadingAccount } = useEmailAccount()
+  const { selectedAccount: emailAccount, selectedAccountId, isLoading: isLoadingAccount } = useEmailAccount()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [subject, setSubject] = useState('')
@@ -675,6 +675,7 @@ export function SubtaskEmailSheet({
           body_html: wrappedBody,
           process_id: processId || undefined,
           process_type: 'process_email',
+          account_id: selectedAccountId || undefined,
           ...(attachments.length > 0 && {
             attachments: attachments.map((a) => ({
               filename: a.filename,
