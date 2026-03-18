@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isUserEmailAdmin } from '@/lib/email/resolve-account'
 import { verifySmtp } from '@/lib/email/smtp-client'
 import { verifyImap } from '@/lib/email/imap-client'
 import { z } from 'zod'
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || ''
+
+const ACCOUNT_SELECT =
+  'id, consultant_id, email_address, display_name, smtp_host, smtp_port, smtp_secure, imap_host, imap_port, imap_secure, is_verified, is_active, last_sync_at, last_error, created_at, updated_at'
 
 const setupSchema = z.object({
   email_address: z.string().email('Email inválido'),
@@ -15,30 +19,66 @@ const setupSchema = z.object({
   smtp_port: z.number().optional().default(465),
   imap_host: z.string().optional().default('mail.sooma.com'),
   imap_port: z.number().optional().default(993),
+  /** Admin can create accounts for other consultants */
+  consultant_id: z.string().uuid().optional(),
 })
 
 /**
- * GET /api/email/account — Get current user's email account
+ * GET /api/email/account — Get email accounts
+ *
+ * Regular users: returns their own accounts (array)
+ * Email admins: returns ALL accounts (with consultant name)
  */
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const adminDb = createAdminClient()
-    const { data, error } = await adminDb
-      .from('consultant_email_accounts')
-      .select('id, consultant_id, email_address, display_name, smtp_host, smtp_port, smtp_secure, imap_host, imap_port, imap_secure, is_verified, is_active, last_sync_at, last_error, created_at, updated_at')
-      .eq('consultant_id', user.id)
-      .maybeSingle()
+    const emailAdmin = await isUserEmailAdmin(user.id)
+
+    let query = adminDb.from('consultant_email_accounts').select(ACCOUNT_SELECT)
+
+    if (!emailAdmin) {
+      // Regular user: only own accounts
+      query = query.eq('consultant_id', user.id)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true })
 
     if (error) {
       console.error('[email/account] GET error:', error)
-      return NextResponse.json({ error: 'Erro ao buscar conta' }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao buscar contas' }, { status: 500 })
     }
 
-    return NextResponse.json({ account: data })
+    // For admin view, enrich with consultant name
+    let accounts = data || []
+    if (emailAdmin && accounts.length > 0) {
+      const consultantIds = [...new Set(accounts.map((a) => a.consultant_id))]
+      const { data: consultants } = await adminDb
+        .from('dev_users')
+        .select('id, commercial_name')
+        .in('id', consultantIds)
+
+      const nameMap = new Map(
+        (consultants || []).map((c) => [c.id, c.commercial_name])
+      )
+
+      accounts = accounts.map((a) => ({
+        ...a,
+        consultant_name: nameMap.get(a.consultant_id) || null,
+      }))
+    }
+
+    return NextResponse.json({
+      accounts,
+      is_email_admin: emailAdmin,
+      // Backward compat: return first account as "account" for existing frontend
+      account: accounts.find((a) => a.consultant_id === user.id) || accounts[0] || null,
+    })
   } catch (err) {
     console.error('[email/account] GET exception:', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
@@ -46,7 +86,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/email/account — Setup/verify email account
+ * POST /api/email/account — Setup/verify a new email account
  */
 export async function POST(req: Request) {
   try {
@@ -55,7 +95,9 @@ export async function POST(req: Request) {
     }
 
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const body = await req.json()
@@ -64,7 +106,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { email_address, password, display_name, smtp_host, smtp_port, imap_host, imap_port } = parsed.data
+    const { email_address, password, display_name, smtp_host, smtp_port, imap_host, imap_port, consultant_id } =
+      parsed.data
+
+    // Determine target consultant
+    let targetConsultantId = user.id
+    if (consultant_id && consultant_id !== user.id) {
+      const emailAdmin = await isUserEmailAdmin(user.id)
+      if (!emailAdmin) {
+        return NextResponse.json(
+          { error: 'Sem permissão para criar conta para outro consultor' },
+          { status: 403 }
+        )
+      }
+      targetConsultantId = consultant_id
+    }
+
+    // Check if this email_address already exists
+    const adminDb = createAdminClient()
+    const { data: existing } = await adminDb
+      .from('consultant_email_accounts')
+      .select('id')
+      .eq('email_address', email_address)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Este endereço de email já está configurado no sistema' },
+        { status: 409 }
+      )
+    }
 
     // 1. Verify SMTP connection
     const smtpResult = await verifySmtp({
@@ -76,11 +147,10 @@ export async function POST(req: Request) {
     })
 
     if (!smtpResult.ok) {
-      return NextResponse.json({
-        error: 'Falha na verificação SMTP',
-        detail: smtpResult.error,
-        step: 'smtp',
-      }, { status: 422 })
+      return NextResponse.json(
+        { error: 'Falha na verificação SMTP', detail: smtpResult.error, step: 'smtp' },
+        { status: 422 }
+      )
     }
 
     // 2. Verify IMAP connection
@@ -93,30 +163,28 @@ export async function POST(req: Request) {
     })
 
     if (!imapResult.ok) {
-      return NextResponse.json({
-        error: 'Falha na verificação IMAP',
-        detail: imapResult.error,
-        step: 'imap',
-      }, { status: 422 })
+      return NextResponse.json(
+        { error: 'Falha na verificação IMAP', detail: imapResult.error, step: 'imap' },
+        { status: 422 }
+      )
     }
 
     // 3. Encrypt password and save
-    const adminDb = createAdminClient()
-
-    // Encrypt password via SQL function
-    const { data: encResult, error: encError } = await adminDb
-      .rpc('encrypt_email_password', { p_password: password, p_key: ENCRYPTION_KEY })
+    const { data: encResult, error: encError } = await adminDb.rpc('encrypt_email_password', {
+      p_password: password,
+      p_key: ENCRYPTION_KEY,
+    })
 
     if (encError || !encResult) {
       console.error('[email/account] Encryption error:', encError)
       return NextResponse.json({ error: 'Erro ao encriptar credenciais' }, { status: 500 })
     }
 
-    // Upsert account (one per consultant)
-    const { data: account, error: upsertError } = await adminDb
+    // Insert new account (no upsert — multiple accounts allowed)
+    const { data: account, error: insertError } = await adminDb
       .from('consultant_email_accounts')
-      .upsert({
-        consultant_id: user.id,
+      .insert({
+        consultant_id: targetConsultantId,
         email_address,
         display_name,
         encrypted_password: encResult,
@@ -129,12 +197,12 @@ export async function POST(req: Request) {
         is_verified: true,
         is_active: true,
         last_error: null,
-      }, { onConflict: 'consultant_id' })
-      .select('id, email_address, display_name, is_verified, is_active, created_at, updated_at')
+      })
+      .select('id, consultant_id, email_address, display_name, is_verified, is_active, created_at, updated_at')
       .single()
 
-    if (upsertError) {
-      console.error('[email/account] Upsert error:', upsertError)
+    if (insertError) {
+      console.error('[email/account] Insert error:', insertError)
       return NextResponse.json({ error: 'Erro ao guardar conta' }, { status: 500 })
     }
 
@@ -150,23 +218,60 @@ export async function POST(req: Request) {
 }
 
 /**
- * DELETE /api/email/account — Remove email account
+ * DELETE /api/email/account — Remove an email account
+ *
+ * Query params: ?id=<account-uuid> (required)
  */
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-    const adminDb = createAdminClient()
-    const { error } = await adminDb
-      .from('consultant_email_accounts')
-      .delete()
-      .eq('consultant_id', user.id)
+    const { searchParams } = new URL(req.url)
+    const accountId = searchParams.get('id')
 
-    if (error) {
-      console.error('[email/account] DELETE error:', error)
-      return NextResponse.json({ error: 'Erro ao eliminar conta' }, { status: 500 })
+    const adminDb = createAdminClient()
+
+    if (accountId) {
+      // Delete specific account — check ownership or admin
+      const { data: account } = await adminDb
+        .from('consultant_email_accounts')
+        .select('id, consultant_id')
+        .eq('id', accountId)
+        .single()
+
+      if (!account) {
+        return NextResponse.json({ error: 'Conta não encontrada' }, { status: 404 })
+      }
+
+      if (account.consultant_id !== user.id) {
+        const emailAdmin = await isUserEmailAdmin(user.id)
+        if (!emailAdmin) {
+          return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+        }
+      }
+
+      const { error } = await adminDb
+        .from('consultant_email_accounts')
+        .delete()
+        .eq('id', accountId)
+
+      if (error) {
+        return NextResponse.json({ error: 'Erro ao eliminar conta' }, { status: 500 })
+      }
+    } else {
+      // Legacy: delete all user's accounts
+      const { error } = await adminDb
+        .from('consultant_email_accounts')
+        .delete()
+        .eq('consultant_id', user.id)
+
+      if (error) {
+        return NextResponse.json({ error: 'Erro ao eliminar conta' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Conta de email removida.' })

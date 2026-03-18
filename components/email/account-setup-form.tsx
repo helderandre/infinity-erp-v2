@@ -106,9 +106,10 @@ export function AccountSetupForm() {
   }
 
   async function handleDelete() {
+    if (!account) return
     setIsDeleting(true)
     try {
-      await removeAccount()
+      await removeAccount(account.id)
       toast.success('Conta de email removida.')
       setDeleteOpen(false)
     } catch (err) {
@@ -147,7 +148,7 @@ export function AccountSetupForm() {
           form.setValue('smtp_port', account.smtp_port)
           form.setValue('imap_host', account.imap_host)
           form.setValue('imap_port', account.imap_port)
-          removeAccount().then(() => refetch())
+          removeAccount(account.id).then(() => refetch())
         }} />
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogContent>

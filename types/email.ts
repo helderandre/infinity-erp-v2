@@ -18,6 +18,8 @@ export interface ConsultantEmailAccount {
   created_at: string
   updated_at: string
   // Never expose encrypted_password to the client
+  /** Populated for email admins — name of the consultant who owns this account */
+  consultant_name?: string | null
 }
 
 export interface EmailMessage {

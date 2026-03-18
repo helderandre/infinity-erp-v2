@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useEmailAccount } from '@/hooks/use-email-account'
 import { useEmailInbox, useEmailMessage } from '@/hooks/use-email-inbox'
 import { FolderSidebar } from '@/components/email/inbox/folder-sidebar'
@@ -24,23 +24,42 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   PenSquare,
   Mail,
   Settings,
   ArrowLeft,
   Folder,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import type { FullMessage } from '@/hooks/use-email-inbox'
 
 export default function EmailInboxPage() {
-  const { account, isLoading: accountLoading } = useEmailAccount()
-  const inbox = useEmailInbox()
+  const {
+    accounts,
+    isEmailAdmin,
+    selectedAccount,
+    selectedAccountId,
+    setSelectedAccountId,
+    isLoading: accountLoading,
+  } = useEmailAccount()
+
+  const inbox = useEmailInbox(selectedAccountId)
   const [selectedUid, setSelectedUid] = useState<number | null>(null)
   const { message, isLoading: messageLoading, error: messageError } = useEmailMessage(
     selectedUid,
-    inbox.folder
+    inbox.folder,
+    selectedAccountId
   )
 
   // Compose state
@@ -50,6 +69,18 @@ export default function EmailInboxPage() {
 
   // Mobile: show message view when a message is selected
   const [mobileView, setMobileView] = useState<'list' | 'message'>('list')
+
+  // Group accounts by consultant for admin view
+  const groupedAccounts = useMemo(() => {
+    if (!isEmailAdmin) return null
+    const groups = new Map<string, typeof accounts>()
+    for (const acc of accounts) {
+      const key = acc.consultant_name || 'Sem consultor'
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(acc)
+    }
+    return groups
+  }, [accounts, isEmailAdmin])
 
   function handleSelectMessage(uid: number) {
     setSelectedUid(uid)
@@ -76,6 +107,12 @@ export default function EmailInboxPage() {
   }
 
   function handleBack() {
+    setSelectedUid(null)
+    setMobileView('list')
+  }
+
+  function handleAccountChange(accountId: string) {
+    setSelectedAccountId(accountId)
     setSelectedUid(null)
     setMobileView('list')
   }
@@ -133,7 +170,7 @@ export default function EmailInboxPage() {
     )
   }
 
-  if (!account) {
+  if (accounts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
         <div className="rounded-full bg-muted p-4">
@@ -143,7 +180,7 @@ export default function EmailInboxPage() {
           <h2 className="text-xl font-semibold">Email não configurado</h2>
           <p className="text-muted-foreground mt-1 max-w-md">
             Para usar o email profissional, configure primeiro a sua conta de email
-            RE/MAX nas definições.
+            nas definições.
           </p>
         </div>
         <Button asChild>
@@ -174,13 +211,52 @@ export default function EmailInboxPage() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            <div>
-              <h1 className="text-lg font-semibold">Email</h1>
-              <p className="text-xs text-muted-foreground">{account.email_address}</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-lg font-semibold">Email</h1>
+              </div>
+
+              {/* Account selector */}
+              {accounts.length > 1 ? (
+                <Select value={selectedAccountId ?? ''} onValueChange={handleAccountChange}>
+                  <SelectTrigger className="h-8 w-auto min-w-[200px] max-w-[320px] text-xs">
+                    <SelectValue placeholder="Seleccionar conta..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupedAccounts ? (
+                      // Admin view: grouped by consultant
+                      Array.from(groupedAccounts.entries()).map(([consultantName, accs]) => (
+                        <SelectGroup key={consultantName}>
+                          <SelectLabel className="flex items-center gap-1.5 text-xs">
+                            <Users className="h-3 w-3" />
+                            {consultantName}
+                          </SelectLabel>
+                          {accs.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                              {acc.display_name} &lt;{acc.email_address}&gt;
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))
+                    ) : (
+                      // Regular user: flat list
+                      accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                          {acc.display_name} &lt;{acc.email_address}&gt;
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {selectedAccount?.email_address}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleNewEmail}>
+            <Button size="sm" onClick={handleNewEmail} disabled={!selectedAccount}>
               <PenSquare className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Novo Email</span>
             </Button>
@@ -323,8 +399,9 @@ export default function EmailInboxPage() {
         onOpenChange={setComposeOpen}
         replyTo={replyTo}
         forwardMessage={forwardMsg}
-        senderEmail={account?.email_address}
-        senderName={account?.display_name}
+        senderEmail={selectedAccount?.email_address}
+        senderName={selectedAccount?.display_name}
+        accountId={selectedAccountId}
         onSent={inbox.refresh}
       />
     </TooltipProvider>

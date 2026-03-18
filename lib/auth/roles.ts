@@ -18,6 +18,9 @@ export const CONSULTANT_ROLES = ['Consultor', 'Consultora Executiva', 'Team Lead
 /** Roles que recebem notificações de aprovação/gestão */
 export const APPROVER_NOTIFICATION_ROLES = ['Broker/CEO', 'Gestor Processual'] as const
 
+/** Roles com acesso a TODAS as caixas de email (podem ver e enviar de qualquer conta) */
+export const EMAIL_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+
 /** Lista completa de todos os módulos de permissão */
 export const ALL_PERMISSION_MODULES = [
   'dashboard', 'properties', 'leads', 'processes', 'documents',
@@ -34,4 +37,5 @@ export const ROLE_GROUPS = {
   adhocTask: ADHOC_TASK_ROLES,
   consultant: CONSULTANT_ROLES,
   approverNotification: APPROVER_NOTIFICATION_ROLES,
+  emailAdmin: EMAIL_ADMIN_ROLES,
 } as const

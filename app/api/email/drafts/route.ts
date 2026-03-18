@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveEmailAccount } from '@/lib/email/resolve-account'
 import { saveDraft } from '@/lib/email/imap-client'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import { z } from 'zod'
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || ''
 
 const draftSchema = z.object({
   to: z.string().optional().default(''),
@@ -15,6 +12,7 @@ const draftSchema = z.object({
   body_html: z.string().optional().default(''),
   in_reply_to: z.string().optional(),
   existing_draft_uid: z.number().optional(),
+  account_id: z.string().uuid().optional(),
 })
 
 /**
@@ -22,16 +20,6 @@ const draftSchema = z.object({
  */
 export async function POST(req: Request) {
   try {
-    if (!ENCRYPTION_KEY) {
-      return NextResponse.json({ error: 'ENCRYPTION_KEY não configurada' }, { status: 500 })
-    }
-
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-
     const body = await req.json()
     const parsed = draftSchema.safeParse(body)
     if (!parsed.success) {
@@ -39,27 +27,12 @@ export async function POST(req: Request) {
     }
     const data = parsed.data
 
-    const adminDb = createAdminClient()
-    const { data: account } = await adminDb
-      .from('consultant_email_accounts')
-      .select('*')
-      .eq('consultant_id', user.id)
-      .eq('is_verified', true)
-      .eq('is_active', true)
-      .single()
-
-    if (!account) {
-      return NextResponse.json({ error: 'Conta não configurada' }, { status: 404 })
+    const resolved = await resolveEmailAccount(data.account_id)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status })
     }
 
-    const { data: password } = await adminDb.rpc('decrypt_email_password', {
-      p_encrypted: account.encrypted_password,
-      p_key: ENCRYPTION_KEY,
-    })
-
-    if (!password) {
-      return NextResponse.json({ error: 'Erro ao desencriptar' }, { status: 500 })
-    }
+    const { account, password } = resolved.data
 
     const imapConfig = {
       host: account.imap_host,

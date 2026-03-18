@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ImapMessageEnvelope } from '@/types/email'
 
 interface EmailFolder {
@@ -19,7 +19,7 @@ interface InboxState {
   error: string | null
 }
 
-export function useEmailInbox(initialFolder = 'INBOX') {
+export function useEmailInbox(accountId: string | null, initialFolder = 'INBOX') {
   const [state, setState] = useState<InboxState>({
     messages: [],
     total: 0,
@@ -35,11 +35,24 @@ export function useEmailInbox(initialFolder = 'INBOX') {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
 
+  // Track accountId to reset state on change
+  const prevAccountIdRef = useRef(accountId)
+
+  const buildParams = useCallback(
+    (extra: Record<string, string>) => {
+      const params = new URLSearchParams(extra)
+      if (accountId) params.set('account_id', accountId)
+      return params
+    },
+    [accountId]
+  )
+
   const fetchMessages = useCallback(
     async (folder: string, page: number, limit = 50) => {
+      if (!accountId) return
       setState((s) => ({ ...s, isLoading: true, error: null }))
       try {
-        const params = new URLSearchParams({
+        const params = buildParams({
           action: 'list',
           folder,
           page: String(page),
@@ -65,13 +78,15 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         }))
       }
     },
-    []
+    [accountId, buildParams]
   )
 
   const fetchFolders = useCallback(async () => {
+    if (!accountId) return
     setFoldersLoading(true)
     try {
-      const res = await fetch('/api/email/inbox?action=folders')
+      const params = buildParams({ action: 'folders' })
+      const res = await fetch(`/api/email/inbox?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setFolders(data.folders || [])
@@ -80,16 +95,32 @@ export function useEmailInbox(initialFolder = 'INBOX') {
     } finally {
       setFoldersLoading(false)
     }
-  }, [])
+  }, [accountId, buildParams])
 
+  // Fetch on mount and when accountId changes
   useEffect(() => {
-    fetchMessages(state.folder, 1)
+    if (!accountId) {
+      setState((s) => ({ ...s, messages: [], total: 0, isLoading: false }))
+      setFolders([])
+      return
+    }
+
+    // Reset to INBOX when switching accounts
+    if (prevAccountIdRef.current !== accountId) {
+      prevAccountIdRef.current = accountId
+      setState((s) => ({ ...s, folder: 'INBOX', page: 1 }))
+      setSearchQuery('')
+      setIsSearching(false)
+    }
+
+    fetchMessages('INBOX', 1)
     fetchFolders()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [accountId, fetchMessages, fetchFolders])
 
   const changeFolder = useCallback(
     (folder: string) => {
+      setSearchQuery('')
+      setIsSearching(false)
       fetchMessages(folder, 1)
     },
     [fetchMessages]
@@ -106,15 +137,21 @@ export function useEmailInbox(initialFolder = 'INBOX') {
     fetchMessages(state.folder, state.page)
   }, [fetchMessages, state.folder, state.page])
 
+  const postAction = useCallback(
+    async (body: Record<string, unknown>) => {
+      return fetch('/api/email/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, account_id: accountId }),
+      })
+    },
+    [accountId]
+  )
+
   const markRead = useCallback(
     async (uid: number) => {
       try {
-        await fetch('/api/email/inbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'mark_read', uid, folder: state.folder }),
-        })
-        // Update local state
+        await postAction({ action: 'mark_read', uid, folder: state.folder })
         setState((s) => ({
           ...s,
           messages: s.messages.map((m) =>
@@ -125,7 +162,7 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         // Silent
       }
     },
-    [state.folder]
+    [state.folder, postAction]
   )
 
   const search = useCallback(
@@ -140,7 +177,7 @@ export function useEmailInbox(initialFolder = 'INBOX') {
       setIsSearching(true)
       setState((s) => ({ ...s, isLoading: true, error: null }))
       try {
-        const params = new URLSearchParams({
+        const params = buildParams({
           action: 'search',
           folder: state.folder,
           query,
@@ -164,7 +201,7 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         }))
       }
     },
-    [state.folder, state.limit, fetchMessages]
+    [state.folder, state.limit, fetchMessages, buildParams]
   )
 
   const clearSearch = useCallback(() => {
@@ -176,11 +213,7 @@ export function useEmailInbox(initialFolder = 'INBOX') {
   const toggleFlag = useCallback(
     async (uid: number, flagged: boolean) => {
       try {
-        await fetch('/api/email/inbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'toggle_flagged', uid, folder: state.folder, flagged }),
-        })
+        await postAction({ action: 'toggle_flagged', uid, folder: state.folder, flagged })
         setState((s) => ({
           ...s,
           messages: s.messages.map((m) => {
@@ -195,19 +228,14 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         // Silent
       }
     },
-    [state.folder]
+    [state.folder, postAction]
   )
 
   const moveToFolder = useCallback(
     async (uid: number, destination: string) => {
       try {
-        const res = await fetch('/api/email/inbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'move', uid, folder: state.folder, destination }),
-        })
+        const res = await postAction({ action: 'move', uid, folder: state.folder, destination })
         if (!res.ok) throw new Error('Erro ao mover mensagem')
-        // Remove from current list
         setState((s) => ({
           ...s,
           messages: s.messages.filter((m) => m.uid !== uid),
@@ -218,17 +246,13 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         return false
       }
     },
-    [state.folder]
+    [state.folder, postAction]
   )
 
   const deleteMessage = useCallback(
     async (uid: number) => {
       try {
-        const res = await fetch('/api/email/inbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'delete', uid, folder: state.folder }),
-        })
+        const res = await postAction({ action: 'delete', uid, folder: state.folder })
         if (!res.ok) throw new Error('Erro ao eliminar mensagem')
         setState((s) => ({
           ...s,
@@ -240,17 +264,13 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         return false
       }
     },
-    [state.folder]
+    [state.folder, postAction]
   )
 
   const archiveMessage = useCallback(
     async (uid: number) => {
       try {
-        const res = await fetch('/api/email/inbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'archive', uid, folder: state.folder }),
-        })
+        const res = await postAction({ action: 'archive', uid, folder: state.folder })
         if (!res.ok) throw new Error('Erro ao arquivar mensagem')
         setState((s) => ({
           ...s,
@@ -262,7 +282,7 @@ export function useEmailInbox(initialFolder = 'INBOX') {
         return false
       }
     },
-    [state.folder]
+    [state.folder, postAction]
   )
 
   return {
@@ -310,7 +330,7 @@ export interface FullMessage {
   }[]
 }
 
-export function useEmailMessage(uid: number | null, folder = 'INBOX') {
+export function useEmailMessage(uid: number | null, folder = 'INBOX', accountId?: string | null) {
   const [message, setMessage] = useState<FullMessage | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -325,7 +345,10 @@ export function useEmailMessage(uid: number | null, folder = 'INBOX') {
     setIsLoading(true)
     setError(null)
 
-    fetch(`/api/email/inbox/${uid}?folder=${encodeURIComponent(folder)}`)
+    const params = new URLSearchParams({ folder })
+    if (accountId) params.set('account_id', accountId)
+
+    fetch(`/api/email/inbox/${uid}?${params}`)
       .then(async (res) => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error)
@@ -341,7 +364,7 @@ export function useEmailMessage(uid: number | null, folder = 'INBOX') {
     return () => {
       cancelled = true
     }
-  }, [uid, folder])
+  }, [uid, folder, accountId])
 
   return { message, isLoading, error }
 }

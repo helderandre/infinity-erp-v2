@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveEmailAccount } from '@/lib/email/resolve-account'
 import {
   fetchMessageEnvelopes,
   listFolders,
@@ -12,59 +12,29 @@ import {
   archiveMessage,
 } from '@/lib/email/imap-client'
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || ''
-
 /**
  * GET /api/email/inbox — List messages or folders
  *
  * Query params:
- *   action=list (default) | folders | mark_read | toggle_flagged
+ *   account_id=<uuid> (optional — admin can access any account)
+ *   action=list (default) | folders | search
  *   folder=INBOX (default)
  *   page=1
  *   limit=50
- *   uid=<number> (for mark_read / toggle_flagged)
- *   flagged=true|false (for toggle_flagged)
+ *   query=<string> (for search)
  */
 export async function GET(req: Request) {
   try {
-    if (!ENCRYPTION_KEY) {
-      return NextResponse.json({ error: 'ENCRYPTION_KEY não configurada' }, { status: 500 })
-    }
-
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-
     const { searchParams } = new URL(req.url)
+    const accountId = searchParams.get('account_id')
     const action = searchParams.get('action') || 'list'
 
-    // Fetch account + decrypt
-    const adminDb = createAdminClient()
-    const { data: account, error: accError } = await adminDb
-      .from('consultant_email_accounts')
-      .select('*')
-      .eq('consultant_id', user.id)
-      .eq('is_verified', true)
-      .eq('is_active', true)
-      .single()
-
-    if (accError || !account) {
-      return NextResponse.json(
-        { error: 'Conta de email não configurada' },
-        { status: 404 }
-      )
+    const resolved = await resolveEmailAccount(accountId)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status })
     }
 
-    const { data: password, error: decError } = await adminDb.rpc('decrypt_email_password', {
-      p_encrypted: account.encrypted_password,
-      p_key: ENCRYPTION_KEY,
-    })
-
-    if (decError || !password) {
-      return NextResponse.json({ error: 'Erro ao desencriptar credenciais' }, { status: 500 })
-    }
+    const { account, password } = resolved.data
 
     const imapConfig = {
       host: account.imap_host,
@@ -130,6 +100,7 @@ export async function GET(req: Request) {
       const result = await fetchMessageEnvelopes(imapConfig, { folder, page, limit })
 
       // Update last_sync_at
+      const adminDb = createAdminClient()
       await adminDb
         .from('consultant_email_accounts')
         .update({ last_sync_at: new Date().toISOString(), last_error: null })
@@ -152,53 +123,30 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/email/inbox — Actions on messages (mark_read, toggle_flagged)
+ * POST /api/email/inbox — Actions on messages (mark_read, toggle_flagged, move, delete, archive)
  */
 export async function POST(req: Request) {
   try {
-    if (!ENCRYPTION_KEY) {
-      return NextResponse.json({ error: 'ENCRYPTION_KEY não configurada' }, { status: 500 })
-    }
-
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-
     const body = await req.json()
-    const { action, folder = 'INBOX', uid, flagged } = body as {
+    const { action, folder = 'INBOX', uid, flagged, destination, account_id } = body as {
       action: string
       folder?: string
       uid: number
       flagged?: boolean
+      destination?: string
+      account_id?: string
     }
 
     if (!uid || !action) {
       return NextResponse.json({ error: 'uid e action são obrigatórios' }, { status: 400 })
     }
 
-    const adminDb = createAdminClient()
-    const { data: account } = await adminDb
-      .from('consultant_email_accounts')
-      .select('*')
-      .eq('consultant_id', user.id)
-      .eq('is_verified', true)
-      .eq('is_active', true)
-      .single()
-
-    if (!account) {
-      return NextResponse.json({ error: 'Conta não configurada' }, { status: 404 })
+    const resolved = await resolveEmailAccount(account_id)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status })
     }
 
-    const { data: password } = await adminDb.rpc('decrypt_email_password', {
-      p_encrypted: account.encrypted_password,
-      p_key: ENCRYPTION_KEY,
-    })
-
-    if (!password) {
-      return NextResponse.json({ error: 'Erro ao desencriptar' }, { status: 500 })
-    }
+    const { account, password } = resolved.data
 
     const imapConfig = {
       host: account.imap_host,
@@ -219,7 +167,6 @@ export async function POST(req: Request) {
     }
 
     if (action === 'move') {
-      const { destination } = body as { destination?: string }
       if (!destination) {
         return NextResponse.json({ error: 'destination é obrigatório' }, { status: 400 })
       }

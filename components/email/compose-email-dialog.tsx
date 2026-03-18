@@ -78,6 +78,7 @@ interface ComposeEmailDialogProps {
   forwardMessage?: FullMessage | null
   senderEmail?: string
   senderName?: string
+  accountId?: string | null
   processId?: string
   processType?: string
   onSent?: () => void
@@ -273,6 +274,7 @@ export function ComposeEmailDialog({
   forwardMessage,
   senderEmail,
   senderName,
+  accountId,
   processId,
   processType,
   onSent,
@@ -319,6 +321,7 @@ export function ComposeEmailDialog({
           body_html: '', // Will be filled from editor state on server
           in_reply_to: replyTo?.messageId,
           existing_draft_uid: draftUid ?? undefined,
+          account_id: accountId || undefined,
         }),
       })
       if (res.ok) {
@@ -480,6 +483,7 @@ export function ComposeEmailDialog({
         process_id: processId,
         process_type: processType,
         attachments: allAttachments.length > 0 ? allAttachments : undefined,
+        account_id: accountId || undefined,
       }
 
       const res = await fetch('/api/email/send', {

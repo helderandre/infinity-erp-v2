@@ -2,18 +2,29 @@ import { useState, useEffect, useCallback } from 'react'
 import type { ConsultantEmailAccount } from '@/types/email'
 
 export function useEmailAccount() {
-  const [account, setAccount] = useState<ConsultantEmailAccount | null>(null)
+  const [accounts, setAccounts] = useState<ConsultantEmailAccount[]>([])
+  const [isEmailAdmin, setIsEmailAdmin] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchAccount = useCallback(async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
       const res = await fetch('/api/email/account')
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao carregar conta')
-      setAccount(data.account || null)
+      if (!res.ok) throw new Error(data.error || 'Erro ao carregar contas')
+
+      const list: ConsultantEmailAccount[] = data.accounts || []
+      setAccounts(list)
+      setIsEmailAdmin(data.is_email_admin ?? false)
+
+      // Auto-select first account if none selected or current selection no longer exists
+      setSelectedAccountId((prev) => {
+        if (prev && list.some((a) => a.id === prev)) return prev
+        return list[0]?.id ?? null
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
@@ -22,8 +33,10 @@ export function useEmailAccount() {
   }, [])
 
   useEffect(() => {
-    fetchAccount()
-  }, [fetchAccount])
+    fetchAccounts()
+  }, [fetchAccounts])
+
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null
 
   const setupAccount = useCallback(async (payload: {
     email_address: string
@@ -33,6 +46,7 @@ export function useEmailAccount() {
     smtp_port?: number
     imap_host?: string
     imap_port?: number
+    consultant_id?: string
   }) => {
     const res = await fetch('/api/email/account', {
       method: 'POST',
@@ -41,23 +55,37 @@ export function useEmailAccount() {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || data.detail || 'Erro ao configurar conta')
-    setAccount(data.account)
+    // Refresh the full list
+    await fetchAccounts()
     return data
-  }, [])
+  }, [fetchAccounts])
 
-  const removeAccount = useCallback(async () => {
-    const res = await fetch('/api/email/account', { method: 'DELETE' })
+  const removeAccount = useCallback(async (accountId?: string) => {
+    const params = accountId ? `?id=${accountId}` : ''
+    const res = await fetch(`/api/email/account${params}`, { method: 'DELETE' })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Erro ao eliminar conta')
-    setAccount(null)
+    // Refresh the full list
+    await fetchAccounts()
     return data
-  }, [])
+  }, [fetchAccounts])
 
   return {
-    account,
+    /** All accounts visible to the current user */
+    accounts,
+    /** Whether the current user is an email admin (sees all accounts) */
+    isEmailAdmin,
+    /** Currently selected account */
+    selectedAccount,
+    /** ID of the currently selected account */
+    selectedAccountId,
+    /** Change the selected account */
+    setSelectedAccountId,
+    /** Backward compat: alias for selectedAccount */
+    account: selectedAccount,
     isLoading,
     error,
-    refetch: fetchAccount,
+    refetch: fetchAccounts,
     setupAccount,
     removeAccount,
   }

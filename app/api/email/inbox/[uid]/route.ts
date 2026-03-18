@@ -1,63 +1,36 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveEmailAccount } from '@/lib/email/resolve-account'
 import { fetchMessageByUid, markAsRead } from '@/lib/email/imap-client'
 import { simpleParser } from 'mailparser'
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || ''
 
 /**
  * GET /api/email/inbox/[uid] — Fetch full message content
  *
  * Query params:
  *   folder=INBOX (default)
+ *   account_id=<uuid> (optional — admin can access any account)
  */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ uid: string }> }
 ) {
   try {
-    if (!ENCRYPTION_KEY) {
-      return NextResponse.json({ error: 'ENCRYPTION_KEY não configurada' }, { status: 500 })
-    }
-
     const { uid: uidStr } = await params
     const uid = parseInt(uidStr)
     if (isNaN(uid)) {
       return NextResponse.json({ error: 'UID inválido' }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-
     const { searchParams } = new URL(req.url)
     const folder = searchParams.get('folder') || 'INBOX'
+    const accountId = searchParams.get('account_id')
 
-    // Fetch account + decrypt
-    const adminDb = createAdminClient()
-    const { data: account } = await adminDb
-      .from('consultant_email_accounts')
-      .select('*')
-      .eq('consultant_id', user.id)
-      .eq('is_verified', true)
-      .eq('is_active', true)
-      .single()
-
-    if (!account) {
-      return NextResponse.json({ error: 'Conta não configurada' }, { status: 404 })
+    const resolved = await resolveEmailAccount(accountId)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status })
     }
 
-    const { data: password } = await adminDb.rpc('decrypt_email_password', {
-      p_encrypted: account.encrypted_password,
-      p_key: ENCRYPTION_KEY,
-    })
-
-    if (!password) {
-      return NextResponse.json({ error: 'Erro ao desencriptar' }, { status: 500 })
-    }
+    const { account, password } = resolved.data
 
     const imapConfig = {
       host: account.imap_host,
@@ -83,14 +56,13 @@ export async function GET(
       )
     }
 
-    // Extract attachments metadata (no content — download separately if needed)
+    // Extract attachments metadata
     const attachments = (parsed.attachments || []).map((att) => ({
       filename: att.filename || 'sem-nome',
       content_type: att.contentType || 'application/octet-stream',
       size_bytes: att.size || 0,
       cid: att.cid || null,
       is_inline: att.contentDisposition === 'inline',
-      // base64 content for download
       data_base64: att.content.toString('base64'),
     }))
 
