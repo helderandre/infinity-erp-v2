@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
     // Get main owner name
     const mainOwner = property.property_owners?.find(
-      (po: { is_main_contact: boolean; owners: { name: string } }) => po.is_main_contact
+      (po: { is_main_contact: boolean | null; owners: { name: string } }) => po.is_main_contact
     )
     const ownerName = mainOwner?.owners?.name
       || property.property_owners?.[0]?.owners?.name
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
     const propostaData: PropostaData = {
       proprietario_nome: ownerName,
-      proponente_nome: lead.nome || lead.name || '',
+      proponente_nome: lead.nome || '',
       morada: property.address_street || '',
       concelho: property.city || '',
       zona: property.zone || '',
@@ -130,10 +130,10 @@ export async function POST(request: Request) {
 
     const pdfBytes = await fillProposta(propostaData)
 
-    return new Response(pdfBytes, {
+    return new Response(pdfBytes as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="proposta-${angariacao}-${lead.name?.replace(/\s+/g, '_') || 'proponente'}.pdf"`,
+        'Content-Disposition': `attachment; filename="proposta-${angariacao}-${lead.nome?.replace(/\s+/g, '_') || 'proponente'}.pdf"`,
       },
     })
   } catch (error) {
