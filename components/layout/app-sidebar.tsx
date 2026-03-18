@@ -88,6 +88,7 @@ import { toast } from 'sonner'
 
 export const meuEspacoItems = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
+  { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
   { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
@@ -317,7 +318,7 @@ export function AppSidebar() {
           items={meuEspacoItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
+          pathPrefixes={['/dashboard/email', '/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
           defaultOpenOverride={pathname === '/dashboard'}
         />
 

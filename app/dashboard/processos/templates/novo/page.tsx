@@ -9,8 +9,8 @@ export default function NovoTemplatePage() {
   const router = useRouter()
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex items-center gap-4 shrink-0 px-4 pt-4 md:px-6 md:pt-6">
         <Button
           variant="ghost"
           size="icon"

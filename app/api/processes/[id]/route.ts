@@ -39,6 +39,7 @@ export async function DELETE(
     const { error: deleteError } = await (adminSupabase as any)
       .from('proc_instances')
       .update({
+        current_status: 'deleted',
         deleted_at: new Date().toISOString(),
         deleted_by: auth.user.id,
       })

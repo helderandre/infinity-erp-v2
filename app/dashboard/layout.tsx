@@ -35,6 +35,8 @@ const FULL_BLEED_ROUTES = [
   '/dashboard/automacao/templates-wpp/editor',
   '/dashboard/templates-email/',
   '/dashboard/templates-documentos/',
+  '/dashboard/processos/templates/',  // novo + [id]/editar
+  '/dashboard/email',
 ]
 
 /** Rotas que usam sidebar interna (sem padding esquerdo, altura flex) */

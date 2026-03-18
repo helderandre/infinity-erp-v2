@@ -22,6 +22,7 @@ const subtaskUpdateSchema = z
       })
       .optional(),
     resend_email_id: z.string().optional(),
+    email_message_id: z.string().optional(),
     email_metadata: z.object({
       sender_email: z.string().optional(),
       sender_name: z.string().optional(),
@@ -67,7 +68,7 @@ export async function PUT(
       )
     }
 
-    const { is_completed, rendered_content, resend_email_id, email_metadata, assigned_to, priority, due_date, reset_template } = validation.data
+    const { is_completed, rendered_content, resend_email_id, email_message_id, email_metadata, assigned_to, priority, due_date, reset_template } = validation.data
 
     // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
     const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
@@ -200,12 +201,13 @@ export async function PUT(
       )
     }
 
-    // Inserir log_emails quando email é enviado com sucesso
-    if (is_completed && subtaskType === 'email' && resend_email_id) {
+    // Inserir log_emails quando email é enviado com sucesso (SMTP ou Resend)
+    if (is_completed && subtaskType === 'email' && (resend_email_id || email_message_id)) {
       const { error: logError } = await adminDb.from('log_emails').insert({
         proc_task_id: taskId,
         proc_subtask_id: subtaskId,
-        resend_email_id,
+        resend_email_id: resend_email_id || null,
+        email_message_id: email_message_id || null,
         recipient_email: email_metadata?.recipient_email || '',
         sender_email: email_metadata?.sender_email || null,
         sender_name: email_metadata?.sender_name || null,
@@ -216,7 +218,11 @@ export async function PUT(
         delivery_status: 'sent',
         last_event: 'sent',
         events: [{ type: 'sent', timestamp: new Date().toISOString() }],
-        metadata: { subtask_title: (subtask as any).title },
+        metadata: {
+          subtask_title: (subtask as any).title,
+          ...(email_message_id && { email_message_id, send_method: 'smtp' }),
+          ...(resend_email_id && { send_method: 'resend' }),
+        },
       })
       if (logError) console.error('[log_emails] Erro ao inserir:', logError)
     }
@@ -270,6 +276,7 @@ export async function PUT(
         ...(ownerName && { owner_name: ownerName, owner_id: (subtask as any).owner_id }),
         ...(templateName && { template_name: templateName }),
         ...(resend_email_id && { resend_email_id }),
+        ...(email_message_id && { email_message_id }),
       }
 
       if (is_completed === undefined && rendered_content) {

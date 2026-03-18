@@ -518,9 +518,9 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
   // Render
   // -------------------------------------------------------
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col flex-1 min-h-0 gap-4 p-4 md:p-6">
       {/* Campos do template */}
-      <Card>
+      <Card className="shrink-0">
         <CardContent className=" space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
@@ -561,7 +561,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       </Card>
 
       {/* Barra de acções */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <Button
           variant="outline"
           onClick={() => {
@@ -616,7 +616,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto flex-1 min-h-0">
           <DndContext
             sensors={sensors}
             collisionDetection={collisionDetectionStrategy}
@@ -626,7 +626,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
             onDragCancel={handleDragCancel}
           >
             <SortableContext items={containers} strategy={horizontalListSortingStrategy}>
-              <div className="flex gap-4 min-w-min">
+              <div className="flex gap-4 min-w-min h-full">
                 {containers.map((stageId) => (
                   <TemplateStageColumn
                     key={stageId}

@@ -48,6 +48,7 @@ import { cn } from '@/lib/utils'
 import { interpolateVariables } from '@/lib/utils'
 import { renderEmailToHtml, wrapEmailHtml, extractAttachmentsFromState } from '@/lib/email-renderer'
 import { useUser } from '@/hooks/use-user'
+import { useEmailAccount } from '@/hooks/use-email-account'
 import { useEmailStatus } from '@/hooks/use-email-status'
 import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
 import type { ProcSubtask } from '@/types/subtask'
@@ -130,6 +131,8 @@ interface EditorCanvasProps {
   isResettingTemplate: boolean
   isCompleted: boolean
   hasRendered: boolean
+  hasEmailAccount: boolean
+  isLoadingAccount: boolean
 }
 
 function RightSidebar() {
@@ -169,6 +172,8 @@ function EditorCanvas({
   isResettingTemplate,
   isCompleted,
   hasRendered,
+  hasEmailAccount,
+  isLoadingAccount,
 }: EditorCanvasProps) {
   const { query } = useEditor()
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
@@ -333,7 +338,8 @@ function EditorCanvas({
             <Button
               size="sm"
               onClick={() => onSendEmail(getPayload())}
-              disabled={isSaving || isCompleting || isResettingTemplate}
+              disabled={isSaving || isCompleting || isResettingTemplate || isLoadingAccount}
+              title={!hasEmailAccount && !isLoadingAccount ? 'Configure a conta de email em Definições → Email' : undefined}
             >
               <Send className="mr-2 h-4 w-4" />
               Enviar Email
@@ -368,6 +374,7 @@ export function SubtaskEmailSheet({
   onResetTemplate: onResetTemplateProp,
 }: SubtaskEmailSheetProps) {
   const { user } = useUser()
+  const { account: emailAccount, isLoading: isLoadingAccount } = useEmailAccount()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [subject, setSubject] = useState('')
@@ -437,8 +444,6 @@ export function SubtaskEmailSheet({
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [pendingPayload, setPendingPayload] = useState<SavePayload | null>(null)
   const [emailForm, setEmailForm] = useState({
-    senderName: '',
-    senderEmail: '',
     recipientEmail: '',
     cc: '',
   })
@@ -633,10 +638,12 @@ export function SubtaskEmailSheet({
   }
 
   const handleInitiateSend = (payload: SavePayload) => {
+    if (!emailAccount) {
+      toast.error('Conta de email não configurada. Configure em Definições → Email.')
+      return
+    }
     setPendingPayload(payload)
     setEmailForm({
-      senderName: user?.commercial_name || '',
-      senderEmail: user?.professional_email || '',
       recipientEmail: ownerEmail,
       cc: '',
     })
@@ -644,7 +651,7 @@ export function SubtaskEmailSheet({
   }
 
   const handleConfirmSend = async () => {
-    if (!pendingPayload) return
+    if (!pendingPayload || !emailAccount) return
     setIsSendingEmail(true)
     try {
       const ccList = emailForm.cc
@@ -657,22 +664,26 @@ export function SubtaskEmailSheet({
       // Wrap the body in a full email boilerplate for cross-client compatibility
       const wrappedBody = wrapEmailHtml(pendingPayload.html)
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderName: emailForm.senderName,
-            senderEmail: emailForm.senderEmail,
-            recipientEmail: emailForm.recipientEmail,
-            ...(ccList.length > 0 && { cc: ccList }),
-            subject,
-            body: wrappedBody,
-            ...(attachments.length > 0 && { attachments }),
+      // Send via consultant's SMTP account
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: [emailForm.recipientEmail],
+          ...(ccList.length > 0 && { cc: ccList }),
+          subject,
+          body_html: wrappedBody,
+          process_id: processId || undefined,
+          process_type: 'process_email',
+          ...(attachments.length > 0 && {
+            attachments: attachments.map((a) => ({
+              filename: a.filename,
+              content_type: 'application/octet-stream',
+              path: a.path,
+            })),
           }),
-        }
-      )
+        }),
+      })
 
       if (!res.ok) {
         const err = await res.json()
@@ -689,12 +700,12 @@ export function SubtaskEmailSheet({
           editor_state: JSON.parse(pendingPayload.state),
         },
         is_completed: true,
-        resend_email_id: sendData.id,
+        email_message_id: sendData.message_id,
         email_metadata: {
-          sender_email: emailForm.senderEmail,
-          sender_name: emailForm.senderName,
+          sender_email: emailAccount.email_address,
+          sender_name: emailAccount.display_name,
           recipient_email: emailForm.recipientEmail,
-          cc: emailForm.cc ? emailForm.cc.split(',').map((e: string) => e.trim()).filter(Boolean) : [],
+          cc: ccList,
         },
       })
 
@@ -827,6 +838,8 @@ export function SubtaskEmailSheet({
                   isResettingTemplate={isResettingTemplate}
                   isCompleted={subtask.is_completed}
                   hasRendered={hasRendered}
+                  hasEmailAccount={!!emailAccount}
+                  isLoadingAccount={isLoadingAccount}
                 />
               </Editor>
             </EmailVariablesProvider>
@@ -845,30 +858,20 @@ export function SubtaskEmailSheet({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Remetente */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="es-senderName">Nome do remetente</Label>
-                <Input
-                  id="es-senderName"
-                  value={emailForm.senderName}
-                  onChange={(e) => setEmailForm((f) => ({ ...f, senderName: e.target.value }))}
-                  placeholder="Ex: Infinity Group"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="es-senderEmail">
-                  Email do remetente
-                  {!emailForm.senderEmail && <span className="ml-1 text-xs text-destructive">*</span>}
-                </Label>
-                <Input
-                  id="es-senderEmail"
-                  type="email"
-                  value={emailForm.senderEmail}
-                  onChange={(e) => setEmailForm((f) => ({ ...f, senderEmail: e.target.value }))}
-                  placeholder="noreply@dominio.pt"
-                />
-              </div>
+            {/* Remetente — conta SMTP configurada (read-only) */}
+            <div className="space-y-1.5">
+              <Label>De (conta configurada)</Label>
+              {emailAccount ? (
+                <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium">{emailAccount.display_name}</span>
+                  <span className="text-muted-foreground">&lt;{emailAccount.email_address}&gt;</span>
+                </div>
+              ) : (
+                <div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  Conta de email não configurada. Configure em Definições → Email.
+                </div>
+              )}
             </div>
 
             {/* Destinatário + CC */}
@@ -929,8 +932,7 @@ export function SubtaskEmailSheet({
               onClick={handleConfirmSend}
               disabled={
                 isSendingEmail ||
-                !emailForm.senderName.trim() ||
-                !emailForm.senderEmail.trim() ||
+                !emailAccount ||
                 !emailForm.recipientEmail.trim()
               }
             >

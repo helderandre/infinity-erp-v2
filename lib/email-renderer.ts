@@ -292,10 +292,7 @@ function renderText(props: Record<string, unknown>, variables: VariablesMap): st
 
   const lineHeightPx = `${Math.round(fontSize * lineHeight)}px`
 
-  // Convert lists to tables for Outlook
-  html = convertListsToTables(html, fontSize, lineHeightPx)
-
-  return `<p style="${inlineStyle({
+  const baseStyle = inlineStyle({
     'font-size': `${fontSize}px`,
     color,
     'text-align': textAlign,
@@ -303,7 +300,36 @@ function renderText(props: Record<string, unknown>, variables: VariablesMap): st
     'mso-line-height-rule': 'exactly',
     'font-family': fontFamily,
     margin: '0',
-  })}">${html}</p>`
+  })
+
+  // Check if content has block-level elements (lists, tables, divs, blockquotes, hrs)
+  const hasBlockElements = /<(ul|ol|table|div|blockquote|hr)[\s>]/i.test(html)
+
+  if (!hasBlockElements) {
+    return `<p style="${baseStyle}">${html}</p>`
+  }
+
+  // Content has block elements — split into inline segments and block elements.
+  // <p> cannot contain block elements; browsers auto-close <p> breaking layout.
+  // We wrap inline text in <p> and render block elements (lists) outside.
+  html = convertListsToTables(html, fontSize, lineHeightPx)
+
+  // Split on block-level elements, wrap inline parts in <p>
+  const parts = html.split(/(<table[\s\S]*?<\/table>|<blockquote[\s\S]*?<\/blockquote>|<hr[^>]*\/?>)/gi)
+
+  return parts
+    .map((part) => {
+      const trimmed = part.trim()
+      if (!trimmed) return ''
+      // Block element — render as-is inside a styled div for font inheritance
+      if (/^<(table|blockquote|hr)/i.test(trimmed)) {
+        return `<div style="${baseStyle}">${trimmed}</div>`
+      }
+      // Inline content — wrap in <p>
+      return `<p style="${baseStyle}">${trimmed}</p>`
+    })
+    .filter(Boolean)
+    .join('')
 }
 
 function renderHeading(props: Record<string, unknown>, variables: VariablesMap): string {
@@ -714,4 +740,29 @@ export function extractVariablesFromState(
 
   const unique = new Set(matches.map((m) => m.replace(/\{\{|\}\}/g, '').trim()))
   return Array.from(unique)
+}
+
+/**
+ * Inject an open-tracking pixel into the email HTML.
+ * The pixel is a 1x1 transparent GIF served by our API that registers the "opened" event.
+ * Must be called AFTER wrapEmailHtml, so the pixel is inside the <body>.
+ *
+ * @param html - The full wrapped email HTML
+ * @param messageId - The email_messages UUID to track
+ * @param baseUrl - The app base URL (e.g. https://app.infinitygroup.pt)
+ * @returns The HTML with the tracking pixel injected before </body>
+ */
+export function injectOpenTrackingPixel(
+  html: string,
+  messageId: string,
+  baseUrl: string
+): string {
+  const trackingUrl = `${baseUrl}/api/email/track/open/${messageId}`
+  const pixel = `<img src="${trackingUrl}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;" />`
+
+  // Insert before </body> if it exists, otherwise append
+  if (html.includes('</body>')) {
+    return html.replace('</body>', `${pixel}</body>`)
+  }
+  return html + pixel
 }

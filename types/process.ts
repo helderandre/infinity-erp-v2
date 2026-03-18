@@ -356,6 +356,7 @@ export interface LogEmail {
   proc_task_id: string | null
   proc_subtask_id: string | null
   resend_email_id: string | null
+  email_message_id: string | null
   recipient_email: string
   sender_email: string | null
   sender_name: string | null
