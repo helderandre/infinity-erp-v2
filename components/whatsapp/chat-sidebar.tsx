@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useWhatsAppChats } from '@/hooks/use-whatsapp-chats'
 import { InstanceSelector } from './instance-selector'
@@ -34,13 +37,42 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const [searchInput, setSearchInput] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all')
+  const [isSyncing, setIsSyncing] = useState(false)
   const debouncedSearch = useDebounce(searchInput, 300)
 
-  const { chats, isLoading } = useWhatsAppChats({
+  const { chats, isLoading, refetch } = useWhatsAppChats({
     instanceId: selectedInstance || null,
     search: debouncedSearch || undefined,
     archived: false,
   })
+
+  async function handleSyncChats() {
+    if (!selectedInstance || isSyncing) return
+
+    setIsSyncing(true)
+    const toastId = toast.loading('A sincronizar conversas...')
+    try {
+      const res = await fetch(`/api/whatsapp/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_chats', instance_id: selectedInstance }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao sincronizar')
+      }
+
+      const data = await res.json()
+      toast.success(`Conversas sincronizadas (${data.synced ?? 0} actualizadas)`, { id: toastId })
+      refetch()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao sincronizar conversas'
+      toast.error(message, { id: toastId })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   const filteredChats = chats.filter((chat) => {
     if (filter === 'unread') return chat.unread_count > 0
@@ -50,13 +82,29 @@ export function ChatSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Instance Selector */}
-      <div className="border-b">
-        <InstanceSelector
-          instances={instances}
-          value={selectedInstance}
-          onChange={onInstanceChange}
-        />
+      {/* Instance Selector + Sync */}
+      <div className="border-b flex items-center">
+        <div className="flex-1">
+          <InstanceSelector
+            instances={instances}
+            value={selectedInstance}
+            onChange={onInstanceChange}
+          />
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 mr-2 flex-shrink-0"
+              onClick={handleSyncChats}
+              disabled={!selectedInstance || isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Sincronizar conversas</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Search */}

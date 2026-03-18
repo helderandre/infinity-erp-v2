@@ -121,7 +121,7 @@ async function registerWebhook(supabase: SupabaseAny, token: string, instanceId:
       },
     })
 
-    await supabase
+    await (supabase as any)
       .from("auto_wpp_instances")
       .update({
         webhook_url: webhookUrl,
