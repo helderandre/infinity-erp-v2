@@ -257,16 +257,16 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
         </h4>
         {media.length > 0 ? (
           <div className="grid grid-cols-3 gap-1">
-            {media.slice(0, 9).map((m) => (
+            {media.filter((m) => m.media_url).slice(0, 9).map((m) => (
               <a
                 key={m.id}
-                href={m.media_url || '#'}
+                href={m.media_url!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="aspect-square rounded overflow-hidden bg-muted"
               >
                 <img
-                  src={m.media_url || ''}
+                  src={m.media_url!}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
