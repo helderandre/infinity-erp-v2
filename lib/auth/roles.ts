@@ -21,6 +21,9 @@ export const APPROVER_NOTIFICATION_ROLES = ['Broker/CEO', 'Gestor Processual'] a
 /** Roles com acesso a TODAS as caixas de email (podem ver e enviar de qualquer conta) */
 export const EMAIL_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
 
+/** Roles que podem ver e gerir TODAS as instâncias WhatsApp */
+export const WHATSAPP_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+
 /** Lista completa de todos os módulos de permissão */
 export const ALL_PERMISSION_MODULES = [
   'dashboard', 'properties', 'leads', 'processes', 'documents',
@@ -38,4 +41,5 @@ export const ROLE_GROUPS = {
   consultant: CONSULTANT_ROLES,
   approverNotification: APPROVER_NOTIFICATION_ROLES,
   emailAdmin: EMAIL_ADMIN_ROLES,
+  whatsappAdmin: WHATSAPP_ADMIN_ROLES,
 } as const

@@ -5,6 +5,7 @@ import { ChatSidebar } from './chat-sidebar'
 import { ChatThread } from './chat-thread'
 import { ChatInfoPanel } from './chat-info-panel'
 import { EmptyChatState } from './empty-chat-state'
+import { WhatsAppSetup } from './whatsapp-setup'
 
 interface WppInstance {
   id: string
@@ -13,16 +14,33 @@ interface WppInstance {
   phone?: string | null
   profile_name?: string | null
   profile_pic_url?: string | null
+  user_id?: string | null
 }
 
 interface ChatLayoutProps {
   instances: WppInstance[]
+  userId: string
+  isAdmin: boolean
 }
 
-export function ChatLayout({ instances }: ChatLayoutProps) {
+export function ChatLayout({ instances: initialInstances, userId, isAdmin }: ChatLayoutProps) {
+  const [instances, setInstances] = useState(initialInstances)
   const [selectedInstance, setSelectedInstance] = useState(instances[0]?.id || '')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+
+  // No instances available — show setup
+  if (instances.length === 0) {
+    return (
+      <WhatsAppSetup
+        userId={userId}
+        onInstanceCreated={(instance) => {
+          setInstances([instance])
+          setSelectedInstance(instance.id)
+        }}
+      />
+    )
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
