@@ -90,6 +90,7 @@ import { toast } from 'sonner'
 
 export const meuEspacoItems = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
+  { title: 'WhatsApp', icon: MessageCircle, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
@@ -157,7 +158,6 @@ export const automationItems = [
   { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
   { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
   { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
-  { title: 'WhatsApp Web', icon: MessageCircle, href: '/dashboard/whatsapp' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
   { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
 ]
@@ -318,7 +318,7 @@ export function AppSidebar() {
           items={meuEspacoItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/email', '/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
+          pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
           defaultOpenOverride={pathname === '/dashboard'}
         />
 
