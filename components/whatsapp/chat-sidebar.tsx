@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, RefreshCw } from 'lucide-react'
+import { Search, RefreshCw, Settings } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useWhatsAppChats } from '@/hooks/use-whatsapp-chats'
 import { InstanceSelector } from './instance-selector'
+import { InstanceManageSheet } from './instance-manage-sheet'
 import { ChatListItem } from './chat-list-item'
 import { NewChatDialog } from './new-chat-dialog'
 
@@ -19,6 +20,9 @@ interface Instance {
   name: string
   connection_status: string
   phone?: string | null
+  profile_name?: string | null
+  profile_pic_url?: string | null
+  user_id?: string | null
 }
 
 interface ChatSidebarProps {
@@ -27,6 +31,11 @@ interface ChatSidebarProps {
   onInstanceChange: (id: string) => void
   selectedChatId: string | null
   onChatSelect: (id: string) => void
+  onRenameInstance?: (id: string, name: string) => Promise<void>
+  onConnectInstance?: (id: string) => void
+  onDisconnectInstance?: (id: string) => Promise<void>
+  onDeleteInstance?: (id: string) => Promise<void>
+  onCreateInstance?: () => void
 }
 
 export function ChatSidebar({
@@ -35,10 +44,16 @@ export function ChatSidebar({
   onInstanceChange,
   selectedChatId,
   onChatSelect,
+  onRenameInstance,
+  onConnectInstance,
+  onDisconnectInstance,
+  onDeleteInstance,
+  onCreateInstance,
 }: ChatSidebarProps) {
   const [searchInput, setSearchInput] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all')
   const [isSyncing, setIsSyncing] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
   const debouncedSearch = useDebounce(searchInput, 300)
 
   const { chats, isLoading, refetch } = useWhatsAppChats({
@@ -92,6 +107,22 @@ export function ChatSidebar({
             onChange={onInstanceChange}
           />
         </div>
+        {onRenameInstance && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={() => setManageOpen(true)}
+                disabled={!selectedInstance}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Gerir instância</TooltipContent>
+          </Tooltip>
+        )}
         <NewChatDialog
           instanceId={selectedInstance}
           onChatCreated={(chatId) => {
@@ -168,6 +199,20 @@ export function ChatSidebar({
           ))
         )}
       </div>
+
+      {/* Instance manage sheet */}
+      {onRenameInstance && (
+        <InstanceManageSheet
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          instance={instances.find((i) => i.id === selectedInstance) ?? null}
+          onRename={onRenameInstance}
+          onConnect={onConnectInstance ?? (() => {})}
+          onDisconnect={onDisconnectInstance ?? (async () => {})}
+          onDelete={onDeleteInstance ?? (async () => {})}
+          onCreate={onCreateInstance ?? (() => {})}
+        />
+      )}
     </div>
   )
 }
