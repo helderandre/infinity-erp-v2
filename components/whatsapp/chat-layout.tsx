@@ -18,6 +18,8 @@ interface WppInstance {
   profile_name?: string | null
   profile_pic_url?: string | null
   user_id?: string | null
+  is_business?: boolean
+  created_at?: string
 }
 
 interface ChatLayoutProps {

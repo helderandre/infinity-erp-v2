@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { formatDistanceToNow } from 'date-fns'
+import { pt } from 'date-fns/locale'
 import {
   Unplug,
   Trash2,
@@ -13,9 +15,13 @@ import {
   QrCode,
   Phone,
   User,
+  Briefcase,
+  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogClose,
@@ -44,6 +50,8 @@ interface Instance {
   profile_name?: string | null
   profile_pic_url?: string | null
   user_id?: string | null
+  is_business?: boolean
+  created_at?: string
 }
 
 interface InstanceManageSheetProps {
@@ -83,6 +91,14 @@ export function InstanceManageSheet({
     : instance.connection_status === 'connecting'
       ? 'bg-yellow-500'
       : 'bg-slate-400'
+
+  const initials = instance.profile_name
+    ? instance.profile_name.slice(0, 2).toUpperCase()
+    : instance.name.slice(0, 2).toUpperCase()
+
+  const createdAgo = instance.created_at
+    ? formatDistanceToNow(new Date(instance.created_at), { addSuffix: true, locale: pt })
+    : null
 
   const statusLabel = isConnected
     ? 'Conectado'
@@ -166,76 +182,106 @@ export function InstanceManageSheet({
 
           {/* ── Body ── */}
           <div className="px-5 py-5 space-y-5">
-            {/* Instance Name */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Nome
-              </span>
-              {editing ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveEdit()
-                      if (e.key === 'Escape') handleCancelEdit()
-                    }}
-                    className="h-9 text-sm rounded-lg"
-                    autoFocus
-                    disabled={saving}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-emerald-600 hover:text-emerald-700"
-                    onClick={handleSaveEdit}
-                    disabled={saving}
+            {/* Avatar + Name + Status */}
+            <div className="flex items-start gap-3">
+              <Avatar className="h-14 w-14 shrink-0">
+                {instance.profile_pic_url && (
+                  <AvatarImage src={instance.profile_pic_url} alt={instance.name} />
+                )}
+                <AvatarFallback className="bg-emerald-100 text-emerald-700 text-base font-medium">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1 space-y-1">
+                {editing ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit()
+                        if (e.key === 'Escape') handleCancelEdit()
+                      }}
+                      className="h-7 text-sm font-semibold px-1.5 rounded-md"
+                      autoFocus
+                      disabled={saving}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0 text-emerald-600"
+                      onClick={handleSaveEdit}
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={handleCancelEdit}
+                      disabled={saving}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-semibold truncate">{instance.name}</h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 shrink-0"
+                      onClick={handleStartEdit}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] border-transparent ${
+                      isConnected
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : instance.connection_status === 'connecting'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-800'
+                    }`}
                   >
-                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={handleCancelEdit}
-                    disabled={saving}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
+                    <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${statusColor}`} />
+                    {statusLabel}
+                  </Badge>
+                  {instance.is_business && (
+                    <Badge variant="outline" className="text-[10px] gap-0.5">
+                      <Briefcase className="h-2.5 w-2.5" />
+                      Business
+                    </Badge>
+                  )}
                 </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{instance.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={handleStartEdit}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
+
+                {instance.profile_name && (
+                  <p className="text-xs text-muted-foreground truncate">{instance.profile_name}</p>
+                )}
+              </div>
             </div>
 
-            {/* Status card */}
-            <div className="rounded-xl bg-muted/50 p-3.5 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${statusColor}`} />
-                <span className="text-sm font-medium">{statusLabel}</span>
+            {/* Info grid */}
+            <div className="rounded-xl bg-muted/50 p-3.5">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Phone className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{instance.phone || 'Sem número'}</span>
+                </div>
+                {createdAgo && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Criado {createdAgo}</span>
+                  </div>
+                )}
               </div>
-              {instance.phone && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  <span>{instance.phone}</span>
-                </div>
-              )}
-              {instance.profile_name && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />
-                  <span>{instance.profile_name}</span>
-                </div>
-              )}
             </div>
 
             <Separator />

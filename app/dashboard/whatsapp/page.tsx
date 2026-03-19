@@ -23,7 +23,7 @@ export default async function WhatsAppPage() {
   // Admins see all instances, regular users only their own
   let query = (supabase as any)
     .from('auto_wpp_instances')
-    .select('id, name, connection_status, phone, profile_name, profile_pic_url, user_id')
+    .select('id, name, connection_status, phone, profile_name, profile_pic_url, user_id, is_business, created_at')
     .eq('status', 'active')
     .order('name')
 
