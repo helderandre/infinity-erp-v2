@@ -42,12 +42,12 @@ export default function PublicFichaPage() {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const res = await fetch(`/api/properties?slug=${propertySlug}&limit=1`)
+        // Try as slug first, then as ID — public endpoint, no auth needed
+        const res = await fetch(`/api/fichas/property?slug=${propertySlug}`)
         if (!res.ok) throw new Error('Imóvel não encontrado')
         const json = await res.json()
-        const prop = json.data?.[0]
-        if (!prop) throw new Error('Imóvel não encontrado')
-        setProperty(prop)
+        if (!json.data) throw new Error('Imóvel não encontrado')
+        setProperty(json.data)
       } catch {
         setError('Imóvel não encontrado. Verifique o link.')
       } finally {
