@@ -43,6 +43,26 @@ export async function POST(
     }
 
     const openai = new OpenAI({ apiKey })
+    const isPdf = docUrl.toLowerCase().includes('.pdf')
+
+    let userContent: OpenAI.Chat.ChatCompletionContentPart[]
+    if (isPdf) {
+      try {
+        const fileRes = await fetch(docUrl)
+        if (!fileRes.ok) throw new Error('Fetch failed')
+        const buffer = await fileRes.arrayBuffer()
+        const base64 = Buffer.from(buffer).toString('base64')
+        userContent = [
+          { type: 'image_url', image_url: { url: `data:application/pdf;base64,${base64}` } } as any,
+        ]
+      } catch {
+        return NextResponse.json({ error: 'Não foi possível aceder ao ficheiro PDF' }, { status: 400 })
+      }
+    } else {
+      userContent = [
+        { type: 'image_url', image_url: { url: docUrl, detail: 'high' } },
+      ]
+    }
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
@@ -63,17 +83,12 @@ Retorna APENAS JSON válido, sem markdown. Se um campo não for visível, usa nu
       },
       {
         role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: docUrl, detail: 'high' },
-          },
-        ],
+        content: userContent,
       },
     ]
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages,
       max_tokens: 500,
       temperature: 0.1,

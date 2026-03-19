@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
+import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealForm } from '@/components/financial/deal-form'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -76,12 +77,13 @@ const PROPERTY_STATUS_OPTIONS: Record<string, string> = Object.fromEntries(
 
 // ─── Tab config ────────────────────────────────────────────────
 
-type TabKey = 'resumo' | 'media' | 'interessados' | 'documentos' | 'proprietarios' | 'processos'
+type TabKey = 'resumo' | 'media' | 'interessados' | 'fichas' | 'documentos' | 'proprietarios' | 'processos'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'resumo', label: 'Resumo', icon: Home },
   { key: 'media', label: 'Media', icon: ImageIcon },
   { key: 'interessados', label: 'Interessados', icon: Users },
+  { key: 'fichas', label: 'Fichas de Visita', icon: ClipboardList },
   { key: 'documentos', label: 'Documentos', icon: FileText },
   { key: 'proprietarios', label: 'Proprietários', icon: User },
   { key: 'processos', label: 'Processos', icon: ClipboardList },
@@ -901,6 +903,17 @@ export default function ImovelDetalhePage() {
             </div>
           )}
           </div>
+        </div>
+      )}
+
+      {/* ─── Fichas de Visita ─── */}
+      {activeTab === 'fichas' && property && (
+        <div className="animate-in fade-in duration-300">
+          <PropertyFichasTab
+            propertyId={property.id}
+            propertySlug={property.slug}
+            listingPrice={property.listing_price ? Number(property.listing_price) : null}
+          />
         </div>
       )}
 
