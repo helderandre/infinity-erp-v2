@@ -472,7 +472,7 @@ export function PropertyServiceDialog({
         <div className="px-5 pb-5 pt-3 space-y-0 flex-1 overflow-y-auto">
             {/* ────────────────── STEP 1: Property ────────────────── */}
             {step === 1 && (
-              <div className="space-y-5 w-full overflow-hidden">
+              <div className="space-y-5 w-full">
                 {/* Option A: select from list */}
                 {!isManual && !selectedPropertyId && (
                   <div className="space-y-3">
@@ -489,7 +489,7 @@ export function PropertyServiceDialog({
 
                       {/* Dropdown */}
                       {showPropertyDropdown && (
-                        <div className="absolute z-30 top-full left-0 right-0 mt-1 max-h-[120px] overflow-y-auto overflow-x-hidden rounded-xl border bg-popover shadow-lg divide-y animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="absolute z-30 top-full left-0 right-0 mt-1 max-h-[240px] overflow-y-auto overflow-x-hidden rounded-xl border bg-popover shadow-lg divide-y animate-in fade-in slide-in-from-top-2 duration-200">
                           {loadingProperties ? (
                             <div className="flex items-center justify-center py-3">
                               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
