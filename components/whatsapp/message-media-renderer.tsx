@@ -157,7 +157,7 @@ export function MessageMediaRenderer({ message, instanceId }: MessageMediaRender
             <img
               src={mediaUrl}
               alt={message.text || 'Imagem'}
-              className="max-h-[300px] w-auto rounded object-cover"
+              className="max-h-[300px] w-full rounded object-cover"
               loading="lazy"
             />
           </button>
@@ -179,7 +179,7 @@ export function MessageMediaRenderer({ message, instanceId }: MessageMediaRender
           <video
             src={mediaUrl}
             controls
-            className="max-h-[300px] w-auto rounded"
+            className="max-h-[300px] w-full rounded"
             preload="metadata"
           />
           {message.media_duration && (
