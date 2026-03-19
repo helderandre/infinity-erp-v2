@@ -38,7 +38,7 @@ export function InstanceSelector({ instances, value, onChange }: InstanceSelecto
       <SelectContent>
         {instances.map((inst) => (
           <SelectItem key={inst.id} value={inst.id}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span
                 className={`h-2 w-2 rounded-full flex-shrink-0 ${
                   inst.connection_status === 'connected'
@@ -48,12 +48,10 @@ export function InstanceSelector({ instances, value, onChange }: InstanceSelecto
                       : 'bg-slate-400'
                 }`}
               />
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">{inst.name}</span>
-                {inst.phone && (
-                  <span className="text-xs text-muted-foreground">{inst.phone}</span>
-                )}
-              </div>
+              <span className="text-sm font-medium truncate">{inst.name}</span>
+              {inst.phone && (
+                <span className="text-xs text-muted-foreground truncate">{inst.phone}</span>
+              )}
             </div>
           </SelectItem>
         ))}
