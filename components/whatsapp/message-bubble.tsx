@@ -72,10 +72,11 @@ export function MessageBubble({
   const isMe = message.from_me
   const time = format(new Date(message.timestamp * 1000), 'HH:mm')
   const senderColor = message.sender ? getSenderColor(message.sender) : 'text-primary'
+  const hasMedia = message.message_type !== 'text' && message.message_type !== 'location' && message.message_type !== 'contact'
 
   return (
     <div className={cn('flex mb-1 group', isMe ? 'justify-end' : 'justify-start')}>
-      <div className="relative max-w-[65%]">
+      <div className={cn('relative max-w-[65%]', hasMedia && 'w-fit')}>
         <div
           className={cn(
             'rounded-lg px-2.5 py-1.5 shadow-sm',
