@@ -26,10 +26,10 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status')
 
     let query = supabase
-      .from('temp_training_learning_paths')
+      .from('forma_training_learning_paths')
       .select(`
         *,
-        courses:temp_training_learning_path_courses(count)
+        courses:forma_training_learning_path_courses(count)
       `)
 
     if (statusFilter) {
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
     // Create learning path
     const { data: path, error: pathError } = await supabase
-      .from('temp_training_learning_paths')
+      .from('forma_training_learning_paths')
       .insert({
         ...pathData,
         slug,
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       }))
 
       const { error: assocError } = await supabase
-        .from('temp_training_learning_path_courses')
+        .from('forma_training_learning_path_courses')
         .insert(courseAssociations)
 
       if (assocError) {

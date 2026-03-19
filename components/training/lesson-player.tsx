@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, Play } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import { YouTubeCustomPlayer } from './youtube-custom-player'
+import { cn } from '@/lib/utils'
 import type { TrainingLesson, TrainingLessonProgress } from '@/types/training'
 
 interface LessonPlayerProps {
@@ -16,18 +16,7 @@ interface LessonPlayerProps {
     time_spent_seconds?: number
     status?: 'in_progress' | 'completed'
   }) => void
-}
-
-function extractYouTubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
-  ]
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) return match[1]
-  }
-  return null
+  onWatchPercentChange?: (percent: number) => void
 }
 
 function extractVimeoId(url: string): string | null {
@@ -35,12 +24,22 @@ function extractVimeoId(url: string): string | null {
   return match ? match[1] : null
 }
 
-export function LessonPlayer({ lesson, progress, onProgressUpdate }: LessonPlayerProps) {
+function formatTime(seconds: number): string {
+  if (!seconds || !isFinite(seconds)) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+export function LessonPlayer({ lesson, progress, onProgressUpdate, onWatchPercentChange }: LessonPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const lastSaveRef = useRef<number>(0)
   const timeSpentRef = useRef<number>(progress?.time_spent_seconds ?? 0)
   const timeSpentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const nativeTimeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [watchPercent, setWatchPercent] = useState(progress?.video_watch_percent ?? 0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const [isCompleted, setIsCompleted] = useState(progress?.status === 'completed')
   const hasSetInitialTime = useRef(false)
 
@@ -48,19 +47,20 @@ export function LessonPlayer({ lesson, progress, onProgressUpdate }: LessonPlaye
   const isYouTube = lesson.video_provider === 'youtube' || videoUrl.includes('youtube') || videoUrl.includes('youtu.be')
   const isVimeo = lesson.video_provider === 'vimeo' || videoUrl.includes('vimeo.com')
   const isNative = !isYouTube && !isVimeo
+  const hasVideo = isYouTube || isNative
 
   const saveProgress = useCallback(
-    (currentTime: number, duration: number, force = false) => {
-      if (duration <= 0) return
+    (time: number, dur: number, force = false) => {
+      if (dur <= 0) return
       const now = Date.now()
       if (!force && now - lastSaveRef.current < 10000) return
       lastSaveRef.current = now
 
-      const percent = Math.round((currentTime / duration) * 100)
+      const percent = Math.round((time / dur) * 100)
       setWatchPercent(percent)
 
       const updateData: Parameters<typeof onProgressUpdate>[0] = {
-        video_watched_seconds: Math.floor(currentTime),
+        video_watched_seconds: Math.floor(time),
         video_watch_percent: percent,
         time_spent_seconds: timeSpentRef.current,
         status: 'in_progress',
@@ -78,7 +78,18 @@ export function LessonPlayer({ lesson, progress, onProgressUpdate }: LessonPlaye
     [onProgressUpdate, isCompleted]
   )
 
-  // Track time spent for native video
+  // ─── YouTube time update callback ───
+  const handleYouTubeTimeUpdate = useCallback((time: number, dur: number) => {
+    setCurrentTime(time)
+    setDuration(dur)
+    if (dur > 0) {
+      const pct = Math.round((time / dur) * 100)
+      setWatchPercent(pct)
+      onWatchPercentChange?.(pct)
+    }
+  }, [onWatchPercentChange])
+
+  // ─── Native video: track time spent ───
   useEffect(() => {
     if (!isNative) return
     timeSpentIntervalRef.current = setInterval(() => {
@@ -91,110 +102,99 @@ export function LessonPlayer({ lesson, progress, onProgressUpdate }: LessonPlaye
     }
   }, [isNative])
 
-  // Set initial playback position for native video
+  // ─── Native video: set initial position ───
   useEffect(() => {
     const video = videoRef.current
     if (!video || !isNative || hasSetInitialTime.current) return
-
     const handleLoaded = () => {
       if (progress?.video_watched_seconds && progress.video_watched_seconds > 0 && !hasSetInitialTime.current) {
         video.currentTime = progress.video_watched_seconds
         hasSetInitialTime.current = true
       }
     }
-
     video.addEventListener('loadedmetadata', handleLoaded)
     return () => video.removeEventListener('loadedmetadata', handleLoaded)
   }, [isNative, progress?.video_watched_seconds])
 
-  // Handle timeupdate for native video
+  // ─── Native video: timeupdate + ended + live time tracking ───
   useEffect(() => {
     const video = videoRef.current
     if (!video || !isNative) return
 
     const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime)
+      setDuration(video.duration)
       saveProgress(video.currentTime, video.duration)
     }
-
     const handleEnded = () => {
       saveProgress(video.duration, video.duration, true)
     }
 
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('ended', handleEnded)
+
+    // Poll for smoother UI updates
+    nativeTimeRef.current = setInterval(() => {
+      if (!video.paused && video.duration > 0) {
+        setCurrentTime(video.currentTime)
+        setDuration(video.duration)
+        const pct = Math.round((video.currentTime / video.duration) * 100)
+        setWatchPercent(pct)
+        onWatchPercentChange?.(pct)
+      }
+    }, 250)
+
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('ended', handleEnded)
+      if (nativeTimeRef.current) clearInterval(nativeTimeRef.current)
     }
-  }, [isNative, saveProgress])
+  }, [isNative, saveProgress, onWatchPercentChange])
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="relative">
-          {isYouTube && (
-            <div className="aspect-video w-full">
-              <iframe
-                src={`https://www.youtube.com/embed/${extractYouTubeId(videoUrl)}?rel=0`}
-                className="h-full w-full rounded-t-lg"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title={lesson.title}
-              />
-            </div>
-          )}
+    <div className="relative">
+      {isYouTube && (
+        <YouTubeCustomPlayer
+          videoUrl={videoUrl}
+          lesson={lesson}
+          progress={progress}
+          onProgressUpdate={onProgressUpdate}
+          onTimeUpdate={handleYouTubeTimeUpdate}
+        />
+      )}
 
-          {isVimeo && (
-            <div className="aspect-video w-full">
-              <iframe
-                src={`https://player.vimeo.com/video/${extractVimeoId(videoUrl)}`}
-                className="h-full w-full rounded-t-lg"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
-                title={lesson.title}
-              />
-            </div>
-          )}
-
-          {isNative && (
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              controls
-              className="aspect-video w-full rounded-t-lg bg-black"
-              preload="metadata"
-            >
-              O seu navegador não suporta o elemento de vídeo.
-            </video>
-          )}
-
-          {isCompleted && (
-            <div className="absolute right-3 top-3">
-              <Badge className="gap-1 bg-emerald-600">
-                <CheckCircle2 className="h-3 w-3" />
-                Concluído
-              </Badge>
-            </div>
-          )}
+      {isVimeo && (
+        <div className="aspect-video w-full">
+          <iframe
+            src={`https://player.vimeo.com/video/${extractVimeoId(videoUrl)}`}
+            className="h-full w-full rounded-lg"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            title={lesson.title}
+          />
         </div>
+      )}
 
-        <div className="space-y-2 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Play className="h-4 w-4" />
-              <span>Progresso do vídeo</span>
-            </div>
-            <span className="font-medium">{watchPercent}%</span>
-          </div>
-          <Progress value={watchPercent} className="h-2" />
-          {lesson.video_duration_seconds && (
-            <p className="text-xs text-muted-foreground">
-              Duração: {Math.floor(lesson.video_duration_seconds / 60)} min{' '}
-              {lesson.video_duration_seconds % 60 > 0 && `${lesson.video_duration_seconds % 60} seg`}
-            </p>
-          )}
+      {isNative && (
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          className="aspect-video w-full rounded-lg bg-black"
+          preload="metadata"
+        >
+          O seu navegador não suporta o elemento de vídeo.
+        </video>
+      )}
+
+      {isCompleted && (
+        <div className="absolute right-3 top-3">
+          <Badge className="gap-1 bg-emerald-600">
+            <CheckCircle2 className="h-3 w-3" />
+            Concluído
+          </Badge>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }

@@ -8,8 +8,8 @@ import {
   CheckCircle2,
   Circle,
   FileText,
+  HelpCircle,
   LinkIcon,
-  PlayCircle,
   Video,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,7 @@ interface LessonSidebarProps {
       title: string
       content_type: string
       estimated_minutes?: number | null
-      progress?: { status: string } | null
+      progress?: { status: string | null; video_watch_percent?: number } | null
     }>
   }>
   currentLessonId: string
@@ -37,17 +37,58 @@ const contentTypeIcons: Record<string, typeof Video> = {
   pdf: FileText,
   text: FileText,
   external_link: LinkIcon,
+  quiz: HelpCircle,
 }
 
-function getStatusIcon(status?: string | null) {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-    case 'in_progress':
-      return <PlayCircle className="h-4 w-4 shrink-0 text-blue-500" />
-    default:
-      return <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+function LessonProgressRing({
+  status,
+  percent = 0,
+  isCurrent,
+}: {
+  status?: string | null
+  percent?: number
+  isCurrent?: boolean
+}) {
+  if (status === 'completed') {
+    return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
   }
+
+  const size = 16
+  const strokeWidth = 2
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const clampedPercent = Math.min(100, Math.max(0, percent))
+  const offset = circumference - (clampedPercent / 100) * circumference
+
+  if (clampedPercent === 0) {
+    return <Circle className={cn('h-4 w-4 shrink-0', isCurrent ? 'text-primary-foreground/50' : 'text-muted-foreground/40')} />
+  }
+
+  return (
+    <svg width={size} height={size} className="shrink-0 -rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className={isCurrent ? 'text-primary-foreground/20' : 'text-muted-foreground/20'}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        className={isCurrent ? 'text-primary-foreground' : 'text-blue-500'}
+      />
+    </svg>
+  )
 }
 
 export function LessonSidebar({
@@ -106,7 +147,11 @@ export function LessonSidebar({
                           : 'hover:bg-muted'
                       )}
                     >
-                      {getStatusIcon(lesson.progress?.status)}
+                      <LessonProgressRing
+                        status={lesson.progress?.status}
+                        percent={lesson.progress?.video_watch_percent}
+                        isCurrent={isCurrent}
+                      />
                       <ContentIcon
                         className={cn(
                           'h-3.5 w-3.5 shrink-0',

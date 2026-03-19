@@ -1,9 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2, FileText } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { FileText } from 'lucide-react'
 
 interface LessonTextContentProps {
   content: string
@@ -11,14 +9,7 @@ interface LessonTextContentProps {
   onComplete?: () => void
 }
 
-export function LessonTextContent({ content, title, onComplete }: LessonTextContentProps) {
-  const [isMarkedRead, setIsMarkedRead] = useState(false)
-
-  function handleMarkAsRead() {
-    setIsMarkedRead(true)
-    onComplete?.()
-  }
-
+export function LessonTextContent({ content, title }: LessonTextContentProps) {
   return (
     <Card>
       <CardContent className="p-0">
@@ -33,17 +24,6 @@ export function LessonTextContent({ content, title, onComplete }: LessonTextCont
           />
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-end border-t px-4 py-3">
-        <Button
-          size="sm"
-          onClick={handleMarkAsRead}
-          disabled={isMarkedRead}
-          variant={isMarkedRead ? 'outline' : 'default'}
-        >
-          <CheckCircle2 className="mr-2 h-4 w-4" />
-          {isMarkedRead ? 'Marcado como Lido' : 'Marcar como Lido'}
-        </Button>
-      </CardFooter>
     </Card>
   )
 }

@@ -33,7 +33,7 @@ export async function PUT(
 
     // Check comment exists and belongs to user
     const { data: existing, error: fetchError } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .select('id, user_id')
       .eq('id', id)
       .single()
@@ -53,7 +53,7 @@ export async function PUT(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .update({ content, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select(`
@@ -96,7 +96,7 @@ export async function DELETE(
 
     // Check comment exists
     const { data: existing, error: fetchError } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .select('id, user_id')
       .eq('id', id)
       .single()
@@ -118,7 +118,7 @@ export async function DELETE(
     }
 
     const { error } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .delete()
       .eq('id', id)
 

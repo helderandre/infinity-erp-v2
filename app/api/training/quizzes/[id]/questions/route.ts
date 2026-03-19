@@ -26,7 +26,7 @@ export async function GET(
 
     // Load quiz to check shuffle setting
     const { data: quiz, error: quizError } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .select('shuffle_questions')
       .eq('id', quizId)
       .single()
@@ -39,7 +39,7 @@ export async function GET(
     }
 
     const { data: questions, error } = await supabase
-      .from('temp_training_quiz_questions')
+      .from('forma_training_quiz_questions')
       .select('*')
       .eq('quiz_id', quizId)
       .order('order_index', { ascending: true })
@@ -77,7 +77,7 @@ export async function POST(
 
     // Verify quiz exists
     const { data: quiz, error: quizError } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .select('id')
       .eq('id', quizId)
       .single()
@@ -99,7 +99,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_quiz_questions')
+      .from('forma_training_quiz_questions')
       .insert({
         quiz_id: quizId,
         ...validation.data,

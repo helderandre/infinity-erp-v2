@@ -25,7 +25,7 @@ export async function GET(
 
     // Fetch all comments for this lesson, with user info
     const { data: comments, error } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .select(`
         *,
         user:dev_users(id, commercial_name)
@@ -97,7 +97,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .insert(insertData)
       .select(`
         *,

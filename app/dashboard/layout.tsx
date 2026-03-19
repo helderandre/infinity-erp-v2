@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sidebar'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { BreadcrumbOverrideProvider } from '@/hooks/use-breadcrumb-overrides'
 
 const SearchCommand = dynamic(
   () => import('@/components/layout/search-command').then((m) => m.SearchCommand),
@@ -64,40 +65,43 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
+    || /^\/dashboard\/formacoes\/cursos\/[^/]+\/licoes\/[^/]+$/.test(pathname ?? '')
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
     && !SIDEBAR_PAGE_EXCEPTIONS.some((r) => pathname === r || pathname?.startsWith(r + '/'))
   const isCompactPadding = COMPACT_PADDING_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
 
   return (
-    <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
-      <AppSidebar />
-      <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
-        <header className="flex py-2 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-6" />
-          <Breadcrumbs />
-          <div className="ml-auto flex items-center gap-2">
-            <SearchCommand />
-            <QuickActions />
-            <NotificationPopover />
-          </div>
-        </header>
-        <main
-          className={cn(
-            "flex flex-1 flex-col overflow-hidden",
-            isFullBleed
-              ? "min-h-0"
-              : isSidebarPage
+    <BreadcrumbOverrideProvider>
+      <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
+        <AppSidebar />
+        <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
+          <header className="flex py-2 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-6" />
+            <Breadcrumbs />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchCommand />
+              <QuickActions />
+              <NotificationPopover />
+            </div>
+          </header>
+          <main
+            className={cn(
+              "flex flex-1 flex-col overflow-hidden",
+              isFullBleed
                 ? "min-h-0"
-                : isCompactPadding
-                  ? "p-2"
-                  : "gap-4 p-4 md:gap-6 md:p-6"
-          )}
-        >
-          {children}
-        </main>
-      </SidebarInset>
-      <GoalDailyPopup />
-    </SidebarProvider>
+                : isSidebarPage
+                  ? "min-h-0"
+                  : isCompactPadding
+                    ? "p-2"
+                    : "gap-4 p-4 md:gap-6 md:p-6"
+            )}
+          >
+            {children}
+          </main>
+        </SidebarInset>
+        <GoalDailyPopup />
+      </SidebarProvider>
+    </BreadcrumbOverrideProvider>
   )
 }

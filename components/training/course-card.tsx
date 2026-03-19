@@ -32,7 +32,7 @@ export function CourseCard({ course, onClick, showProgress }: CourseCardProps) {
   return (
     <Card
       className={cn(
-        'group relative cursor-pointer overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md',
+        'group relative cursor-pointer overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md py-0 gap-0',
         isCompleted && 'ring-2 ring-emerald-500/30'
       )}
       onClick={onClick}
@@ -57,7 +57,7 @@ export function CourseCard({ course, onClick, showProgress }: CourseCardProps) {
         {/* Category badge (top-left) */}
         {course.category && (
           <Badge
-            className="absolute top-2 left-2 border-transparent text-white shadow-sm"
+            className="absolute top-2 left-2 border-transparent text-primary-foreground shadow-sm"
             style={{ backgroundColor: categoryColor }}
           >
             {course.category.name}

@@ -15,10 +15,10 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status') || 'all'
 
     let query = supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select(`
         *,
-        course:temp_training_courses!temp_training_enrollments_course_id_fkey(
+        course:forma_training_courses!forma_training_enrollments_course_id_fkey(
           id,
           title,
           slug,
@@ -27,8 +27,8 @@ export async function GET(request: Request) {
           estimated_duration_minutes,
           has_certificate,
           is_mandatory,
-          category:temp_training_categories!temp_training_courses_category_id_fkey(name, color),
-          instructor:dev_users!temp_training_courses_instructor_id_fkey(commercial_name)
+          category:forma_training_categories!forma_training_courses_category_id_fkey(name, color),
+          instructor:dev_users!forma_training_courses_instructor_id_fkey(commercial_name)
         )
       `)
       .eq('user_id', userId)

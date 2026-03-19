@@ -23,7 +23,7 @@ export async function PUT(
 
     // Get current state
     const { data: existing, error: fetchError } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .select('id, is_resolved')
       .eq('id', id)
       .single()
@@ -37,7 +37,7 @@ export async function PUT(
 
     // Toggle is_resolved
     const { data, error } = await supabase
-      .from('temp_training_comments')
+      .from('forma_training_comments')
       .update({
         is_resolved: !existing.is_resolved,
         updated_at: new Date().toISOString(),

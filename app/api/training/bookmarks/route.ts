@@ -13,11 +13,11 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_bookmarks')
+      .from('forma_training_bookmarks')
       .select(`
         *,
-        course:temp_training_courses(id, title, slug, cover_image_url, difficulty_level),
-        lesson:temp_training_lessons(id, title, content_type, module_id)
+        course:forma_training_courses(id, title, slug, cover_image_url, difficulty_level),
+        lesson:forma_training_lessons(id, title, content_type, module_id)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
     // Check if bookmark exists
     let query = supabase
-      .from('temp_training_bookmarks')
+      .from('forma_training_bookmarks')
       .select('id')
       .eq('user_id', userId)
 
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     if (existing) {
       // Remove bookmark (toggle off)
       const { error } = await supabase
-        .from('temp_training_bookmarks')
+        .from('forma_training_bookmarks')
         .delete()
         .eq('id', existing.id)
 
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       if (lesson_id && lesson_id !== '') insertData.lesson_id = lesson_id
 
       const { data, error } = await supabase
-        .from('temp_training_bookmarks')
+        .from('forma_training_bookmarks')
         .insert(insertData)
         .select()
         .single()

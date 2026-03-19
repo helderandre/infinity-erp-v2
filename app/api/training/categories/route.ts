@@ -23,13 +23,13 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_categories')
+      .from('forma_training_categories')
       .select(`
         *,
-        courses:temp_training_courses(count)
+        courses:forma_training_courses(count)
       `)
       .eq('is_active', true)
-      .eq('temp_training_courses.status', 'published')
+      .eq('forma_training_courses.status', 'published')
       .order('order_index', { ascending: true })
 
     if (error) {
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     const slug = generateSlug(validation.data.name)
 
     const { data, error } = await supabase
-      .from('temp_training_categories')
+      .from('forma_training_categories')
       .insert({ ...validation.data, slug })
       .select()
       .single()

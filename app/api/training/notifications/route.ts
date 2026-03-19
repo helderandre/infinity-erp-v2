@@ -12,7 +12,7 @@ export async function GET() {
 
     // Get notifications for current user
     const { data: notifications, error } = await supabase
-      .from('temp_training_notifications')
+      .from('forma_training_notifications')
       .select('*')
       .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
@@ -24,7 +24,7 @@ export async function GET() {
 
     // Count unread
     const { count: unread_count } = await supabase
-      .from('temp_training_notifications')
+      .from('forma_training_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', auth.user.id)
       .eq('is_read', false)

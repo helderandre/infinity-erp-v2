@@ -17,7 +17,7 @@ export async function POST(
 
     // Verify course exists
     const { data: course, error: courseError } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select('id')
       .eq('id', course_id)
       .single()
@@ -39,7 +39,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .insert({
         ...validation.data,
         course_id,

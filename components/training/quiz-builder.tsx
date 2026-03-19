@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -52,6 +52,8 @@ interface QuizBuilderProps {
   courseId?: string
   onSave: () => void
   onCancel: () => void
+  hideActions?: boolean
+  formId?: string
 }
 
 // Combined form schema
@@ -92,8 +94,11 @@ export function QuizBuilder({
   courseId,
   onSave,
   onCancel,
+  hideActions = false,
+  formId,
 }: QuizBuilderProps) {
   const [isSaving, setIsSaving] = useState(false)
+  const [resolvedQuizId, setResolvedQuizId] = useState<string | undefined>(quizId)
 
   const form = useForm<QuizBuilderFormData>({
     resolver: zodResolver(quizBuilderSchema),
@@ -110,6 +115,40 @@ export function QuizBuilder({
       questions: [],
     },
   })
+
+  // If quizId is provided, load existing quiz data
+  useEffect(() => {
+    if (quizId) {
+      fetch(`/api/training/quizzes/${quizId}`)
+        .then(res => res.json())
+        .then(existingQuiz => {
+          if (existingQuiz) {
+            form.reset({
+              module_id: existingQuiz.module_id || '',
+              course_id: existingQuiz.course_id || '',
+              title: existingQuiz.title || '',
+              description: existingQuiz.description || '',
+              passing_score: existingQuiz.passing_score ?? 70,
+              max_attempts: existingQuiz.max_attempts ?? 0,
+              time_limit_minutes: existingQuiz.time_limit_minutes || null,
+              shuffle_questions: existingQuiz.shuffle_questions ?? false,
+              show_correct_answers: existingQuiz.show_correct_answers ?? true,
+              questions: [],
+            })
+            // Load questions
+            fetch(`/api/training/quizzes/${quizId}/questions`)
+              .then(r => r.json())
+              .then(qJson => {
+                if (qJson.data?.length > 0) {
+                  form.setValue('questions', qJson.data)
+                }
+              })
+              .catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+  }, [quizId])
 
   const {
     fields: questionFields,
@@ -192,10 +231,11 @@ export function QuizBuilder({
       const { questions, ...quizData } = data
 
       // Create or update quiz
-      const quizUrl = quizId
-        ? `/api/training/quizzes/${quizId}`
+      const activeQuizId = resolvedQuizId || quizId
+      const quizUrl = activeQuizId
+        ? `/api/training/quizzes/${activeQuizId}`
         : '/api/training/quizzes'
-      const quizMethod = quizId ? 'PUT' : 'POST'
+      const quizMethod = activeQuizId ? 'PUT' : 'POST'
 
       const quizRes = await fetch(quizUrl, {
         method: quizMethod,
@@ -208,7 +248,7 @@ export function QuizBuilder({
       }
 
       const savedQuiz = await quizRes.json()
-      const savedQuizId = quizId || savedQuiz.id
+      const savedQuizId = activeQuizId || savedQuiz.id
 
       // Save questions
       for (let i = 0; i < questions.length; i++) {
@@ -232,6 +272,7 @@ export function QuizBuilder({
   return (
     <Form {...form}>
       <form
+        id={formId}
         onSubmit={form.handleSubmit(handleSubmit)}
         className="mx-auto max-w-4xl space-y-8"
       >
@@ -601,27 +642,29 @@ export function QuizBuilder({
           </Button>
         </div>
 
-        <Separator />
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                A guardar...
-              </>
-            ) : (
-              <>
-                <Save className="mr-1 h-4 w-4" />
-                Guardar Quiz
-              </>
-            )}
-          </Button>
-        </div>
+        {!hideActions && (
+          <>
+            <Separator />
+            <div className="flex items-center justify-end gap-3">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    A guardar...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-1 h-4 w-4" />
+                    Guardar Quiz
+                  </>
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </form>
     </Form>
   )

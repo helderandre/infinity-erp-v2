@@ -23,7 +23,7 @@ export async function GET(
 
     // Get all enrollments for this user
     const { data: enrollments, error: enrollError } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select(`
         id,
         course_id,
@@ -32,7 +32,7 @@ export async function GET(
         enrolled_at,
         completed_at,
         deadline,
-        course:temp_training_courses(id, title, estimated_duration_minutes)
+        course:forma_training_courses(id, title, estimated_duration_minutes)
       `)
       .eq('user_id', userId)
       .order('enrolled_at', { ascending: false })
@@ -49,7 +49,7 @@ export async function GET(
 
     // Get certificates
     const { data: certificates, error: certError } = await supabase
-      .from('temp_training_certificates')
+      .from('forma_training_certificates')
       .select('id, course_id, issued_at, expires_at, is_external, external_title, external_provider, certificate_url')
       .eq('user_id', userId)
       .order('issued_at', { ascending: false })
@@ -60,7 +60,7 @@ export async function GET(
 
     // Calculate total time spent from lesson progress
     const { data: progressData } = await supabase
-      .from('temp_training_lesson_progress')
+      .from('forma_training_lesson_progress')
       .select('time_spent_seconds')
       .eq('user_id', userId)
 

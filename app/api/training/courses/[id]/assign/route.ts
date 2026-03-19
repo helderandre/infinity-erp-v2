@@ -28,7 +28,7 @@ export async function POST(
 
     // Check course exists
     const { data: course, error: courseError } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select('id, title')
       .eq('id', id)
       .single()
@@ -42,7 +42,7 @@ export async function POST(
 
     // Check which users are already enrolled
     const { data: existingEnrollments } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('user_id')
       .eq('course_id', id)
       .in('user_id', user_ids)
@@ -71,7 +71,7 @@ export async function POST(
     }))
 
     const { data: createdEnrollments, error: enrollError } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .insert(enrollments)
       .select()
 
@@ -89,7 +89,7 @@ export async function POST(
     }))
 
     await supabase
-      .from('temp_training_notifications')
+      .from('forma_training_notifications')
       .insert(notifications)
 
     return NextResponse.json(

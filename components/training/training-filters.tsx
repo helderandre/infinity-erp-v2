@@ -1,14 +1,8 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 import { TRAINING_DIFFICULTY_OPTIONS } from '@/lib/constants'
 import { Search, X } from 'lucide-react'
 import type { TrainingCategory } from '@/types/training'
@@ -16,74 +10,67 @@ import type { TrainingCategory } from '@/types/training'
 interface TrainingFiltersProps {
   search: string
   onSearchChange: (value: string) => void
-  categoryId: string
-  onCategoryChange: (value: string) => void
-  difficulty: string
-  onDifficultyChange: (value: string) => void
   categories: TrainingCategory[]
   onClear: () => void
   hasActiveFilters: boolean
+  selectedCategories: string[]
+  onCategoriesChange: (value: string[]) => void
+  selectedDifficulties: string[]
+  onDifficultiesChange: (value: string[]) => void
 }
 
 export function TrainingFilters({
   search,
   onSearchChange,
-  categoryId,
-  onCategoryChange,
-  difficulty,
-  onDifficultyChange,
   categories,
   onClear,
   hasActiveFilters,
+  selectedCategories,
+  onCategoriesChange,
+  selectedDifficulties,
+  onDifficultiesChange,
 }: TrainingFiltersProps) {
+  const categoryOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.name,
+  }))
+
+  const difficultyOptions = TRAINING_DIFFICULTY_OPTIONS.map((opt) => ({
+    value: opt.value,
+    label: opt.label,
+  }))
+
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[220px]">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative flex-1 max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
           placeholder="Pesquisar formações..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="pl-9 h-9 rounded-full bg-muted/50 border-0 text-sm"
         />
       </div>
 
-      {/* Category */}
-      <Select value={categoryId} onValueChange={onCategoryChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Todas as categorias" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as categorias</SelectItem>
-          {categories.map((cat) => (
-            <SelectItem key={cat.id} value={cat.id}>
-              {cat.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Categoria"
+        options={categoryOptions}
+        selected={selectedCategories}
+        onSelectedChange={onCategoriesChange}
+        searchable={categories.length > 8}
+      />
 
-      {/* Difficulty */}
-      <Select value={difficulty} onValueChange={onDifficultyChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Todos os níveis" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os níveis</SelectItem>
-          {TRAINING_DIFFICULTY_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        title="Nível"
+        options={difficultyOptions}
+        selected={selectedDifficulties}
+        onSelectedChange={onDifficultiesChange}
+      />
 
-      {/* Clear filters */}
       {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClear} className="gap-1.5">
-          <X className="h-4 w-4" />
-          Limpar filtros
+        <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 rounded-full text-xs">
+          <X className="mr-1 h-3.5 w-3.5" />
+          Limpar
         </Button>
       )}
     </div>

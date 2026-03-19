@@ -16,10 +16,10 @@ export async function POST(
 
     // Validate course has at least 1 module with at least 1 lesson
     const { data: modules, error: modulesError } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .select(`
         id,
-        lessons:temp_training_lessons(id)
+        lessons:forma_training_lessons(id)
       `)
       .eq('course_id', id)
 
@@ -45,7 +45,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .update({
         status: 'published',
         published_at: new Date().toISOString(),

@@ -22,7 +22,7 @@ export async function PUT(
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_notifications')
+      .from('forma_training_notifications')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', auth.user.id)

@@ -16,7 +16,7 @@ export async function GET(
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_quiz_attempts')
+      .from('forma_training_quiz_attempts')
       .select('*')
       .eq('quiz_id', quizId)
       .eq('user_id', userId)

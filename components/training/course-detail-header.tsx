@@ -104,7 +104,7 @@ export function CourseDetailHeader({
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {course.category && (
             <Badge
-              className="border-transparent text-white"
+              className="border-transparent text-primary-foreground"
               style={{ backgroundColor: categoryColor }}
             >
               {course.category.name}

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { updateLessonSchema } from '@/lib/validations/training'
+import { getYouTubeDuration } from '@/lib/youtube'
 
 export async function PUT(
   request: Request,
@@ -25,7 +26,7 @@ export async function PUT(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_lessons')
+      .from('forma_training_lessons')
       .update(validation.data)
       .eq('id', id)
       .select()
@@ -40,6 +41,24 @@ export async function PUT(
         { error: 'Lição não encontrada' },
         { status: 404 }
       )
+    }
+
+    // Auto-detectar duração YouTube se URL mudou e duração não foi fornecida
+    if (
+      data.content_type === 'video' &&
+      data.video_provider === 'youtube' &&
+      data.video_url &&
+      !validation.data.video_duration_seconds &&
+      !data.video_duration_seconds
+    ) {
+      const duration = await getYouTubeDuration(data.video_url)
+      if (duration) {
+        await supabase
+          .from('forma_training_lessons')
+          .update({ video_duration_seconds: duration })
+          .eq('id', data.id)
+        data.video_duration_seconds = duration
+      }
     }
 
     return NextResponse.json(data)
@@ -64,7 +83,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('temp_training_lessons')
+      .from('forma_training_lessons')
       .delete()
       .eq('id', id)
 

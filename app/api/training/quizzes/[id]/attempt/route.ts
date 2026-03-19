@@ -29,7 +29,7 @@ export async function POST(
 
     // Load quiz
     const { data: quiz, error: quizError } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .select('*, course_id, module_id')
       .eq('id', quizId)
       .single()
@@ -45,7 +45,7 @@ export async function POST(
     let courseId = quiz.course_id
     if (!courseId && quiz.module_id) {
       const { data: mod } = await supabase
-        .from('temp_training_modules')
+        .from('forma_training_modules')
         .select('course_id')
         .eq('id', quiz.module_id)
         .single()
@@ -60,7 +60,7 @@ export async function POST(
     }
 
     const { data: enrollment, error: enrollError } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('id')
       .eq('user_id', userId)
       .eq('course_id', courseId)
@@ -75,7 +75,7 @@ export async function POST(
 
     // Check max attempts
     const { count: attemptCount } = await supabase
-      .from('temp_training_quiz_attempts')
+      .from('forma_training_quiz_attempts')
       .select('id', { count: 'exact', head: true })
       .eq('quiz_id', quizId)
       .eq('user_id', userId)
@@ -91,7 +91,7 @@ export async function POST(
 
     // Load questions
     const { data: questions, error: questionsError } = await supabase
-      .from('temp_training_quiz_questions')
+      .from('forma_training_quiz_questions')
       .select('*')
       .eq('quiz_id', quizId)
       .order('order_index', { ascending: true })
@@ -162,7 +162,7 @@ export async function POST(
     // Save attempt
     const now = new Date().toISOString()
     const { data: attempt, error: attemptError } = await supabase
-      .from('temp_training_quiz_attempts')
+      .from('forma_training_quiz_attempts')
       .insert({
         user_id: userId,
         quiz_id: quizId,

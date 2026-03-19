@@ -31,7 +31,7 @@ export async function PUT(
     if (validation.data.course_id === '') updateData.course_id = null
 
     const { data, error } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .update(updateData)
       .eq('id', quizId)
       .select()
@@ -70,7 +70,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .delete()
       .eq('id', quizId)
 

@@ -12,10 +12,10 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_certificates')
+      .from('forma_training_certificates')
       .select(`
         *,
-        course:temp_training_courses(title)
+        course:forma_training_courses(title)
       `)
       .eq('user_id', userId)
       .order('issued_at', { ascending: false })

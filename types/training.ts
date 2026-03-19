@@ -3,7 +3,7 @@
 export type CourseDifficulty = 'beginner' | 'intermediate' | 'advanced'
 export type CourseStatus = 'draft' | 'published' | 'archived'
 export type EnrollmentStatus = 'enrolled' | 'in_progress' | 'completed' | 'failed' | 'expired'
-export type LessonContentType = 'video' | 'pdf' | 'text' | 'external_link'
+export type LessonContentType = 'video' | 'pdf' | 'text' | 'external_link' | 'quiz'
 export type VideoProvider = 'youtube' | 'vimeo' | 'r2' | 'other'
 export type LessonProgressStatus = 'not_started' | 'in_progress' | 'completed'
 export type QuizQuestionType = 'single_choice' | 'multiple_choice' | 'true_false'
@@ -111,6 +111,29 @@ export interface TrainingLesson {
   created_at: string
   updated_at: string
   progress?: TrainingLessonProgress | null
+  materials?: TrainingLessonMaterial[]
+  material_count?: number
+}
+
+// ─── Lesson Material ────────────────────────────────────
+
+export type LessonMaterialType = 'file' | 'link'
+
+export interface TrainingLessonMaterial {
+  id: string
+  lesson_id: string
+  material_type: LessonMaterialType
+  file_url?: string | null
+  file_name?: string | null
+  file_extension?: string | null
+  file_size_bytes?: number | null
+  file_mime_type?: string | null
+  link_url?: string | null
+  link_title?: string | null
+  description?: string | null
+  order_index: number
+  created_at: string
+  updated_at: string
 }
 
 // ─── Quiz ────────────────────────────────────────────────
@@ -257,6 +280,11 @@ export interface TrainingComment {
   updated_at: string
   user?: { id: string; commercial_name: string } | null
   replies?: TrainingComment[]
+  // Flattened fields (added by admin API)
+  lesson_title?: string
+  course_id?: string
+  course_title?: string
+  user_name?: string
 }
 
 // ─── Certificate ─────────────────────────────────────────
@@ -343,4 +371,118 @@ export interface TrainingLeaderboardEntry {
   total_points: number
   courses_completed: number
   rank: number
+}
+
+// ─── Lesson Rating ──────────────────────────────────────
+
+export interface TrainingLessonRating {
+  id: string
+  user_id: string
+  lesson_id: string
+  rating: number  // 1-5
+  created_at: string
+  updated_at: string
+}
+
+// ─── Lesson Report ──────────────────────────────────────
+
+export type LessonReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed'
+
+export interface TrainingLessonReport {
+  id: string
+  user_id: string
+  lesson_id: string
+  reason: string
+  comment?: string | null
+  status: LessonReportStatus
+  resolved_by?: string | null
+  resolved_at?: string | null
+  resolution_note?: string | null
+  created_at: string
+  updated_at: string
+  // Flattened fields (added by admin API)
+  lesson_title?: string
+  course_id?: string
+  course_title?: string
+  user_name?: string
+}
+
+// === ADMIN ANALYTICS TYPES ===
+
+export interface AdminReportWithDetails extends TrainingLessonReport {
+  user?: { commercial_name: string; profile_photo_url?: string }
+  lesson?: { title: string }
+  course?: { id: string; title: string }
+}
+
+export interface AdminCommentWithDetails extends TrainingComment {
+  lesson?: { title: string }
+  course?: { id: string; title: string }
+}
+
+export interface CourseCompletionStats {
+  course_id: string
+  title: string
+  status: string
+  total_enrolled: number
+  total_completed: number
+  completion_rate: number
+  avg_progress: number
+}
+
+export interface UserCompletionStats {
+  user_id: string
+  commercial_name: string
+  profile_photo_url?: string
+  courses_enrolled: number
+  courses_completed: number
+  avg_progress: number
+  last_activity?: string
+}
+
+export interface UserCourseDetail {
+  enrollment_id: string
+  course_id: string
+  course_title: string
+  status: string
+  progress_percent: number
+  enrolled_at: string
+  completed_at?: string
+  lessons: {
+    lesson_id: string
+    title: string
+    status: string
+    completed_at?: string
+    time_spent_seconds: number
+  }[]
+}
+
+export interface MaterialDownloadStats {
+  material_id: string
+  material_name: string
+  course_id: string
+  lesson_id: string
+  total_downloads: number
+  unique_users: number
+  last_download?: string
+}
+
+export interface MaterialDownloadEvent {
+  id: string
+  material_id: string
+  material_name: string
+  lesson_id: string
+  course_id: string
+  user_id: string
+  file_size_bytes?: number
+  file_type?: string
+  downloaded_at: string
+  user?: { commercial_name: string; profile_photo_url?: string }
+}
+
+export interface AdminOverviewStats {
+  total_reports_open: number
+  total_comments_unresolved: number
+  avg_completion_rate: number
+  total_downloads: number
 }

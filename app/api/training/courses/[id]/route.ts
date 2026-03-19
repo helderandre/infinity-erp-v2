@@ -17,11 +17,11 @@ export async function GET(
 
     // Fetch course with category + instructor
     const { data: course, error } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select(`
         *,
-        category:temp_training_categories!temp_training_courses_category_id_fkey(id, name, slug, color),
-        instructor:dev_users!temp_training_courses_instructor_id_fkey(id, commercial_name)
+        category:forma_training_categories!forma_training_courses_category_id_fkey(id, name, slug, color),
+        instructor:dev_users!forma_training_courses_instructor_id_fkey(id, commercial_name)
       `)
       .eq('id', id)
       .single()
@@ -38,7 +38,7 @@ export async function GET(
 
     // Fetch modules
     const { data: modules } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .select('*')
       .eq('course_id', id)
       .order('order_index', { ascending: true })
@@ -48,16 +48,31 @@ export async function GET(
     let lessons: any[] = []
     if (moduleIds.length > 0) {
       const { data: lessonData } = await supabase
-        .from('temp_training_lessons')
+        .from('forma_training_lessons')
         .select('*')
         .in('module_id', moduleIds)
         .order('order_index', { ascending: true })
       lessons = lessonData || []
     }
 
+    // Fetch material counts per lesson
+    const lessonIds = lessons.map((l: any) => l.id)
+    let materialCounts: Record<string, number> = {}
+    if (lessonIds.length > 0) {
+      const { data: materialData } = await supabase
+        .from('forma_training_lesson_materials')
+        .select('lesson_id')
+        .in('lesson_id', lessonIds)
+      if (materialData) {
+        materialData.forEach((m: any) => {
+          materialCounts[m.lesson_id] = (materialCounts[m.lesson_id] || 0) + 1
+        })
+      }
+    }
+
     // Fetch current user's enrollment
     const { data: enrollment } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('*')
       .eq('course_id', id)
       .eq('user_id', auth.user.id)
@@ -67,7 +82,7 @@ export async function GET(
     let progressMap: Record<string, any> = {}
     if (enrollment) {
       const { data: progressData } = await supabase
-        .from('temp_training_lesson_progress')
+        .from('forma_training_lesson_progress')
         .select('*')
         .eq('enrollment_id', enrollment.id)
         .eq('user_id', auth.user.id)
@@ -77,15 +92,22 @@ export async function GET(
     }
 
     // Assemble modules with nested lessons + progress
-    const modulesWithLessons = (modules || []).map((mod: any) => ({
-      ...mod,
-      lessons: lessons
+    const modulesWithLessons = (modules || []).map((mod: any) => {
+      const modLessons = lessons
         .filter((l: any) => l.module_id === mod.id)
         .map((l: any) => ({
           ...l,
           progress: progressMap[l.id] || null,
-        })),
-    }))
+          material_count: materialCounts[l.id] || 0,
+        }))
+      const completedCount = modLessons.filter((l: any) => l.progress?.status === 'completed').length
+      return {
+        ...mod,
+        lessons: modLessons,
+        lesson_count: modLessons.length,
+        completed_lesson_count: completedCount,
+      }
+    })
 
     return NextResponse.json({
       ...course,
@@ -122,7 +144,7 @@ export async function PUT(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .update({ ...validation.data, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -161,7 +183,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .update({ status: 'archived', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()

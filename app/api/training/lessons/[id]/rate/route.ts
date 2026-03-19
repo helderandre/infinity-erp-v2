@@ -16,7 +16,7 @@ export async function GET(
 
     // Rating do utilizador
     const { data: userRating } = await supabase
-      .from('temp_training_lesson_ratings' as any)
+      .from('forma_training_lesson_ratings' as any)
       .select('rating')
       .eq('lesson_id', lessonId)
       .eq('user_id', auth.user.id)
@@ -24,7 +24,7 @@ export async function GET(
 
     // Média e total
     const { data: stats } = await supabase
-      .from('temp_training_lesson_ratings' as any)
+      .from('forma_training_lesson_ratings' as any)
       .select('rating')
       .eq('lesson_id', lessonId)
 
@@ -67,7 +67,7 @@ export async function POST(
     const { rating } = validation.data
 
     const { data, error } = await supabase
-      .from('temp_training_lesson_ratings' as any)
+      .from('forma_training_lesson_ratings' as any)
       .upsert(
         {
           user_id: auth.user.id,

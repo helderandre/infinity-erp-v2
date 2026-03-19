@@ -15,6 +15,8 @@ interface UseTrainingLessonReturn {
     time_spent_seconds?: number
   }) => Promise<void>
   markCompleted: () => Promise<boolean>
+  rateLesson: (rating: number) => Promise<boolean>
+  reportIssue: (reason: string, comment?: string) => Promise<boolean>
   isSaving: boolean
 }
 
@@ -73,5 +75,33 @@ export function useTrainingLesson({
     }
   }, [courseId, lessonId])
 
-  return { updateProgress, markCompleted, isSaving }
+  const rateLesson = useCallback(async (rating: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/training/lessons/${lessonId}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating }),
+      })
+      return res.ok
+    } catch (err) {
+      console.error('Erro ao avaliar lição:', err)
+      return false
+    }
+  }, [lessonId])
+
+  const reportIssue = useCallback(async (reason: string, comment?: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/training/lessons/${lessonId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, comment }),
+      })
+      return res.ok
+    } catch (err) {
+      console.error('Erro ao reportar problema:', err)
+      return false
+    }
+  }, [lessonId])
+
+  return { updateProgress, markCompleted, rateLesson, reportIssue, isSaving }
 }

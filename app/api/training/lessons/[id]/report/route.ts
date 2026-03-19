@@ -27,7 +27,7 @@ export async function POST(
 
     // Verificar se já existe report aberto deste utilizador para esta lição
     const { data: existing } = await supabase
-      .from('temp_training_lesson_reports' as any)
+      .from('forma_training_lesson_reports' as any)
       .select('id')
       .eq('user_id', auth.user.id)
       .eq('lesson_id', lessonId)
@@ -42,7 +42,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_lesson_reports' as any)
+      .from('forma_training_lesson_reports' as any)
       .insert({
         user_id: auth.user.id,
         lesson_id: lessonId,

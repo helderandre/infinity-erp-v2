@@ -86,40 +86,40 @@ export function MultiSelectFilter({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
+      <PopoverContent className="w-[200px] p-0" align="start">
         <Command>
           {searchable && <CommandInput placeholder={title} />}
           <CommandList>
             <CommandEmpty>Sem resultados.</CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="p-0.5">
               {options.map((opt) => {
                 const isSelected = selected.includes(opt.value)
                 return (
-                  <CommandItem key={opt.value} onSelect={() => toggle(opt.value)}>
+                  <CommandItem key={opt.value} onSelect={() => toggle(opt.value)} className="gap-1.5 px-1.5 py-1 text-[13px]">
                     <div
                       className={cn(
-                        'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                        'flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary shrink-0',
                         isSelected
                           ? 'bg-primary text-primary-foreground'
                           : 'opacity-50 [&_svg]:invisible'
                       )}
                     >
-                      <Check className="h-3 w-3" />
+                      <Check className="h-2.5 w-2.5" />
                     </div>
                     {opt.dot && (
-                      <span className={cn('mr-2 h-2 w-2 rounded-full shrink-0', opt.dot)} />
+                      <span className={cn('h-2 w-2 rounded-full shrink-0', opt.dot)} />
                     )}
-                    <span className={opt.color}>{opt.label}</span>
+                    <span className={cn('truncate', opt.color)}>{opt.label}</span>
                   </CommandItem>
                 )
               })}
             </CommandGroup>
             <CommandSeparator />
-            <CommandGroup>
+            <CommandGroup className="p-0.5">
               {!isAllSelected && (
                 <CommandItem
                   onSelect={() => onSelectedChange([...allKeys])}
-                  className="justify-center text-center"
+                  className="justify-center text-center px-1.5 py-1 text-[13px]"
                 >
                   Seleccionar todos
                 </CommandItem>
@@ -127,7 +127,7 @@ export function MultiSelectFilter({
               {(hasFilter || isAllSelected) && (
                 <CommandItem
                   onSelect={() => onSelectedChange([])}
-                  className="justify-center text-center"
+                  className="justify-center text-center px-1.5 py-1 text-[13px]"
                 >
                   Limpar filtros
                 </CommandItem>

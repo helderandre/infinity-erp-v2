@@ -35,21 +35,23 @@ export async function GET(request: Request) {
     const offset = (page - 1) * limit
 
     let query = supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select(`
         *,
-        category:temp_training_categories!temp_training_courses_category_id_fkey(id, name, slug, color),
-        instructor:dev_users!temp_training_courses_instructor_id_fkey(id, commercial_name)
+        category:forma_training_categories!forma_training_courses_category_id_fkey(id, name, slug, color),
+        instructor:dev_users!forma_training_courses_instructor_id_fkey(id, commercial_name)
       `, { count: 'exact' })
       .eq('status', status)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     if (category_id) {
-      query = query.eq('category_id', category_id)
+      const ids = category_id.split(',').filter(Boolean)
+      query = ids.length === 1 ? query.eq('category_id', ids[0]) : query.in('category_id', ids)
     }
     if (difficulty) {
-      query = query.eq('difficulty_level', difficulty)
+      const diffs = difficulty.split(',').filter(Boolean)
+      query = diffs.length === 1 ? query.eq('difficulty_level', diffs[0]) : query.in('difficulty_level', diffs)
     }
     if (search) {
       query = query.ilike('title', `%${search}%`)
@@ -101,7 +103,7 @@ export async function POST(request: Request) {
     const slug = generateSlug(validation.data.title)
 
     const { data, error } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .insert({
         ...validation.data,
         slug,

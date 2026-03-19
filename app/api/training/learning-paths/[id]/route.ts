@@ -18,7 +18,7 @@ export async function GET(
 
     // Get learning path detail
     const { data: path, error: pathError } = await supabase
-      .from('temp_training_learning_paths')
+      .from('forma_training_learning_paths')
       .select('*')
       .eq('id', pathId)
       .single()
@@ -32,10 +32,10 @@ export async function GET(
 
     // Get courses in this path (ordered)
     const { data: pathCourses, error: coursesError } = await supabase
-      .from('temp_training_learning_path_courses')
+      .from('forma_training_learning_path_courses')
       .select(`
         *,
-        course:temp_training_courses(
+        course:forma_training_courses(
           id,
           title,
           slug,
@@ -43,7 +43,7 @@ export async function GET(
           difficulty_level,
           estimated_duration_minutes,
           has_certificate,
-          category:temp_training_categories(name, color)
+          category:forma_training_categories(name, color)
         )
       `)
       .eq('learning_path_id', pathId)
@@ -61,7 +61,7 @@ export async function GET(
     let enrollmentMap: Record<string, any> = {}
     if (courseIds.length > 0) {
       const { data: enrollments } = await supabase
-        .from('temp_training_enrollments')
+        .from('forma_training_enrollments')
         .select('course_id, status, progress_percent, completed_at')
         .eq('user_id', userId)
         .in('course_id', courseIds)
@@ -75,7 +75,7 @@ export async function GET(
 
     // Get user's path enrollment
     const { data: pathEnrollment } = await supabase
-      .from('temp_training_path_enrollments')
+      .from('forma_training_path_enrollments')
       .select('*')
       .eq('user_id', userId)
       .eq('learning_path_id', pathId)
@@ -126,7 +126,7 @@ export async function PUT(
     const { course_ids, ...updateData } = validation.data
 
     const { data, error } = await supabase
-      .from('temp_training_learning_paths')
+      .from('forma_training_learning_paths')
       .update({ ...updateData, updated_at: new Date().toISOString() })
       .eq('id', pathId)
       .select()
@@ -147,7 +147,7 @@ export async function PUT(
     if (course_ids !== undefined) {
       // Remove old associations
       await supabase
-        .from('temp_training_learning_path_courses')
+        .from('forma_training_learning_path_courses')
         .delete()
         .eq('learning_path_id', pathId)
 
@@ -161,7 +161,7 @@ export async function PUT(
         }))
 
         await supabase
-          .from('temp_training_learning_path_courses')
+          .from('forma_training_learning_path_courses')
           .insert(courseAssociations)
       }
     }

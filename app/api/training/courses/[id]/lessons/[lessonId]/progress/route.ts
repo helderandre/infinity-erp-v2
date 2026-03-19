@@ -34,7 +34,7 @@ export async function PUT(
 
     // Find enrollment for this user + course
     const { data: enrollment, error: enrollError } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('id, started_at, status')
       .eq('user_id', userId)
       .eq('course_id', courseId)
@@ -52,7 +52,7 @@ export async function PUT(
     // Set started_at on enrollment if not yet set
     if (!enrollment.started_at) {
       await supabase
-        .from('temp_training_enrollments')
+        .from('forma_training_enrollments')
         .update({ started_at: new Date().toISOString(), status: 'in_progress' })
         .eq('id', enrollmentId)
     }
@@ -81,7 +81,7 @@ export async function PUT(
 
     // Check if record exists
     const { data: existing } = await supabase
-      .from('temp_training_lesson_progress')
+      .from('forma_training_lesson_progress')
       .select('id, status')
       .eq('user_id', userId)
       .eq('lesson_id', lessonId)
@@ -96,7 +96,7 @@ export async function PUT(
       }
 
       const { data, error } = await supabase
-        .from('temp_training_lesson_progress')
+        .from('forma_training_lesson_progress')
         .update(upsertData)
         .eq('id', existing.id)
         .select()
@@ -111,7 +111,7 @@ export async function PUT(
       upsertData.started_at = now
 
       const { data, error } = await supabase
-        .from('temp_training_lesson_progress')
+        .from('forma_training_lesson_progress')
         .insert(upsertData)
         .select()
         .single()
@@ -125,7 +125,7 @@ export async function PUT(
     // Recalculate enrollment progress
     // Get total lessons for this course (across all modules)
     const { data: modules } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .select('id')
       .eq('course_id', courseId)
 
@@ -136,7 +136,7 @@ export async function PUT(
 
     if (moduleIds.length > 0) {
       const { count: totalCount } = await supabase
-        .from('temp_training_lessons')
+        .from('forma_training_lessons')
         .select('id', { count: 'exact', head: true })
         .in('module_id', moduleIds)
         .eq('is_active', true)
@@ -144,7 +144,7 @@ export async function PUT(
       totalLessons = totalCount || 0
 
       const { count: completedCount } = await supabase
-        .from('temp_training_lesson_progress')
+        .from('forma_training_lesson_progress')
         .select('id', { count: 'exact', head: true })
         .eq('enrollment_id', enrollmentId)
         .eq('status', 'completed')
@@ -158,7 +158,7 @@ export async function PUT(
 
     // Check if all quizzes passed
     const { data: quizzes } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .select('id')
       .eq('course_id', courseId)
       .eq('is_active', true)
@@ -167,7 +167,7 @@ export async function PUT(
     if (quizzes && quizzes.length > 0) {
       for (const quiz of quizzes) {
         const { data: bestAttempt } = await supabase
-          .from('temp_training_quiz_attempts')
+          .from('forma_training_quiz_attempts')
           .select('passed')
           .eq('quiz_id', quiz.id)
           .eq('user_id', userId)
@@ -195,7 +195,7 @@ export async function PUT(
     }
 
     await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .update(enrollmentUpdate)
       .eq('id', enrollmentId)
 

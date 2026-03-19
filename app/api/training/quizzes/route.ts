@@ -4,6 +4,37 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { createQuizSchema } from '@/lib/validations/training'
 
+export async function GET(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+
+    let query = supabase
+      .from('forma_training_quizzes')
+      .select('*, questions:forma_training_quiz_questions(count)')
+
+    if (searchParams.get('lesson_id')) {
+      query = query.eq('lesson_id', searchParams.get('lesson_id'))
+    }
+    if (searchParams.get('module_id')) {
+      query = query.eq('module_id', searchParams.get('module_id'))
+    }
+    if (searchParams.get('course_id')) {
+      query = query.eq('course_id', searchParams.get('course_id'))
+    }
+    const { data, error } = await query
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ data })
+  } catch (error) {
+    console.error('Erro ao listar questionários:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await requirePermission('training')
@@ -36,9 +67,8 @@ export async function POST(request: Request) {
     if (validation.data.course_id && validation.data.course_id !== '') {
       insertData.course_id = validation.data.course_id
     }
-
     const { data, error } = await supabase
-      .from('temp_training_quizzes')
+      .from('forma_training_quizzes')
       .insert(insertData)
       .select()
       .single()

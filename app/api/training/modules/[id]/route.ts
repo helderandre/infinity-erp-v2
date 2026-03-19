@@ -25,7 +25,7 @@ export async function PUT(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .update(validation.data)
       .eq('id', id)
       .select()
@@ -64,7 +64,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .delete()
       .eq('id', id)
 

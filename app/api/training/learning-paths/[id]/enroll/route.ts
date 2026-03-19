@@ -17,7 +17,7 @@ export async function POST(
 
     // Verify learning path exists
     const { data: path, error: pathError } = await supabase
-      .from('temp_training_learning_paths')
+      .from('forma_training_learning_paths')
       .select('id, title, status')
       .eq('id', pathId)
       .single()
@@ -38,7 +38,7 @@ export async function POST(
 
     // Check if already enrolled
     const { data: existingEnrollment } = await supabase
-      .from('temp_training_path_enrollments')
+      .from('forma_training_path_enrollments')
       .select('id')
       .eq('user_id', userId)
       .eq('learning_path_id', pathId)
@@ -53,7 +53,7 @@ export async function POST(
 
     // Create path enrollment
     const { data: pathEnrollment, error: enrollError } = await supabase
-      .from('temp_training_path_enrollments')
+      .from('forma_training_path_enrollments')
       .insert({
         user_id: userId,
         learning_path_id: pathId,
@@ -67,7 +67,7 @@ export async function POST(
 
     // Get all courses in this path
     const { data: pathCourses } = await supabase
-      .from('temp_training_learning_path_courses')
+      .from('forma_training_learning_path_courses')
       .select('course_id, is_required')
       .eq('learning_path_id', pathId)
       .order('order_index', { ascending: true })
@@ -82,7 +82,7 @@ export async function POST(
       // Get existing enrollments
       const courseIds = pathCourses.map((pc) => pc.course_id)
       const { data: existingCourseEnrollments } = await supabase
-        .from('temp_training_enrollments')
+        .from('forma_training_enrollments')
         .select('course_id')
         .eq('user_id', userId)
         .in('course_id', courseIds)
@@ -102,7 +102,7 @@ export async function POST(
 
       if (courseEnrollments.length > 0) {
         const { error: courseEnrollError } = await supabase
-          .from('temp_training_enrollments')
+          .from('forma_training_enrollments')
           .insert(courseEnrollments)
 
         if (courseEnrollError) {

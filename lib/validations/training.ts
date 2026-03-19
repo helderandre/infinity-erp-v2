@@ -52,7 +52,7 @@ export const updateModuleSchema = createModuleSchema.partial()
 export const createLessonSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(200).trim(),
   description: z.string().max(2000).optional().or(z.literal('')),
-  content_type: z.enum(['video', 'pdf', 'text', 'external_link']),
+  content_type: z.enum(['video', 'pdf', 'text', 'external_link', 'quiz']),
   video_url: z.string().url('URL inválido').optional().or(z.literal('')),
   video_provider: z.enum(['youtube', 'vimeo', 'r2', 'other']).optional(),
   video_duration_seconds: z.number().int().min(1).optional().nullable(),
@@ -210,3 +210,12 @@ export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>
 export type AssignCourseInput = z.infer<typeof assignCourseSchema>
 export type CreateCommentInput = z.infer<typeof createCommentSchema>
 export type CreateLearningPathInput = z.infer<typeof createLearningPathSchema>
+
+// === ADMIN SCHEMAS ===
+
+export const updateReportStatusSchema = z.object({
+  status: z.enum(['in_review', 'resolved', 'dismissed']),
+  resolution_note: z.string().max(1000).optional(),
+})
+
+export type UpdateReportStatusInput = z.infer<typeof updateReportStatusSchema>

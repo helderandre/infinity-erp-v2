@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, Download, FileText } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 
 interface LessonPdfViewerProps {
   pdfUrl: string
@@ -11,14 +10,7 @@ interface LessonPdfViewerProps {
   onComplete?: () => void
 }
 
-export function LessonPdfViewer({ pdfUrl, title, onComplete }: LessonPdfViewerProps) {
-  const [isMarkedRead, setIsMarkedRead] = useState(false)
-
-  function handleMarkAsRead() {
-    setIsMarkedRead(true)
-    onComplete?.()
-  }
-
+export function LessonPdfViewer({ pdfUrl, title }: LessonPdfViewerProps) {
   return (
     <Card>
       <CardContent className="p-0">
@@ -34,22 +26,12 @@ export function LessonPdfViewer({ pdfUrl, title, onComplete }: LessonPdfViewerPr
           />
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-between gap-3 border-t px-4 py-3">
+      <CardFooter className="flex items-center justify-end border-t px-4 py-3">
         <Button variant="outline" size="sm" asChild>
           <a href={pdfUrl} download target="_blank" rel="noopener noreferrer">
             <Download className="mr-2 h-4 w-4" />
             Descarregar PDF
           </a>
-        </Button>
-
-        <Button
-          size="sm"
-          onClick={handleMarkAsRead}
-          disabled={isMarkedRead}
-          variant={isMarkedRead ? 'outline' : 'default'}
-        >
-          <CheckCircle2 className="mr-2 h-4 w-4" />
-          {isMarkedRead ? 'Marcado como Lido' : 'Marcar como Lido'}
         </Button>
       </CardFooter>
     </Card>

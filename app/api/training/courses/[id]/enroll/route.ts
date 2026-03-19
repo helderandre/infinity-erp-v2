@@ -16,7 +16,7 @@ export async function POST(
 
     // Check if already enrolled
     const { data: existing } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('id')
       .eq('course_id', id)
       .eq('user_id', auth.user.id)
@@ -31,7 +31,7 @@ export async function POST(
 
     // Fetch course to check prerequisites
     const { data: course, error: courseError } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select('id, prerequisite_course_ids')
       .eq('id', id)
       .single()
@@ -47,7 +47,7 @@ export async function POST(
     const prerequisites = (course.prerequisite_course_ids as string[]) || []
     if (prerequisites.length > 0) {
       const { data: completedEnrollments } = await supabase
-        .from('temp_training_enrollments')
+        .from('forma_training_enrollments')
         .select('course_id')
         .eq('user_id', auth.user.id)
         .eq('status', 'completed')
@@ -73,7 +73,7 @@ export async function POST(
 
     // Create enrollment
     const { data, error } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .insert({
         course_id: id,
         user_id: auth.user.id,

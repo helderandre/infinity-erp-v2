@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Fragment } from 'react'
+import { useBreadcrumbOverrides } from '@/hooks/use-breadcrumb-overrides'
 import {
   meuEspacoItems,
   negocioItems,
@@ -57,10 +58,19 @@ const segmentTranslations: Record<string, string> = {
   pedidos: 'Pedidos',
   simulador: 'Simulador',
   bancos: 'Bancos',
+  cursos: 'Cursos',
+  licoes: 'Lições',
+  gestao: 'Gestão',
+  categorias: 'Categorias',
+  certificados: 'Certificados',
+  estatisticas: 'Estatísticas',
+  percursos: 'Percursos',
+  'meus-cursos': 'Meus Cursos',
 }
 
 export function Breadcrumbs() {
   const pathname = usePathname()
+  const overrides = useBreadcrumbOverrides()
 
   if (!pathname || pathname === '/' || pathname === '/dashboard') {
     return null
@@ -111,7 +121,7 @@ export function Breadcrumbs() {
     for (let i = matchLength; i < rawSegments.length; i++) {
       const seg = rawSegments[i]
       items.push({
-        label: segmentTranslations[seg] || seg,
+        label: overrides[seg] || segmentTranslations[seg] || seg,
         href: '/dashboard/' + rawSegments.slice(0, i + 1).join('/'),
       })
     }
@@ -120,7 +130,7 @@ export function Breadcrumbs() {
     for (let i = 0; i < rawSegments.length; i++) {
       const seg = rawSegments[i]
       items.push({
-        label: segmentTranslations[seg] || seg,
+        label: overrides[seg] || segmentTranslations[seg] || seg,
         href: '/dashboard/' + rawSegments.slice(0, i + 1).join('/'),
       })
     }

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { createLessonSchema } from '@/lib/validations/training'
+import { getYouTubeDuration } from '@/lib/youtube'
 
 export async function POST(
   request: Request,
@@ -17,7 +18,7 @@ export async function POST(
 
     // Verify module exists
     const { data: module, error: moduleError } = await supabase
-      .from('temp_training_modules')
+      .from('forma_training_modules')
       .select('id')
       .eq('id', module_id)
       .single()
@@ -39,7 +40,7 @@ export async function POST(
     }
 
     const { data, error } = await supabase
-      .from('temp_training_lessons')
+      .from('forma_training_lessons')
       .insert({
         ...validation.data,
         module_id,
@@ -49,6 +50,23 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Auto-detectar duração YouTube se não fornecida
+    if (
+      data.content_type === 'video' &&
+      data.video_provider === 'youtube' &&
+      data.video_url &&
+      !data.video_duration_seconds
+    ) {
+      const duration = await getYouTubeDuration(data.video_url)
+      if (duration) {
+        await supabase
+          .from('forma_training_lessons')
+          .update({ video_duration_seconds: duration })
+          .eq('id', data.id)
+        data.video_duration_seconds = duration
+      }
     }
 
     return NextResponse.json(data, { status: 201 })

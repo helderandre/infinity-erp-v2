@@ -11,7 +11,7 @@ export async function PUT() {
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('temp_training_notifications')
+      .from('forma_training_notifications')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', auth.user.id)
       .eq('is_read', false)

@@ -12,29 +12,29 @@ export async function GET() {
 
     // Total courses
     const { count: total_courses } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select('*', { count: 'exact', head: true })
 
     // Published courses
     const { count: total_published_courses } = await supabase
-      .from('temp_training_courses')
+      .from('forma_training_courses')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'published')
 
     // Total enrollments
     const { count: total_enrollments } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('*', { count: 'exact', head: true })
 
     // Total completions
     const { count: total_completions } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'completed')
 
     // Total certificates (internal only)
     const { count: total_certificates_issued } = await supabase
-      .from('temp_training_certificates')
+      .from('forma_training_certificates')
       .select('*', { count: 'exact', head: true })
       .eq('is_external', false)
 
@@ -48,7 +48,7 @@ export async function GET() {
 
     // Top 5 courses by enrollment count
     const { data: enrollmentsByCoursRaw } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('course_id')
 
     const courseCountMap: Record<string, number> = {}
@@ -64,7 +64,7 @@ export async function GET() {
     let top_courses: { id: string; title: string; enrollment_count: number }[] = []
     if (topCourseIds.length > 0) {
       const { data: topCoursesData } = await supabase
-        .from('temp_training_courses')
+        .from('forma_training_courses')
         .select('id, title')
         .in('id', topCourseIds)
 
@@ -80,7 +80,7 @@ export async function GET() {
 
     // Recent 10 completions
     const { data: recentCompletionsRaw } = await supabase
-      .from('temp_training_enrollments')
+      .from('forma_training_enrollments')
       .select('user_id, course_id, completed_at')
       .eq('status', 'completed')
       .not('completed_at', 'is', null)
@@ -101,7 +101,7 @@ export async function GET() {
 
       const [{ data: users }, { data: courses }] = await Promise.all([
         supabase.from('dev_users').select('id, commercial_name').in('id', userIds),
-        supabase.from('temp_training_courses').select('id, title').in('id', courseIds),
+        supabase.from('forma_training_courses').select('id, title').in('id', courseIds),
       ])
 
       const userMap = new Map((users || []).map((u: any) => [u.id, u.commercial_name]))
