@@ -232,6 +232,8 @@ export async function POST(request: Request) {
         return await handleAssignUser(supabase, params)
       case "delete":
         return await handleDelete(supabase, params)
+      case "rename":
+        return await handleRename(supabase, params)
       default:
         return NextResponse.json({ error: "Acção inválida" }, { status: 400 })
     }
@@ -643,6 +645,49 @@ async function handleDelete(
 
   if (error) {
     return NextResponse.json({ error: "Erro ao eliminar instância" }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}
+
+async function handleRename(
+  supabase: SupabaseAny,
+  params: { instance_id?: string; name?: string }
+) {
+  const { instance_id, name } = params
+  if (!instance_id || !name?.trim()) {
+    return NextResponse.json({ error: "instance_id e name são obrigatórios" }, { status: 400 })
+  }
+
+  const { data: instance } = await supabase
+    .from("auto_wpp_instances")
+    .select("uazapi_token")
+    .eq("id", instance_id)
+    .single()
+
+  if (!instance) {
+    return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 })
+  }
+
+  // Actualizar nome na Uazapi
+  const result = await fetchUazapi("/instance/updateInstanceName", {
+    method: "POST",
+    token: instance.uazapi_token,
+    body: { name: name.trim() },
+  })
+
+  if (!result.ok) {
+    return NextResponse.json({ error: "Erro ao renomear na Uazapi" }, { status: 500 })
+  }
+
+  // Actualizar nome no banco local
+  const { error } = await supabase
+    .from("auto_wpp_instances")
+    .update({ name: name.trim(), updated_at: new Date().toISOString() })
+    .eq("id", instance_id)
+
+  if (error) {
+    return NextResponse.json({ error: "Erro ao actualizar nome no banco" }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

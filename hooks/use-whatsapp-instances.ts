@@ -112,6 +112,14 @@ export function useWhatsAppInstances() {
     [fetchInstances]
   )
 
+  const renameInstance = useCallback(
+    async (instanceId: string, name: string) => {
+      await postAction("rename", { instance_id: instanceId, name })
+      await fetchInstances()
+    },
+    [fetchInstances]
+  )
+
   const deleteInstance = useCallback(
     async (instanceId: string) => {
       await postAction("delete", { instance_id: instanceId })
@@ -131,6 +139,7 @@ export function useWhatsAppInstances() {
     disconnectInstance,
     checkStatus,
     assignUser,
+    renameInstance,
     deleteInstance,
   }
 }

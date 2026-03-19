@@ -85,6 +85,7 @@ function InstanciasContent() {
     disconnectInstance,
     checkStatus,
     assignUser,
+    renameInstance,
     deleteInstance,
     refetch,
   } = useWhatsAppInstances()
@@ -185,6 +186,17 @@ function InstanciasContent() {
         }
       } catch {
         toast.error("Erro ao verificar estado")
+      }
+    })
+  }
+
+  const handleRename = async (id: string, name: string) => {
+    await withCardLoading(id, async () => {
+      try {
+        await renameInstance(id, name)
+        toast.success("Nome actualizado com sucesso")
+      } catch {
+        toast.error("Erro ao renomear instância")
       }
     })
   }
@@ -359,6 +371,7 @@ function InstanciasContent() {
               onDelete={setDeleteId}
               onAssignUser={handleAssignUser}
               onCheckStatus={handleCheckStatus}
+              onRename={handleRename}
             />
           ))}
         </div>

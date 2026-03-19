@@ -16,6 +16,9 @@ import {
   User,
   Briefcase,
   Loader2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import type { WhatsAppInstance } from "@/lib/types/whatsapp-template"
 import {
@@ -44,6 +48,7 @@ interface InstanceCardProps {
   onDelete: (id: string) => void
   onAssignUser: (id: string) => void
   onCheckStatus: (id: string) => void
+  onRename: (id: string, name: string) => Promise<void>
 }
 
 function formatPhone(phone: string): string {
@@ -69,8 +74,12 @@ export function InstanceCard({
   onDelete,
   onAssignUser,
   onCheckStatus,
+  onRename,
 }: InstanceCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(instance.name)
+  const [saving, setSaving] = useState(false)
   const status = instance.connection_status as WhatsAppConnectionStatus
   const colors = CONNECTION_STATUS_COLORS[status] ?? CONNECTION_STATUS_COLORS.disconnected
   const label = CONNECTION_STATUS_LABELS[status] ?? "Desconhecido"
@@ -82,6 +91,33 @@ export function InstanceCard({
   const createdAgo = instance.created_at
     ? formatDistanceToNow(new Date(instance.created_at), { addSuffix: true, locale: pt })
     : null
+
+  const handleStartEdit = () => {
+    setEditName(instance.name)
+    setEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setEditing(false)
+    setEditName(instance.name)
+  }
+
+  const handleSaveEdit = async () => {
+    const trimmed = editName.trim()
+    if (!trimmed || trimmed === instance.name) {
+      handleCancelEdit()
+      return
+    }
+    setSaving(true)
+    try {
+      await onRename(instance.id, trimmed)
+      setEditing(false)
+    } catch {
+      // toast is handled in the parent
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <Card className="py-0 transition-all hover:shadow-md relative overflow-hidden">
@@ -105,7 +141,41 @@ export function InstanceCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <h3 className="font-semibold text-sm truncate">{instance.name}</h3>
+                {editing ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveEdit()
+                        if (e.key === "Escape") handleCancelEdit()
+                      }}
+                      className="h-6 text-sm font-semibold px-1.5 w-32"
+                      autoFocus
+                      disabled={saving}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 shrink-0 text-emerald-600 hover:text-emerald-700"
+                      onClick={handleSaveEdit}
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={handleCancelEdit}
+                      disabled={saving}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <h3 className="font-semibold text-sm truncate">{instance.name}</h3>
+                )}
                 <Badge
                   variant="outline"
                   className={`${colors.bg} ${colors.text} border-transparent text-xs shrink-0`}
@@ -148,6 +218,12 @@ export function InstanceCard({
                       Conectar
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem
+                    onClick={() => { setMenuOpen(false); handleStartEdit() }}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Renomear
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => { setMenuOpen(false); onAssignUser(instance.id) }}
                   >
