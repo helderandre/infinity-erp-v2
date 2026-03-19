@@ -76,7 +76,7 @@ export function MessageBubble({
 
   return (
     <div className={cn('flex mb-1 group', isMe ? 'justify-end' : 'justify-start')}>
-      <div className={cn('relative max-w-[65%]', hasMedia && 'w-fit')}>
+      <div className={cn('relative', hasMedia ? 'max-w-sm' : 'max-w-[65%]')}>
         <div
           className={cn(
             'rounded-lg px-2.5 py-1.5 shadow-sm',
