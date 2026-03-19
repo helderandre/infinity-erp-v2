@@ -112,6 +112,38 @@ export const processWhatsApp: (
             track_id: flowMeta.runId,
           }),
         })
+      } else if (msg.type === "poll") {
+        response = await fetch(`${baseUrl}/send/menu`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", token: instance.uazapi_token },
+          body: JSON.stringify({
+            number: recipientNumber,
+            type: "poll",
+            text: content,
+            choices: msg.pollOptions || [],
+            selectableCount: msg.pollSelectableCount || 1,
+            delay: msg.delay || 2,
+            readchat: true,
+            track_source: "erp_infinity",
+            track_id: flowMeta.runId,
+          }),
+        })
+      } else if (msg.type === "contact") {
+        response = await fetch(`${baseUrl}/send/contact`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", token: instance.uazapi_token },
+          body: JSON.stringify({
+            number: recipientNumber,
+            fullName: msg.contactName || content,
+            phoneNumber: msg.contactPhone || "",
+            ...(msg.contactOrganization && { organization: msg.contactOrganization }),
+            ...(msg.contactEmail && { email: msg.contactEmail }),
+            delay: msg.delay || 2,
+            readchat: true,
+            track_source: "erp_infinity",
+            track_id: flowMeta.runId,
+          }),
+        })
       } else {
         // Media types: image, video, audio, ptt, document
         const mediaBody: SA = {

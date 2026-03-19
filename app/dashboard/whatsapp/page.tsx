@@ -2,7 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { ChatLayout } from '@/components/whatsapp/chat-layout'
 import { WHATSAPP_ADMIN_ROLES } from '@/lib/auth/roles'
 
-export default async function WhatsAppPage() {
+export default async function WhatsAppPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ chat?: string }>
+}) {
   const supabase = await createClient()
 
   // Get current user + role
@@ -32,12 +36,14 @@ export default async function WhatsAppPage() {
   }
 
   const { data: instances } = await query
+  const { chat: initialChatId } = await searchParams
 
   return (
     <ChatLayout
       instances={instances || []}
       userId={user.id}
       isAdmin={isWppAdmin}
+      initialChatId={initialChatId}
     />
   )
 }

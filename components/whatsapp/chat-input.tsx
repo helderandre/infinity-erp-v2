@@ -1,23 +1,29 @@
 'use client'
 
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
-import { Send, Paperclip, X, Image, Video, FileText } from 'lucide-react'
+import { Send, Paperclip, X, Image, Video, FileText, BarChart3, UserRound, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { EmojiPicker } from './emoji-picker'
 import { AudioRecorder } from './audio-recorder'
+import { PollCreator } from './poll-creator'
+import { ContactPicker } from './contact-picker'
+import { CameraCapture } from './camera-capture'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface ChatInputProps {
   onSendText: (text: string) => void
   onSendMedia: (file: File, type: string, caption?: string) => void
   onSendAudio?: (file: File) => void
+  onSendPoll?: (question: string, options: string[], selectableCount: number) => void
+  onSendContact?: (name: string, phone: string, org?: string, email?: string) => void
   onSendPresence: () => void
   replyTo?: WppMessage | null
   onCancelReply?: () => void
@@ -28,6 +34,8 @@ export function ChatInput({
   onSendText,
   onSendMedia,
   onSendAudio,
+  onSendPoll,
+  onSendContact,
   onSendPresence,
   replyTo,
   onCancelReply,
@@ -36,6 +44,9 @@ export function ChatInput({
   const [text, setText] = useState('')
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string } | null>(null)
   const [isRecording, setIsRecording] = useState(false)
+  const [pollCreatorOpen, setPollCreatorOpen] = useState(false)
+  const [contactPickerOpen, setContactPickerOpen] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const presenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -151,6 +162,19 @@ export function ChatInput({
                   <FileText className="mr-2 h-4 w-4" />
                   Documento
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setPollCreatorOpen(true)}>
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Sondagem
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setContactPickerOpen(true)}>
+                  <UserRound className="mr-2 h-4 w-4" />
+                  Contacto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCameraOpen(true)}>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Câmera
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -199,6 +223,32 @@ export function ChatInput({
           />
         )}
       </div>
+
+      <PollCreator
+        open={pollCreatorOpen}
+        onOpenChange={setPollCreatorOpen}
+        onSend={(q, opts, sc) => {
+          onSendPoll?.(q, opts, sc)
+          setPollCreatorOpen(false)
+        }}
+      />
+      <ContactPicker
+        open={contactPickerOpen}
+        onOpenChange={setContactPickerOpen}
+        onSend={(name, phone, org, email) => {
+          onSendContact?.(name, phone, org, email)
+          setContactPickerOpen(false)
+        }}
+      />
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={(file, type) => {
+            onSendMedia(file, type)
+            setCameraOpen(false)
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   )
 }

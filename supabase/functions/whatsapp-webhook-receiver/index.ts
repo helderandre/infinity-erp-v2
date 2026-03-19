@@ -28,8 +28,10 @@ function normalizeMessageType(uazapiType: string): string {
     "ContactsArrayMessage": "contact",
     "ReactionMessage": "reaction",
     "PollCreationMessage": "poll",
+    "PollCreationMessageV3": "poll",
     "LiveLocationMessage": "location",
     "PollUpdateMessage": "poll",
+    "EventMessage": "event",
     "ViewOnceMessage": "view_once",
     "EditedMessage": "edited",
     "ProtocolMessage": "protocol",
@@ -85,6 +87,18 @@ Deno.serve(async (req: Request) => {
         endpoint: `webhook/${debugEvent}`,
         response_body: payload,
         notes: `Webhook event: ${debugEvent}`,
+      })
+      .then(() => {})
+      .catch(() => {})
+
+    // Debug: salvar payload completo na tabela _debug_wpp_payloads
+    await supabase
+      .from("_debug_wpp_payloads")
+      .insert({
+        source: "webhook_receiver",
+        event_type: debugEvent,
+        instance_id: instanceId,
+        payload,
       })
       .then(() => {})
       .catch(() => {})
@@ -190,7 +204,97 @@ async function handleNewMessage(instanceId: string, msg: any, chatInfo?: any) {
   // vCard
   const vcard = content.vcard || msg.vcard || null
 
+  // Poll data
+  let pollData: Record<string, unknown> | null = null
+  if (messageType === "poll") {
+    const pollCreation = content.pollCreationMessageV3 || content.pollCreationMessage || content.poll || null
+    if (pollCreation) {
+      const rawSelectable = pollCreation.selectableOptionsCount ?? pollCreation.selectableCount ?? 0
+      pollData = {
+        name: pollCreation.name || text || "",
+        options: (pollCreation.options || []).map((o: any) => ({
+          name: o.optionName || o.name || o,
+          votes: 0,
+          voters: [],
+        })),
+        selectableCount: rawSelectable === 0 ? 0 : rawSelectable,
+      }
+    }
+  }
+
+  // Event data
+  let eventData: Record<string, unknown> | null = null
+  if (messageType === "event") {
+    const eventName = content.name || text || ""
+    eventData = {
+      name: eventName,
+      startTime: content.startTime || null,
+      endTime: content.endTime || null,
+      isCanceled: content.isCanceled || false,
+      hasReminder: content.hasReminder || false,
+      reminderOffsetSec: content.reminderOffsetSec || null,
+      isScheduleCall: content.isScheduleCall || false,
+      extraGuestsAllowed: content.extraGuestsAllowed || false,
+    }
+    if (!text && eventName) text = eventName
+  }
+
   const status = fromMe ? "sent" : "received"
+
+  // ── Tratar PollUpdateMessage como update na sondagem original (não criar nova msg) ──
+  if (rawMessageType === "PollUpdateMessage") {
+    const pollTargetId = content?.pollCreationMessageKey?.ID || msg.quoted || ""
+    const voteStr = msg.vote || ""
+    if (!pollTargetId || !voteStr) return
+
+    // Parse voted options (comma-separated option names)
+    const votedOptions = voteStr.split(",").map((v: string) => v.trim()).filter(Boolean)
+    const voterJid = sender || waChatId
+    const voterName = senderName || voterJid
+
+    // Get all poll messages matching this wa_message_id (may exist in multiple instances)
+    const { data: pollMsgs } = await supabase
+      .from("wpp_messages")
+      .select("id, poll_data, instance_id")
+      .eq("wa_message_id", pollTargetId)
+
+    if (!pollMsgs || pollMsgs.length === 0) return
+
+    for (const pollMsg of pollMsgs) {
+      if (!pollMsg.poll_data) continue
+      const pd = pollMsg.poll_data as any
+      const options = pd.options || []
+
+      // Remove previous votes from this voter, then add new ones
+      for (const opt of options) {
+        const voters: string[] = opt.voters || []
+        const idx = voters.indexOf(voterJid)
+        if (idx !== -1) {
+          voters.splice(idx, 1)
+          opt.votes = Math.max(0, (opt.votes || 0) - 1)
+        }
+        opt.voters = voters
+      }
+
+      // Add votes for selected options
+      for (const votedName of votedOptions) {
+        const opt = options.find((o: any) => o.name === votedName)
+        if (opt) {
+          if (!opt.voters) opt.voters = []
+          opt.voters.push(voterJid)
+          opt.votes = (opt.votes || 0) + 1
+        }
+      }
+
+      pd.options = options
+
+      await supabase
+        .from("wpp_messages")
+        .update({ poll_data: pd })
+        .eq("id", pollMsg.id)
+    }
+    return
+  }
 
   // ── Tratar reacções como update na mensagem alvo ──
   if (messageType === "reaction") {
@@ -328,6 +432,8 @@ async function handleNewMessage(instanceId: string, msg: any, chatInfo?: any) {
         longitude,
         location_name: locationName,
         vcard,
+        poll_data: pollData,
+        event_data: eventData,
         timestamp: messageTimestamp,
         raw_data: msg,
       }, { onConflict: "instance_id,wa_message_id", ignoreDuplicates: true })

@@ -10,6 +10,8 @@ import {
   Pencil,
   Trash2,
   Timer,
+  BarChart3,
+  Contact,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -35,6 +37,8 @@ const TYPE_CONFIG: Record<
   audio: { icon: Mic, label: "Áudio", color: "text-amber-600" },
   ptt: { icon: Mic, label: "Mensagem de voz", color: "text-orange-600" },
   document: { icon: FileText, label: "Documento", color: "text-red-600" },
+  poll: { icon: BarChart3, label: "Sondagem", color: "text-teal-600" },
+  contact: { icon: Contact, label: "Contacto", color: "text-cyan-600" },
 }
 
 function getPreviewText(message: WhatsAppTemplateMessage): string {

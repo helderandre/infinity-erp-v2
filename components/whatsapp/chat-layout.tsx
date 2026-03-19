@@ -26,6 +26,7 @@ interface ChatLayoutProps {
   instances: WppInstance[]
   userId: string
   isAdmin: boolean
+  initialChatId?: string
 }
 
 const API_URL = '/api/automacao/instancias'
@@ -41,10 +42,10 @@ async function postAction(action: string, params: Record<string, unknown> = {}) 
   return data
 }
 
-export function ChatLayout({ instances: initialInstances, userId, isAdmin }: ChatLayoutProps) {
+export function ChatLayout({ instances: initialInstances, userId, isAdmin, initialChatId }: ChatLayoutProps) {
   const [instances, setInstances] = useState(initialInstances)
   const [selectedInstance, setSelectedInstance] = useState(instances[0]?.id || '')
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(initialChatId || null)
   const [showInfo, setShowInfo] = useState(false)
   const [connectId, setConnectId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)

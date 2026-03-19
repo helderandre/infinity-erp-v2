@@ -42,6 +42,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo }: ChatThreadProps
     sendText,
     sendMedia,
     sendAudio,
+    sendPoll,
     react,
     deleteMessage,
     markRead,
@@ -314,6 +315,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo }: ChatThreadProps
           onSendText={(text) => sendText(text, replyTo?.wa_message_id)}
           onSendMedia={(file, type, caption) => sendMedia(file, type, caption, replyTo?.wa_message_id)}
           onSendAudio={(file) => sendAudio(file, replyTo?.wa_message_id)}
+          onSendPoll={(question, options, selectableCount) => sendPoll(question, options, selectableCount, replyTo?.wa_message_id)}
           onSendPresence={handleSendPresence}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}

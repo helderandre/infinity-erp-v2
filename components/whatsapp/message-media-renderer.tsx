@@ -5,12 +5,16 @@ import { Download, MapPin, User, Loader2 } from 'lucide-react'
 import { DocIcon } from '@/components/icons/doc-icon'
 import { AudioPlayer } from './audio-player'
 import { MediaPreviewModal } from './media-preview-modal'
+import { PollMessage } from './poll-message'
+import { ContactCardMessage } from './contact-card-message'
+import { EventMessage } from './event-message'
 import { useMediaUrl } from '@/hooks/use-media-url'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface MessageMediaRendererProps {
   message: WppMessage
   instanceId?: string
+  isSent?: boolean
 }
 
 function formatDuration(seconds: number | null): string {
@@ -132,7 +136,7 @@ function MediaLoading() {
   )
 }
 
-export function MessageMediaRenderer({ message, instanceId }: MessageMediaRendererProps) {
+export function MessageMediaRenderer({ message, instanceId, isSent }: MessageMediaRendererProps) {
   const [previewOpen, setPreviewOpen] = useState(false)
 
   // Resolver media URL via UAZAPI se necessário (CDN encriptado)
@@ -263,13 +267,14 @@ export function MessageMediaRenderer({ message, instanceId }: MessageMediaRender
         </a>
       )
 
+    case 'poll':
+      return <PollMessage message={message} isSent={isSent} />
+
     case 'contact':
-      return (
-        <div className="flex items-center gap-2 p-2 mb-1 rounded bg-muted/50">
-          <User className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm">{message.text || 'Contacto'}</span>
-        </div>
-      )
+      return <ContactCardMessage message={message} />
+
+    case 'event':
+      return <EventMessage message={message} />
 
     default:
       return null

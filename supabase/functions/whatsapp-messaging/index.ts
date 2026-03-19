@@ -48,12 +48,27 @@ Deno.serve(async (req: Request) => {
     const body = await req.json()
     const { action } = body
 
+    // Debug: salvar payload de envio na tabela _debug_wpp_payloads
+    if (body.instance_id) {
+      await supabase
+        .from("_debug_wpp_payloads")
+        .insert({
+          source: "messaging_outbound",
+          event_type: action,
+          instance_id: body.instance_id,
+          payload: body,
+        })
+        .then(() => {})
+        .catch(() => {})
+    }
+
     switch (action) {
       case "send_text":       return await handleSendText(body)
       case "send_media":      return await handleSendMedia(body)
       case "send_audio":      return await handleSendAudio(body)
       case "send_location":   return await handleSendLocation(body)
       case "send_contact":    return await handleSendContact(body)
+      case "send_poll":       return await handleSendPoll(body)
       case "send_sticker":    return await handleSendSticker(body)
       case "react":           return await handleReact(body)
       case "delete_message":  return await handleDeleteMessage(body)
@@ -167,7 +182,7 @@ async function handleSendLocation(body: any) {
 
 // ── SEND CONTACT (vCard) ──
 async function handleSendContact(body: any) {
-  const { instance_id, wa_chat_id, contact_name, contact_phone } = body
+  const { instance_id, wa_chat_id, contact_name, contact_phone, organization, email, url } = body
   if (!instance_id || !wa_chat_id || !contact_name || !contact_phone) {
     return jsonResponse({ error: "Campos obrigatórios em falta" }, 400)
   }
@@ -175,13 +190,49 @@ async function handleSendContact(body: any) {
   const token = await getInstanceToken(instance_id)
   const result = await callUazapi(token, "/send/contact", {
     number: wa_chat_id,
-    contact: [{ name: contact_name, number: contact_phone }],
+    fullName: contact_name,
+    phoneNumber: contact_phone,
+    ...(organization && { organization }),
+    ...(email && { email }),
+    ...(url && { url }),
   })
 
   const waMessageId = result?.messageid || result?.id || result?.key?.id || ""
   const savedMsg = await saveOutgoingMessage({
     instanceId: instance_id, waChatId: wa_chat_id, waMessageId,
     text: contact_name, messageType: "contact",
+  })
+
+  return jsonResponse({ message: savedMsg, uazapi_response: result })
+}
+
+// ── SEND POLL ──
+async function handleSendPoll(body: any) {
+  const { instance_id, wa_chat_id, poll_question, poll_options, poll_selectable_count } = body
+  if (!instance_id || !wa_chat_id || !poll_question || !poll_options?.length) {
+    return jsonResponse({ error: "Campos obrigatórios em falta" }, 400)
+  }
+
+  const token = await getInstanceToken(instance_id)
+  const result = await callUazapi(token, "/send/menu", {
+    number: wa_chat_id,
+    type: "poll",
+    text: poll_question,
+    choices: poll_options,
+    selectableCount: poll_selectable_count || 1,
+  })
+
+  const waMessageId = result?.messageid || result?.id || result?.key?.id || ""
+  const savedMsg = await saveOutgoingMessage({
+    instanceId: instance_id, waChatId: wa_chat_id, waMessageId,
+    text: poll_question, messageType: "poll",
+    extra: {
+      poll_data: {
+        name: poll_question,
+        options: poll_options.map((o: string) => ({ name: o, votes: 0, voters: [] })),
+        selectableCount: poll_selectable_count || 1,
+      },
+    },
   })
 
   return jsonResponse({ message: savedMsg, uazapi_response: result })
@@ -407,8 +458,9 @@ async function saveOutgoingMessage(params: {
   instanceId: string; waChatId: string; waMessageId: string;
   text: string; messageType: string; mediaUrl?: string; quotedId?: string;
   mediaFileName?: string; mediaMimeType?: string; mediaFileSize?: number | null;
+  extra?: Record<string, unknown>;
 }) {
-  const { instanceId, waChatId, waMessageId, text, messageType, mediaUrl, quotedId, mediaFileName, mediaMimeType, mediaFileSize } = params
+  const { instanceId, waChatId, waMessageId, text, messageType, mediaUrl, quotedId, mediaFileName, mediaMimeType, mediaFileSize, extra } = params
   const now = Math.floor(Date.now() / 1000)
 
   const { data: chat } = await supabase
@@ -444,6 +496,7 @@ async function saveOutgoingMessage(params: {
         quoted_message_id: quotedId || "",
         status: "sent",
         timestamp: now,
+        ...(extra || {}),
       }, { onConflict: "instance_id,wa_message_id" })
       .select("*")
       .single()

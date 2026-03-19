@@ -123,11 +123,11 @@ export function MessageBubble({
               {/* Media */}
               <div className={message.is_deleted && isAdmin ? 'opacity-50' : ''}>
                 {message.message_type !== 'text' && (
-                  <MessageMediaRenderer message={message} instanceId={instanceId} />
+                  <MessageMediaRenderer message={message} instanceId={instanceId} isSent={isMe} />
                 )}
 
-                {/* Text */}
-                {message.text && <MessageText text={message.text} mentionMap={mentionMap} />}
+                {/* Text (hide for contact cards — info already shown in card) */}
+                {message.text && message.message_type !== 'contact' && <MessageText text={message.text} mentionMap={mentionMap} />}
               </div>
             </>
           )}

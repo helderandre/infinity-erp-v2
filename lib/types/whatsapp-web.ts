@@ -11,6 +11,7 @@ export type WppMessageType =
   | 'contact'
   | 'reaction'
   | 'poll'
+  | 'event'
   | 'view_once'
 
 export type WppMessageStatus =
@@ -19,6 +20,29 @@ export type WppMessageStatus =
   | 'read'
   | 'played'
   | 'failed'
+
+export interface PollOption {
+  name: string
+  votes: number
+  voters?: string[]
+}
+
+export interface PollData {
+  name: string
+  options: PollOption[]
+  selectableCount: number
+}
+
+export interface EventData {
+  name: string
+  startTime: number | null
+  endTime: number | null
+  isCanceled: boolean
+  hasReminder: boolean
+  reminderOffsetSec: number | null
+  isScheduleCall: boolean
+  extraGuestsAllowed: boolean
+}
 
 export interface WppReaction {
   emoji: string
@@ -55,8 +79,9 @@ export interface WppMessage {
   location_latitude: number | null
   location_longitude: number | null
   location_name: string | null
-  contact_vcard: string | null
-  poll_data: Record<string, unknown> | null
+  vcard: string | null
+  poll_data: PollData | null
+  event_data: EventData | null
   raw_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
@@ -133,6 +158,7 @@ export const MESSAGE_TYPE_LABELS: Record<WppMessageType, string> = {
   contact: 'Contacto',
   reaction: 'Reacção',
   poll: 'Sondagem',
+  event: 'Evento',
   view_once: 'Ver Uma Vez',
 }
 

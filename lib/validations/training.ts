@@ -20,6 +20,7 @@ export const createCourseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(200).trim(),
   description: z.string().max(5000).optional().or(z.literal('')),
   summary: z.string().max(300).optional().or(z.literal('')),
+  cover_image_url: z.string().url().optional().nullable(),
   category_id: z.string().regex(uuidRegex, 'Categoria inválida'),
   difficulty_level: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
   tags: z.array(z.string()).default([]),
@@ -97,6 +98,17 @@ export const createQuestionSchema = z.object({
 
 export const updateQuestionSchema = createQuestionSchema.partial()
 
+// ─── Lesson Material ────────────────────────────────────
+
+export const createLessonMaterialSchema = z.object({
+  material_type: z.enum(['file', 'link']),
+  link_url: z.string().url('URL inválido').optional().or(z.literal('')),
+  link_title: z.string().min(1).max(200).optional().or(z.literal('')),
+  description: z.string().max(500).optional().or(z.literal('')),
+})
+
+export type CreateLessonMaterialInput = z.infer<typeof createLessonMaterialSchema>
+
 // ─── Progress ────────────────────────────────────────────
 
 export const updateLessonProgressSchema = z.object({
@@ -161,6 +173,30 @@ export const createLearningPathSchema = z.object({
 })
 
 export const updateLearningPathSchema = createLearningPathSchema.partial()
+
+// ─── Lesson Rating ──────────────────────────────────────
+
+export const rateLessonSchema = z.object({
+  rating: z.number().int().min(1).max(5, 'Avaliação deve ser entre 1 e 5'),
+})
+
+export type RateLessonInput = z.infer<typeof rateLessonSchema>
+
+// ─── Lesson Report ──────────────────────────────────────
+
+export const reportLessonSchema = z.object({
+  reason: z.enum([
+    'video_corrupted',
+    'audio_issues',
+    'wrong_content',
+    'file_corrupted',
+    'broken_link',
+    'other',
+  ], { message: 'Seleccione um motivo' }),
+  comment: z.string().max(1000).optional(),
+})
+
+export type ReportLessonInput = z.infer<typeof reportLessonSchema>
 
 // ─── Inferred Types ──────────────────────────────────────
 

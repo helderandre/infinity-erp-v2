@@ -27,7 +27,7 @@ export type TriggerSourceType = "webhook" | "status_change" | "schedule" | "manu
 
 export type DelayUnit = "minutes" | "hours" | "days"
 
-export type WhatsAppMessageType = "text" | "image" | "video" | "audio" | "ptt" | "document"
+export type WhatsAppMessageType = "text" | "image" | "video" | "audio" | "ptt" | "document" | "poll" | "contact"
 
 export function isTriggerType(type: string): boolean {
   return type.startsWith("trigger_")
@@ -75,6 +75,14 @@ export interface WhatsAppMessage {
   mediaUrl?: string
   docName?: string
   delay?: number
+  // Poll fields
+  pollOptions?: string[]
+  pollSelectableCount?: number
+  // Contact fields
+  contactName?: string
+  contactPhone?: string
+  contactOrganization?: string
+  contactEmail?: string
 }
 
 export interface WhatsAppNodeData {

@@ -33,6 +33,7 @@ import {
   ClipboardList,
   Layers,
   Flag,
+  MessageCircle,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -325,6 +326,32 @@ export function CalendarEventDetail({
                       </Link>
                     ))}
                   </div>
+                </div>
+              </>
+            )}
+
+            {/* WhatsApp origin */}
+            {event.wpp_chat_id && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Origem WhatsApp
+                  </div>
+                  <Link
+                    href={`/dashboard/whatsapp?chat=${event.wpp_chat_id}`}
+                    className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 hover:bg-emerald-500/10 transition-colors group"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/25">
+                      <MessageCircle className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Abrir conversa</p>
+                      <p className="text-xs text-muted-foreground">Ver mensagem original no WhatsApp</p>
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-emerald-600/50 group-hover:text-emerald-600 transition-colors shrink-0" />
+                  </Link>
                 </div>
               </>
             )}

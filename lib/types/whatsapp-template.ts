@@ -123,3 +123,18 @@ export interface UazapiSendMediaPayload extends UazapiSendPayload {
   text?: string
   docName?: string
 }
+
+export interface UazapiSendPollPayload extends UazapiSendPayload {
+  type: 'poll'
+  text: string
+  choices: string[]
+  selectableCount?: number
+}
+
+export interface UazapiSendContactPayload extends UazapiSendPayload {
+  fullName: string
+  phoneNumber: string
+  organization?: string
+  email?: string
+  url?: string
+}

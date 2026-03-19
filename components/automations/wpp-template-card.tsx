@@ -10,6 +10,8 @@ import {
   Copy,
   Pencil,
   Trash2,
+  BarChart3,
+  Contact,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +43,8 @@ const TYPE_ICONS: Record<WhatsAppMessageType, typeof MessageCircle> = {
   audio: Mic,
   ptt: Mic,
   document: FileText,
+  poll: BarChart3,
+  contact: Contact,
 }
 
 function getUniqueTypes(

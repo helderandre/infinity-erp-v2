@@ -51,6 +51,10 @@ export interface CalendarEvent {
   owner_ids?: string[]
   owners?: { id: string; name: string }[]
   attendees?: { id: string; name: string }[]
+
+  // Origem WhatsApp (evento guardado a partir do chat)
+  wpp_message_id?: string
+  wpp_chat_id?: string
 }
 
 export interface CalendarFilters {

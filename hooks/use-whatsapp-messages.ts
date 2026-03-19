@@ -169,8 +169,9 @@ export function useWhatsAppMessages(chatId: string | null) {
         location_latitude: null,
         location_longitude: null,
         location_name: null,
-        contact_vcard: null,
+        vcard: null,
         poll_data: null,
+        event_data: null,
         raw_data: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -270,6 +271,112 @@ export function useWhatsAppMessages(chatId: string | null) {
     [chatId, isSending]
   )
 
+  const sendPoll = useCallback(
+    async (question: string, options: string[], selectableCount: number = 1, replyId?: string) => {
+      if (!chatId || !question.trim() || options.length < 2) return
+      setIsSending(true)
+      try {
+        const optimistic: WppMessage = {
+          id: `optimistic-${Date.now()}`,
+          chat_id: chatId,
+          instance_id: '',
+          wa_message_id: '',
+          from_me: true,
+          message_type: 'poll',
+          text: question,
+          status: 'sent',
+          timestamp: Math.floor(Date.now() / 1000),
+          poll_data: {
+            name: question,
+            options: options.map(o => ({ name: o, votes: 0 })),
+            selectableCount,
+          },
+          sender: null, sender_name: null, sender_phone: null,
+          media_url: null, media_mime_type: null, media_file_name: null,
+          media_file_size: null, media_duration: null, media_thumbnail_url: null,
+          quoted_message_id: replyId || null,
+          is_forwarded: false, is_starred: false, is_deleted: false, is_edited: false,
+          reactions: null, location_latitude: null, location_longitude: null,
+          location_name: null, vcard: null, event_data: null, raw_data: null,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }
+        setMessages(prev => [...prev, optimistic])
+
+        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_poll',
+            poll_question: question,
+            poll_options: options,
+            poll_selectable_count: selectableCount,
+            reply_id: replyId,
+          }),
+        })
+      } catch (err) {
+        console.error('sendPoll error:', err)
+      } finally {
+        setIsSending(false)
+      }
+    },
+    [chatId]
+  )
+
+  const sendContact = useCallback(
+    async (contactName: string, contactPhone: string, organization?: string, email?: string, replyId?: string) => {
+      if (!chatId || !contactName.trim() || !contactPhone.trim()) return
+      setIsSending(true)
+      try {
+        const optimistic: WppMessage = {
+          id: `optimistic-${Date.now()}`,
+          chat_id: chatId,
+          instance_id: '',
+          wa_message_id: '',
+          from_me: true,
+          message_type: 'contact',
+          text: contactName,
+          status: 'sent',
+          timestamp: Math.floor(Date.now() / 1000),
+          vcard: [
+            'BEGIN:VCARD', 'VERSION:3.0',
+            `FN:${contactName}`,
+            `TEL;TYPE=CELL:${contactPhone}`,
+            ...(organization ? [`ORG:${organization}`] : []),
+            ...(email ? [`EMAIL;TYPE=INTERNET:${email}`] : []),
+            'END:VCARD',
+          ].join('\n'),
+          sender: null, sender_name: null, sender_phone: null,
+          media_url: null, media_mime_type: null, media_file_name: null,
+          media_file_size: null, media_duration: null, media_thumbnail_url: null,
+          quoted_message_id: replyId || null,
+          is_forwarded: false, is_starred: false, is_deleted: false, is_edited: false,
+          reactions: null, poll_data: null, event_data: null,
+          location_latitude: null, location_longitude: null, location_name: null,
+          raw_data: null,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }
+        setMessages(prev => [...prev, optimistic])
+
+        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_contact',
+            contact_name: contactName,
+            contact_phone: contactPhone,
+            organization,
+            email,
+          }),
+        })
+      } catch (err) {
+        console.error('sendContact error:', err)
+      } finally {
+        setIsSending(false)
+      }
+    },
+    [chatId]
+  )
+
   const react = useCallback(
     async (messageId: string, emoji: string) => {
       await fetch(`/api/whatsapp/messages/${messageId}/react`, {
@@ -312,6 +419,8 @@ export function useWhatsAppMessages(chatId: string | null) {
     sendText,
     sendMedia,
     sendAudio,
+    sendPoll,
+    sendContact,
     react,
     deleteMessage,
     markRead,

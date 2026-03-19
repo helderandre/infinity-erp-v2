@@ -251,6 +251,8 @@ export async function GET(request: Request) {
                 name: ownerNameMap[oid] ?? oid,
               })),
             } : {}),
+            // Origem WhatsApp
+            wpp_message_id: ev.wpp_message_id ?? undefined,
           })
         }
       }
@@ -380,6 +382,25 @@ export async function GET(request: Request) {
     // ------ Filter by user_id ------
     if (userId) {
       filtered = filtered.filter((ev) => ev.user_id === userId)
+    }
+
+    // ------ Resolve WhatsApp chat_id for events from WhatsApp ------
+    const wppMessageIds = filtered
+      .filter((ev) => ev.wpp_message_id)
+      .map((ev) => ev.wpp_message_id!)
+    if (wppMessageIds.length > 0) {
+      const { data: wppRows } = await admin
+        .from('wpp_messages')
+        .select('id, chat_id')
+        .in('id', wppMessageIds)
+      if (wppRows) {
+        const chatMap = Object.fromEntries(wppRows.map((r: any) => [r.id, r.chat_id]))
+        for (const ev of filtered) {
+          if (ev.wpp_message_id && chatMap[ev.wpp_message_id]) {
+            ev.wpp_chat_id = chatMap[ev.wpp_message_id]
+          }
+        }
+      }
     }
 
     // ------ Sort by start_date ------
