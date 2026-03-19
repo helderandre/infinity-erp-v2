@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import {
-  Plug,
   Unplug,
   Trash2,
   Pencil,
@@ -12,18 +11,19 @@ import {
   Settings,
   Plus,
   QrCode,
+  Phone,
+  User,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import {
   AlertDialog,
@@ -143,21 +143,34 @@ export function InstanceManageSheet({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-80 sm:w-96">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Gerir Instância
-            </SheetTitle>
-          </SheetHeader>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent showCloseButton={false} className="sm:max-w-[420px] rounded-2xl p-0 flex flex-col overflow-hidden">
+          {/* ── Dark header ── */}
+          <div className="bg-neutral-900 px-5 py-4 shrink-0 relative">
+            <DialogClose className="absolute top-3 right-3 rounded-sm p-1 text-neutral-400 hover:text-white transition-colors focus:outline-none">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </DialogClose>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2.5 text-white">
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm">
+                  <Settings className="h-4 w-4" />
+                </div>
+                Gerir Instância
+              </DialogTitle>
+              <DialogDescription className="text-neutral-400 mt-1">
+                Gerir a configuração da sua instância WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="mt-6 space-y-6">
-            {/* Instance info */}
-            <div className="space-y-3">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+          {/* ── Body ── */}
+          <div className="px-5 py-5 space-y-5">
+            {/* Instance Name */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                 Nome
-              </Label>
+              </span>
               {editing ? (
                 <div className="flex items-center gap-2">
                   <Input
@@ -167,14 +180,14 @@ export function InstanceManageSheet({
                       if (e.key === 'Enter') handleSaveEdit()
                       if (e.key === 'Escape') handleCancelEdit()
                     }}
-                    className="h-8 text-sm"
+                    className="h-9 text-sm rounded-lg"
                     autoFocus
                     disabled={saving}
                   />
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0 text-emerald-600"
+                    className="h-8 w-8 shrink-0 text-emerald-600 hover:text-emerald-700"
                     onClick={handleSaveEdit}
                     disabled={saving}
                   >
@@ -183,7 +196,7 @@ export function InstanceManageSheet({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={handleCancelEdit}
                     disabled={saving}
                   >
@@ -205,19 +218,23 @@ export function InstanceManageSheet({
               )}
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
-                Estado
-              </Label>
+            {/* Status card */}
+            <div className="rounded-xl bg-muted/50 p-3.5 space-y-2.5">
               <div className="flex items-center gap-2">
                 <span className={`h-2.5 w-2.5 rounded-full ${statusColor}`} />
-                <span className="text-sm">{statusLabel}</span>
+                <span className="text-sm font-medium">{statusLabel}</span>
               </div>
               {instance.phone && (
-                <p className="text-xs text-muted-foreground">{instance.phone}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Phone className="h-3 w-3" />
+                  <span>{instance.phone}</span>
+                </div>
               )}
               {instance.profile_name && (
-                <p className="text-xs text-muted-foreground">Perfil: {instance.profile_name}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <User className="h-3 w-3" />
+                  <span>{instance.profile_name}</span>
+                </div>
               )}
             </div>
 
@@ -225,65 +242,64 @@ export function InstanceManageSheet({
 
             {/* Actions */}
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                 Acções
-              </Label>
+              </span>
 
-              {isConnected ? (
+              <div className="space-y-1.5">
+                {isConnected ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start rounded-lg"
+                    onClick={handleDisconnect}
+                    disabled={disconnecting}
+                  >
+                    {disconnecting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Unplug className="mr-2 h-4 w-4" />
+                    )}
+                    Desconectar
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start rounded-lg"
+                    onClick={() => {
+                      onOpenChange(false)
+                      onConnect(instance.id)
+                    }}
+                  >
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Conectar
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleDisconnect}
-                  disabled={disconnecting}
-                >
-                  {disconnecting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Unplug className="mr-2 h-4 w-4" />
-                  )}
-                  Desconectar
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-lg"
                   onClick={() => {
                     onOpenChange(false)
-                    onConnect(instance.id)
+                    onCreate()
                   }}
                 >
-                  <QrCode className="mr-2 h-4 w-4" />
-                  Conectar
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar nova instância
                 </Button>
-              )}
 
-              <Button
-                variant="outline"
-                className="w-full justify-start text-destructive hover:text-destructive"
-                onClick={() => setDeleteConfirm(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar instância
-              </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start rounded-lg text-destructive hover:text-destructive hover:bg-destructive/5"
+                  onClick={() => setDeleteConfirm(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar instância
+                </Button>
+              </div>
             </div>
-
-            <Separator />
-
-            {/* Create new */}
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                onOpenChange(false)
-                onCreate()
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Criar nova instância
-            </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
         <AlertDialogContent>
