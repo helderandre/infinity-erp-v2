@@ -9,6 +9,7 @@ import type {
 import { formatCurrency, MARKETING_CATEGORIES } from '@/lib/constants'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -431,9 +432,13 @@ export function PropertyServiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px] h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
+      <DialogContent showCloseButton={false} className="sm:max-w-[460px] h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
         {/* ── Dark header ── */}
-        <div className="bg-neutral-900 px-5 py-4 shrink-0">
+        <div className="bg-neutral-900 px-5 py-4 shrink-0 relative">
+          <DialogClose className="absolute top-3 right-3 rounded-sm p-1 text-neutral-400 hover:text-white transition-colors focus:outline-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </DialogClose>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-white">
               <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm">
