@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Pencil, Trash2, Power, Layers, ListChecks } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Power, Layers, ListChecks, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, formatDate } from '@/lib/utils'
 import { PROCESS_TYPES } from '@/lib/constants'
@@ -71,6 +71,20 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
     }
   }
 
+  const handleDuplicate = async (id: string) => {
+    setIsLoading(true)
+    try {
+      const res = await fetch(`/api/templates/${id}/duplicate`, { method: 'POST' })
+      if (!res.ok) throw new Error('Erro ao duplicar template')
+      toast.success('Template duplicado com sucesso')
+      onRefresh()
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -115,6 +129,13 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
                       >
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDuplicate(tpl.id)}
+                        disabled={isLoading}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Duplicar
                       </DropdownMenuItem>
                       {tpl.is_active && (
                         <>

@@ -303,21 +303,30 @@ function AlertEventEditor({
           </Select>
 
           {event.recipients?.type === 'role' && (
-            <div className="pt-1">
-              <Select
-                value={event.recipients.roles?.[0] || '__none__'}
-                onValueChange={(v) => onUpdateRecipients({ type: 'role', roles: v === '__none__' ? [] : [v] })}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="Seleccionar role..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Seleccionar role...</SelectItem>
-                  {ALERT_ROLES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="pt-1 space-y-1.5">
+              {ALERT_ROLES.map((r) => {
+                const isSelected = event.recipients?.roles?.includes(r.value) ?? false
+                return (
+                  <label key={r.value} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1.5 py-1 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        const current = event.recipients?.roles || []
+                        const updated = isSelected
+                          ? current.filter((v: string) => v !== r.value)
+                          : [...current, r.value]
+                        onUpdateRecipients({ type: 'role', roles: updated })
+                      }}
+                      className="h-3.5 w-3.5 rounded border-muted-foreground/30"
+                    />
+                    <span className="text-xs">{r.label}</span>
+                  </label>
+                )
+              })}
+              {(!event.recipients?.roles || event.recipients.roles.length === 0) && (
+                <p className="text-[10px] text-destructive">Seleccione pelo menos um role</p>
+              )}
             </div>
           )}
         </div>
