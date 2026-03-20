@@ -127,6 +127,7 @@ export async function POST(request: Request) {
     const db = supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> }
 
     // Mappings: local ID → DB ID (para resolver dependências)
+    const stageIdMap = new Map<string, string>()
     const taskIdMap = new Map<string, string>()
     const subtaskIdMap = new Map<string, string>()
 
@@ -153,6 +154,12 @@ export async function POST(request: Request) {
           { error: `Erro ao criar fase "${stage.name}": ${stageError?.message}` },
           { status: 500 }
         )
+      }
+
+      // Mapear ID local do estágio → ID de DB
+      const stageLocalId = (stage as any)._local_id
+      if (stageLocalId) {
+        stageIdMap.set(stageLocalId, insertedStage.id)
       }
 
       // Inserir tarefas (sem dependency_task_id — será resolvido no 2º passo)
@@ -287,6 +294,27 @@ export async function POST(request: Request) {
       await (db.from('tpl_subtasks') as ReturnType<typeof supabase.from>)
         .update(update)
         .eq('id', dep.dbId)
+    }
+
+    // 6. Resolver depends_on_stages (local IDs → DB IDs)
+    for (const stage of stages) {
+      const localDeps: string[] = (stage as any).depends_on_stages || []
+      if (localDeps.length === 0) continue
+
+      const stageLocalId = (stage as any)._local_id
+      const stageDbId = stageLocalId ? stageIdMap.get(stageLocalId) : null
+      if (!stageDbId) continue
+
+      const resolvedDeps = localDeps
+        .map((localId) => stageIdMap.get(localId))
+        .filter((id): id is string => !!id)
+
+      if (resolvedDeps.length > 0) {
+        await supabase
+          .from('tpl_stages')
+          .update({ depends_on_stages: resolvedDeps } as any)
+          .eq('id', stageDbId)
+      }
     }
 
     return NextResponse.json({ id: process.id }, { status: 201 })

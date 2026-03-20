@@ -16,11 +16,11 @@ interface ProcessStepperProps {
 }
 
 export function ProcessStepper({ stages, className }: ProcessStepperProps) {
-  // Encontrar o passo activo (in_progress) ou o último se todos completos
-  const activeStage = stages.find((s) => s.status === 'in_progress')
-  const activeValue = activeStage
-    ? activeStage.name
-    : stages.every((s) => s.status === 'completed')
+  // Encontrar o primeiro passo activo (is_current) para o stepper value
+  const currentStage = stages.find((s) => s.is_current)
+  const activeValue = currentStage
+    ? currentStage.name
+    : stages.every((s) => s.is_completed_explicit || s.status === 'completed')
       ? stages[stages.length - 1]?.name ?? ''
       : stages[0]?.name ?? ''
 
@@ -33,9 +33,9 @@ export function ProcessStepper({ stages, className }: ProcessStepperProps) {
       <StepperList>
         {stages.map((stage) => (
           <StepperItem
-            key={stage.name}
+            key={stage.id}
             value={stage.name}
-            completed={stage.status === 'completed'}
+            completed={stage.is_completed_explicit || stage.status === 'completed'}
           >
             <StepperTrigger>
               <StepperIndicator />

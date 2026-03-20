@@ -13,13 +13,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { StageData } from './template-builder'
 
 interface TemplateStageDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData: StageData | null // null = criar, objecto = editar
-  onSubmit: (data: { name: string; description?: string }) => void
+  onSubmit: (data: { name: string; description?: string; depends_on_stages?: string[] }) => void
+  allStages?: { id: string; name: string }[]
+  currentStageId?: string
 }
 
 export function TemplateStageDialog({
@@ -27,24 +30,37 @@ export function TemplateStageDialog({
   onOpenChange,
   initialData,
   onSubmit,
+  allStages = [],
+  currentStageId,
 }: TemplateStageDialogProps) {
   const isEditing = !!initialData
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [dependsOnStages, setDependsOnStages] = useState<string[]>([])
 
   useEffect(() => {
     if (open) {
       setName(initialData?.name || '')
       setDescription(initialData?.description || '')
+      setDependsOnStages(initialData?.depends_on_stages || [])
     }
   }, [open, initialData])
+
+  const otherStages = allStages.filter((s) => s.id !== currentStageId)
 
   const handleSubmit = () => {
     if (!name.trim()) return
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
+      depends_on_stages: dependsOnStages,
     })
+  }
+
+  const toggleDep = (stageId: string, checked: boolean) => {
+    setDependsOnStages((prev) =>
+      checked ? [...prev, stageId] : prev.filter((id) => id !== stageId)
+    )
   }
 
   return (
@@ -87,6 +103,29 @@ export function TemplateStageDialog({
               className="min-h-[60px]"
             />
           </div>
+
+          {otherStages.length > 0 && (
+            <div className="space-y-2">
+              <Label>Depende dos Estágios</Label>
+              <p className="text-xs text-muted-foreground">
+                Este estágio só pode ser concluído após os estágios seleccionados.
+              </p>
+              <div className="space-y-2 mt-2">
+                {otherStages.map((stage) => (
+                  <div key={stage.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`dep-${stage.id}`}
+                      checked={dependsOnStages.includes(stage.id)}
+                      onCheckedChange={(checked) => toggleDep(stage.id, !!checked)}
+                    />
+                    <Label htmlFor={`dep-${stage.id}`} className="text-sm font-normal cursor-pointer">
+                      {stage.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

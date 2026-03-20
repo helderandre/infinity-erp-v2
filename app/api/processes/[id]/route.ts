@@ -295,15 +295,40 @@ export async function GET(
       })
     }
 
+    // Buscar tpl_stages para obter IDs e depends_on_stages
+    let tplStagesData: { id: string; name: string; order_index: number; depends_on_stages: string[] | null }[] = []
+    if (data.tpl_process_id) {
+      const { data: tplStages } = await supabase
+        .from('tpl_stages')
+        .select('id, name, order_index, depends_on_stages')
+        .eq('tpl_process_id', data.tpl_process_id)
+        .order('order_index')
+      tplStagesData = tplStages || []
+    }
+
+    // Construir mapa stage_name → tpl_stage info
+    const tplStageByName = new Map<string, typeof tplStagesData[0]>()
+    for (const ts of tplStagesData) {
+      tplStageByName.set(ts.name, ts)
+    }
+
+    const currentStageIds: string[] = data.current_stage_ids || []
+    const completedStageIds: string[] = data.completed_stage_ids || []
+
     // Agrupar tarefas por fase
     const stagesMap = new Map<string, any>()
 
     tasks?.forEach((task) => {
       const stageName = task.stage_name || 'Sem Fase'
       if (!stagesMap.has(stageName)) {
+        const tplStage = tplStageByName.get(stageName)
         stagesMap.set(stageName, {
+          id: tplStage?.id || stageName,
           name: stageName,
           order_index: task.stage_order_index || 0,
+          depends_on_stages: (tplStage?.depends_on_stages as string[]) || [],
+          is_current: tplStage ? currentStageIds.includes(tplStage.id) : false,
+          is_completed_explicit: tplStage ? completedStageIds.includes(tplStage.id) : false,
           tasks: [],
           tasks_completed: 0,
           tasks_total: 0,
@@ -323,9 +348,11 @@ export async function GET(
     const stages = Array.from(stagesMap.values()).map((stage) => {
       let status: 'completed' | 'in_progress' | 'pending' = 'pending'
 
-      if (stage.tasks_completed === stage.tasks_total) {
+      if (stage.is_completed_explicit) {
         status = 'completed'
-      } else if (stage.tasks_completed > 0) {
+      } else if (stage.tasks_completed === stage.tasks_total) {
+        status = 'completed'
+      } else if (stage.tasks_completed > 0 || stage.is_current) {
         status = 'in_progress'
       }
 

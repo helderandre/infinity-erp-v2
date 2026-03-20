@@ -37,6 +37,9 @@ import {
   ClipboardList,
   TextCursorInput,
   CalendarPlus,
+  Plus,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react'
 import {
   SUBTASK_TYPE_LABELS,
@@ -75,6 +78,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   form: ClipboardList,
   field: TextCursorInput,
   schedule_event: CalendarPlus,
+  external_form: ClipboardList,
 }
 
 // ─── Dependency types (passed from SubtaskEditor) ────────
@@ -678,6 +682,16 @@ function SectionDados({
           />
         </div>
       )}
+
+      {/* External form config */}
+      {local.type === 'external_form' && (
+        <ExternalFormConfigSection
+          local={local}
+          updateConfig={updateConfig}
+          docTypes={docTypes}
+          docTypesByCategory={docTypesByCategory}
+        />
+      )}
     </div>
   )
 }
@@ -1147,6 +1161,277 @@ function SectionAlertas({
 }
 
 // ─── Section: Proprietários (modo ad-hoc) ────────────────
+
+// ─── External Form Config Section ────────────────────────
+
+import type { ExternalFormField, ExternalLink, DocumentShortcut } from '@/types/subtask'
+
+function ExternalFormConfigSection({
+  local,
+  updateConfig,
+  docTypes,
+  docTypesByCategory,
+}: {
+  local: SubtaskData
+  updateConfig: (config: Partial<SubtaskData['config']>) => void
+  docTypes: { id: string; name: string; category?: string }[]
+  docTypesByCategory: Record<string, typeof docTypes>
+}) {
+  const fields = local.config.external_form_fields || []
+  const links = local.config.external_links || []
+  const shortcuts = local.config.document_shortcuts || []
+
+  const addField = () => {
+    const newField: ExternalFormField = {
+      field_name: '',
+      label: '',
+      target_entity: 'property',
+      format: 'text',
+      order_index: fields.length,
+    }
+    updateConfig({ external_form_fields: [...fields, newField] })
+  }
+
+  const updateField = (idx: number, patch: Partial<ExternalFormField>) => {
+    const updated = fields.map((f, i) => i === idx ? { ...f, ...patch } : f)
+    updateConfig({ external_form_fields: updated })
+  }
+
+  const removeField = (idx: number) => {
+    updateConfig({ external_form_fields: fields.filter((_, i) => i !== idx) })
+  }
+
+  const addLink = () => {
+    const newLink: ExternalLink = { site_name: '', url: '' }
+    updateConfig({ external_links: [...links, newLink] })
+  }
+
+  const updateLink = (idx: number, patch: Partial<ExternalLink>) => {
+    const updated = links.map((l, i) => i === idx ? { ...l, ...patch } : l)
+    updateConfig({ external_links: updated })
+  }
+
+  const removeLink = (idx: number) => {
+    updateConfig({ external_links: links.filter((_, i) => i !== idx) })
+  }
+
+  const addShortcut = () => {
+    const newShortcut: DocumentShortcut = { doc_type_id: '' }
+    updateConfig({ document_shortcuts: [...shortcuts, newShortcut] })
+  }
+
+  const updateShortcut = (idx: number, patch: Partial<DocumentShortcut>) => {
+    const updated = shortcuts.map((s, i) => i === idx ? { ...s, ...patch } : s)
+    updateConfig({ document_shortcuts: updated })
+  }
+
+  const removeShortcut = (idx: number) => {
+    updateConfig({ document_shortcuts: shortcuts.filter((_, i) => i !== idx) })
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Form title */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Título do Popup (opcional)</Label>
+        <Input
+          value={local.config.form_title || ''}
+          onChange={(e) => updateConfig({ form_title: e.target.value || undefined })}
+          placeholder="Ex: Dados para Registo"
+        />
+      </div>
+
+      <Separator />
+
+      {/* Fields */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Campos (read-only)</h3>
+          <Button variant="outline" size="sm" onClick={addField}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Campo
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Campos exibidos no popup com valor actual do imóvel/proprietário, com opção de copiar.
+        </p>
+        {fields.length === 0 && (
+          <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground text-center">
+            Nenhum campo configurado.
+          </div>
+        )}
+        <div className="space-y-2">
+          {fields.map((field, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome do Campo</Label>
+                <Input
+                  value={field.field_name}
+                  onChange={(e) => updateField(idx, { field_name: e.target.value })}
+                  placeholder="Ex: title"
+                  className="text-xs h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Label</Label>
+                <Input
+                  value={field.label}
+                  onChange={(e) => updateField(idx, { label: e.target.value })}
+                  placeholder="Ex: Título do Imóvel"
+                  className="text-xs h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Entidade</Label>
+                <Select
+                  value={field.target_entity}
+                  onValueChange={(v) => updateField(idx, { target_entity: v as ExternalFormField['target_entity'] })}
+                >
+                  <SelectTrigger className="h-8 text-xs w-[130px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="property">Imóvel</SelectItem>
+                    <SelectItem value="property_specs">Especificações</SelectItem>
+                    <SelectItem value="property_internal">Dados Internos</SelectItem>
+                    <SelectItem value="owner">Proprietário</SelectItem>
+                    <SelectItem value="property_owner">Quota</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Formato</Label>
+                <Select
+                  value={field.format || 'text'}
+                  onValueChange={(v) => updateField(idx, { format: v as ExternalFormField['format'] })}
+                >
+                  <SelectTrigger className="h-8 text-xs w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Texto</SelectItem>
+                    <SelectItem value="currency">Moeda</SelectItem>
+                    <SelectItem value="number">Número</SelectItem>
+                    <SelectItem value="date">Data</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeField(idx)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* External Links */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Links Externos</h3>
+          <Button variant="outline" size="sm" onClick={addLink}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Link
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Links para sites externos (ex: portais, registos) com abertura em novo separador.
+        </p>
+        {links.length === 0 && (
+          <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground text-center">
+            Nenhum link configurado.
+          </div>
+        )}
+        <div className="space-y-2">
+          {links.map((link, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome do Site</Label>
+                <Input
+                  value={link.site_name}
+                  onChange={(e) => updateLink(idx, { site_name: e.target.value })}
+                  placeholder="Ex: Portal das Finanças"
+                  className="text-xs h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">URL</Label>
+                <Input
+                  value={link.url}
+                  onChange={(e) => updateLink(idx, { url: e.target.value })}
+                  placeholder="https://..."
+                  className="text-xs h-8"
+                />
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLink(idx)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Document Shortcuts */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Atalhos de Documentos</h3>
+          <Button variant="outline" size="sm" onClick={addShortcut}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Documento
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Atalhos para documentos do processo (download directo se disponível).
+        </p>
+        {shortcuts.length === 0 && (
+          <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground text-center">
+            Nenhum atalho configurado.
+          </div>
+        )}
+        <div className="space-y-2">
+          {shortcuts.map((shortcut, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo de Documento</Label>
+                <Select
+                  value={shortcut.doc_type_id || '__none__'}
+                  onValueChange={(v) => updateShortcut(idx, { doc_type_id: v === '__none__' ? '' : v })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">(Nenhum)</SelectItem>
+                    {Object.entries(docTypesByCategory).map(([category, types]) => (
+                      <SelectGroup key={category}>
+                        <SelectLabel>{category}</SelectLabel>
+                        {types.map((dt) => (
+                          <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Label (opcional)</Label>
+                <Input
+                  value={shortcut.label || ''}
+                  onChange={(e) => updateShortcut(idx, { label: e.target.value || undefined })}
+                  placeholder="Override do nome..."
+                  className="text-xs h-8"
+                />
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeShortcut(idx)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function SectionProprietariosAdhoc({
   local,

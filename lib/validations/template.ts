@@ -8,7 +8,7 @@ export const subtaskSchema = z
     description: z.string().optional(),
     is_mandatory: z.boolean().default(true),
     order_index: z.number().int().min(0),
-    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field', 'schedule_event'], {
+    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field', 'schedule_event', 'external_form'], {
       message: 'Tipo de subtarefa inválido',
     }),
     // Prazo, responsável, prioridade
@@ -103,6 +103,23 @@ export const subtaskSchema = z
         }).optional(),
         show_current_value: z.boolean().optional(),
         auto_complete_on_save: z.boolean().optional(),
+        // External form config (type === 'external_form')
+        external_form_fields: z.array(z.object({
+          field_name: z.string(),
+          label: z.string(),
+          target_entity: z.enum(['property', 'property_specs', 'property_internal', 'owner', 'property_owner']),
+          format: z.enum(['text', 'currency', 'number', 'date']).optional(),
+          order_index: z.number(),
+        })).optional(),
+        external_links: z.array(z.object({
+          site_name: z.string(),
+          url: z.string().url(),
+          icon_url: z.string().url().optional(),
+        })).optional(),
+        document_shortcuts: z.array(z.object({
+          doc_type_id: z.string(),
+          label: z.string().optional(),
+        })).optional(),
       })
       .default({}),
   })
@@ -125,6 +142,13 @@ export const subtaskSchema = z
         const sections = subtask.config?.sections
         if (!sections || sections.length === 0) return true // permitir guardar sem config (será configurado depois)
         return sections.every(s => s.fields.length > 0)
+      }
+      // External form: precisa de pelo menos 1 campo
+      if (subtask.type === 'external_form') {
+        if (!subtask.config?.external_form_fields || subtask.config.external_form_fields.length === 0) {
+          return true // permitir guardar sem config (será configurado depois)
+        }
+        return true
       }
       // Field: precisa de campo com field_name e target_entity (ou vazio — será configurado depois)
       if (subtask.type === 'field') {
@@ -191,6 +215,7 @@ export const stageSchema = z.object({
   name: z.string().min(1, 'O nome da fase é obrigatório'),
   description: z.string().optional(),
   order_index: z.number().int().min(0),
+  depends_on_stages: z.array(z.string()).default([]),
   tasks: z.array(taskSchema).min(1, 'A fase deve ter pelo menos uma tarefa'),
 })
 

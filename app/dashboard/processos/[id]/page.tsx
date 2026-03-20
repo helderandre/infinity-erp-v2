@@ -70,6 +70,7 @@ import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
+import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
 import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
@@ -148,6 +149,10 @@ export default function ProcessoDetailPage() {
   // Add owner dialog (for the cards overview)
   const [addOwnerDialogOpen, setAddOwnerDialogOpen] = useState(false)
   const [ownerRoleTypes, setOwnerRoleTypes] = useState<OwnerRoleType[]>([])
+
+  // Stage complete dialog
+  const [stageCompleteTarget, setStageCompleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [isCompletingStage, setIsCompletingStage] = useState(false)
 
   // Soft-delete info
   const [deletedInfo, setDeletedInfo] = useState<{
@@ -322,6 +327,36 @@ export default function ProcessoDetailPage() {
   }, [deleteTaskTarget, params.id])
 
   const canDeleteAdhoc = !!user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any)
+
+  const handleStageCompleteOpen = useCallback((stageId: string) => {
+    const stage = process?.stages?.find((s: any) => s.id === stageId)
+    if (stage) {
+      setStageCompleteTarget({ id: stageId, name: stage.name })
+    }
+  }, [process])
+
+  const handleStageComplete = useCallback(async () => {
+    if (!stageCompleteTarget) return
+    setIsCompletingStage(true)
+    try {
+      const res = await fetch(
+        `/api/processes/${params.id}/stages/${stageCompleteTarget.id}/complete`,
+        { method: 'POST' }
+      )
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao concluir estágio')
+      }
+      toast.success('Estágio concluído com sucesso!')
+      setStageCompleteTarget(null)
+      loadProcess(true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao concluir estágio')
+    } finally {
+      setIsCompletingStage(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageCompleteTarget, params.id])
 
   const handleBypassOpen = useCallback((task: ProcessTask) => {
     setBypassTask(task)
@@ -1011,6 +1046,7 @@ export default function ProcessoDetailPage() {
                       onTaskAssign={handleAssignOpen}
                       onTaskClick={handleTaskClick}
                       onTaskDelete={(task) => setDeleteTaskTarget(task)}
+                      onStageComplete={handleStageCompleteOpen}
                     />
                   ) : viewMode === 'list' ? (
                     <ProcessListView
@@ -1155,6 +1191,7 @@ export default function ProcessoDetailPage() {
         processId={instance.id}
         propertyId={instance.property_id}
         consultantId={instance.requested_by ?? undefined}
+        property={instance.property}
         processDocuments={documents}
         owners={owners}
         open={selectedTask !== null}
@@ -1228,6 +1265,15 @@ export default function ProcessoDetailPage() {
           onAssigned={silentRefresh}
         />
       )}
+
+      {/* Stage Complete Dialog */}
+      <StageCompleteDialog
+        open={!!stageCompleteTarget}
+        onOpenChange={(open) => !open && setStageCompleteTarget(null)}
+        stageName={stageCompleteTarget?.name || ''}
+        onConfirm={handleStageComplete}
+        isLoading={isCompletingStage}
+      />
 
       {/* Cancel Process Dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>

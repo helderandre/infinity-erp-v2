@@ -62,6 +62,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   ClipboardList,
   TextCursorInput,
   CalendarPlus,
+  ExternalLink: ClipboardList,
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -71,6 +72,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   generate_doc: FileText,
   form: ClipboardList,
   field: TextCursorInput,
+  external_form: ClipboardList,
 }
 
 interface RoleOption {
@@ -377,7 +379,8 @@ export function SubtaskEditor({
       (s.dependency_type && s.dependency_type !== 'none') ||
       (s.config.alerts && Object.values(s.config.alerts).some((e) => e?.enabled)) ||
       (s.type === 'form' && s.config.sections?.length) ||
-      (s.type === 'field' && s.config.field)
+      (s.type === 'field' && s.config.field) ||
+      (s.type === 'external_form' && (s.config.external_form_fields?.length || s.config.external_links?.length || s.config.document_shortcuts?.length))
     )
   }
 

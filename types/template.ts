@@ -22,6 +22,7 @@ export interface TemplateTask extends TplTask {
 
 export interface TemplateStage extends TplStage {
   tpl_tasks: TemplateTask[]
+  depends_on_stages?: string[]
 }
 
 export interface TemplateDetail extends TplProcess {

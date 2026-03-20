@@ -35,7 +35,7 @@ import { TaskDocumentsPanel } from './task-documents-panel'
 import { TaskSheetSidebar, type SheetTab } from './task-sheet-sidebar'
 import { CommentInput } from './comment-input'
 import { toast } from 'sonner'
-import type { ProcessTask, ProcessDocument, ProcessOwner, TaskCommentMention } from '@/types/process'
+import type { ProcessTask, ProcessInstance, ProcessDocument, ProcessOwner, TaskCommentMention } from '@/types/process'
 
 const STATUS_ICONS = {
   completed: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
@@ -56,6 +56,7 @@ interface TaskDetailSheetProps {
   processId: string
   propertyId: string
   consultantId?: string
+  property?: ProcessInstance['property']
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
   open: boolean
@@ -68,6 +69,7 @@ export function TaskDetailSheet({
   processId,
   propertyId,
   consultantId,
+  property,
   processDocuments,
   owners,
   open,
@@ -217,6 +219,7 @@ export function TaskDetailSheet({
                 processId={processId}
                 propertyId={propertyId}
                 consultantId={consultantId}
+                property={property}
                 processDocuments={processDocuments}
                 owners={owners}
                 onTaskUpdate={onTaskUpdate}

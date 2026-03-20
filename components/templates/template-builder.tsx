@@ -56,6 +56,7 @@ export interface StageData {
   id: string // UUID temporário (crypto.randomUUID())
   name: string
   description?: string
+  depends_on_stages: string[] // IDs locais de estágios dos quais depende
 }
 
 export interface TaskData {
@@ -131,6 +132,7 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
         id: stage.id,
         name: stage.name,
         description: stage.description || undefined,
+        depends_on_stages: (stage as any).depends_on_stages || [],
       }
 
       const taskIds: string[] = []
@@ -339,19 +341,19 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
   // -------------------------------------------------------
   // Acções: Adicionar/Editar/Remover Fases
   // -------------------------------------------------------
-  const handleAddStage = (data: { name: string; description?: string }) => {
+  const handleAddStage = (data: { name: string; description?: string; depends_on_stages?: string[] }) => {
     const id = crypto.randomUUID()
-    setStagesData((prev) => ({ ...prev, [id]: { id, name: data.name, description: data.description } }))
+    setStagesData((prev) => ({ ...prev, [id]: { id, name: data.name, description: data.description, depends_on_stages: data.depends_on_stages || [] } }))
     setItems((prev) => ({ ...prev, [id]: [] }))
     setContainers((prev) => [...prev, id])
     setStageDialogOpen(false)
   }
 
-  const handleEditStage = (data: { name: string; description?: string }) => {
+  const handleEditStage = (data: { name: string; description?: string; depends_on_stages?: string[] }) => {
     if (!stageDialogData) return
     setStagesData((prev) => ({
       ...prev,
-      [stageDialogData.id]: { ...prev[stageDialogData.id], name: data.name, description: data.description },
+      [stageDialogData.id]: { ...prev[stageDialogData.id], name: data.name, description: data.description, depends_on_stages: data.depends_on_stages || prev[stageDialogData.id].depends_on_stages || [] },
     }))
     setStageDialogOpen(false)
     setStageDialogData(null)
@@ -448,9 +450,11 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
       description: description.trim() || undefined,
       process_type: processType,
       stages: containers.map((stageId, stageIndex) => ({
+        _local_id: stageId,
         name: stagesData[stageId].name,
         description: stagesData[stageId].description,
         order_index: stageIndex,
+        depends_on_stages: stagesData[stageId].depends_on_stages || [],
         tasks: (items[stageId] || []).map((taskId, taskIndex) => ({
           _local_id: taskId,
           title: tasksData[taskId].title,
@@ -683,6 +687,8 @@ export function TemplateBuilder({ mode, templateId, initialData }: TemplateBuild
         onOpenChange={setStageDialogOpen}
         initialData={stageDialogData}
         onSubmit={stageDialogData ? handleEditStage : handleAddStage}
+        allStages={containers.map((id) => ({ id, name: stagesData[id]?.name || '' }))}
+        currentStageId={stageDialogData?.id}
       />
 
       <TemplateTaskSheet

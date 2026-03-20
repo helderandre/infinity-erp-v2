@@ -100,6 +100,7 @@ const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
   form: <FormInput className="h-3 w-3" />,
   field: <TextCursorInput className="h-3 w-3" />,
   schedule_event: <CalendarPlus className="h-3 w-3" />,
+  external_form: <ClipboardList className="h-3 w-3" />,
 }
 
 

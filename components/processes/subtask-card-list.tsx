@@ -26,7 +26,8 @@ import { SubtaskCardScheduleEvent } from './subtask-card-schedule-event'
 import { FormSubtaskDialog } from './form-subtask-dialog'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
-import type { ProcessTask, ProcessOwner, ProcessDocument } from '@/types/process'
+import { ExternalFormDialog } from './external-form-dialog'
+import type { ProcessTask, ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
 
 interface SubtaskCardListProps {
@@ -34,6 +35,7 @@ interface SubtaskCardListProps {
   processId: string
   propertyId: string
   consultantId?: string
+  property?: ProcessInstance['property']
   owners?: ProcessOwner[]
   processDocuments?: ProcessDocument[]
   canDeleteAdhocSubtask?: boolean
@@ -47,6 +49,7 @@ export function SubtaskCardList({
   processId,
   propertyId,
   consultantId,
+  property,
   owners = [],
   processDocuments = [],
   canDeleteAdhocSubtask,
@@ -61,6 +64,8 @@ export function SubtaskCardList({
   const [openFormSubtask, setOpenFormSubtask] = useState<ProcSubtask | null>(null)
   const [viewFormSubtask, setViewFormSubtask] = useState<ProcSubtask | null>(null)
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
+  const [openExternalFormSubtask, setOpenExternalFormSubtask] = useState<ProcSubtask | null>(null)
+  const [isCompletingExternalForm, setIsCompletingExternalForm] = useState(false)
 
   const subtasks = task.subtasks || []
   const completedCount = subtasks.filter(s => s.is_completed).length
@@ -238,6 +243,16 @@ export function SubtaskCardList({
             owners={owners.map(o => ({ id: o.id, name: o.name, person_type: o.person_type }))}
             consultants={[]}
             onRefresh={onTaskUpdate}
+          />
+        )
+      case 'external_form':
+        return (
+          <SubtaskCardChecklist
+            key={subtask.id}
+            subtask={subtask}
+            onToggle={async () => {
+              setOpenExternalFormSubtask(subtask)
+            }}
           />
         )
       default:
@@ -418,6 +433,28 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setViewFormSubtask(null) }}
           onCompleted={async () => {}}
           readOnly
+        />
+      )}
+
+      {openExternalFormSubtask && (
+        <ExternalFormDialog
+          open={!!openExternalFormSubtask}
+          onOpenChange={(v) => { if (!v) setOpenExternalFormSubtask(null) }}
+          subtask={openExternalFormSubtask}
+          property={property}
+          owner={owners.find(o => o.id === openExternalFormSubtask.owner_id)}
+          processDocuments={processDocuments}
+          isCompleting={isCompletingExternalForm}
+          onComplete={async () => {
+            setIsCompletingExternalForm(true)
+            try {
+              await onSubtaskToggle(task.id, openExternalFormSubtask.id, true)
+              onTaskUpdate()
+              setOpenExternalFormSubtask(null)
+            } finally {
+              setIsCompletingExternalForm(false)
+            }
+          }}
         />
       )}
     </>

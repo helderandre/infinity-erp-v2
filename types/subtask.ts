@@ -1,6 +1,6 @@
 import type { AlertsConfig } from './alert'
 
-export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field' | 'schedule_event'
+export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field' | 'schedule_event' | 'external_form'
 
 // Tipos de multiplicação por proprietário
 export type OwnerScope = 'none' | 'all_owners' | 'main_contact_only'
@@ -95,6 +95,33 @@ export interface FieldSubtaskConfig {
   auto_complete_on_save?: boolean
 }
 
+export interface ExternalFormField {
+  field_name: string
+  label: string
+  target_entity: FormTargetEntity
+  format?: 'text' | 'currency' | 'number' | 'date'
+  order_index: number
+}
+
+export interface ExternalLink {
+  site_name: string
+  url: string
+  icon_url?: string
+}
+
+export interface DocumentShortcut {
+  doc_type_id: string
+  label?: string
+}
+
+export interface ExternalFormConfig {
+  type: 'external_form'
+  form_title?: string
+  fields: ExternalFormField[]
+  external_links: ExternalLink[]
+  document_shortcuts: DocumentShortcut[]
+}
+
 export type DependencyType = 'none' | 'subtask' | 'task'
 
 export interface TplSubtask {
@@ -129,6 +156,10 @@ export interface TplSubtask {
     field?: FormFieldConfig
     show_current_value?: boolean
     auto_complete_on_save?: boolean
+    // External form config
+    external_form_fields?: ExternalFormField[]
+    external_links?: ExternalLink[]
+    document_shortcuts?: DocumentShortcut[]
   } & SubtaskOwnerConfig
 }
 
@@ -181,6 +212,10 @@ export interface ProcSubtask {
     field?: FormFieldConfig
     show_current_value?: boolean
     auto_complete_on_save?: boolean
+    // External form config
+    external_form_fields?: ExternalFormField[]
+    external_links?: ExternalLink[]
+    document_shortcuts?: DocumentShortcut[]
     [key: string]: unknown
   } & SubtaskOwnerConfig
 }
@@ -215,5 +250,9 @@ export interface SubtaskData {
     field?: FormFieldConfig
     show_current_value?: boolean
     auto_complete_on_save?: boolean
+    // External form config
+    external_form_fields?: ExternalFormField[]
+    external_links?: ExternalLink[]
+    document_shortcuts?: DocumentShortcut[]
   } & SubtaskOwnerConfig
 }

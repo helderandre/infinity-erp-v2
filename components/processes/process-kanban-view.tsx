@@ -3,18 +3,38 @@
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { CheckCircle2 } from 'lucide-react'
 import { ProcessTaskCard } from './process-task-card'
 import { cn } from '@/lib/utils'
 import type { ProcessStageWithTasks, ProcessTask } from '@/types/process'
 
-const STAGE_COLORS = [
-  { dot: 'bg-indigo-500', headerBg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-  { dot: 'bg-sky-500', headerBg: 'bg-sky-500/10', border: 'border-sky-500/20' },
-  { dot: 'bg-violet-500', headerBg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-  { dot: 'bg-amber-500', headerBg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-  { dot: 'bg-emerald-500', headerBg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  { dot: 'bg-pink-500', headerBg: 'bg-pink-500/10', border: 'border-pink-500/20' },
-]
+const STAGE_STATUS_COLORS = {
+  current: {
+    dot: 'bg-blue-500',
+    headerBg: 'bg-blue-500/10',
+    border: 'border-blue-500/30',
+    text: 'text-blue-700',
+  },
+  completed: {
+    dot: 'bg-emerald-500',
+    headerBg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    text: 'text-emerald-700',
+  },
+  waiting: {
+    dot: 'bg-slate-400',
+    headerBg: 'bg-slate-400/10',
+    border: 'border-slate-400/20',
+    text: 'text-slate-500',
+  },
+} as const
+
+function getStageColor(stage: ProcessStageWithTasks) {
+  if (stage.is_completed_explicit) return STAGE_STATUS_COLORS.completed
+  if (stage.is_current) return STAGE_STATUS_COLORS.current
+  return STAGE_STATUS_COLORS.waiting
+}
 
 interface ProcessKanbanViewProps {
   stages: ProcessStageWithTasks[]
@@ -25,6 +45,7 @@ interface ProcessKanbanViewProps {
   onTaskAssign: (task: ProcessTask) => void
   onTaskClick?: (task: ProcessTask) => void
   onTaskDelete?: (task: ProcessTask) => void
+  onStageComplete?: (stageId: string) => void
 }
 
 export function ProcessKanbanView({
@@ -36,19 +57,20 @@ export function ProcessKanbanView({
   onTaskAssign,
   onTaskClick,
   onTaskDelete,
+  onStageComplete,
 }: ProcessKanbanViewProps) {
   return (
     <ScrollArea className="w-full">
       <div className="flex gap-4 pb-4" style={{ minHeight: 'calc(100vh - 260px)' }}>
-        {stages.map((stage, idx) => {
-          const color = STAGE_COLORS[idx % STAGE_COLORS.length]
+        {stages.map((stage) => {
+          const color = getStageColor(stage)
           const progress = stage.tasks_total > 0
             ? Math.round((stage.tasks_completed / stage.tasks_total) * 100)
             : 0
 
           return (
             <div
-              key={stage.name}
+              key={stage.id}
               className={cn('flex flex-col rounded-xl border bg-muted/30', color.border)}
               style={{ minWidth: 320, maxWidth: 420, width: 380 }}
             >
@@ -62,6 +84,18 @@ export function ProcessKanbanView({
                   </Badge>
                 </div>
                 <Progress value={progress} className="h-1.5" />
+                {stage.is_current && !stage.is_completed_explicit && onStageComplete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-1 text-xs"
+                    onClick={() => onStageComplete(stage.id)}
+                    disabled={isProcessing}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Concluir Estágio
+                  </Button>
+                )}
               </div>
 
               {/* Column body */}

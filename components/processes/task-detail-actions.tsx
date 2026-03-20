@@ -56,6 +56,7 @@ import {
   FormInput,
   Type,
   CalendarPlus,
+  ClipboardList,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -66,7 +67,7 @@ import { useEmailStatus } from '@/hooks/use-email-status'
 import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
 import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 import { SubtaskConfigDialog } from '@/components/templates/subtask-config-dialog'
-import type { ProcessTask, ProcessDocument, ProcessOwner } from '@/types/process'
+import type { ProcessTask, ProcessInstance, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
 
 const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -78,6 +79,7 @@ interface TaskDetailActionsProps {
   processId: string
   propertyId: string
   consultantId?: string
+  property?: ProcessInstance['property']
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
   onTaskUpdate: () => void
@@ -88,6 +90,7 @@ export function TaskDetailActions({
   processId,
   propertyId,
   consultantId,
+  property,
   processDocuments = [],
   owners = [],
   onTaskUpdate,
@@ -112,6 +115,7 @@ export function TaskDetailActions({
     { type: 'form', label: 'Formulário', icon: FormInput },
     { type: 'field', label: 'Campo', icon: Type },
     { type: 'schedule_event', label: 'Agendar Evento', icon: CalendarPlus },
+    { type: 'external_form', label: 'Formulário Externo', icon: ClipboardList },
   ]
 
   const openAddSubtask = (type: string) => {
@@ -398,6 +402,7 @@ export function TaskDetailActions({
                 processId={processId}
                 propertyId={propertyId}
                 consultantId={consultantId}
+                property={property}
                 owners={owners}
                 processDocuments={processDocuments}
                 canDeleteAdhocSubtask={canManageAdhoc}

@@ -60,6 +60,8 @@ export interface ProcessInstance extends ProcInstance {
   approved_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   returned_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
   rejected_by_user?: Pick<DevUser, 'id' | 'commercial_name'>
+  current_stage_ids?: string[]
+  completed_stage_ids?: string[]
 }
 
 export interface ProcessTask extends ProcTask {
@@ -76,9 +78,13 @@ export interface ProcessTask extends ProcTask {
 }
 
 export interface ProcessStageWithTasks {
+  id: string
   name: string
   order_index: number
   status: 'completed' | 'in_progress' | 'pending'
+  is_current: boolean
+  is_completed_explicit: boolean
+  depends_on_stages: string[]
   tasks_completed: number
   tasks_total: number
   tasks: ProcessTask[]

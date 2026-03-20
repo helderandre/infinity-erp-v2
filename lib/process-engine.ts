@@ -161,51 +161,29 @@ export async function recalculateProgress(procInstanceId: string) {
 
     const percentComplete = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0
 
-    // 4. Determinar a fase actual (primeira fase não-completa)
-    const stageProgress = new Map<number, { total: number; completed: number }>()
-    for (const t of tasks) {
-      const stageIdx = t.stage_order_index ?? 0
-      if (!stageProgress.has(stageIdx)) {
-        stageProgress.set(stageIdx, { total: 0, completed: 0 })
-      }
-      const sp = stageProgress.get(stageIdx)!
-      sp.total++
-      if (t.status === 'completed' || t.is_bypassed) {
-        sp.completed++
-      }
-    }
-
-    // Encontrar a primeira fase não-completa
-    const sortedStages = Array.from(stageProgress.entries()).sort(([a], [b]) => a - b)
-    let currentStageIdx: number | null = null
-    for (const [idx, progress] of sortedStages) {
-      if (progress.completed < progress.total) {
-        currentStageIdx = idx
-        break
-      }
-    }
-
     // 4. Verificar se está completo
     const isCompleted = percentComplete === 100
 
-    // 5. Buscar stage_id real da tpl_stages (se tivermos o index)
+    // 5. Buscar instância e estágios do template para calcular current_stage_ids
+    const { data: inst } = await supabase
+      .from('proc_instances')
+      .select('tpl_process_id, completed_stage_ids')
+      .eq('id', procInstanceId)
+      .single()
+
+    let currentStageIds: string[] = []
     let currentStageId: string | null = null
-    if (currentStageIdx !== null && !isCompleted) {
-      const { data: inst } = await supabase
-        .from('proc_instances')
-        .select('tpl_process_id')
-        .eq('id', procInstanceId)
-        .single()
 
-      if (inst?.tpl_process_id) {
-        const { data: stage } = await supabase
-          .from('tpl_stages')
-          .select('id')
-          .eq('tpl_process_id', inst.tpl_process_id)
-          .eq('order_index', currentStageIdx)
-          .single()
+    if (inst?.tpl_process_id && !isCompleted) {
+      const { data: allStages } = await supabase
+        .from('tpl_stages')
+        .select('id, order_index, depends_on_stages')
+        .eq('tpl_process_id', inst.tpl_process_id)
+        .order('order_index')
 
-        currentStageId = stage?.id ?? null
+      if (allStages) {
+        currentStageIds = calculateCurrentStages(allStages, inst.completed_stage_ids || [])
+        currentStageId = currentStageIds[0] || null
       }
     }
 
@@ -215,6 +193,7 @@ export async function recalculateProgress(procInstanceId: string) {
       .update({
         percent_complete: percentComplete,
         current_stage_id: currentStageId,
+        current_stage_ids: currentStageIds,
         updated_at: new Date().toISOString(),
         ...(isCompleted
           ? { current_status: 'completed', completed_at: new Date().toISOString() }
@@ -226,7 +205,7 @@ export async function recalculateProgress(procInstanceId: string) {
 
     return {
       percent_complete: percentComplete,
-      current_stage_index: currentStageIdx,
+      current_stage_ids: currentStageIds,
       current_stage_id: currentStageId,
       is_completed: isCompleted,
     }
@@ -234,4 +213,35 @@ export async function recalculateProgress(procInstanceId: string) {
     console.error('Error recalculating progress:', error)
     throw error
   }
+}
+
+/**
+ * Calcula quais estágios estão activos com base nos concluídos e dependências.
+ * Estágios sem dependências seguem fluxo sequencial (para no primeiro não-concluído).
+ * Estágios com dependências ficam disponíveis quando todas as deps estiverem concluídas.
+ */
+export function calculateCurrentStages(
+  allStages: { id: string; order_index: number; depends_on_stages: string[] | null }[],
+  completedStageIds: string[]
+): string[] {
+  const completed = new Set(completedStageIds)
+  const sorted = [...allStages].sort((a, b) => a.order_index - b.order_index)
+  const currentStages: string[] = []
+
+  for (const stage of sorted) {
+    if (completed.has(stage.id)) continue
+
+    const deps = stage.depends_on_stages || []
+    const depsOk = deps.every(depId => completed.has(depId))
+    if (!depsOk) continue
+
+    currentStages.push(stage.id)
+
+    // Sem dependências explícitas → fluxo sequencial (parar no primeiro)
+    if (deps.length === 0 && currentStages.length > 0) {
+      break
+    }
+  }
+
+  return currentStages
 }

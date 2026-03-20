@@ -1930,28 +1930,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_bookmarks_course_id_fkey"
+            foreignKeyName: "forma_training_bookmarks_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_bookmarks_course_id_fkey"
+            foreignKeyName: "forma_training_bookmarks_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_bookmarks_lesson_id_fkey"
+            foreignKeyName: "forma_training_bookmarks_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_bookmarks_user_id_fkey"
+            foreignKeyName: "forma_training_bookmarks_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2052,28 +2052,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_certificates_course_id_fkey"
+            foreignKeyName: "forma_training_certificates_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_certificates_course_id_fkey"
+            foreignKeyName: "forma_training_certificates_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_certificates_enrollment_id_fkey"
+            foreignKeyName: "forma_training_certificates_enrollment_id_fkey"
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "forma_training_enrollments"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_certificates_user_id_fkey"
+            foreignKeyName: "forma_training_certificates_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2114,21 +2114,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_comments_lesson_id_fkey"
+            foreignKeyName: "forma_training_comments_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_comments_parent_id_fkey"
+            foreignKeyName: "forma_training_comments_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "forma_training_comments"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_comments_user_id_fkey"
+            foreignKeyName: "forma_training_comments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2214,21 +2214,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_courses_category_id_fkey"
+            foreignKeyName: "forma_training_courses_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "forma_training_categories"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_courses_created_by_fkey"
+            foreignKeyName: "forma_training_courses_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_courses_instructor_id_fkey"
+            foreignKeyName: "forma_training_courses_instructor_id_fkey"
             columns: ["instructor_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2290,28 +2290,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_enrollments_assigned_by_fkey"
+            foreignKeyName: "forma_training_enrollments_assigned_by_fkey"
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_enrollments_course_id_fkey"
+            foreignKeyName: "forma_training_enrollments_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_enrollments_course_id_fkey"
+            foreignKeyName: "forma_training_enrollments_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_enrollments_user_id_fkey"
+            foreignKeyName: "forma_training_enrollments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2343,21 +2343,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_learning_path_courses_course_id_fkey"
+            foreignKeyName: "forma_training_learning_path_courses_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_learning_path_courses_course_id_fkey"
+            foreignKeyName: "forma_training_learning_path_courses_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_learning_path_courses_learning_path_id_fkey"
+            foreignKeyName: "forma_training_learning_path_courses_learning_path_id_fkey"
             columns: ["learning_path_id"]
             isOneToOne: false
             referencedRelation: "forma_training_learning_paths"
@@ -2410,7 +2410,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_learning_paths_created_by_fkey"
+            foreignKeyName: "forma_training_learning_paths_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2469,7 +2469,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_lesson_materials_lesson_id_fkey"
+            foreignKeyName: "forma_training_lesson_materials_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
@@ -2525,21 +2525,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_lesson_progress_enrollment_id_fkey"
+            foreignKeyName: "forma_training_lesson_progress_enrollment_id_fkey"
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "forma_training_enrollments"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_lesson_progress_lesson_id_fkey"
+            foreignKeyName: "forma_training_lesson_progress_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_lesson_progress_user_id_fkey"
+            foreignKeyName: "forma_training_lesson_progress_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2574,14 +2574,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_lesson_ratings_lesson_id_fkey"
+            foreignKeyName: "forma_training_lesson_ratings_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_lesson_ratings_user_id_fkey"
+            foreignKeyName: "forma_training_lesson_ratings_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2631,21 +2631,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_lesson_reports_lesson_id_fkey"
+            foreignKeyName: "forma_training_lesson_reports_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_lesson_reports_resolved_by_fkey"
+            foreignKeyName: "forma_training_lesson_reports_resolved_by_fkey"
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_lesson_reports_user_id_fkey"
+            foreignKeyName: "forma_training_lesson_reports_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2710,7 +2710,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_lessons_module_id_fkey"
+            foreignKeyName: "forma_training_lessons_module_id_fkey"
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "forma_training_modules"
@@ -2754,14 +2754,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_material_downloads_material_id_fkey"
+            foreignKeyName: "forma_training_material_downloads_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lesson_materials"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_material_downloads_user_id_fkey"
+            foreignKeyName: "forma_training_material_downloads_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2802,14 +2802,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_modules_course_id_fkey"
+            foreignKeyName: "forma_training_modules_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_modules_course_id_fkey"
+            foreignKeyName: "forma_training_modules_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
@@ -2859,35 +2859,35 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_notifications_course_id_fkey"
+            foreignKeyName: "forma_training_notifications_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_notifications_course_id_fkey"
+            foreignKeyName: "forma_training_notifications_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_notifications_lesson_id_fkey"
+            foreignKeyName: "forma_training_notifications_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_notifications_quiz_id_fkey"
+            foreignKeyName: "forma_training_notifications_quiz_id_fkey"
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "forma_training_quizzes"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_notifications_user_id_fkey"
+            foreignKeyName: "forma_training_notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -2937,21 +2937,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_path_enrollments_assigned_by_fkey"
+            foreignKeyName: "forma_training_path_enrollments_assigned_by_fkey"
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_path_enrollments_learning_path_id_fkey"
+            foreignKeyName: "forma_training_path_enrollments_learning_path_id_fkey"
             columns: ["learning_path_id"]
             isOneToOne: false
             referencedRelation: "forma_training_learning_paths"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_path_enrollments_user_id_fkey"
+            foreignKeyName: "forma_training_path_enrollments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -3004,21 +3004,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_quiz_attempts_enrollment_id_fkey"
+            foreignKeyName: "forma_training_quiz_attempts_enrollment_id_fkey"
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "forma_training_enrollments"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_quiz_attempts_quiz_id_fkey"
+            foreignKeyName: "forma_training_quiz_attempts_quiz_id_fkey"
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "forma_training_quizzes"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_quiz_attempts_user_id_fkey"
+            foreignKeyName: "forma_training_quiz_attempts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
@@ -3062,7 +3062,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_quiz_questions_quiz_id_fkey"
+            foreignKeyName: "forma_training_quiz_questions_quiz_id_fkey"
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "forma_training_quizzes"
@@ -3121,28 +3121,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_quizzes_course_id_fkey"
+            foreignKeyName: "forma_training_quizzes_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_course_completion_stats"
             referencedColumns: ["course_id"]
           },
           {
-            foreignKeyName: "temp_training_quizzes_course_id_fkey"
+            foreignKeyName: "forma_training_quizzes_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "forma_training_courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_quizzes_lesson_id_fkey"
+            foreignKeyName: "forma_training_quizzes_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lessons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "temp_training_quizzes_module_id_fkey"
+            foreignKeyName: "forma_training_quizzes_module_id_fkey"
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "forma_training_modules"
@@ -5616,7 +5616,9 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           completed_at: string | null
+          completed_stage_ids: string[] | null
           current_stage_id: string | null
+          current_stage_ids: string[] | null
           current_status: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -5643,7 +5645,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           completed_at?: string | null
+          completed_stage_ids?: string[] | null
           current_stage_id?: string | null
+          current_stage_ids?: string[] | null
           current_status?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -5670,7 +5674,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           completed_at?: string | null
+          completed_stage_ids?: string[] | null
           current_stage_id?: string | null
+          current_stage_ids?: string[] | null
           current_status?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -7697,6 +7703,47 @@ export type Database = {
           },
         ]
       }
+      temp_deal_clients: {
+        Row: {
+          created_at: string | null
+          deal_id: string
+          email: string | null
+          id: string
+          name: string
+          order_index: number | null
+          person_type: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id: string
+          email?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          person_type?: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string
+          email?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          person_type?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_deal_clients_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "temp_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       temp_deal_compliance: {
         Row: {
           buyer_address: string | null
@@ -7963,20 +8010,46 @@ export type Database = {
         Row: {
           agency_margin: number | null
           agency_net: number | null
+          business_type: string | null
+          clients_notes: string | null
           commission_pct: number
           commission_total: number
+          conditions_notes: string | null
           consultant_amount: number | null
           consultant_id: string | null
           consultant_pct: number | null
+          contract_signing_date: string | null
           cpcv_pct: number | null
           created_at: string | null
           created_by: string | null
           deal_date: string
           deal_type: string
           deal_value: number
+          deposit_value: string | null
           escritura_pct: number | null
+          external_consultant_email: string | null
+          external_consultant_name: string | null
+          external_consultant_phone: string | null
+          external_property_construction_year: string | null
+          external_property_extra: string | null
+          external_property_id: string | null
+          external_property_link: string | null
+          external_property_type: string | null
+          external_property_typology: string | null
+          external_property_zone: string | null
+          extra_info: string | null
+          has_financing: boolean | null
+          has_financing_condition: boolean | null
+          has_furniture: boolean | null
+          has_guarantor: boolean | null
+          has_referral: boolean | null
           has_share: boolean | null
+          has_signature_recognition: boolean | null
+          housing_regime: string | null
           id: string
+          internal_colleague_id: string | null
+          is_bilingual: boolean | null
+          max_deadline: string | null
           network_amount: number | null
           network_pct: number | null
           notes: string | null
@@ -7986,9 +8059,15 @@ export type Database = {
           payment_structure: string
           proc_instance_id: string | null
           property_id: string | null
+          proposal_file_name: string | null
+          proposal_file_url: string | null
           pv_number: string | null
           reference: string | null
+          referral_info: string | null
+          referral_pct: number | null
+          referral_type: string | null
           share_amount: number | null
+          share_notes: string | null
           share_pct: number | null
           share_type: string | null
           status: string | null
@@ -7997,20 +8076,46 @@ export type Database = {
         Insert: {
           agency_margin?: number | null
           agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
           commission_pct: number
           commission_total: number
+          conditions_notes?: string | null
           consultant_amount?: number | null
           consultant_id?: string | null
           consultant_pct?: number | null
+          contract_signing_date?: string | null
           cpcv_pct?: number | null
           created_at?: string | null
           created_by?: string | null
           deal_date: string
           deal_type: string
           deal_value: number
+          deposit_value?: string | null
           escritura_pct?: number | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
           has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
           id?: string
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
           network_amount?: number | null
           network_pct?: number | null
           notes?: string | null
@@ -8020,9 +8125,15 @@ export type Database = {
           payment_structure?: string
           proc_instance_id?: string | null
           property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
           pv_number?: string | null
           reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
           share_amount?: number | null
+          share_notes?: string | null
           share_pct?: number | null
           share_type?: string | null
           status?: string | null
@@ -8031,20 +8142,46 @@ export type Database = {
         Update: {
           agency_margin?: number | null
           agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
           commission_pct?: number
           commission_total?: number
+          conditions_notes?: string | null
           consultant_amount?: number | null
           consultant_id?: string | null
           consultant_pct?: number | null
+          contract_signing_date?: string | null
           cpcv_pct?: number | null
           created_at?: string | null
           created_by?: string | null
           deal_date?: string
           deal_type?: string
           deal_value?: number
+          deposit_value?: string | null
           escritura_pct?: number | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
           has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
           id?: string
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
           network_amount?: number | null
           network_pct?: number | null
           notes?: string | null
@@ -8054,9 +8191,15 @@ export type Database = {
           payment_structure?: string
           proc_instance_id?: string | null
           property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
           pv_number?: string | null
           reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
           share_amount?: number | null
+          share_notes?: string | null
           share_pct?: number | null
           share_type?: string | null
           status?: string | null
@@ -8073,6 +8216,13 @@ export type Database = {
           {
             foreignKeyName: "temp_deals_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_deals_internal_colleague_id_fkey"
+            columns: ["internal_colleague_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -9883,6 +10033,7 @@ export type Database = {
       tpl_stages: {
         Row: {
           created_at: string | null
+          depends_on_stages: string[] | null
           description: string | null
           id: string
           name: string
@@ -9891,6 +10042,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          depends_on_stages?: string[] | null
           description?: string | null
           id?: string
           name: string
@@ -9899,6 +10051,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          depends_on_stages?: string[] | null
           description?: string | null
           id?: string
           name?: string
@@ -11100,7 +11253,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_material_downloads_material_id_fkey"
+            foreignKeyName: "forma_training_material_downloads_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "forma_training_lesson_materials"
@@ -11120,7 +11273,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "temp_training_enrollments_user_id_fkey"
+            foreignKeyName: "forma_training_enrollments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
