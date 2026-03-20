@@ -212,6 +212,7 @@ export const taskSchema = z.object({
 
 // Schema para uma fase do template
 export const stageSchema = z.object({
+  _local_id: z.string().optional(), // ID local para mapeamento de dependências entre estágios
   name: z.string().min(1, 'O nome da fase é obrigatório'),
   description: z.string().optional(),
   order_index: z.number().int().min(0),
