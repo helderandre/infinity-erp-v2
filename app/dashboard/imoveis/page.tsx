@@ -49,16 +49,15 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
+import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { formatCurrency, formatDate, PROPERTY_TYPES, PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { PropertyWithRelations } from '@/types/property'
 
 const PAGE_SIZE = 20
-const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS).filter((k) => k !== 'cancelled')
-const DEFAULT_STATUSES = ALL_STATUS_KEYS.filter(
-  (k) => k !== 'pending_approval' && k !== 'in_process'
-)
+const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS)
+const DEFAULT_STATUSES = ALL_STATUS_KEYS.filter((k) => k !== 'cancelled')
 
 export default function ImoveisPage() {
   return (
@@ -112,17 +111,17 @@ function ImoveisPageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [viewMode, setViewMode] = usePersistentState<'table' | 'grid'>('imoveis-view-mode', 'table')
   const [sortBy, setSortBy] = useState<string>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // Filtros
+  // Filtros (persistidos em localStorage por utilizador)
   const [search, setSearch] = useState(searchParams.get('search') || '')
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(DEFAULT_STATUSES)
-  const [propertyType, setPropertyType] = useState(searchParams.get('property_type') || 'all')
-  const [businessType, setBusinessType] = useState(searchParams.get('business_type') || 'all')
-  const [condition, setCondition] = useState(searchParams.get('property_condition') || 'all')
-  const [consultantId, setConsultantId] = useState(searchParams.get('consultant_id') || 'all')
+  const [selectedStatuses, setSelectedStatuses] = usePersistentState<string[]>('imoveis-filter-statuses', DEFAULT_STATUSES)
+  const [propertyType, setPropertyType] = usePersistentState('imoveis-filter-type', searchParams.get('property_type') || 'all')
+  const [businessType, setBusinessType] = usePersistentState('imoveis-filter-business', searchParams.get('business_type') || 'all')
+  const [condition, setCondition] = usePersistentState('imoveis-filter-condition', searchParams.get('property_condition') || 'all')
+  const [consultantId, setConsultantId] = usePersistentState('imoveis-filter-consultant', searchParams.get('consultant_id') || 'all')
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
   const debouncedSearch = useDebounce(search, 300)
