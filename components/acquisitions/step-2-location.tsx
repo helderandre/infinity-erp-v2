@@ -10,12 +10,17 @@ interface StepLocationProps {
 
 export function StepLocation({ form }: StepLocationProps) {
   const errors = form.formState.errors
+  const aiFields = new Set<string>(form.watch('_aiFilledFields') || [])
+  const ai = (field: string) => aiFields.has(field)
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === ''
+  }
 
   return (
     <div className="space-y-4">
       <AcqSectionHeader title="Localização do Imóvel" />
 
-      {/* Mapbox Autocomplete + Mapa Interactivo */}
       <PropertyAddressMapPicker
         address={form.watch('address_street')}
         postalCode={form.watch('postal_code')}
@@ -23,10 +28,10 @@ export function StepLocation({ form }: StepLocationProps) {
         zone={form.watch('zone')}
         latitude={form.watch('latitude')}
         longitude={form.watch('longitude')}
-        onAddressChange={(v) => form.setValue('address_street', v, { shouldValidate: true })}
-        onPostalCodeChange={(v) => form.setValue('postal_code', v, { shouldValidate: true })}
-        onCityChange={(v) => form.setValue('city', v, { shouldValidate: true })}
-        onZoneChange={(v) => form.setValue('zone', v, { shouldValidate: true })}
+        onAddressChange={(v) => form.setValue('address_street', v, { shouldDirty: true })}
+        onPostalCodeChange={(v) => form.setValue('postal_code', v, { shouldDirty: true })}
+        onCityChange={(v) => form.setValue('city', v, { shouldDirty: true })}
+        onZoneChange={(v) => form.setValue('zone', v, { shouldDirty: true })}
         onLatitudeChange={(v) => form.setValue('latitude', v)}
         onLongitudeChange={(v) => form.setValue('longitude', v)}
       />
@@ -36,9 +41,11 @@ export function StepLocation({ form }: StepLocationProps) {
           label="Cidade"
           required
           value={form.watch('city')}
-          onChange={(v) => form.setValue('city', v, { shouldValidate: true })}
+          onChange={(v) => form.setValue('city', v, { shouldDirty: true })}
           placeholder="Ex: Lisboa"
           error={errors.city?.message as string}
+          isAiFilled={ai('city')}
+          isMissing={isEmpty('city')}
         />
 
         <AcqInputField
@@ -54,6 +61,7 @@ export function StepLocation({ form }: StepLocationProps) {
           value={form.watch('address_parish')}
           onChange={(v) => form.setValue('address_parish', v)}
           placeholder="Ex: Santa Maria Maior"
+          isAiFilled={ai('address_parish')}
         />
 
         <AcqInputField
@@ -61,6 +69,7 @@ export function StepLocation({ form }: StepLocationProps) {
           value={form.watch('postal_code')}
           onChange={(v) => form.setValue('postal_code', v)}
           placeholder="1100-000"
+          isAiFilled={ai('postal_code')}
         />
 
         <AcqInputField
@@ -69,6 +78,7 @@ export function StepLocation({ form }: StepLocationProps) {
           value={form.watch('latitude')}
           onChange={(v) => form.setValue('latitude', v ? parseFloat(v) : null)}
           placeholder="38.7223"
+          isAiFilled={ai('latitude')}
         />
 
         <AcqInputField
@@ -77,6 +87,7 @@ export function StepLocation({ form }: StepLocationProps) {
           value={form.watch('longitude')}
           onChange={(v) => form.setValue('longitude', v ? parseFloat(v) : null)}
           placeholder="-9.1393"
+          isAiFilled={ai('longitude')}
         />
       </div>
     </div>

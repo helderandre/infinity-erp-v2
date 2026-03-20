@@ -11,7 +11,8 @@ import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DialogHeader, DialogFooter, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Check, Sparkles, Save, X } from 'lucide-react'
+import { Check, Sparkles, Save, X, AlertCircle } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StepProperty } from './step-1-property'
 import { StepLocation } from './step-2-location'
@@ -148,6 +149,27 @@ export function AcquisitionFormV2({
 
   const canSubmit = !!(title && propertyType && businessType && listingPrice > 0)
 
+  // Track required fields for missing count
+  const addressStreet = form.watch('address_street')
+  const city = form.watch('city')
+  const contractRegime = form.watch('contract_regime')
+  const commissionAgreed = form.watch('commission_agreed')
+  const owners = form.watch('owners') || []
+  const hasOwners = owners.some((o: any) => o.name?.trim())
+
+  const requiredFields = [
+    { field: 'title', filled: !!title },
+    { field: 'property_type', filled: !!propertyType },
+    { field: 'business_type', filled: !!businessType },
+    { field: 'listing_price', filled: listingPrice > 0 },
+    { field: 'address_street', filled: !!addressStreet },
+    { field: 'city', filled: !!city },
+    { field: 'owners', filled: hasOwners },
+    { field: 'contract_regime', filled: !!contractRegime },
+    { field: 'commission_agreed', filled: commissionAgreed > 0 },
+  ]
+  const missingCount = requiredFields.filter(f => !f.filled).length
+
   // Apply prefill data locally on mount (no DB write)
   useEffect(() => {
     if (draftCreated.current) return
@@ -277,18 +299,15 @@ export function AcquisitionFormV2({
           break
       }
 
-      try {
-        const res = await fetch(`/api/acquisitions/${procId}/step/${stepNumber}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(stepData),
-        })
-        if (!res.ok) {
-          const err = await res.json()
-          console.error('Erro ao guardar step:', err)
-        }
-      } catch (error) {
-        console.error('Erro ao guardar step:', error)
+      const res = await fetch(`/api/acquisitions/${procId}/step/${stepNumber}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stepData),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        console.error(`Erro ao guardar step ${stepNumber}:`, err)
+        throw new Error(`Erro no passo ${stepNumber}: ${err.error || 'erro desconhecido'}`)
       }
     },
     [form]
@@ -321,20 +340,31 @@ export function AcquisitionFormV2({
 
   const handleSubmit = async () => {
     // Validate all fields
-    const isValid = await form.trigger()
-    if (!isValid) {
-      const errors = form.formState.errors
-      const errorFields = Object.keys(errors)
-      const labels = errorFields.map((f) => FIELD_LABELS[f] || f)
+    // Manual validation of required fields (Zod resolver can't handle File objects and extra keys)
+    const values = form.getValues()
+    const missing: string[] = []
 
-      toast.error(`Campos obrigatórios em falta: ${labels.join(', ')}`)
+    if (!values.title?.trim()) missing.push('Título')
+    if (!values.property_type) missing.push('Tipo de imóvel')
+    if (!values.business_type) missing.push('Tipo de negócio')
+    if (!values.listing_price || values.listing_price <= 0) missing.push('Preço')
+    if (!values.address_street?.trim()) missing.push('Morada')
+    if (!values.city?.trim()) missing.push('Cidade')
+    if (!values.contract_regime) missing.push('Regime contratual')
+    if (!values.commission_agreed || values.commission_agreed <= 0) missing.push('Comissão')
 
-      // Navigate to the first tab that has errors
-      for (const field of errorFields) {
-        const tab = getTabForField(field)
-        setActiveTab(tab)
-        break
-      }
+    const ownersArr = values.owners || []
+    if (ownersArr.length === 0) {
+      missing.push('Proprietários (mín. 1)')
+    } else {
+      ownersArr.forEach((o: any, idx: number) => {
+        if (!o.name?.trim()) missing.push(`Proprietário ${idx + 1}: nome`)
+        if (!o.phone?.trim()) missing.push(`Proprietário ${idx + 1}: telemóvel`)
+      })
+    }
+
+    if (missing.length > 0) {
+      toast.error(`Campos em falta: ${missing.join(', ')}`)
       return
     }
 
@@ -526,8 +556,14 @@ export function AcquisitionFormV2({
         </div>
 
         {/* Footer */}
-        <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
-          <div className="flex items-center justify-end w-full">
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4 !m-0 !rounded-none items-center">
+          <div className="flex items-center justify-end gap-3 w-full">
+            {missingCount > 0 && (
+              <Badge className="bg-amber-100 text-amber-700 border-0 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {missingCount} campo{missingCount > 1 ? 's' : ''} em falta
+              </Badge>
+            )}
             <Button
               type="button"
               onClick={handleSubmit}

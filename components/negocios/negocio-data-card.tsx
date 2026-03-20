@@ -27,8 +27,6 @@ import {
   LOCALIZACOES_PT,
 } from '@/lib/constants'
 import { TagsInput, TagsDisplay } from '@/components/ui/tags-input'
-import { NegocioMatches } from './negocio-matches'
-import { NegocioInteressados } from './negocio-interessados'
 
 /* ─── Display Field ─── */
 function DisplayField({
@@ -267,8 +265,6 @@ export function NegocioDataCard({
   const isVenda = tipo === 'Venda' || isCompraEVenda
   const isArrendatario = tipo === 'Arrendatário'
   const isArrendador = tipo === 'Arrendador'
-  const showMatches = isCompra
-  const showInteressados = isVenda
 
   const handleSaveAndExit = async () => {
     await onSave()
@@ -567,8 +563,6 @@ export function NegocioDataCard({
     { value: 'dados', label: 'Dados do negócio' },
   ]
   if (isCompra) tabs.push({ value: 'financiamento', label: 'Financiamento' })
-  if (showMatches) tabs.push({ value: 'matching', label: isCompraEVenda ? 'Imóveis (Compra)' : 'Matching' })
-  if (showInteressados) tabs.push({ value: 'interessados', label: isCompraEVenda ? 'Interessados (Venda)' : 'Interessados' })
 
   return (
     <Card>
@@ -616,17 +610,6 @@ export function NegocioDataCard({
             </TabsContent>
           )}
 
-          {showMatches && (
-            <TabsContent value="matching" className="mt-0">
-              <NegocioMatches negocioId={negocioId} refreshKey={refreshKey} />
-            </TabsContent>
-          )}
-
-          {showInteressados && (
-            <TabsContent value="interessados" className="mt-0">
-              <NegocioInteressados negocioId={negocioId} refreshKey={refreshKey} />
-            </TabsContent>
-          )}
         </Tabs>
       </CardContent>
     </Card>

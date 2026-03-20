@@ -106,7 +106,12 @@ export async function PUT(
 
       case 3: {
         const d = data as any
-        await upsertOwners(supabase, proc.property_id, d.owners)
+        try {
+          await upsertOwners(supabase, proc.property_id, d.owners)
+        } catch (ownerErr: any) {
+          console.error('[Step 3] Owner upsert failed:', ownerErr.message)
+          return NextResponse.json({ error: `Erro nos proprietários: ${ownerErr.message}` }, { status: 500 })
+        }
         break
       }
 

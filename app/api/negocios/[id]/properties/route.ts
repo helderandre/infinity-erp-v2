@@ -6,9 +6,13 @@ import { requirePermission } from '@/lib/auth/permissions'
 const PROPERTY_SELECT = `
   *,
   property:dev_properties!property_id(
-    id, title, external_ref, city, zone, listing_price, slug,
-    dev_property_specifications(bedrooms, area_util),
-    dev_property_media(url, is_cover)
+    id, title, external_ref, city, zone, listing_price, slug, property_type, business_type, status, description, address_street, postal_code,
+    dev_property_specifications(bedrooms, bathrooms, area_gross, area_util, parking_spaces, features, typology),
+    dev_property_media(url, is_cover, order_index),
+    consultant:dev_users!consultant_id(
+      id, commercial_name, professional_email,
+      dev_consultant_profiles(profile_photo_url, phone_commercial, specializations)
+    )
   )
 `
 

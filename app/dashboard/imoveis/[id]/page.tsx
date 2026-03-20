@@ -8,11 +8,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { toast } from 'sonner'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
+import { PropertyPlantasSection } from '@/components/properties/property-plantas-section'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { VisitForm } from '@/components/visits/visit-form'
-import { DealForm } from '@/components/financial/deal-form'
+import { DealDialog } from '@/components/deals/deal-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Progress } from '@/components/ui/progress'
@@ -51,6 +52,7 @@ import {
   Plus,
   Phone,
   Mail,
+  Trash2,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -131,7 +133,8 @@ export default function ImovelDetalhePage() {
   const [dealsLoading, setDealsLoading] = useState(true)
   const [showPropostaDialog, setShowPropostaDialog] = useState(false)
   const [showVisitDialog, setShowVisitDialog] = useState(false)
-  const [showDealDialog, setShowDealDialog] = useState(false)
+  const [showFechoDialog, setShowFechoDialog] = useState(false)
+  const [resumeDealId, setResumeDealId] = useState<string | null>(null)
   const [selectedOwner, setSelectedOwner] = useState<any>(null)
   const [interessados, setInteressados] = useState<{ linked: any[]; suggestions: any[] }>({ linked: [], suggestions: [] })
   const [interessadosLoading, setInteressadosLoading] = useState(true)
@@ -320,7 +323,7 @@ export default function ImovelDetalhePage() {
   const fetchDeals = useCallback(() => {
     if (!id) return
     setDealsLoading(true)
-    fetch(`/api/properties/${id}/impic`)
+    fetch(`/api/deals?property_id=${id}`)
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setDeals(Array.isArray(d) ? d : []))
       .catch(() => setDeals([]))
@@ -408,8 +411,9 @@ export default function ImovelDetalhePage() {
 
   const specs = property.dev_property_specifications
   const internal = property.dev_property_internal
-  const coverImage = property.dev_property_media?.find(m => m.is_cover)?.url
-    || property.dev_property_media?.[0]?.url
+  const propertyImages = (property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta')
+  const coverImage = propertyImages.find((m: any) => m.is_cover)?.url
+    || propertyImages[0]?.url
 
   return (
     <div className="space-y-5">
@@ -664,7 +668,7 @@ export default function ImovelDetalhePage() {
 
             <PropertyMediaGallery
               propertyId={property.id}
-              media={property.dev_property_media || []}
+              media={(property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta')}
               onMediaChange={refetch}
             />
 
@@ -679,6 +683,13 @@ export default function ImovelDetalhePage() {
                 />
               </div>
             )}
+
+            {/* Plantas */}
+            <PropertyPlantasSection
+              propertyId={property.id}
+              plantas={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta')}
+              onMediaChange={refetch}
+            />
           </div>
         </div>
       )}
@@ -1125,8 +1136,8 @@ export default function ImovelDetalhePage() {
             <div className="space-y-4 animate-in fade-in duration-200">
               {processesLoading ? (
                 <Skeleton className="h-32 w-full rounded-xl" />
-              ) : processes.length > 0 ? (
-                processes.map((proc) => {
+              ) : processes.filter((p) => p.process_type === 'angariacao').length > 0 ? (
+                processes.filter((p) => p.process_type === 'angariacao').map((proc) => {
                   const typeInfo = proc.process_type ? PROCESS_TYPES[proc.process_type as keyof typeof PROCESS_TYPES] : null
                   const percent = proc.percent_complete || 0
                   return (
@@ -1278,56 +1289,115 @@ export default function ImovelDetalhePage() {
             </div>
           )}
 
-          {/* ══ Sub-tab: Processos de Venda ══ */}
-          {processSubTab === 'venda' && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{dealsLoading ? '...' : `${deals.length} processo${deals.length !== 1 ? 's' : ''}`}</p>
-                <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowDealDialog(true)}>
-                  <Plus className="h-3 w-3" /> Novo Processo
-                </Button>
-              </div>
-              {dealsLoading ? (
-                <Skeleton className="h-32 w-full rounded-xl" />
-              ) : deals.length > 0 ? (
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                  <div className="divide-y">
-                    {deals.map((d) => {
-                      const deal = d.deal || d
-                      const DEAL_STATUS: Record<string, { label: string; color: string }> = {
-                        draft: { label: 'Rascunho', color: 'bg-slate-500/15 text-slate-700' },
-                        active: { label: 'Activo', color: 'bg-emerald-500/15 text-emerald-700' },
-                        completed: { label: 'Concluído', color: 'bg-blue-500/15 text-blue-700' },
-                        cancelled: { label: 'Cancelado', color: 'bg-red-500/15 text-red-700' },
-                      }
-                      const st = DEAL_STATUS[deal.status] || { label: deal.status, color: 'bg-muted text-muted-foreground' }
+          {/* ══ Sub-tab: Processos de Venda/Negócio ══ */}
+          {processSubTab === 'venda' && (() => {
+            const negocioProcesses = processes.filter((p) => p.process_type === 'negocio')
+            const draftDeals = deals.filter((d) => d.status === 'draft')
+            const totalCount = negocioProcesses.length + draftDeals.length
+            const isLoadingVenda = processesLoading || dealsLoading
+
+            return (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{isLoadingVenda ? '...' : `${totalCount} processo${totalCount !== 1 ? 's' : ''}`}</p>
+                  <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowFechoDialog(true)}>
+                    <Plus className="h-3 w-3" /> Fecho de Negócio
+                  </Button>
+                </div>
+                {isLoadingVenda ? (
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                ) : totalCount > 0 ? (
+                  <>
+                    {/* Submitted+ processes (same card as angariação) */}
+                    {negocioProcesses.map((proc) => {
+                      const typeLabel = proc.deal_type === 'pleno' ? 'Pleno' : proc.deal_type === 'comprador_externo' ? 'Comprador Externo' : proc.deal_type === 'pleno_agencia' ? 'Pleno de Agência' : proc.deal_type === 'angariacao_externa' ? 'Angariação Externa' : 'Negócio'
+                      const percent = proc.percent_complete || 0
                       return (
-                        <div key={deal.id} className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 shrink-0">
-                            <FileText className="h-4 w-4 text-emerald-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
+                        <div key={proc.id} className="rounded-xl border bg-card shadow-sm p-5 cursor-pointer transition-all hover:shadow-md hover:border-primary/30" onClick={() => router.push(`/dashboard/processos/${proc.id}`)}>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10"><Briefcase className="h-4 w-4 text-emerald-600" /></div>
+                              <div>
+                                <p className="font-semibold text-sm">{proc.external_ref || 'Sem referência'}</p>
+                                <p className="text-xs text-muted-foreground">{typeLabel}</p>
+                              </div>
+                            </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">{deal.reference || deal.pv_number || 'Sem referência'}</span>
-                              <span className={cn('text-[10px] font-medium rounded-full px-2 py-0.5', st.color)}>{st.label}</span>
+                              <StatusBadge status={proc.current_status} type="process" />
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {deal.deal_value && <span className="font-medium text-foreground">{formatCurrency(Number(deal.deal_value))}</span>}
-                              {deal.deal_type && <span>{deal.deal_type}</span>}
-                              {deal.deal_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(deal.deal_date)}</span>}
-                              {deal.consultant?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{deal.consultant.commercial_name}</span>}
-                            </div>
+                          </div>
+                          <div className="space-y-1.5 mb-3">
+                            <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Progresso</span><span className="font-medium">{percent}%</span></div>
+                            <Progress value={percent} className="h-1.5" />
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                            {proc.tpl_processes?.name && <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{proc.tpl_processes.name}</span>}
+                            {proc.requested_by_user?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proc.requested_by_user.commercial_name}</span>}
+                            {proc.started_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(proc.started_at)}</span>}
                           </div>
                         </div>
                       )
                     })}
-                  </div>
-                </div>
-              ) : (
-                <EmptySection icon={FileText} message="Sem processos de venda. Serão criados após aceitação de uma proposta." />
-              )}
-            </div>
-          )}
+
+                    {/* Draft deals (not yet submitted) */}
+                    {draftDeals.map((deal) => (
+                      <div
+                        key={deal.id}
+                        className="rounded-xl border border-dashed bg-card shadow-sm p-5 cursor-pointer transition-all hover:shadow-md hover:border-primary/30"
+                        onClick={() => {
+                          setResumeDealId(deal.id)
+                          setShowFechoDialog(true)
+                        }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500/10"><Briefcase className="h-4 w-4 text-slate-500" /></div>
+                            <div>
+                              <p className="font-semibold text-sm">Rascunho</p>
+                              {deal.deal_type && <p className="text-xs text-muted-foreground">{deal.deal_type === 'pleno' ? 'Pleno' : deal.deal_type === 'comprador_externo' ? 'Comprador Externo' : deal.deal_type === 'pleno_agencia' ? 'Pleno de Agência' : deal.deal_type === 'angariacao_externa' ? 'Angariação Externa' : deal.deal_type}</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-slate-500/15 text-slate-700">Rascunho</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                if (!confirm('Eliminar este rascunho?')) return
+                                try {
+                                  await fetch(`/api/deals/${deal.id}`, { method: 'DELETE' })
+                                  toast.success('Rascunho eliminado')
+                                  fetchDeals()
+                                } catch {
+                                  toast.error('Erro ao eliminar')
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 mb-3">
+                          <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Progresso</span><span className="font-medium">Rascunho</span></div>
+                          <Progress value={0} className="h-1.5" />
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                          {deal.deal_value > 0 && <span className="font-medium text-foreground">{formatCurrency(Number(deal.deal_value))}</span>}
+                          {deal.business_type && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{deal.business_type === 'venda' ? 'Venda' : deal.business_type === 'arrendamento' ? 'Arrendamento' : 'Trespasse'}</span>}
+                          {deal.consultant?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{deal.consultant.commercial_name}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <EmptySection icon={Briefcase} message="Sem processos de negócio. Clique em 'Fecho de Negócio' para iniciar." />
+                )}
+              </div>
+            )
+          })()}
 
           {/* ══ Sub-tab: IMPIC ══ */}
           {processSubTab === 'impic' && (
@@ -1387,11 +1457,27 @@ export default function ImovelDetalhePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Deal form dialog */}
-      <DealForm
-        open={showDealDialog}
-        onOpenChange={setShowDealDialog}
-        onSuccess={() => { fetchDeals() }}
+      {/* Fecho de Negocio dialog */}
+      <DealDialog
+        open={showFechoDialog}
+        onOpenChange={(open) => {
+          setShowFechoDialog(open)
+          if (!open) setResumeDealId(null)
+        }}
+        draftId={resumeDealId}
+        propertyContext={!resumeDealId && property ? {
+          id: property.id,
+          title: property.title,
+          external_ref: property.external_ref,
+          business_type: property.business_type,
+          listing_price: property.listing_price,
+          city: property.city,
+          commission_agreed: property.dev_property_internal?.commission_agreed ? Number(property.dev_property_internal.commission_agreed) : null,
+        } : undefined}
+        onComplete={() => {
+          fetchDeals()
+          setResumeDealId(null)
+        }}
       />
     </div>
   )

@@ -94,85 +94,93 @@ export function GoalDailyPopup() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss() }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <Target className="h-5 w-5 text-primary" />
+      <DialogContent className="sm:max-w-md overflow-hidden rounded-2xl p-0 gap-0">
+        {/* Black header */}
+        <div className="bg-neutral-900 px-6 py-5 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
+              <Target className="h-5 w-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-base">Objetivos de Hoje</DialogTitle>
-              <p className="text-xs text-muted-foreground">
+              <DialogTitle className="text-base font-semibold text-white">Objetivos de Hoje</DialogTitle>
+              <p className="text-xs text-white/60">
                 {new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
             </div>
           </div>
-        </DialogHeader>
 
-        {/* Daily revenue target */}
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-center justify-between">
+          {/* Revenue targets in header */}
+          <div className="mt-4 flex items-end justify-between">
             <div>
-              <p className="text-xs text-muted-foreground">Objetivo diário</p>
-              <p className="text-xl font-bold">{formatCurrency(data.dailyRevenue || 0)}</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/50">Objetivo diário</p>
+              <p className="text-2xl font-bold text-white">{formatCurrency(data.dailyRevenue || 0)}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Semanal</p>
-              <p className="text-sm font-semibold">{formatCurrency(data.weeklyRevenue || 0)}</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/50">Semanal</p>
+              <p className="text-sm font-semibold text-white/80">{formatCurrency(data.weeklyRevenue || 0)}</p>
             </div>
           </div>
         </div>
 
-        {/* Actions list */}
-        <div className="space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">Ações necessárias hoje</p>
+        {/* Content */}
+        <div className="px-6 py-5 space-y-4">
+          {/* Actions list */}
+          <div className="space-y-3">
+            <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Ações necessárias hoje</p>
 
-          {data.actions?.map((action) => {
-            const Icon = ACTION_ICONS[action.key] || MessageSquare
-            const style = STATUS_STYLES[action.status]
-            const pct = action.target > 0 ? Math.min((action.done / action.target) * 100, 100) : 0
+            {data.actions?.map((action) => {
+              const Icon = ACTION_ICONS[action.key] || MessageSquare
+              const style = STATUS_STYLES[action.status]
+              const pct = action.target > 0 ? Math.min((action.done / action.target) * 100, 100) : 0
+              const isDone = action.done >= action.target
 
-            return (
-              <div key={action.key} className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={cn('h-2 w-2 rounded-full', style.dot)} />
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-sm">{action.label}</span>
+              return (
+                <div key={action.key} className="rounded-xl border bg-muted/20 px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn(
+                        'flex h-7 w-7 items-center justify-center rounded-lg',
+                        isDone ? 'bg-emerald-500/15' : 'bg-muted/50'
+                      )}>
+                        <Icon className={cn('h-3.5 w-3.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')} />
+                      </div>
+                      <span className="text-sm font-medium">{action.label}</span>
+                    </div>
+                    <span className="text-sm tabular-nums font-bold">
+                      {action.done}<span className="text-muted-foreground font-normal">/{action.target}</span>
+                    </span>
                   </div>
-                  <span className="text-sm tabular-nums font-medium">
-                    {action.done}<span className="text-muted-foreground">/{action.target}</span>
-                  </span>
+                  <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all duration-500', style.bar)}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div
-                    className={cn('h-1.5 rounded-full transition-all', style.bar)}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+
+          {/* Projection message */}
+          {data.projectionMessage && (
+            <p className="rounded-xl border border-dashed bg-muted/10 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+              {data.projectionMessage}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-1">
+            <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleDismiss}>
+              Fechar
+            </Button>
+            <Button size="sm" className="rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200" asChild onClick={handleDismiss}>
+              <Link href={`/dashboard/objetivos/${data.goalId}`}>
+                Ver Dashboard
+                <ArrowRight className="ml-2 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
         </div>
-
-        {/* Projection message */}
-        {data.projectionMessage && (
-          <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-            {data.projectionMessage}
-          </p>
-        )}
-
-        <DialogFooter className="flex-row gap-2 sm:justify-between">
-          <Button variant="ghost" size="sm" onClick={handleDismiss}>
-            Fechar
-          </Button>
-          <Button size="sm" asChild onClick={handleDismiss}>
-            <Link href={`/dashboard/objetivos/${data.goalId}`}>
-              Ver Dashboard Completo
-              <ArrowRight className="ml-2 h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

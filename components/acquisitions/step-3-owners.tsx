@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
-import { Plus, Trash2, User } from 'lucide-react'
+import { Plus, Trash2, User, ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import {
   FormControl,
   FormField,
@@ -32,6 +34,16 @@ interface StepOwnersProps {
 
 export function StepOwners({ form }: StepOwnersProps) {
   const owners = form.watch('owners') || []
+  const [expandedOwners, setExpandedOwners] = useState<Set<number>>(new Set([0]))
+
+  const toggleExpanded = (index: number) => {
+    setExpandedOwners(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
 
   const addOwner = () => {
     const newOwner = {
@@ -44,6 +56,7 @@ export function StepOwners({ form }: StepOwnersProps) {
       is_main_contact: owners.length === 0,
     }
     form.setValue('owners', [...owners, newOwner])
+    setExpandedOwners(prev => new Set([...prev, owners.length]))
   }
 
   const removeOwner = (index: number) => {
@@ -98,27 +111,54 @@ export function StepOwners({ form }: StepOwnersProps) {
         </Card>
       )}
 
-      {owners.map((owner: any, index: number) => (
+      {owners.map((owner: any, index: number) => {
+        const isExpanded = expandedOwners.has(index)
+        const ownerName = owner.name?.trim() || `Proprietário ${index + 1}`
+        const ownerNif = owner.nif ? ` · NIF ${owner.nif}` : ''
+        const ownerType = owner.person_type === 'coletiva' ? 'Empresa' : 'Singular'
+
+        return (
         <Card key={index}>
-          <CardContent>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">Proprietário {index + 1}</Badge>
-                {owner.is_main_contact && (
-                  <Badge variant="default">Contacto Principal</Badge>
+          <CardContent className="p-0">
+            {/* Collapsible header */}
+            <button
+              type="button"
+              onClick={() => toggleExpanded(index)}
+              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-accent/30 transition-colors"
+            >
+              <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200', isExpanded && 'rotate-180')} />
+              <div className="flex-1 text-left min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm truncate">{ownerName}</span>
+                  {owner.is_main_contact && (
+                    <Badge variant="default" className="text-[10px] shrink-0">Principal</Badge>
+                  )}
+                </div>
+                {!isExpanded && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{ownerType}{ownerNif} · {owner.ownership_percentage || 100}%</p>
                 )}
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => removeOwner(index)}
+                className="shrink-0"
+                onClick={(e) => { e.stopPropagation(); removeOwner(index) }}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
-            </div>
+            </button>
 
-            <div className="space-y-4">
+            {/* Collapsible content */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+            <div className="overflow-hidden">
+            <div className="px-5 pb-5 space-y-4">
               <FormField
                 control={form.control}
                 name={`owners.${index}.person_type`}
@@ -266,9 +306,12 @@ export function StepOwners({ form }: StepOwnersProps) {
                 />
               )}
             </div>
+            </div>
+            </div>
           </CardContent>
         </Card>
-      ))}
+        )
+      })}
     </div>
   )
 }

@@ -63,6 +63,8 @@ export default function LeadDetailPage() {
   const [negocios, setNegocios] = useState<Record<string, unknown>[]>([])
   const [negociosLoading, setNegociosLoading] = useState(false)
   const [newNegocioOpen, setNewNegocioOpen] = useState(false)
+  const [negocioToDelete, setNegocioToDelete] = useState<string | null>(null)
+  const [deletingNegocio, setDeletingNegocio] = useState(false)
   const [newNegocioTipo, setNewNegocioTipo] = useState('')
   const [creatingNegocio, setCreatingNegocio] = useState(false)
 
@@ -262,6 +264,22 @@ export default function LeadDetailPage() {
     }
   }
 
+  const handleDeleteNegocio = async () => {
+    if (!negocioToDelete) return
+    setDeletingNegocio(true)
+    try {
+      const res = await fetch(`/api/negocios/${negocioToDelete}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erro ao eliminar negócio')
+      toast.success('Negócio eliminado')
+      setNegocioToDelete(null)
+      loadNegocios()
+    } catch {
+      toast.error('Erro ao eliminar negócio')
+    } finally {
+      setDeletingNegocio(false)
+    }
+  }
+
   /* ─── Attachments ─── */
 
   const handleDeleteAttachment = async () => {
@@ -403,6 +421,13 @@ export default function LeadDetailPage() {
                           <span className="text-muted-foreground">
                             {formatDate(neg.created_at as string)}
                           </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                            title="Eliminar negócio"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                           <ExternalLink className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </CardContent>
@@ -443,6 +468,28 @@ export default function LeadDetailPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* Confirmar eliminação negócio */}
+              <AlertDialog open={!!negocioToDelete} onOpenChange={(open) => !open && setNegocioToDelete(null)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Eliminar Negócio</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem a certeza de que pretende eliminar este negócio? Esta acção é irreversível.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteNegocio}
+                      disabled={deletingNegocio}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deletingNegocio ? 'A eliminar...' : 'Eliminar'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </TabsContent>
 
             {/* ─── Histórico Tab ─── */}

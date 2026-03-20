@@ -19,9 +19,13 @@ interface DocCategoryCardProps {
   propertyId?: string
   ownerId?: string
   consultantId?: string
-  // Deferred
   deferred?: boolean
   onFileSelected?: (file: File, docTypeId: string) => void
+  // Deletion
+  onDeleteSingle?: (docTypeId: string) => void
+  selectedForDeletion?: Set<string>
+  onToggleDeleteSelection?: (docTypeId: string) => void
+  isInDeleteMode?: boolean
 }
 
 // SVG circular progress ring
@@ -83,6 +87,10 @@ export function DocCategoryCard({
   consultantId,
   deferred,
   onFileSelected,
+  onDeleteSingle,
+  selectedForDeletion,
+  onToggleDeleteSelection,
+  isInDeleteMode,
 }: DocCategoryCardProps) {
   // Um doc "conta" se tem file_url (uploaded) OU file_name sem file_url (pending/deferred)
   const uploadedCount = docTypes.filter((dt) =>
@@ -121,6 +129,10 @@ export function DocCategoryCard({
               consultantId={consultantId}
               deferred={deferred}
               onFileSelected={onFileSelected}
+              onDeleteSingle={onDeleteSingle}
+              isSelectedForDeletion={selectedForDeletion?.has(dt.id)}
+              onToggleDeleteSelection={onToggleDeleteSelection}
+              isInDeleteMode={isInDeleteMode}
             />
           )
         })}

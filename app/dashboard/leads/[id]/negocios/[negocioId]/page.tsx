@@ -8,7 +8,7 @@ import { pt } from 'date-fns/locale'
 import {
   ArrowLeft, Building2, Plus, Sparkles, Link2, Globe, Loader2, ExternalLink,
   Trash2, CalendarDays, Clock, Star, Home, MapPin, Euro, CreditCard, Landmark,
-  Phone, Mail, ChevronRight,
+  Phone, Mail, ChevronRight, Users, Eye, EyeOff, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -23,6 +23,7 @@ import {
   NEGOCIO_ESTADO_OPTIONS,
   NEGOCIO_PROPERTY_STATUS,
   VISIT_STATUS_COLORS,
+  formatCurrency,
 } from '@/lib/constants'
 import type { NegocioWithLeadBasic, NegocioProperty } from '@/types/lead'
 import type { VisitWithRelations } from '@/types/visit'
@@ -50,6 +51,205 @@ function WhatsAppIcon({ className }: { className?: string }) {
   )
 }
 
+// ─── Venda Perspective (for Compra e Venda) ──────────────────────────────────
+
+function VendaPerspective({ negocio, negocioId, leadId, onStartAcquisition, onOpenVendaProfile }: { negocio: any; negocioId: string; leadId: string; onStartAcquisition: () => void; onOpenVendaProfile: () => void }) {
+  const router = useRouter()
+  const [property, setProperty] = useState<any>(null)
+  const [process, setProcess] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const procRes = await fetch(`/api/processes?negocio_id=${negocioId}&limit=1`)
+        if (procRes.ok) {
+          const procJson = await procRes.json()
+          const proc = procJson.data?.[0]
+          if (proc) {
+            setProcess(proc)
+            if (proc.property_id) {
+              const propRes = await fetch(`/api/properties/${proc.property_id}`)
+              if (propRes.ok) {
+                const propJson = await propRes.json()
+                setProperty(propJson.data || propJson)
+              }
+            }
+          }
+        }
+      } catch {}
+      finally { setLoading(false) }
+    }
+    load()
+  }, [negocioId])
+
+  if (loading) {
+    return <div className="space-y-4"><Skeleton className="h-64 rounded-2xl" /></div>
+  }
+
+  const cover = property?.dev_property_media?.find((m: any) => m.is_cover)?.url || property?.dev_property_media?.[0]?.url
+  const specs = property?.dev_property_specifications
+  const consultant = property?.consultant
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      {/* Sidebar — Perfil de Venda card */}
+      <div className="space-y-4">
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-3 transition-all duration-300 hover:shadow-md cursor-pointer group" onClick={onOpenVendaProfile}>
+          <div className="flex items-center justify-between">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Perfil de Venda</h4>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {negocio.tipo_imovel_venda && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full">
+                <Building2 className="h-2.5 w-2.5" />{negocio.tipo_imovel_venda}
+              </span>
+            )}
+            {negocio.localizacao_venda && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full">
+                <MapPin className="h-2.5 w-2.5" />{negocio.localizacao_venda}
+              </span>
+            )}
+          </div>
+          {negocio.preco_venda && (
+            <div>
+              <p className="text-[10px] text-muted-foreground">Preço Pretendido</p>
+              <p className="text-sm font-bold tabular-nums">{formatCurrency(Number(negocio.preco_venda))}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main content — Imóvel */}
+      <div className="space-y-4">
+          {!property ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-neutral-100 dark:bg-white/10 flex items-center justify-center mb-4">
+                <Building2 className="h-8 w-8 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-lg font-semibold">Sem imóvel associado à venda</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                Inicie o processo de angariação para associar o imóvel que este cliente pretende vender.
+              </p>
+              <Button className="mt-5 rounded-full px-6" onClick={onStartAcquisition}>
+                <Home className="mr-2 h-4 w-4" />
+                Iniciar Angariação
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Property hero card */}
+              <div className="group rounded-2xl border overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl bg-card"
+                onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
+              >
+                <div className="relative h-56 sm:h-72 bg-muted">
+                  {cover ? (
+                    <img src={cover} alt={property.title} className="h-full w-full object-cover group-hover:scale-[1.02] transition-transform duration-500" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center"><Building2 className="h-16 w-16 text-muted-foreground/15" /></div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-neutral-900/20 to-transparent" />
+                  {property.listing_price && (
+                    <div className="absolute top-4 right-4">
+                      <span className="inline-flex items-center bg-white/90 backdrop-blur-sm text-neutral-900 font-bold px-4 py-1.5 rounded-full shadow-lg text-base">
+                        {formatCurrency(Number(property.listing_price))}
+                      </span>
+                    </div>
+                  )}
+                  {property.external_ref && (
+                    <div className="absolute top-4 left-4">
+                      <span className="inline-flex items-center bg-neutral-900/70 backdrop-blur-sm text-white text-xs font-medium px-3 py-1 rounded-full">
+                        {property.external_ref}
+                      </span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-4 left-5 right-5">
+                    <h2 className="text-xl font-bold text-white leading-tight">{property.title}</h2>
+                    <div className="flex items-center gap-2 mt-1.5 text-white/70 text-sm">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {[property.city, property.zone].filter(Boolean).join(', ')}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {specs?.bedrooms && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold">{specs.typology || `T${specs.bedrooms}`}</p>
+                        <p className="text-[10px] text-muted-foreground">Tipologia</p>
+                      </div>
+                    )}
+                    {specs?.area_util && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold">{specs.area_util} m²</p>
+                        <p className="text-[10px] text-muted-foreground">Área útil</p>
+                      </div>
+                    )}
+                    {specs?.bathrooms && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold">{specs.bathrooms}</p>
+                        <p className="text-[10px] text-muted-foreground">WC</p>
+                      </div>
+                    )}
+                    {specs?.parking_spaces && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold">{specs.parking_spaces}</p>
+                        <p className="text-[10px] text-muted-foreground">Estacion.</p>
+                      </div>
+                    )}
+                    {consultant && (
+                      <div className="ml-auto flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-white/10 overflow-hidden shrink-0">
+                          {consultant.dev_consultant_profiles?.profile_photo_url ? (
+                            <img src={consultant.dev_consultant_profiles.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-sm font-bold text-muted-foreground">
+                              {(consultant.commercial_name || '?')[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{consultant.commercial_name}</p>
+                          <p className="text-[11px] text-muted-foreground">Consultor</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Process status */}
+              {process && (
+                <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Processo de Angariação</p>
+                      <p className="text-sm font-bold mt-1">{process.external_ref}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-2xl font-bold tabular-nums">{process.percent_complete || 0}%</p>
+                        <p className="text-[10px] text-muted-foreground">Progresso</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="rounded-full" onClick={() => router.push(`/dashboard/processos/${process.id}`)}>
+                        Ver Processo
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-muted/50 overflow-hidden">
+                    <div className="h-full rounded-full bg-neutral-900 dark:bg-white transition-all duration-500" style={{ width: `${process.percent_complete || 0}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+      </div>
+    </div>
+  )
+}
+
 export default function NegocioDetailPage() {
   const { id: leadId, negocioId } = useParams<{ id: string; negocioId: string }>()
   const router = useRouter()
@@ -68,6 +268,9 @@ export default function NegocioDetailPage() {
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [addingPropertyId, setAddingPropertyId] = useState<string | null>(null)
 
+  // Property detail sheet
+  const [selectedProperty, setSelectedProperty] = useState<NegocioProperty | null>(null)
+
   // External link dialog
   const [showExternalDialog, setShowExternalDialog] = useState(false)
   const [extUrl, setExtUrl] = useState('')
@@ -83,9 +286,22 @@ export default function NegocioDetailPage() {
   const [visitPropertyId, setVisitPropertyId] = useState<string | null>(null)
   const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined)
 
-  // Profile sheet
+  // Interessados
+  const [interessados, setInteressados] = useState<any[]>([])
+  const [isLoadingInteressados, setIsLoadingInteressados] = useState(false)
+  const [hiddenInteressados, setHiddenInteressados] = useState<Set<string>>(new Set())
+  const [showHidden, setShowHidden] = useState(false)
+
+  // Profile sheets
   const [showProfileSheet, setShowProfileSheet] = useState(false)
+  const [showVendaProfileSheet, setShowVendaProfileSheet] = useState(false)
   const [sheetTab, setSheetTab] = useState<'imovel' | 'credito' | 'contexto'>('imovel')
+
+  // Compra e Venda perspective toggle
+  const [perspective, setPerspective] = useState<'compra' | 'venda'>('compra')
+
+  // Venda stats (fetched from property interessados)
+  const [vendaStats, setVendaStats] = useState({ visits: 0, interessados: 0, propostas: 0 })
 
   const loadNegocio = useCallback(async () => {
     setIsLoading(true)
@@ -132,17 +348,54 @@ export default function NegocioDetailPage() {
     finally { setIsLoadingVisits(false) }
   }, [leadId])
 
+  const fetchInteressados = useCallback(async () => {
+    setIsLoadingInteressados(true)
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}/interessados`)
+      if (res.ok) { const json = await res.json(); setInteressados(json.data || []) }
+    } catch { setInteressados([]) }
+    finally { setIsLoadingInteressados(false) }
+  }, [negocioId])
+
   useEffect(() => { loadNegocio() }, [loadNegocio])
 
   const tipo = (form.tipo as string) || negocio?.tipo || ''
   const estado = (form.estado as string) || negocio?.estado || 'Aberto'
   const isBuyerType = ['Compra', 'Compra e Venda'].includes(tipo)
+  const isSellerType = ['Venda', 'Compra e Venda'].includes(tipo)
   const isInAcompanhamento = isBuyerType && ['Em Acompanhamento', 'Proposta'].includes(estado)
 
   // Load properties when entering acompanhamento mode
   useEffect(() => {
     if (isInAcompanhamento && negocioId) { fetchProperties() }
   }, [isInAcompanhamento, negocioId, fetchProperties])
+
+  // Fetch venda stats (visits/interessados/propostas for the linked property)
+  useEffect(() => {
+    if (tipo !== 'Compra e Venda') return
+    async function fetchVendaStats() {
+      try {
+        const procRes = await fetch(`/api/processes?negocio_id=${negocioId}&limit=1`)
+        if (!procRes.ok) return
+        const procJson = await procRes.json()
+        const proc = procJson.data?.[0]
+        if (!proc?.property_id) return
+
+        const [visitsRes, interessadosRes] = await Promise.all([
+          fetch(`/api/properties/${proc.property_id}/visits`).then(r => r.ok ? r.json() : { data: [] }),
+          fetch(`/api/properties/${proc.property_id}/interessados`).then(r => r.ok ? r.json() : { linked: [] }),
+        ])
+
+        const visitCount = visitsRes.data?.length || 0
+        const linked = interessadosRes.linked || []
+        const interessadosCount = linked.filter((l: any) => l.status === 'interested').length
+        const propostasCount = linked.filter((l: any) => l.status === 'proposal').length
+
+        setVendaStats({ visits: visitCount, interessados: interessadosCount, propostas: propostasCount })
+      } catch {}
+    }
+    fetchVendaStats()
+  }, [tipo, negocioId])
 
   const updateField = (field: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -296,68 +549,115 @@ export default function NegocioDetailPage() {
       {/* Hero header */}
       <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 flex flex-wrap items-center gap-4 sm:gap-6">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <Select value={estado} onValueChange={(v) => saveSidebarField('estado', v)}>
-                <SelectTrigger className={`${statusStyle.bg} ${statusStyle.text} border-0 rounded-full text-[10px] font-medium h-6 w-auto px-2.5 gap-1 [&>svg]:h-3 [&>svg]:w-3`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot} inline-block shrink-0`} />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEGOCIO_ESTADO_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-neutral-500 text-xs">
-                desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
-              </span>
+        <div className="relative z-10">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <Select value={estado} onValueChange={(v) => saveSidebarField('estado', v)}>
+                  <SelectTrigger className={`${statusStyle.bg} ${statusStyle.text} border-0 rounded-full text-[10px] font-medium h-6 w-auto px-2.5 gap-1 [&>svg]:h-3 [&>svg]:w-3`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot} inline-block shrink-0`} />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NEGOCIO_ESTADO_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-neutral-500 text-xs">
+                  desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick contact */}
+            <div className="hidden sm:flex items-center gap-2">
+              {phone && (
+                <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                  <Phone className="h-4 w-4" />
+                </a>
+              )}
+              {phone && (
+                <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                  <WhatsAppIcon className="h-4 w-4" />
+                </a>
+              )}
+              {email && (
+                <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                  <Mail className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+
+            {/* Stats — adapt to perspective */}
+            <div className="hidden lg:flex items-center gap-4 ml-4">
+              {(tipo !== 'Compra e Venda' || perspective === 'compra') ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white tabular-nums">{properties.length}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Imóveis</p>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white/70 tabular-nums">{visitedCount}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Visitados</p>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white/70 tabular-nums">{interestedCount}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Interessados</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white tabular-nums">{vendaStats.visits}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Visitas</p>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white/70 tabular-nums">{vendaStats.interessados}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Interessados</p>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white/70 tabular-nums">{vendaStats.propostas}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Propostas</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Quick contact */}
-          <div className="hidden sm:flex items-center gap-2">
-            {phone && (
-              <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                <Phone className="h-4 w-4" />
-              </a>
-            )}
-            {phone && (
-              <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                <WhatsAppIcon className="h-4 w-4" />
-              </a>
-            )}
-            {email && (
-              <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                <Mail className="h-4 w-4" />
-              </a>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="hidden lg:flex items-center gap-4 ml-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-white tabular-nums">{properties.length}</p>
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Imóveis</p>
+          {/* Compra / Venda perspective toggle — inside the card */}
+          {tipo === 'Compra e Venda' && (
+            <div className="mt-4">
+              <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-white/10">
+                <button onClick={() => setPerspective('compra')}
+                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
+                    perspective === 'compra' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
+                  )}
+                >Compra</button>
+                <button onClick={() => setPerspective('venda')}
+                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
+                    perspective === 'venda' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
+                  )}
+                >Venda</button>
+              </div>
             </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-center">
-              <p className="text-2xl font-bold text-amber-400 tabular-nums">{visitedCount}</p>
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Visitados</p>
-            </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-center">
-              <p className="text-2xl font-bold text-emerald-400 tabular-nums">{interestedCount}</p>
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Interessados</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* 2-column layout */}
+      {/* ═══ VENDA PERSPECTIVE ═══ */}
+      {tipo === 'Compra e Venda' && perspective === 'venda' && (
+        <VendaPerspective negocio={neg} negocioId={negocioId} leadId={leadId} onStartAcquisition={() => setAcquisitionDialogOpen(true)} onOpenVendaProfile={() => setShowVendaProfileSheet(true)} />
+      )}
+
+      {/* ═══ COMPRA PERSPECTIVE ═══ */}
+      {(tipo !== 'Compra e Venda' || perspective === 'compra') && (
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
         {/* Sidebar */}
         <div className="space-y-4">
@@ -390,6 +690,7 @@ export default function NegocioDetailPage() {
               )}
             </div>
           </div>
+
         </div>
 
         {/* Main content */}
@@ -408,9 +709,16 @@ export default function NegocioDetailPage() {
                   <CalendarDays className="h-4 w-4" /> Visitas
                   {visits.length > 0 && <Badge variant="secondary" className="text-[10px] rounded-full px-1.5 ml-0.5">{visits.length}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="form" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  Dados
-                </TabsTrigger>
+                {isSellerType && (
+                  <TabsTrigger value="interessados" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm" onClick={() => { if (interessados.length === 0) fetchInteressados() }}>
+                    <Users className="h-4 w-4" /> Interessados
+                    {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length > 0 && (
+                      <Badge variant="secondary" className="text-[10px] rounded-full px-1.5 ml-0.5">
+                        {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                )}
               </TabsList>
               <Button variant="outline" size="sm" className="rounded-full" onClick={() => setShowExternalDialog(true)}>
                 <Link2 className="mr-1.5 h-3.5 w-3.5" /> Adicionar Link
@@ -435,8 +743,13 @@ export default function NegocioDetailPage() {
                     const propStatus = NEGOCIO_PROPERTY_STATUS[ap.status as keyof typeof NEGOCIO_PROPERTY_STATUS]
                     const price = isExternal ? ap.external_price : p?.listing_price
 
+                    const consultant = p?.consultant
+                    const consultantName = consultant?.commercial_name
+
                     return (
-                      <div key={ap.id} className="group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
+                      <div key={ap.id} className="group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2 cursor-pointer" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                        onClick={() => !isExternal && setSelectedProperty(ap)}
+                      >
                         <div className="flex">
                           <div className="w-28 shrink-0 relative bg-muted">
                             {cover ? (
@@ -453,17 +766,20 @@ export default function NegocioDetailPage() {
                             )}
                           </div>
                           <div className="flex-1 p-3.5 min-w-0 flex flex-col">
-                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold truncate leading-tight">{isExternal ? (ap.external_title || 'Link Externo') : (p?.title || 'Imóvel')}</p>
-                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{isExternal ? (ap.external_source || 'Portal externo') : [p?.external_ref, p?.city, p?.zone].filter(Boolean).join(' · ')}</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                                  {isExternal ? (ap.external_source || 'Portal externo') : [p?.external_ref, p?.city, p?.zone].filter(Boolean).join(' · ')}
+                                </p>
                               </div>
                               <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', propStatus?.bg, propStatus?.text)}>{propStatus?.label}</Badge>
                             </div>
-                            {!isExternal && specs && (
+                            {!isExternal && (
                               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
-                                {specs.bedrooms && <span>{specs.bedrooms} quartos</span>}
-                                {specs.area_util && <span>{specs.area_util} m²</span>}
+                                {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
+                                {specs?.area_util && <span>{specs.area_util} m²</span>}
+                                {consultantName && <span className="text-foreground/70">· {consultantName}</span>}
                               </div>
                             )}
                             <div className="flex items-center gap-1.5 mt-auto">
@@ -625,13 +941,108 @@ export default function NegocioDetailPage() {
               )}
             </TabsContent>
 
-            {/* Form/Data Tab */}
-            <TabsContent value="form" className="mt-4">
-              <NegocioDataCard tipo={tipo} negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
+            {/* Interessados Tab */}
+            {isSellerType && (
+            <TabsContent value="interessados" className="mt-4">
+              {isLoadingInteressados ? (
+                <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+              ) : interessados.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Users className="h-7 w-7 text-muted-foreground/30" /></div>
+                  <h3 className="text-base font-medium">Nenhum interessado encontrado</h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">Não existem compradores potenciais registados no sistema.</p>
+                  <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={fetchInteressados}><Users className="mr-1.5 h-3.5 w-3.5" />Pesquisar novamente</Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-muted-foreground">
+                      {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length} interessado{interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length !== 1 ? 's' : ''}
+                      {hiddenInteressados.size > 0 && ` · ${hiddenInteressados.size} oculto${hiddenInteressados.size !== 1 ? 's' : ''}`}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {hiddenInteressados.size > 0 && (
+                        <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => setShowHidden(!showHidden)}>
+                          {showHidden ? <EyeOff className="mr-1 h-3 w-3" /> : <Eye className="mr-1 h-3 w-3" />}
+                          {showHidden ? 'Ocultar escondidos' : 'Ver ocultos'}
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={fetchInteressados}><Users className="mr-1 h-3 w-3" />Actualizar</Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {interessados
+                      .filter(int => showHidden || !hiddenInteressados.has(int.negocioId))
+                      .map((int, idx) => {
+                        const isHidden = hiddenInteressados.has(int.negocioId)
+                        return (
+                          <div
+                            key={int.negocioId}
+                            className={cn(
+                              'rounded-xl border bg-card/50 backdrop-blur-sm px-4 py-3 flex items-center justify-between transition-all duration-300 animate-in fade-in slide-in-from-bottom-2',
+                              isHidden && 'opacity-50'
+                            )}
+                            style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm">{int.firstName}</p>
+                              <p className="text-xs text-muted-foreground truncate">{int.colleague}</p>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {int.phone && (
+                                <a href={`tel:${int.phone}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="Ligar">
+                                  <Phone className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                              {int.phone && (
+                                <a href={`https://wa.me/351${int.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="WhatsApp">
+                                  <WhatsAppIcon className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                              {int.email && (
+                                <a href={`mailto:${int.email}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="Email">
+                                  <Mail className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setHiddenInteressados(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(int.negocioId)) next.delete(int.negocioId)
+                                    else next.add(int.negocioId)
+                                    return next
+                                  })
+                                }}
+                                className={cn(
+                                  'h-8 w-8 rounded-full border border-border/50 flex items-center justify-center transition-all',
+                                  isHidden
+                                    ? 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
+                                    : 'bg-muted/40 text-muted-foreground hover:text-red-500 hover:bg-red-50 hover:border-red-200'
+                                )}
+                                title={isHidden ? 'Mostrar' : 'Ocultar'}
+                              >
+                                {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </>
+              )}
             </TabsContent>
+            )}
+
+            {/* Form/Data Tab */}
           </Tabs>
         </div>
       </div>
+      )}
+
+      {/* Acquisition Dialog (shared between standard + venda perspective) */}
+      <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
 
       {/* External Link Dialog */}
       <Dialog open={showExternalDialog} onOpenChange={setShowExternalDialog}>
@@ -680,10 +1091,10 @@ export default function NegocioDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Perfil de Procura Sheet */}
+      {/* Perfil de Procura Sheet — full editable form */}
       <Sheet open={showProfileSheet} onOpenChange={setShowProfileSheet}>
-        <SheetContent className="sm:max-w-md p-0 flex flex-col gap-0 overflow-hidden">
-          <div className="shrink-0 bg-neutral-900 px-6 py-6">
+        <SheetContent className="!sm:max-w-4xl w-full p-0 flex flex-col gap-0 overflow-hidden">
+          <div className="shrink-0 bg-neutral-900 px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center"><Home className="h-5 w-5 text-white" /></div>
               <div>
@@ -691,76 +1102,210 @@ export default function NegocioDetailPage() {
                 <p className="text-neutral-400 text-xs mt-0.5">{clientName}</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-4">
-              {neg.tipo_imovel && <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-white/15 text-white px-2.5 py-1 rounded-full"><Building2 className="h-2.5 w-2.5" />{neg.tipo_imovel}</span>}
-              {neg.classe_imovel && <span className="text-[10px] font-medium bg-white/15 text-white px-2.5 py-1 rounded-full">{neg.classe_imovel}</span>}
-              {neg.estado_imovel && <span className="text-[10px] font-medium bg-white/15 text-white px-2.5 py-1 rounded-full">{neg.estado_imovel}</span>}
-              {neg.quartos_min && <span className="text-[10px] font-medium bg-white/15 text-white px-2.5 py-1 rounded-full">T{neg.quartos_min}+</span>}
-              {neg.casas_banho && <span className="text-[10px] font-medium bg-white/15 text-white px-2.5 py-1 rounded-full">{neg.casas_banho} WC</span>}
-            </div>
-            <div className="flex gap-1 mt-4 p-0.5 rounded-full bg-white/10">
-              {(['imovel', 'credito', 'contexto'] as const).map(tab => (
-                <button key={tab} onClick={() => setSheetTab(tab)} className={cn('flex-1 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300', sheetTab === tab ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white')}>
-                  {tab === 'imovel' ? 'Imóvel' : tab === 'credito' ? 'Crédito' : 'Contexto'}
-                </button>
-              ))}
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-0 p-5">
+            <NegocioDataCard tipo="Compra" negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Perfil de Venda Sheet — full editable form */}
+      <Sheet open={showVendaProfileSheet} onOpenChange={setShowVendaProfileSheet}>
+        <SheetContent className="!sm:max-w-4xl w-full p-0 flex flex-col gap-0 overflow-hidden">
+          <div className="shrink-0 bg-neutral-900 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center"><Building2 className="h-5 w-5 text-white" /></div>
+              <div>
+                <SheetHeader className="space-y-0"><SheetTitle className="text-white text-base">Perfil de Venda</SheetTitle></SheetHeader>
+                <p className="text-neutral-400 text-xs mt-0.5">{clientName}</p>
+              </div>
             </div>
           </div>
+          <div className="flex-1 overflow-y-auto min-h-0 p-5">
+            <NegocioDataCard tipo="Venda" negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-4" key={sheetTab}>
-            <div className="animate-in fade-in duration-200">
-              {sheetTab === 'imovel' && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Orçamento</p><p className="text-lg font-bold tabular-nums mt-1">{budgetText}</p></div>
-                    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Localização</p><div className="flex items-center gap-1.5 mt-1"><MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><p className="text-sm font-medium truncate">{neg.localizacao || '—'}</p></div></div>
+      {/* ═══ Property Detail Sheet ═══ */}
+      <Sheet open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
+        <SheetContent className="sm:max-w-lg p-0 flex flex-col gap-0 overflow-y-auto">
+          {selectedProperty?.property && (() => {
+            const sp = selectedProperty.property!
+            const consultant = sp.consultant
+            const profile = consultant?.dev_consultant_profiles
+            const photos = (sp.dev_property_media || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+            const cover = photos.find(m => m.is_cover)?.url || photos[0]?.url
+            const specs = sp.dev_property_specifications
+
+            return (
+              <>
+                {/* Cover image */}
+                <div className="relative h-52 shrink-0 bg-muted">
+                  {cover ? (
+                    <img src={cover} alt={sp.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center"><Building2 className="h-12 w-12 text-muted-foreground/20" /></div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 to-transparent" />
+                  <div className="absolute bottom-4 left-5 right-5">
+                    <SheetHeader className="space-y-0">
+                      <SheetTitle className="text-white text-lg leading-tight">{sp.title}</SheetTitle>
+                    </SheetHeader>
+                    {sp.external_ref && <p className="text-white/60 text-xs mt-0.5">{sp.external_ref}</p>}
+                    <div className="flex items-center gap-2 mt-1.5 text-white/70 text-xs">
+                      {sp.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{[sp.city, sp.zone].filter(Boolean).join(', ')}</span>}
+                    </div>
                   </div>
-                  {(neg.tem_garagem || neg.tem_elevador || neg.tem_exterior || neg.tem_piscina) && (
-                    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 space-y-2 mt-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Características</p>
+                  {sp.listing_price && (
+                    <div className="absolute top-4 right-4">
+                      <span className="inline-flex items-center bg-white/90 backdrop-blur-sm text-neutral-900 text-sm font-bold px-3 py-1 rounded-full shadow-lg">
+                        {formatCurrency(Number(sp.listing_price))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* External links */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: 'Infinity', url: `https://infinitygroup.pt/property/${sp.id}`, bg: 'bg-neutral-900 dark:bg-white', text: 'text-white dark:text-neutral-900' },
+                      { label: 'RE/MAX', url: sp.external_ref ? `https://www.remax.pt/imoveis/${sp.external_ref}` : null, bg: 'bg-blue-700', text: 'text-white' },
+                    ].filter(l => l.url).map(link => (
+                      <a key={link.label} href={link.url!} target="_blank" rel="noopener noreferrer"
+                        className={cn('inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-all hover:opacity-90 hover:shadow-md', link.bg, link.text)}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+
+                  {/* Specs grid */}
+                  {specs && (
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: 'Quartos', value: specs.typology || (specs.bedrooms ? `T${specs.bedrooms}` : null) },
+                        { label: 'WC', value: specs.bathrooms },
+                        { label: 'Área útil', value: specs.area_util ? `${specs.area_util} m²` : null },
+                        { label: 'Área bruta', value: specs.area_gross ? `${specs.area_gross} m²` : null },
+                        { label: 'Estacion.', value: specs.parking_spaces },
+                      ].filter(s => s.value != null).map(s => (
+                        <div key={s.label} className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-3 text-center">
+                          <p className="text-base font-bold">{s.value}</p>
+                          <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Property info */}
+                  <div className="space-y-2.5">
+                    {sp.property_type && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Tipo</span>
+                        <span className="font-medium">{sp.property_type}</span>
+                      </div>
+                    )}
+                    {sp.business_type && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Negócio</span>
+                        <span className="font-medium">{sp.business_type}</span>
+                      </div>
+                    )}
+                    {sp.address_street && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Morada</span>
+                        <span className="font-medium text-right max-w-[60%] truncate">{sp.address_street}</span>
+                      </div>
+                    )}
+                    {sp.postal_code && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Código Postal</span>
+                        <span className="font-medium">{sp.postal_code}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {sp.description && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Descrição</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-6">{sp.description}</p>
+                    </div>
+                  )}
+
+                  {/* Features */}
+                  {specs?.features && specs.features.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Características</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {neg.tem_garagem && <Badge variant="secondary" className="rounded-full text-[11px] bg-muted/40">Garagem</Badge>}
-                        {neg.tem_elevador && <Badge variant="secondary" className="rounded-full text-[11px] bg-muted/40">Elevador</Badge>}
-                        {neg.tem_exterior && <Badge variant="secondary" className="rounded-full text-[11px] bg-muted/40">Exterior</Badge>}
-                        {neg.tem_piscina && <Badge variant="secondary" className="rounded-full text-[11px] bg-muted/40">Piscina</Badge>}
+                        {specs.features.map((f, i) => (
+                          <span key={i} className="text-[11px] bg-neutral-100 dark:bg-white/10 rounded-full px-2.5 py-1">{f}</span>
+                        ))}
                       </div>
                     </div>
                   )}
-                  {neg.observacoes && (<div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 mt-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Observações</p><p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{neg.observacoes}</p></div>)}
-                </>
-              )}
-              {sheetTab === 'credito' && (
-                <>
-                  <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', neg.credito_pre_aprovado ? 'bg-emerald-500/10' : neg.financiamento_necessario ? 'bg-amber-500/10' : 'bg-muted')}>
-                        <CreditCard className={cn('h-5 w-5', neg.credito_pre_aprovado ? 'text-emerald-500' : neg.financiamento_necessario ? 'text-amber-500' : 'text-muted-foreground')} />
+
+                  {/* Consultant */}
+                  {consultant && (
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Consultor</p>
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-white/10 overflow-hidden shrink-0">
+                          {profile?.profile_photo_url ? (
+                            <img src={profile.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-lg font-bold text-muted-foreground">
+                              {(consultant.commercial_name || '?')[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold">{consultant.commercial_name}</p>
+                          {consultant.professional_email && <p className="text-xs text-muted-foreground truncate">{consultant.professional_email}</p>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {profile?.phone_commercial && (
+                            <a href={`tel:${profile.phone_commercial}`} className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/10 flex items-center justify-center hover:bg-neutral-200 transition-colors" title="Ligar">
+                              <Phone className="h-4 w-4" />
+                            </a>
+                          )}
+                          {profile?.phone_commercial && (
+                            <a href={`https://wa.me/${profile.phone_commercial.replace(/\D/g, '')}`} target="_blank" className="h-9 w-9 rounded-full bg-emerald-500/15 flex items-center justify-center hover:bg-emerald-500/25 transition-colors text-emerald-700" title="WhatsApp">
+                              <WhatsAppIcon className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm font-semibold">{neg.credito_pre_aprovado ? 'Pré-aprovado' : neg.financiamento_necessario ? 'Necessita financiamento' : 'Sem financiamento'}</p>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Crédito</p><p className="text-lg font-bold mt-1">{neg.valor_credito ? `${(neg.valor_credito / 1000).toFixed(0)}k €` : '—'}</p></div>
-                    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Capital Próprio</p><p className="text-lg font-bold mt-1">{neg.capital_proprio ? `${(neg.capital_proprio / 1000).toFixed(0)}k €` : '—'}</p></div>
-                  </div>
-                  <Button variant="outline" className="w-full rounded-full mt-4" onClick={() => { setShowProfileSheet(false); handleStartFinanciamento() }}><Landmark className="mr-2 h-3.5 w-3.5" />Iniciar Financiamento</Button>
-                </>
-              )}
-              {sheetTab === 'contexto' && (
-                <>
-                  {neg.motivacao_compra && (<div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Motivação de Compra</p><p className="text-sm">{neg.motivacao_compra}</p></div>)}
-                  {neg.prazo_compra && (<div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 mt-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prazo</p><p className="text-sm">{neg.prazo_compra}</p></div>)}
-                  <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 mt-4"><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Resumo Financeiro</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Orçamento</span><span className="font-medium">{budgetText}</span></div>
-                      {neg.valor_credito && <div className="flex justify-between"><span className="text-muted-foreground">Crédito</span><span className="font-medium">{(neg.valor_credito / 1000).toFixed(0)}k €</span></div>}
-                      {neg.capital_proprio && <div className="flex justify-between"><span className="text-muted-foreground">Capital próprio</span><span className="font-medium">{(neg.capital_proprio / 1000).toFixed(0)}k €</span></div>}
+                  )}
+
+                  {/* Gallery thumbnails */}
+                  {photos.length > 1 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fotos ({photos.length})</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {photos.slice(0, 8).map((m, i) => (
+                          <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                            <img src={m.url} alt="" className="h-full w-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button className="flex-1 rounded-full" onClick={() => { setSelectedProperty(null); router.push(`/dashboard/imoveis/${sp.id}`) }}>
+                      Ver no CRM
+                    </Button>
                   </div>
-                  {!neg.motivacao_compra && !neg.prazo_compra && (<div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-8 text-center text-sm text-muted-foreground">Sem informações de contexto registadas.</div>)}
-                </>
-              )}
-            </div>
-          </div>
+                </div>
+              </>
+            )
+          })()}
         </SheetContent>
       </Sheet>
     </div>

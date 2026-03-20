@@ -25,10 +25,13 @@ const FUNDS_ORIGINS = [
 ]
 
 const MARITAL_REGIMES = [
-  { value: 'comunhao_adquiridos', label: 'Comunhao de Adquiridos' },
-  { value: 'separacao_bens', label: 'Separacao de Bens' },
-  { value: 'comunhao_geral', label: 'Comunhao Geral de Bens' },
-  { value: 'uniao_facto', label: 'Uniao de Facto' },
+  { value: 'solteiro', label: 'Solteiro(a)' },
+  { value: 'comunhao_adquiridos', label: 'Casado(a) — Comunhão de Adquiridos' },
+  { value: 'separacao_bens', label: 'Casado(a) — Separação de Bens' },
+  { value: 'comunhao_geral', label: 'Casado(a) — Comunhão Geral de Bens' },
+  { value: 'uniao_facto', label: 'União de Facto' },
+  { value: 'divorciado', label: 'Divorciado(a)' },
+  { value: 'viuvo', label: 'Viúvo(a)' },
 ]
 
 interface OwnerKycSingularProps {
@@ -182,13 +185,13 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           )}
         </div>
 
-        {/* Regime Matrimonial */}
+        {/* Estado Civil / Regime */}
         <FormField
           control={form.control}
           name={`owners.${index}.marital_regime`}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Regime Matrimonial</FormLabel>
+              <FormLabel>Estado Civil / Regime</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>

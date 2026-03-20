@@ -134,3 +134,48 @@ export const CONSULTANT_INVOICE_TYPES: Record<ConsultantInvoiceType, string> = {
   recibo_verde: 'Recibo Verde',
   recibo: 'Recibo',
 }
+
+// ── Deal Closing Form Types ──
+
+export type DealScenario = 'pleno' | 'comprador_externo' | 'pleno_agencia' | 'angariacao_externa'
+export type BusinessType = 'venda' | 'arrendamento' | 'trespasse'
+export type PersonType = 'singular' | 'coletiva'
+export type ReferralType = 'interna' | 'externa'
+export type HousingRegime = 'hpp' | 'secundaria' | 'na'
+
+export interface DealClient {
+  id?: string
+  person_type: PersonType
+  name: string
+  email: string
+  phone: string
+  order_index: number
+}
+
+export const DEAL_SCENARIOS: Record<DealScenario, { label: string; description: string }> = {
+  pleno: { label: 'Pleno', description: 'Angariacao e comprador teus' },
+  comprador_externo: { label: 'Comprador Externo', description: 'Angariacao tua e comprador externo' },
+  pleno_agencia: { label: 'Pleno de Agencia', description: 'Angariacao interna e comprador teu' },
+  angariacao_externa: { label: 'Angariacao Externa', description: 'Angariacao externa e comprador teu' },
+}
+
+export const BUSINESS_TYPES: Record<BusinessType, string> = {
+  venda: 'Venda',
+  arrendamento: 'Arrendamento',
+  trespasse: 'Trespasse',
+}
+
+export const HOUSING_REGIMES: Record<HousingRegime, string> = {
+  hpp: 'Habitacao Propria Permanente',
+  secundaria: 'Habitacao Secundaria',
+  na: 'Nao Aplicavel',
+}
+
+export const PROPERTY_TYPES_OPTIONS = [
+  'Apartamento', 'Moradia', 'Quinta', 'Predio',
+  'Comercio', 'Garagem', 'Terreno Urbano', 'Terreno Rustico',
+] as const
+
+export const TYPOLOGY_OPTIONS = [
+  'T0', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7',
+] as const

@@ -129,7 +129,42 @@ export async function DELETE(
     if (!auth.authorized) return auth.response
 
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const mode = searchParams.get('mode') || 'cancel'
     const supabase = await createClient()
+
+    if (mode === 'permanent') {
+      // Hard delete: remove from DB entirely
+      // First nullify NO ACTION foreign keys that would block deletion
+      await Promise.all([
+        supabase.from('temp_deals').update({ property_id: null }).eq('property_id', id),
+        supabase.from('temp_financial_transactions' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('temp_portal_favorites' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('temp_requisitions' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('calendar_events' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('marketing_campaigns' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('marketing_content_calendar' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('marketing_content_requests' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('marketing_orders' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('marketing_requests' as any).update({ property_id: null }).eq('property_id', id),
+        supabase.from('portal_visit_requests' as any).update({ property_id: null }).eq('property_id', id),
+      ])
+
+      // Now delete the property (CASCADE handles specs, internal, media, docs, owners, processes, visits, etc.)
+      const { error } = await supabase
+        .from('dev_properties')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        return NextResponse.json(
+          { error: 'Erro ao eliminar imóvel permanentemente', details: error.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ ok: true, mode: 'permanent' })
+    }
 
     // Soft delete: set status to cancelled
     const { error } = await supabase
@@ -139,12 +174,12 @@ export async function DELETE(
 
     if (error) {
       return NextResponse.json(
-        { error: 'Erro ao eliminar imóvel', details: error.message },
+        { error: 'Erro ao cancelar imóvel', details: error.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, mode: 'cancel' })
   } catch (error) {
     console.error('Erro ao eliminar imóvel:', error)
     return NextResponse.json(

@@ -108,7 +108,7 @@ function DrillDownSheet({ config, open, onOpenChange }: {
           <div className="space-y-2">
             {items.map(item => (
               <button key={item.id} onClick={() => { onOpenChange(false); router.push(item.href) }}
-                className="w-full flex items-center gap-3 rounded-xl border bg-card/50 backdrop-blur-sm p-4 text-left hover:shadow-md hover:bg-card/80 transition-all group"
+                className="w-full flex items-center gap-3 rounded-xl border border-white/50 dark:border-white/10 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-4 text-left hover:shadow-md hover:bg-card/80 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -130,31 +130,87 @@ function DrillDownSheet({ config, open, onOpenChange }: {
   )
 }
 
+// ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
+
+function MiniSparkline({ data, color, height = 32, width = 64 }: {
+  data: number[]; color: string; height?: number; width?: number
+}) {
+  if (data.length < 2) return null
+  const max = Math.max(...data, 1)
+  const min = Math.min(...data, 0)
+  const range = max - min || 1
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width
+    const y = height - ((v - min) / range) * (height * 0.8) - height * 0.1
+    return `${x},${y}`
+  }).join(' ')
+
+  const trend = data[data.length - 1] >= data[data.length - 2]
+
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <defs>
+        <linearGradient id={`spark-${color}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={trend ? '#10b981' : '#ef4444'} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={trend ? '#10b981' : '#ef4444'} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon
+        points={`0,${height} ${points} ${width},${height}`}
+        fill={`url(#spark-${color})`}
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={trend ? '#10b981' : '#ef4444'}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor, onClick }: {
+function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor, onClick, trend, sparkData }: {
   label: string; value: string; sub?: string; icon: React.ElementType
   iconBg: string; iconColor: string; valueColor?: string; onClick?: () => void
+  trend?: { value: number; label: string }; sparkData?: number[]
 }) {
   const Comp = onClick ? 'button' : 'div'
+  const isUp = trend && trend.value >= 0
   return (
     <Comp
       onClick={onClick}
       className={cn(
-        'rounded-2xl border bg-card/50 backdrop-blur-sm p-5 transition-all duration-300 hover:shadow-md hover:bg-card/80 text-left w-full',
+        'relative rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-lg hover:shadow-black/[0.06] text-left w-full overflow-hidden',
         onClick && 'cursor-pointer group'
       )}
     >
-      <div className="flex items-center gap-3">
-        <div className={cn('rounded-xl p-2.5', iconBg)}>
-          <Icon className={cn('h-5 w-5', iconColor)} />
-        </div>
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
+          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2">{label}</p>
           <p className={cn('text-2xl font-bold tracking-tight tabular-nums', valueColor)}>{value}</p>
-          {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
+          <div className="flex items-center gap-2 mt-1">
+            {trend && (
+              <span className={cn(
+                'inline-flex items-center gap-0.5 text-[11px] font-medium',
+                isUp ? 'text-emerald-600' : 'text-red-500'
+              )}>
+                {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {isUp ? '+' : ''}{trend.value}%
+              </span>
+            )}
+            {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+          </div>
         </div>
-        {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground shrink-0 transition-colors" />}
+        {sparkData && sparkData.length > 1 && (
+          <div className="shrink-0 mt-1">
+            <MiniSparkline data={sparkData} color={label.replace(/\s/g, '')} />
+          </div>
+        )}
+        {!sparkData && onClick && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground shrink-0 transition-colors mt-2" />}
       </div>
     </Comp>
   )
@@ -168,7 +224,7 @@ function MiniStat({ label, value, accent, onClick }: {
   if (onClick) {
     return (
       <button onClick={onClick}
-        className="flex items-center justify-between w-full text-left rounded-xl bg-muted/20 px-3.5 py-2.5 mb-1.5 hover:bg-muted/40 transition-all group"
+        className="flex items-center justify-between w-full text-left rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/5 px-3.5 py-2.5 mb-1.5 hover:shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-all group"
       >
         <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
         <span className="flex items-center gap-1.5">
@@ -179,7 +235,7 @@ function MiniStat({ label, value, accent, onClick }: {
     )
   }
   return (
-    <div className="flex items-center justify-between rounded-xl bg-muted/20 px-3.5 py-2.5 mb-1.5">
+    <div className="flex items-center justify-between rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/5 px-3.5 py-2.5 mb-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={cn('text-xs font-bold tabular-nums', accent)}>{value}</span>
     </div>
@@ -283,44 +339,35 @@ function ManagementDashboard() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
       <DrillDownSheet config={sheetConfig} open={sheetOpen} onOpenChange={setSheetOpen} />
 
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/15 via-transparent to-blue-600/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/85 to-neutral-900/70" />
-        <div className="relative z-10 px-8 py-8 sm:px-10 sm:py-10">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase mb-1">Infinity Group</p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Dashboard</h1>
-              <p className="text-neutral-500 text-sm capitalize mt-0.5">{today()}</p>
+      {/* Hero — clean, large type */}
+      <div className="pt-2">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground capitalize mt-1">{today()}</p>
+          </div>
+          <div className="hidden md:flex items-center gap-4">
+            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] px-5 py-3 text-center">
+              <p className="text-xl font-bold text-emerald-600 tabular-nums">{fmt.format(rpt.reported_this_month)}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Este Mês</p>
             </div>
-            <div className="hidden md:flex items-center gap-6">
-              <div className="text-right">
-                <p className="text-2xl font-bold text-emerald-400 tabular-nums">{fmt.format(rpt.reported_this_month)}</p>
-                <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Este Mês</p>
-              </div>
-              <div className="h-10 w-px bg-white/10" />
-              <div className="text-right">
-                <p className="text-2xl font-bold text-white tabular-nums">{fmt.format(rpt.reported_this_year)}</p>
-                <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Este Ano</p>
-              </div>
-              {urgentAlerts > 0 && (
-                <>
-                  <div className="h-10 w-px bg-white/10" />
-                  <Badge variant="destructive" className="gap-1.5 rounded-full">
-                    <AlertCircle className="h-3 w-3" />
-                    {urgentAlerts}
-                  </Badge>
-                </>
-              )}
+            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] px-5 py-3 text-center">
+              <p className="text-xl font-bold tabular-nums">{fmt.format(rpt.reported_this_year)}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Este Ano</p>
             </div>
+            {urgentAlerts > 0 && (
+              <Badge variant="destructive" className="gap-1.5 rounded-full h-8 px-3">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {urgentAlerts} alertas
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
       {/* Main Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm h-auto">
+        <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] h-auto">
           {[
             { value: 'overview', label: 'Visão Geral', icon: Euro },
             { value: 'pipeline', label: 'Pipeline', icon: Handshake },
@@ -341,19 +388,23 @@ function ManagementDashboard() {
         <TabsContent value="overview" className="mt-6 space-y-6">
           {/* KPIs */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Facturação YTD" value={fmt.format(rpt.reported_this_year)} sub={`${fmt.format(rpt.reported_this_month)} este mês`}
-              icon={Euro} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" valueColor="text-emerald-600"
+            <KpiCard label="Facturação YTD" value={fmt.format(rpt.reported_this_year)} sub="este mês"
+              icon={Euro} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
+              sparkData={chart.slice(-6).map(c => c.revenue)}
+              trend={chart.length >= 2 ? { value: Math.round(((chart[chart.length - 1]?.revenue || 0) / Math.max(chart[chart.length - 2]?.revenue || 1, 1) - 1) * 100), label: 'vs mês anterior' } : undefined}
               onClick={() => openDrillDown({ title: 'Facturação Este Ano', fetcher: () => getDrillDownTransactions({ status: 'paid', date_from: `${new Date().getFullYear()}-01-01` }) })}
             />
-            <KpiCard label="Margem YTD" value={fmt.format(mg.margin_this_year)} sub={`${fmt.format(mg.margin_this_month)} este mês`}
-              icon={PiggyBank} iconBg="bg-violet-500/10" iconColor="text-violet-500"
+            <KpiCard label="Margem YTD" value={fmt.format(mg.margin_this_year)} sub="este mês"
+              icon={PiggyBank} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
+              sparkData={chart.slice(-6).map(c => c.margin)}
+              trend={chart.length >= 2 ? { value: Math.round(((chart[chart.length - 1]?.margin || 0) / Math.max(chart[chart.length - 2]?.margin || 1, 1) - 1) * 100), label: 'vs mês anterior' } : undefined}
             />
             <KpiCard label="Pipeline Ponderado" value={fmt.format(pipeTotal)} sub={`${pipeline.length} negócios`}
-              icon={Handshake} iconBg="bg-blue-500/10" iconColor="text-blue-500"
+              icon={Handshake} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
               onClick={() => openDrillDown({ title: 'Pipeline Activo', fetcher: () => getDrillDownProperties({ status: ['available'] }) })}
             />
-            <KpiCard label="Carteira Activa" value={fmt.format(pf.active_volume)} sub={`${fmt.format(pf.potential_revenue)} potencial`}
-              icon={Building2} iconBg="bg-amber-500/10" iconColor="text-amber-500"
+            <KpiCard label="Carteira Activa" value={fmt.format(pf.active_volume)} sub={`${fmtCompact.format(pf.potential_revenue)} potencial`}
+              icon={Building2} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
               onClick={() => openDrillDown({ title: 'Imóveis Activos', fetcher: () => getDrillDownProperties({ status: 'available' }) })}
             />
           </div>
@@ -361,7 +412,7 @@ function ManagementDashboard() {
           {/* Chart + Angariações */}
           <div className="grid gap-4 lg:grid-cols-3">
             {/* Revenue Chart */}
-            <div className="lg:col-span-2 rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+            <div className="lg:col-span-2 rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">Evolução Mensal</h3>
@@ -377,89 +428,178 @@ function ManagementDashboard() {
                   ))}
                 </div>
               </div>
-              <div className="flex items-end gap-1 h-44">
+              {/* Revenue summary */}
+              {filteredChart.length > 0 && (
+                <div className="flex items-baseline gap-3 mb-4">
+                  <span className="text-3xl font-bold tabular-nums tracking-tight">{fmt.format(filteredChart.reduce((s, c) => s + c.revenue, 0))}</span>
+                  {filteredChart.length >= 2 && (() => {
+                    const curr = filteredChart[filteredChart.length - 1]?.revenue || 0
+                    const prev = filteredChart[filteredChart.length - 2]?.revenue || 1
+                    const pctChange = Math.round(((curr / Math.max(prev, 1)) - 1) * 100)
+                    return (
+                      <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium rounded-full px-2 py-0.5',
+                        pctChange >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'
+                      )}>
+                        {pctChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {pctChange >= 0 ? '+' : ''}{pctChange}% vs mês anterior
+                      </span>
+                    )
+                  })()}
+                </div>
+              )}
+              <div className="flex items-end gap-[3px] h-40">
                 {filteredChart.map((c, i) => {
-                  const h = Math.max((c.revenue / chartMax) * 100, 3)
+                  const h = Math.max((c.revenue / chartMax) * 100, 4)
+                  const isLast = i === filteredChart.length - 1
+                  const isPrev = i === filteredChart.length - 2
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                      <div className="w-full rounded-t-md bg-gradient-to-t from-blue-500 to-blue-400 opacity-80 group-hover:opacity-100 transition-all duration-200"
+                      <div className={cn(
+                        'w-full rounded-lg transition-all duration-300',
+                        isLast ? 'bg-neutral-900 dark:bg-white' :
+                        isPrev ? 'bg-neutral-400/50 dark:bg-neutral-500/50' :
+                        'bg-neutral-200 dark:bg-neutral-700/50',
+                        'group-hover:opacity-90'
+                      )}
                         style={{ height: `${h}%` }}
                       />
-                      <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-neutral-900 text-white rounded-lg px-3 py-2 text-xs shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
+                      <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-neutral-900 text-white rounded-xl px-3 py-2 text-[11px] shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
                         <p className="font-semibold">{c.month}</p>
-                        <p className="text-neutral-300">{fmtFull.format(c.revenue)}</p>
+                        <p className="text-neutral-300 tabular-nums">{fmtFull.format(c.revenue)}</p>
                       </div>
-                      <span className="text-[8px] text-muted-foreground mt-1.5 truncate w-full text-center">{shortMonth(c.month)}</span>
+                      <span className="text-[9px] text-muted-foreground mt-2 truncate w-full text-center font-medium">{shortMonth(c.month)}</span>
                     </div>
                   )
                 })}
               </div>
-              <div className="flex gap-3 mt-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="h-2 w-5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600" />Facturação</span>
-              </div>
             </div>
 
             {/* Angariações */}
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
-              <h3 className="text-sm font-semibold mb-3">Angariações</h3>
-              <MiniStat label="Novas este mês" value={acq.new_this_month}
-                onClick={() => openDrillDown({ title: 'Novas Angariações', fetcher: () => getDrillDownProperties({ created_after: monthStart }) })}
-              />
-              <MiniStat label="Activas" value={acq.active}
-                onClick={() => openDrillDown({ title: 'Activas', fetcher: () => getDrillDownProperties({ status: 'available' }) })}
-              />
-              <MiniStat label="Reservadas" value={acq.reserved}
-                onClick={() => openDrillDown({ title: 'Reservadas', fetcher: () => getDrillDownProperties({ status: 'reserved' }) })}
-              />
-              <MiniStat label="Vendidas" value={acq.sold} accent="text-emerald-600"
-                onClick={() => openDrillDown({ title: 'Vendidas', fetcher: () => getDrillDownProperties({ status: 'sold' }) })}
-              />
-              <MiniStat label="Canceladas" value={acq.cancelled} accent={acq.cancelled > 0 ? 'text-red-600' : ''}
-                onClick={() => openDrillDown({ title: 'Canceladas', fetcher: () => getDrillDownProperties({ status: 'cancelled' }) })}
-              />
-              <div className="mt-2 rounded-xl bg-muted/30 p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias sem angariar</p>
-                <p className={cn('text-2xl font-bold tabular-nums mt-0.5', acq.days_without_acquisition > 14 ? 'text-red-600' : acq.days_without_acquisition > 7 ? 'text-amber-600' : 'text-foreground')}>
-                  {acq.days_without_acquisition}
-                </p>
+            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold">Angariações</h3>
+                <div className="rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums bg-neutral-100 dark:bg-white/10 text-foreground">
+                  {acq.days_without_acquisition}d sem angariar
+                </div>
               </div>
+
+              {/* Grid of stats */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {[
+                  { label: 'Novas', value: acq.new_this_month, fetcher: () => getDrillDownProperties({ created_after: monthStart }) },
+                  { label: 'Activas', value: acq.active, fetcher: () => getDrillDownProperties({ status: 'available' }) },
+                  { label: 'Reservadas', value: acq.reserved, fetcher: () => getDrillDownProperties({ status: 'reserved' }) },
+                  { label: 'Vendidas', value: acq.sold, fetcher: () => getDrillDownProperties({ status: 'sold' }) },
+                ].map(s => (
+                  <button key={s.label} onClick={() => openDrillDown({ title: s.label, fetcher: s.fetcher })}
+                    className="rounded-xl p-3 text-center transition-all hover:shadow-md bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 group"
+                  >
+                    <p className="text-2xl font-bold tabular-nums">{s.value}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">{s.label}</p>
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={() => openDrillDown({ title: 'Canceladas', fetcher: () => getDrillDownProperties({ status: 'cancelled' }) })}
+                className="w-full flex items-center justify-between rounded-xl bg-muted/20 px-3.5 py-2.5 hover:bg-muted/40 transition-all group"
+              >
+                <span className="text-xs text-muted-foreground">Canceladas</span>
+                <span className="flex items-center gap-1.5">
+                  <span className={cn('text-xs font-bold tabular-nums', acq.cancelled > 0 ? 'text-red-600' : '')}>{acq.cancelled}</span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                </span>
+              </button>
             </div>
           </div>
 
-          {/* Forecasts + Pending */}
+          {/* Forecasts + Pending — side by side */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
-              <h3 className="text-sm font-semibold mb-3">Previsões</h3>
-              <MiniStat label="Facturação prevista" value={fmt.format(fc.expected_revenue)} />
-              <MiniStat label="Margem prevista" value={fmt.format(fc.expected_margin)} />
-              <MiniStat label="Angariações previstas" value={fc.expected_acquisitions} />
-              <MiniStat label="Pendentes aprovação" value={fc.pending_acquisitions}
-                onClick={() => openDrillDown({ title: 'Pendentes Aprovação', fetcher: () => getDrillDownProperties({ status: 'pending_approval' }) })}
-              />
-              <MiniStat label="Negócios a fechar" value={fc.expected_deals} />
-              <MiniStat label="Negócios activos" value={fc.active_deals} />
+          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <h3 className="text-sm font-semibold mb-4">Previsões</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Facturação Prevista', value: fmt.format(fc.expected_revenue) },
+                { label: 'Margem Prevista', value: fmt.format(fc.expected_margin) },
+                { label: 'Angariações Previstas', value: String(fc.expected_acquisitions) },
+                { label: 'Negócios a Fechar', value: String(fc.expected_deals) },
+                { label: 'Negócios Activos', value: String(fc.active_deals) },
+                { label: 'Pendentes Aprovação', value: String(fc.pending_acquisitions),
+                  onClick: () => openDrillDown({ title: 'Pendentes Aprovação', fetcher: () => getDrillDownProperties({ status: 'pending_approval' }) }) },
+              ].map((tile) => {
+                const Comp = tile.onClick ? 'button' : 'div'
+                return (
+                  <Comp key={tile.label} onClick={tile.onClick}
+                    className={cn('rounded-xl p-4 text-left transition-all bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5', tile.onClick && 'hover:shadow-md cursor-pointer group')}
+                  >
+                    <p className="text-2xl font-bold tabular-nums tracking-tight">{tile.value}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-1 leading-tight flex items-center justify-between">
+                      {tile.label}
+                      {tile.onClick && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors" />}
+                    </p>
+                  </Comp>
+                )
+              })}
             </div>
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
-              <h3 className="text-sm font-semibold mb-3">Valores Pendentes</h3>
-              <MiniStat label="Por reportar" value={fmt.format(rpt.signed_pending)} accent={rpt.signed_pending > 0 ? 'text-amber-600' : ''}
-                onClick={() => openDrillDown({ title: 'Por Reportar', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
-              />
-              <MiniStat label="Por receber" value={fmt.format(mg.pending_collection)} accent={mg.pending_collection > 0 ? 'text-amber-600' : ''}
-                onClick={() => openDrillDown({ title: 'Por Receber', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
-              />
-              <div className="mt-3 rounded-xl bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-white dark:to-neutral-100 p-4 text-center">
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Receita Potencial</p>
-                <p className="text-xl font-bold text-white dark:text-neutral-900 tabular-nums mt-0.5">{fmt.format(pf.potential_revenue)}</p>
-                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">de {fmt.format(pf.active_volume)} em carteira</p>
+          </div>
+
+          {/* Valores Pendentes */}
+          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <h3 className="text-sm font-semibold mb-4">Valores Pendentes</h3>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {/* Por reportar */}
+              <button onClick={() => openDrillDown({ title: 'Por Reportar', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
+                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-4 text-left hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {rpt.signed_pending > 0 && <span className="h-2 w-2 rounded-full bg-neutral-900 dark:bg-white animate-pulse" />}
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Por Reportar</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-2xl font-bold tabular-nums tracking-tight">
+                    {fmt.format(rpt.signed_pending)}
+                  </p>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors self-end" />
+                </div>
+              </button>
+
+              {/* Por receber */}
+              <button onClick={() => openDrillDown({ title: 'Por Receber', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
+                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-4 text-left hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {mg.pending_collection > 0 && <span className="h-2 w-2 rounded-full bg-neutral-900 dark:bg-white animate-pulse" />}
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Por Receber</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-2xl font-bold tabular-nums tracking-tight">
+                    {fmt.format(mg.pending_collection)}
+                  </p>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors self-end" />
+                </div>
+              </button>
+            </div>
+
+            {/* Receita Potencial */}
+            <div className="rounded-xl bg-neutral-900 dark:bg-white p-4 shadow-lg shadow-neutral-900/20 dark:shadow-black/10">
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-medium">Receita Potencial</p>
+              <p className="text-2xl font-bold text-white dark:text-neutral-900 tabular-nums mt-1">{fmt.format(pf.potential_revenue)}</p>
+              <div className="mt-3 h-2 rounded-full bg-white/10 dark:bg-neutral-200 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.min((rpt.reported_this_year / Math.max(pf.potential_revenue, 1)) * 100, 100)}%` }} />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400">{fmtCompact.format(rpt.reported_this_year)} realizado</p>
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400">{fmtCompact.format(pf.active_volume)} carteira</p>
               </div>
             </div>
+          </div>
           </div>
         </TabsContent>
 
         {/* ═══ Tab: Pipeline ═══ */}
         <TabsContent value="pipeline" className="mt-6 space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
               <h3 className="text-sm font-semibold mb-1">Pipeline de Receita</h3>
               <p className="text-[11px] text-muted-foreground mb-4">Valor ponderado por fase × probabilidade</p>
               {pipeline.length === 0 ? (
@@ -490,7 +630,7 @@ function ManagementDashboard() {
                 </div>
               )}
             </div>
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
               <h3 className="text-sm font-semibold mb-3">Previsões</h3>
               <MiniStat label="Facturação prevista" value={fmt.format(fc.expected_revenue)} />
               <MiniStat label="Margem prevista" value={fmt.format(fc.expected_margin)} />
@@ -508,7 +648,7 @@ function ManagementDashboard() {
           {/* Controls row */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Metric pills */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]">
               <button onClick={() => setRankingTab('revenue')}
                 className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
                   rankingTab === 'revenue' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -522,7 +662,7 @@ function ManagementDashboard() {
             </div>
 
             {/* Period pills */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]">
               {([['ytd', 'Este Ano'], ['month', 'Este Mês'], ['custom', 'Personalizado']] as const).map(([val, label]) => (
                 <button key={val} onClick={() => setRankingPeriod(val)}
                   className={cn('px-3 py-1.5 rounded-full text-[10px] font-medium transition-colors duration-300',
@@ -543,12 +683,9 @@ function ManagementDashboard() {
               </div>
             )}
 
-            <Link href="/dashboard/comissoes/rankings" className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto">
-              Ver completo <ArrowRight className="h-3 w-3" />
-            </Link>
           </div>
 
-          <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] overflow-hidden">
             {currentRankings.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground"><p className="text-sm">Sem dados disponíveis</p></div>
             ) : (
@@ -571,40 +708,32 @@ function ManagementDashboard() {
                           : () => getDrillDownProperties({ consultant_id: r.consultant_id, created_after: rankingDateFrom }),
                       })}
                       className={cn(
-                        'w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/30 transition-colors group text-left',
-                        isTop3 && 'bg-muted/10'
+                        'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors group text-left',
                       )}
                     >
-                      <span className={cn('w-10 text-center font-bold shrink-0', isTop3 ? 'text-lg' : 'text-sm text-muted-foreground')}>
+                      <span className={cn('w-7 text-center font-bold shrink-0 text-xs', isTop3 ? 'text-sm' : 'text-muted-foreground')}>
                         {medal || `#${r.position}`}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={cn('font-medium truncate group-hover:text-primary transition-colors', isTop3 ? 'text-base' : 'text-sm')}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                             {r.consultant_name}
                           </span>
-                          <span className={cn('font-bold tabular-nums ml-3 shrink-0', isTop3 ? 'text-base' : 'text-sm')}>
+                          <span className="text-sm font-bold tabular-nums ml-3 shrink-0">
                             {rankingTab === 'revenue' ? fmt.format(r.value) : r.value}
                           </span>
                         </div>
                         {r.target && r.target > 0 && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
-                              <div className={cn(
-                                'h-full rounded-full transition-all duration-500',
-                                pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
-                                pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
-                                'bg-gradient-to-r from-red-400 to-red-600'
-                              )} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                              <div className="h-full rounded-full bg-neutral-900 dark:bg-white transition-all duration-500"
+                                style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
-                            <span className={cn(
-                              'text-[10px] font-medium w-10 text-right tabular-nums',
-                              pct >= 80 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'
-                            )}>{Math.round(pct)}%</span>
+                            <span className="text-[10px] font-medium w-8 text-right tabular-nums text-muted-foreground">{Math.round(pct)}%</span>
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground shrink-0 transition-colors" />
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground shrink-0 transition-colors" />
                     </button>
                   )
                 })}
@@ -615,7 +744,7 @@ function ManagementDashboard() {
 
         {/* ═══ Tab: Alertas ═══ */}
         <TabsContent value="alerts" className="mt-6">
-          <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
             {alerts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <div className="rounded-full bg-emerald-500/10 p-4 mb-3"><TrendingUp className="h-6 w-6 text-emerald-500" /></div>
@@ -691,7 +820,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       <DrillDownSheet config={sheetConfig} open={sheetOpen} onOpenChange={setSheetOpen} />
 
       {/* Hero */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl shadow-xl shadow-neutral-900/20">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/15 via-transparent to-violet-600/10" />
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/85 to-neutral-900/70" />
         <div className="relative z-10 px-8 py-8 sm:px-10 sm:py-10">
@@ -735,17 +864,17 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       {/* Row 1: KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Facturação YTD" value={fmt.format(data.revenue_ytd)} icon={Euro}
-          iconBg="bg-emerald-500/10" iconColor="text-emerald-500" valueColor="text-emerald-600"
+          iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
           onClick={() => openDrillDown({ title: 'As Minhas Transacções (Ano)', fetcher: () => getDrillDownTransactions({ consultant_id: userId, date_from: `${new Date().getFullYear()}-01-01` }) })}
         />
         <KpiCard label="Este Mês" value={fmt.format(data.revenue_this_month)} icon={Receipt}
-          iconBg="bg-blue-500/10" iconColor="text-blue-500" valueColor="text-blue-600"
+          iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
           onClick={() => openDrillDown({ title: 'Transacções Este Mês', fetcher: () => getDrillDownTransactions({ consultant_id: userId, date_from: startOfMonth() }) })}
         />
         <KpiCard label="Objectivo Anual" value={fmt.format(data.annual_target)} icon={Target}
-          iconBg="bg-amber-500/10" iconColor="text-amber-500"
+          iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
         />
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 flex items-center gap-4">
+        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4">
           <div className="relative h-14 w-14 shrink-0">
             <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90">
               <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-muted" />
@@ -766,24 +895,24 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       {/* Row 2: Properties + Objectives */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* My Properties */}
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Os Meus Imóveis</h3>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Activas', value: data.my_properties.active, bg: 'bg-blue-500/10', color: 'text-blue-600', status: 'available' },
-              { label: 'Reservadas', value: data.my_properties.reserved, bg: 'bg-amber-500/10', color: 'text-amber-600', status: 'reserved' },
-              { label: 'Vendidas', value: data.my_properties.sold_year, bg: 'bg-emerald-500/10', color: 'text-emerald-600', status: 'sold' },
-              { label: 'Volume', value: fmtCompact.format(data.my_properties.volume), bg: 'bg-violet-500/10', color: 'text-violet-600', status: null },
+              { label: 'Activas', value: data.my_properties.active, status: 'available' },
+              { label: 'Reservadas', value: data.my_properties.reserved, status: 'reserved' },
+              { label: 'Vendidas', value: data.my_properties.sold_year, status: 'sold' },
+              { label: 'Volume', value: fmtCompact.format(data.my_properties.volume), status: null },
             ].map(tile => tile.status ? (
               <button key={tile.label} onClick={() => openDrillDown({ title: `Os Meus Imóveis — ${tile.label}`, fetcher: () => getDrillDownProperties({ consultant_id: userId, status: tile.status }) })}
-                className={cn('rounded-xl p-4 text-center transition-all hover:shadow-md cursor-pointer group', tile.bg)}
+                className="rounded-xl p-4 text-center transition-all hover:shadow-md cursor-pointer group bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5"
               >
-                <p className={cn('text-2xl font-bold tabular-nums', tile.color)}>{tile.value}</p>
+                <p className="text-2xl font-bold tabular-nums">{tile.value}</p>
                 <p className="text-[11px] text-muted-foreground">{tile.label}</p>
               </button>
             ) : (
-              <div key={tile.label} className={cn('rounded-xl p-4 text-center', tile.bg)}>
-                <p className={cn('text-xl font-bold tabular-nums', tile.color)}>{tile.value}</p>
+              <div key={tile.label} className="rounded-xl p-4 text-center bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+                <p className="text-xl font-bold tabular-nums">{tile.value}</p>
                 <p className="text-[11px] text-muted-foreground">{tile.label}</p>
               </div>
             ))}
@@ -791,7 +920,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
         </div>
 
         {/* Objectives */}
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Objectivos vs Realizado</h3>
           <div className="space-y-5">
             {[
@@ -830,7 +959,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       {/* Row 3: Actions + Comparison */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Actions */}
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Próximas Acções</h3>
           {data.upcoming_actions.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-muted-foreground">
@@ -864,7 +993,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
         </div>
 
         {/* Vs Average */}
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Eu vs Média da Agência</h3>
           {data.vs_average.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Sem dados</p>
@@ -875,7 +1004,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
               </div>
               {data.vs_average.map((v, i) => {
                 const DirIcon = v.direction === 'above' ? TrendingUp : v.direction === 'below' ? TrendingDown : Minus
-                const dirClass = v.direction === 'above' ? 'text-emerald-600 bg-emerald-500/10' : v.direction === 'below' ? 'text-red-600 bg-red-500/10' : 'text-muted-foreground bg-muted/30'
+                const dirClass = v.direction === 'above' ? 'text-foreground bg-neutral-100 dark:bg-white/10' : v.direction === 'below' ? 'text-muted-foreground bg-neutral-100 dark:bg-white/10' : 'text-muted-foreground bg-neutral-100 dark:bg-white/10'
                 return (
                   <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center py-3 border-b border-border/50 last:border-0 px-1">
                     <span className="text-sm">{v.metric}</span>
@@ -891,7 +1020,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       </div>
 
       {/* Row 4: Monthly Evolution */}
-      <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+      <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold">Evolução Mensal</h3>

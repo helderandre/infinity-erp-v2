@@ -39,16 +39,22 @@ export function AcqFieldWrapper({
   children,
   fullWidth,
   className,
+  isAiFilled,
+  isMissing,
 }: {
   children: React.ReactNode
   fullWidth?: boolean
   className?: string
+  isAiFilled?: boolean
+  isMissing?: boolean
 }) {
   return (
     <div
       className={cn(
-        'rounded-xl border px-4 py-3',
+        'rounded-xl border px-4 py-3 transition-colors',
         fullWidth && 'col-span-full',
+        isAiFilled && 'border-violet-300 bg-violet-50/30 dark:border-violet-700 dark:bg-violet-950/20',
+        isMissing && !isAiFilled && 'border-amber-200 bg-amber-50/40 dark:border-amber-700 dark:bg-amber-950/20',
         className
       )}
     >
@@ -86,6 +92,8 @@ export function AcqInputField({
   fullWidth,
   className,
   error,
+  isAiFilled,
+  isMissing,
 }: {
   label: string
   value?: string | number | null
@@ -98,6 +106,8 @@ export function AcqInputField({
   fullWidth?: boolean
   className?: string
   error?: string
+  isAiFilled?: boolean
+  isMissing?: boolean
 }) {
   const maskMap = {
     phone: { mask: phonePTMask, placeholder: '+351 9XX XXX XXX' },
@@ -108,7 +118,7 @@ export function AcqInputField({
   // Currency mask for suffix="€"
   if (suffix === '€') {
     return (
-      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+      <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive', className)}>
         <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
         <MaskInput
           mask="currency"
@@ -127,7 +137,7 @@ export function AcqInputField({
   // Percentage mask for suffix="%"
   if (suffix === '%') {
     return (
-      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+      <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive', className)}>
         <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
         <MaskInput
           mask="percentage"
@@ -145,7 +155,7 @@ export function AcqInputField({
   if (maskType && maskMap[maskType]) {
     const { mask, placeholder: maskPlaceholder } = maskMap[maskType]
     return (
-      <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+      <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive', className)}>
         <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
         <MaskInput
           mask={mask}
@@ -160,7 +170,7 @@ export function AcqInputField({
   }
 
   return (
-    <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive', className)}>
+    <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive', className)}>
       <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
       <div className="relative">
         <Input
@@ -191,6 +201,8 @@ export function AcqTextareaField({
   fullWidth = true,
   rows = 3,
   error,
+  isAiFilled,
+  isMissing,
 }: {
   label: string
   value?: string | null
@@ -200,9 +212,11 @@ export function AcqTextareaField({
   fullWidth?: boolean
   rows?: number
   error?: string
+  isAiFilled?: boolean
+  isMissing?: boolean
 }) {
   return (
-    <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive')}>
+    <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive')}>
       <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
       <Textarea
         value={value ?? ''}
@@ -226,6 +240,8 @@ export function AcqSelectField({
   required,
   fullWidth,
   error,
+  isAiFilled,
+  isMissing,
 }: {
   label: string
   value?: string | null
@@ -235,9 +251,11 @@ export function AcqSelectField({
   required?: boolean
   fullWidth?: boolean
   error?: string
+  isAiFilled?: boolean
+  isMissing?: boolean
 }) {
   return (
-    <AcqFieldWrapper fullWidth={fullWidth} className={cn(error && 'border-destructive')}>
+    <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive')}>
       <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
       <Select value={value || ''} onValueChange={onChange}>
         <SelectTrigger className="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium [&>svg]:ml-2">

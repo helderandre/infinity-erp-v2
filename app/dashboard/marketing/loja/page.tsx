@@ -13,15 +13,16 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  ArrowLeft, ArrowRight, Store, ClipboardList, BarChart3, ShoppingCart, Settings,
+  Store, ClipboardList, BarChart3, ShoppingCart, Settings,
   CalendarDays, Layers,
 } from 'lucide-react'
 
-type View = 'hero' | 'shop' | 'orders'
+type View = 'shop' | 'orders'
 type OrdersView = 'calendar' | 'articles' | 'orders' | 'analytics'
+
 export default function MarketingLojaPage() {
   const router = useRouter()
-  const [view, setView] = useState<View>('hero')
+  const [view, setView] = useState<View>('shop')
   const [ordersTab, setOrdersTab] = useState<OrdersView>('articles')
   const [cartCount, setCartCount] = useState(0)
   const [showCartWarning, setShowCartWarning] = useState(false)
@@ -62,12 +63,12 @@ export default function MarketingLojaPage() {
     return () => document.removeEventListener('click', handler, true)
   }, [])
 
-  const handleBackFromShop = () => {
+  const switchToOrders = () => {
     if (cartCount > 0) {
-      pendingNavRef.current = null
+      pendingNavRef.current = '__orders'
       setShowCartWarning(true)
     } else {
-      setView('hero')
+      setView('orders')
     }
   }
 
@@ -75,10 +76,10 @@ export default function MarketingLojaPage() {
     setShowCartWarning(false)
     const pendingNav = pendingNavRef.current
     pendingNavRef.current = null
-    if (pendingNav) {
+    if (pendingNav === '__orders') {
+      setView('orders')
+    } else if (pendingNav) {
       router.push(pendingNav)
-    } else {
-      setView('hero')
     }
   }
 
@@ -91,82 +92,39 @@ export default function MarketingLojaPage() {
 
   return (
     <div>
-      {/* ═══════════ HERO STATE ═══════════ */}
-      {view === 'hero' && (
-        <div className="animate-in fade-in duration-400">
-          <div className="relative overflow-hidden bg-neutral-900 rounded-2xl flex flex-col" style={{ minHeight: 'calc(100vh - 6rem)' }}>
-            <div
-              className="absolute inset-0 bg-cover bg-center opacity-35"
-              style={{
-                backgroundImage: `url('https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1600')`,
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/95 via-neutral-900/60 to-neutral-900/30" />
-
-            <a
-              href="/dashboard/marketing/loja/gerir"
-              className="absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              Gerir Loja
-            </a>
-
-            <div className="relative z-10 flex flex-col justify-end flex-1 px-8 pb-10 sm:px-12 sm:pb-14">
-              <p className="text-neutral-400 text-sm font-medium tracking-widest uppercase mb-3">
-                Infinity Group
-              </p>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight">
-                Infinity Store
-              </h2>
-              <p className="text-neutral-300 mt-3 text-base sm:text-lg leading-relaxed max-w-lg">
-                Fotografia, vídeo, design e materiais para elevar a apresentação dos seus imóveis.
-              </p>
-
-              <div className="flex items-center gap-3 mt-8">
-                <button
-                  onClick={() => setView('shop')}
-                  className="inline-flex items-center gap-2 bg-white text-neutral-900 px-7 py-3 rounded-full text-sm font-semibold hover:bg-neutral-100 transition-colors shadow-lg"
-                >
-                  <Store className="h-4 w-4" />
-                  Loja
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setView('orders')}
-                  className="inline-flex items-center gap-2 border border-white/30 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-white/10 transition-colors"
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  Os Meus Pedidos
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════ SHOP STATE ═══════════ */}
+      {/* ═══════════ SHOP VIEW ═══════════ */}
       {view === 'shop' && (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-400">
+        <div className="animate-in fade-in duration-400">
           <ShopTab
             showHero={false}
             showGerirLoja={false}
-            onBack={handleBackFromShop}
+            onBack={undefined}
             onCartCountChange={handleCartCountChange}
+            headerAction={
+              <button
+                onClick={switchToOrders}
+                title="Os Meus Pedidos"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/50 bg-muted/40 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all shadow-sm"
+              >
+                <ClipboardList className="h-4 w-4" />
+              </button>
+            }
           />
         </div>
       )}
 
-      {/* ═══════════ ORDERS STATE ═══════════ */}
+      {/* ═══════════ ORDERS VIEW ═══════════ */}
       {view === 'orders' && (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-400">
+        <div className="animate-in fade-in duration-400">
           <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
-            {/* Header — back + tabs */}
+            {/* Header — toggle + tabs */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
               <button
-                onClick={() => setView('hero')}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shadow-sm"
+                onClick={() => setView('shop')}
+                title="Loja"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/50 bg-muted/40 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all shadow-sm"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <Store className="h-4 w-4" />
               </button>
 
               <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">

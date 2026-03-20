@@ -198,12 +198,26 @@ function ImoveisPageContent() {
     setPage(0)
   }, [debouncedSearch, selectedStatuses, propertyType, businessType, condition, consultantId])
 
-  const handleDelete = async () => {
+  const handleCancel = async () => {
     if (!deleteId) return
     try {
-      const res = await fetch(`/api/properties/${deleteId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/properties/${deleteId}?mode=cancel`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erro ao cancelar imóvel')
+      toast.success('Imóvel cancelado')
+      loadProperties()
+    } catch {
+      toast.error('Erro ao cancelar imóvel')
+    } finally {
+      setDeleteId(null)
+    }
+  }
+
+  const handleDeletePermanent = async () => {
+    if (!deleteId) return
+    try {
+      const res = await fetch(`/api/properties/${deleteId}?mode=permanent`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Erro ao eliminar imóvel')
-      toast.success('Imóvel eliminado com sucesso')
+      toast.success('Imóvel eliminado permanentemente')
       loadProperties()
     } catch {
       toast.error('Erro ao eliminar imóvel')
@@ -552,13 +566,16 @@ function ImoveisPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-destructive" />Eliminar imóvel</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende eliminar este imóvel? Esta acção é irreversível.
+              Escolha uma opção. Cancelar marca o imóvel como cancelado mas mantém os dados. Eliminar permanentemente remove todos os dados associados.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="rounded-full">Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancel} className="rounded-full bg-amber-600 text-white hover:bg-amber-700">
+              Cancelar Imóvel
+            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeletePermanent} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar Permanentemente
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

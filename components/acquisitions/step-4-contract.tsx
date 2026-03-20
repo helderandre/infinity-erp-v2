@@ -18,6 +18,12 @@ const toOptions = (obj: Record<string, string>) =>
 
 export function StepContract({ form }: StepContractProps) {
   const errors = form.formState.errors
+  const aiFields = new Set<string>(form.watch('_aiFilledFields') || [])
+  const ai = (field: string) => aiFields.has(field)
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === '' || v === 0
+  }
 
   return (
     <div className="space-y-4">
@@ -28,10 +34,12 @@ export function StepContract({ form }: StepContractProps) {
           label="Regime Contratual"
           required
           value={form.watch('contract_regime')}
-          onChange={(v) => form.setValue('contract_regime', v, { shouldValidate: true })}
+          onChange={(v) => form.setValue('contract_regime', v, { shouldDirty: true })}
           options={toOptions(CONTRACT_REGIMES)}
           placeholder="Seleccionar regime"
           error={errors.contract_regime?.message as string}
+          isAiFilled={ai('contract_regime')}
+          isMissing={isEmpty('contract_regime')}
         />
 
         <AcqInputField
@@ -39,6 +47,7 @@ export function StepContract({ form }: StepContractProps) {
           value={form.watch('contract_term')}
           onChange={(v) => form.setValue('contract_term', v)}
           placeholder="Ex: 12 meses"
+          isAiFilled={ai('contract_term')}
         />
 
         <AcqInputField
@@ -47,6 +56,7 @@ export function StepContract({ form }: StepContractProps) {
           value={form.watch('contract_expiry')}
           onChange={(v) => form.setValue('contract_expiry', v)}
           fullWidth
+          isAiFilled={ai('contract_expiry')}
         />
       </div>
 
@@ -58,9 +68,11 @@ export function StepContract({ form }: StepContractProps) {
           required
           type="number"
           value={form.watch('commission_agreed')}
-          onChange={(v) => form.setValue('commission_agreed', parseFloat(v) || 0, { shouldValidate: true })}
+          onChange={(v) => form.setValue('commission_agreed', parseFloat(v) || 0, { shouldDirty: true })}
           placeholder="0"
           error={errors.commission_agreed?.message as string}
+          isAiFilled={ai('commission_agreed')}
+          isMissing={isEmpty('commission_agreed')}
         />
 
         <AcqSelectField
@@ -71,6 +83,7 @@ export function StepContract({ form }: StepContractProps) {
             { value: 'percentage', label: 'Percentagem (%)' },
             { value: 'fixed', label: 'Valor Fixo (€)' },
           ]}
+          isAiFilled={ai('commission_type')}
         />
       </div>
 

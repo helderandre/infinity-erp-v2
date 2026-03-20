@@ -16,9 +16,13 @@ interface DocumentsSectionProps {
   propertyId?: string
   ownerId?: string
   consultantId?: string
-  // Deferred
   deferred?: boolean
   onFileSelected?: (file: File, docTypeId: string) => void
+  // Deletion
+  onDeleteSingle?: (docTypeId: string) => void
+  selectedForDeletion?: Set<string>
+  onToggleDeleteSelection?: (docTypeId: string) => void
+  isInDeleteMode?: boolean
 }
 
 export function DocumentsSection({
@@ -30,6 +34,10 @@ export function DocumentsSection({
   consultantId,
   deferred,
   onFileSelected,
+  onDeleteSingle,
+  selectedForDeletion,
+  onToggleDeleteSelection,
+  isInDeleteMode,
 }: DocumentsSectionProps) {
   return (
     <div className="space-y-4">
@@ -45,6 +53,10 @@ export function DocumentsSection({
           consultantId={consultantId}
           deferred={deferred}
           onFileSelected={onFileSelected}
+          onDeleteSingle={onDeleteSingle}
+          selectedForDeletion={selectedForDeletion}
+          onToggleDeleteSelection={onToggleDeleteSelection}
+          isInDeleteMode={isInDeleteMode}
         />
       ))}
     </div>

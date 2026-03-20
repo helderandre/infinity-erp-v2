@@ -25,16 +25,14 @@ export const acquisitionSchema = z.object({
     .array(
       z.object({
         id: z.string().uuid().optional(), // Se já existe
-        person_type: z.enum(['singular', 'coletiva'], {
-          message: 'Seleccione o tipo de pessoa',
-        }),
-        name: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
+        person_type: z.enum(['singular', 'coletiva']).default('singular'),
+        name: z.string().min(1, 'O nome é obrigatório'),
         email: z
           .string()
           .email('Email inválido')
           .optional()
           .or(z.literal('')),
-        phone: z.string().optional(),
+        phone: z.string().min(1, 'O telemóvel é obrigatório'),
         nif: z
           .string()
           .min(9, 'NIF inválido')
@@ -180,12 +178,10 @@ export const acquisitionStep2Schema = z.object({
 
 const ownerSchema = z.object({
   id: z.string().uuid().optional(),
-  person_type: z.enum(['singular', 'coletiva'], {
-    message: 'Seleccione o tipo de pessoa',
-  }),
-  name: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
+  person_type: z.enum(['singular', 'coletiva']).default('singular'),
+  name: z.string().min(1, 'O nome é obrigatório'),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'O telemóvel é obrigatório'),
   nif: z.string().min(9, 'NIF inválido').max(9, 'NIF inválido').optional().or(z.literal('')),
   nationality: z.string().optional(),
   naturality: z.string().optional(),

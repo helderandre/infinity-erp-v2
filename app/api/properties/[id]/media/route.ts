@@ -34,8 +34,8 @@ export async function GET(
   }
 }
 
-const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'image/jpg']
-const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 export async function POST(
   request: Request,
@@ -51,6 +51,7 @@ export async function POST(
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const isCover = formData.get('is_cover') === 'true'
+    const mediaType = (formData.get('media_type') as string) || 'image'
 
     if (!file) {
       return NextResponse.json({ error: 'Ficheiro obrigatório' }, { status: 400 })
@@ -97,7 +98,7 @@ export async function POST(
       .insert({
         property_id: id,
         url,
-        media_type: 'image',
+        media_type: mediaType,
         order_index: nextOrder,
         is_cover: isCover,
       })

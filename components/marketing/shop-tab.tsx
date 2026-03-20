@@ -103,9 +103,10 @@ interface ShopTabProps {
   showHero?: boolean
   onBack?: () => void
   onCartCountChange?: (count: number) => void
+  headerAction?: React.ReactNode
 }
 
-export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBack, onCartCountChange }: ShopTabProps) {
+export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBack, onCartCountChange, headerAction }: ShopTabProps) {
   const { items, loading, filters, setFilters } = useMarketingCatalog()
   const { packs, loading: packsLoading } = useMarketingPacks()
   const { products, categories: materialCategories, loading: materialsLoading } = useEncomendaProducts()
@@ -338,13 +339,9 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
 
             {/* Tab pills overlaid on image */}
-            <div className="absolute top-4 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {headerAction}
               <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-                {onBack && (
-                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-all">
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                )}
                 {([
                   { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
                   { key: 'services' as const, label: 'Serviços', icon: Camera },
@@ -385,12 +382,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
           <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
             {/* Header — pills + filters */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
+              {headerAction}
               <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-                {onBack && (
-                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                )}
                 {([
                   { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
                   { key: 'services' as const, label: 'Serviços', icon: Camera },
@@ -607,12 +600,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
             {/* Header — pills + filters */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
             {/* Tab pills inline with filters */}
+            {headerAction}
             <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-              {onBack && (
-                <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-              )}
               {([
                 { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
                 { key: 'services' as const, label: 'Serviços', icon: Camera },
@@ -733,13 +722,9 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
 
             {/* Tab pills overlaid on image */}
-            <div className="absolute top-4 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {headerAction}
               <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-                {onBack && (
-                  <button onClick={onBack} className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-all">
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                )}
                 {([
                   { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
                   { key: 'services' as const, label: 'Serviços', icon: Camera },

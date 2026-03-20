@@ -57,11 +57,32 @@ export interface NegocioProperty {
     zone: string | null
     listing_price: number | null
     slug: string | null
+    property_type: string | null
+    business_type: string | null
+    status: string | null
+    description: string | null
+    address_street: string | null
+    postal_code: string | null
     dev_property_specifications?: {
       bedrooms: number | null
+      bathrooms: number | null
+      area_gross: number | null
       area_util: number | null
+      parking_spaces: number | null
+      features: string[] | null
+      typology: string | null
     } | null
-    dev_property_media?: { url: string; is_cover: boolean }[]
+    dev_property_media?: { url: string; is_cover: boolean; order_index: number }[]
+    consultant?: {
+      id: string
+      commercial_name: string | null
+      professional_email: string | null
+      dev_consultant_profiles?: {
+        profile_photo_url: string | null
+        phone_commercial: string | null
+        specializations: string[] | null
+      } | null
+    } | null
   }
 }
 
