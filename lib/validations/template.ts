@@ -59,7 +59,7 @@ export const subtaskSchema = z
             ]),
             target_entity: z.enum([
               'property', 'property_specs', 'property_internal',
-              'owner', 'property_owner',
+              'owner', 'property_owner', 'consultant', 'process',
               'deal', 'deal_client', 'deal_payment',
             ]),
             required: z.boolean().optional(),
@@ -87,7 +87,7 @@ export const subtaskSchema = z
           ]),
           target_entity: z.enum([
             'property', 'property_specs', 'property_internal',
-            'owner', 'property_owner',
+            'owner', 'property_owner', 'consultant', 'process',
             'deal', 'deal_client', 'deal_payment',
           ]),
           required: z.boolean().optional(),
@@ -109,7 +109,7 @@ export const subtaskSchema = z
         external_form_fields: z.array(z.object({
           field_name: z.string(),
           label: z.string(),
-          target_entity: z.enum(['property', 'property_specs', 'property_internal', 'owner', 'property_owner', 'deal', 'deal_client', 'deal_payment']),
+          target_entity: z.enum(['property', 'property_specs', 'property_internal', 'owner', 'property_owner', 'consultant', 'process', 'deal', 'deal_client', 'deal_payment']),
           format: z.enum(['text', 'currency', 'number', 'date']).optional(),
           order_index: z.number(),
         })).optional(),
