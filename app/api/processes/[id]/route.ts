@@ -486,8 +486,10 @@ export async function GET(
       }
     }
 
+    const dealClients = deal?.deal_clients || []
+
     // Formatar resposta
-    const response = {
+    const response: any = {
       instance: data,
       stages: stages.sort((a, b) => a.order_index - b.order_index),
       owners: owners?.map((po: any) => ({
@@ -499,6 +501,12 @@ export async function GET(
       })) || [],
       documents: documents || [],
       deal: deal || null,
+    }
+
+    // Adicionar dados do negócio se existirem
+    if (deal) {
+      response.deal = deal
+      response.deal_clients = dealClients
     }
 
     return NextResponse.json(response)
