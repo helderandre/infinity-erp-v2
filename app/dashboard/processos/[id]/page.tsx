@@ -794,98 +794,106 @@ export default function ProcessoDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Page header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard/processos">
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="min-w-0">
+      {/* Dark hero header */}
+      <div className="relative overflow-hidden bg-neutral-900 rounded-b-2xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-800/80 to-neutral-900" />
+        <div className="relative z-10 px-5 md:px-6 py-4">
+          {/* Top row: back + actions */}
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard/processos">
+              <button className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/20 transition-all">
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            </Link>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold truncate">{instance.external_ref}</h1>
-              <StatusBadge status={instance.current_status} type="process" />
-            </div>
-            <p className="text-sm text-muted-foreground truncate">
-              {isNegocio && deal
-                ? `Negócio — ${deal.deal_value ? formatCurrency(Number(deal.deal_value)) : ''}`
-                : property?.title}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress bar + Action buttons */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Inline progress */}
-          {isActive && totalTasks > 0 && (
-            <div className="flex items-center gap-2 w-36">
-              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn(
-                    'h-full transition-all duration-500',
-                    progressPercent === 100 ? 'bg-emerald-500' : 'bg-primary'
-                  )}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                {progressPercent}%
-              </span>
-            </div>
-          )}
-          {instance.current_status === 'active' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleHold('pause')}
-              disabled={isActionLoading}
-            >
-              {isActionLoading ? <Spinner variant="infinite" size={16} className="mr-2" /> : <Pause className="mr-2 h-4 w-4" />}
-              Pausar
-            </Button>
-          )}
-          {instance.current_status === 'on_hold' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleHold('resume')}
-              disabled={isActionLoading}
-            >
-              {isActionLoading ? <Spinner variant="infinite" size={16} className="mr-2" /> : <Play className="mr-2 h-4 w-4" />}
-              Retomar
-            </Button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {['active', 'on_hold'].includes(instance.current_status) && (
-                <>
-                  <DropdownMenuItem onClick={() => { loadTemplates(); setSelectedNewTemplateId(''); setReTemplateDialogOpen(true) }}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Alterar template
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Cancelar processo
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
+              {instance.current_status === 'active' && (
+                <button
+                  onClick={() => handleHold('pause')}
+                  disabled={isActionLoading}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white text-xs font-medium hover:bg-white/20 transition-all disabled:opacity-50"
+                >
+                  {isActionLoading ? <Spinner variant="infinite" size={14} /> : <Pause className="h-3.5 w-3.5" />}
+                  Pausar
+                </button>
               )}
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar processo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {instance.current_status === 'on_hold' && (
+                <button
+                  onClick={() => handleHold('resume')}
+                  disabled={isActionLoading}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white text-xs font-medium hover:bg-white/20 transition-all disabled:opacity-50"
+                >
+                  {isActionLoading ? <Spinner variant="infinite" size={14} /> : <Play className="h-3.5 w-3.5" />}
+                  Retomar
+                </button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/20 transition-all">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {['active', 'on_hold'].includes(instance.current_status) && (
+                    <>
+                      <DropdownMenuItem onClick={() => { loadTemplates(); setSelectedNewTemplateId(''); setReTemplateDialogOpen(true) }}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Alterar template
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Cancelar processo
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar processo
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Process info */}
+          <div className="mt-4">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <StatusBadge status={instance.current_status} type="process" />
+              {isNegocio && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-violet-500/30 text-violet-200 border border-violet-400/30">Negócio</span>
+              )}
+              {!isNegocio && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30">Angariação</span>
+              )}
+            </div>
+            <h1 className="text-xl font-bold text-white truncate">{instance.external_ref}</h1>
+            <p className="text-sm text-white/60 truncate mt-0.5">
+              {isNegocio && deal
+                ? `${deal.deal_value ? formatCurrency(Number(deal.deal_value)) : 'Sem valor'}`
+                : property?.title || 'Sem imóvel'}
+            </p>
+
+            {/* Progress bar */}
+            {isActive && totalTasks > 0 && (
+              <div className="flex items-center gap-3 mt-3">
+                <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full transition-all duration-500 rounded-full',
+                      progressPercent === 100 ? 'bg-emerald-400' : 'bg-white/70'
+                    )}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-white/60">
+                  {progressPercent}%
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
