@@ -9,7 +9,6 @@ import {
   AcqInputField,
   AcqTextareaField,
 } from '@/components/acquisitions/acquisition-field'
-import { AcqSelectField } from '@/components/acquisitions/acquisition-field'
 import { BUSINESS_TYPES, PROPERTY_TYPES_OPTIONS, TYPOLOGY_OPTIONS } from '@/types/deal'
 import type { DealFormData } from '@/lib/validations/deal'
 import type { DealScenario, BusinessType } from '@/types/deal'
@@ -144,32 +143,34 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
         />
       </div>
 
-      {/* Commission type + value */}
-      <div className="grid grid-cols-2 gap-3">
-        <DealQuickPick
-          label={commissionType === 'fixed' ? 'Valor da Comissão (€)' : 'Comissão final (%)'}
-          value={form.watch('commission_pct')}
-          onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
-          quickPicks={commissionType === 'fixed' ? [] : [
-            { value: 4, label: '4%' },
-            { value: 5, label: '5%' },
-            { value: 6, label: '6%' },
-          ]}
-          suffix={commissionType === 'fixed' ? '€' : '%'}
-          hint={undefined}
-          required
-          error={errors.commission_pct}
-        />
-        <AcqSelectField
-          label="Tipo de Comissão"
-          value={commissionType || 'percentage'}
-          onChange={(v) => form.setValue('commission_type', v)}
-          options={[
-            { value: 'percentage', label: 'Percentagem (%)' },
-            { value: 'fixed', label: 'Valor Fixo (€)' },
-          ]}
-        />
-      </div>
+      {/* Commission type picker + value */}
+      <AcqFieldWrapper fullWidth>
+        <AcqFieldLabel required>Comissão</AcqFieldLabel>
+        <div className="mt-2">
+          <DealToggleGroup
+            value={commissionType || 'percentage'}
+            onChange={(v) => form.setValue('commission_type', v)}
+            options={[
+              { value: 'percentage', label: 'Percentagem (%)' },
+              { value: 'fixed', label: 'Valor Fixo (€)' },
+            ]}
+          />
+        </div>
+      </AcqFieldWrapper>
+
+      <DealQuickPick
+        label={commissionType === 'fixed' ? 'Valor da Comissão (€)' : 'Comissão final (%)'}
+        value={form.watch('commission_pct')}
+        onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
+        quickPicks={commissionType === 'fixed' ? [] : [
+          { value: 4, label: '4%' },
+          { value: 5, label: '5%' },
+          { value: 6, label: '6%' },
+        ]}
+        suffix={commissionType === 'fixed' ? '€' : '%'}
+        required
+        error={errors.commission_pct}
+      />
 
       {/* CPCV */}
       <div className="grid grid-cols-2 gap-3">
