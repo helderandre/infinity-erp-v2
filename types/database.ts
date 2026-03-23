@@ -1552,6 +1552,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "deals_proc_instance_id_fkey"
+            columns: ["proc_instance_id"]
+            isOneToOne: false
+            referencedRelation: "proc_instances"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deals_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -11538,4 +11545,3 @@ export const Constants = {
     },
   },
 } as const
-

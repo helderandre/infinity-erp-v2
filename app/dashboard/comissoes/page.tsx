@@ -36,8 +36,8 @@ import { getDeals, getDealStats, getConsultantsForSelect } from '@/app/dashboard
 import { DealForm } from '@/components/financial/deal-form'
 import type { FinancialTransaction, TransactionStatus } from '@/types/financial'
 import { TRANSACTION_TYPES, TRANSACTION_STATUSES } from '@/types/financial'
-import type { Deal, DealStatus, DealType } from '@/types/deal'
-import { DEAL_TYPES, DEAL_STATUSES, PAYMENT_MOMENTS } from '@/types/deal'
+import type { Deal, DealStatus, DealScenario } from '@/types/deal'
+import { DEAL_SCENARIOS, DEAL_STATUSES, PAYMENT_MOMENTS } from '@/types/deal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -357,7 +357,7 @@ export default function ComissoesPage() {
                     <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {Object.entries(DEAL_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                      {Object.entries(DEAL_SCENARIOS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -431,7 +431,7 @@ export default function ComissoesPage() {
                           {d.property ? `${d.property.external_ref ?? ''} ${d.property.title}`.trim() : '—'}
                         </TableCell>
                         <TableCell className="text-sm">{d.consultant?.commercial_name ?? '—'}</TableCell>
-                        <TableCell className="text-sm">{DEAL_TYPES[d.deal_type as DealType] ?? d.deal_type}</TableCell>
+                        <TableCell className="text-sm">{DEAL_SCENARIOS[d.deal_type as DealScenario]?.label ?? d.deal_type}</TableCell>
                         <TableCell className="text-sm text-right">{fmtCurrency(d.deal_value)}</TableCell>
                         <TableCell className="text-sm text-right font-medium">{fmtCurrency(d.commission_total)}</TableCell>
                         <TableCell>

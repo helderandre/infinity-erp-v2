@@ -1,28 +1,49 @@
 // types/deal.ts
 
 export type DealType = 'venda' | 'arrendamento' | 'trespasse'
-export type DealStatus = 'draft' | 'active' | 'completed' | 'cancelled'
+export type DealScenario = 'pleno' | 'comprador_externo' | 'pleno_agencia' | 'angariacao_externa'
+export type DealStatus = 'draft' | 'submitted' | 'active' | 'completed' | 'cancelled'
 export type PaymentStructure = 'cpcv_only' | 'escritura_only' | 'split' | 'single'
 export type PaymentMoment = 'cpcv' | 'escritura' | 'single'
-export type ShareType = 'internal' | 'external' | 'network'
+export type ShareType = 'internal' | 'external' | 'network' | 'external_buyer' | 'internal_agency' | 'external_agency'
+export type CommissionType = 'percentage' | 'fixed'
 export type ConsultantInvoiceType = 'factura' | 'recibo_verde' | 'recibo'
+export type BusinessType = 'venda' | 'arrendamento' | 'trespasse'
+export type PersonType = 'singular' | 'coletiva'
+export type ReferralType = 'interna' | 'externa'
+export type HousingRegime = 'hpp' | 'secundaria' | 'na'
+
+export interface DealClient {
+  id?: string
+  deal_id?: string
+  person_type: PersonType
+  name: string
+  email: string | null
+  phone: string | null
+  order_index: number
+  created_at?: string
+}
 
 export interface Deal {
   id: string
   property_id: string | null
-  consultant_id: string
+  consultant_id: string | null
   proc_instance_id: string | null
   reference: string | null
   pv_number: string | null
-  deal_type: DealType
+  remax_draft_number: string | null
+  deal_type: DealScenario
   deal_value: number
   deal_date: string
+  commission_type: CommissionType
   commission_pct: number
   commission_total: number
+  // Partilha
   has_share: boolean
   share_type: ShareType | null
   share_pct: number | null
   share_amount: number | null
+  share_notes: string | null
   partner_agency_name: string | null
   partner_contact: string | null
   partner_amount: number | null
@@ -32,17 +53,60 @@ export interface Deal {
   consultant_pct: number | null
   consultant_amount: number | null
   agency_net: number | null
+  // Consultor externo
+  external_consultant_name: string | null
+  external_consultant_phone: string | null
+  external_consultant_email: string | null
+  // Colega interno
+  internal_colleague_id: string | null
+  // Imóvel externo (cenário angariacao_externa)
+  external_property_link: string | null
+  external_property_id: string | null
+  external_property_type: string | null
+  external_property_typology: string | null
+  external_property_zone: string | null
+  external_property_extra: string | null
+  external_property_construction_year: string | null
+  // Pagamentos
   payment_structure: PaymentStructure
   cpcv_pct: number
   escritura_pct: number
+  // Condições do negócio
+  business_type: BusinessType | null
+  deposit_value: string | null
+  contract_signing_date: string | null
+  max_deadline: string | null
+  conditions_notes: string | null
+  // Extra
+  has_guarantor: boolean
+  has_furniture: boolean
+  is_bilingual: boolean
+  has_financing: boolean
+  has_financing_condition: boolean
+  has_signature_recognition: boolean
+  housing_regime: HousingRegime | null
+  extra_info: string | null
+  // Referenciação
+  has_referral: boolean
+  referral_pct: number | null
+  referral_type: ReferralType | null
+  referral_info: string | null
+  // Proposta
+  proposal_file_url: string | null
+  proposal_file_name: string | null
+  // Clientes
+  clients_notes: string | null
+  // Meta
   status: DealStatus
   notes: string | null
   created_at: string
   updated_at: string
   created_by: string | null
   // Joins
-  property?: { id: string; title: string; external_ref: string } | null
+  property?: { id: string; title: string; external_ref: string; city?: string; listing_price?: number } | null
   consultant?: { id: string; commercial_name: string } | null
+  colleague?: { id: string; commercial_name: string } | null
+  clients?: DealClient[]
   payments?: DealPayment[]
 }
 
@@ -111,6 +175,7 @@ export const DEAL_TYPES: Record<DealType, string> = {
 
 export const DEAL_STATUSES: Record<DealStatus, { label: string; color: string }> = {
   draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-700' },
+  submitted: { label: 'Submetido', color: 'bg-amber-100 text-amber-700' },
   active: { label: 'Activo', color: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700' },
   cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
@@ -135,22 +200,7 @@ export const CONSULTANT_INVOICE_TYPES: Record<ConsultantInvoiceType, string> = {
   recibo: 'Recibo',
 }
 
-// ── Deal Closing Form Types ──
-
-export type DealScenario = 'pleno' | 'comprador_externo' | 'pleno_agencia' | 'angariacao_externa'
-export type BusinessType = 'venda' | 'arrendamento' | 'trespasse'
-export type PersonType = 'singular' | 'coletiva'
-export type ReferralType = 'interna' | 'externa'
-export type HousingRegime = 'hpp' | 'secundaria' | 'na'
-
-export interface DealClient {
-  id?: string
-  person_type: PersonType
-  name: string
-  email: string
-  phone: string
-  order_index: number
-}
+// ── Deal Closing Form Constants ──
 
 export const DEAL_SCENARIOS: Record<DealScenario, { label: string; description: string }> = {
   pleno: { label: 'Pleno', description: 'Angariacao e comprador teus' },

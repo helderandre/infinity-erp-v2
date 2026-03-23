@@ -20,7 +20,7 @@ import { DealComplianceTab } from '@/components/financial/deal-compliance-tab'
 import type {
   Deal, DealPayment, ConsultantInvoiceType,
 } from '@/types/deal'
-import { DEAL_TYPES, DEAL_STATUSES, PAYMENT_MOMENTS, CONSULTANT_INVOICE_TYPES } from '@/types/deal'
+import { DEAL_SCENARIOS, DEAL_STATUSES, PAYMENT_MOMENTS, CONSULTANT_INVOICE_TYPES } from '@/types/deal'
 
 const fmtCurrency = (v: number | null | undefined) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
@@ -126,7 +126,7 @@ export default function DealDetailPage() {
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{deal.consultant?.commercial_name ?? '—'}</span>
             <span>|</span>
-            <Badge variant="outline">{DEAL_TYPES[deal.deal_type]}</Badge>
+            <Badge variant="outline">{DEAL_SCENARIOS[deal.deal_type as keyof typeof DEAL_SCENARIOS]?.label ?? deal.deal_type}</Badge>
             <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
             {deal.reference && <><span>|</span><span>Ref: {deal.reference}</span></>}
             {deal.pv_number && <><span>|</span><span>PV: {deal.pv_number}</span></>}
