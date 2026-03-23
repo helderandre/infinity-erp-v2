@@ -84,7 +84,8 @@ export async function POST(request: Request) {
     const fileUrl = `${process.env.R2_PUBLIC_DOMAIN}/${storageKey}`
 
     // Insert attachment record
-    const { data: attachment, error: insertError } = await db.from('proc_chat_attachments')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: attachment, error: insertError } = await (db as any).from('proc_chat_attachments')
       .insert({
         message_id: messageId,
         file_name: file.name,
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
         attachment_type: attachmentType,
         storage_key: storageKey,
         uploaded_by: user.id,
-      } as any)
+      })
       .select('*')
       .single()
 
@@ -103,8 +104,9 @@ export async function POST(request: Request) {
     }
 
     // Mark message as having attachments
-    await db.from('proc_chat_messages')
-      .update({ has_attachments: true } as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('proc_chat_messages')
+      .update({ has_attachments: true })
       .eq('id', messageId)
 
     return NextResponse.json(attachment, { status: 201 })
