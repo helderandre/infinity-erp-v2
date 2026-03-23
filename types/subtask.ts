@@ -33,6 +33,8 @@ export type FormTargetEntity =
   | 'property_internal'  // dev_property_internal
   | 'owner'              // owners (via property_owners junction)
   | 'property_owner'     // property_owners (ownership_percentage, is_main_contact)
+  | 'consultant'         // dev_users + dev_consultant_profiles (consultor do imóvel)
+  | 'process'            // proc_instances (dados do processo)
 
 export type FormFieldType =
   | 'text'

@@ -37,6 +37,7 @@ interface SubtaskCardListProps {
   propertyId: string
   consultantId?: string
   property?: ProcessInstance['property']
+  processInstance?: ProcessInstance
   owners?: ProcessOwner[]
   processDocuments?: ProcessDocument[]
   canDeleteAdhocSubtask?: boolean
@@ -51,6 +52,7 @@ export function SubtaskCardList({
   propertyId,
   consultantId,
   property,
+  processInstance,
   owners = [],
   processDocuments = [],
   canDeleteAdhocSubtask,
@@ -443,6 +445,7 @@ export function SubtaskCardList({
           subtask={openExternalFormSubtask}
           property={property}
           owner={owners.find(o => o.id === openExternalFormSubtask.owner_id)}
+          processInstance={processInstance}
           processDocuments={processDocuments}
           isCompleting={isCompletingExternalForm}
           onComplete={async () => {

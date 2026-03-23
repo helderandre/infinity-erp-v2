@@ -57,6 +57,7 @@ interface TaskDetailSheetProps {
   propertyId: string
   consultantId?: string
   property?: ProcessInstance['property']
+  processInstance?: ProcessInstance
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
   open: boolean
@@ -70,6 +71,7 @@ export function TaskDetailSheet({
   propertyId,
   consultantId,
   property,
+  processInstance,
   processDocuments,
   owners,
   open,
@@ -220,6 +222,7 @@ export function TaskDetailSheet({
                 propertyId={propertyId}
                 consultantId={consultantId}
                 property={property}
+                processInstance={processInstance}
                 processDocuments={processDocuments}
                 owners={owners}
                 onTaskUpdate={onTaskUpdate}

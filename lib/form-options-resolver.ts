@@ -2,6 +2,7 @@ import {
   PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_CONDITIONS,
   ENERGY_CERTIFICATES, CONTRACT_REGIMES,
   MARITAL_STATUS,
+  PROPERTY_STATUS, PROCESS_STATUS, PROCESS_TYPES,
 } from '@/lib/constants'
 
 // String array constants
@@ -10,7 +11,8 @@ import {
   EQUIPMENT, FEATURES,
 } from '@/lib/constants'
 
-type ConstantMap = Record<string, readonly string[] | Readonly<Record<string, string>>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ConstantMap = Record<string, any>
 
 const CONSTANT_MAP: ConstantMap = {
   PROPERTY_TYPES,
@@ -24,6 +26,9 @@ const CONSTANT_MAP: ConstantMap = {
   EQUIPMENT,
   FEATURES,
   MARITAL_STATUS,
+  PROPERTY_STATUS,
+  PROCESS_STATUS,
+  PROCESS_TYPES,
 }
 
 export function resolveOptionsFromConstant(
@@ -38,9 +43,16 @@ export function resolveOptionsFromConstant(
     return (constant as readonly string[]).map(s => ({ value: s, label: s }))
   }
 
-  // Object map (e.g. PROPERTY_TYPES: { apartamento: 'Apartamento' })
-  return Object.entries(constant as Record<string, string>).map(([key, label]) => ({
-    value: key,
-    label,
-  }))
+  // Object map — two formats:
+  // 1. Simple: { apartamento: 'Apartamento' }
+  // 2. With label: { active: { label: 'Activo', bg: '...', ... } }
+  return Object.entries(constant as Record<string, unknown>).map(([key, val]) => {
+    if (typeof val === 'string') {
+      return { value: key, label: val }
+    }
+    if (val && typeof val === 'object' && 'label' in val) {
+      return { value: key, label: (val as { label: string }).label }
+    }
+    return { value: key, label: key }
+  })
 }

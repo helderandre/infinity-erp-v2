@@ -80,6 +80,7 @@ interface TaskDetailActionsProps {
   propertyId: string
   consultantId?: string
   property?: ProcessInstance['property']
+  processInstance?: ProcessInstance
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
   onTaskUpdate: () => void
@@ -91,6 +92,7 @@ export function TaskDetailActions({
   propertyId,
   consultantId,
   property,
+  processInstance,
   processDocuments = [],
   owners = [],
   onTaskUpdate,
@@ -403,6 +405,7 @@ export function TaskDetailActions({
                 propertyId={propertyId}
                 consultantId={consultantId}
                 property={property}
+                processInstance={processInstance}
                 owners={owners}
                 processDocuments={processDocuments}
                 canDeleteAdhocSubtask={canManageAdhoc}

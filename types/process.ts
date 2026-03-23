@@ -33,6 +33,26 @@ export interface PropertyInternal {
   contract_expiry: string | null
   imi_value: number | null
   condominium_fee: number | null
+  cpcv_percentage: number | null
+  reference_internal: string | null
+  internal_notes: string | null
+  listing_links: unknown | null
+  exact_address: string | null
+  postal_code: string | null
+}
+
+export interface ProcessConsultant {
+  id: string
+  commercial_name: string
+  professional_email: string | null
+  is_active: boolean | null
+  phone_commercial: string | null
+  bio: string | null
+  specializations: string[] | null
+  languages: string[] | null
+  instagram_handle: string | null
+  linkedin_url: string | null
+  profile_photo_url: string | null
 }
 
 export interface ProcessInstance extends ProcInstance {
@@ -42,11 +62,13 @@ export interface ProcessInstance extends ProcInstance {
     | 'id' | 'title' | 'slug' | 'city' | 'listing_price' | 'status' | 'property_type'
     | 'business_type' | 'property_condition' | 'energy_certificate'
     | 'external_ref' | 'description'
-    | 'address_street' | 'postal_code' | 'zone'
+    | 'address_street' | 'postal_code' | 'zone' | 'address_parish'
     | 'latitude' | 'longitude'
+    | 'business_status' | 'contract_regime' | 'consultant_id'
   > & {
     specs?: PropertySpecs | null
     internal?: PropertyInternal | null
+    consultant?: ProcessConsultant | null
     cover_url?: string | null
     media?: Array<{
       id: string

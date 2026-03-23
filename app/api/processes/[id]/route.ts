@@ -157,21 +157,44 @@ export async function GET(
           external_ref,
           description,
           address_street,
+          address_parish,
           postal_code,
           zone,
           latitude,
           longitude,
+          business_status,
+          contract_regime,
+          consultant_id,
+          consultant:dev_users!dev_properties_consultant_id_fkey(
+            id,
+            commercial_name,
+            professional_email,
+            is_active,
+            dev_consultant_profiles(
+              phone_commercial,
+              bio,
+              specializations,
+              languages,
+              instagram_handle,
+              linkedin_url,
+              profile_photo_url
+            )
+          ),
           dev_property_specifications(
             typology, bedrooms, bathrooms,
             area_gross, area_util,
             construction_year, parking_spaces, garage_spaces,
             features, has_elevator, fronts_count,
-            solar_orientation, views, equipment
+            solar_orientation, views, equipment,
+            storage_area, balcony_area, pool_area,
+            attic_area, pantry_area, gym_area
           ),
           dev_property_internal(
             commission_agreed, commission_type,
             contract_regime, contract_term, contract_expiry,
-            imi_value, condominium_fee
+            imi_value, condominium_fee,
+            cpcv_percentage, reference_internal, internal_notes,
+            listing_links, exact_address, postal_code
           ),
           dev_property_media(id, url, media_type, is_cover, order_index)
         ),
@@ -435,6 +458,25 @@ export async function GET(
         ? prop.dev_property_internal[0] || null
         : prop.dev_property_internal || null
       delete prop.dev_property_internal
+
+      // Flatten consultant (dev_users + dev_consultant_profiles)
+      if (prop.consultant) {
+        const c = prop.consultant as any
+        const profile = c.dev_consultant_profiles || {}
+        prop.consultant = {
+          id: c.id,
+          commercial_name: c.commercial_name,
+          professional_email: c.professional_email,
+          is_active: c.is_active,
+          phone_commercial: profile.phone_commercial || null,
+          bio: profile.bio || null,
+          specializations: profile.specializations || null,
+          languages: profile.languages || null,
+          instagram_handle: profile.instagram_handle || null,
+          linkedin_url: profile.linkedin_url || null,
+          profile_photo_url: profile.profile_photo_url || null,
+        }
+      }
     }
 
     // Formatar resposta

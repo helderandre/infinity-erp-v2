@@ -18,7 +18,7 @@ import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { ProcSubtask, ExternalFormField, FormSectionConfig, FormFieldConfig } from '@/types/subtask'
-import type { ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
+import type { ProcessInstance, ProcessConsultant, ProcessOwner, ProcessDocument } from '@/types/process'
 
 interface ExternalFormDialogProps {
   open: boolean
@@ -26,6 +26,7 @@ interface ExternalFormDialogProps {
   subtask: ProcSubtask
   property: ProcessInstance['property']
   owner?: ProcessOwner
+  processInstance?: ProcessInstance
   processDocuments: ProcessDocument[]
   onComplete: () => void
   isCompleting?: boolean
@@ -57,10 +58,10 @@ function resolveValue(
   fieldName: string,
   targetEntity: string,
   property: ProcessInstance['property'],
-  owner?: ProcessOwner
+  owner?: ProcessOwner,
+  consultant?: ProcessConsultant | null,
+  processInstance?: ProcessInstance
 ): string {
-  if (!property && !owner) return ''
-
   switch (targetEntity) {
     case 'property':
       return String((property as any)?.[fieldName] ?? '')
@@ -71,6 +72,10 @@ function resolveValue(
     case 'owner':
     case 'property_owner':
       return String((owner as any)?.[fieldName] ?? '')
+    case 'consultant':
+      return String((consultant as any)?.[fieldName] ?? '')
+    case 'process':
+      return String((processInstance as any)?.[fieldName] ?? '')
     default:
       return ''
   }
@@ -117,7 +122,9 @@ function resolveDocumentShortcuts(
 function buildSections(
   config: ProcSubtask['config'],
   property: ProcessInstance['property'],
-  owner?: ProcessOwner
+  owner?: ProcessOwner,
+  consultant?: ProcessConsultant | null,
+  processInstance?: ProcessInstance
 ): ResolvedSection[] {
   const sections = config.sections as FormSectionConfig[] | undefined
   const legacyFields = config.external_form_fields as ExternalFormField[] | undefined
@@ -129,7 +136,7 @@ function buildSections(
       fields: (section.fields || [])
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
         .map(field => {
-          const raw = resolveValue(field.field_name, field.target_entity, property, owner)
+          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance)
           return {
             label: field.label,
             rawValue: raw,
@@ -147,7 +154,7 @@ function buildSections(
       fields: legacyFields
         .sort((a, b) => a.order_index - b.order_index)
         .map(field => {
-          const raw = resolveValue(field.field_name, field.target_entity, property, owner)
+          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance)
           return {
             label: field.label,
             rawValue: raw,
@@ -168,6 +175,7 @@ export function ExternalFormDialog({
   subtask,
   property,
   owner,
+  processInstance,
   processDocuments,
   onComplete,
   isCompleting,
@@ -177,9 +185,11 @@ export function ExternalFormDialog({
   const docShortcuts = (config.document_shortcuts || []) as { doc_type_id: string; label?: string }[]
   const formTitle = (config.form_title as string) || 'Formulário Externo'
 
+  const consultant = property?.consultant ?? null
+
   const resolvedSections = useMemo(
-    () => buildSections(config, property, owner),
-    [config, property, owner]
+    () => buildSections(config, property, owner, consultant, processInstance),
+    [config, property, owner, consultant, processInstance]
   )
 
   const totalFieldCount = resolvedSections.reduce((sum, s) => sum + s.fields.length, 0)
