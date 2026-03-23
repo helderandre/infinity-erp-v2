@@ -9,6 +9,7 @@ import {
   AcqInputField,
   AcqTextareaField,
 } from '@/components/acquisitions/acquisition-field'
+import { AcqSelectField } from '@/components/acquisitions/acquisition-field'
 import { BUSINESS_TYPES, PROPERTY_TYPES_OPTIONS, TYPOLOGY_OPTIONS } from '@/types/deal'
 import type { DealFormData } from '@/lib/validations/deal'
 import type { DealScenario, BusinessType } from '@/types/deal'
@@ -47,6 +48,7 @@ function getLabels(bt: BusinessType | undefined) {
 export function StepCondicoes({ form, errors }: StepCondicoesProps) {
   const scenario = form.watch('scenario') as DealScenario | undefined
   const businessType = form.watch('business_type') as BusinessType | undefined
+  const commissionType = form.watch('commission_type') as 'percentage' | 'fixed' | undefined
   const isAngExterna = scenario === 'angariacao_externa'
   const showCpcv = businessType === 'venda'
   const labels = getLabels(businessType)
@@ -142,21 +144,34 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
         />
       </div>
 
-      {/* Commission + CPCV side by side */}
+      {/* Commission type + value */}
       <div className="grid grid-cols-2 gap-3">
         <DealQuickPick
-          label="Comissão final"
+          label={commissionType === 'fixed' ? 'Valor da Comissão (€)' : 'Comissão final (%)'}
           value={form.watch('commission_pct')}
           onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
-          quickPicks={[
+          quickPicks={commissionType === 'fixed' ? [] : [
             { value: 4, label: '4%' },
             { value: 5, label: '5%' },
             { value: 6, label: '6%' },
           ]}
-          hint="Se 5% coloca 5. Se 150% coloca 150. Se valor fixo coloca o valor (ex. 2000)"
+          hint={commissionType === 'fixed' ? 'Insere o valor fixo acordado (ex: 2000)' : 'Se 5% coloca 5'}
           required
           error={errors.commission_pct}
         />
+        <AcqSelectField
+          label="Tipo de Comissão"
+          value={commissionType || 'percentage'}
+          onChange={(v) => form.setValue('commission_type', v)}
+          options={[
+            { value: 'percentage', label: 'Percentagem (%)' },
+            { value: 'fixed', label: 'Valor Fixo (€)' },
+          ]}
+        />
+      </div>
+
+      {/* CPCV */}
+      <div className="grid grid-cols-2 gap-3">
         {showCpcv && (
           <DealQuickPick
             label="Pagamento no CPCV"

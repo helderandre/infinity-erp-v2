@@ -31,7 +31,7 @@ const TABS = [
 const TAB_FIELDS: Record<string, string[]> = {
   partilha: ['proposal_file_url', 'scenario', 'property_id', 'internal_colleague_id', 'colleague_property_id', 'external_consultant_name', 'external_consultant_phone', 'external_consultant_email', 'partner_agency_name', 'share_pct'],
   clientes: ['clients'],
-  condicoes: ['business_type', 'deal_value', 'commission_pct', 'cpcv_pct', 'deposit_value', 'contract_signing_date', 'max_deadline', 'external_property_id', 'external_property_type', 'external_property_typology', 'external_property_construction_year'],
+  condicoes: ['business_type', 'deal_value', 'commission_pct', 'commission_type', 'cpcv_pct', 'deposit_value', 'contract_signing_date', 'max_deadline', 'external_property_id', 'external_property_type', 'external_property_typology', 'external_property_construction_year'],
   extra: ['has_guarantor', 'has_furniture', 'is_bilingual', 'has_financing', 'has_financing_condition', 'has_signature_recognition', 'housing_regime'],
   referenciacao: ['has_referral', 'referral_pct', 'referral_type', 'referral_info'],
 }
@@ -70,6 +70,7 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
     resolver: zodResolver(dealFormSchema) as any,
     defaultValues: {
       scenario: 'pleno',
+      commission_type: 'percentage',
       person_type: 'singular',
       clients: [{ person_type: 'singular', name: '', email: '', phone: '', order_index: 0 }],
       share_pct: 50,

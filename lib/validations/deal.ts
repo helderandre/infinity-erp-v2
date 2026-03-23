@@ -45,6 +45,7 @@ export const dealFormSchema = z.object({
   business_type: z.enum(['venda', 'arrendamento', 'trespasse']).optional(),
   deal_value: z.number().positive('Valor deve ser positivo').optional(),
   commission_pct: z.number().positive('Comissao deve ser positiva').optional(),
+  commission_type: z.enum(['percentage', 'fixed']).default('percentage'),
   cpcv_pct: z.number().min(0).max(100).optional(),
   deposit_value: z.string().optional(),
   contract_signing_date: z.string().optional(),
@@ -170,7 +171,7 @@ export function validateDealForm(data: DealFormData): { success: boolean; errors
 export function getStepForField(field: string): number {
   const step1 = ['proposal_file_url', 'scenario', 'property_id', 'internal_colleague_id', 'colleague_property_id', 'external_consultant_name', 'external_consultant_phone', 'external_consultant_email', 'partner_agency_name', 'external_property_link', 'share_pct', 'share_notes']
   const step2 = ['person_type', 'clients', 'clients_notes']
-  const step3 = ['business_type', 'deal_value', 'commission_pct', 'cpcv_pct', 'deposit_value', 'contract_signing_date', 'max_deadline', 'conditions_notes', 'external_property_id', 'external_property_type', 'external_property_typology', 'external_property_zone', 'external_property_extra', 'external_property_construction_year']
+  const step3 = ['business_type', 'deal_value', 'commission_pct', 'commission_type', 'cpcv_pct', 'deposit_value', 'contract_signing_date', 'max_deadline', 'conditions_notes', 'external_property_id', 'external_property_type', 'external_property_typology', 'external_property_zone', 'external_property_extra', 'external_property_construction_year']
   const step4 = ['has_guarantor', 'has_furniture', 'is_bilingual', 'has_financing', 'has_financing_condition', 'has_signature_recognition', 'housing_regime', 'extra_info']
 
   if (step1.includes(field)) return 0
