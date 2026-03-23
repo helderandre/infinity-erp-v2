@@ -9,6 +9,8 @@ import {
   AcqInputField,
   AcqTextareaField,
 } from '@/components/acquisitions/acquisition-field'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES_OPTIONS, TYPOLOGY_OPTIONS } from '@/types/deal'
 import type { DealFormData } from '@/lib/validations/deal'
 import type { DealScenario, BusinessType } from '@/types/deal'
@@ -134,34 +136,51 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           required
           error={errors.deal_value}
         />
-        <div className="space-y-3">
-          <AcqFieldWrapper>
-            <AcqFieldLabel required>Comissão</AcqFieldLabel>
-            <div className="mt-1.5">
-              <DealToggleGroup
-                value={commissionType || 'percentage'}
-                onChange={(v) => form.setValue('commission_type', v)}
-                options={[
-                  { value: 'percentage', label: '%' },
-                  { value: 'fixed', label: '€ Fixo' },
-                ]}
-              />
+        <AcqFieldWrapper className={cn(errors.commission_pct && 'border-destructive')}>
+          <AcqFieldLabel required>Comissão</AcqFieldLabel>
+          <div className="mt-1.5">
+            <DealToggleGroup
+              value={commissionType || 'percentage'}
+              onChange={(v) => form.setValue('commission_type', v)}
+              options={[
+                { value: 'percentage', label: '%' },
+                { value: 'fixed', label: '€ Fixo' },
+              ]}
+            />
+          </div>
+          {commissionType !== 'fixed' && (
+            <div className="flex flex-wrap gap-1.5 mt-3 mb-1">
+              {[4, 5, 6].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => form.setValue('commission_pct', v)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full border text-xs font-medium transition-colors',
+                    form.watch('commission_pct') === v
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-background text-foreground border-border hover:bg-accent'
+                  )}
+                >
+                  {v}%
+                </button>
+              ))}
             </div>
-          </AcqFieldWrapper>
-          <DealQuickPick
-            label={commissionType === 'fixed' ? 'Valor (€)' : 'Valor (%)'}
-            value={form.watch('commission_pct')}
-            onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
-            quickPicks={commissionType === 'fixed' ? [] : [
-              { value: 4, label: '4%' },
-              { value: 5, label: '5%' },
-              { value: 6, label: '6%' },
-            ]}
-            suffix={commissionType === 'fixed' ? '€' : '%'}
-            required
-            error={errors.commission_pct}
-          />
-        </div>
+          )}
+          <div className="relative mt-2">
+            <Input
+              type="text"
+              value={form.watch('commission_pct') ?? ''}
+              onChange={(e) => form.setValue('commission_pct', parseFloat(e.target.value) || 0)}
+              placeholder="Outra"
+              className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium pr-6"
+            />
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              {commissionType === 'fixed' ? '€' : '%'}
+            </span>
+          </div>
+          {errors.commission_pct && <p className="text-xs text-destructive mt-1">{errors.commission_pct}</p>}
+        </AcqFieldWrapper>
       </div>
 
       {/* Deposit + CPCV */}
