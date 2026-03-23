@@ -349,15 +349,15 @@ function LeadsPageContent() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telemóvel</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Qualificações</TableHead>
-                  <TableHead>Temperatura</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Consultor</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead className="text-xs">Nome</TableHead>
+                  <TableHead className="text-xs">Email</TableHead>
+                  <TableHead className="text-xs">Telemóvel</TableHead>
+                  <TableHead className="text-xs">Estado</TableHead>
+                  <TableHead className="text-xs">Qualificações</TableHead>
+                  <TableHead className="text-xs">Temperatura</TableHead>
+                  <TableHead className="text-xs">Origem</TableHead>
+                  <TableHead className="text-xs">Consultor</TableHead>
+                  <TableHead className="text-xs">Data</TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
               </TableHeader>
@@ -368,11 +368,11 @@ function LeadsPageContent() {
                     className="cursor-pointer"
                     onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
                   >
-                    <TableCell className="font-medium">{lead.nome}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-xs font-medium">{lead.nome}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
                       {lead.email || '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground">
                       {lead.telemovel || lead.telefone || '—'}
                     </TableCell>
                     <TableCell>
@@ -380,13 +380,13 @@ function LeadsPageContent() {
                     </TableCell>
                     <TableCell>{getQualifTags(lead) || '—'}</TableCell>
                     <TableCell>{getTemperaturaBadge(lead.temperatura)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground">
                       {lead.origem || '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground">
                       {lead.agent?.commercial_name || '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground">
                       {formatDate(lead.created_at)}
                     </TableCell>
                     <TableCell>
