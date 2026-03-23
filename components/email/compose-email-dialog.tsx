@@ -36,6 +36,7 @@ import {
   FileText,
   Mail,
   Save,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -56,6 +57,8 @@ import { EmailDivider } from '@/components/email-editor/user/email-divider'
 import { EmailSpacer } from '@/components/email-editor/user/email-spacer'
 import { EmailAttachment } from '@/components/email-editor/user/email-attachment'
 import { EmailGrid } from '@/components/email-editor/user/email-grid'
+import { EmailPortalLinks } from '@/components/email-editor/user/email-portal-links'
+import { populatePortalLinksInState, fetchPortalLinks } from '@/lib/email-portal-utils'
 
 import type { FullMessage } from '@/hooks/use-email-inbox'
 
@@ -69,6 +72,7 @@ const resolver = {
   EmailSpacer,
   EmailAttachment,
   EmailGrid,
+  EmailPortalLinks,
 }
 
 interface ComposeEmailDialogProps {
@@ -295,6 +299,71 @@ export function ComposeEmailDialog({
   const [editorState, setEditorState] = useState<string | undefined>(undefined)
   const [editorKey, setEditorKey] = useState(0) // Force re-mount Craft.js
 
+  // Property selection (for populating portal links)
+  const [propertySearch, setPropertySearch] = useState('')
+  const [propertyResults, setPropertyResults] = useState<Array<{ id: string; title: string; external_ref?: string }>>([])
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
+  const [selectedPropertyLabel, setSelectedPropertyLabel] = useState('')
+  const [isSearchingProperties, setIsSearchingProperties] = useState(false)
+  const propertySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const portalLinksRef = useRef<Array<{ portal: string; name: string; url: string }>>([])
+
+  // Search properties as user types
+  useEffect(() => {
+    if (propertySearchTimerRef.current) clearTimeout(propertySearchTimerRef.current)
+    if (!propertySearch.trim() || propertySearch.length < 2) {
+      setPropertyResults([])
+      return
+    }
+    propertySearchTimerRef.current = setTimeout(async () => {
+      setIsSearchingProperties(true)
+      try {
+        const res = await fetch(`/api/properties?search=${encodeURIComponent(propertySearch)}&per_page=8`)
+        if (res.ok) {
+          const data = await res.json()
+          const items = (data.data || data || []) as Array<{ id: string; title: string; external_ref?: string }>
+          setPropertyResults(items)
+        }
+      } catch { /* ignore */ }
+      setIsSearchingProperties(false)
+    }, 300)
+    return () => { if (propertySearchTimerRef.current) clearTimeout(propertySearchTimerRef.current) }
+  }, [propertySearch])
+
+  // When property is selected, fetch portal links and populate editor state
+  const handleSelectProperty = useCallback(async (prop: { id: string; title: string; external_ref?: string }) => {
+    setSelectedPropertyId(prop.id)
+    setSelectedPropertyLabel(prop.external_ref ? `${prop.external_ref} — ${prop.title}` : prop.title)
+    setPropertySearch('')
+    setPropertyResults([])
+
+    const { portalLinks } = await fetchPortalLinks(prop.id)
+    portalLinksRef.current = portalLinks
+
+    // If there's already an editor state loaded, populate portal links
+    if (editorState) {
+      const populated = populatePortalLinksInState(editorState, portalLinks)
+      if (populated !== editorState) {
+        setEditorState(populated)
+        setEditorKey((k) => k + 1)
+      }
+    }
+  }, [editorState])
+
+  const handleClearProperty = useCallback(() => {
+    setSelectedPropertyId('')
+    setSelectedPropertyLabel('')
+    portalLinksRef.current = []
+    // Remove portal links from editor state
+    if (editorState) {
+      const cleared = populatePortalLinksInState(editorState, [])
+      if (cleared !== editorState) {
+        setEditorState(cleared)
+        setEditorKey((k) => k + 1)
+      }
+    }
+  }, [editorState])
+
   // Auto-save draft
   const [draftUid, setDraftUid] = useState<number | null>(null)
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -367,6 +436,11 @@ export function ComposeEmailDialog({
     setDraftUid(null)
     setDraftStatus('idle')
     lastSavedRef.current = ''
+    setSelectedPropertyId('')
+    setSelectedPropertyLabel('')
+    setPropertySearch('')
+    setPropertyResults([])
+    portalLinksRef.current = []
 
     if (replyTo) {
       const replyAddr = replyTo.from[0]?.address || ''
@@ -414,11 +488,14 @@ export function ComposeEmailDialog({
       const data = await res.json()
 
       if (data.editor_state) {
-        setEditorState(
-          typeof data.editor_state === 'string'
-            ? data.editor_state
-            : JSON.stringify(data.editor_state)
-        )
+        let stateStr = typeof data.editor_state === 'string'
+          ? data.editor_state
+          : JSON.stringify(data.editor_state)
+        // If a property is already selected, populate portal links
+        if (portalLinksRef.current.length > 0) {
+          stateStr = populatePortalLinksInState(stateStr, portalLinksRef.current)
+        }
+        setEditorState(stateStr)
       }
       if (data.subject && !subject) {
         setSubject(data.subject)
@@ -669,6 +746,59 @@ export function ComposeEmailDialog({
                   ))}
                 </SelectContent>
               </Select>
+            )}
+          </div>
+
+          {/* Property selector for portal links */}
+          <div className="flex items-center gap-3">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide w-16 shrink-0">
+              Imóvel
+            </Label>
+            {selectedPropertyId ? (
+              <div className="flex items-center gap-2 flex-1 h-8">
+                <Badge variant="secondary" className="text-xs font-normal gap-1.5 h-7">
+                  <Building2 className="h-3 w-3" />
+                  {selectedPropertyLabel}
+                </Badge>
+                <button
+                  type="button"
+                  onClick={handleClearProperty}
+                  title="Remover imóvel"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative flex-1">
+                <Input
+                  value={propertySearch}
+                  onChange={(e) => setPropertySearch(e.target.value)}
+                  placeholder="Pesquisar imóvel por ref. ou título..."
+                  className="h-8 text-sm"
+                />
+                {(propertyResults.length > 0 || isSearchingProperties) && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border bg-popover shadow-md max-h-48 overflow-auto">
+                    {isSearchingProperties && propertyResults.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">A pesquisar...</div>
+                    )}
+                    {propertyResults.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center gap-2"
+                        onClick={() => handleSelectProperty(p)}
+                      >
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        {p.external_ref && (
+                          <span className="text-xs text-muted-foreground font-mono shrink-0">{p.external_ref}</span>
+                        )}
+                        <span className="truncate">{p.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

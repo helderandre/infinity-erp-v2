@@ -33,6 +33,25 @@ const sendSchema = z.object({
 })
 
 /**
+ * Encode a header value using RFC 2047 Base64 encoding for non-ASCII chars.
+ * Prevents corrupted Subject/From headers that cause Gmail to reject emails.
+ */
+function rfc2047Encode(value: string): string {
+  if (!/[^\x00-\x7F]/.test(value)) return value
+  const encoded = Buffer.from(value, 'utf-8').toString('base64')
+  // Max encoded word length is 75 chars; prefix =?UTF-8?B? is 10 chars, suffix ?= is 2 chars
+  const maxChunk = 63
+  if (encoded.length <= maxChunk) {
+    return `=?UTF-8?B?${encoded}?=`
+  }
+  const chunks: string[] = []
+  for (let i = 0; i < encoded.length; i += maxChunk) {
+    chunks.push(`=?UTF-8?B?${encoded.slice(i, i + maxChunk)}?=`)
+  }
+  return chunks.join('\r\n ')
+}
+
+/**
  * Build a minimal RFC822 raw message for IMAP APPEND to Sent folder
  */
 function buildRawMessage(opts: {
@@ -48,7 +67,7 @@ function buildRawMessage(opts: {
   lines.push(`From: ${opts.from}`)
   lines.push(`To: ${opts.to}`)
   if (opts.cc) lines.push(`Cc: ${opts.cc}`)
-  lines.push(`Subject: ${opts.subject}`)
+  lines.push(`Subject: ${rfc2047Encode(opts.subject)}`)
   lines.push(`Date: ${new Date().toUTCString()}`)
   lines.push(`Message-ID: ${opts.messageId}`)
   lines.push(`MIME-Version: 1.0`)

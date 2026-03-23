@@ -8,6 +8,15 @@
  * is rendered as <table> elements with inline styles.
  */
 
+const PROPERTY_PORTALS: Record<string, { name: string; color: string; icon: string }> = {
+  idealista: { name: 'Idealista', color: '#1DBF73', icon: '🏠' },
+  imovirtual: { name: 'Imovirtual', color: '#FF6600', icon: '🏡' },
+  casa_sapo: { name: 'Casa Sapo', color: '#0066CC', icon: '🏘️' },
+  supercasa: { name: 'SuperCasa', color: '#E31E24', icon: '🏢' },
+  remax: { name: 'RE/MAX', color: '#003DA5', icon: '🏠' },
+  custom: { name: 'Personalizado', color: '#6B7280', icon: '🔗' },
+}
+
 type CraftNode = {
   type: { resolvedName: string }
   isCanvas?: boolean
@@ -540,6 +549,63 @@ function renderAttachment(props: Record<string, unknown>, variables: VariablesMa
   )
 }
 
+function renderPortalLinks(props: Record<string, unknown>): string {
+  const portals = (props.portals as Array<{ portal: string; name: string; url: string }>) || []
+  const title = (props.title as string) || 'Anúncios nos Portais'
+  const showTitle = (props.showTitle as boolean) ?? true
+  const gap = (props.gap as number) ?? 12
+  const borderRadius = (props.borderRadius as string) || '8px'
+  const cardBackground = (props.cardBackground as string) || '#f9fafb'
+  const boxShadow = (props.boxShadow as string) || 'none'
+
+  if (portals.length === 0) return ''
+
+  let html = ''
+
+  if (showTitle) {
+    html += `<p style="font-weight: 600; font-size: 16px; margin: 0 0 12px 0; font-family: Arial, sans-serif;">${title}</p>`
+  }
+
+  const cards = portals.map((portal) => {
+    const meta = PROPERTY_PORTALS[portal.portal]
+    const color = meta?.color || '#6B7280'
+    const icon = meta?.icon || '🔗'
+
+    const cardStyle = [
+      `border: 1px solid #e5e7eb`,
+      `border-radius: ${borderRadius}`,
+      `background-color: ${cardBackground}`,
+      boxShadow !== 'none' ? `box-shadow: ${boxShadow}` : '',
+    ].filter(Boolean).join('; ')
+
+    return (
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${cardStyle}">` +
+      `<tbody><tr>` +
+      `<td style="padding: 12px 16px;">` +
+      `<a href="${portal.url || '#'}" target="_blank" style="text-decoration: none; color: inherit;">` +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
+      `<tbody><tr>` +
+      `<td style="width: 36px; vertical-align: middle;">` +
+      `<div style="width: 36px; height: 36px; border-radius: 6px; background-color: ${color}15; text-align: center; line-height: 36px; font-size: 18px;">${icon}</div>` +
+      `</td>` +
+      `<td style="vertical-align: middle; padding-left: 12px;">` +
+      `<div style="font-weight: 600; font-size: 14px; font-family: Arial, sans-serif;">${portal.name || 'Portal'}</div>` +
+      `<div style="font-size: 12px; color: #6b7280; font-family: Arial, sans-serif;">Ver anúncio &rarr;</div>` +
+      `</td>` +
+      `</tr></tbody></table>` +
+      `</a>` +
+      `</td>` +
+      `</tr></tbody></table>`
+    )
+  })
+
+  html += cards.join(
+    `<div style="height: ${gap}px; font-size: 0; line-height: 0;">&nbsp;</div>`
+  )
+
+  return html
+}
+
 /** Strip the highlighting <span> wrappers from variables, keeping just the raw {{var}} text */
 function stripVariableSpans(html: string): string {
   // Strip data-variable-key spans (Tiptap)
@@ -596,6 +662,8 @@ function renderNode(nodeId: string, state: EditorState, variables: VariablesMap)
           return renderSpacer(props)
         case 'EmailAttachment':
           return renderAttachment(props, variables)
+        case 'EmailPortalLinks':
+          return renderPortalLinks(props)
         default:
           return allChildren
       }

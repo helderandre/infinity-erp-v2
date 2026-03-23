@@ -30,6 +30,7 @@ import { SubtaskCardExternalForm } from './subtask-card-external-form'
 import { ExternalFormDialog } from './external-form-dialog'
 import type { ProcessTask, ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
+import type { Deal, DealClient, DealPayment } from '@/types/deal'
 
 interface SubtaskCardListProps {
   task: ProcessTask & { subtasks: ProcSubtask[] }
@@ -40,6 +41,7 @@ interface SubtaskCardListProps {
   processInstance?: ProcessInstance
   owners?: ProcessOwner[]
   processDocuments?: ProcessDocument[]
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   canDeleteAdhocSubtask?: boolean
   onSubtaskToggle: (taskId: string, subtaskId: string, completed: boolean) => Promise<void>
   onTaskUpdate: () => void
@@ -55,6 +57,7 @@ export function SubtaskCardList({
   processInstance,
   owners = [],
   processDocuments = [],
+  deal,
   canDeleteAdhocSubtask,
   onSubtaskToggle,
   onTaskUpdate,
@@ -444,9 +447,14 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setOpenExternalFormSubtask(null) }}
           subtask={openExternalFormSubtask}
           property={property}
-          owner={owners.find(o => o.id === openExternalFormSubtask.owner_id)}
+          owner={
+            owners.find(o => o.id === openExternalFormSubtask.owner_id)
+            || owners.find(o => o.is_main_contact)
+            || owners[0]
+          }
           processInstance={processInstance}
           processDocuments={processDocuments}
+          deal={deal}
           isCompleting={isCompletingExternalForm}
           onComplete={async () => {
             setIsCompletingExternalForm(true)

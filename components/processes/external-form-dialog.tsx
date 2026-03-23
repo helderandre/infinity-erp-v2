@@ -19,6 +19,7 @@ import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { ProcSubtask, ExternalFormField, FormSectionConfig, FormFieldConfig } from '@/types/subtask'
 import type { ProcessInstance, ProcessConsultant, ProcessOwner, ProcessDocument } from '@/types/process'
+import type { Deal, DealClient, DealPayment } from '@/types/deal'
 
 interface ExternalFormDialogProps {
   open: boolean
@@ -28,6 +29,7 @@ interface ExternalFormDialogProps {
   owner?: ProcessOwner
   processInstance?: ProcessInstance
   processDocuments: ProcessDocument[]
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   onComplete: () => void
   isCompleting?: boolean
 }
@@ -60,7 +62,9 @@ function resolveValue(
   property: ProcessInstance['property'],
   owner?: ProcessOwner,
   consultant?: ProcessConsultant | null,
-  processInstance?: ProcessInstance
+  processInstance?: ProcessInstance,
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null,
+  fieldConfig?: { config?: Record<string, unknown> }
 ): string {
   switch (targetEntity) {
     case 'property':
@@ -76,6 +80,17 @@ function resolveValue(
       return String((consultant as any)?.[fieldName] ?? '')
     case 'process':
       return String((processInstance as any)?.[fieldName] ?? '')
+    case 'deal':
+      return String((deal as any)?.[fieldName] ?? '')
+    case 'deal_client':
+      return String(deal?.deal_clients?.[0]?.[fieldName as keyof DealClient] ?? '')
+    case 'deal_payment': {
+      const moment = fieldConfig?.config?.payment_moment as string | undefined
+      const payment = moment
+        ? deal?.deal_payments?.find(p => p.payment_moment === moment)
+        : deal?.deal_payments?.[0]
+      return String((payment as any)?.[fieldName] ?? '')
+    }
     default:
       return ''
   }
@@ -124,7 +139,8 @@ function buildSections(
   property: ProcessInstance['property'],
   owner?: ProcessOwner,
   consultant?: ProcessConsultant | null,
-  processInstance?: ProcessInstance
+  processInstance?: ProcessInstance,
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
 ): ResolvedSection[] {
   const sections = config.sections as FormSectionConfig[] | undefined
   const legacyFields = config.external_form_fields as ExternalFormField[] | undefined
@@ -136,7 +152,7 @@ function buildSections(
       fields: (section.fields || [])
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
         .map(field => {
-          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance)
+          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance, deal, field as any)
           return {
             label: field.label,
             rawValue: raw,
@@ -154,7 +170,7 @@ function buildSections(
       fields: legacyFields
         .sort((a, b) => a.order_index - b.order_index)
         .map(field => {
-          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance)
+          const raw = resolveValue(field.field_name, field.target_entity, property, owner, consultant, processInstance, deal)
           return {
             label: field.label,
             rawValue: raw,
@@ -177,6 +193,7 @@ export function ExternalFormDialog({
   owner,
   processInstance,
   processDocuments,
+  deal,
   onComplete,
   isCompleting,
 }: ExternalFormDialogProps) {
@@ -188,8 +205,8 @@ export function ExternalFormDialog({
   const consultant = property?.consultant ?? null
 
   const resolvedSections = useMemo(
-    () => buildSections(config, property, owner, consultant, processInstance),
-    [config, property, owner, consultant, processInstance]
+    () => buildSections(config, property, owner, consultant, processInstance, deal),
+    [config, property, owner, consultant, processInstance, deal]
   )
 
   const totalFieldCount = resolvedSections.reduce((sum, s) => sum + s.fields.length, 0)

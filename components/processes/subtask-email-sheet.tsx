@@ -67,7 +67,9 @@ import { EmailDivider } from '@/components/email-editor/user/email-divider'
 import { EmailSpacer } from '@/components/email-editor/user/email-spacer'
 import { EmailAttachment } from '@/components/email-editor/user/email-attachment'
 import { EmailGrid } from '@/components/email-editor/user/email-grid'
+import { EmailPortalLinks } from '@/components/email-editor/user/email-portal-links'
 import { RenderNode } from '@/components/email-editor/email-render-node'
+import { populatePortalLinksInState } from '@/lib/email-portal-utils'
 
 const resolver = {
   EmailContainer,
@@ -79,6 +81,7 @@ const resolver = {
   EmailSpacer,
   EmailAttachment,
   EmailGrid,
+  EmailPortalLinks,
 }
 
 interface SubtaskEmailSheetProps {
@@ -479,16 +482,17 @@ export function SubtaskEmailSheet({
       .then((r) => r.json())
       .then((d) => {
         const vars: Record<string, string> = d.variables ?? {}
+        const portals = d.portal_links ?? []
         setResolvedVariables(vars)
-        return vars
+        return { vars, portals }
       })
-      .catch(() => ({} as Record<string, string>))
+      .catch(() => ({ vars: {} as Record<string, string>, portals: [] as Array<{ portal: string; name: string; url: string }> }))
 
     Promise.all([
       fetch(`/api/libraries/emails/${emailLibraryId}`).then((r) => r.json()),
       previewDataPromise,
     ])
-      .then(([templateData, variables]) => {
+      .then(([templateData, { vars: variables, portals: portalLinks }]) => {
         if (templateData.error) {
           setError(templateData.error)
           return
@@ -497,12 +501,15 @@ export function SubtaskEmailSheet({
         setSubject(interpolateVariables(templateData.subject ?? '', variables))
 
         if (templateData.editor_state) {
-          const stateStr = JSON.stringify(templateData.editor_state)
-          const populated = stateStr.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+          let stateStr = JSON.stringify(templateData.editor_state)
+          // Replace template variables
+          stateStr = stateStr.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
             const val = variables[key]
             return val !== undefined ? escapeForJsonString(val) : ''
           })
-          setLoadedEditorState(populated)
+          // Populate portal links from property data
+          stateStr = populatePortalLinksInState(stateStr, portalLinks)
+          setLoadedEditorState(stateStr)
           setEditorKey((k) => k + 1)
         } else {
           setError(

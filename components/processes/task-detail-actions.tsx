@@ -69,6 +69,7 @@ import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 import { SubtaskConfigDialog } from '@/components/templates/subtask-config-dialog'
 import type { ProcessTask, ProcessInstance, ProcessDocument, ProcessOwner } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
+import type { Deal, DealClient, DealPayment } from '@/types/deal'
 
 const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Mail, MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, Clock, ShieldAlert,
@@ -83,6 +84,7 @@ interface TaskDetailActionsProps {
   processInstance?: ProcessInstance
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   onTaskUpdate: () => void
 }
 
@@ -95,6 +97,7 @@ export function TaskDetailActions({
   processInstance,
   processDocuments = [],
   owners = [],
+  deal,
   onTaskUpdate,
 }: TaskDetailActionsProps) {
   const { user } = useUser()
@@ -408,6 +411,7 @@ export function TaskDetailActions({
                 processInstance={processInstance}
                 owners={owners}
                 processDocuments={processDocuments}
+                deal={deal}
                 canDeleteAdhocSubtask={canManageAdhoc}
                 onSubtaskToggle={async (taskId, subtaskId, completed) => {
                   const res = await fetch(

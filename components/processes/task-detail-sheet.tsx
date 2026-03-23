@@ -36,6 +36,7 @@ import { TaskSheetSidebar, type SheetTab } from './task-sheet-sidebar'
 import { CommentInput } from './comment-input'
 import { toast } from 'sonner'
 import type { ProcessTask, ProcessInstance, ProcessDocument, ProcessOwner, TaskCommentMention } from '@/types/process'
+import type { Deal, DealClient, DealPayment } from '@/types/deal'
 
 const STATUS_ICONS = {
   completed: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
@@ -60,6 +61,7 @@ interface TaskDetailSheetProps {
   processInstance?: ProcessInstance
   processDocuments?: ProcessDocument[]
   owners?: ProcessOwner[]
+  deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onTaskUpdate: () => void
@@ -74,6 +76,7 @@ export function TaskDetailSheet({
   processInstance,
   processDocuments,
   owners,
+  deal,
   open,
   onOpenChange,
   onTaskUpdate,
@@ -225,6 +228,7 @@ export function TaskDetailSheet({
                 processInstance={processInstance}
                 processDocuments={processDocuments}
                 owners={owners}
+                deal={deal}
                 onTaskUpdate={onTaskUpdate}
               />
             </div>

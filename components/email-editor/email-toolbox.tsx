@@ -12,6 +12,7 @@ import {
   Minus,
   ArrowUpDown,
   Paperclip,
+  ExternalLink,
   ChevronDown,
   Search,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ import { EmailDivider } from './user/email-divider'
 import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
 import { EmailGrid } from './user/email-grid'
+import { EmailPortalLinks } from './user/email-portal-links'
 
 interface ToolboxItem {
   label: string
@@ -46,6 +48,7 @@ export const categories: ToolboxCategory[] = [
       { label: 'Título', icon: Heading, element: <EmailHeading /> },
       { label: 'Botão', icon: MousePointer, element: <EmailButton /> },
       { label: 'Anexo', icon: Paperclip, element: <EmailAttachment /> },
+      { label: 'Links Portais', icon: ExternalLink, element: <EmailPortalLinks /> },
     ],
   },
   {

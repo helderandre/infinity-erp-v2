@@ -369,6 +369,42 @@ export const LEAD_SOURCES = {
   other: 'Outro',
 } as const
 
+// Portais imobiliários — metadata para Email Builder
+export const PROPERTY_PORTALS = {
+  idealista: {
+    name: 'Idealista',
+    color: '#1DBF73',
+    icon: '🏠',
+  },
+  imovirtual: {
+    name: 'Imovirtual',
+    color: '#FF6600',
+    icon: '🏡',
+  },
+  casa_sapo: {
+    name: 'Casa Sapo',
+    color: '#0066CC',
+    icon: '🏘️',
+  },
+  supercasa: {
+    name: 'SuperCasa',
+    color: '#E31E24',
+    icon: '🏢',
+  },
+  remax: {
+    name: 'RE/MAX',
+    color: '#003DA5',
+    icon: '🏠',
+  },
+  custom: {
+    name: 'Personalizado',
+    color: '#6B7280',
+    icon: '🔗',
+  },
+} as const
+
+export type PropertyPortalKey = keyof typeof PROPERTY_PORTALS
+
 // Tipos de Lead
 export const LEAD_TYPES = {
   unknown: 'Desconhecido',

@@ -396,6 +396,13 @@ export async function GET(
       )
       .eq('property_id', data.property?.id)
 
+    // Buscar deal vinculado ao processo
+    const { data: deal } = await supabase
+      .from('deals')
+      .select('*, deal_clients(*), deal_payments(*)')
+      .eq('proc_instance_id', id)
+      .maybeSingle()
+
     // Obter documentos do imóvel
     const docSelect = `
         id,
@@ -491,6 +498,7 @@ export async function GET(
         owner_role: po.owner_role || null,
       })) || [],
       documents: documents || [],
+      deal: deal || null,
     }
 
     return NextResponse.json(response)

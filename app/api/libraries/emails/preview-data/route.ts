@@ -157,7 +157,41 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ variables })
+    // 5. Fetch portal links from dev_property_internal.listing_links
+    let portalLinks: Array<{ portal: string; name: string; url: string }> = []
+    if (property_id) {
+      // listing_links is a jsonb array: [{ site_name, url, published_at? }]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: internalRow } = await (supabase as any)
+        .from('dev_property_internal')
+        .select('listing_links')
+        .eq('property_id', property_id)
+        .single()
+
+      if (internalRow?.listing_links && Array.isArray(internalRow.listing_links)) {
+        // Map site_name → portal key for PROPERTY_PORTALS matching
+        const SITE_NAME_TO_KEY: Record<string, string> = {
+          'idealista': 'idealista',
+          'imovirtual': 'imovirtual',
+          'casa sapo': 'casa_sapo',
+          'supercasa': 'supercasa',
+          're/max': 'remax',
+          'remax': 'remax',
+        }
+
+        for (const link of internalRow.listing_links as Array<{ site_name: string; url: string }>) {
+          if (!link.url || !link.site_name) continue
+          const portalKey = SITE_NAME_TO_KEY[link.site_name.toLowerCase()] || 'custom'
+          portalLinks.push({
+            portal: portalKey,
+            name: link.site_name,
+            url: link.url,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({ variables, portal_links: portalLinks })
   } catch (error) {
     console.error('Erro ao buscar dados de pré-visualização:', error)
     return NextResponse.json(

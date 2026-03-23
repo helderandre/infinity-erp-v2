@@ -42,6 +42,7 @@ import { EmailDivider } from "@/components/email-editor/user/email-divider"
 import { EmailSpacer } from "@/components/email-editor/user/email-spacer"
 import { EmailAttachment } from "@/components/email-editor/user/email-attachment"
 import { EmailGrid } from "@/components/email-editor/user/email-grid"
+import { EmailPortalLinks } from "@/components/email-editor/user/email-portal-links"
 import { RenderNode } from "@/components/email-editor/email-render-node"
 import {
   EmailToolbox,
@@ -63,6 +64,7 @@ const craftResolver = {
   EmailSpacer,
   EmailAttachment,
   EmailGrid,
+  EmailPortalLinks,
 }
 
 // ── Helper: capture editor state via ref ──

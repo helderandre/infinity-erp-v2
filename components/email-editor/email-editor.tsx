@@ -17,6 +17,7 @@ import { EmailDivider } from './user/email-divider'
 import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
 import { EmailGrid } from './user/email-grid'
+import { EmailPortalLinks } from './user/email-portal-links'
 
 import { RenderNode, duplicateNode } from './email-render-node'
 import { EmailToolbox } from './email-toolbox'
@@ -36,6 +37,7 @@ const resolver = {
   EmailSpacer,
   EmailAttachment,
   EmailGrid,
+  EmailPortalLinks,
 }
 
 interface EmailEditorProps {

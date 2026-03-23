@@ -1257,6 +1257,7 @@ export default function ProcessoDetailPage() {
         processInstance={instance}
         processDocuments={documents}
         owners={owners}
+        deal={deal}
         open={selectedTask !== null}
         onOpenChange={(open) => {
           if (!open) {
