@@ -62,13 +62,15 @@ import {
   Kanban,
   UserPlus,
   Plus,
+  Handshake,
+  ShoppingCart,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
-import { ProcessReviewBento } from '@/components/processes/process-review-bento'
+import { ProcessReviewBento, REVIEW_SUBTABS } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
 import { ProcessListView } from '@/components/processes/process-list-view'
@@ -81,9 +83,11 @@ import { ProcessOwnerCard } from '@/components/processes/process-owner-card'
 import { ProcessDocumentsManager } from '@/components/processes/process-documents-manager'
 import { AdHocTaskSheet } from '@/components/processes/adhoc-task-sheet'
 import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
+import { ProcessDealTab } from '@/components/processes/process-deal-tab'
+import { ProcessDealBento, DEAL_SUBTABS } from '@/components/processes/process-deal-bento'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
-import { cn, formatDate } from '@/lib/utils'
+import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
 import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 import { toast } from 'sonner'
@@ -106,6 +110,7 @@ export default function ProcessoDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [activeSection, setActiveSection] = useState<SidebarSection>('detalhes')
+  const [detalhesSubTab, setDetalhesSubTab] = useState('resumo')
 
   // Process-level activities (for timeline view)
   const { activities: processActivities, isLoading: isLoadingActivities } = useProcessActivities(
@@ -677,6 +682,9 @@ export default function ProcessoDetailPage() {
     return { ownerHasTasksMap: hasMap, ownerExistingSubtaskIds: subMap }
   }, [process?.stages])
 
+  // Determine if process is negocio type (for sidebar / content decisions)
+  const isNegocio = process?.instance?.process_type === 'negocio'
+
   // Build owner sub-items for the sidebar (use process?.owners since destructuring happens after guards)
   const ownerSubItems = (process?.owners || []).map((owner: { id: string; name?: string; is_main_contact?: boolean }) => ({
     key: `proprietarios:${owner.id}`,
@@ -688,6 +696,10 @@ export default function ProcessoDetailPage() {
   const sidebarItems: PageSidebarItem[] = [
     { key: 'detalhes', label: 'Detalhes', icon: ClipboardList },
     { key: 'pipeline', label: 'Pipeline', icon: Kanban },
+    ...(isNegocio ? [
+      { key: 'negocio', label: 'Negócio', icon: Handshake },
+      { key: 'compradores', label: 'Compradores', icon: ShoppingCart },
+    ] : []),
     {
       key: 'imovel',
       label: 'Imóvel',
@@ -778,7 +790,7 @@ export default function ProcessoDetailPage() {
 
   if (!process) return null
 
-  const { instance, stages, owners, documents } = process
+  const { instance, stages, owners, documents, deal, deal_clients: dealClients } = process
   const property = instance.property
 
   return (
@@ -796,7 +808,11 @@ export default function ProcessoDetailPage() {
               <h1 className="text-lg font-bold truncate">{instance.external_ref}</h1>
               <StatusBadge status={instance.current_status} type="process" />
             </div>
-            <p className="text-sm text-muted-foreground truncate">{property?.title}</p>
+            <p className="text-sm text-muted-foreground truncate">
+              {isNegocio && deal
+                ? `Negócio — ${deal.deal_value ? formatCurrency(Number(deal.deal_value)) : ''}`
+                : property?.title}
+            </p>
           </div>
         </div>
 
@@ -889,37 +905,59 @@ export default function ProcessoDetailPage() {
         <div className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6">
           {/* ── DETALHES section ── */}
           {activeSection === 'detalhes' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Review section (pending / returned) */}
               {isPending && (
-                <>
-                  <ProcessReviewSection
-                    process={instance}
-                    property={property}
-                    owners={owners}
-                    documents={documents}
-                    onApprove={handleApprove}
-                    onReturn={handleReturn}
-                    onReject={handleReject}
-                  />
-                  {property && (
-                    <ProcessReviewBento
-                      process={instance}
-                      property={property}
-                      owners={owners}
-                      documents={documents}
-                    />
-                  )}
-                </>
+                <ProcessReviewSection
+                  process={instance}
+                  property={property}
+                  owners={owners}
+                  documents={documents}
+                  onApprove={handleApprove}
+                  onReturn={handleReturn}
+                  onReject={handleReject}
+                />
               )}
 
-              {/* Active process summary (bento only, progress is in Pipeline) */}
-              {isActive && property && (
+              {/* Sub-tabs */}
+              {(() => {
+                const subtabs = isNegocio ? DEAL_SUBTABS : REVIEW_SUBTABS
+                return (
+                  <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30 shadow-sm w-fit">
+                    {subtabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setDetalhesSubTab(tab.key)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                          detalhesSubTab === tab.key
+                            ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              {/* Bento content filtered by sub-tab */}
+              {isNegocio && deal && (
+                <ProcessDealBento
+                  deal={deal}
+                  dealClients={dealClients || []}
+                  documents={documents}
+                  section={detalhesSubTab as any}
+                />
+              )}
+              {!isNegocio && property && (
                 <ProcessReviewBento
                   process={instance}
                   property={property}
                   owners={owners}
                   documents={documents}
+                  section={detalhesSubTab as any}
                 />
               )}
             </div>
@@ -932,6 +970,57 @@ export default function ProcessoDetailPage() {
 
           {activeSection === 'imovel:documentos' && (
             <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={silentRefresh} view="documentos" />
+          )}
+
+          {/* ── NEGÓCIO section (deal-type processes) ── */}
+          {activeSection === 'negocio' && deal && (
+            <ProcessDealTab deal={deal} dealClients={dealClients || []} />
+          )}
+
+          {/* ── COMPRADORES section (deal-type processes) ── */}
+          {activeSection === 'compradores' && (
+            <div className="space-y-4">
+              {(dealClients || []).length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Nenhum comprador associado</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {(dealClients || []).map((client: any, idx: number) => (
+                    <Card key={client.id || idx}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                            {client.name?.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium">{client.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {client.person_type === 'singular' ? 'Pessoa Singular' : 'Pessoa Colectiva'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {client.email && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <span className="font-medium text-foreground">{client.email}</span>
+                            </div>
+                          )}
+                          {client.phone && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <span className="font-medium text-foreground">{client.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── PIPELINE section ── */}
