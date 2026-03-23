@@ -52,18 +52,127 @@ export function ProcessReviewBento({
 }: ProcessReviewBentoProps) {
   const specs = property.specs
   const internal = property.internal
+  const propertyType = PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type
+  const businessType = BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type
+  const condition = PROPERTY_CONDITIONS[property.property_condition as keyof typeof PROPERTY_CONDITIONS] || property.property_condition
+  const energy = ENERGY_CERTIFICATES[property.energy_certificate as keyof typeof ENERGY_CERTIFICATES] || property.energy_certificate
+  const regime = internal ? (CONTRACT_REGIMES[internal.contract_regime as keyof typeof CONTRACT_REGIMES] || internal.contract_regime) : null
+
+  const specItems = specs ? [
+    { icon: Layers, label: 'Tipologia', value: specs.typology },
+    { icon: BedDouble, label: 'Quartos', value: specs.bedrooms },
+    { icon: Bath, label: 'WC', value: specs.bathrooms },
+    { icon: Maximize, label: 'Área', value: specs.area_gross ? formatArea(specs.area_gross) : null },
+    { icon: Car, label: 'Parking', value: specs.parking_spaces },
+    { icon: Calendar, label: 'Ano', value: specs.construction_year },
+  ].filter(item => item.value != null) : []
+
+  // Images sorted: cover first
+  const images = (property.media || [])
+    .filter((m) => m.media_type === 'image')
+    .sort((a, b) => {
+      if (a.is_cover && !b.is_cover) return -1
+      if (!a.is_cover && b.is_cover) return 1
+      return a.order_index - b.order_index
+    })
+  const coverUrl = images[0]?.url
 
   return (
-    <div className="space-y-4">
-      <PropertyHeroCard property={property} />
+    <Card className="overflow-hidden py-0 gap-0">
+      {/* Hero image + overlay */}
+      {coverUrl ? (
+        <div className="relative h-48 w-full">
+          <img src={coverUrl} alt={property.title} className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <h3 className="text-white text-lg font-bold leading-tight">{property.title}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              {propertyType && <Badge className="bg-white/20 text-white border-0 text-[10px]">{propertyType}</Badge>}
+              {businessType && <Badge className="bg-white/20 text-white border-0 text-[10px]">{businessType}</Badge>}
+              {property.listing_price && (
+                <span className="text-white/90 text-sm font-bold ml-auto">{formatCurrency(property.listing_price)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="px-5 pt-5 pb-3">
+          <h3 className="text-lg font-bold">{property.title}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            {propertyType && <Badge variant="secondary" className="text-[10px]">{propertyType}</Badge>}
+            {businessType && <Badge variant="secondary" className="text-[10px]">{businessType}</Badge>}
+            {property.listing_price && (
+              <span className="text-sm font-bold ml-auto">{formatCurrency(property.listing_price)}</span>
+            )}
+          </div>
+        </div>
+      )}
 
-      <div className="columns-1 lg:columns-2 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
-        <LocationMapCard property={property} />
-        <PriceCard property={property} />
-        <SpecsCard specs={specs} />
-        {internal && <InternalDataCard internal={internal} />}
+      <div className="divide-y">
+        {/* Location */}
+        {(property.address_street || property.city) && (
+          <div className="px-5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Localização</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              {property.address_street && <DetailRow label="Morada" value={property.address_street} />}
+              {property.postal_code && <DetailRow label="Código Postal" value={property.postal_code} />}
+              {property.city && <DetailRow label="Cidade" value={property.city} />}
+              {property.zone && <DetailRow label="Zona" value={property.zone} />}
+            </div>
+          </div>
+        )}
+
+        {/* Specs */}
+        {specItems.length > 0 && (
+          <div className="px-5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Especificações</p>
+            <div className="grid grid-cols-3 gap-3">
+              {specItems.map((item) => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <div className="rounded-md bg-muted/50 p-1.5">
+                    <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground leading-none">{item.label}</p>
+                    <p className="text-sm font-semibold">{item.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Details row */}
+        {(condition || energy) && (
+          <div className="px-5 py-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              {condition && <DetailRow label="Condição" value={condition} />}
+              {energy && <DetailRow label="Certificado" value={energy} />}
+            </div>
+          </div>
+        )}
+
+        {/* Contract / Internal */}
+        {internal && (internal.commission_agreed != null || regime || internal.imi_value != null) && (
+          <div className="px-5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Contrato</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              {internal.commission_agreed != null && (
+                <DetailRow
+                  label="Comissão"
+                  value={internal.commission_type === 'percentage' ? `${internal.commission_agreed}%` : formatCurrency(internal.commission_agreed)}
+                />
+              )}
+              {regime && <DetailRow label="Regime" value={regime} />}
+              {internal.contract_term && <DetailRow label="Prazo" value={internal.contract_term} />}
+              {internal.contract_expiry && <DetailRow label="Validade" value={formatDate(internal.contract_expiry)} />}
+              {internal.imi_value != null && <DetailRow label="IMI" value={formatCurrency(internal.imi_value)} />}
+              {internal.condominium_fee != null && <DetailRow label="Condomínio" value={formatCurrency(internal.condominium_fee)} />}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Card>
   )
 }
 
