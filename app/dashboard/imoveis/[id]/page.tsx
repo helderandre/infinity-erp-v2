@@ -145,6 +145,14 @@ export default function ImovelDetalhePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [editData, setEditData] = useState<Record<string, any>>({})
+  const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/consultants?per_page=100')
+      .then(r => r.json())
+      .then(d => setConsultantsList(d.data || []))
+      .catch(() => {})
+  }, [])
 
   // Initialize editData from property when entering edit mode
   const startEditing = useCallback(() => {
@@ -153,6 +161,7 @@ export default function ImovelDetalhePage() {
     const i = property.dev_property_internal
     setEditData({
       // property
+      consultant_id: property.consultant_id ?? '',
       status: property.status ?? 'pending_approval',
       title: property.title ?? '', description: property.description ?? '',
       property_type: property.property_type ?? '', business_type: property.business_type ?? '',
@@ -206,6 +215,7 @@ export default function ImovelDetalhePage() {
     try {
       const d = editData
       const propertyPayload: Record<string, any> = {
+        consultant_id: str(d.consultant_id),
         status: str(d.status),
         title: d.title || undefined,
         description: str(d.description),
@@ -520,7 +530,7 @@ export default function ImovelDetalhePage() {
                       <InfoChip label="Condição" value={PROPERTY_CONDITIONS[property.property_condition as keyof typeof PROPERTY_CONDITIONS] || property.property_condition} editing={isEditing} editValue={editData.property_condition} onChange={(v) => updateField('property_condition', v)} type="select" options={PROPERTY_CONDITIONS} />
                       <InfoChip label="Certificado" value={ENERGY_CERTIFICATES[property.energy_certificate as keyof typeof ENERGY_CERTIFICATES] || property.energy_certificate} editing={isEditing} editValue={editData.energy_certificate} onChange={(v) => updateField('energy_certificate', v)} type="select" options={ENERGY_CERTIFICATES} />
                       <InfoChip label="Referência" value={property.external_ref} editing={isEditing} editValue={editData.external_ref} onChange={(v) => updateField('external_ref', v)} />
-                      <InfoChip label="Consultor" value={property.consultant?.commercial_name} />
+                      <InfoChip label="Consultor" value={property.consultant?.commercial_name} editing={isEditing} editValue={editData.consultant_id} onChange={(v) => updateField('consultant_id', v)} type="select" options={Object.fromEntries(consultantsList.map(c => [c.id, c.commercial_name]))} />
                     </div>
                   </div>
                   <div className="space-y-4">

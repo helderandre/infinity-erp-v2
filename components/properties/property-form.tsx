@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -139,6 +139,14 @@ export function PropertyForm({
   mode,
 }: PropertyFormProps) {
   const [step, setStep] = useState(0)
+  const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/consultants?per_page=100')
+      .then(r => r.json())
+      .then(d => setConsultants(d.data || []))
+      .catch(() => {})
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
@@ -359,6 +367,22 @@ export function PropertyForm({
                   <FormItem>
                     <FormLabel>Referência Externa</FormLabel>
                     <FormControl><Input placeholder="REF-001" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="consultant_id" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Consultor</FormLabel>
+                    <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? undefined : v)} value={field.value || NONE_VALUE}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>Eu próprio</SelectItem>
+                        {consultants.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )} />

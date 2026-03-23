@@ -10,6 +10,7 @@ import {
   FileText,
   Mail,
   Zap,
+  Handshake,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,10 +24,12 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
+import { DealDialog } from '@/components/deals/deal-dialog'
 
 export function QuickActions() {
   const router = useRouter()
   const [acquisitionOpen, setAcquisitionOpen] = useState(false)
+  const [fechoOpen, setFechoOpen] = useState(false)
 
   return (
     <>
@@ -41,6 +44,10 @@ export function QuickActions() {
           <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
             <Zap className="mr-2 h-4 w-4" />
             Nova Angariação
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFechoOpen(true)}>
+            <Handshake className="mr-2 h-4 w-4" />
+            Novo Fecho
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push('/dashboard/leads/novo')}>
             <Users className="mr-2 h-4 w-4" />
@@ -80,6 +87,15 @@ export function QuickActions() {
         onComplete={(procInstanceId) => {
           setAcquisitionOpen(false)
           router.push(`/dashboard/processos/${procInstanceId}`)
+        }}
+      />
+
+      <DealDialog
+        open={fechoOpen}
+        onOpenChange={setFechoOpen}
+        onComplete={(dealId) => {
+          setFechoOpen(false)
+          router.push(`/dashboard/fechos/${dealId}`)
         }}
       />
     </>
