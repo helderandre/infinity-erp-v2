@@ -35,6 +35,9 @@ export type FormTargetEntity =
   | 'property_owner'     // property_owners (ownership_percentage, is_main_contact)
   | 'consultant'         // dev_users + dev_consultant_profiles (consultor do imóvel)
   | 'process'            // proc_instances (dados do processo)
+  | 'deal'               // deals (dados do negócio/fecho)
+  | 'deal_client'        // deal_clients (clientes do negócio)
+  | 'deal_payment'       // deal_payments (pagamentos do negócio)
 
 export type FormFieldType =
   | 'text'
