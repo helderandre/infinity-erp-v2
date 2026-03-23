@@ -26,6 +26,7 @@ import { SubtaskCardScheduleEvent } from './subtask-card-schedule-event'
 import { FormSubtaskDialog } from './form-subtask-dialog'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
+import { SubtaskCardExternalForm } from './subtask-card-external-form'
 import { ExternalFormDialog } from './external-form-dialog'
 import type { ProcessTask, ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
@@ -247,12 +248,11 @@ export function SubtaskCardList({
         )
       case 'external_form':
         return (
-          <SubtaskCardChecklist
+          <SubtaskCardExternalForm
             key={subtask.id}
             subtask={subtask}
-            onToggle={async () => {
-              setOpenExternalFormSubtask(subtask)
-            }}
+            onOpenDialog={(s) => setOpenExternalFormSubtask(s)}
+            onRevert={(id) => setRevertTarget(id)}
           />
         )
       default:

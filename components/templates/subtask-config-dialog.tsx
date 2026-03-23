@@ -685,12 +685,31 @@ function SectionDados({
 
       {/* External form config */}
       {local.type === 'external_form' && (
-        <ExternalFormConfigSection
-          local={local}
-          updateConfig={updateConfig}
-          docTypes={docTypes}
-          docTypesByCategory={docTypesByCategory}
-        />
+        <div className="space-y-3">
+          <Label>Título do Popup (opcional)</Label>
+          <Input
+            value={local.config.form_title || ''}
+            onChange={(e) => updateConfig({ form_title: e.target.value || undefined })}
+            placeholder="Ex: Dados para Registo"
+          />
+          <Separator />
+
+          <Label>Campos do Formulário</Label>
+          <FormFieldPicker
+            mode="form"
+            sections={local.config.sections || []}
+            onSectionsChange={(sections) => updateConfig({ sections })}
+          />
+
+          <Separator />
+
+          <ExternalFormLinksSection
+            local={local}
+            updateConfig={updateConfig}
+            docTypes={docTypes}
+            docTypesByCategory={docTypesByCategory}
+          />
+        </div>
       )}
     </div>
   )
@@ -1164,9 +1183,9 @@ function SectionAlertas({
 
 // ─── External Form Config Section ────────────────────────
 
-import type { ExternalFormField, ExternalLink, DocumentShortcut } from '@/types/subtask'
+import type { ExternalLink as ExternalLinkType, DocumentShortcut } from '@/types/subtask'
 
-function ExternalFormConfigSection({
+function ExternalFormLinksSection({
   local,
   updateConfig,
   docTypes,
@@ -1177,36 +1196,15 @@ function ExternalFormConfigSection({
   docTypes: { id: string; name: string; category?: string }[]
   docTypesByCategory: Record<string, typeof docTypes>
 }) {
-  const fields = local.config.external_form_fields || []
   const links = local.config.external_links || []
   const shortcuts = local.config.document_shortcuts || []
 
-  const addField = () => {
-    const newField: ExternalFormField = {
-      field_name: '',
-      label: '',
-      target_entity: 'property',
-      format: 'text',
-      order_index: fields.length,
-    }
-    updateConfig({ external_form_fields: [...fields, newField] })
-  }
-
-  const updateField = (idx: number, patch: Partial<ExternalFormField>) => {
-    const updated = fields.map((f, i) => i === idx ? { ...f, ...patch } : f)
-    updateConfig({ external_form_fields: updated })
-  }
-
-  const removeField = (idx: number) => {
-    updateConfig({ external_form_fields: fields.filter((_, i) => i !== idx) })
-  }
-
   const addLink = () => {
-    const newLink: ExternalLink = { site_name: '', url: '' }
+    const newLink: ExternalLinkType = { site_name: '', url: '' }
     updateConfig({ external_links: [...links, newLink] })
   }
 
-  const updateLink = (idx: number, patch: Partial<ExternalLink>) => {
+  const updateLink = (idx: number, patch: Partial<ExternalLinkType>) => {
     const updated = links.map((l, i) => i === idx ? { ...l, ...patch } : l)
     updateConfig({ external_links: updated })
   }
@@ -1231,100 +1229,6 @@ function ExternalFormConfigSection({
 
   return (
     <div className="space-y-5">
-      {/* Form title */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Título do Popup (opcional)</Label>
-        <Input
-          value={local.config.form_title || ''}
-          onChange={(e) => updateConfig({ form_title: e.target.value || undefined })}
-          placeholder="Ex: Dados para Registo"
-        />
-      </div>
-
-      <Separator />
-
-      {/* Fields */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium">Campos (read-only)</h3>
-          <Button variant="outline" size="sm" onClick={addField}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Campo
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mb-3">
-          Campos exibidos no popup com valor actual do imóvel/proprietário, com opção de copiar.
-        </p>
-        {fields.length === 0 && (
-          <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground text-center">
-            Nenhum campo configurado.
-          </div>
-        )}
-        <div className="space-y-2">
-          {fields.map((field, idx) => (
-            <div key={idx} className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end">
-              <div className="space-y-1">
-                <Label className="text-xs">Nome do Campo</Label>
-                <Input
-                  value={field.field_name}
-                  onChange={(e) => updateField(idx, { field_name: e.target.value })}
-                  placeholder="Ex: title"
-                  className="text-xs h-8"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Label</Label>
-                <Input
-                  value={field.label}
-                  onChange={(e) => updateField(idx, { label: e.target.value })}
-                  placeholder="Ex: Título do Imóvel"
-                  className="text-xs h-8"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Entidade</Label>
-                <Select
-                  value={field.target_entity}
-                  onValueChange={(v) => updateField(idx, { target_entity: v as ExternalFormField['target_entity'] })}
-                >
-                  <SelectTrigger className="h-8 text-xs w-[130px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="property">Imóvel</SelectItem>
-                    <SelectItem value="property_specs">Especificações</SelectItem>
-                    <SelectItem value="property_internal">Dados Internos</SelectItem>
-                    <SelectItem value="owner">Proprietário</SelectItem>
-                    <SelectItem value="property_owner">Quota</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Formato</Label>
-                <Select
-                  value={field.format || 'text'}
-                  onValueChange={(v) => updateField(idx, { format: v as ExternalFormField['format'] })}
-                >
-                  <SelectTrigger className="h-8 text-xs w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">Texto</SelectItem>
-                    <SelectItem value="currency">Moeda</SelectItem>
-                    <SelectItem value="number">Número</SelectItem>
-                    <SelectItem value="date">Data</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeField(idx)}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
       {/* External Links */}
       <div>
         <div className="flex items-center justify-between mb-2">

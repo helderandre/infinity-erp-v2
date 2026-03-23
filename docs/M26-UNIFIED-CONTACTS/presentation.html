@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFC: Unified Contacts Architecture — ERP Infinity</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #4ade80;
+    --red: #f87171;
+    --orange: #fb923c;
+    --purple: #c084fc;
+    --yellow: #fbbf24;
+    --pink: #f472b6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Slide Container ── */
+  .deck { position: relative; width: 100vw; height: 100vh; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 80px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(40px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* ── Typography ── */
+  h1 { font-size: 3rem; font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
+  h2 { font-size: 2.2rem; font-weight: 700; line-height: 1.2; margin-bottom: 12px; }
+  h3 { font-size: 1.4rem; font-weight: 600; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  p, li { font-size: 1.15rem; line-height: 1.7; color: var(--text-muted); }
+  li { margin-bottom: 6px; }
+  ul { list-style: none; padding-left: 0; }
+  ul li::before { content: "→ "; color: var(--accent); font-weight: 700; }
+
+  strong { color: var(--text); font-weight: 600; }
+  .accent { color: var(--accent); }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .orange { color: var(--orange); }
+  .purple { color: var(--purple); }
+  .yellow { color: var(--yellow); }
+
+  .subtitle {
+    font-size: 1.3rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    max-width: 700px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  .tag.blue { background: rgba(56,189,248,.15); color: var(--accent); }
+  .tag.green { background: rgba(74,222,128,.15); color: var(--green); }
+  .tag.red { background: rgba(248,113,113,.15); color: var(--red); }
+  .tag.orange { background: rgba(251,146,60,.15); color: var(--orange); }
+  .tag.purple { background: rgba(192,132,252,.15); color: var(--purple); }
+
+  /* ── Layout helpers ── */
+  .cols { display: flex; gap: 40px; margin-top: 20px; }
+  .cols > * { flex: 1; }
+  .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 20px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card h3 { margin-bottom: 12px; }
+
+  .card-sm {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+
+  /* ── Diagram boxes ── */
+  .diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+
+  .box {
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: .95rem;
+    font-weight: 600;
+    text-align: center;
+    min-width: 140px;
+    position: relative;
+  }
+  .box.blue { background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.3); color: var(--accent); }
+  .box.green { background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.3); color: var(--green); }
+  .box.red { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.3); color: var(--red); }
+  .box.orange { background: rgba(251,146,60,.12); border: 1px solid rgba(251,146,60,.3); color: var(--orange); }
+  .box.purple { background: rgba(192,132,252,.12); border: 1px solid rgba(192,132,252,.3); color: var(--purple); }
+  .box.gray { background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.3); color: var(--text-muted); }
+  .box.pink { background: rgba(244,114,182,.12); border: 1px solid rgba(244,114,182,.3); color: var(--pink); }
+
+  .arrow {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    padding: 0 8px;
+    user-select: none;
+  }
+  .arrow-down {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 4px 0;
+    user-select: none;
+  }
+
+  .broken-arrow {
+    font-size: 1.3rem;
+    color: var(--red);
+    padding: 0 8px;
+    user-select: none;
+  }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 1rem;
+  }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--surface2);
+    color: var(--text-muted);
+  }
+  tr:hover td { background: rgba(56,189,248,.03); }
+
+  /* ── Flow ── */
+  .flow-vertical {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .flow-vertical .box { min-width: 280px; }
+
+  /* ── Comparison ── */
+  .vs {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    gap: 0;
+    align-items: start;
+    margin-top: 20px;
+  }
+  .vs-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    padding-top: 40px;
+  }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--surface2);
+    z-index: 100;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width .3s ease;
+  }
+
+  /* ── Slide counter ── */
+  .counter {
+    position: fixed;
+    bottom: 14px;
+    right: 24px;
+    font-size: .85rem;
+    color: var(--text-muted);
+    z-index: 100;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Nav hint ── */
+  .nav-hint {
+    position: fixed;
+    bottom: 14px;
+    left: 24px;
+    font-size: .8rem;
+    color: var(--surface2);
+    z-index: 100;
+  }
+
+  /* ── Highlight number ── */
+  .big-num {
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  /* ── Contact 360 mock ── */
+  .mock-ui {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 16px;
+    font-size: .9rem;
+  }
+  .mock-header {
+    background: var(--surface2);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mock-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: white;
+    flex-shrink: 0;
+  }
+  .mock-body { padding: 16px 20px; }
+  .mock-row {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(71,85,105,.3);
+    align-items: center;
+  }
+  .mock-row:last-child { border-bottom: none; }
+  .mock-label {
+    font-size: .75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    width: 90px;
+    flex-shrink: 0;
+  }
+  .mock-section-title {
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 0 4px;
+  }
+  .mock-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: .75rem;
+    font-weight: 600;
+  }
+  .mock-badge.hot { background: rgba(248,113,113,.15); color: var(--red); }
+  .mock-badge.cold { background: rgba(56,189,248,.15); color: var(--accent); }
+  .mock-badge.warm { background: rgba(251,146,60,.15); color: var(--orange); }
+  .mock-badge.won { background: rgba(74,222,128,.15); color: var(--green); }
+  .mock-badge.active { background: rgba(192,132,252,.15); color: var(--purple); }
+
+  /* ── Timeline ── */
+  .timeline { margin-top: 12px; }
+  .tl-item {
+    display: flex;
+    gap: 14px;
+    padding: 8px 0;
+    position: relative;
+  }
+  .tl-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .tl-line {
+    position: absolute;
+    left: 4px;
+    top: 20px;
+    bottom: -8px;
+    width: 2px;
+    background: var(--surface2);
+  }
+  .tl-item:last-child .tl-line { display: none; }
+  .tl-time { font-size: .8rem; color: var(--text-muted); min-width: 70px; }
+  .tl-text { font-size: .9rem; color: var(--text); }
+
+  /* ── Cost chart ── */
+  .cost-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 30px;
+    height: 220px;
+    margin-top: 30px;
+    padding: 0 20px;
+  }
+  .cost-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .cost-bar {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    transition: height .6s ease;
+    position: relative;
+  }
+  .cost-bar-label {
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .cost-bar-value {
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: .85rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── Slide-specific ── */
+  .slide-cover {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .slide-cover h1 { font-size: 3.5rem; max-width: 800px; }
+  .slide-cover .subtitle { max-width: 600px; margin: 12px auto 24px; }
+
+  .gap-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .gap-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    border-left: 3px solid var(--red);
+  }
+  .gap-card h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+  .gap-card p { font-size: .9rem; }
+
+  .schema-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .schema-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .schema-card h4 {
+    font-size: .9rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .schema-card code {
+    font-size: .78rem;
+    display: block;
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  .check { color: var(--green); }
+  .cross { color: var(--red); }
+
+  .funnel-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin-top: 16px;
+  }
+  .funnel-step {
+    padding: 10px;
+    text-align: center;
+    font-weight: 600;
+    font-size: .9rem;
+    border-radius: 6px;
+    position: relative;
+  }
+  .funnel-connector {
+    width: 2px;
+    height: 12px;
+    background: var(--text-muted);
+  }
+
+  /* ── ER Diagram (Supabase-style) ── */
+  .er-canvas {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+  }
+  .er-table {
+    position: absolute;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-width: 180px;
+    font-size: .78rem;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.3);
+  }
+  .er-table-header {
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: .85rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .er-table-header .er-icon {
+    width: 14px; height: 14px; border-radius: 3px;
+    display: inline-block; flex-shrink: 0;
+  }
+  .er-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    gap: 6px;
+    border-bottom: 1px solid rgba(71,85,105,.2);
+  }
+  .er-row:last-child { border-bottom: none; }
+  .er-key {
+    width: 10px; height: 10px; border-radius: 2px;
+    flex-shrink: 0; display: inline-block;
+  }
+  .er-key.pk { background: var(--yellow); }
+  .er-key.fk { background: var(--accent); }
+  .er-key.col { background: transparent; border: 1px solid var(--border); }
+  .er-col-name { flex: 1; color: var(--text); font-family: 'Cascadia Code','Fira Code',monospace; }
+  .er-col-type { color: var(--text-muted); font-size: .7rem; }
+
+  /* SVG lines */
+  .er-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .er-table { z-index: 1; }
+  .er-lines line, .er-lines path {
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+  .er-lines .fk-line { stroke: var(--accent); opacity: .5; }
+  .er-lines .fk-line-red { stroke: var(--red); opacity: .5; stroke-dasharray: 6 4; }
+  .er-lines .fk-line-green { stroke: var(--green); opacity: .6; }
+
+  .er-legend {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    gap: 16px;
+    font-size: .75rem;
+    color: var(--text-muted);
+    align-items: center;
+  }
+  .er-legend-item { display: flex; align-items: center; gap: 4px; }
+  .er-legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .slide-er { padding: 40px 50px; }
+  .slide-er h2 { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ═══════════════════════════════════════════ SLIDE 0: COVER ═══ -->
+<div class="slide slide-cover active" data-slide="0">
+  <span class="tag blue">RFC</span>
+  <h1 style="margin-top:16px">Unified Contacts<br>Architecture</h1>
+  <p class="subtitle">Uma pessoa e uma pessoa. Os papeis que desempenha sao relacoes, nao identidades separadas.</p>
+  <p style="font-size:.95rem;color:var(--text-muted)">ERP Infinity &middot; Marco 2026</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 1: AGENDA ═══ -->
+<div class="slide" data-slide="1">
+  <h3>Agenda</h3>
+  <h2>O que vamos cobrir</h2>
+  <div class="cols" style="margin-top:30px">
+    <div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">01</span> &nbsp; O problema actual &mdash; silos de dados</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">02</span> &nbsp; 5 lacunas concretas</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">03</span> &nbsp; Arquitectura proposta</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">04</span> &nbsp; Schema &mdash; tabela por tabela</div>
+    </div>
+    <div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">05</span> &nbsp; Sistema de Funis / Campanhas</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">06</span> &nbsp; Sistema de Interesses</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">07</span> &nbsp; Vista 360&deg; do Contacto</div>
+      <div class="card-sm"><span class="accent" style="font-weight:700">08</span> &nbsp; Custo de espera &amp; decisao</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 2: CURRENT ═══ -->
+<div class="slide" data-slide="2">
+  <h3>Estado Actual</h3>
+  <h2>3 silos de dados desconectados</h2>
+  <div class="cols-3" style="margin-top:24px">
+    <div class="card" style="border-left:3px solid var(--orange)">
+      <h3 style="color:var(--orange)">Silo 1 &mdash; Leads</h3>
+      <p><strong>leads</strong> (PT naming)<br>nome, email, telemovel, nif<br>estado, temperatura, score<br>origem, agent_id</p>
+      <p style="margin-top:8px"><strong>lead_attachments</strong><br>Documentos isolados</p>
+      <p style="margin-top:8px"><strong>negocios</strong> (63 colunas)<br>Mix de 3 conceitos</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <h3 style="color:var(--accent)">Silo 2 &mdash; Owners</h3>
+      <p><strong>owners</strong> (EN naming)<br>name, email, phone, nif<br>person_type, KYC, PEP</p>
+      <p style="margin-top:8px"><strong>property_owners</strong><br>Ligacao M:N a imoveis</p>
+      <p style="margin-top:8px;color:var(--green)">Conectado a doc_registry,<br>proc_tasks, processos</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--green)">
+      <h3 style="color:var(--green)">Silo 3 &mdash; Core</h3>
+      <p><strong>dev_properties</strong><br>doc_registry<br>proc_instances<br>proc_tasks</p>
+      <p style="margin-top:8px;color:var(--red)">So conecta a owners,<br>nunca a leads</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE: ER CURRENT ═══ -->
+<div class="slide slide-er" data-slide="er-current">
+  <h3>Relacoes Actuais</h3>
+  <h2>Diagrama de tabelas &mdash; <span class="red">estrutura actual</span></h2>
+  <div class="er-canvas" id="er-current">
+    <svg class="er-lines" id="er-lines-current"></svg>
+
+    <!-- leads -->
+    <div class="er-table" id="t-leads" style="top:10px;left:0">
+      <div class="er-table-header" style="background:rgba(251,146,60,.1);color:var(--orange)">
+        <span class="er-icon" style="background:var(--orange)"></span> leads
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">nome</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">email</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">telemovel</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">nif</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">estado</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">temperatura</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">agent_id</span><span class="er-col-type">uuid FK</span></div>
+    </div>
+
+    <!-- lead_attachments -->
+    <div class="er-table" id="t-lattach" style="top:10px;left:210px">
+      <div class="er-table-header" style="background:rgba(248,113,113,.1);color:var(--red)">
+        <span class="er-icon" style="background:var(--red)"></span> lead_attachments
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">lead_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">url</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">name</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- negocios -->
+    <div class="er-table" id="t-negocios" style="top:200px;left:0">
+      <div class="er-table-header" style="background:rgba(251,146,60,.1);color:var(--orange)">
+        <span class="er-icon" style="background:var(--orange)"></span> negocios <span style="font-size:.65rem;color:var(--text-muted)">(63 cols)</span>
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">lead_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">tipo</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">preco_venda</span><span class="er-col-type">numeric</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">orcamento</span><span class="er-col-type">numeric</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">tipo_imovel</span><span class="er-col-type">text</span></div>
+      <div class="er-row" style="color:var(--text-muted);font-style:italic"><span class="er-key col"></span><span class="er-col-name">... +57 cols</span><span class="er-col-type"></span></div>
+    </div>
+
+    <!-- owners -->
+    <div class="er-table" id="t-owners" style="top:10px;left:430px">
+      <div class="er-table-header" style="background:rgba(56,189,248,.1);color:var(--accent)">
+        <span class="er-icon" style="background:var(--accent)"></span> owners
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">name</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">email</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">phone</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">nif</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">person_type</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">is_pep</span><span class="er-col-type">bool</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">legal_rep_name</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- property_owners -->
+    <div class="er-table" id="t-po" style="top:200px;left:430px">
+      <div class="er-table-header" style="background:rgba(148,163,184,.1);color:var(--text-muted)">
+        <span class="er-icon" style="background:var(--text-muted)"></span> property_owners
+      </div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">owner_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">ownership_pct</span><span class="er-col-type">numeric</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">is_main_contact</span><span class="er-col-type">bool</span></div>
+    </div>
+
+    <!-- dev_properties -->
+    <div class="er-table" id="t-props" style="top:10px;left:660px">
+      <div class="er-table-header" style="background:rgba(74,222,128,.1);color:var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> dev_properties
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">title</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">listing_price</span><span class="er-col-type">numeric</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">city</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- doc_registry -->
+    <div class="er-table" id="t-docs" style="top:170px;left:660px">
+      <div class="er-table-header" style="background:rgba(74,222,128,.1);color:var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> doc_registry
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">owner_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">file_url</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- proc_instances -->
+    <div class="er-table" id="t-proci" style="top:330px;left:660px">
+      <div class="er-table-header" style="background:rgba(74,222,128,.1);color:var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> proc_instances
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- proc_tasks -->
+    <div class="er-table" id="t-proct" style="top:330px;left:430px">
+      <div class="er-table-header" style="background:rgba(74,222,128,.1);color:var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> proc_tasks
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">proc_instance_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">owner_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">title</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- NO CONNECTION label -->
+    <div style="position:absolute;top:155px;left:280px;background:rgba(248,113,113,.1);border:1px dashed var(--red);border-radius:6px;padding:6px 12px;font-size:.75rem;color:var(--red);font-weight:600;z-index:2">
+      SEM CONEXAO
+    </div>
+
+    <div class="er-legend">
+      <div class="er-legend-item"><span class="er-legend-dot" style="background:var(--yellow)"></span> Primary Key</div>
+      <div class="er-legend-item"><span class="er-legend-dot" style="background:var(--accent)"></span> Foreign Key</div>
+      <div class="er-legend-item"><span style="display:inline-block;width:20px;height:2px;background:var(--accent);opacity:.5"></span> FK relation</div>
+      <div class="er-legend-item"><span style="display:inline-block;width:20px;height:2px;border-top:2px dashed var(--red);opacity:.5"></span> No relation (gap)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE: ER PROPOSED ═══ -->
+<div class="slide slide-er" data-slide="er-proposed">
+  <h3>Relacoes Propostas</h3>
+  <h2>Diagrama de tabelas &mdash; <span class="green">nova arquitectura</span></h2>
+  <div class="er-canvas" id="er-proposed">
+    <svg class="er-lines" id="er-lines-proposed"></svg>
+
+    <!-- contacts (center-top) -->
+    <div class="er-table" id="t2-contacts" style="top:0;left:300px">
+      <div class="er-table-header" style="background:rgba(74,222,128,.15);color:var(--green);border-bottom:2px solid var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> contacts <span style="font-size:.65rem;color:var(--green)">(CORE)</span>
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">name</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">email</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">phone</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">nif</span><span class="er-col-type">text UK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">person_type</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">address</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- contact_roles -->
+    <div class="er-table" id="t2-roles" style="top:0;left:0">
+      <div class="er-table-header" style="background:rgba(56,189,248,.1);color:var(--accent)">
+        <span class="er-icon" style="background:var(--accent)"></span> contact_roles
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">contact_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">role</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">is_active</span><span class="er-col-type">bool</span></div>
+    </div>
+
+    <!-- owner_profiles -->
+    <div class="er-table" id="t2-ownerp" style="top:120px;left:0">
+      <div class="er-table-header" style="background:rgba(192,132,252,.1);color:var(--purple)">
+        <span class="er-icon" style="background:var(--purple)"></span> owner_profiles
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">contact_id</span><span class="er-col-type">uuid PK FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">is_pep</span><span class="er-col-type">bool</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">legal_rep_name</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">beneficiaries</span><span class="er-col-type">jsonb</span></div>
+    </div>
+
+    <!-- funnels -->
+    <div class="er-table" id="t2-funnels" style="top:0;left:560px">
+      <div class="er-table-header" style="background:rgba(251,146,60,.1);color:var(--orange)">
+        <span class="er-icon" style="background:var(--orange)"></span> funnels
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">name</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">type</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+    </div>
+
+    <!-- funnel_stages -->
+    <div class="er-table" id="t2-fstages" style="top:120px;left:560px">
+      <div class="er-table-header" style="background:rgba(251,146,60,.1);color:var(--orange)">
+        <span class="er-icon" style="background:var(--orange)"></span> funnel_stages
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">funnel_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">name</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">is_terminal</span><span class="er-col-type">bool</span></div>
+    </div>
+
+    <!-- funnel_entries -->
+    <div class="er-table" id="t2-fentries" style="top:250px;left:560px">
+      <div class="er-table-header" style="background:rgba(251,146,60,.1);color:var(--orange)">
+        <span class="er-icon" style="background:var(--orange)"></span> funnel_entries
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">contact_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">funnel_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">current_stage_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">temperature</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">source</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- interests -->
+    <div class="er-table" id="t2-interests" style="top:250px;left:300px">
+      <div class="er-table-header" style="background:rgba(244,114,182,.1);color:var(--pink)">
+        <span class="er-icon" style="background:var(--pink)"></span> interests
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">contact_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">direction</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">search_criteria</span><span class="er-col-type">jsonb</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- doc_registry -->
+    <div class="er-table" id="t2-docs" style="top:250px;left:0">
+      <div class="er-table-header" style="background:rgba(74,222,128,.1);color:var(--green)">
+        <span class="er-icon" style="background:var(--green)"></span> doc_registry
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">contact_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key fk"></span><span class="er-col-name">property_id</span><span class="er-col-type">uuid FK</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">file_url</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text</span></div>
+    </div>
+
+    <!-- dev_properties -->
+    <div class="er-table" id="t2-props" style="top:135px;left:300px">
+      <div class="er-table-header" style="background:rgba(148,163,184,.1);color:var(--text-muted)">
+        <span class="er-icon" style="background:var(--text-muted)"></span> dev_properties
+      </div>
+      <div class="er-row"><span class="er-key pk"></span><span class="er-col-name">id</span><span class="er-col-type">uuid</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">title</span><span class="er-col-type">text</span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">status</span><span class="er-col-type">text <span class="green">+intention</span></span></div>
+      <div class="er-row"><span class="er-key col"></span><span class="er-col-name">listing_price</span><span class="er-col-type">numeric</span></div>
+    </div>
+
+    <div class="er-legend">
+      <div class="er-legend-item"><span class="er-legend-dot" style="background:var(--yellow)"></span> PK</div>
+      <div class="er-legend-item"><span class="er-legend-dot" style="background:var(--accent)"></span> FK</div>
+      <div class="er-legend-item"><span style="display:inline-block;width:20px;height:2px;background:var(--green);opacity:.5"></span> FK relation</div>
+      <div class="er-legend-item" style="color:var(--green);font-weight:600">Tudo conecta a contacts</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 3: DUPLICATE ═══ -->
+<div class="slide" data-slide="3">
+  <h3>O Problema Central</h3>
+  <h2>A mesma pessoa, fragmentada em 2 tabelas</h2>
+  <div class="vs" style="margin-top:30px">
+    <div class="card" style="border-left:3px solid var(--orange)">
+      <h3 style="color:var(--orange);font-size:1rem">leads (Portugues)</h3>
+      <table>
+        <tr><td>nome</td><td class="red">duplicado</td></tr>
+        <tr><td>email</td><td class="red">duplicado</td></tr>
+        <tr><td>telemovel</td><td class="red">duplicado</td></tr>
+        <tr><td>nif</td><td class="red">duplicado</td></tr>
+        <tr><td>morada</td><td class="red">duplicado</td></tr>
+        <tr><td>tipo_documento</td><td class="red">duplicado</td></tr>
+        <tr><td>nacionalidade</td><td class="red">duplicado</td></tr>
+        <tr><td>data_nascimento</td><td class="red">duplicado</td></tr>
+        <tr><td style="color:var(--orange)">estado, temperatura</td><td class="orange">lead-only</td></tr>
+        <tr><td style="color:var(--orange)">origem, agent_id</td><td class="orange">lead-only</td></tr>
+      </table>
+    </div>
+    <div class="vs-divider">
+      <span style="color:var(--red)">= =</span>
+    </div>
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <h3 style="color:var(--accent);font-size:1rem">owners (Ingles)</h3>
+      <table>
+        <tr><td>name</td><td class="red">duplicado</td></tr>
+        <tr><td>email</td><td class="red">duplicado</td></tr>
+        <tr><td>phone</td><td class="red">duplicado</td></tr>
+        <tr><td>nif</td><td class="red">duplicado</td></tr>
+        <tr><td>address</td><td class="red">duplicado</td></tr>
+        <tr><td>id_doc_type</td><td class="red">duplicado</td></tr>
+        <tr><td>nationality</td><td class="red">duplicado</td></tr>
+        <tr><td>birth_date</td><td class="red">duplicado</td></tr>
+        <tr><td style="color:var(--accent)">PEP, legal_rep</td><td class="accent">owner-only</td></tr>
+        <tr><td style="color:var(--accent)">KYC, beneficiaries</td><td class="accent">owner-only</td></tr>
+      </table>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:20px;font-size:1.1rem"><strong class="red">8 grupos de campos identicos</strong> sem nenhuma FK entre as tabelas</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 4: 5 GAPS ═══ -->
+<div class="slide" data-slide="4">
+  <h3>Diagnostico</h3>
+  <h2>5 lacunas concretas</h2>
+  <div class="gap-grid">
+    <div class="gap-card">
+      <h4>1. Documentos nao fluem</h4>
+      <p>Lead faz upload de CC &rarr; lead_attachments (isolado). Quando vira owner, consultor pede <strong>os mesmos documentos</strong> novamente.</p>
+    </div>
+    <div class="gap-card">
+      <h4>2. Leads duplicados</h4>
+      <p>Sem verificacao de NIF/email. Joao pode existir <strong>3 vezes</strong> na tabela leads com dados diferentes.</p>
+    </div>
+    <div class="gap-card">
+      <h4>3. Temperatura e global</h4>
+      <p>Um lead tem <strong>um estado, uma temperatura</strong>. Impossivel ser quente para Lisboa e frio para Porto na mesma campanha.</p>
+    </div>
+    <div class="gap-card">
+      <h4>4. Sem rastreabilidade Lead &rarr; Owner</h4>
+      <p>Sem FK entre tabelas. Saber se um lead e o mesmo que um owner requer <strong>lookup manual</strong> por NIF.</p>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--red);margin-top:16px;padding:16px 20px">
+    <h4 style="color:var(--red);font-size:1rem;font-weight:700;margin-bottom:4px">5. Negocios: 63 colunas a misturar 3 conceitos</h4>
+    <p style="font-size:.9rem"><span class="orange">Criterios de busca</span> (orcamento, quartos_min) + <span class="red">Dados de imovel</span> (preco_venda, area) + <span class="accent">Perfil financeiro</span> (credito, capital) &mdash; tudo na mesma tabela.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 5: DOC FLOW BEFORE ═══ -->
+<div class="slide" data-slide="5">
+  <h3>Lacuna #1 em Detalhe</h3>
+  <h2>Fluxo de documentos &mdash; <span class="red">HOJE</span></h2>
+  <div class="cols" style="margin-top:20px">
+    <div class="flow-vertical">
+      <div class="box orange" style="min-width:300px">Lead Joao faz upload<br>CC + Comp. Morada + IRS</div>
+      <div class="arrow-down">&darr;</div>
+      <div class="box red" style="min-width:300px">lead_attachments<br><small>3 documentos armazenados</small></div>
+      <div class="arrow-down" style="color:var(--red);font-size:2rem">&#x2717;</div>
+      <div class="box gray" style="min-width:300px;border-color:var(--red)">SEM CONEXAO<br><small>Nenhuma FK para doc_registry</small></div>
+    </div>
+    <div class="flow-vertical">
+      <div class="box blue" style="min-width:300px">Angariacao criada<br><small>Joao vira owner</small></div>
+      <div class="arrow-down">&darr;</div>
+      <div class="box blue" style="min-width:300px">doc_registry<br><small>So CC frente/verso copiado</small></div>
+      <div class="arrow-down">&darr;</div>
+      <div class="box green" style="min-width:300px">autoCompleteTasks()<br><small>Procura docs em doc_registry</small></div>
+      <div class="arrow-down">&darr;</div>
+      <div class="box red" style="min-width:300px">Comp. Morada = PENDENTE<br>IRS = PENDENTE<br><small>Consultor pede novamente</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 6: DOC FLOW AFTER ═══ -->
+<div class="slide" data-slide="6">
+  <h3>Lacuna #1 Resolvida</h3>
+  <h2>Fluxo de documentos &mdash; <span class="green">PROPOSTO</span></h2>
+  <div class="flow-vertical" style="margin-top:20px">
+    <div class="box green" style="min-width:500px">Lead Joao faz upload CC + Comp. Morada + IRS</div>
+    <div class="arrow-down">&darr;</div>
+    <div class="box green" style="min-width:500px">doc_registry &mdash; <strong>contact_id = Joao</strong><br><small>TODOS os documentos num so lugar, desde o primeiro upload</small></div>
+    <div class="arrow-down">&darr;</div>
+    <div class="box blue" style="min-width:500px">Angariacao &rarr; contact_roles adiciona 'owner'<br><small>Mesmo contact_id, sem copiar dados</small></div>
+    <div class="arrow-down">&darr;</div>
+    <div class="box green" style="min-width:500px">autoCompleteTasks() busca doc_registry por contact_id<br><small>Encontra TODOS os docs &mdash; uploaded como lead ou owner</small></div>
+    <div class="arrow-down">&darr;</div>
+    <div class="box green" style="min-width:500px;border-width:2px;font-size:1.1rem"><span class="check">&#10003;</span> CC: auto-completado &nbsp; <span class="check">&#10003;</span> Comp. Morada: auto-completado &nbsp; <span class="check">&#10003;</span> IRS: auto-completado</div>
+  </div>
+  <p style="text-align:center;margin-top:16px;font-size:1.1rem"><strong class="green">Zero re-uploads. Zero trabalho duplicado.</strong></p>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 7: PROPOSED ARCH ═══ -->
+<div class="slide" data-slide="7">
+  <h3>Arquitectura Proposta</h3>
+  <h2>Visao geral &mdash; Unified Contacts</h2>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0;margin-top:20px">
+    <div class="box green" style="min-width:400px;font-size:1.1rem;padding:18px 30px;border-width:2px">
+      <strong>contacts</strong><br>
+      <small style="color:var(--text-muted)">id &middot; name &middot; email &middot; phone &middot; nif &middot; person_type<br>UMA pessoa = UM registo</small>
+    </div>
+    <div class="arrow-down">&darr;</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+      <div class="box blue" style="min-width:130px"><small>contact_roles</small><br>lead, buyer<br>seller, owner</div>
+      <div class="box purple" style="min-width:130px"><small>owner_profiles</small><br>KYC, PEP<br>legal rep</div>
+      <div class="box orange" style="min-width:130px"><small>funnel_entries</small><br>campaign &times; contact<br>temp, source, stage</div>
+      <div class="box pink" style="min-width:130px"><small>interests</small><br>buying, selling<br>renting in/out</div>
+      <div class="box green" style="min-width:130px"><small>doc_registry</small><br>contact_id<br>all documents</div>
+    </div>
+    <div class="arrow-down">&darr;</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+      <div class="box gray" style="min-width:150px"><small>dev_properties</small><br>+ status 'intention'</div>
+      <div class="box gray" style="min-width:150px"><small>property_owners</small><br>contact_id (era owner_id)</div>
+      <div class="box gray" style="min-width:150px"><small>proc_instances</small><br>proc_tasks<br>contact_id</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 8: SCHEMA ═══ -->
+<div class="slide" data-slide="8">
+  <h3>Schema</h3>
+  <h2>Novas tabelas &mdash; resumo</h2>
+  <div class="schema-grid">
+    <div class="schema-card" style="border-left:3px solid var(--green)">
+      <h4 class="green">contacts</h4>
+      <code>id, person_type<br>name, email, phone, nif<br>address, city, district<br>id_doc_type, id_doc_number<br>birth_date, nationality<br>gdpr_consent</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--accent)">
+      <h4 class="accent">contact_roles</h4>
+      <code>contact_id FK<br>role: 'lead' | 'buyer'<br>&nbsp;&nbsp;| 'seller' | 'owner'<br>&nbsp;&nbsp;| 'tenant' | 'landlord'<br>is_active, assigned_at<br>UNIQUE(contact_id, role)</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--purple)">
+      <h4 class="purple">owner_profiles</h4>
+      <code>contact_id PK FK<br>marital_status, profession<br>is_pep, pep_position<br>legal_rep_name, legal_rep_nif<br>beneficiaries_json<br>company_cert_url</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--orange)">
+      <h4 class="orange">funnels</h4>
+      <code>id, name, type, description<br>property_id FK (nullable)<br>is_active<br>created_by FK</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--yellow)">
+      <h4 class="yellow">funnel_stages</h4>
+      <code>funnel_id FK<br>name, order_index, color<br>is_terminal<br>terminal_type: 'won'|'lost'</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--orange)">
+      <h4 class="orange">funnel_entries</h4>
+      <code>contact_id FK, funnel_id FK<br>current_stage_id FK<br>temperature: cold|warm|hot<br>source: paid|organic|...<br>source_detail<br>assigned_to FK</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--pink)">
+      <h4 style="color:var(--pink)">interests</h4>
+      <code>contact_id FK<br>direction: buying|selling<br>&nbsp;&nbsp;| renting_in|renting_out<br>property_id FK (sellers)<br>search_criteria JSONB (buyers)<br>budget_min, budget_max<br>status: open|active|closed</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--pink)">
+      <h4 style="color:var(--pink)">interest_properties</h4>
+      <code>interest_id FK<br>property_id FK<br>status: suggested|sent<br>&nbsp;&nbsp;| visited|offer_made<br>external_url, external_price<br>external_source</code>
+    </div>
+    <div class="schema-card" style="border-left:3px solid var(--text-muted)">
+      <h4 style="color:var(--text-muted)">funnel_entry_logs</h4>
+      <code>entry_id FK<br>from_stage_id, to_stage_id<br>from_temperature<br>to_temperature<br>changed_by FK<br>notes, created_at</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 9: FUNNELS ═══ -->
+<div class="slide" data-slide="9">
+  <h3>Funis &amp; Campanhas</h3>
+  <h2>Mesmo contacto, estados independentes</h2>
+  <div class="cols" style="margin-top:20px">
+    <div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <h4 style="color:var(--text);margin-bottom:10px">Campanha Lisboa T3</h4>
+        <div class="mock-row">
+          <span style="flex:1">Joao Silva</span>
+          <span class="mock-badge hot">HOT</span>
+          <span class="tag green" style="font-size:.7rem">Qualified</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">paid</span>
+        </div>
+        <div class="mock-row">
+          <span style="flex:1">Maria Santos</span>
+          <span class="mock-badge warm">WARM</span>
+          <span class="tag blue" style="font-size:.7rem">Contacted</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">organic</span>
+        </div>
+        <div class="mock-row">
+          <span style="flex:1">Pedro Costa</span>
+          <span class="mock-badge cold">COLD</span>
+          <span class="tag blue" style="font-size:.7rem">New</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">newsletter</span>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent)">
+        <h4 style="color:var(--text);margin-bottom:10px">Campanha Porto T2</h4>
+        <div class="mock-row">
+          <span style="flex:1"><strong>Joao Silva</strong></span>
+          <span class="mock-badge cold">COLD</span>
+          <span class="tag blue" style="font-size:.7rem">New</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">newsletter</span>
+        </div>
+        <div class="mock-row">
+          <span style="flex:1">Ana Lima</span>
+          <span class="mock-badge hot">HOT</span>
+          <span class="tag green" style="font-size:.7rem">Proposal</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">whatsapp</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="border-left:3px solid var(--green);background:rgba(74,222,128,.05)">
+        <h3 style="color:var(--green);font-size:1rem">O que isto permite</h3>
+        <ul style="margin-top:12px">
+          <li><strong>Joao e HOT</strong> em Lisboa e <strong>COLD</strong> em Porto</li>
+          <li>Cada campanha tem as suas <strong>fases proprias</strong></li>
+          <li>Cada entrada rastreia o <strong>canal de origem</strong></li>
+          <li>Analytics por <strong>campanha &times; source</strong></li>
+          <li>Campanha ligada a <strong>imovel especifico</strong> (opcional)</li>
+        </ul>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red);background:rgba(248,113,113,.05)">
+        <h3 style="color:var(--red);font-size:1rem">Impossivel hoje</h3>
+        <p style="font-size:.9rem">Temperatura e estado sao campos fixos no lead. Um lead = um estado global. Sem nocao de campanha.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 10: INTERESTS ═══ -->
+<div class="slide" data-slide="10">
+  <h3>Sistema de Interesses</h3>
+  <h2>Substitui negocios &mdash; separa conceitos</h2>
+  <div class="cols" style="margin-top:20px">
+    <div>
+      <div class="card" style="border-left:3px solid var(--purple)">
+        <h4 style="color:var(--purple);margin-bottom:8px">Selling / Renting Out</h4>
+        <p style="font-size:.9rem">O contacto descreve um <strong>imovel real</strong>.</p>
+        <div class="diagram" style="margin:12px 0;justify-content:flex-start">
+          <div class="box purple" style="min-width:100px;padding:8px 14px;font-size:.8rem">interest<br>direction: selling</div>
+          <div class="arrow">&rarr;</div>
+          <div class="box gray" style="min-width:100px;padding:8px 14px;font-size:.8rem">dev_properties<br>status: intention</div>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-muted)">Dados do imovel vao para <strong>dev_properties</strong> desde o inicio. Quando formalizado, status sobe para draft &rarr; pending_approval.</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent)">
+        <h4 style="color:var(--accent);margin-bottom:8px">Buying / Renting In</h4>
+        <p style="font-size:.9rem">O contacto descreve o que <strong>procura</strong>.</p>
+        <div class="diagram" style="margin:12px 0;justify-content:flex-start">
+          <div class="box blue" style="min-width:100px;padding:8px 14px;font-size:.8rem">interest<br>search_criteria</div>
+          <div class="arrow">&rarr;</div>
+          <div class="box gray" style="min-width:100px;padding:8px 14px;font-size:.8rem">matching<br>dev_properties</div>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-muted)">Criterios de busca em <strong>JSONB</strong>. Matching automatico contra imoveis activos.</p>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="border-left:3px solid var(--green);background:rgba(74,222,128,.05)">
+        <h3 style="color:var(--green);font-size:1rem">Multiplos interesses por contacto</h3>
+        <div style="margin-top:12px">
+          <div class="mock-row">
+            <span class="mock-badge won">selling</span>
+            <span style="flex:1">T3 Lisboa &middot; 350k</span>
+            <span style="font-size:.8rem;color:var(--green)">Closed (Sold)</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-badge active">buying</span>
+            <span style="flex:1">Porto &middot; 200-300k &middot; T2+</span>
+            <span style="font-size:.8rem;color:var(--purple)">Active</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-badge warm">renting_out</span>
+            <span style="flex:1">T1 Cascais &middot; 800/mes</span>
+            <span style="font-size:.8rem;color:var(--orange)">Open</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-badge cold">buying</span>
+            <span style="flex:1">Algarve &middot; 150-180k &middot; T0</span>
+            <span style="font-size:.8rem;color:var(--orange)">Open</span>
+          </div>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-muted);margin-top:10px">4 interesses simultaneos, 1 pessoa, estados independentes.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 11: 360 VIEW ═══ -->
+<div class="slide" data-slide="11">
+  <h3>Vista 360&deg;</h3>
+  <h2>Tudo sobre um contacto &mdash; numa pagina</h2>
+  <div class="cols" style="margin-top:16px">
+    <div class="mock-ui" style="max-width:520px">
+      <div class="mock-header">
+        <div class="mock-avatar">JS</div>
+        <div>
+          <div style="font-weight:700;font-size:1.05rem">Joao Silva</div>
+          <div style="font-size:.8rem;color:var(--text-muted)">joao@mail.com &middot; 912 345 678 &middot; NIF: 123456789</div>
+          <div style="margin-top:4px">
+            <span class="tag blue" style="font-size:.65rem">Lead</span>
+            <span class="tag orange" style="font-size:.65rem">Seller</span>
+            <span class="tag green" style="font-size:.65rem">Owner</span>
+            <span class="tag purple" style="font-size:.65rem">Buyer</span>
+          </div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-section-title">Campanhas</div>
+        <div class="mock-row">
+          <span style="flex:1;font-size:.85rem">Lisboa T3</span>
+          <span class="mock-badge hot">hot</span>
+          <span style="font-size:.75rem;color:var(--text-muted)">Qualified</span>
+        </div>
+        <div class="mock-row">
+          <span style="flex:1;font-size:.85rem">Porto T2</span>
+          <span class="mock-badge cold">cold</span>
+          <span style="font-size:.75rem;color:var(--text-muted)">New</span>
+        </div>
+
+        <div class="mock-section-title">Interesses</div>
+        <div class="mock-row">
+          <span class="mock-badge won" style="font-size:.7rem">selling</span>
+          <span style="flex:1;font-size:.85rem">T3 Lisboa &middot; 350k</span>
+          <span style="font-size:.75rem;color:var(--green)">Sold</span>
+        </div>
+        <div class="mock-row">
+          <span class="mock-badge active" style="font-size:.7rem">buying</span>
+          <span style="flex:1;font-size:.85rem">Porto &middot; 200-300k</span>
+          <span style="font-size:.75rem;color:var(--purple)">Active</span>
+        </div>
+
+        <div class="mock-section-title">Documentos</div>
+        <div class="mock-row">
+          <span style="color:var(--green);font-size:.85rem">&#10003; CC Frente</span>
+          <span style="flex:1"></span>
+          <span style="font-size:.75rem;color:var(--text-muted)">val. 2030</span>
+        </div>
+        <div class="mock-row">
+          <span style="color:var(--green);font-size:.85rem">&#10003; Comp. Morada</span>
+          <span style="flex:1"></span>
+          <span style="font-size:.75rem;color:var(--text-muted)">val. 2027</span>
+        </div>
+
+        <div class="mock-section-title">Processos</div>
+        <div class="mock-row">
+          <span style="font-size:.85rem">PROC-2026-0023</span>
+          <span style="flex:1;font-size:.85rem">T3 Lisboa</span>
+          <span class="mock-badge won" style="font-size:.7rem">100%</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="border-left:3px solid var(--green);margin-top:0">
+        <h3 style="color:var(--green);font-size:1rem">O que muda</h3>
+        <ul style="margin-top:12px">
+          <li><strong>Uma pagina</strong> para toda a informacao</li>
+          <li>Campanhas com <strong>estados independentes</strong></li>
+          <li>Todos os interesses <strong>visiveis e filtráveis</strong></li>
+          <li>Documentos <strong>nunca pedidos duas vezes</strong></li>
+          <li>Processos <strong>automaticamente ligados</strong></li>
+          <li>Historico completo <strong>desde o primeiro contacto</strong></li>
+        </ul>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <h3 style="color:var(--red);font-size:1rem">Hoje</h3>
+        <p style="font-size:.9rem">Para ver tudo sobre o Joao, o consultor precisa de abrir <strong>3 paginas</strong> (leads, owners, processos) e <strong>cruzar dados mentalmente</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 12: LIFECYCLE ═══ -->
+<div class="slide" data-slide="12">
+  <h3>Ciclo de Vida</h3>
+  <h2>Jornada completa de um contacto</h2>
+  <div class="timeline" style="margin-top:20px;max-width:750px">
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--accent)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Fev 2026</div><div class="tl-text"><strong>Joao entra via Facebook Ad</strong><br><span style="font-size:.85rem;color:var(--text-muted)">contacts + contact_roles('lead') + funnel_entries(Lisboa, paid, cold)</span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--green)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Mar 2026</div><div class="tl-text"><strong>Faz upload do CC e comprovativo</strong><br><span style="font-size:.85rem;color:var(--text-muted)">doc_registry(contact_id = Joao) &mdash; documentos pertencem a PESSOA</span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--purple)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Abr 2026</div><div class="tl-text"><strong>Joao quer vender o T3</strong><br><span style="font-size:.85rem;color:var(--text-muted)">interests(selling) + dev_properties(status: intention) + contact_roles adds 'seller'</span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--orange)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Mai 2026</div><div class="tl-text"><strong>Angariacao formalizada</strong><br><span style="font-size:.85rem;color:var(--text-muted)">owner_profiles(KYC) + property(pending_approval) + proc_instances criado</span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--green)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Mai 2026</div><div class="tl-text"><strong>Processo aprovado &mdash; 3 tarefas auto-completadas</strong><br><span style="font-size:.85rem;color:var(--text-muted)">autoCompleteTasks() encontra CC e comprovativo via contact_id <span class="green">&#10003;</span></span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--yellow)"></div>
+      <div class="tl-line"></div>
+      <div><div class="tl-time">Dez 2026</div><div class="tl-text"><strong>Venda concluida + quer comprar no Porto</strong><br><span style="font-size:.85rem;color:var(--text-muted)">interest(selling): closed_won + interest(buying, Porto) criado + CC reutilizado</span></div></div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--accent)"></div>
+      <div><div class="tl-time">Mar 2027</div><div class="tl-text"><strong>Re-entra via newsletter (Porto)</strong><br><span style="font-size:.85rem;color:var(--text-muted)">NIF match &rarr; mesmo contact_id &mdash; historico preservado, docs preservados</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 13: NOT OVER-ENG ═══ -->
+<div class="slide" data-slide="13">
+  <h3>Decisao</h3>
+  <h2>Onde esta o <em>over-engineering</em> real?</h2>
+  <div class="vs" style="margin-top:24px">
+    <div>
+      <h4 style="color:var(--red);margin-bottom:16px;text-align:center">ESTRUTURA ACTUAL</h4>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <p><span class="red">&#10007;</span> <strong>negocios:</strong> 63 colunas a misturar criterios de busca + dados de imovel + perfil financeiro</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <p><span class="red">&#10007;</span> <strong>leads + owners:</strong> 8 grupos de campos identicos duplicados</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <p><span class="red">&#10007;</span> <strong>lead_attachments:</strong> sistema paralelo de documentos que nao conecta a nada</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <p><span class="red">&#10007;</span> <strong>temperatura:</strong> campo fixo no lead &mdash; forca estado global</p>
+      </div>
+    </div>
+    <div class="vs-divider">vs</div>
+    <div>
+      <h4 style="color:var(--green);margin-bottom:16px;text-align:center">PROPOSTA</h4>
+      <div class="card" style="border-left:3px solid var(--green)">
+        <p><span class="green">&#10003;</span> <strong>Separa conceitos:</strong> identidade vs papel vs engagement vs intencao</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green)">
+        <p><span class="green">&#10003;</span> <strong>Single source:</strong> uma pessoa = um registo, zero duplicacao</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green)">
+        <p><span class="green">&#10003;</span> <strong>Documentos fluem:</strong> upload uma vez, reutilizar em todos os processos</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green)">
+        <p><span class="green">&#10003;</span> <strong>Contextual:</strong> estado, temperatura e fonte por campanha</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 14: COST ═══ -->
+<div class="slide" data-slide="14">
+  <h3>Custo de Espera</h3>
+  <h2>Quanto mais tempo, mais caro</h2>
+  <div class="cost-bars">
+    <div class="cost-bar-wrap">
+      <div class="cost-bar" style="height:50px;background:var(--green)">
+        <div class="cost-bar-value green">1-2 semanas</div>
+      </div>
+      <div class="cost-bar-label"><strong>AGORA</strong><br><span style="font-size:.75rem">10 leads, 4 owners<br>~200 rows<br>~40 ficheiros</span></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar" style="height:100px;background:var(--orange)">
+        <div class="cost-bar-value orange">3-4 semanas</div>
+      </div>
+      <div class="cost-bar-label"><strong>6 MESES</strong><br><span style="font-size:.75rem">~100 leads, ~20 owners<br>~2000 rows<br>~60 ficheiros</span></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar" style="height:170px;background:var(--red)">
+        <div class="cost-bar-value red">6-8 semanas</div>
+      </div>
+      <div class="cost-bar-label"><strong>12 MESES</strong><br><span style="font-size:.75rem">~500 leads, ~80 owners<br>~10000 rows<br>~100 ficheiros</span></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar" style="height:220px;background:var(--text-muted)">
+        <div class="cost-bar-value" style="color:var(--text-muted)">provavelmente nunca</div>
+      </div>
+      <div class="cost-bar-label"><strong>24 MESES</strong><br><span style="font-size:.75rem">~2000 leads<br>automacoes no schema antigo<br>custo proibitivo</span></div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:40px;font-size:1.1rem">A janela de oportunidade e <strong class="green">agora</strong>. O volume de dados e o menor que alguma vez sera.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 15: MIGRATION ═══ -->
+<div class="slide" data-slide="15">
+  <h3>Plano de Migracao</h3>
+  <h2>5 passos sequenciais</h2>
+  <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;justify-content:center">
+    <div class="box blue" style="min-width:160px;flex:1">
+      <strong style="font-size:1.3rem">1</strong><br>
+      Criar tabelas novas<br>
+      <small style="color:var(--text-muted)">contacts, roles, funnels<br>interests, etc.</small>
+    </div>
+    <div class="arrow" style="align-self:center">&rarr;</div>
+    <div class="box orange" style="min-width:160px;flex:1">
+      <strong style="font-size:1.3rem">2</strong><br>
+      Migrar dados<br>
+      <small style="color:var(--text-muted)">owners &rarr; contacts<br>leads &rarr; contacts (dedup NIF)</small>
+    </div>
+    <div class="arrow" style="align-self:center">&rarr;</div>
+    <div class="box purple" style="min-width:160px;flex:1">
+      <strong style="font-size:1.3rem">3</strong><br>
+      Actualizar FKs<br>
+      <small style="color:var(--text-muted)">owner_id &rarr; contact_id<br>em 3 tabelas</small>
+    </div>
+    <div class="arrow" style="align-self:center">&rarr;</div>
+    <div class="box green" style="min-width:160px;flex:1">
+      <strong style="font-size:1.3rem">4</strong><br>
+      Actualizar app<br>
+      <small style="color:var(--text-muted)">APIs, types, hooks<br>componentes (~40 files)</small>
+    </div>
+    <div class="arrow" style="align-self:center">&rarr;</div>
+    <div class="box gray" style="min-width:160px;flex:1">
+      <strong style="font-size:1.3rem">5</strong><br>
+      Cleanup<br>
+      <small style="color:var(--text-muted)">Drop leads, owners<br>negocios, lead_attachments</small>
+    </div>
+  </div>
+  <div class="card" style="margin-top:30px;border-left:3px solid var(--green)">
+    <h3 style="color:var(--green);font-size:1rem">O que NAO muda</h3>
+    <p style="font-size:.9rem">Autenticacao (M01) &middot; Properties CRUD (M03) &middot; Templates de Processo (M07) &middot; Tipos de Documento (M08) &middot; Media/R2 Upload &middot; Mapbox &middot; Notificacoes &middot; Recrutamento</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 16: SUMMARY ═══ -->
+<div class="slide" data-slide="16">
+  <h3>Glossario</h3>
+  <h2>De &rarr; Para</h2>
+  <table style="margin-top:20px">
+    <thead>
+      <tr><th>Actual (PT/mixed)</th><th>Proposto (EN)</th><th>Proposito</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>leads</td><td class="green">contacts + contact_roles</td><td>Identidade + papel</td></tr>
+      <tr><td>owners</td><td class="green">contacts + owner_profiles</td><td>Identidade + KYC</td></tr>
+      <tr><td>negocios (63 cols)</td><td class="green">interests</td><td>Intencoes buy/sell/rent</td></tr>
+      <tr><td>negocio_properties</td><td class="green">interest_properties</td><td>Imoveis sugeridos</td></tr>
+      <tr><td>lead_attachments</td><td class="green">doc_registry</td><td>Documentos unificados</td></tr>
+      <tr><td>estado (no lead)</td><td class="green">funnel_entries.stage</td><td>Fase por campanha</td></tr>
+      <tr><td>temperatura (no lead)</td><td class="green">funnel_entries.temperature</td><td>Engagement por campanha</td></tr>
+      <tr><td>origem (no lead)</td><td class="green">funnel_entries.source</td><td>Atribuicao por campanha</td></tr>
+      <tr><td>owner_id (everywhere)</td><td class="green">contact_id</td><td>Referencia unificada</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════ SLIDE 17: FINAL ═══ -->
+<div class="slide slide-cover" data-slide="17">
+  <h3 style="margin-bottom:24px">Resumo</h3>
+  <h1 style="font-size:2.8rem;max-width:900px">A estrutura actual funciona.<br>Mas funciona <span class="red">com lacunas</span>.</h1>
+  <p class="subtitle" style="max-width:700px;margin-top:16px">Documentos pedidos duas vezes. Leads duplicados. Historico perdido. Temperatura global. Dados fragmentados em silos sem conexao.</p>
+  <div style="display:flex;gap:16px;margin-top:30px;flex-wrap:wrap;justify-content:center">
+    <div class="box green" style="min-width:200px"><strong>Party Model</strong><br><small>Padrao usado por Salesforce,<br>HubSpot, SAP, Dynamics</small></div>
+    <div class="box green" style="min-width:200px"><strong>10 leads, 4 owners</strong><br><small>Menor volume possivel<br>Menor custo possivel</small></div>
+    <div class="box green" style="min-width:200px"><strong>~40 ficheiros</strong><br><small>1-2 semanas<br>Migracao trivial</small></div>
+  </div>
+  <p style="margin-top:30px;font-size:1.1rem;color:var(--text-muted)">A pergunta nao e <em>se</em> devemos migrar.<br>E <strong class="accent">quando</strong>. E a resposta e: agora.</p>
+</div>
+
+</div><!-- /deck -->
+
+<div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
+<div class="counter" id="counter"></div>
+<div class="nav-hint">&larr; &rarr; para navegar</div>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  function go(n) {
+    if (n < 0 || n >= total || n === current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current === n ? current : current].classList.remove('exit'), 400);
+
+    const prev = current;
+    current = n;
+    slides[current].classList.add('active');
+
+    // clean exit from previous
+    setTimeout(() => slides[prev].classList.remove('exit'), 420);
+
+    document.getElementById('progress').style.width = ((current / (total - 1)) * 100) + '%';
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + total;
+  }
+
+  function next() { go(current + 1); }
+  function prev() { go(current - 1); }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); prev(); }
+    if (e.key === 'Home') { e.preventDefault(); go(0); }
+    if (e.key === 'End') { e.preventDefault(); go(total - 1); }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', function(e) {
+    const diff = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); }
+  });
+
+  // Init
+  document.getElementById('progress').style.width = '0%';
+  document.getElementById('counter').textContent = '1 / ' + total;
+
+  // ── Draw ER lines ──
+  // Get a specific anchor point on a table element
+  // rowIndex: 0 = header, 1 = first row, etc. -1 = center of table
+  function getAnchor(canvasRect, tableEl, side, rowIndex) {
+    var tr = tableEl.getBoundingClientRect();
+    var x, y;
+    // Calculate Y based on row
+    if (rowIndex === -1) {
+      y = tr.top - canvasRect.top + tr.height / 2;
+    } else {
+      var rows = tableEl.querySelectorAll('.er-row');
+      var header = tableEl.querySelector('.er-table-header');
+      if (rowIndex === 0 && header) {
+        var hr = header.getBoundingClientRect();
+        y = hr.top - canvasRect.top + hr.height / 2;
+      } else if (rows[rowIndex - 1]) {
+        var rr = rows[rowIndex - 1].getBoundingClientRect();
+        y = rr.top - canvasRect.top + rr.height / 2;
+      } else {
+        y = tr.top - canvasRect.top + tr.height / 2;
+      }
+    }
+    if (side === 'left') x = tr.left - canvasRect.left;
+    else if (side === 'right') x = tr.right - canvasRect.left;
+    else x = tr.left - canvasRect.left + tr.width / 2;
+    return { x: x, y: y };
+  }
+
+  function drawPath(svgEl, x1, y1, x2, y2, cssClass) {
+    // Draw a curved path
+    var dx = Math.abs(x2 - x1) * 0.4;
+    var d;
+    if (Math.abs(x2 - x1) > 30) {
+      // Horizontal curve
+      var cx1 = x1 + (x2 > x1 ? dx : -dx);
+      var cx2 = x2 + (x2 > x1 ? -dx : dx);
+      d = 'M' + x1 + ',' + y1 + ' C' + cx1 + ',' + y1 + ' ' + cx2 + ',' + y2 + ' ' + x2 + ',' + y2;
+    } else {
+      // Vertical curve
+      var dy = Math.abs(y2 - y1) * 0.4;
+      var cy1 = y1 + (y2 > y1 ? dy : -dy);
+      var cy2 = y2 + (y2 > y1 ? -dy : dy);
+      d = 'M' + x1 + ',' + y1 + ' C' + x1 + ',' + cy1 + ' ' + x2 + ',' + cy2 + ' ' + x2 + ',' + y2;
+    }
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', cssClass);
+    path.setAttribute('fill', 'none');
+    svgEl.appendChild(path);
+
+    // Draw small circle at endpoint
+    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', x2);
+    circle.setAttribute('cy', y2);
+    circle.setAttribute('r', 3);
+    circle.setAttribute('class', cssClass);
+    circle.style.fill = getComputedStyle(path).stroke;
+    circle.style.opacity = '0.7';
+    svgEl.appendChild(circle);
+  }
+
+  function drawERDiagrams() {
+    var svgCur = document.getElementById('er-lines-current');
+    var svgProp = document.getElementById('er-lines-proposed');
+    svgCur.innerHTML = '';
+    svgProp.innerHTML = '';
+
+    // ── CURRENT ER ──
+    var cc = document.getElementById('er-current').getBoundingClientRect();
+
+    // leads.id → lead_attachments.lead_id (row 2)
+    var a = getAnchor(cc, document.getElementById('t-leads'), 'right', 1);
+    var b = getAnchor(cc, document.getElementById('t-lattach'), 'left', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // leads.id → negocios.lead_id (row 2)
+    a = getAnchor(cc, document.getElementById('t-leads'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-negocios'), 'left', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // owners.id → property_owners.owner_id (row 2)
+    a = getAnchor(cc, document.getElementById('t-owners'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-po'), 'left', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // property_owners.property_id → dev_properties.id (row 1)
+    a = getAnchor(cc, document.getElementById('t-po'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-props'), 'left', 1);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // owners.id → doc_registry.owner_id (row 2)
+    a = getAnchor(cc, document.getElementById('t-owners'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-docs'), 'left', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // dev_properties.id → doc_registry.property_id (row 3)
+    a = getAnchor(cc, document.getElementById('t-props'), 'left', 1);
+    b = getAnchor(cc, document.getElementById('t-docs'), 'right', 3);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // dev_properties.id → proc_instances.property_id (row 2)
+    a = getAnchor(cc, document.getElementById('t-props'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-proci'), 'right', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // proc_instances.id → proc_tasks.proc_instance_id (row 2)
+    a = getAnchor(cc, document.getElementById('t-proci'), 'left', 1);
+    b = getAnchor(cc, document.getElementById('t-proct'), 'right', 2);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // owners.id → proc_tasks.owner_id (row 3)
+    a = getAnchor(cc, document.getElementById('t-owners'), 'right', 1);
+    b = getAnchor(cc, document.getElementById('t-proct'), 'left', 3);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line');
+
+    // BROKEN: lead_attachments ✕ doc_registry
+    a = getAnchor(cc, document.getElementById('t-lattach'), 'right', -1);
+    b = getAnchor(cc, document.getElementById('t-docs'), 'left', -1);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line-red');
+
+    // BROKEN: leads ✕ owners
+    a = getAnchor(cc, document.getElementById('t-leads'), 'right', 5);
+    b = getAnchor(cc, document.getElementById('t-owners'), 'left', 5);
+    drawPath(svgCur, a.x, a.y, b.x, b.y, 'fk-line-red');
+
+    // ── PROPOSED ER ──
+    var cp = document.getElementById('er-proposed').getBoundingClientRect();
+
+    // contacts.id → contact_roles.contact_id (row 2)
+    a = getAnchor(cp, document.getElementById('t2-contacts'), 'left', 1);
+    b = getAnchor(cp, document.getElementById('t2-roles'), 'right', 2);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // contacts.id → owner_profiles.contact_id (row 1)
+    a = getAnchor(cp, document.getElementById('t2-contacts'), 'left', 2);
+    b = getAnchor(cp, document.getElementById('t2-ownerp'), 'right', 1);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // contacts.id → doc_registry.contact_id (row 2)
+    a = getAnchor(cp, document.getElementById('t2-contacts'), 'left', 3);
+    b = getAnchor(cp, document.getElementById('t2-docs'), 'right', 2);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // contacts.id → interests.contact_id (row 2)
+    a = getAnchor(cp, document.getElementById('t2-contacts'), 'right', 1);
+    b = getAnchor(cp, document.getElementById('t2-interests'), 'left', 2);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // contacts.id → funnel_entries.contact_id (row 2)
+    a = getAnchor(cp, document.getElementById('t2-contacts'), 'right', 2);
+    b = getAnchor(cp, document.getElementById('t2-fentries'), 'left', 2);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // interests.property_id → dev_properties.id (row 1)
+    a = getAnchor(cp, document.getElementById('t2-interests'), 'left', 4);
+    b = getAnchor(cp, document.getElementById('t2-props'), 'right', 1);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // funnels.id → funnel_stages.funnel_id (row 2)
+    a = getAnchor(cp, document.getElementById('t2-funnels'), 'left', 1);
+    b = getAnchor(cp, document.getElementById('t2-fstages'), 'left', 2);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // funnels.id → funnel_entries.funnel_id (row 3)
+    a = getAnchor(cp, document.getElementById('t2-funnels'), 'left', 1);
+    b = getAnchor(cp, document.getElementById('t2-fentries'), 'left', 3);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // funnel_stages.id → funnel_entries.current_stage_id (row 4)
+    a = getAnchor(cp, document.getElementById('t2-fstages'), 'left', 1);
+    b = getAnchor(cp, document.getElementById('t2-fentries'), 'left', 4);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+
+    // doc_registry.property_id → dev_properties.id
+    a = getAnchor(cp, document.getElementById('t2-docs'), 'right', 3);
+    b = getAnchor(cp, document.getElementById('t2-props'), 'left', 1);
+    drawPath(svgProp, a.x, a.y, b.x, b.y, 'fk-line-green');
+  }
+
+  // Draw on load and resize
+  setTimeout(drawERDiagrams, 100);
+  window.addEventListener('resize', function() { setTimeout(drawERDiagrams, 50); });
+})();
+</script>
+
+</body>
+</html>
