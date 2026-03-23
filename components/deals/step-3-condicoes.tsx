@@ -56,18 +56,28 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
 
   return (
     <div className="space-y-5">
-      {/* Business type */}
-      <AcqFieldWrapper fullWidth>
-        <AcqFieldLabel required>Tipo de Negocio</AcqFieldLabel>
-        <div className="mt-2">
-          <DealToggleGroup
-            value={businessType}
-            onChange={(v) => form.setValue('business_type', v as BusinessType)}
-            options={Object.entries(BUSINESS_TYPES).map(([value, label]) => ({ value, label }))}
-            error={errors.business_type}
-          />
-        </div>
-      </AcqFieldWrapper>
+      {/* Business type + Deal value */}
+      <div className="grid grid-cols-2 gap-3">
+        <AcqFieldWrapper>
+          <AcqFieldLabel required>Tipo de Negócio</AcqFieldLabel>
+          <div className="mt-2">
+            <DealToggleGroup
+              value={businessType}
+              onChange={(v) => form.setValue('business_type', v as BusinessType)}
+              options={Object.entries(BUSINESS_TYPES).map(([value, label]) => ({ value, label }))}
+              error={errors.business_type}
+            />
+          </div>
+        </AcqFieldWrapper>
+        <AcqInputField
+          label={labels.value}
+          value={form.watch('deal_value')}
+          onChange={(v) => form.setValue('deal_value', parseFloat(v) || 0)}
+          suffix="€"
+          required
+          error={errors.deal_value}
+        />
+      </div>
 
       {/* External property fields (Angariacao Externa only) */}
       {isAngExterna && (
@@ -126,18 +136,9 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
         </>
       )}
 
-      {/* Deal value + Commission side by side */}
-      <div className="grid grid-cols-2 gap-3">
-        <AcqInputField
-          label={labels.value}
-          value={form.watch('deal_value')}
-          onChange={(v) => form.setValue('deal_value', parseFloat(v) || 0)}
-          suffix="€"
-          required
-          error={errors.deal_value}
-        />
-        <AcqFieldWrapper className={cn(errors.commission_pct && 'border-destructive')}>
-          <AcqFieldLabel required>Comissão</AcqFieldLabel>
+      {/* Commission — full width */}
+      <AcqFieldWrapper fullWidth className={cn(errors.commission_pct && 'border-destructive')}>
+        <AcqFieldLabel required>Comissão</AcqFieldLabel>
           <div className="mt-1.5">
             <DealToggleGroup
               value={commissionType || 'percentage'}
@@ -179,9 +180,8 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
               {commissionType === 'fixed' ? '€' : '%'}
             </span>
           </div>
-          {errors.commission_pct && <p className="text-xs text-destructive mt-1">{errors.commission_pct}</p>}
-        </AcqFieldWrapper>
-      </div>
+        {errors.commission_pct && <p className="text-xs text-destructive mt-1">{errors.commission_pct}</p>}
+      </AcqFieldWrapper>
 
       {/* Deposit + CPCV */}
       <div className="grid grid-cols-2 gap-3">
