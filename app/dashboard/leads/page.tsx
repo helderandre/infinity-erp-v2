@@ -38,7 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { LeadForm } from '@/components/leads/lead-form'
-import { Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Phone, Mail, Copy } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDate, LEAD_TEMPERATURAS } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -369,11 +369,29 @@ function LeadsPageContent() {
                     onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
                   >
                     <TableCell className="font-medium">{lead.nome}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {lead.email || '—'}
+                    <TableCell>
+                      {lead.email ? (
+                        <div className="flex items-center gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); window.location.href = `mailto:${lead.email}` }} title={lead.email}>
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email!); toast.success('Email copiado') }} title="Copiar email">
+                            <Copy className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ) : '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {lead.telemovel || lead.telefone || '—'}
+                    <TableCell>
+                      {(lead.telemovel || lead.telefone) ? (
+                        <div className="flex items-center gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${lead.telemovel || lead.telefone}` }} title={lead.telemovel || lead.telefone}>
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((lead.telemovel || lead.telefone)!); toast.success('Número copiado') }} title="Copiar número">
+                            <Copy className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ) : '—'}
                     </TableCell>
                     <TableCell>
                       {getEstadoBadge(lead.estado)}
