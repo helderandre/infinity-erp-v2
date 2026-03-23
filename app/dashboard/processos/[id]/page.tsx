@@ -70,7 +70,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
-import { ProcessReviewBento, REVIEW_SUBTABS } from '@/components/processes/process-review-bento'
+import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
 import { ProcessListView } from '@/components/processes/process-list-view'
@@ -84,7 +84,7 @@ import { ProcessDocumentsManager } from '@/components/processes/process-document
 import { AdHocTaskSheet } from '@/components/processes/adhoc-task-sheet'
 import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
 import { ProcessDealTab } from '@/components/processes/process-deal-tab'
-import { ProcessDealBento, DEAL_SUBTABS } from '@/components/processes/process-deal-bento'
+import { ProcessDealBento } from '@/components/processes/process-deal-bento'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
@@ -110,7 +110,6 @@ export default function ProcessoDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [activeSection, setActiveSection] = useState<SidebarSection>('detalhes')
-  const [detalhesSubTab, setDetalhesSubTab] = useState('resumo')
 
   // Process-level activities (for timeline view)
   const { activities: processActivities, isLoading: isLoadingActivities } = useProcessActivities(
@@ -919,36 +918,11 @@ export default function ProcessoDetailPage() {
                 />
               )}
 
-              {/* Sub-tabs */}
-              {(() => {
-                const subtabs = isNegocio ? DEAL_SUBTABS : REVIEW_SUBTABS
-                return (
-                  <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30 shadow-sm w-fit">
-                    {subtabs.map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setDetalhesSubTab(tab.key)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
-                          detalhesSubTab === tab.key
-                            ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                )
-              })()}
-
-              {/* Bento content filtered by sub-tab */}
               {isNegocio && deal && (
                 <ProcessDealBento
                   deal={deal}
                   dealClients={dealClients || []}
                   documents={documents}
-                  section={detalhesSubTab as any}
                 />
               )}
               {!isNegocio && property && (
@@ -957,7 +931,6 @@ export default function ProcessoDetailPage() {
                   property={property}
                   owners={owners}
                   documents={documents}
-                  section={detalhesSubTab as any}
                 />
               )}
             </div>

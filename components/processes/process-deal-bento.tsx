@@ -26,45 +26,19 @@ import type { Deal, DealClient, DealScenario, DealStatus, HousingRegime, Payment
 import { BUSINESS_TYPES } from '@/lib/constants'
 import type { ProcessDocument } from '@/types/process'
 
-type DealSection = 'resumo' | 'clientes' | 'condicoes' | 'documentos'
-
 interface ProcessDealBentoProps {
   deal: Deal
   dealClients: DealClient[]
   documents: ProcessDocument[]
-  section?: DealSection
 }
 
-export const DEAL_SUBTABS: { key: DealSection; label: string }[] = [
-  { key: 'resumo', label: 'Resumo' },
-  { key: 'clientes', label: 'Clientes' },
-  { key: 'condicoes', label: 'Condições' },
-  { key: 'documentos', label: 'Documentos' },
-]
-
-export function ProcessDealBento({ deal, dealClients, documents, section = 'resumo' }: ProcessDealBentoProps) {
+export function ProcessDealBento({ deal }: ProcessDealBentoProps) {
   return (
     <div className="columns-1 lg:columns-2 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
-      {section === 'resumo' && (
-        <>
-          <DealHeroCard deal={deal} />
-          <DealValuesCard deal={deal} />
-          {deal.has_share && <DealShareCard deal={deal} />}
-        </>
-      )}
-      {section === 'clientes' && (
-        <>
-          {dealClients.length > 0 ? <DealClientsCard clients={dealClients} /> : (
-            <div className="text-center text-sm text-muted-foreground py-8">Nenhum cliente associado</div>
-          )}
-        </>
-      )}
-      {section === 'condicoes' && (
-        <DealConditionsCard deal={deal} />
-      )}
-      {section === 'documentos' && (
-        <DocumentsCard documents={documents} />
-      )}
+      <DealHeroCard deal={deal} />
+      <DealValuesCard deal={deal} />
+      <DealConditionsCard deal={deal} />
+      {deal.has_share && <DealShareCard deal={deal} />}
     </div>
   )
 }

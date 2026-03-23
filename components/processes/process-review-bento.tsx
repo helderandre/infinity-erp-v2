@@ -40,53 +40,29 @@ import {
 import { formatDate } from '@/lib/utils'
 import type { ProcessInstance, ProcessOwner, ProcessDocument, PropertyInternal } from '@/types/process'
 
-type ReviewSection = 'resumo' | 'especificacoes' | 'contrato' | 'documentos'
-
 interface ProcessReviewBentoProps {
   process: ProcessInstance
   property: NonNullable<ProcessInstance['property']>
   owners: ProcessOwner[]
   documents: ProcessDocument[]
-  section?: ReviewSection
 }
-
-export const REVIEW_SUBTABS: { key: ReviewSection; label: string }[] = [
-  { key: 'resumo', label: 'Resumo' },
-  { key: 'especificacoes', label: 'Especificações' },
-  { key: 'contrato', label: 'Contrato' },
-  { key: 'documentos', label: 'Documentos' },
-]
 
 export function ProcessReviewBento({
   property,
-  owners,
-  documents,
-  section = 'resumo',
 }: ProcessReviewBentoProps) {
   const specs = property.specs
   const internal = property.internal
 
   return (
-    <div className="columns-1 lg:columns-2 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
-      {section === 'resumo' && (
-        <>
-          <PropertyHeroCard property={property} />
-          <LocationMapCard property={property} />
-          <PriceCard property={property} />
-          <OwnersCard owners={owners} />
-        </>
-      )}
-      {section === 'especificacoes' && (
+    <div className="space-y-4">
+      <PropertyHeroCard property={property} />
+
+      <div className="columns-1 lg:columns-2 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
+        <LocationMapCard property={property} />
+        <PriceCard property={property} />
         <SpecsCard specs={specs} />
-      )}
-      {section === 'contrato' && (
-        <>
-          {internal && <InternalDataCard internal={internal} />}
-        </>
-      )}
-      {section === 'documentos' && (
-        <DocumentsCard documents={documents} />
-      )}
+        {internal && <InternalDataCard internal={internal} />}
+      </div>
     </div>
   )
 }
