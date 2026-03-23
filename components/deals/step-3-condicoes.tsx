@@ -155,7 +155,8 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
             { value: 5, label: '5%' },
             { value: 6, label: '6%' },
           ]}
-          hint={commissionType === 'fixed' ? 'Insere o valor fixo acordado (ex: 2000)' : 'Se 5% coloca 5'}
+          suffix={commissionType === 'fixed' ? '€' : '%'}
+          hint={commissionType === 'fixed' ? undefined : 'Se 5% coloca 5'}
           required
           error={errors.commission_pct}
         />
