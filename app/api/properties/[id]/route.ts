@@ -137,7 +137,7 @@ export async function DELETE(
       // Hard delete: remove from DB entirely
       // First nullify NO ACTION foreign keys that would block deletion
       await Promise.all([
-        supabase.from('temp_deals').update({ property_id: null }).eq('property_id', id),
+        supabase.from('deals').update({ property_id: null }).eq('property_id', id),
         supabase.from('temp_financial_transactions' as any).update({ property_id: null }).eq('property_id', id),
         supabase.from('temp_portal_favorites' as any).update({ property_id: null }).eq('property_id', id),
         supabase.from('temp_requisitions' as any).update({ property_id: null }).eq('property_id', id),

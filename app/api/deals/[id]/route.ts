@@ -15,12 +15,12 @@ export async function GET(
     const supabase = await createClient()
 
     const { data: deal, error } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .select(`
         *,
         property:dev_properties(id, title, external_ref, city, listing_price),
-        consultant:dev_users!temp_deals_consultant_id_fkey(id, commercial_name),
-        colleague:dev_users!temp_deals_internal_colleague_id_fkey(id, commercial_name)
+        consultant:dev_users!deals_consultant_id_fkey(id, commercial_name),
+        colleague:dev_users!deals_internal_colleague_id_fkey(id, commercial_name)
       `)
       .eq('id', id)
       .single()
@@ -31,7 +31,7 @@ export async function GET(
 
     // Fetch clients (table not in generated types yet)
     const { data: clients } = await (supabase as any)
-      .from('temp_deal_clients')
+      .from('deal_clients')
       .select('*')
       .eq('deal_id', id)
       .order('order_index')
@@ -90,7 +90,7 @@ export async function PUT(
     dealData.updated_at = new Date().toISOString()
 
     const { error: updateError } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .update(dealData)
       .eq('id', id)
 
@@ -101,7 +101,7 @@ export async function PUT(
     // Update clients if provided
     if (clients !== undefined) {
       // Delete existing (table not in generated types yet)
-      await (supabase as any).from('temp_deal_clients').delete().eq('deal_id', id)
+      await (supabase as any).from('deal_clients').delete().eq('deal_id', id)
 
       // Insert new
       if (clients.length > 0) {
@@ -115,7 +115,7 @@ export async function PUT(
         }))
 
         const { error: clientsError } = await (supabase as any)
-          .from('temp_deal_clients')
+          .from('deal_clients')
           .insert(clientRows)
 
         if (clientsError) {
@@ -143,7 +143,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .delete()
       .eq('id', id)
       .eq('status', 'draft')

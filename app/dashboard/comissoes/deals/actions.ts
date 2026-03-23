@@ -24,9 +24,9 @@ export async function getDeals(filters?: {
     const to = from + PAGE_SIZE - 1
 
     let query = (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .select(
-        '*, property:dev_properties!temp_deals_property_id_fkey(id, title, external_ref), consultant:dev_users!temp_deals_consultant_id_fkey(id, commercial_name)',
+        '*, property:dev_properties!deals_property_id_fkey(id, title, external_ref), consultant:dev_users!deals_consultant_id_fkey(id, commercial_name)',
         { count: 'exact' }
       )
       .order('deal_date', { ascending: false })
@@ -61,7 +61,7 @@ export async function getDeals(filters?: {
     // Fetch payments for all deal IDs in one query
     const dealIds = deals.map((d: any) => d.id)
     const { data: payments, error: paymentsError } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .select('*')
       .in('deal_id', dealIds)
       .order('payment_moment', { ascending: true })
@@ -97,9 +97,9 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
     const admin = createAdminClient()
 
     const { data: deal, error } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .select(
-        '*, property:dev_properties!temp_deals_property_id_fkey(id, title, external_ref), consultant:dev_users!temp_deals_consultant_id_fkey(id, commercial_name)'
+        '*, property:dev_properties!deals_property_id_fkey(id, title, external_ref), consultant:dev_users!deals_consultant_id_fkey(id, commercial_name)'
       )
       .eq('id', id)
       .single()
@@ -110,7 +110,7 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
 
     // Fetch payments
     const { data: payments, error: paymentsError } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .select('*')
       .eq('deal_id', id)
       .order('payment_moment', { ascending: true })
@@ -178,7 +178,7 @@ export async function createDeal(data: {
 
     // Insert deal
     const { data: deal, error: dealError } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .insert({
         ...dealData,
         property_id: dealData.property_id || null,
@@ -223,12 +223,12 @@ export async function createDeal(data: {
       }))
 
       const { error: paymentsError } = await (admin as any)
-        .from('temp_deal_payments')
+        .from('deal_payments')
         .insert(paymentRows)
 
       if (paymentsError) {
         // Rollback: delete the deal
-        await (admin as any).from('temp_deals').delete().eq('id', deal.id)
+        await (admin as any).from('deals').delete().eq('id', deal.id)
         return { deal: null, error: paymentsError.message }
       }
     }
@@ -278,7 +278,7 @@ export async function updateDeal(
     const admin = createAdminClient()
 
     const { data: deal, error } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -301,7 +301,7 @@ export async function cancelDeal(id: string): Promise<{ success: boolean; error:
     const admin = createAdminClient()
 
     const { error } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', id)
 
@@ -342,7 +342,7 @@ export async function updatePaymentStatus(
     }
 
     const { data: payment, error } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .update(updateData)
       .eq('id', paymentId)
       .select('*')
@@ -357,8 +357,8 @@ export async function updatePaymentStatus(
       try {
         // Get deal with property info and consultant
         const { data: deal } = await (admin as any)
-          .from('temp_deals')
-          .select('id, consultant_id, reference, property:dev_properties!temp_deals_property_id_fkey(id, title, external_ref)')
+          .from('deals')
+          .select('id, consultant_id, reference, property:dev_properties!deals_property_id_fkey(id, title, external_ref)')
           .eq('id', payment.deal_id)
           .single()
 
@@ -424,7 +424,7 @@ export async function updatePaymentStatus(
 
     // Check if all payments of this deal are fully complete
     const { data: allPayments, error: fetchError } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .select('is_received, consultant_paid')
       .eq('deal_id', payment.deal_id)
 
@@ -435,7 +435,7 @@ export async function updatePaymentStatus(
 
       if (allComplete) {
         await (admin as any)
-          .from('temp_deals')
+          .from('deals')
           .update({ status: 'completed', updated_at: new Date().toISOString() })
           .eq('id', payment.deal_id)
       }
@@ -469,7 +469,7 @@ export async function updatePaymentInvoice(
     const admin = createAdminClient()
 
     const { error } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq('id', paymentId)
 
@@ -499,7 +499,7 @@ export async function getDealStats(): Promise<{
 
     // Get deal counts and totals
     const { data: deals, error: dealsError } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .select('id, status, commission_total')
 
     if (dealsError) {
@@ -518,7 +518,7 @@ export async function getDealStats(): Promise<{
 
     // Get payment stats
     const { data: payments, error: paymentsError } = await (admin as any)
-      .from('temp_deal_payments')
+      .from('deal_payments')
       .select('amount, is_received, consultant_paid, consultant_amount')
 
     if (paymentsError) {

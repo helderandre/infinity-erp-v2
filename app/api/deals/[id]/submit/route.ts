@@ -16,7 +16,7 @@ export async function POST(
 
     // Fetch the deal
     const { data: deal, error: fetchError } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .select('*')
       .eq('id', id)
       .single()
@@ -53,7 +53,7 @@ export async function POST(
 
     // Link proc_instance to deal and update status
     const { error: updateError } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .update({
         status: 'submitted',
         proc_instance_id: procInstance.id,

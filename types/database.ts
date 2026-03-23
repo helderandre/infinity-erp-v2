@@ -1021,6 +1021,545 @@ export type Database = {
         }
         Relationships: []
       }
+      deal_clients: {
+        Row: {
+          created_at: string | null
+          deal_id: string
+          email: string | null
+          id: string
+          name: string
+          order_index: number | null
+          person_type: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id: string
+          email?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          person_type?: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string
+          email?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          person_type?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_clients_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_compliance: {
+        Row: {
+          buyer_address: string | null
+          buyer_address_proof_url: string | null
+          buyer_cc_number: string | null
+          buyer_docs_complete: boolean | null
+          buyer_funds_declared: boolean | null
+          buyer_funds_origin: string | null
+          buyer_id_doc_url: string | null
+          buyer_name: string | null
+          buyer_nationality: string | null
+          buyer_nif: string | null
+          buyer_pep_check: boolean | null
+          buyer_pep_result: string | null
+          buyer_risk_level: string | null
+          cash_amount: number | null
+          created_at: string | null
+          deal_id: string
+          id: string
+          impic_notes: string | null
+          impic_quarter: string | null
+          impic_reference: string | null
+          impic_report_date: string | null
+          impic_reported: boolean | null
+          overall_risk_level: string | null
+          payment_method: string | null
+          risk_flags: Json | null
+          seller_address: string | null
+          seller_address_proof_url: string | null
+          seller_beneficial_owner: string | null
+          seller_cc_number: string | null
+          seller_company_cert_url: string | null
+          seller_docs_complete: boolean | null
+          seller_id_doc_url: string | null
+          seller_is_company: boolean | null
+          seller_name: string | null
+          seller_nationality: string | null
+          seller_nif: string | null
+          seller_pep_check: boolean | null
+          seller_pep_result: string | null
+          seller_risk_level: string | null
+          status: string | null
+          suspicious_activity_date: string | null
+          suspicious_activity_ref: string | null
+          suspicious_activity_reported: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          buyer_address?: string | null
+          buyer_address_proof_url?: string | null
+          buyer_cc_number?: string | null
+          buyer_docs_complete?: boolean | null
+          buyer_funds_declared?: boolean | null
+          buyer_funds_origin?: string | null
+          buyer_id_doc_url?: string | null
+          buyer_name?: string | null
+          buyer_nationality?: string | null
+          buyer_nif?: string | null
+          buyer_pep_check?: boolean | null
+          buyer_pep_result?: string | null
+          buyer_risk_level?: string | null
+          cash_amount?: number | null
+          created_at?: string | null
+          deal_id: string
+          id?: string
+          impic_notes?: string | null
+          impic_quarter?: string | null
+          impic_reference?: string | null
+          impic_report_date?: string | null
+          impic_reported?: boolean | null
+          overall_risk_level?: string | null
+          payment_method?: string | null
+          risk_flags?: Json | null
+          seller_address?: string | null
+          seller_address_proof_url?: string | null
+          seller_beneficial_owner?: string | null
+          seller_cc_number?: string | null
+          seller_company_cert_url?: string | null
+          seller_docs_complete?: boolean | null
+          seller_id_doc_url?: string | null
+          seller_is_company?: boolean | null
+          seller_name?: string | null
+          seller_nationality?: string | null
+          seller_nif?: string | null
+          seller_pep_check?: boolean | null
+          seller_pep_result?: string | null
+          seller_risk_level?: string | null
+          status?: string | null
+          suspicious_activity_date?: string | null
+          suspicious_activity_ref?: string | null
+          suspicious_activity_reported?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          buyer_address?: string | null
+          buyer_address_proof_url?: string | null
+          buyer_cc_number?: string | null
+          buyer_docs_complete?: boolean | null
+          buyer_funds_declared?: boolean | null
+          buyer_funds_origin?: string | null
+          buyer_id_doc_url?: string | null
+          buyer_name?: string | null
+          buyer_nationality?: string | null
+          buyer_nif?: string | null
+          buyer_pep_check?: boolean | null
+          buyer_pep_result?: string | null
+          buyer_risk_level?: string | null
+          cash_amount?: number | null
+          created_at?: string | null
+          deal_id?: string
+          id?: string
+          impic_notes?: string | null
+          impic_quarter?: string | null
+          impic_reference?: string | null
+          impic_report_date?: string | null
+          impic_reported?: boolean | null
+          overall_risk_level?: string | null
+          payment_method?: string | null
+          risk_flags?: Json | null
+          seller_address?: string | null
+          seller_address_proof_url?: string | null
+          seller_beneficial_owner?: string | null
+          seller_cc_number?: string | null
+          seller_company_cert_url?: string | null
+          seller_docs_complete?: boolean | null
+          seller_id_doc_url?: string | null
+          seller_is_company?: boolean | null
+          seller_name?: string | null
+          seller_nationality?: string | null
+          seller_nif?: string | null
+          seller_pep_check?: boolean | null
+          seller_pep_result?: string | null
+          seller_risk_level?: string | null
+          status?: string | null
+          suspicious_activity_date?: string | null
+          suspicious_activity_ref?: string | null
+          suspicious_activity_reported?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_compliance_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_payments: {
+        Row: {
+          agency_amount: number | null
+          agency_invoice_amount_gross: number | null
+          agency_invoice_amount_net: number | null
+          agency_invoice_date: string | null
+          agency_invoice_id: string | null
+          agency_invoice_number: string | null
+          agency_invoice_recipient: string | null
+          agency_invoice_recipient_nif: string | null
+          amount: number
+          consultant_amount: number | null
+          consultant_invoice_date: string | null
+          consultant_invoice_number: string | null
+          consultant_invoice_type: string | null
+          consultant_paid: boolean | null
+          consultant_paid_date: string | null
+          created_at: string | null
+          deal_id: string
+          id: string
+          is_received: boolean | null
+          is_reported: boolean | null
+          is_signed: boolean | null
+          network_amount: number | null
+          network_invoice_date: string | null
+          network_invoice_number: string | null
+          notes: string | null
+          partner_amount: number | null
+          payment_moment: string
+          payment_pct: number
+          received_date: string | null
+          reported_date: string | null
+          signed_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_amount?: number | null
+          agency_invoice_amount_gross?: number | null
+          agency_invoice_amount_net?: number | null
+          agency_invoice_date?: string | null
+          agency_invoice_id?: string | null
+          agency_invoice_number?: string | null
+          agency_invoice_recipient?: string | null
+          agency_invoice_recipient_nif?: string | null
+          amount: number
+          consultant_amount?: number | null
+          consultant_invoice_date?: string | null
+          consultant_invoice_number?: string | null
+          consultant_invoice_type?: string | null
+          consultant_paid?: boolean | null
+          consultant_paid_date?: string | null
+          created_at?: string | null
+          deal_id: string
+          id?: string
+          is_received?: boolean | null
+          is_reported?: boolean | null
+          is_signed?: boolean | null
+          network_amount?: number | null
+          network_invoice_date?: string | null
+          network_invoice_number?: string | null
+          notes?: string | null
+          partner_amount?: number | null
+          payment_moment: string
+          payment_pct: number
+          received_date?: string | null
+          reported_date?: string | null
+          signed_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_amount?: number | null
+          agency_invoice_amount_gross?: number | null
+          agency_invoice_amount_net?: number | null
+          agency_invoice_date?: string | null
+          agency_invoice_id?: string | null
+          agency_invoice_number?: string | null
+          agency_invoice_recipient?: string | null
+          agency_invoice_recipient_nif?: string | null
+          amount?: number
+          consultant_amount?: number | null
+          consultant_invoice_date?: string | null
+          consultant_invoice_number?: string | null
+          consultant_invoice_type?: string | null
+          consultant_paid?: boolean | null
+          consultant_paid_date?: string | null
+          created_at?: string | null
+          deal_id?: string
+          id?: string
+          is_received?: boolean | null
+          is_reported?: boolean | null
+          is_signed?: boolean | null
+          network_amount?: number | null
+          network_invoice_date?: string | null
+          network_invoice_number?: string | null
+          notes?: string | null
+          partner_amount?: number | null
+          payment_moment?: string
+          payment_pct?: number
+          received_date?: string | null
+          reported_date?: string | null
+          signed_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_payments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          agency_margin: number | null
+          agency_net: number | null
+          business_type: string | null
+          clients_notes: string | null
+          commission_pct: number
+          commission_total: number
+          commission_type: string
+          conditions_notes: string | null
+          consultant_amount: number | null
+          consultant_id: string | null
+          consultant_pct: number | null
+          contract_signing_date: string | null
+          cpcv_pct: number | null
+          created_at: string | null
+          created_by: string | null
+          deal_date: string
+          deal_type: string
+          deal_value: number
+          deposit_value: string | null
+          escritura_pct: number | null
+          external_consultant_email: string | null
+          external_consultant_name: string | null
+          external_consultant_phone: string | null
+          external_property_construction_year: string | null
+          external_property_extra: string | null
+          external_property_id: string | null
+          external_property_link: string | null
+          external_property_type: string | null
+          external_property_typology: string | null
+          external_property_zone: string | null
+          extra_info: string | null
+          has_financing: boolean | null
+          has_financing_condition: boolean | null
+          has_furniture: boolean | null
+          has_guarantor: boolean | null
+          has_referral: boolean | null
+          has_share: boolean | null
+          has_signature_recognition: boolean | null
+          housing_regime: string | null
+          id: string
+          internal_colleague_id: string | null
+          is_bilingual: boolean | null
+          max_deadline: string | null
+          network_amount: number | null
+          network_pct: number | null
+          notes: string | null
+          partner_agency_name: string | null
+          partner_amount: number | null
+          partner_contact: string | null
+          payment_structure: string
+          proc_instance_id: string | null
+          property_id: string | null
+          proposal_file_name: string | null
+          proposal_file_url: string | null
+          pv_number: string | null
+          reference: string | null
+          referral_info: string | null
+          referral_pct: number | null
+          referral_type: string | null
+          remax_draft_number: string | null
+          share_amount: number | null
+          share_notes: string | null
+          share_pct: number | null
+          share_type: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_margin?: number | null
+          agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
+          commission_pct: number
+          commission_total: number
+          commission_type?: string
+          conditions_notes?: string | null
+          consultant_amount?: number | null
+          consultant_id?: string | null
+          consultant_pct?: number | null
+          contract_signing_date?: string | null
+          cpcv_pct?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_date: string
+          deal_type: string
+          deal_value: number
+          deposit_value?: string | null
+          escritura_pct?: number | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
+          has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
+          id?: string
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
+          network_amount?: number | null
+          network_pct?: number | null
+          notes?: string | null
+          partner_agency_name?: string | null
+          partner_amount?: number | null
+          partner_contact?: string | null
+          payment_structure?: string
+          proc_instance_id?: string | null
+          property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
+          pv_number?: string | null
+          reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          remax_draft_number?: string | null
+          share_amount?: number | null
+          share_notes?: string | null
+          share_pct?: number | null
+          share_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_margin?: number | null
+          agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
+          commission_pct?: number
+          commission_total?: number
+          commission_type?: string
+          conditions_notes?: string | null
+          consultant_amount?: number | null
+          consultant_id?: string | null
+          consultant_pct?: number | null
+          contract_signing_date?: string | null
+          cpcv_pct?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_date?: string
+          deal_type?: string
+          deal_value?: number
+          deposit_value?: string | null
+          escritura_pct?: number | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
+          has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
+          id?: string
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
+          network_amount?: number | null
+          network_pct?: number | null
+          notes?: string | null
+          partner_agency_name?: string | null
+          partner_amount?: number | null
+          partner_contact?: string | null
+          payment_structure?: string
+          proc_instance_id?: string | null
+          property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
+          pv_number?: string | null
+          reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          remax_draft_number?: string | null
+          share_amount?: number | null
+          share_notes?: string | null
+          share_pct?: number | null
+          share_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_internal_colleague_id_fkey"
+            columns: ["internal_colleague_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dev_consultant_private_data: {
         Row: {
           address_private: string | null
@@ -7703,539 +8242,6 @@ export type Database = {
           },
         ]
       }
-      temp_deal_clients: {
-        Row: {
-          created_at: string | null
-          deal_id: string
-          email: string | null
-          id: string
-          name: string
-          order_index: number | null
-          person_type: string
-          phone: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          deal_id: string
-          email?: string | null
-          id?: string
-          name: string
-          order_index?: number | null
-          person_type?: string
-          phone?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          deal_id?: string
-          email?: string | null
-          id?: string
-          name?: string
-          order_index?: number | null
-          person_type?: string
-          phone?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "temp_deal_clients_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "temp_deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      temp_deal_compliance: {
-        Row: {
-          buyer_address: string | null
-          buyer_address_proof_url: string | null
-          buyer_cc_number: string | null
-          buyer_docs_complete: boolean | null
-          buyer_funds_declared: boolean | null
-          buyer_funds_origin: string | null
-          buyer_id_doc_url: string | null
-          buyer_name: string | null
-          buyer_nationality: string | null
-          buyer_nif: string | null
-          buyer_pep_check: boolean | null
-          buyer_pep_result: string | null
-          buyer_risk_level: string | null
-          cash_amount: number | null
-          created_at: string | null
-          deal_id: string
-          id: string
-          impic_notes: string | null
-          impic_quarter: string | null
-          impic_reference: string | null
-          impic_report_date: string | null
-          impic_reported: boolean | null
-          overall_risk_level: string | null
-          payment_method: string | null
-          risk_flags: Json | null
-          seller_address: string | null
-          seller_address_proof_url: string | null
-          seller_beneficial_owner: string | null
-          seller_cc_number: string | null
-          seller_company_cert_url: string | null
-          seller_docs_complete: boolean | null
-          seller_id_doc_url: string | null
-          seller_is_company: boolean | null
-          seller_name: string | null
-          seller_nationality: string | null
-          seller_nif: string | null
-          seller_pep_check: boolean | null
-          seller_pep_result: string | null
-          seller_risk_level: string | null
-          status: string | null
-          suspicious_activity_date: string | null
-          suspicious_activity_ref: string | null
-          suspicious_activity_reported: boolean | null
-          updated_at: string | null
-        }
-        Insert: {
-          buyer_address?: string | null
-          buyer_address_proof_url?: string | null
-          buyer_cc_number?: string | null
-          buyer_docs_complete?: boolean | null
-          buyer_funds_declared?: boolean | null
-          buyer_funds_origin?: string | null
-          buyer_id_doc_url?: string | null
-          buyer_name?: string | null
-          buyer_nationality?: string | null
-          buyer_nif?: string | null
-          buyer_pep_check?: boolean | null
-          buyer_pep_result?: string | null
-          buyer_risk_level?: string | null
-          cash_amount?: number | null
-          created_at?: string | null
-          deal_id: string
-          id?: string
-          impic_notes?: string | null
-          impic_quarter?: string | null
-          impic_reference?: string | null
-          impic_report_date?: string | null
-          impic_reported?: boolean | null
-          overall_risk_level?: string | null
-          payment_method?: string | null
-          risk_flags?: Json | null
-          seller_address?: string | null
-          seller_address_proof_url?: string | null
-          seller_beneficial_owner?: string | null
-          seller_cc_number?: string | null
-          seller_company_cert_url?: string | null
-          seller_docs_complete?: boolean | null
-          seller_id_doc_url?: string | null
-          seller_is_company?: boolean | null
-          seller_name?: string | null
-          seller_nationality?: string | null
-          seller_nif?: string | null
-          seller_pep_check?: boolean | null
-          seller_pep_result?: string | null
-          seller_risk_level?: string | null
-          status?: string | null
-          suspicious_activity_date?: string | null
-          suspicious_activity_ref?: string | null
-          suspicious_activity_reported?: boolean | null
-          updated_at?: string | null
-        }
-        Update: {
-          buyer_address?: string | null
-          buyer_address_proof_url?: string | null
-          buyer_cc_number?: string | null
-          buyer_docs_complete?: boolean | null
-          buyer_funds_declared?: boolean | null
-          buyer_funds_origin?: string | null
-          buyer_id_doc_url?: string | null
-          buyer_name?: string | null
-          buyer_nationality?: string | null
-          buyer_nif?: string | null
-          buyer_pep_check?: boolean | null
-          buyer_pep_result?: string | null
-          buyer_risk_level?: string | null
-          cash_amount?: number | null
-          created_at?: string | null
-          deal_id?: string
-          id?: string
-          impic_notes?: string | null
-          impic_quarter?: string | null
-          impic_reference?: string | null
-          impic_report_date?: string | null
-          impic_reported?: boolean | null
-          overall_risk_level?: string | null
-          payment_method?: string | null
-          risk_flags?: Json | null
-          seller_address?: string | null
-          seller_address_proof_url?: string | null
-          seller_beneficial_owner?: string | null
-          seller_cc_number?: string | null
-          seller_company_cert_url?: string | null
-          seller_docs_complete?: boolean | null
-          seller_id_doc_url?: string | null
-          seller_is_company?: boolean | null
-          seller_name?: string | null
-          seller_nationality?: string | null
-          seller_nif?: string | null
-          seller_pep_check?: boolean | null
-          seller_pep_result?: string | null
-          seller_risk_level?: string | null
-          status?: string | null
-          suspicious_activity_date?: string | null
-          suspicious_activity_ref?: string | null
-          suspicious_activity_reported?: boolean | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "temp_deal_compliance_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "temp_deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      temp_deal_payments: {
-        Row: {
-          agency_amount: number | null
-          agency_invoice_amount_gross: number | null
-          agency_invoice_amount_net: number | null
-          agency_invoice_date: string | null
-          agency_invoice_id: string | null
-          agency_invoice_number: string | null
-          agency_invoice_recipient: string | null
-          agency_invoice_recipient_nif: string | null
-          amount: number
-          consultant_amount: number | null
-          consultant_invoice_date: string | null
-          consultant_invoice_number: string | null
-          consultant_invoice_type: string | null
-          consultant_paid: boolean | null
-          consultant_paid_date: string | null
-          created_at: string | null
-          deal_id: string
-          id: string
-          is_received: boolean | null
-          is_reported: boolean | null
-          is_signed: boolean | null
-          network_amount: number | null
-          network_invoice_date: string | null
-          network_invoice_number: string | null
-          notes: string | null
-          partner_amount: number | null
-          payment_moment: string
-          payment_pct: number
-          received_date: string | null
-          reported_date: string | null
-          signed_date: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          agency_amount?: number | null
-          agency_invoice_amount_gross?: number | null
-          agency_invoice_amount_net?: number | null
-          agency_invoice_date?: string | null
-          agency_invoice_id?: string | null
-          agency_invoice_number?: string | null
-          agency_invoice_recipient?: string | null
-          agency_invoice_recipient_nif?: string | null
-          amount: number
-          consultant_amount?: number | null
-          consultant_invoice_date?: string | null
-          consultant_invoice_number?: string | null
-          consultant_invoice_type?: string | null
-          consultant_paid?: boolean | null
-          consultant_paid_date?: string | null
-          created_at?: string | null
-          deal_id: string
-          id?: string
-          is_received?: boolean | null
-          is_reported?: boolean | null
-          is_signed?: boolean | null
-          network_amount?: number | null
-          network_invoice_date?: string | null
-          network_invoice_number?: string | null
-          notes?: string | null
-          partner_amount?: number | null
-          payment_moment: string
-          payment_pct: number
-          received_date?: string | null
-          reported_date?: string | null
-          signed_date?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          agency_amount?: number | null
-          agency_invoice_amount_gross?: number | null
-          agency_invoice_amount_net?: number | null
-          agency_invoice_date?: string | null
-          agency_invoice_id?: string | null
-          agency_invoice_number?: string | null
-          agency_invoice_recipient?: string | null
-          agency_invoice_recipient_nif?: string | null
-          amount?: number
-          consultant_amount?: number | null
-          consultant_invoice_date?: string | null
-          consultant_invoice_number?: string | null
-          consultant_invoice_type?: string | null
-          consultant_paid?: boolean | null
-          consultant_paid_date?: string | null
-          created_at?: string | null
-          deal_id?: string
-          id?: string
-          is_received?: boolean | null
-          is_reported?: boolean | null
-          is_signed?: boolean | null
-          network_amount?: number | null
-          network_invoice_date?: string | null
-          network_invoice_number?: string | null
-          notes?: string | null
-          partner_amount?: number | null
-          payment_moment?: string
-          payment_pct?: number
-          received_date?: string | null
-          reported_date?: string | null
-          signed_date?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "temp_deal_payments_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "temp_deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      temp_deals: {
-        Row: {
-          agency_margin: number | null
-          agency_net: number | null
-          business_type: string | null
-          clients_notes: string | null
-          commission_pct: number
-          commission_total: number
-          conditions_notes: string | null
-          consultant_amount: number | null
-          consultant_id: string | null
-          consultant_pct: number | null
-          contract_signing_date: string | null
-          cpcv_pct: number | null
-          created_at: string | null
-          created_by: string | null
-          deal_date: string
-          deal_type: string
-          deal_value: number
-          deposit_value: string | null
-          escritura_pct: number | null
-          external_consultant_email: string | null
-          external_consultant_name: string | null
-          external_consultant_phone: string | null
-          external_property_construction_year: string | null
-          external_property_extra: string | null
-          external_property_id: string | null
-          external_property_link: string | null
-          external_property_type: string | null
-          external_property_typology: string | null
-          external_property_zone: string | null
-          extra_info: string | null
-          has_financing: boolean | null
-          has_financing_condition: boolean | null
-          has_furniture: boolean | null
-          has_guarantor: boolean | null
-          has_referral: boolean | null
-          has_share: boolean | null
-          has_signature_recognition: boolean | null
-          housing_regime: string | null
-          id: string
-          internal_colleague_id: string | null
-          is_bilingual: boolean | null
-          max_deadline: string | null
-          network_amount: number | null
-          network_pct: number | null
-          notes: string | null
-          partner_agency_name: string | null
-          partner_amount: number | null
-          partner_contact: string | null
-          payment_structure: string
-          proc_instance_id: string | null
-          property_id: string | null
-          proposal_file_name: string | null
-          proposal_file_url: string | null
-          pv_number: string | null
-          reference: string | null
-          referral_info: string | null
-          referral_pct: number | null
-          referral_type: string | null
-          share_amount: number | null
-          share_notes: string | null
-          share_pct: number | null
-          share_type: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          agency_margin?: number | null
-          agency_net?: number | null
-          business_type?: string | null
-          clients_notes?: string | null
-          commission_pct: number
-          commission_total: number
-          conditions_notes?: string | null
-          consultant_amount?: number | null
-          consultant_id?: string | null
-          consultant_pct?: number | null
-          contract_signing_date?: string | null
-          cpcv_pct?: number | null
-          created_at?: string | null
-          created_by?: string | null
-          deal_date: string
-          deal_type: string
-          deal_value: number
-          deposit_value?: string | null
-          escritura_pct?: number | null
-          external_consultant_email?: string | null
-          external_consultant_name?: string | null
-          external_consultant_phone?: string | null
-          external_property_construction_year?: string | null
-          external_property_extra?: string | null
-          external_property_id?: string | null
-          external_property_link?: string | null
-          external_property_type?: string | null
-          external_property_typology?: string | null
-          external_property_zone?: string | null
-          extra_info?: string | null
-          has_financing?: boolean | null
-          has_financing_condition?: boolean | null
-          has_furniture?: boolean | null
-          has_guarantor?: boolean | null
-          has_referral?: boolean | null
-          has_share?: boolean | null
-          has_signature_recognition?: boolean | null
-          housing_regime?: string | null
-          id?: string
-          internal_colleague_id?: string | null
-          is_bilingual?: boolean | null
-          max_deadline?: string | null
-          network_amount?: number | null
-          network_pct?: number | null
-          notes?: string | null
-          partner_agency_name?: string | null
-          partner_amount?: number | null
-          partner_contact?: string | null
-          payment_structure?: string
-          proc_instance_id?: string | null
-          property_id?: string | null
-          proposal_file_name?: string | null
-          proposal_file_url?: string | null
-          pv_number?: string | null
-          reference?: string | null
-          referral_info?: string | null
-          referral_pct?: number | null
-          referral_type?: string | null
-          share_amount?: number | null
-          share_notes?: string | null
-          share_pct?: number | null
-          share_type?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          agency_margin?: number | null
-          agency_net?: number | null
-          business_type?: string | null
-          clients_notes?: string | null
-          commission_pct?: number
-          commission_total?: number
-          conditions_notes?: string | null
-          consultant_amount?: number | null
-          consultant_id?: string | null
-          consultant_pct?: number | null
-          contract_signing_date?: string | null
-          cpcv_pct?: number | null
-          created_at?: string | null
-          created_by?: string | null
-          deal_date?: string
-          deal_type?: string
-          deal_value?: number
-          deposit_value?: string | null
-          escritura_pct?: number | null
-          external_consultant_email?: string | null
-          external_consultant_name?: string | null
-          external_consultant_phone?: string | null
-          external_property_construction_year?: string | null
-          external_property_extra?: string | null
-          external_property_id?: string | null
-          external_property_link?: string | null
-          external_property_type?: string | null
-          external_property_typology?: string | null
-          external_property_zone?: string | null
-          extra_info?: string | null
-          has_financing?: boolean | null
-          has_financing_condition?: boolean | null
-          has_furniture?: boolean | null
-          has_guarantor?: boolean | null
-          has_referral?: boolean | null
-          has_share?: boolean | null
-          has_signature_recognition?: boolean | null
-          housing_regime?: string | null
-          id?: string
-          internal_colleague_id?: string | null
-          is_bilingual?: boolean | null
-          max_deadline?: string | null
-          network_amount?: number | null
-          network_pct?: number | null
-          notes?: string | null
-          partner_agency_name?: string | null
-          partner_amount?: number | null
-          partner_contact?: string | null
-          payment_structure?: string
-          proc_instance_id?: string | null
-          property_id?: string | null
-          proposal_file_name?: string | null
-          proposal_file_url?: string | null
-          pv_number?: string | null
-          reference?: string | null
-          referral_info?: string | null
-          referral_pct?: number | null
-          referral_type?: string | null
-          share_amount?: number | null
-          share_notes?: string | null
-          share_pct?: number | null
-          share_type?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "temp_deals_consultant_id_fkey"
-            columns: ["consultant_id"]
-            isOneToOne: false
-            referencedRelation: "dev_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "temp_deals_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "dev_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "temp_deals_internal_colleague_id_fkey"
-            columns: ["internal_colleague_id"]
-            isOneToOne: false
-            referencedRelation: "dev_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "temp_deals_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "dev_properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       temp_financial_transactions: {
         Row: {
           agency_commission_amount: number | null
@@ -11532,3 +11538,4 @@ export const Constants = {
     },
   },
 } as const
+

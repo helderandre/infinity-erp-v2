@@ -11,7 +11,7 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .select(`
         id, deal_type, business_type, deal_value, status, created_at, updated_at,
         property:dev_properties(id, title, external_ref)

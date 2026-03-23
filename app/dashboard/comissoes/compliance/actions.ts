@@ -18,7 +18,7 @@ export async function getCompliance(dealId: string): Promise<DealCompliance> {
 
     // Try to fetch existing record
     const { data: existing, error: fetchError } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .select('*')
       .eq('deal_id', dealId)
       .maybeSingle()
@@ -50,7 +50,7 @@ export async function getCompliance(dealId: string): Promise<DealCompliance> {
     }
 
     const { data: created, error: insertError } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .insert(defaults)
       .select('*')
       .single()
@@ -75,7 +75,7 @@ export async function updateCompliance(
 
     // Update the record first
     const { data: updated, error: updateError } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq('deal_id', dealId)
       .select('*')
@@ -125,10 +125,10 @@ export async function updateCompliance(
       flags.push('missing_docs_seller')
     }
 
-    // Funds not declared — check deal value from temp_deals
+    // Funds not declared — check deal value from deals
     if (!record.buyer_funds_declared) {
       const { data: deal } = await (admin as any)
-        .from('temp_deals')
+        .from('deals')
         .select('deal_value')
         .eq('id', dealId)
         .maybeSingle()
@@ -175,7 +175,7 @@ export async function updateCompliance(
 
     // Update with computed fields
     const { data: final, error: finalError } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .update({
         risk_flags: flags,
         overall_risk_level: overallRisk,
@@ -207,7 +207,7 @@ export async function markAsReported(
 
     // Get deal date to compute quarter
     const { data: deal } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .select('deal_date')
       .eq('id', dealId)
       .maybeSingle()
@@ -224,7 +224,7 @@ export async function markAsReported(
     }
 
     const { data: updated, error } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .update({
         impic_reported: true,
         impic_report_date: date,
@@ -252,7 +252,7 @@ export async function getComplianceOverview(quarter?: string, year?: number) {
     const admin = createAdminClient()
 
     // Get all compliance records
-    let query = (admin as any).from('temp_deal_compliance').select('*')
+    let query = (admin as any).from('deal_compliance').select('*')
 
     if (quarter && year) {
       query = query.eq('impic_quarter', `${quarter} ${year}`)
@@ -270,7 +270,7 @@ export async function getComplianceOverview(quarter?: string, year?: number) {
     let deals: any[] = []
     if (dealIds.length > 0) {
       const { data: dealData, error: dealError } = await (admin as any)
-        .from('temp_deals')
+        .from('deals')
         .select('*')
         .in('id', dealIds)
 
@@ -315,7 +315,7 @@ export async function generateImpicFormData(dealId: string): Promise<ImpicFormDa
 
     // Get compliance record
     const { data: compliance, error: compError } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .select('*')
       .eq('deal_id', dealId)
       .single()
@@ -324,7 +324,7 @@ export async function generateImpicFormData(dealId: string): Promise<ImpicFormDa
 
     // Get deal with property info
     const { data: deal, error: dealError } = await (admin as any)
-      .from('temp_deals')
+      .from('deals')
       .select('*')
       .eq('id', dealId)
       .single()
@@ -413,7 +413,7 @@ export async function getComplianceAlerts() {
 
     // Get all non-reported compliance records
     const { data: records, error } = await (admin as any)
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .select('*')
 
     if (error) throw error
@@ -425,7 +425,7 @@ export async function getComplianceAlerts() {
     let deals: any[] = []
     if (dealIds.length > 0) {
       const { data: dealData } = await (admin as any)
-        .from('temp_deals')
+        .from('deals')
         .select('id, deal_date, deal_value, title')
         .in('id', dealIds)
 

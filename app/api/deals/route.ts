@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       : null
 
     const { data: deal, error } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .insert({
         deal_type: scenario,
         consultant_id: auth.user.id,
@@ -74,11 +74,11 @@ export async function GET(request: Request) {
     const propertyId = searchParams.get('property_id')
 
     let query = supabase
-      .from('temp_deals')
+      .from('deals')
       .select(`
         *,
         property:dev_properties(id, title, external_ref, city, listing_price),
-        consultant:dev_users!temp_deals_consultant_id_fkey(id, commercial_name)
+        consultant:dev_users!deals_consultant_id_fkey(id, commercial_name)
       `)
       .order('created_at', { ascending: false })
 

@@ -11,10 +11,10 @@ export async function GET(
 
     // Fetch deals for this property
     const { data: deals, error: dealsErr } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .select(`
         id, reference, deal_type, deal_value, deal_date, status,
-        consultant:dev_users!temp_deals_consultant_id_fkey(commercial_name)
+        consultant:dev_users!deals_consultant_id_fkey(commercial_name)
       `)
       .eq('property_id', id)
       .order('deal_date', { ascending: false })
@@ -30,7 +30,7 @@ export async function GET(
     // Fetch compliance records for these deals
     const dealIds = deals.map((d: any) => d.id)
     const { data: complianceRecords } = await supabase
-      .from('temp_deal_compliance')
+      .from('deal_compliance')
       .select('*')
       .in('deal_id', dealIds)
 

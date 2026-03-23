@@ -52,7 +52,7 @@ export async function POST(
 
     // Update deal with file info
     const { error: updateError } = await supabase
-      .from('temp_deals')
+      .from('deals')
       .update({
         proposal_file_url: fileUrl,
         proposal_file_name: file.name,
