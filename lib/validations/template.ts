@@ -74,7 +74,7 @@ export const subtaskSchema = z
             max: z.number().optional(),
             width: z.enum(['full', 'half', 'third']).optional(),
             order_index: z.number().int().min(0),
-          })).min(1),
+          })),
         })).optional(),
         // Field config (type === 'field')
         field: z.object({
