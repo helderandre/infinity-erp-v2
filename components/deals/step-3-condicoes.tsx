@@ -124,7 +124,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
         </>
       )}
 
-      {/* Financial fields — 2 column grid */}
+      {/* Deal value + Commission side by side */}
       <div className="grid grid-cols-2 gap-3">
         <AcqInputField
           label={labels.value}
@@ -134,6 +134,38 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           required
           error={errors.deal_value}
         />
+        <div className="space-y-3">
+          <AcqFieldWrapper>
+            <AcqFieldLabel required>Comissão</AcqFieldLabel>
+            <div className="mt-1.5">
+              <DealToggleGroup
+                value={commissionType || 'percentage'}
+                onChange={(v) => form.setValue('commission_type', v)}
+                options={[
+                  { value: 'percentage', label: '%' },
+                  { value: 'fixed', label: '€ Fixo' },
+                ]}
+              />
+            </div>
+          </AcqFieldWrapper>
+          <DealQuickPick
+            label={commissionType === 'fixed' ? 'Valor (€)' : 'Valor (%)'}
+            value={form.watch('commission_pct')}
+            onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
+            quickPicks={commissionType === 'fixed' ? [] : [
+              { value: 4, label: '4%' },
+              { value: 5, label: '5%' },
+              { value: 6, label: '6%' },
+            ]}
+            suffix={commissionType === 'fixed' ? '€' : '%'}
+            required
+            error={errors.commission_pct}
+          />
+        </div>
+      </div>
+
+      {/* Deposit + CPCV */}
+      <div className="grid grid-cols-2 gap-3">
         <AcqInputField
           label={labels.deposit}
           value={form.watch('deposit_value')}
@@ -141,39 +173,6 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           required
           error={errors.deposit_value}
         />
-      </div>
-
-      {/* Commission type picker + value */}
-      <AcqFieldWrapper fullWidth>
-        <AcqFieldLabel required>Comissão</AcqFieldLabel>
-        <div className="mt-2">
-          <DealToggleGroup
-            value={commissionType || 'percentage'}
-            onChange={(v) => form.setValue('commission_type', v)}
-            options={[
-              { value: 'percentage', label: 'Percentagem (%)' },
-              { value: 'fixed', label: 'Valor Fixo (€)' },
-            ]}
-          />
-        </div>
-      </AcqFieldWrapper>
-
-      <DealQuickPick
-        label={commissionType === 'fixed' ? 'Valor da Comissão (€)' : 'Comissão final (%)'}
-        value={form.watch('commission_pct')}
-        onChange={(v) => form.setValue('commission_pct', parseFloat(v) || 0)}
-        quickPicks={commissionType === 'fixed' ? [] : [
-          { value: 4, label: '4%' },
-          { value: 5, label: '5%' },
-          { value: 6, label: '6%' },
-        ]}
-        suffix={commissionType === 'fixed' ? '€' : '%'}
-        required
-        error={errors.commission_pct}
-      />
-
-      {/* CPCV */}
-      <div className="grid grid-cols-2 gap-3">
         {showCpcv && (
           <DealQuickPick
             label="Pagamento no CPCV"
