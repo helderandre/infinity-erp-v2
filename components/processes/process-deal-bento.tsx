@@ -19,6 +19,7 @@ import {
 import type { Deal, DealClient, DealScenario, DealStatus, HousingRegime, PaymentStructure } from '@/types/deal'
 import { BUSINESS_TYPES } from '@/lib/constants'
 import type { ProcessDocument } from '@/types/process'
+import { DetailRow } from '@/components/shared/detail-row'
 
 interface ProcessDealBentoProps {
   deal: Deal
@@ -148,18 +149,3 @@ export function ProcessDealBento({ deal }: ProcessDealBentoProps) {
 // ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string
-  value: React.ReactNode | string | number | null | undefined
-}) {
-  if (value == null || value === '') return null
-  return (
-    <div className="flex justify-between items-center gap-2">
-      <span className="text-muted-foreground shrink-0">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  )
-}

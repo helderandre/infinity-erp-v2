@@ -39,6 +39,7 @@ import {
 } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { ProcessInstance, ProcessOwner, ProcessDocument, PropertyInternal } from '@/types/process'
+import { DetailRow } from '@/components/shared/detail-row'
 
 interface ProcessReviewBentoProps {
   process: ProcessInstance
@@ -666,22 +667,3 @@ function DocumentsCard({ documents }: { documents: ProcessDocument[] }) {
   )
 }
 
-// ────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string
-  value: React.ReactNode | string | number | null | undefined
-}) {
-  if (value == null || value === '') return null
-
-  return (
-    <div className="flex justify-between items-center gap-2">
-      <span className="text-muted-foreground shrink-0">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  )
-}
