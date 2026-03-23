@@ -69,16 +69,25 @@ const emptyForm: Partial<FinancialTransaction> = {
 function KpiCard({ label, value, icon: Icon, color, isCurrency = true }: {
   label: string; value: number; icon: React.ElementType; color: string; isCurrency?: boolean
 }) {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    'text-slate-600': { bg: 'bg-slate-500/10', text: 'text-slate-600' },
+    'text-blue-600': { bg: 'bg-blue-500/10', text: 'text-blue-600' },
+    'text-emerald-600': { bg: 'bg-emerald-500/10', text: 'text-emerald-600' },
+    'text-amber-600': { bg: 'bg-amber-500/10', text: 'text-amber-600' },
+    'text-indigo-600': { bg: 'bg-indigo-500/10', text: 'text-indigo-600' },
+  }
+  const c = colorMap[color] || { bg: 'bg-muted', text: color }
+
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <Icon className={`h-5 w-5 shrink-0 ${color}`} />
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold">{isCurrency ? fmtCurrency(value) : value}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 transition-all duration-300 hover:shadow-md hover:bg-card/80">
+      <div className={`rounded-xl p-2.5 w-fit ${c.bg}`}>
+        <Icon className={`h-4 w-4 ${c.text}`} />
+      </div>
+      <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-2">{label}</p>
+      <p className={`text-xl font-bold tracking-tight ${c.text}`}>
+        {isCurrency ? fmtCurrency(value) : value}
+      </p>
+    </div>
   )
 }
 
@@ -304,26 +313,34 @@ export default function ComissoesPage() {
   if (txLoading && transactions.length === 0 && dealLoading && deals.length === 0) {
     return (
       <div className="space-y-6 p-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20" />)}
+        <Skeleton className="h-32 w-full rounded-2xl" />
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         </div>
-        <Skeleton className="h-96" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <h1 className="text-3xl font-bold tracking-tight">Comissões</h1>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
+        <div className="relative z-10 px-8 py-10 sm:px-12">
+          <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Comissoes</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm">Negocios e transaccoes de comissoes</p>
+        </div>
+      </div>
 
       <Tabs defaultValue="negocios">
-        <TabsList>
-          <TabsTrigger value="negocios">Negócios</TabsTrigger>
-          <TabsTrigger value="transaccoes">Transacções</TabsTrigger>
-        </TabsList>
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+          <TabsList className="bg-transparent p-0 h-auto">
+            <TabsTrigger value="negocios" className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900">Negocios</TabsTrigger>
+            <TabsTrigger value="transaccoes" className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900">Transaccoes</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
             TAB: Negócios (Deals)
@@ -338,69 +355,49 @@ export default function ComissoesPage() {
           </div>
 
           {/* Filters + Action */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap gap-3 items-end">
-                <div className="w-44">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Consultor</Label>
-                  <Select value={dealFilterConsultant} onValueChange={v => { setDealFilterConsultant(v === 'all' ? '' : v); setDealPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+          <div className="flex flex-wrap gap-3 items-center">
+                <Select value={dealFilterConsultant} onValueChange={v => { setDealFilterConsultant(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger className="h-9 w-[170px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Consultor" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {dealConsultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="w-40">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
-                  <Select value={dealFilterType} onValueChange={v => { setDealFilterType(v === 'all' ? '' : v); setDealPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <Select value={dealFilterType} onValueChange={v => { setDealFilterType(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger className="h-9 w-[150px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Tipo" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {Object.entries(DEAL_SCENARIOS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Estado</Label>
-                  <Select value={dealFilterStatus} onValueChange={v => { setDealFilterStatus(v === 'all' ? '' : v); setDealPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <Select value={dealFilterStatus} onValueChange={v => { setDealFilterStatus(v === 'all' ? '' : v); setDealPage(1) }}>
+                    <SelectTrigger className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Estado" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {Object.entries(DEAL_STATUSES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">De</Label>
-                  <Input type="date" value={dealFilterDateFrom} onChange={e => { setDealFilterDateFrom(e.target.value); setDealPage(1) }} />
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Até</Label>
-                  <Input type="date" value={dealFilterDateTo} onChange={e => { setDealFilterDateTo(e.target.value); setDealPage(1) }} />
-                </div>
-                <Button className="gap-2 ml-auto" onClick={() => setDealFormOpen(true)}>
+                <Input type="date" value={dealFilterDateFrom} onChange={e => { setDealFilterDateFrom(e.target.value); setDealPage(1) }} className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0" placeholder="De" />
+                <Input type="date" value={dealFilterDateTo} onChange={e => { setDealFilterDateTo(e.target.value); setDealPage(1) }} className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0" placeholder="Ate" />
+                <Button className="gap-2 ml-auto rounded-full" onClick={() => setDealFormOpen(true)}>
                   <Plus className="h-4 w-4" />
-                  Registar Negócio
+                  Registar Negocio
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+          </div>
 
           {/* Deals Table */}
-          <Card>
-            <CardContent className="p-0">
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Imóvel</TableHead>
-                    <TableHead>Consultor</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-right">Comissão</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Momentos</TableHead>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imovel</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Tipo</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Comissao</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Momentos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -414,8 +411,9 @@ export default function ComissoesPage() {
                     ))
                   ) : deals.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                        Nenhum negócio encontrado.
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-16">
+                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                        Nenhum negocio encontrado.
                       </TableCell>
                     </TableRow>
                   ) : deals.map(d => {
@@ -423,7 +421,7 @@ export default function ComissoesPage() {
                     return (
                       <TableRow
                         key={d.id}
-                        className="cursor-pointer hover:bg-muted/50"
+                        className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
                         onClick={() => router.push(`/dashboard/comissoes/deals/${d.id}`)}
                       >
                         <TableCell className="text-sm whitespace-nowrap">{fmtDate(d.deal_date)}</TableCell>
@@ -435,7 +433,7 @@ export default function ComissoesPage() {
                         <TableCell className="text-sm text-right">{fmtCurrency(d.deal_value)}</TableCell>
                         <TableCell className="text-sm text-right font-medium">{fmtCurrency(d.commission_total)}</TableCell>
                         <TableCell>
-                          {statusInfo && <Badge variant="secondary" className={statusInfo.color}>{statusInfo.label}</Badge>}
+                          {statusInfo && <Badge className={`${statusInfo.color} rounded-full text-[10px] font-medium border-0`}>{statusInfo.label}</Badge>}
                         </TableCell>
                         <TableCell>
                           <PaymentMomentBadges payments={d.payments} />
@@ -445,20 +443,19 @@ export default function ComissoesPage() {
                   })}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+          </div>
 
           {/* Deal Pagination */}
           {dealTotalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {dealTotal} negócio(s) &middot; Página {dealPage} de {dealTotalPages}
+              <p className="text-xs text-muted-foreground">
+                {dealTotal} negocio(s) · Pagina {dealPage} de {dealTotalPages}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={dealPage <= 1} onClick={() => setDealPage(p => p - 1)}>
+                <Button variant="outline" size="sm" className="rounded-full" disabled={dealPage <= 1} onClick={() => setDealPage(p => p - 1)}>
                   <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
                 </Button>
-                <Button variant="outline" size="sm" disabled={dealPage >= dealTotalPages} onClick={() => setDealPage(p => p + 1)}>
+                <Button variant="outline" size="sm" className="rounded-full" disabled={dealPage >= dealTotalPages} onClick={() => setDealPage(p => p + 1)}>
                   Seguinte <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -477,16 +474,8 @@ export default function ComissoesPage() {
             TAB: Transacções (existing)
             ═══════════════════════════════════════════════════════════════════════ */}
         <TabsContent value="transaccoes" className="space-y-6 mt-6">
-          {/* Header with button */}
-          <div className="flex items-center justify-end">
-            <Button className="gap-2" onClick={() => { setForm({ ...emptyForm }); setDialogOpen(true) }}>
-              <Plus className="h-4 w-4" />
-              Nova Transacção
-            </Button>
-          </div>
-
           {/* Transaction KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <KpiCard label="Comissões Pendentes" value={txKpis.pending} icon={Clock} color="text-amber-600" />
             <KpiCard label="Comissões Aprovadas" value={txKpis.approved} icon={CheckCircle2} color="text-blue-600" />
             <KpiCard label="Pagas (Mês)" value={txKpis.paidMonth} icon={Banknote} color="text-emerald-600" />
@@ -494,79 +483,65 @@ export default function ComissoesPage() {
           </div>
 
           {/* Transaction Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap gap-3 items-end">
-                <div className="w-44">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Consultor</Label>
-                  <Select value={filterConsultant} onValueChange={v => { setFilterConsultant(v === 'all' ? '' : v); setTxPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+          <div className="flex flex-wrap gap-3 items-center">
+                <Select value={filterConsultant} onValueChange={v => { setFilterConsultant(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger className="h-9 w-[170px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Consultor" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
                     </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Estado</Label>
-                  <Select value={filterStatus} onValueChange={v => { setFilterStatus(v === 'all' ? '' : v); setTxPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                </Select>
+                <Select value={filterStatus} onValueChange={v => { setFilterStatus(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Estado" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {Object.entries(TRANSACTION_STATUSES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                     </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-44">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
-                  <Select value={filterType} onValueChange={v => { setFilterType(v === 'all' ? '' : v); setTxPage(1) }}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                </Select>
+                <Select value={filterType} onValueChange={v => { setFilterType(v === 'all' ? '' : v); setTxPage(1) }}>
+                    <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Tipo" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {Object.entries(TRANSACTION_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                     </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">De</Label>
-                  <Input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setTxPage(1) }} />
-                </div>
-                <div className="w-36">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Até</Label>
-                  <Input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setTxPage(1) }} />
-                </div>
-                {selected.size > 0 && (
-                  <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={handleBulkApprove}>
-                    <CheckCheck className="h-4 w-4" />
-                    Aprovar {selected.size}
+                </Select>
+                <Input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setTxPage(1) }} className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0" />
+                <Input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setTxPage(1) }} className="h-9 w-[140px] text-sm rounded-full bg-muted/50 border-0" />
+                <div className="ml-auto flex items-center gap-2">
+                  {selected.size > 0 && (
+                    <Button variant="outline" size="sm" className="gap-2 rounded-full" onClick={handleBulkApprove}>
+                      <CheckCheck className="h-4 w-4" />
+                      Aprovar {selected.size}
+                    </Button>
+                  )}
+                  <Button className="gap-2 rounded-full" onClick={() => { setForm({ ...emptyForm }); setDialogOpen(true) }}>
+                    <Plus className="h-4 w-4" />
+                    Nova Transaccao
                   </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+          </div>
 
           {/* Transaction Table */}
-          <Card>
-            <CardContent className="p-0">
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="w-10 text-[11px] uppercase tracking-wider font-semibold">
                       <Checkbox
                         checked={transactions.filter(t => t.status === 'pending').length > 0 && transactions.filter(t => t.status === 'pending').every(t => selected.has(t.id))}
                         onCheckedChange={toggleAll}
                       />
                     </TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Consultor</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Imóvel</TableHead>
-                    <TableHead className="text-right">Valor Negócio</TableHead>
-                    <TableHead className="text-right">Com. Agência</TableHead>
-                    <TableHead className="text-right">Com. Consultor</TableHead>
-                    <TableHead>Partilha</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acções</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Tipo</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imovel</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Com. Agencia</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Com. Consultor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Partilha</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Accoes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -596,22 +571,22 @@ export default function ComissoesPage() {
                         <TableCell className="text-sm text-right font-medium">{t.consultant_commission_amount ? fmtCurrency(t.consultant_commission_amount) : '—'}</TableCell>
                         <TableCell className="text-sm">{t.is_shared_deal ? (t.share_pct ? `${t.share_pct}%` : 'Sim') : '—'}</TableCell>
                         <TableCell>
-                          {statusInfo && <Badge variant="secondary" className={statusInfo.color}>{statusInfo.label}</Badge>}
+                          {statusInfo && <Badge className={`${statusInfo.color} rounded-full text-[10px] font-medium border-0`}>{statusInfo.label}</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             {t.status === 'pending' && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Aprovar" onClick={() => handleStatusChange(t.id, 'approved')}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" title="Aprovar" onClick={() => handleStatusChange(t.id, 'approved')}>
                                 <Check className="h-4 w-4 text-blue-600" />
                               </Button>
                             )}
                             {t.status === 'approved' && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar pago" onClick={() => handleStatusChange(t.id, 'paid')}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" title="Marcar pago" onClick={() => handleStatusChange(t.id, 'paid')}>
                                 <Banknote className="h-4 w-4 text-emerald-600" />
                               </Button>
                             )}
                             {(t.status === 'pending' || t.status === 'approved') && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Cancelar" onClick={() => handleStatusChange(t.id, 'cancelled')}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" title="Cancelar" onClick={() => handleStatusChange(t.id, 'cancelled')}>
                                 <X className="h-4 w-4 text-red-500" />
                               </Button>
                             )}
@@ -622,20 +597,19 @@ export default function ComissoesPage() {
                   })}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+          </div>
 
           {/* Transaction Pagination */}
           {txTotalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {txTotal} transacção(ões) &middot; Página {txPage} de {txTotalPages}
+              <p className="text-xs text-muted-foreground">
+                {txTotal} transaccao(oes) · Pagina {txPage} de {txTotalPages}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={txPage <= 1} onClick={() => setTxPage(p => p - 1)}>
+                <Button variant="outline" size="sm" className="rounded-full" disabled={txPage <= 1} onClick={() => setTxPage(p => p - 1)}>
                   <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
                 </Button>
-                <Button variant="outline" size="sm" disabled={txPage >= txTotalPages} onClick={() => setTxPage(p => p + 1)}>
+                <Button variant="outline" size="sm" className="rounded-full" disabled={txPage >= txTotalPages} onClick={() => setTxPage(p => p + 1)}>
                   Seguinte <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -646,8 +620,18 @@ export default function ComissoesPage() {
 
       {/* Create Transaction Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Transacção</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
+          <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                <Plus className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">Nova Transaccao</h3>
+                <p className="text-neutral-400 text-xs mt-0.5">Registar comissao ou despesa</p>
+              </div>
+            </div>
+          </div>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <Label>Consultor *</Label>
@@ -707,10 +691,10 @@ export default function ComissoesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={saving} className="gap-2">
+            <Button variant="outline" className="rounded-full" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving} className="gap-2 rounded-full">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Criar Transacção
+              Criar Transaccao
             </Button>
           </DialogFooter>
         </DialogContent>

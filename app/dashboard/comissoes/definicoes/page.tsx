@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Save, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Save, Loader2, Plus, Pencil, Trash2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -167,20 +167,34 @@ export default function DefinicoesPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold tracking-tight">Definições Financeiras</h1>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
+            <Settings className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Definições Financeiras</h1>
+            <p className="text-sm text-white/60 mt-0.5">Configurações de comissões, escalões e rede</p>
+          </div>
+        </div>
+      </div>
 
       <Tabs defaultValue="geral" className="w-full">
-        <TabsList>
-          <TabsTrigger value="geral">Configurações Gerais</TabsTrigger>
-          <TabsTrigger value="escaloes">Escalões de Comissão</TabsTrigger>
-          <TabsTrigger value="rede">Rede e Pagamentos</TabsTrigger>
-        </TabsList>
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30">
+          <TabsList className="bg-transparent p-0 h-auto">
+            <TabsTrigger value="geral" className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm">Configurações Gerais</TabsTrigger>
+            <TabsTrigger value="escaloes" className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm">Escalões de Comissão</TabsTrigger>
+            <TabsTrigger value="rede" className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm">Rede e Pagamentos</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Tab: Configurações Gerais ── */}
         <TabsContent value="geral" className="mt-6">
           <div className="space-y-4 max-w-2xl">
             {SETTING_CONFIGS.map(config => (
-              <Card key={config.key}>
+              <Card key={config.key} className="rounded-2xl backdrop-blur-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{config.label}</CardTitle>
                   <CardDescription>{config.description}</CardDescription>
@@ -210,7 +224,7 @@ export default function DefinicoesPage() {
                         )}
                       </div>
                     )}
-                    <Button size="sm" className="gap-2" disabled={savingKey === config.key} onClick={() => handleSaveSetting(config.key)}>
+                    <Button size="sm" className="gap-2 rounded-full" disabled={savingKey === config.key} onClick={() => handleSaveSetting(config.key)}>
                       {savingKey === config.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Guardar
                     </Button>
@@ -225,7 +239,7 @@ export default function DefinicoesPage() {
         <TabsContent value="escaloes" className="mt-6">
           <div className="flex items-center justify-between mb-6">
             <p className="text-sm text-muted-foreground">Configure os escalões de comissão por tipo de negócio.</p>
-            <Button className="gap-2" onClick={() => { setTierForm({ ...emptyTier }); setTierDialogOpen(true) }}>
+            <Button className="gap-2 rounded-full" onClick={() => { setTierForm({ ...emptyTier }); setTierDialogOpen(true) }}>
               <Plus className="h-4 w-4" />
               Novo Escalão
             </Button>
@@ -236,7 +250,7 @@ export default function DefinicoesPage() {
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">Venda</h2>
               {vendaTiers.length === 0 ? (
-                <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum escalão de venda configurado.</CardContent></Card>
+                <Card className="rounded-2xl backdrop-blur-sm"><CardContent className="py-8 text-center text-muted-foreground">Nenhum escalão de venda configurado.</CardContent></Card>
               ) : vendaTiers.map(tier => (
                 <TierCard key={tier.id} tier={tier}
                   onEdit={t => { setTierForm({ ...t }); setTierDialogOpen(true) }}
@@ -250,7 +264,7 @@ export default function DefinicoesPage() {
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">Arrendamento</h2>
               {arrendamentoTiers.length === 0 ? (
-                <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum escalão de arrendamento configurado.</CardContent></Card>
+                <Card className="rounded-2xl backdrop-blur-sm"><CardContent className="py-8 text-center text-muted-foreground">Nenhum escalão de arrendamento configurado.</CardContent></Card>
               ) : arrendamentoTiers.map(tier => (
                 <TierCard key={tier.id} tier={tier}
                   onEdit={t => { setTierForm({ ...t }); setTierDialogOpen(true) }}
@@ -266,7 +280,7 @@ export default function DefinicoesPage() {
         <TabsContent value="rede" className="mt-6">
           <div className="space-y-4 max-w-2xl">
             {NETWORK_CONFIGS.map(config => (
-              <Card key={config.key}>
+              <Card key={config.key} className="rounded-2xl backdrop-blur-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{config.label}</CardTitle>
                   <CardDescription>{config.description}</CardDescription>
@@ -296,7 +310,7 @@ export default function DefinicoesPage() {
                         )}
                       </div>
                     )}
-                    <Button size="sm" className="gap-2" disabled={savingKey === config.key} onClick={() => handleSaveSetting(config.key)}>
+                    <Button size="sm" className="gap-2 rounded-full" disabled={savingKey === config.key} onClick={() => handleSaveSetting(config.key)}>
                       {savingKey === config.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Guardar
                     </Button>
@@ -310,9 +324,17 @@ export default function DefinicoesPage() {
 
       {/* Tier Create/Edit Dialog */}
       <Dialog open={tierDialogOpen} onOpenChange={setTierDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{tierForm.id ? 'Editar Escalão' : 'Novo Escalão'}</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-2">
+        <DialogContent className="overflow-hidden p-0">
+          <DialogHeader className="relative overflow-hidden bg-neutral-900 px-6 py-5">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent" />
+            <div className="relative flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
+                {tierForm.id ? <Pencil className="h-4 w-4 text-white" /> : <Plus className="h-4 w-4 text-white" />}
+              </div>
+              <DialogTitle className="text-white">{tierForm.id ? 'Editar Escalão' : 'Novo Escalão'}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="grid gap-4 px-6 py-4">
             <div className="grid gap-2">
               <Label>Nome *</Label>
               <Input value={tierForm.name ?? ''} onChange={e => setTierForm(p => ({ ...p, name: e.target.value }))} placeholder="Ex: Standard, Premium" />
@@ -348,9 +370,9 @@ export default function DefinicoesPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTierDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveTier} disabled={tierSaving} className="gap-2">
+          <DialogFooter className="px-6 pb-5">
+            <Button variant="outline" className="rounded-full" onClick={() => setTierDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveTier} disabled={tierSaving} className="gap-2 rounded-full">
               {tierSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {tierForm.id ? 'Guardar' : 'Criar'}
             </Button>
@@ -366,8 +388,8 @@ export default function DefinicoesPage() {
             <AlertDialogDescription>Tem a certeza de que pretende eliminar este escalão? Esta acção é irreversível.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTier} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTier} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -384,13 +406,13 @@ function TierCard({ tier, onEdit, onDelete, onToggle }: {
   onToggle: (t: CommissionTier) => void
 }) {
   return (
-    <Card className={!tier.is_active ? 'opacity-60' : ''}>
+    <Card className={`rounded-2xl backdrop-blur-sm ${!tier.is_active ? 'opacity-60' : ''}`}>
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{tier.name}</h3>
-              <Badge variant={tier.is_active ? 'default' : 'secondary'}>
+              <Badge variant={tier.is_active ? 'default' : 'secondary'} className="rounded-full text-[10px] font-medium border-0">
                 {tier.is_active ? 'Activo' : 'Inactivo'}
               </Badge>
             </div>
@@ -400,10 +422,10 @@ function TierCard({ tier, onEdit, onDelete, onToggle }: {
           </div>
           <div className="flex items-center gap-1">
             <Switch checked={tier.is_active} onCheckedChange={() => onToggle(tier)} />
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(tier)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onEdit(tier)}>
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(tier.id)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onDelete(tier.id)}>
               <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           </div>

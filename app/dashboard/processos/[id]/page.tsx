@@ -64,6 +64,7 @@ import {
   Plus,
   Handshake,
   ShoppingCart,
+  Euro,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -85,6 +86,7 @@ import { AdHocTaskSheet } from '@/components/processes/adhoc-task-sheet'
 import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
 import { ProcessDealTab } from '@/components/processes/process-deal-tab'
 import { ProcessDealBento } from '@/components/processes/process-deal-bento'
+import { ProcessFinanceiroTab } from '@/components/processes/process-financeiro-tab'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
@@ -698,6 +700,7 @@ export default function ProcessoDetailPage() {
     ...(isNegocio ? [
       { key: 'negocio', label: 'Negócio', icon: Handshake },
       { key: 'compradores', label: 'Compradores', icon: ShoppingCart },
+      { key: 'financeiro', label: 'Financeiro', icon: Euro },
     ] : []),
     {
       key: 'imovel',
@@ -1002,6 +1005,11 @@ export default function ProcessoDetailPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── FINANCEIRO section (deal-type processes) ── */}
+          {activeSection === 'financeiro' && deal && (
+            <ProcessFinanceiroTab deal={deal} dealId={deal.id} />
           )}
 
           {/* ── PIPELINE section ── */}

@@ -142,27 +142,30 @@ export default function CompliancePage() {
   return (
     <div className="space-y-6">
       {/* ─── Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Compliance IMPIC</h1>
-          <p className="text-sm text-muted-foreground">Prazo de reporte: {deadline}</p>
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8 sm:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.06] to-transparent" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Compliance IMPIC</h1>
+            <p className="text-sm text-neutral-400">Prazo de reporte: {deadline}</p>
+          </div>
+          <Select value={quarter} onValueChange={setQuarter}>
+            <SelectTrigger className="w-40 h-9 text-sm rounded-full bg-muted/50 border-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {quarterOpts.map((q) => (
+                <SelectItem key={q} value={q}>{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={quarter} onValueChange={setQuarter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {quarterOpts.map((q) => (
-              <SelectItem key={q} value={q}>{q}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* ─── KPIs ───────────────────────────────────────────────── */}
       {loading ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
       ) : overview && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -180,7 +183,7 @@ export default function CompliancePage() {
           {alerts.map((alert) => (
             <Card
               key={alert.id}
-              className="cursor-pointer border-amber-200 bg-amber-50/50 transition-colors hover:bg-amber-50"
+              className="cursor-pointer rounded-2xl border-amber-200 bg-amber-50/50 backdrop-blur-sm transition-colors hover:bg-amber-50"
               onClick={() => router.push(`/dashboard/comissoes/deals/${alert.deal_id}`)}
             >
               <CardContent className="flex items-start gap-3 p-4">
@@ -200,14 +203,14 @@ export default function CompliancePage() {
       )}
 
       {/* ─── Deals Table ────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Negócios — {quarter}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
+        <div className="px-6 py-4">
+          <h3 className="text-base font-semibold">Negócios — {quarter}</h3>
+        </div>
+        <div>
           {loading ? (
             <div className="space-y-2 p-4">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-2xl" />)}
             </div>
           ) : !overview || overview.deals.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-8 text-center">
@@ -218,15 +221,15 @@ export default function CompliancePage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Imóvel</TableHead>
-                    <TableHead>Consultor</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead>Risco</TableHead>
-                    <TableHead className="text-center">KYC Comp.</TableHead>
-                    <TableHead className="text-center">KYC Vend.</TableHead>
-                    <TableHead>IMPIC</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imóvel</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Risco</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">KYC Comp.</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">KYC Vend.</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">IMPIC</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -243,7 +246,7 @@ export default function CompliancePage() {
                         <TableCell className="max-w-[180px] truncate text-sm">{d.property_title}</TableCell>
                         <TableCell className="text-sm">{d.consultant_name}</TableCell>
                         <TableCell className="text-right text-sm font-medium">{fmtCurrency(d.deal_value)}</TableCell>
-                        <TableCell><Badge className={riskCfg.color}>{riskCfg.label}</Badge></TableCell>
+                        <TableCell><Badge className={`${riskCfg.color} rounded-full text-[10px] font-medium border-0`}>{riskCfg.label}</Badge></TableCell>
                         <TableCell className="text-center">
                           {d.buyer_kyc ? <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-500" /> : <XCircle className="mx-auto h-4 w-4 text-slate-300" />}
                         </TableCell>
@@ -252,12 +255,12 @@ export default function CompliancePage() {
                         </TableCell>
                         <TableCell>
                           {d.impic_reported
-                            ? <Badge className="bg-emerald-100 text-emerald-700">Reportado</Badge>
-                            : <Badge className="bg-amber-100 text-amber-700">Pendente</Badge>
+                            ? <Badge className="bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-medium border-0">Reportado</Badge>
+                            : <Badge className="bg-amber-100 text-amber-700 rounded-full text-[10px] font-medium border-0">Pendente</Badge>
                           }
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-xs">Ver</Button>
+                          <Button size="sm" variant="ghost" className="text-xs rounded-full">Ver</Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -266,8 +269,8 @@ export default function CompliancePage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
@@ -278,14 +281,12 @@ function KpiCard({ label, value, icon: Icon, color, isCurrency = true }: {
   label: string; value: number; icon: React.ElementType; color: string; isCurrency?: boolean
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <Icon className={`h-5 w-5 shrink-0 ${color}`} />
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold">{isCurrency ? fmtCurrency(value) : value}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-2xl border bg-card/30 backdrop-blur-sm p-4 flex items-center gap-3">
+      <Icon className={`h-5 w-5 shrink-0 ${color}`} />
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="text-xl font-bold">{isCurrency ? fmtCurrency(value) : value}</p>
+      </div>
+    </div>
   )
 }

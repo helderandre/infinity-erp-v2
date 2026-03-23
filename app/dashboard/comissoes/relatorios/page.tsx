@@ -220,7 +220,7 @@ export default function RelatoriosPage() {
     <div className="space-y-1.5">
       <Label>Consultor</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+        <SelectTrigger className="h-9 text-sm rounded-full bg-muted/50 border-0"><SelectValue placeholder="Todos" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">Todos</SelectItem>
           {consultants.map((c) => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
@@ -233,11 +233,11 @@ export default function RelatoriosPage() {
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1.5">
         <Label>Data Inicio</Label>
-        <Input type="date" value={filters.date_from ?? ""} onChange={(e) => setFilters({ ...filters, date_from: e.target.value || undefined })} />
+        <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" type="date" value={filters.date_from ?? ""} onChange={(e) => setFilters({ ...filters, date_from: e.target.value || undefined })} />
       </div>
       <div className="space-y-1.5">
         <Label>Data Fim</Label>
-        <Input type="date" value={filters.date_to ?? ""} onChange={(e) => setFilters({ ...filters, date_to: e.target.value || undefined })} />
+        <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" type="date" value={filters.date_to ?? ""} onChange={(e) => setFilters({ ...filters, date_to: e.target.value || undefined })} />
       </div>
     </div>
   )
@@ -246,7 +246,7 @@ export default function RelatoriosPage() {
     <div className="space-y-1.5">
       <Label>Tipo de Negocio</Label>
       <Select value={filters.business_type ?? "__all__"} onValueChange={(v) => setFilters({ ...filters, business_type: v === "__all__" ? undefined : v })}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-9 text-sm rounded-full bg-muted/50 border-0"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">Todos</SelectItem>
           <SelectItem value="venda">Venda</SelectItem>
@@ -260,9 +260,10 @@ export default function RelatoriosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Relatórios Financeiros</h1>
-        <p className="text-sm text-muted-foreground">Gere e exporte relatórios de comissões e desempenho</p>
+      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8 sm:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent" />
+        <h1 className="relative text-2xl font-bold tracking-tight text-white">Relatórios Financeiros</h1>
+        <p className="relative text-sm text-neutral-400 mt-1">Gere e exporte relatórios de comissões e desempenho</p>
       </div>
 
       {/* Report cards grid */}
@@ -271,21 +272,21 @@ export default function RelatoriosPage() {
           const Icon = rc.icon
           const isLoading = loading === rc.key
           return (
-            <Card key={rc.key} className="flex flex-col">
+            <Card key={rc.key} className="flex flex-col rounded-2xl backdrop-blur-sm bg-card/30">
               <CardHeader className="pb-2">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-primary/10 p-2">
+                  <div className="rounded-xl p-2.5 bg-primary/10">
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-base">{rc.title}</CardTitle>
+                    <CardTitle className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">{rc.title}</CardTitle>
                     <CardDescription className="text-xs mt-1">{rc.desc}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="mt-auto pt-0">
                 <Button
-                  className="w-full"
+                  className="w-full rounded-full"
                   size="sm"
                   onClick={() => setActiveDialog(rc.key)}
                   disabled={isLoading}
@@ -320,16 +321,17 @@ export default function RelatoriosPage() {
             Data: r.transaction_date,
           })), "comissoes-detalhado")}
         >
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
           <Table>
             <TableHeader>
-              <TableRow className="text-xs">
-                <TableHead>Consultor</TableHead>
-                <TableHead>Imovel</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">Com. Agencia</TableHead>
-                <TableHead className="text-right">Com. Consultor</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Data</TableHead>
+              <TableRow className="bg-muted/30">
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imovel</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Com. Agencia</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Com. Consultor</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,12 +342,13 @@ export default function RelatoriosPage() {
                   <TableCell className="text-right">{fmt(r.deal_value ?? 0)}</TableCell>
                   <TableCell className="text-right">{fmt(r.agency_commission_amount ?? 0)}</TableCell>
                   <TableCell className="text-right">{fmt(r.consultant_commission_amount ?? 0)}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{r.status}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="rounded-full text-[10px] font-medium border-0">{r.status}</Badge></TableCell>
                   <TableCell>{r.transaction_date}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </div>
         </ResultCard>
       )}
 
@@ -367,16 +370,17 @@ export default function RelatoriosPage() {
             Consultor: r.consultant_name,
           })), "tempo-medio-venda")}
         >
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
           <Table>
             <TableHeader>
-              <TableRow className="text-xs">
-                <TableHead>Imovel</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Cidade</TableHead>
-                <TableHead>Escalao</TableHead>
-                <TableHead className="text-right">Preco</TableHead>
-                <TableHead className="text-right">Dias</TableHead>
-                <TableHead>Consultor</TableHead>
+              <TableRow className="bg-muted/30">
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imovel</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Tipo</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Cidade</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Escalao</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Preco</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Dias</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -385,7 +389,7 @@ export default function RelatoriosPage() {
                   <TableCell className="max-w-[180px] truncate">{r.title}</TableCell>
                   <TableCell>{r.property_type ?? "—"}</TableCell>
                   <TableCell>{r.city ?? "—"}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{r.price_tier}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="rounded-full text-[10px] font-medium border-0">{r.price_tier}</Badge></TableCell>
                   <TableCell className="text-right">{fmt(r.listing_price ?? 0)}</TableCell>
                   <TableCell className="text-right font-medium">{r.days_to_sale}d</TableCell>
                   <TableCell>{r.consultant_name ?? "—"}</TableCell>
@@ -393,6 +397,7 @@ export default function RelatoriosPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </ResultCard>
       )}
 
@@ -418,31 +423,32 @@ export default function RelatoriosPage() {
         >
           <div className="grid gap-3 sm:grid-cols-3 mb-4">
             {sharesRows.map((g) => (
-              <Card key={g.share_type} className="bg-muted/50">
+              <Card key={g.share_type} className="rounded-2xl backdrop-blur-sm bg-card/30">
                 <CardContent className="p-3 text-center">
-                  <p className="text-xs text-muted-foreground">{SHARE_TYPES[g.share_type as keyof typeof SHARE_TYPES] ?? g.share_type}</p>
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">{SHARE_TYPES[g.share_type as keyof typeof SHARE_TYPES] ?? g.share_type}</p>
                   <p className="text-lg font-bold">{g.count}</p>
                   <p className="text-xs text-muted-foreground">{fmt(g.total_amount)}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
           <Table>
             <TableHeader>
-              <TableRow className="text-xs">
-                <TableHead>Tipo</TableHead>
-                <TableHead>Consultor</TableHead>
-                <TableHead>Imovel</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">%</TableHead>
-                <TableHead>Data</TableHead>
+              <TableRow className="bg-muted/30">
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Tipo</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Imovel</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">%</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {sharesRows.flatMap((g: any) => g.transactions.map((t: any, i: number) => (
                 <TableRow key={t.id ?? `${g.share_type}-${i}`} className="text-xs">
-                  <TableCell><Badge variant="outline" className="text-[10px]">{SHARE_TYPES[g.share_type as keyof typeof SHARE_TYPES] ?? g.share_type}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="rounded-full text-[10px] font-medium border-0">{SHARE_TYPES[g.share_type as keyof typeof SHARE_TYPES] ?? g.share_type}</Badge></TableCell>
                   <TableCell>{t.consultant?.commercial_name ?? "—"}</TableCell>
                   <TableCell className="max-w-[180px] truncate">{t.property?.title ?? "—"}</TableCell>
                   <TableCell className="text-right">{fmt(t.agency_commission_amount ?? 0)}</TableCell>
@@ -452,6 +458,7 @@ export default function RelatoriosPage() {
               )))}
             </TableBody>
           </Table>
+          </div>
         </ResultCard>
       )}
 
@@ -474,11 +481,12 @@ export default function RelatoriosPage() {
             exportCsv(mapped, "relatorio-dinamico")
           }}
         >
+          <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
           <Table>
             <TableHeader>
-              <TableRow className="text-xs">
+              <TableRow className="bg-muted/30">
                 {customColumns.map((c) => (
-                  <TableHead key={c}>{REPORT_DIMENSIONS[c as ReportDimension] ?? REPORT_METRICS[c as ReportMetric] ?? c}</TableHead>
+                  <TableHead key={c} className="text-[11px] uppercase tracking-wider font-semibold">{REPORT_DIMENSIONS[c as ReportDimension] ?? REPORT_METRICS[c as ReportMetric] ?? c}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -500,6 +508,7 @@ export default function RelatoriosPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </ResultCard>
       )}
 
@@ -517,7 +526,7 @@ export default function RelatoriosPage() {
             <div className="space-y-1.5">
               <Label>Ano</Label>
               <Select value={agentYear} onValueChange={setAgentYear}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm rounded-full bg-muted/50 border-0"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
                 </SelectContent>
@@ -525,8 +534,8 @@ export default function RelatoriosPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog(null)}>Cancelar</Button>
-            <Button onClick={handleAgentGenerate}>Gerar</Button>
+            <Button variant="outline" className="rounded-full" onClick={() => setActiveDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full" onClick={handleAgentGenerate}>Gerar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -544,8 +553,8 @@ export default function RelatoriosPage() {
             {businessTypeSelect(commFilters, setCommFilters)}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog(null)}>Cancelar</Button>
-            <Button onClick={handleCommissionGenerate}>Gerar</Button>
+            <Button variant="outline" className="rounded-full" onClick={() => setActiveDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full" onClick={handleCommissionGenerate}>Gerar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -560,17 +569,17 @@ export default function RelatoriosPage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Tipo de Imovel</Label>
-              <Input placeholder="Ex: apartamento" value={timeFilters.property_type ?? ""} onChange={(e) => setTimeFilters({ ...timeFilters, property_type: e.target.value || undefined })} />
+              <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" placeholder="Ex: apartamento" value={timeFilters.property_type ?? ""} onChange={(e) => setTimeFilters({ ...timeFilters, property_type: e.target.value || undefined })} />
             </div>
             <div className="space-y-1.5">
               <Label>Cidade</Label>
-              <Input placeholder="Ex: Lisboa" value={timeFilters.city ?? ""} onChange={(e) => setTimeFilters({ ...timeFilters, city: e.target.value || undefined })} />
+              <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" placeholder="Ex: Lisboa" value={timeFilters.city ?? ""} onChange={(e) => setTimeFilters({ ...timeFilters, city: e.target.value || undefined })} />
             </div>
             {dateRangeInputs(timeFilters, setTimeFilters)}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog(null)}>Cancelar</Button>
-            <Button onClick={handleTimeGenerate}>Gerar</Button>
+            <Button variant="outline" className="rounded-full" onClick={() => setActiveDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full" onClick={handleTimeGenerate}>Gerar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -590,7 +599,7 @@ export default function RelatoriosPage() {
                 value={sharesFilters.status ?? "__all__"}
                 onValueChange={(v) => setSharesFilters({ ...sharesFilters, status: v === "__all__" ? undefined : v })}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm rounded-full bg-muted/50 border-0"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos</SelectItem>
                   <SelectItem value="internal">Interna</SelectItem>
@@ -601,8 +610,8 @@ export default function RelatoriosPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog(null)}>Cancelar</Button>
-            <Button onClick={handleSharesGenerate}>Gerar</Button>
+            <Button variant="outline" className="rounded-full" onClick={() => setActiveDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full" onClick={handleSharesGenerate}>Gerar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -663,17 +672,17 @@ export default function RelatoriosPage() {
               {businessTypeSelect(customFilters, setCustomFilters)}
               <div className="space-y-1.5">
                 <Label>Tipo de Imovel</Label>
-                <Input placeholder="Ex: apartamento" value={customFilters.property_type ?? ""} onChange={(e) => setCustomFilters({ ...customFilters, property_type: e.target.value || undefined })} />
+                <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" placeholder="Ex: apartamento" value={customFilters.property_type ?? ""} onChange={(e) => setCustomFilters({ ...customFilters, property_type: e.target.value || undefined })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Cidade</Label>
-                <Input placeholder="Ex: Lisboa" value={customFilters.city ?? ""} onChange={(e) => setCustomFilters({ ...customFilters, city: e.target.value || undefined })} />
+                <Input className="h-9 text-sm rounded-full bg-muted/50 border-0" placeholder="Ex: Lisboa" value={customFilters.city ?? ""} onChange={(e) => setCustomFilters({ ...customFilters, city: e.target.value || undefined })} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog(null)}>Cancelar</Button>
-            <Button onClick={handleCustomGenerate}>Gerar</Button>
+            <Button variant="outline" className="rounded-full" onClick={() => setActiveDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full" onClick={handleCustomGenerate}>Gerar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -700,19 +709,19 @@ function ResultCard({
 }) {
   return (
     <Collapsible open={open} onOpenChange={onToggle}>
-      <Card>
+      <Card className="rounded-2xl backdrop-blur-sm bg-card/30">
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
                   {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
               <CardTitle className="text-sm">{title}</CardTitle>
-              <Badge variant="secondary" className="text-xs">{count} registos</Badge>
+              <Badge variant="secondary" className="rounded-full text-[10px] font-medium border-0">{count} registos</Badge>
             </div>
-            <Button variant="outline" size="sm" onClick={onExport}>
+            <Button variant="outline" size="sm" className="rounded-full" onClick={onExport}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Exportar CSV
             </Button>

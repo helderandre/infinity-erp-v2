@@ -132,10 +132,13 @@ export const pessoasItems = [
 ]
 
 export const financeiroItems = [
+  { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
   { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
   { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
+  { title: 'Gestão Empresa', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
+  { title: 'Dashboard', icon: TrendingUp, href: '/dashboard/comissoes/dashboard', permission: 'commissions' },
   { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
-  { title: 'Relatórios', icon: BarChart3, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
+  { title: 'Relatórios', icon: Briefcase, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
 ]
 
 export const recrutamentoItems = [

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -103,7 +102,7 @@ export default function DealDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20">
         <p className="text-muted-foreground">Negocio nao encontrado.</p>
-        <Button asChild variant="outline"><Link href="/dashboard/comissoes"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link></Button>
+        <Button asChild variant="outline" className="rounded-full"><Link href="/dashboard/comissoes"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link></Button>
       </div>
     )
   }
@@ -113,21 +112,22 @@ export default function DealDetailPage() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <Button asChild variant="ghost" size="sm" className="mb-1 -ml-2">
+      {/* Hero Header */}
+      <div className="bg-neutral-900 rounded-2xl px-6 py-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+        <div className="relative space-y-2">
+          <Button asChild variant="ghost" size="sm" className="rounded-full mb-1 -ml-2 text-neutral-400 hover:text-white hover:bg-white/10">
             <Link href="/dashboard/comissoes"><ArrowLeft className="mr-1 h-4 w-4" /> Comissoes</Link>
           </Button>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-2xl font-semibold text-white">
             {deal.property?.title ?? 'Sem imovel'}
-            {deal.property?.external_ref && <span className="ml-2 text-base text-muted-foreground">({deal.property.external_ref})</span>}
+            {deal.property?.external_ref && <span className="ml-2 text-base text-neutral-400">({deal.property.external_ref})</span>}
           </h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-400">
             <span>{deal.consultant?.commercial_name ?? '—'}</span>
             <span>|</span>
-            <Badge variant="outline">{DEAL_SCENARIOS[deal.deal_type as keyof typeof DEAL_SCENARIOS]?.label ?? deal.deal_type}</Badge>
-            <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+            <Badge variant="outline" className="rounded-full text-[10px] font-medium border-0 bg-white/10 text-neutral-300">{DEAL_SCENARIOS[deal.deal_type as keyof typeof DEAL_SCENARIOS]?.label ?? deal.deal_type}</Badge>
+            <Badge className={`${statusInfo.color} rounded-full text-[10px] font-medium border-0`}>{statusInfo.label}</Badge>
             {deal.reference && <><span>|</span><span>Ref: {deal.reference}</span></>}
             {deal.pv_number && <><span>|</span><span>PV: {deal.pv_number}</span></>}
             <span>|</span>
@@ -154,9 +154,11 @@ export default function DealDetailPage() {
 
         {/* Right — Financial Summary */}
         <div>
-          <Card className="sticky top-6">
-            <CardHeader><CardTitle className="text-base">Resumo Financeiro</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
+          <div className="sticky top-6 rounded-2xl border bg-card/50 backdrop-blur-sm">
+            <div className="px-5 py-4 border-b">
+              <h3 className="text-base font-semibold">Resumo Financeiro</h3>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-sm">
               <Row label="Valor do negocio" value={fmtCurrency(deal.deal_value)} bold />
               <Row label={`Comissao (${fmtPct(deal.commission_pct)})`} value={fmtCurrency(deal.commission_total)} bold />
               <Separator />
@@ -172,7 +174,7 @@ export default function DealDetailPage() {
               <Row label={`Consultor (${fmtPct(deal.consultant_pct)})`} value={fmtCurrency(deal.consultant_amount)} />
               <Row label="Liquido agencia" value={fmtCurrency(deal.agency_net)} bold />
               <Separator />
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Momentos</p>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Momentos</p>
               {payments.map((p) => {
                 const done = p.is_signed && p.is_received && p.is_reported
                 return (
@@ -181,14 +183,14 @@ export default function DealDetailPage() {
                       {statusIndicator(p)}
                       <span>{PAYMENT_MOMENTS[p.payment_moment]}</span>
                     </span>
-                    <Badge variant={done ? 'default' : 'secondary'} className="text-xs">
+                    <Badge variant={done ? 'default' : 'secondary'} className="rounded-full text-[10px] font-medium border-0">
                       {fmtCurrency(p.amount)} ({p.payment_pct}%)
                     </Badge>
                   </div>
                 )
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -221,22 +223,22 @@ function PaymentCard({ payment, hasShare, onStatusChange, onInvoiceChange }: {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card>
+      <div className="rounded-2xl border bg-card/50 backdrop-blur-sm">
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+          <div className="cursor-pointer hover:bg-muted/50 transition-colors px-5 py-4 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {statusIndicator(payment)}
-                <CardTitle className="text-base">
+                <span className="text-base font-semibold">
                   {momentLabel} — {fmtCurrency(payment.amount)} ({payment.payment_pct}%)
-                </CardTitle>
+                </span>
               </div>
               <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
             </div>
-          </CardHeader>
+          </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="space-y-5 pt-0">
+          <div className="px-5 pb-5 space-y-5">
             {/* Status checkboxes */}
             <div className="space-y-3">
               <CheckDateRow label="Assinado" checked={payment.is_signed} date={payment.signed_date}
@@ -254,7 +256,7 @@ function PaymentCard({ payment, hasShare, onStatusChange, onInvoiceChange }: {
 
             {/* Agency invoice */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Factura Agencia</p>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Factura Agencia</p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="N.o factura" value={payment.agency_invoice_number ?? ''} onChange={(v) => onInvoiceChange(pid, 'agency_invoice_number', v || null)} />
                 <Field label="Data" value={payment.agency_invoice_date ?? ''} onChange={(v) => onInvoiceChange(pid, 'agency_invoice_date', v || null)} type="date" />
@@ -269,7 +271,7 @@ function PaymentCard({ payment, hasShare, onStatusChange, onInvoiceChange }: {
 
             {/* Network invoice */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Factura Rede</p>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Factura Rede</p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="N.o factura" value={payment.network_invoice_number ?? ''} onChange={(v) => onInvoiceChange(pid, 'network_invoice_number', v || null)} />
                 <Field label="Data" value={payment.network_invoice_date ?? ''} onChange={(v) => onInvoiceChange(pid, 'network_invoice_date', v || null)} type="date" />
@@ -280,10 +282,10 @@ function PaymentCard({ payment, hasShare, onStatusChange, onInvoiceChange }: {
 
             {/* Consultant invoice */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Factura/Recibo Consultor</p>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Factura/Recibo Consultor</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</Label>
                   <Select value={payment.consultant_invoice_type ?? ''} onValueChange={(v) => onInvoiceChange(pid, 'consultant_invoice_type', v || null)}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                     <SelectContent>
@@ -300,9 +302,9 @@ function PaymentCard({ payment, hasShare, onStatusChange, onInvoiceChange }: {
                 onCheck={(v) => onStatusChange(pid, 'consultant_paid', v)}
                 onDate={(v) => onStatusChange(pid, 'consultant_paid_date', v)} />
             </div>
-          </CardContent>
+          </div>
         </CollapsibleContent>
-      </Card>
+      </div>
     </Collapsible>
   )
 }
@@ -325,7 +327,7 @@ function Field({ label, value, onChange, type = 'text' }: {
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</Label>
       <Input type={type} className="h-8 text-sm" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
