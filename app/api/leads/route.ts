@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('leads')
-      .select('*, agent:dev_users(id, commercial_name)', { count: 'exact' })
+      .select('*, agent:dev_users(id, commercial_name), negocios(id, tipo)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

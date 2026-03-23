@@ -69,7 +69,7 @@ function LeadsPageSkeleton() {
         <Table>
           <TableHeader>
             <TableRow>
-              {Array.from({ length: 9 }).map((_, i) => (
+              {Array.from({ length: 10 }).map((_, i) => (
                 <TableHead key={i}><Skeleton className="h-4 w-16" /></TableHead>
               ))}
             </TableRow>
@@ -77,7 +77,7 @@ function LeadsPageSkeleton() {
           <TableBody>
             {[1, 2, 3, 4, 5].map((i) => (
               <TableRow key={i}>
-                {Array.from({ length: 9 }).map((_, j) => (
+                {Array.from({ length: 10 }).map((_, j) => (
                   <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
                 ))}
               </TableRow>
@@ -236,6 +236,33 @@ function LeadsPageContent() {
     )
   }
 
+  const QUALIF_TAGS: { tipo: string; label: string; class: string }[] = [
+    { tipo: 'Compra', label: 'QC', class: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' },
+    { tipo: 'Venda', label: 'QV', class: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800' },
+    { tipo: 'Arrendatário', label: 'QA-P', class: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800' },
+    { tipo: 'Arrendador', label: 'QA-A', class: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800' },
+  ]
+
+  const getQualifTags = (lead: any) => {
+    const negocios = lead.negocios as { id: string; tipo: string }[] | null
+    if (!negocios?.length) return null
+    const tipos = new Set(negocios.flatMap((n) => {
+      if (n.tipo === 'Compra e Venda') return ['Compra', 'Venda']
+      return [n.tipo]
+    }))
+    const tags = QUALIF_TAGS.filter((t) => tipos.has(t.tipo))
+    if (!tags.length) return null
+    return (
+      <div className="flex items-center gap-1">
+        {tags.map((t) => (
+          <span key={t.label} className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${t.class}`}>
+            {t.label}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
@@ -288,7 +315,7 @@ function LeadsPageContent() {
             <TableBody>
               {[1, 2, 3, 4, 5].map((i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((_, j) => (
+                  {Array.from({ length: 10 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
@@ -326,6 +353,7 @@ function LeadsPageContent() {
                   <TableHead>Email</TableHead>
                   <TableHead>Telemóvel</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Qualificações</TableHead>
                   <TableHead>Temperatura</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead>Consultor</TableHead>
@@ -350,6 +378,7 @@ function LeadsPageContent() {
                     <TableCell>
                       {getEstadoBadge(lead.estado)}
                     </TableCell>
+                    <TableCell>{getQualifTags(lead) || '—'}</TableCell>
                     <TableCell>{getTemperaturaBadge(lead.temperatura)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {lead.origem || '—'}
