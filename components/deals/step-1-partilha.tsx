@@ -254,6 +254,24 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
         />
       )}
 
+      {/* Network type (Comprador Externo + Angariacao Externa) */}
+      {(scenario === 'comprador_externo' || scenario === 'angariacao_externa') && (
+        <AcqFieldWrapper fullWidth>
+          <AcqFieldLabel required>Tipo de Rede</AcqFieldLabel>
+          <div className="mt-2">
+            <DealToggleGroup
+              value={form.watch('share_network_type')}
+              onChange={(v) => form.setValue('share_network_type', v)}
+              options={[
+                { value: 'same_network', label: 'Mesma Rede (Remax)' },
+                { value: 'external_network', label: 'Rede Externa' },
+              ]}
+              error={errors.share_network_type}
+            />
+          </div>
+        </AcqFieldWrapper>
+      )}
+
       {/* External agency fields (Comprador Externo + Angariacao Externa) */}
       {(scenario === 'comprador_externo' || scenario === 'angariacao_externa') && (
         <div className="grid grid-cols-2 gap-3">
