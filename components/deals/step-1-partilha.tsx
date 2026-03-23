@@ -45,9 +45,10 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
     if (!fromProperty) {
       fetch('/api/properties?limit=200&status=active')
         .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setProperties(data.map((p: { id: string; title: string; external_ref?: string }) => ({
+        .then((res) => {
+          const list = Array.isArray(res) ? res : res.data
+          if (Array.isArray(list)) {
+            setProperties(list.map((p: { id: string; title: string; external_ref?: string }) => ({
               value: p.id,
               label: p.external_ref ? `${p.external_ref} - ${p.title}` : p.title,
             })))
@@ -56,11 +57,12 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
         .catch(() => {})
     }
 
-    fetch('/api/consultants')
+    fetch('/api/consultants?per_page=100')
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setConsultants(data.map((c: { id: string; commercial_name: string }) => ({
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res.data
+        if (Array.isArray(list)) {
+          setConsultants(list.map((c: { id: string; commercial_name: string }) => ({
             value: c.id,
             label: c.commercial_name,
           })))

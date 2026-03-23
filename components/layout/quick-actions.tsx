@@ -45,10 +45,6 @@ export function QuickActions() {
             <Zap className="mr-2 h-4 w-4" />
             Nova Angariação
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setFechoOpen(true)}>
-            <Handshake className="mr-2 h-4 w-4" />
-            Novo Fecho
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push('/dashboard/leads/novo')}>
             <Users className="mr-2 h-4 w-4" />
             Novo Lead
@@ -56,6 +52,10 @@ export function QuickActions() {
           <DropdownMenuItem onClick={() => router.push('/dashboard/imoveis/novo')}>
             <Building2 className="mr-2 h-4 w-4" />
             Novo Imóvel
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFechoOpen(true)}>
+            <Handshake className="mr-2 h-4 w-4" />
+            Novo Fecho
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push('/dashboard/proprietarios/novo')}>
             <UserCircle className="mr-2 h-4 w-4" />

@@ -26,11 +26,12 @@ export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
   const isDisabled = scenario === 'comprador_externo'
 
   useEffect(() => {
-    fetch('/api/consultants')
+    fetch('/api/consultants?per_page=100')
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setConsultants(data.map((c: { id: string; commercial_name: string }) => ({
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res.data
+        if (Array.isArray(list)) {
+          setConsultants(list.map((c: { id: string; commercial_name: string }) => ({
             value: c.id,
             label: c.commercial_name,
           })))
