@@ -236,6 +236,27 @@ function LeadsPageContent() {
     )
   }
 
+  const ORIGEM_TAGS: Record<string, { label: string; class: string }> = {
+    'Facebook': { label: 'Facebook', class: 'bg-sky-50 text-sky-700 border-sky-200' },
+    'meta_ads': { label: 'Meta Ads', class: 'bg-sky-50 text-sky-700 border-sky-200' },
+    'Redes Sociais': { label: 'Redes Sociais', class: 'bg-pink-50 text-pink-700 border-pink-200' },
+    'Referência': { label: 'Referência', class: 'bg-amber-50 text-amber-700 border-amber-200' },
+    'Walk-in': { label: 'Walk-in', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    'Website': { label: 'Website', class: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  }
+
+  const getOrigemTag = (origem: string | null) => {
+    if (!origem) return '—'
+    const tag = ORIGEM_TAGS[origem]
+    const cls = tag?.class || 'bg-gray-50 text-gray-600 border-gray-200'
+    const label = tag?.label || origem
+    return (
+      <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium leading-none ${cls}`}>
+        {label}
+      </span>
+    )
+  }
+
   const QUALIF_TAGS: { tipo: string; label: string; class: string }[] = [
     { tipo: 'Compra', label: 'QC', class: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' },
     { tipo: 'Venda', label: 'QV', class: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800' },
@@ -372,11 +393,11 @@ function LeadsPageContent() {
                     <TableCell>
                       {lead.email ? (
                         <div className="flex items-center gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); window.location.href = `mailto:${lead.email}` }} title={lead.email}>
-                            <Mail className="h-3 w-3 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); window.location.href = `mailto:${lead.email}` }} title={lead.email}>
+                            <Mail className="h-2.5 w-2.5 text-muted-foreground" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email!); toast.success('Email copiado') }} title="Copiar email">
-                            <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email!); toast.success('Email copiado') }} title="Copiar email">
+                            <Copy className="h-2 w-2 text-muted-foreground" />
                           </Button>
                         </div>
                       ) : '—'}
@@ -384,11 +405,11 @@ function LeadsPageContent() {
                     <TableCell>
                       {(lead.telemovel || lead.telefone) ? (
                         <div className="flex items-center gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${lead.telemovel || lead.telefone}` }} title={lead.telemovel || lead.telefone}>
-                            <Phone className="h-3 w-3 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${lead.telemovel || lead.telefone}` }} title={lead.telemovel || lead.telefone}>
+                            <Phone className="h-2.5 w-2.5 text-muted-foreground" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((lead.telemovel || lead.telefone)!); toast.success('Número copiado') }} title="Copiar número">
-                            <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((lead.telemovel || lead.telefone)!); toast.success('Número copiado') }} title="Copiar número">
+                            <Copy className="h-2 w-2 text-muted-foreground" />
                           </Button>
                         </div>
                       ) : '—'}
@@ -398,9 +419,7 @@ function LeadsPageContent() {
                     </TableCell>
                     <TableCell>{getQualifTags(lead) || '—'}</TableCell>
                     <TableCell>{getTemperaturaBadge(lead.temperatura)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {lead.origem || '—'}
-                    </TableCell>
+                    <TableCell>{getOrigemTag(lead.origem)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {lead.agent?.commercial_name || '—'}
                     </TableCell>
