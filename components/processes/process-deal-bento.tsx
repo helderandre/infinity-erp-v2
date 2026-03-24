@@ -2,13 +2,7 @@
 
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Handshake,
-  Euro,
-  CalendarDays,
-  CreditCard,
-  Percent,
-} from 'lucide-react'
+import { Handshake } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   DEAL_SCENARIOS,
@@ -66,31 +60,13 @@ export function ProcessDealBento({ deal }: ProcessDealBentoProps) {
         {/* Values */}
         <div className="px-5 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Valores</p>
-          <div className="grid grid-cols-2 gap-3">
-            {deal.deal_value && (
-              <div className="flex items-center gap-2">
-                <div className="rounded-md bg-muted/50 p-1.5"><Euro className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                <div><p className="text-[10px] text-muted-foreground leading-none">Valor</p><p className="text-sm font-semibold">{formatCurrency(Number(deal.deal_value))}</p></div>
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+            {deal.deal_value && <DetailRow label="Valor" value={formatCurrency(Number(deal.deal_value))} />}
             {deal.commission_pct != null && (
-              <div className="flex items-center gap-2">
-                <div className="rounded-md bg-muted/50 p-1.5"><Percent className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                <div><p className="text-[10px] text-muted-foreground leading-none">Comissão</p><p className="text-sm font-semibold">{deal.commission_type === 'percentage' ? `${deal.commission_pct}%` : formatCurrency(Number(deal.commission_pct))}</p></div>
-              </div>
+              <DetailRow label="Comissão" value={deal.commission_type === 'percentage' ? `${deal.commission_pct}%` : formatCurrency(Number(deal.commission_pct))} />
             )}
-            {deal.commission_total != null && (
-              <div className="flex items-center gap-2">
-                <div className="rounded-md bg-muted/50 p-1.5"><CreditCard className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                <div><p className="text-[10px] text-muted-foreground leading-none">Total Comissão</p><p className="text-sm font-semibold">{formatCurrency(Number(deal.commission_total))}</p></div>
-              </div>
-            )}
-            {paymentLabel && (
-              <div className="flex items-center gap-2">
-                <div className="rounded-md bg-muted/50 p-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                <div><p className="text-[10px] text-muted-foreground leading-none">Pagamento</p><p className="text-sm font-semibold">{paymentLabel}</p></div>
-              </div>
-            )}
+            {deal.commission_total != null && <DetailRow label="Total Comissão" value={formatCurrency(Number(deal.commission_total))} />}
+            {paymentLabel && <DetailRow label="Pagamento" value={paymentLabel} />}
           </div>
           {deal.payment_structure === 'split' && (
             <div className="mt-2 pt-2 border-t grid grid-cols-2 gap-x-6 gap-y-1 text-sm">

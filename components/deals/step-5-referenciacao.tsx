@@ -18,6 +18,11 @@ interface StepReferenciacaoProps {
 }
 
 export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === '' || v === 0
+  }
+
   const scenario = form.watch('scenario') as DealScenario | undefined
   const hasReferral = form.watch('has_referral')
   const referralType = form.watch('referral_type')
@@ -71,9 +76,10 @@ export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
                 required
                 fullWidth
                 error={errors.referral_pct}
+                isMissing={isEmpty('referral_pct')}
               />
 
-              <AcqFieldWrapper fullWidth>
+              <AcqFieldWrapper fullWidth isMissing={isEmpty('referral_type')}>
                 <AcqFieldLabel required>Referenciação</AcqFieldLabel>
                 <div className="mt-2">
                   <DealToggleGroup

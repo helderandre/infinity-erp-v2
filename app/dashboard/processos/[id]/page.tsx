@@ -87,6 +87,7 @@ import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
 import { ProcessDealTab } from '@/components/processes/process-deal-tab'
 import { ProcessDealBento } from '@/components/processes/process-deal-bento'
 import { ProcessFinanceiroTab } from '@/components/processes/process-financeiro-tab'
+import { DealDialog } from '@/components/deals/deal-dialog'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
@@ -159,6 +160,9 @@ export default function ProcessoDetailPage() {
   // Stage complete dialog
   const [stageCompleteTarget, setStageCompleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [isCompletingStage, setIsCompletingStage] = useState(false)
+
+  // Fecho de Negócio dialog (for angariação processes)
+  const [showFechoDialog, setShowFechoDialog] = useState(false)
 
   // Soft-delete info
   const [deletedInfo, setDeletedInfo] = useState<{
@@ -699,17 +703,27 @@ export default function ProcessoDetailPage() {
     { key: 'pipeline', label: 'Pipeline', icon: Kanban },
     ...(isNegocio ? [
       { key: 'negocio', label: 'Negócio', icon: Handshake },
-      { key: 'compradores', label: 'Compradores', icon: ShoppingCart },
+      {
+        key: 'compradores',
+        label: 'Compradores',
+        icon: ShoppingCart,
+        subItems: [
+          { key: 'compradores:dados', label: 'Dados' },
+          { key: 'compradores:documentos', label: 'Documentos' },
+        ],
+      },
       { key: 'financeiro', label: 'Financeiro', icon: Euro },
     ] : []),
     {
       key: 'imovel',
       label: 'Imóvel',
       icon: Building2,
-      subItems: [
-        { key: 'imovel:dados', label: 'Dados' },
-        { key: 'imovel:documentos', label: 'Documentos' },
-      ],
+      ...(isNegocio ? {} : {
+        subItems: [
+          { key: 'imovel:dados', label: 'Dados' },
+          { key: 'imovel:documentos', label: 'Documentos' },
+        ],
+      }),
     },
     {
       key: 'proprietarios',
@@ -722,9 +736,13 @@ export default function ProcessoDetailPage() {
 
   const handleSidebarSelect = (key: string) => {
     if (isPending && key !== 'detalhes') return
-    // Clicking parent "Imóvel" defaults to Dados sub-item
+    // Clicking parent items defaults to first sub-item
     if (key === 'imovel') {
-      setActiveSection('imovel:dados')
+      setActiveSection(isNegocio ? 'imovel' : 'imovel:dados')
+      return
+    }
+    if (key === 'compradores') {
+      setActiveSection('compradores:dados')
       return
     }
     setActiveSection(key)
@@ -909,6 +927,17 @@ export default function ProcessoDetailPage() {
           }))}
           activeKey={activeSection}
           onSelect={handleSidebarSelect}
+          {...(!isNegocio && isActive ? {
+            actionsLabel: 'Acções',
+            actions: [
+              {
+                key: 'novo-fecho',
+                label: 'Novo Fecho',
+                icon: Handshake,
+                onClick: () => setShowFechoDialog(true),
+              },
+            ],
+          } : {})}
         />
 
         {/* Main content */}
@@ -952,7 +981,7 @@ export default function ProcessoDetailPage() {
             <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={silentRefresh} view="dados" />
           )}
 
-          {activeSection === 'imovel:documentos' && (
+          {activeSection === 'imovel:documentos' && !isNegocio && (
             <ProcessPropertyTab property={property} documents={documents} onDocumentUploaded={silentRefresh} view="documentos" />
           )}
 
@@ -962,7 +991,7 @@ export default function ProcessoDetailPage() {
           )}
 
           {/* ── COMPRADORES section (deal-type processes) ── */}
-          {activeSection === 'compradores' && (
+          {(activeSection === 'compradores' || activeSection === 'compradores:dados') && (
             <div className="space-y-4">
               {(dealClients || []).length === 0 ? (
                 <Card>
@@ -1004,6 +1033,18 @@ export default function ProcessoDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeSection === 'compradores:documentos' && (
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Documentos dos compradores</p>
+                  <p className="text-xs mt-1">Em breve — upload e gestão de documentos dos compradores</p>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1484,6 +1525,28 @@ export default function ProcessoDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Fecho de Negócio dialog (angariação processes) */}
+      {!isNegocio && property && (
+        <DealDialog
+          open={showFechoDialog}
+          onOpenChange={setShowFechoDialog}
+          propertyContext={{
+            id: property.id,
+            title: property.title,
+            external_ref: property.external_ref,
+            business_type: property.business_type,
+            listing_price: property.listing_price ? Number(property.listing_price) : null,
+            city: property.city,
+            commission_agreed: property.dev_property_internal?.commission_agreed
+              ? Number(property.dev_property_internal.commission_agreed)
+              : null,
+          }}
+          onComplete={() => {
+            silentRefresh()
+          }}
+        />
+      )}
     </div>
   )
 }

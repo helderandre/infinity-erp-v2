@@ -21,6 +21,11 @@ export function StepExtra({ form, errors }: StepExtraProps) {
   const businessType = form.watch('business_type') as BusinessType | undefined
   const hasFinancing = form.watch('has_financing')
 
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null
+  }
+
   const isVenda = businessType === 'venda'
   const isArrendamento = businessType === 'arrendamento'
   const isTrespasse = businessType === 'trespasse'
@@ -42,7 +47,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
       <div className="grid grid-cols-2 gap-3">
         {/* Fiador — Arrendamento + Trespasse */}
         {showFiador && (
-          <AcqFieldWrapper>
+          <AcqFieldWrapper isMissing={isEmpty('has_guarantor')}>
             <AcqFieldLabel required>Tem Fiador?</AcqFieldLabel>
             <div className="mt-2">
               <DealYesNo
@@ -55,7 +60,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
         )}
 
         {/* Mobilia — All */}
-        <AcqFieldWrapper>
+        <AcqFieldWrapper isMissing={isEmpty('has_furniture')}>
           <AcqFieldLabel required>{mobiliaLabel}</AcqFieldLabel>
           <div className="mt-2">
             <DealYesNo
@@ -67,7 +72,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
         </AcqFieldWrapper>
 
         {/* Bilingue — All */}
-        <AcqFieldWrapper>
+        <AcqFieldWrapper isMissing={isEmpty('is_bilingual')}>
           <AcqFieldLabel required>Contrato bilingue (PT/ENG)?</AcqFieldLabel>
           <div className="mt-2">
             <DealYesNo
@@ -80,7 +85,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
 
         {/* Financiamento — Venda only */}
         {showFinancing && (
-          <AcqFieldWrapper>
+          <AcqFieldWrapper isMissing={isEmpty('has_financing')}>
             <AcqFieldLabel required>Há Financiamento?</AcqFieldLabel>
             <div className="mt-2">
               <DealYesNo
@@ -94,7 +99,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
 
         {/* Condicao Resolutiva — Venda + financing */}
         {showFinancingCondition && (
-          <AcqFieldWrapper>
+          <AcqFieldWrapper isMissing={isEmpty('has_financing_condition')}>
             <AcqFieldLabel required>Condição Resolutiva?</AcqFieldLabel>
             <div className="mt-2">
               <DealYesNo
@@ -108,7 +113,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
 
         {/* Reconhecimento Assinaturas — Venda only */}
         {showSignatureRecognition && (
-          <AcqFieldWrapper>
+          <AcqFieldWrapper isMissing={isEmpty('has_signature_recognition')}>
             <AcqFieldLabel required>Reconhecimento de Assinaturas?</AcqFieldLabel>
             <div className="mt-2">
               <DealYesNo
@@ -130,6 +135,7 @@ export function StepExtra({ form, errors }: StepExtraProps) {
             placeholder="Seleccionar..."
             required
             error={errors.housing_regime}
+            isMissing={isEmpty('housing_regime')}
           />
         )}
       </div>

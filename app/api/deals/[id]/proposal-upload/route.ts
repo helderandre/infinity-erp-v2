@@ -64,6 +64,25 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // Also create a doc_registry entry for the proposal
+    const { data: propostaDocType } = await supabase
+      .from('doc_types')
+      .select('id')
+      .eq('name', 'Proposta de Compra')
+      .maybeSingle()
+
+    if (propostaDocType) {
+      await supabase.from('doc_registry').insert({
+        deal_id: id,
+        doc_type_id: propostaDocType.id,
+        file_url: fileUrl,
+        file_name: file.name,
+        uploaded_by: auth.user.id,
+        status: 'active',
+        metadata: { size: file.size, mimetype: file.type },
+      })
+    }
+
     return NextResponse.json({ url: fileUrl, name: file.name })
   } catch (err) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })

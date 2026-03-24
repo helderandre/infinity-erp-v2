@@ -32,10 +32,10 @@ export async function GET(
 
     const supabase = createAdminClient()
 
-    // 1. Get process instance with property_id and consultant (requested_by)
+    // 1. Get process instance with property_id, consultant, and deal
     const { data: proc, error: procError } = await supabase
       .from('proc_instances')
-      .select('id, property_id, requested_by')
+      .select('id, property_id, requested_by, process_type')
       .eq('id', id)
       .single()
 
@@ -45,6 +45,17 @@ export async function GET(
 
     const propertyId = proc.property_id
     const consultantId = proc.requested_by
+
+    // Get deal_id if this is a negócio process
+    let dealId: string | null = null
+    if (proc.process_type === 'negocio') {
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('id')
+        .eq('proc_instance_id', id)
+        .maybeSingle()
+      dealId = deal?.id || null
+    }
 
     // 2. Get property owners
     const { data: propertyOwners } = propertyId
@@ -270,7 +281,37 @@ export async function GET(
       allDocs.push(...files)
     }
 
-    // 7. Calculate stats
+    // 7. Pasta "Documentos do Negócio" — doc_registry WHERE deal_id
+    if (dealId) {
+      let query = supabase
+        .from('doc_registry')
+        .select(`
+          id, file_name, file_url, status, valid_until, notes, metadata, created_at,
+          doc_type:doc_types(id, name, category),
+          uploaded_by_user:dev_users!doc_registry_uploaded_by_fkey(id, commercial_name)
+        `)
+        .eq('deal_id', dealId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+
+      if (search) query = query.ilike('file_name', `%${search}%`)
+
+      const { data: dealDocs } = await query
+
+      const files = (dealDocs || []).map((d: any) => mapDocToFile(d, 'registry'))
+      folders.push({
+        id: 'deal',
+        name: 'Documentos do Negócio',
+        icon: 'Handshake',
+        type: 'deal',
+        entity_id: dealId,
+        document_count: files.length,
+        documents: files,
+      })
+      allDocs.push(...files)
+    }
+
+    // 8. Calculate stats
     let totalSizeBytes = 0
     for (const doc of allDocs) {
       const size = doc.metadata?.size

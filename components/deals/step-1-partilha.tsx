@@ -32,6 +32,11 @@ interface StepPartilhaProps {
 }
 
 export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUploaded, scanningProposal, ensureDraft }: StepPartilhaProps) {
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === '' || v === 0
+  }
+
   const scenario = form.watch('scenario') as DealScenario | undefined
   const proposalUrl = form.watch('proposal_file_url')
   const proposalName = form.watch('proposal_file_name')
@@ -125,7 +130,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
   return (
     <div className="space-y-4">
       {/* Proposal Upload */}
-      <AcqFieldWrapper fullWidth>
+      <AcqFieldWrapper fullWidth isMissing={isEmpty('proposal_file_url')}>
         <AcqFieldLabel required>Faz o upload da proposta</AcqFieldLabel>
         {proposalUrl ? (
           <div className="flex items-center gap-2 mt-1">
@@ -168,7 +173,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
       </AcqFieldWrapper>
 
       {/* Scenario selection */}
-      <AcqFieldWrapper fullWidth>
+      <AcqFieldWrapper fullWidth isMissing={isEmpty('scenario')}>
         <AcqFieldLabel required>Qual dos cenários se aplica?</AcqFieldLabel>
         <div className="mt-2">
           <DealToggleGroup
@@ -211,6 +216,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
           required
           fullWidth
           error={errors.property_id}
+          isMissing={isEmpty('property_id')}
         />
       )}
 
@@ -225,6 +231,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
             placeholder="Seleccionar colega..."
             required
             error={errors.internal_colleague_id}
+            isMissing={isEmpty('internal_colleague_id')}
           />
           {!fromProperty && (
             <AcqSelectField
@@ -238,6 +245,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
               placeholder="Seleccionar imóvel..."
               required
               error={errors.colleague_property_id}
+              isMissing={isEmpty('colleague_property_id')}
             />
           )}
         </div>
@@ -256,7 +264,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
 
       {/* Network type (Comprador Externo + Angariacao Externa) */}
       {(scenario === 'comprador_externo' || scenario === 'angariacao_externa') && (
-        <AcqFieldWrapper fullWidth>
+        <AcqFieldWrapper fullWidth isMissing={isEmpty('share_network_type')}>
           <AcqFieldLabel required>Tipo de Rede</AcqFieldLabel>
           <div className="mt-2">
             <DealToggleGroup
@@ -281,6 +289,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
             onChange={(v) => form.setValue('partner_agency_name', v)}
             required
             error={errors.partner_agency_name}
+            isMissing={isEmpty('partner_agency_name')}
           />
           <AcqInputField
             label="Nome do Consultor"
@@ -288,6 +297,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
             onChange={(v) => form.setValue('external_consultant_name', v)}
             required
             error={errors.external_consultant_name}
+            isMissing={isEmpty('external_consultant_name')}
           />
           <AcqInputField
             label="Contacto do Consultor"
@@ -295,6 +305,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
             onChange={(v) => form.setValue('external_consultant_phone', v)}
             required
             error={errors.external_consultant_phone}
+            isMissing={isEmpty('external_consultant_phone')}
           />
           <AcqInputField
             label="Email do Consultor"
@@ -302,6 +313,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
             onChange={(v) => form.setValue('external_consultant_email', v)}
             required
             error={errors.external_consultant_email}
+            isMissing={isEmpty('external_consultant_email')}
           />
         </div>
       )}

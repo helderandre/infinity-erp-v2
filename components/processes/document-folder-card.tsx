@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, FileCheck, User, Briefcase, ImageIcon } from 'lucide-react'
+import { Building2, FileCheck, User, Briefcase, ImageIcon, Handshake } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { FolderIcon } from '@/components/icons/folder-icon'
 import type { DocumentFolder } from '@/types/process'
@@ -12,6 +12,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   User,
   Briefcase,
   ImageIcon,
+  Handshake,
 }
 
 interface DocumentFolderCardProps {

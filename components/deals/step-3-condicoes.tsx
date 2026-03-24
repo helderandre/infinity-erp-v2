@@ -47,6 +47,11 @@ function getLabels(bt: BusinessType | undefined) {
 }
 
 export function StepCondicoes({ form, errors }: StepCondicoesProps) {
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === '' || v === 0
+  }
+
   const scenario = form.watch('scenario') as DealScenario | undefined
   const businessType = form.watch('business_type') as BusinessType | undefined
   const commissionType = form.watch('commission_type') as 'percentage' | 'fixed' | undefined
@@ -58,7 +63,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
     <div className="space-y-5">
       {/* Business type + Deal value */}
       <div className="grid grid-cols-2 gap-3">
-        <AcqFieldWrapper>
+        <AcqFieldWrapper isMissing={isEmpty('business_type')}>
           <AcqFieldLabel required>Tipo de Negócio</AcqFieldLabel>
           <div className="mt-2">
             <DealToggleGroup
@@ -76,13 +81,14 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           suffix="€"
           required
           error={errors.deal_value}
+          isMissing={isEmpty('deal_value')}
         />
       </div>
 
       {/* External property fields (Angariacao Externa only) */}
       {isAngExterna && (
         <>
-          <AcqFieldWrapper fullWidth>
+          <AcqFieldWrapper fullWidth isMissing={isEmpty('external_property_type')}>
             <AcqFieldLabel required>Tipo de Imóvel</AcqFieldLabel>
             <div className="mt-2">
               <DealToggleGroup
@@ -94,7 +100,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
             </div>
           </AcqFieldWrapper>
 
-          <AcqFieldWrapper fullWidth>
+          <AcqFieldWrapper fullWidth isMissing={isEmpty('external_property_typology')}>
             <AcqFieldLabel required>Tipologia</AcqFieldLabel>
             <div className="mt-2">
               <DealToggleGroup
@@ -113,6 +119,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
               onChange={(v) => form.setValue('external_property_id', v)}
               required
               error={errors.external_property_id}
+              isMissing={isEmpty('external_property_id')}
             />
             <AcqInputField
               label="Ano de Construção"
@@ -120,6 +127,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
               onChange={(v) => form.setValue('external_property_construction_year', v)}
               required
               error={errors.external_property_construction_year}
+              isMissing={isEmpty('external_property_construction_year')}
             />
             <AcqInputField
               label="Zona"
@@ -137,7 +145,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
       )}
 
       {/* Commission — full width */}
-      <AcqFieldWrapper fullWidth className={cn(errors.commission_pct && 'border-destructive')}>
+      <AcqFieldWrapper fullWidth isMissing={isEmpty('commission_pct')} className={cn(errors.commission_pct && 'border-destructive')}>
         <AcqFieldLabel required>Comissão</AcqFieldLabel>
           <div className="mt-1.5">
             <DealToggleGroup
@@ -191,6 +199,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           onChange={(v) => form.setValue('deposit_value', v)}
           required
           error={errors.deposit_value}
+          isMissing={isEmpty('deposit_value')}
         />
         {showCpcv && (
           <DealQuickPick
@@ -211,7 +220,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
 
       {/* Date + Deadline side by side */}
       <div className="grid grid-cols-2 gap-3">
-        <AcqFieldWrapper>
+        <AcqFieldWrapper isMissing={isEmpty('contract_signing_date')}>
           <AcqFieldLabel required>{labels.date}</AcqFieldLabel>
           <input
             type="date"
@@ -227,6 +236,7 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           onChange={(v) => form.setValue('max_deadline', v)}
           required
           error={errors.max_deadline}
+          isMissing={isEmpty('max_deadline')}
         />
       </div>
 

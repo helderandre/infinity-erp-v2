@@ -19,6 +19,17 @@ interface StepClientesProps {
 }
 
 export function StepClientes({ form, errors }: StepClientesProps) {
+  const isEmpty = (field: string) => {
+    const v = form.watch(field)
+    return v === undefined || v === null || v === '' || v === 0
+  }
+
+  const isClientFieldEmpty = (index: number, field: string) => {
+    const clients = form.watch('clients') || []
+    const v = clients[index]?.[field]
+    return v === undefined || v === null || v === ''
+  }
+
   const scenario = form.watch('scenario') as DealScenario | undefined
   const businessType = form.watch('business_type') as BusinessType | undefined
   const clients = form.watch('clients') || []
@@ -103,6 +114,7 @@ export function StepClientes({ form, errors }: StepClientesProps) {
                   value={client.name}
                   onChange={(v) => updateClient(index, 'name', v)}
                   required
+                  isMissing={isClientFieldEmpty(index, 'name')}
                 />
                 <AcqInputField
                   label="Email"

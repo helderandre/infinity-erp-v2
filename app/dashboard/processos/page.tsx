@@ -38,6 +38,7 @@ import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@
 import { useDebounce } from '@/hooks/use-debounce'
 import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
+import { DealDialog } from '@/components/deals/deal-dialog'
 
 function ProcessDropdownMenu({ isDraft, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
   isDraft: boolean
@@ -134,6 +135,7 @@ export default function ProcessosPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>()
+  const [showFechoDialog, setShowFechoDialog] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const suppressClickUntilRef = useRef(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -268,6 +270,7 @@ export default function ProcessosPage() {
   const sidebarActions: PageSidebarAction[] = [
     { key: 'templates', label: 'Gerir Templates', icon: FileText, onClick: () => router.push('/dashboard/processos/templates') },
     { key: 'nova', label: 'Nova Angariação', icon: Plus, onClick: () => { setResumeDraftId(undefined); setDraftDialogOpen(true) } },
+    { key: 'novo-fecho', label: 'Novo Fecho', icon: Handshake, onClick: () => setShowFechoDialog(true) },
   ]
 
   return (
@@ -818,6 +821,15 @@ export default function ProcessosPage() {
           setDraftDialogOpen(false)
           setResumeDraftId(undefined)
           router.push(`/dashboard/processos/${procInstanceId}`)
+        }}
+      />
+
+      {/* Fecho de Negócio dialog */}
+      <DealDialog
+        open={showFechoDialog}
+        onOpenChange={setShowFechoDialog}
+        onComplete={() => {
+          loadProcesses()
         }}
       />
 

@@ -408,6 +408,7 @@ export async function GET(
         id,
         doc_type_id,
         owner_id,
+        deal_id,
         file_name,
         file_url,
         status,
@@ -438,7 +439,19 @@ export async function GET(
       ownerDocs = oDocs ?? []
     }
 
-    const documents = [...(propertyDocs ?? []), ...(ownerDocs ?? [])]
+    // Obter documentos do negócio (deal)
+    let dealDocs: typeof propertyDocs = []
+    if (deal?.id) {
+      const { data: dDocs } = await supabase
+        .from('doc_registry')
+        .select(docSelect)
+        .eq('deal_id', deal.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+      dealDocs = dDocs ?? []
+    }
+
+    const documents = [...(propertyDocs ?? []), ...(ownerDocs ?? []), ...(dealDocs ?? [])]
 
     // Processar dados do imóvel — extrair cover, specs, internal
     if (data.property) {
