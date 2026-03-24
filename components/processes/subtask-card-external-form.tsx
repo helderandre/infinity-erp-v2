@@ -40,7 +40,7 @@ export function SubtaskCardExternalForm({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs text-orange-600 hover:text-orange-700"
+              className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
               onClick={() => onRevert(subtask.id)}
             >
               Reverter
@@ -48,7 +48,7 @@ export function SubtaskCardExternalForm({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               onClick={() => onOpenDialog(subtask)}
             >
               <Eye className="h-3 w-3 mr-1" />
@@ -68,7 +68,7 @@ export function SubtaskCardExternalForm({
             <div className="flex-1" />
             <Button
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               disabled={subtask.is_blocked}
               onClick={() => onOpenDialog(subtask)}
             >

@@ -41,7 +41,7 @@ export function SubtaskCardForm({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs text-orange-600 hover:text-orange-700"
+              className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
               onClick={() => onRevert(subtask.id)}
             >
               Reverter
@@ -49,7 +49,7 @@ export function SubtaskCardForm({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               onClick={() => onViewSheet(subtask)}
             >
               <Eye className="h-3 w-3 mr-1" />
@@ -58,7 +58,7 @@ export function SubtaskCardForm({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               onClick={() => onOpenSheet(subtask)}
             >
               <Pencil className="h-3 w-3 mr-1" />
@@ -67,20 +67,15 @@ export function SubtaskCardForm({
           </>
         ) : (
           <>
-            {fieldCount > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {fieldCount} campo{fieldCount !== 1 ? 's' : ''}{sectionCount > 1 ? ` em ${sectionCount} secções` : ''}
-              </span>
-            )}
             <div className="flex-1" />
             <Button
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               disabled={subtask.is_blocked}
               onClick={() => onOpenSheet(subtask)}
             >
               <ClipboardList className="h-3.5 w-3.5 mr-1" />
-              Preencher Formulário
+              Preencher
             </Button>
           </>
         )}

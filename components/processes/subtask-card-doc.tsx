@@ -41,7 +41,7 @@ export function SubtaskCardDoc({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-xs rounded-full"
               onClick={() => onOpenSheet(subtask)}
               disabled={isBlocked}
             >
@@ -55,7 +55,7 @@ export function SubtaskCardDoc({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-7 text-xs rounded-full"
                 onClick={() => onOpenSheet(subtask)}
               >
                 <Eye className="mr-1 h-3 w-3" />
@@ -64,7 +64,7 @@ export function SubtaskCardDoc({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-orange-600 hover:text-orange-700"
+                className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
                 onClick={() => onRevert(subtask.id)}
               >
                 <RotateCcw className="mr-1 h-3 w-3" />

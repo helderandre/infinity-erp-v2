@@ -40,6 +40,7 @@ import {
   Plus,
   Trash2,
   ExternalLink,
+  MessageCircle,
 } from 'lucide-react'
 import {
   SUBTASK_TYPE_LABELS,
@@ -79,6 +80,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   field: TextCursorInput,
   schedule_event: CalendarPlus,
   external_form: ClipboardList,
+  whatsapp: MessageCircle,
 }
 
 // ─── Dependency types (passed from SubtaskEditor) ────────
@@ -122,6 +124,99 @@ interface SubtaskConfigDialogProps {
   // Ad-hoc mode
   mode?: 'template' | 'adhoc'
   availableOwners?: { id: string; name: string; person_type: 'singular' | 'coletiva'; nif?: string | null }[]
+}
+
+// ─── WhatsApp Template Selector ──────────────────────────
+
+function WhatsAppTemplateSelector({
+  templateId,
+  instanceId,
+  onTemplateChange,
+  onInstanceChange,
+}: {
+  templateId?: string
+  instanceId?: string
+  onTemplateChange: (id?: string) => void
+  onInstanceChange: (id?: string) => void
+}) {
+  const [templates, setTemplates] = useState<{ id: string; name: string; category: string }[]>([])
+  const [instances, setInstances] = useState<{ id: string; name: string; phone?: string | null; connection_status: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/automacao/templates-wpp')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTemplates(data) })
+      .catch(() => {})
+    fetch('/api/automacao/instancias')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setInstances(data) })
+      .catch(() => {})
+  }, [])
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-4 py-3 text-sm flex items-start gap-2">
+        <MessageCircle className="h-4 w-4 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
+        <div>
+          <p className="font-medium text-green-700 dark:text-green-300">Mensagem WhatsApp</p>
+          <p className="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
+            Envia uma mensagem WhatsApp ao proprietário usando um template pré-definido.
+            O número de telemóvel do proprietário será usado como destinatário.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Instância WhatsApp</Label>
+        <Select
+          value={instanceId || '__none__'}
+          onValueChange={(v) => onInstanceChange(v === '__none__' ? undefined : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar instância..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">(Nenhuma — usar padrão)</SelectItem>
+            {instances.map((inst) => (
+              <SelectItem key={inst.id} value={inst.id}>
+                <span className="flex items-center gap-2">
+                  {inst.name}
+                  {inst.phone && <span className="text-muted-foreground text-xs">{inst.phone}</span>}
+                  <span className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    inst.connection_status === 'connected' ? 'bg-emerald-500' : 'bg-slate-400'
+                  )} />
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Template de Mensagem</Label>
+        <Select
+          value={templateId || '__none__'}
+          onValueChange={(v) => onTemplateChange(v === '__none__' ? undefined : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar template WhatsApp..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">(Nenhum)</SelectItem>
+            {templates.map((tpl) => (
+              <SelectItem key={tpl.id} value={tpl.id}>
+                <span className="flex items-center gap-2">
+                  {tpl.name}
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">{tpl.category}</Badge>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
 }
 
 // ─── Form Template Selector ──────────────────────────────
@@ -628,6 +723,15 @@ function SectionDados({
             </p>
           </div>
         </div>
+      )}
+
+      {local.type === 'whatsapp' && (
+        <WhatsAppTemplateSelector
+          templateId={local.config.whatsapp_template_id}
+          instanceId={local.config.whatsapp_instance_id}
+          onTemplateChange={(id) => updateConfig({ whatsapp_template_id: id })}
+          onInstanceChange={(id) => updateConfig({ whatsapp_instance_id: id })}
+        />
       )}
 
       {/* Form subtask config */}

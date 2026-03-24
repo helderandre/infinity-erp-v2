@@ -91,7 +91,7 @@ import { DealDialog } from '@/components/deals/deal-dialog'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '@/lib/constants'
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
 import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -123,6 +123,7 @@ export default function ProcessoDetailPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterAssignee, setFilterAssignee] = useState<string>('all')
+  const [filterRole, setFilterRole] = useState<string>('all')
 
   // Bypass dialog
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
@@ -590,9 +591,9 @@ export default function ProcessoDetailPage() {
   }, [searchParams, process?.stages])
 
   // Compute stats and filtered stages
-  const { filteredStages, totalTasks, completedTasks, completedWeight, overdueTasks, assignees } = useMemo(() => {
+  const { filteredStages, totalTasks, completedTasks, completedWeight, overdueTasks, assignees, roles } = useMemo(() => {
     if (!process?.stages) {
-      return { filteredStages: [], totalTasks: 0, completedTasks: 0, completedWeight: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[] }
+      return { filteredStages: [], totalTasks: 0, completedTasks: 0, completedWeight: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[], roles: [] as string[] }
     }
 
     const allTasks: ProcessTask[] = process.stages.flatMap((s: ProcessStageWithTasks) => s.tasks)
@@ -602,6 +603,7 @@ export default function ProcessoDetailPage() {
     let completedFull = 0
     let overdue = 0
     const assigneeMap = new Map<string, string>()
+    const roleSet = new Set<string>()
 
     for (const t of allTasks) {
       total++
@@ -620,16 +622,21 @@ export default function ProcessoDetailPage() {
       if (t.assigned_to_user) {
         assigneeMap.set(t.assigned_to_user.id, t.assigned_to_user.commercial_name)
       }
+      if (t.assigned_role) {
+        roleSet.add(t.assigned_role)
+      }
     }
     const completed = completedFull
 
     const assigneeList = Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }))
+    const roleList = Array.from(roleSet).sort()
 
     const filtered: ProcessStageWithTasks[] = process.stages.map((stage: ProcessStageWithTasks) => {
       const tasks = stage.tasks.filter((t: ProcessTask) => {
         if (filterStatus !== 'all' && t.status !== filterStatus) return false
         if (filterPriority !== 'all' && (t.priority ?? 'normal') !== filterPriority) return false
         if (filterAssignee !== 'all' && t.assigned_to_user?.id !== filterAssignee) return false
+        if (filterRole !== 'all' && t.assigned_role !== filterRole) return false
         return true
       })
 
@@ -641,8 +648,8 @@ export default function ProcessoDetailPage() {
       }
     }).filter((s: ProcessStageWithTasks) => s.tasks.length > 0)
 
-    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, completedWeight: completedWeight, overdueTasks: overdue, assignees: assigneeList }
-  }, [process?.stages, filterStatus, filterPriority, filterAssignee])
+    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, completedWeight: completedWeight, overdueTasks: overdue, assignees: assigneeList, roles: roleList }
+  }, [process?.stages, filterStatus, filterPriority, filterAssignee, filterRole])
 
   const progressPercent = totalTasks > 0 ? Math.round((completedWeight / totalTasks) * 100) : 0
 
@@ -1122,6 +1129,28 @@ export default function ProcessoDetailPage() {
                         ))}
                       </SelectContent>
                     </Select>
+
+                    {roles.length > 0 && (
+                      <Select value={filterRole} onValueChange={setFilterRole}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Papel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os papéis</SelectItem>
+                          {roles.map((role) => {
+                            const rc = getRoleBadgeColors(role)
+                            return (
+                              <SelectItem key={role} value={role}>
+                                <span className="flex items-center gap-2">
+                                  <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
+                                  {role}
+                                </span>
+                              </SelectItem>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    )}
 
                     <div className="ml-auto flex items-center gap-2">
                       {user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any) && ['active', 'on_hold'].includes(instance.current_status) && (

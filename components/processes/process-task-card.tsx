@@ -31,9 +31,10 @@ import {
   TextCursorInput,
   CalendarPlus,
   Trash2,
+  MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
+import { ACTION_TYPE_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG, getRoleBadgeColors } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { ProcessTask, TaskPriority } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
@@ -101,6 +102,7 @@ const SUBTASK_TYPE_ICONS_MAP: Record<string, React.ReactNode> = {
   field: <TextCursorInput className="h-3 w-3" />,
   schedule_event: <CalendarPlus className="h-3 w-3" />,
   external_form: <ClipboardList className="h-3 w-3" />,
+  whatsapp: <MessageCircle className="h-3 w-3" />,
 }
 
 
@@ -215,39 +217,39 @@ export function ProcessTaskCard({
         )}
         onClick={() => onClick?.(task)}
       >
-        {/* Row 1: status icon + title + action menu */}
-        <div className="flex items-start gap-2">
-          <div className="shrink-0 mt-0.5">{statusIcon}</div>
-          <span className="flex-1 text-sm font-medium leading-snug line-clamp-2">{task.title}</span>
+        {/* Row 1: role badge + action menu */}
+        <div className="flex items-center gap-1.5">
+          {task.assigned_role && (() => {
+            const rc = getRoleBadgeColors(task.assigned_role)
+            return (
+              <span className={cn('text-[10px] font-medium px-1.5 py-0 rounded-full border', rc.bg, rc.text, rc.border)}>
+                {task.assigned_role}
+              </span>
+            )
+          })()}
           {isBlocked && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
               <Lock className="h-2.5 w-2.5 mr-0.5" />
               Bloqueada
             </Badge>
           )}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
             {actionMenu}
           </div>
         </div>
 
-        {/* Owner */}
-        {task.owner && (
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            {task.owner.person_type === 'coletiva' ? (
-              <Building2 className="h-3 w-3" />
-            ) : (
-              <User className="h-3 w-3" />
-            )}
-            <span className="truncate max-w-[80px]">{task.owner.name}</span>
-          </span>
-        )}
+        {/* Row 2: status icon + title */}
+        <div className="flex items-start gap-2">
+          <div className="shrink-0 mt-0.5">{statusIcon}</div>
+          <span className="flex-1 text-sm font-medium leading-snug line-clamp-2">{task.title}</span>
+        </div>
 
-        {/* Subtask progress bar */}
+        {/* Row 3: subtask progress bar */}
         {task.subtasks && task.subtasks.length > 0 && (
           <SubtaskProgressBar subtasks={task.subtasks} />
         )}
 
-        {/* Row 3: due date + assignee */}
+        {/* Row 4: due date (left) + assignee avatar (right) */}
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           {task.due_date && isNotDone ? (
             <span className={cn(
@@ -263,22 +265,19 @@ export function ProcessTaskCard({
             <span />
           )}
           {task.assigned_to_user && (
-            <span className="flex items-center gap-1.5 truncate max-w-[140px]">
-              <Avatar size="sm">
-                {task.assigned_to_user.profile_photo_url && (
-                  <AvatarImage src={task.assigned_to_user.profile_photo_url} alt={task.assigned_to_user.commercial_name} />
-                )}
-                <AvatarFallback>
-                  {task.assigned_to_user.commercial_name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="truncate">{task.assigned_to_user.commercial_name}</span>
-            </span>
+            <Avatar size="sm" className="size-5" title={task.assigned_to_user.commercial_name}>
+              {task.assigned_to_user.profile_photo_url && (
+                <AvatarImage src={task.assigned_to_user.profile_photo_url} alt={task.assigned_to_user.commercial_name} />
+              )}
+              <AvatarFallback className="text-[9px]">
+                {task.assigned_to_user.commercial_name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
           )}
         </div>
 
@@ -309,6 +308,16 @@ export function ProcessTaskCard({
 
       {/* Title */}
       <span className="flex-1 text-sm font-medium truncate">{task.title}</span>
+
+      {/* Role badge */}
+      {task.assigned_role && (() => {
+        const rc = getRoleBadgeColors(task.assigned_role)
+        return (
+          <span className={cn('text-[10px] font-medium px-1.5 py-0 rounded-full border shrink-0', rc.bg, rc.text, rc.border)}>
+            {task.assigned_role}
+          </span>
+        )
+      })()}
 
       {/* Blocked badge */}
       {isBlocked && (

@@ -92,6 +92,7 @@ export function PropertyAddressMapPicker({
   const [isLoading, setIsLoading] = useState(false)
   const [sessionToken, setSessionToken] = useState(() => crypto.randomUUID())
   const [mapReady, setMapReady] = useState(false)
+  const [hasUserTyped, setHasUserTyped] = useState(false)
 
   const debouncedQuery = useDebounce(query, 300)
 
@@ -168,7 +169,7 @@ export function PropertyAddressMapPicker({
   // --- Fetch Suggestions (Suggest API) ---
 
   useEffect(() => {
-    if (debouncedQuery.length < 2) {
+    if (!hasUserTyped || debouncedQuery.length < 2) {
       setSuggestions([])
       return
     }
@@ -232,6 +233,7 @@ export function PropertyAddressMapPicker({
 
       setPopoverOpen(false)
       setSuggestions([])
+      setHasUserTyped(false)
 
       // Retrieve full details with coordinates
       try {
@@ -339,6 +341,7 @@ export function PropertyAddressMapPicker({
 
   const onInput = useCallback(
     (value: string) => {
+      setHasUserTyped(true)
       setQuery(value)
       onAddressChange(value)
       if (value.length < 2) {

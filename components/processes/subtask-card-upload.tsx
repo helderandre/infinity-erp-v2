@@ -143,7 +143,7 @@ export function SubtaskCardUpload({
                   </div>
                   <Button
                     size="sm"
-                    className="h-7 text-xs w-full"
+                    className="h-7 text-xs w-full rounded-full"
                     onClick={() => completeWithDoc(matchingDoc.id)}
                     disabled={isLinking || isBlocked}
                   >
@@ -231,7 +231,7 @@ export function SubtaskCardUpload({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-7 text-xs rounded-full"
                 onClick={() => setShowReplace(!showReplace)}
               >
                 <RefreshCw className="mr-1 h-3 w-3" />
@@ -240,7 +240,7 @@ export function SubtaskCardUpload({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-orange-600 hover:text-orange-700"
+                className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
                 onClick={() => onRevert(subtask.id)}
               >
                 <RotateCcw className="mr-1 h-3 w-3" />

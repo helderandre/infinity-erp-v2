@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -36,7 +36,7 @@ import {
   CalendarIcon,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
-import { ACTION_TYPE_LABELS, SUBTASK_TYPE_LABELS, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG } from '@/lib/constants'
+import { ACTION_TYPE_LABELS, SUBTASK_TYPE_LABELS, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, PRIORITY_BADGE_CONFIG, getRoleBadgeColors } from '@/lib/constants'
 import type { TaskPriority } from '@/types/process'
 import { useTaskComments } from '@/hooks/use-task-comments'
 import { useTaskActivities } from '@/hooks/use-task-activities'
@@ -96,6 +96,8 @@ export function TaskDetailSheet({
 }: TaskDetailSheetProps) {
   const [activeTab, setActiveTab] = useState<SheetTab>('task')
   const [splitMode, setSplitMode] = useState(false)
+  const stateButtonsRef = useRef<(() => React.ReactNode) | null>(null)
+  const [, forceRender] = useState(0)
   const [splitTab, setSplitTab] = useState<SheetTab | null>(null)
   const [commentValue, setCommentValue] = useState('')
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
@@ -139,6 +141,8 @@ export function TaskDetailSheet({
     setActiveTab('task')
     setSplitMode(false)
     setSplitTab(null)
+    // Force re-render after stateButtonsRef is set
+    requestAnimationFrame(() => forceRender((n) => n + 1))
     // Registar visualização (fire-and-forget)
     fetch(`/api/processes/${processId}/tasks/${taskId}/activities`, {
       method: 'POST',
@@ -245,27 +249,36 @@ export function TaskDetailSheet({
     switch (tab) {
       case 'task':
         return (
-          <ScrollArea className="h-full">
-            <div className="px-6 py-4 space-y-6">
-              <TaskDetailMetadata
-                task={task}
-                processId={processId}
-                onTaskUpdate={onTaskUpdate}
-              />
-              <TaskDetailActions
-                task={task}
-                processId={processId}
-                propertyId={propertyId}
-                consultantId={consultantId}
-                property={property}
-                processInstance={processInstance}
-                processDocuments={processDocuments}
-                owners={owners}
-                deal={deal}
-                onTaskUpdate={onTaskUpdate}
-              />
+          <div className="flex flex-col h-full min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="px-6 py-4 space-y-6 pb-16">
+                <TaskDetailMetadata
+                  task={task}
+                  processId={processId}
+                  onTaskUpdate={onTaskUpdate}
+                />
+                <TaskDetailActions
+                  task={task}
+                  processId={processId}
+                  propertyId={propertyId}
+                  consultantId={consultantId}
+                  property={property}
+                  processInstance={processInstance}
+                  processDocuments={processDocuments}
+                  owners={owners}
+                  deal={deal}
+                  onTaskUpdate={onTaskUpdate}
+                  stateButtonsRef={stateButtonsRef}
+                />
+              </div>
             </div>
-          </ScrollArea>
+            {/* Bottom bar for state buttons — stays at bottom, content scrolls above */}
+            {stateButtonsRef.current && (
+              <div className="bg-neutral-900 px-6 py-3 flex justify-end shrink-0 rounded-t-xl">
+                {stateButtonsRef.current()}
+              </div>
+            )}
+          </div>
         )
 
       case 'activity':
@@ -336,6 +349,19 @@ export function TaskDetailSheet({
               )}>
                 {TASK_STATUS_LABELS[task.status as keyof typeof TASK_STATUS_LABELS] ?? task.status}
               </span>
+
+              {/* Role — colored badge */}
+              {task.assigned_role && (() => {
+                const rc = getRoleBadgeColors(task.assigned_role)
+                return (
+                  <span className={cn(
+                    'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border',
+                    rc.darkBg, rc.darkText, rc.darkBorder
+                  )}>
+                    {task.assigned_role}
+                  </span>
+                )
+              })()}
 
               {/* Priority — colored picker */}
               {(() => {

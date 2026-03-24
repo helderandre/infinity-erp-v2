@@ -29,6 +29,8 @@ import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
 import { SubtaskPdfSheet } from './subtask-pdf-sheet'
 import { SubtaskCardExternalForm } from './subtask-card-external-form'
+import { SubtaskCardWhatsApp } from './subtask-card-whatsapp'
+import { SubtaskWhatsAppSheet } from './subtask-whatsapp-sheet'
 import { ExternalFormDialog } from './external-form-dialog'
 import type { ProcessTask, ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 import type { ProcSubtask } from '@/types/subtask'
@@ -75,6 +77,7 @@ export function SubtaskCardList({
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
   const [openExternalFormSubtask, setOpenExternalFormSubtask] = useState<ProcSubtask | null>(null)
   const [isCompletingExternalForm, setIsCompletingExternalForm] = useState(false)
+  const [openWhatsAppSubtask, setOpenWhatsAppSubtask] = useState<ProcSubtask | null>(null)
 
   const subtasks = task.subtasks || []
   const completedCount = subtasks.filter(s => s.is_completed).length
@@ -285,6 +288,17 @@ export function SubtaskCardList({
             onRevert={(id) => setRevertTarget(id)}
           />
         )
+      case 'whatsapp':
+        return (
+          <SubtaskCardWhatsApp
+            key={subtask.id}
+            subtask={subtask}
+            ownerPhone={owners.find(o => o.id === subtask.owner_id)?.phone || ''}
+            onOpenSheet={(s) => setOpenWhatsAppSubtask(s)}
+            onRevert={(id) => setRevertTarget(id)}
+            onResend={handleResend}
+          />
+        )
       default:
         return (
           <SubtaskCardChecklist
@@ -357,7 +371,7 @@ export function SubtaskCardList({
         {/* Link para proprietário */}
         {task.owner?.id && (
           <div className="pt-2 border-t">
-            <Button variant="outline" size="sm" className="w-full text-xs" asChild>
+            <Button variant="outline" size="sm" className="w-full text-xs rounded-full" asChild>
               <a
                 href={`/dashboard/proprietarios/${task.owner.id}`}
                 target="_blank"
@@ -484,6 +498,23 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setViewFormSubtask(null) }}
           onCompleted={async () => {}}
           readOnly
+        />
+      )}
+
+      {openWhatsAppSubtask && (
+        <SubtaskWhatsAppSheet
+          subtask={openWhatsAppSubtask}
+          processId={processId}
+          taskId={task.id}
+          ownerPhone={owners.find(o => o.id === openWhatsAppSubtask.owner_id)?.phone || ''}
+          ownerName={owners.find(o => o.id === openWhatsAppSubtask.owner_id)?.name}
+          ownerPersonType={owners.find(o => o.id === openWhatsAppSubtask.owner_id)?.person_type}
+          open={!!openWhatsAppSubtask}
+          onOpenChange={(v) => { if (!v) setOpenWhatsAppSubtask(null) }}
+          onComplete={() => {
+            onTaskUpdate()
+            setOpenWhatsAppSubtask(null)
+          }}
         />
       )}
 

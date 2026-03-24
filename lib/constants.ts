@@ -488,6 +488,28 @@ export const ACTION_TYPES = {
   FORM: 'Preencher Formulário',
 } as const
 
+// Cores por Role para badges de tarefas
+export const ROLE_BADGE_COLORS: Record<string, { bg: string; text: string; border: string; darkBg: string; darkText: string; darkBorder: string }> = {
+  'Broker/CEO':              { bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-200',  darkBg: 'bg-violet-500/20', darkText: 'text-violet-300', darkBorder: 'border-violet-400/30' },
+  'Consultor':               { bg: 'bg-sky-100',     text: 'text-sky-700',     border: 'border-sky-200',     darkBg: 'bg-sky-500/20',    darkText: 'text-sky-300',    darkBorder: 'border-sky-400/30' },
+  'Consultora Executiva':    { bg: 'bg-cyan-100',    text: 'text-cyan-700',    border: 'border-cyan-200',    darkBg: 'bg-cyan-500/20',   darkText: 'text-cyan-300',   darkBorder: 'border-cyan-400/30' },
+  'Gestor Processual':       { bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-amber-200',   darkBg: 'bg-amber-500/20',  darkText: 'text-amber-300',  darkBorder: 'border-amber-400/30' },
+  'Gestora Processual':      { bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-amber-200',   darkBg: 'bg-amber-500/20',  darkText: 'text-amber-300',  darkBorder: 'border-amber-400/30' },
+  'Processual':              { bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-amber-200',   darkBg: 'bg-amber-500/20',  darkText: 'text-amber-300',  darkBorder: 'border-amber-400/30' },
+  'Office Manager':          { bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-200',    darkBg: 'bg-rose-500/20',   darkText: 'text-rose-300',   darkBorder: 'border-rose-400/30' },
+  'Marketing':               { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700', border: 'border-fuchsia-200', darkBg: 'bg-fuchsia-500/20',darkText: 'text-fuchsia-300',darkBorder: 'border-fuchsia-400/30' },
+  'Team Leader':             { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', darkBg: 'bg-emerald-500/20',darkText: 'text-emerald-300',darkBorder: 'border-emerald-400/30' },
+  'Recrutador':              { bg: 'bg-teal-100',    text: 'text-teal-700',    border: 'border-teal-200',    darkBg: 'bg-teal-500/20',   darkText: 'text-teal-300',   darkBorder: 'border-teal-400/30' },
+  'Intermediário de Crédito':{ bg: 'bg-orange-100',  text: 'text-orange-700',  border: 'border-orange-200',  darkBg: 'bg-orange-500/20', darkText: 'text-orange-300', darkBorder: 'border-orange-400/30' },
+  'Cliente':                 { bg: 'bg-slate-100',   text: 'text-slate-700',   border: 'border-slate-200',   darkBg: 'bg-slate-500/20',  darkText: 'text-slate-300',  darkBorder: 'border-slate-400/30' },
+} as const
+
+const ROLE_BADGE_DEFAULT = { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', darkBg: 'bg-white/10', darkText: 'text-white/60', darkBorder: 'border-white/20' }
+
+export function getRoleBadgeColors(role: string) {
+  return ROLE_BADGE_COLORS[role] ?? ROLE_BADGE_DEFAULT
+}
+
 // Labels de Prioridade de Tarefa (PT-PT)
 export const TASK_PRIORITY_LABELS = {
   urgent: 'Urgente',
@@ -630,6 +652,7 @@ export const SUBTASK_TYPES = [
   { type: 'field' as const, label: 'Campo Único (inline)', icon: 'TextCursorInput', color: 'text-cyan-500' },
   { type: 'schedule_event' as const, label: 'Agendar Evento', icon: 'CalendarPlus', color: 'text-indigo-600' },
   { type: 'external_form' as const, label: 'Formulário Externo', icon: 'ClipboardList', color: 'text-rose-500' },
+  { type: 'whatsapp' as const, label: 'Mensagem WhatsApp', icon: 'MessageCircle', color: 'text-green-500' },
 ] as const
 
 export const SUBTASK_TYPE_LABELS: Record<string, string> = {
@@ -641,6 +664,7 @@ export const SUBTASK_TYPE_LABELS: Record<string, string> = {
   field: 'Campo',
   schedule_event: 'Evento',
   external_form: 'Formulário Externo',
+  whatsapp: 'WhatsApp',
   // Legacy check_type mappings
   manual: 'Checklist',
   document: 'Documento',
@@ -655,6 +679,7 @@ export const SUBTASK_TYPE_ICONS: Record<string, string> = {
   field: 'TextCursorInput',
   schedule_event: 'CalendarPlus',
   external_form: 'ClipboardList',
+  whatsapp: 'MessageCircle',
 }
 
 // Labels de Owner Scope para subtarefas (PT-PT)

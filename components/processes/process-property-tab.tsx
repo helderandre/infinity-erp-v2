@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { DocumentsSection } from '@/components/documents/DocumentsSection'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Sparkles } from 'lucide-react'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -184,23 +186,23 @@ export function ProcessPropertyTab({ property, documents, onDocumentUploaded, vi
   /* ── Documentos view ── */
   if (view === 'documentos') {
     return (
-      <Card>
-        <CardContent className="pt-4">
-          {docTypesLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : (
-            <DocumentsSection
-              byCategory={byCategory}
-              uploadedDocs={uploadedDocs}
-              propertyId={property.id}
-              onUploaded={handleDocUploaded}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        {/* Batch upload with AI */}
+        <BulkDocUpload propertyId={property.id} onComplete={handleDocUploaded} />
+        {docTypesLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
+        ) : (
+          <DocumentsSection
+            byCategory={byCategory}
+            uploadedDocs={uploadedDocs}
+            propertyId={property.id}
+            onUploaded={handleDocUploaded}
+          />
+        )}
+      </div>
     )
   }
 
@@ -315,6 +317,104 @@ export function ProcessPropertyTab({ property, documents, onDocumentUploaded, vi
             </div>
           </TabsContent>
         </Tabs>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Bulk document upload with AI classification ──
+
+function BulkDocUpload({ propertyId, onComplete }: { propertyId: string; onComplete: (result: any, docTypeId: string) => void }) {
+  const [isClassifying, setIsClassifying] = useState(false)
+  const [classified, setClassified] = useState<{ file: File; doc_type_id: string | null; doc_type_name: string | null; confidence: string; accepted: boolean }[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setIsClassifying(true)
+    const formData = new FormData()
+    Array.from(files).forEach(f => formData.append('files', f))
+    try {
+      const res = await fetch('/api/documents/classify', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error()
+      const { data } = await res.json()
+      setClassified(Array.from(files).map((file, idx) => {
+        const match = data?.find((d: any) => d.index === idx)
+        return {
+          file,
+          doc_type_id: match?.doc_type_id || null,
+          doc_type_name: match?.doc_type_name || null,
+          confidence: match?.confidence || 'low',
+          accepted: match?.confidence !== 'low' && !!match?.doc_type_id,
+        }
+      }))
+    } catch { /* silent */ }
+    finally {
+      setIsClassifying(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  const handleUpload = async () => {
+    const accepted = classified.filter(c => c.accepted && c.doc_type_id)
+    if (!accepted.length) return
+    setIsUploading(true)
+    for (const cf of accepted) {
+      try {
+        const fd = new FormData()
+        fd.append('file', cf.file)
+        if (cf.doc_type_id) fd.append('doc_type_id', cf.doc_type_id)
+        const res = await fetch(`/api/properties/${propertyId}/documents/upload`, { method: 'POST', body: fd })
+        if (res.ok) {
+          const result = await res.json()
+          onComplete(result, cf.doc_type_id!)
+        }
+      } catch { /* skip */ }
+    }
+    setClassified([])
+    setIsUploading(false)
+  }
+
+  if (classified.length === 0) {
+    return (
+      <div className="opacity-65">
+        <Button variant="outline" size="sm" className="w-full" onClick={() => inputRef.current?.click()} disabled={isClassifying}>
+          {isClassifying ? 'A analisar...' : <><Sparkles className="mr-2 h-4 w-4" />Enviar Vários Documentos (IA)</>}
+        </Button>
+        <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple className="hidden" onChange={handleFiles} />
+      </div>
+    )
+  }
+
+  const acceptedCount = classified.filter(c => c.accepted).length
+  return (
+    <Card className="gap-0">
+      <CardContent className="p-3 space-y-2">
+        <div className="divide-y rounded-lg border overflow-hidden">
+          {classified.map((cf, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+              <button
+                onClick={() => setClassified(prev => prev.map((c, j) => j === i ? { ...c, accepted: !c.accepted } : c))}
+                className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors', cf.accepted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/30')}
+              >
+                {cf.accepted && <span className="text-[8px]">✓</span>}
+              </button>
+              <span className="flex-1 truncate text-xs">{cf.file.name}</span>
+              {cf.doc_type_name && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">→ {cf.doc_type_name}</span>}
+              <Badge variant="secondary" className={cn('text-[9px] px-1 py-0 border-0 shrink-0', cf.confidence === 'high' ? 'bg-emerald-100 text-emerald-700' : cf.confidence === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700')}>
+                {cf.confidence === 'high' ? 'Alta' : cf.confidence === 'medium' ? 'Média' : 'Baixa'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" className="flex-1 text-xs" onClick={() => setClassified([])}>Cancelar</Button>
+          <Button size="sm" className="flex-1 text-xs" onClick={handleUpload} disabled={isUploading || acceptedCount === 0}>
+            {isUploading ? 'A enviar...' : `Enviar ${acceptedCount}`}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

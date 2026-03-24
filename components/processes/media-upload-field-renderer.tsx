@@ -67,28 +67,18 @@ export function MediaUploadFieldRenderer({
 
   return (
     <FormItem>
-      <div className="flex items-center justify-between">
-        <FormLabel>
-          {field.label}
-          {field.required && <span className="text-destructive ml-0.5">*</span>}
-        </FormLabel>
-        {!loading && (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <ImageIcon className="h-3 w-3" />
-            {media.length} {media.length === 1 ? 'imagem' : 'imagens'}
-          </Badge>
-        )}
-      </div>
       {field.help_text && <FormDescription>{field.help_text}</FormDescription>}
 
       <div className="space-y-4">
-        {/* Upload de novas imagens */}
-        <PropertyMediaUpload
-          propertyId={propertyId}
-          onUploadComplete={fetchMedia}
-        />
+        {/* Upload de novas imagens — only show when no images yet */}
+        {!loading && media.length === 0 && (
+          <PropertyMediaUpload
+            propertyId={propertyId}
+            onUploadComplete={fetchMedia}
+          />
+        )}
 
-        {/* Galeria de imagens existentes */}
+        {/* Galeria de imagens existentes (has its own upload button) */}
         {loading ? (
           <div className="grid grid-cols-3 gap-2">
             <Skeleton className="aspect-video rounded-md" />

@@ -2,59 +2,65 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Mail, Eye, RotateCcw, Send, Edit } from 'lucide-react'
+import { MessageCircle, Eye, RotateCcw, Send, Edit } from 'lucide-react'
 import { cn, formatDateTime } from '@/lib/utils'
-import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
 import { SubtaskCardBase, type CardState } from './subtask-card-base'
 import type { ProcSubtask } from '@/types/subtask'
-import type { LogEmail } from '@/types/process'
 
-const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Mail,
-  // Dynamic icons loaded from EMAIL_STATUS_CONFIG
+const WPP_STATUS_CONFIG: Record<string, { label: string; color: string; badgeVariant?: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  sent: { label: 'Enviada', color: 'text-blue-500', badgeVariant: 'secondary' },
+  delivered: { label: 'Entregue', color: 'text-emerald-500', badgeVariant: 'secondary' },
+  read: { label: 'Lida', color: 'text-emerald-600', badgeVariant: 'secondary' },
+  failed: { label: 'Falhou', color: 'text-red-500', badgeVariant: 'destructive' },
 }
 
-interface SubtaskCardEmailProps {
+interface SubtaskCardWhatsAppProps {
   subtask: ProcSubtask
-  ownerEmail: string
-  emails: LogEmail[]
+  ownerPhone: string
   onOpenSheet: (subtask: ProcSubtask) => void
   onRevert: (subtaskId: string) => void
   onResend: (subtask: ProcSubtask) => void
-  onResetTemplate: (subtaskId: string) => void
 }
 
-export function SubtaskCardEmail({
-  subtask, ownerEmail, emails, onOpenSheet, onRevert, onResend, onResetTemplate,
-}: SubtaskCardEmailProps) {
+export function SubtaskCardWhatsApp({
+  subtask, ownerPhone, onOpenSheet, onRevert, onResend,
+}: SubtaskCardWhatsAppProps) {
   const isBlocked = !!(subtask as any).is_blocked
-  const hasRendered = !!(subtask.config as Record<string, unknown>).rendered
-  const rendered = (subtask.config as Record<string, unknown>).rendered as Record<string, string> | undefined
+  const config = subtask.config as Record<string, any>
+  const hasRendered = !!config.rendered
+  const rendered = config.rendered as { message?: string; phone?: string } | undefined
 
   const state: CardState = subtask.is_completed ? 'completed' : hasRendered ? 'draft' : 'pending'
 
-  // Email status from log_emails
-  const emailLog = emails.find(e => e.proc_subtask_id === subtask.id)
-  const emailStatus = emailLog?.last_event
-  const statusConfig = emailStatus ? EMAIL_STATUS_CONFIG[emailStatus] : null
+  // Message status from task_result
+  const taskResult = config.task_result as { status?: string } | undefined
+  const msgStatus = taskResult?.status || (subtask.is_completed ? 'sent' : undefined)
+  const statusConfig = msgStatus ? WPP_STATUS_CONFIG[msgStatus] : null
 
   return (
     <SubtaskCardBase
       subtask={subtask}
       state={state}
-      icon={<Mail className={cn('h-4 w-4', state === 'completed' ? 'text-emerald-500' : 'text-amber-500')} />}
-      typeLabel="Email"
+      icon={<MessageCircle className={cn('h-4 w-4', state === 'completed' ? 'text-emerald-500' : 'text-green-500')} />}
+      typeLabel="WhatsApp"
     >
       <div className="space-y-2 text-xs">
         {/* Preview info */}
-        {(rendered?.subject || ownerEmail) && (
+        {(rendered?.message || ownerPhone) && (
           <div className="space-y-0.5 text-muted-foreground">
-            {ownerEmail && <p>Para: <span className="font-medium text-foreground">{ownerEmail}</span></p>}
-            {rendered?.subject && <p>Assunto: <span className="font-medium text-foreground">{rendered.subject}</span></p>}
+            {ownerPhone && <p>Para: <span className="font-medium text-foreground">{ownerPhone}</span></p>}
+            {rendered?.message && <p className="line-clamp-2">{rendered.message}</p>}
           </div>
         )}
 
-        {/* Email status badge */}
+        {/* Template name */}
+        {config.whatsapp_template_name && !rendered?.message && (
+          <div className="text-muted-foreground">
+            Template: <span className="font-medium text-foreground">{config.whatsapp_template_name as string}</span>
+          </div>
+        )}
+
+        {/* Status badge */}
         {subtask.is_completed && statusConfig && (
           <div className="flex items-center gap-1.5">
             <Badge
@@ -73,29 +79,16 @@ export function SubtaskCardEmail({
         {/* Action buttons */}
         <div className="flex items-center gap-1.5">
           {!subtask.is_completed && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-full"
-                onClick={() => onOpenSheet(subtask)}
-                disabled={isBlocked}
-              >
-                <Edit className="mr-1 h-3 w-3" />
-                {hasRendered ? 'Continuar Edição' : 'Editar Email'}
-              </Button>
-              {hasRendered && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
-                  onClick={() => onResetTemplate(subtask.id)}
-                >
-                  <RotateCcw className="mr-1 h-3 w-3" />
-                  Resetar Template
-                </Button>
-              )}
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs rounded-full"
+              onClick={() => onOpenSheet(subtask)}
+              disabled={isBlocked}
+            >
+              <Edit className="mr-1 h-3 w-3" />
+              {hasRendered ? 'Editar Mensagem' : 'Preparar Mensagem'}
+            </Button>
           )}
 
           {subtask.is_completed && (
@@ -107,7 +100,7 @@ export function SubtaskCardEmail({
                 onClick={() => onOpenSheet(subtask)}
               >
                 <Eye className="mr-1 h-3 w-3" />
-                Ver Email
+                Ver Mensagem
               </Button>
               <Button
                 variant="outline"

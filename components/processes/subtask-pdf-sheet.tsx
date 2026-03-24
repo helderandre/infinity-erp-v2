@@ -801,6 +801,7 @@ export function SubtaskPdfSheet({
             <div className="flex items-center gap-2">
               <Button
                 variant="outline" size="sm"
+                className="rounded-full"
                 onClick={handleSaveDraft}
                 disabled={isSaving || isCompleting}
               >
@@ -809,6 +810,7 @@ export function SubtaskPdfSheet({
               </Button>
               <Button
                 variant="outline" size="sm"
+                className="rounded-full"
                 onClick={handleDownload}
                 disabled={isDownloading || isCompleting || !pdfDocRef.current}
               >
@@ -818,6 +820,7 @@ export function SubtaskPdfSheet({
             </div>
             <Button
               size="sm"
+              className="rounded-full"
               onClick={handleComplete}
               disabled={isSaving || isCompleting}
             >
@@ -835,6 +838,7 @@ export function SubtaskPdfSheet({
             </div>
             <Button
               variant="outline" size="sm"
+              className="rounded-full"
               onClick={handleDownload}
               disabled={isDownloading || !pdfDocRef.current}
             >
@@ -880,7 +884,7 @@ function VariablesSidebar({
   if (!isOpen) {
     return (
       <div className="flex flex-col items-center border-l border-border bg-card w-12 py-2 gap-2">
-        <Button variant="ghost" size="sm" onClick={onToggle} className="h-8 w-8 p-0 rounded">
+        <Button variant="ghost" size="sm" onClick={onToggle} className="h-8 w-8 p-0 rounded-full">
           <Variable className="h-4 w-4" />
         </Button>
       </div>
@@ -891,7 +895,7 @@ function VariablesSidebar({
     <div className="flex flex-col border-l border-border bg-card w-72 h-full max-h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">Variáveis</h3>
-        <Button variant="ghost" size="sm" onClick={onToggle} className="h-6 w-6 p-0">
+        <Button variant="ghost" size="sm" onClick={onToggle} className="h-6 w-6 p-0 rounded-full">
           <ChevronLeft className="h-4 w-4" />
         </Button>
       </div>

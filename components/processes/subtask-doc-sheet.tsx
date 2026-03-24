@@ -404,6 +404,7 @@ export function SubtaskDocSheet({
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-full"
                 onClick={handleSaveDraft}
                 disabled={isSaving || isCompleting}
               >
@@ -417,6 +418,7 @@ export function SubtaskDocSheet({
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-full"
                 onClick={handlePrint}
                 disabled={isSaving || isCompleting}
               >
@@ -426,6 +428,7 @@ export function SubtaskDocSheet({
             </div>
             <Button
               size="sm"
+              className="rounded-full"
               onClick={handleMarkAsComplete}
               disabled={isSaving || isCompleting}
             >
@@ -446,6 +449,7 @@ export function SubtaskDocSheet({
             <Button
               variant="outline"
               size="sm"
+              className="rounded-full"
               onClick={handlePrint}
             >
               <Download className="mr-2 h-4 w-4" />

@@ -40,7 +40,7 @@ export function DocumentsSection({
   isInDeleteMode,
 }: DocumentsSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {Object.entries(byCategory).map(([category, types]) => (
         <DocCategoryCard
           key={category}

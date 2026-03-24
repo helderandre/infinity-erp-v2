@@ -135,21 +135,6 @@ export function FormSubtaskDialog({
             <FileText className="h-5 w-5 text-muted-foreground" />
             <SheetTitle className="text-lg">{formTitle || subtask.title}</SheetTitle>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary" className="text-xs">
-              Formulário
-            </Badge>
-            {!loading && sectionCount > 0 && (
-              <Badge variant="outline" className="text-xs">
-                {sectionCount} {sectionCount === 1 ? 'secção' : 'secções'} · {fieldCount} {fieldCount === 1 ? 'campo' : 'campos'}
-              </Badge>
-            )}
-            {subtask.is_completed && (
-              <Badge variant="outline" className="text-xs text-emerald-700 border-emerald-300 bg-emerald-50">
-                Concluída
-              </Badge>
-            )}
-          </div>
         </SheetHeader>
 
         {/* CORPO SCROLLÁVEL */}
@@ -181,57 +166,40 @@ export function FormSubtaskDialog({
         {/* FOOTER FIXO */}
         {!loading && sections.length > 0 && (
           <div className="border-t px-6 py-3 flex items-center justify-end gap-3">
-            {readOnly ? (
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Fechar
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={isBusy}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  form={FORM_ID}
-                  variant="outline"
-                  disabled={isBusy}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      A guardar...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Guardar
-                    </>
-                  )}
-                </Button>
-                {!subtask.is_completed && (
-                  <Button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={handleSaveAndComplete}
-                  >
-                    {completing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        A concluir...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        Concluir
-                      </>
-                    )}
-                  </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                if (!readOnly) {
+                  // Auto-save on close
+                  const form = document.getElementById(FORM_ID) as HTMLFormElement | null
+                  if (form) form.requestSubmit()
+                }
+                onOpenChange(false)
+              }}
+              disabled={isBusy}
+            >
+              Fechar
+            </Button>
+            {!readOnly && !subtask.is_completed && (
+              <Button
+                type="button"
+                className="rounded-full"
+                disabled={isBusy}
+                onClick={handleSaveAndComplete}
+              >
+                {completing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    A concluir...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Concluir
+                  </>
                 )}
-              </>
+              </Button>
             )}
           </div>
         )}

@@ -99,17 +99,17 @@ export function DocCategoryCard({
   const totalCount = docTypes.length
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+    <Card className="gap-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-2 pt-3 px-4">
         <div className="flex items-center gap-2">
           <CardTitle className="text-sm">{category}</CardTitle>
-          <Badge variant="secondary" className="text-xs font-normal">
+          <Badge variant="secondary" className="text-[10px] font-normal px-1.5 py-0">
             {uploadedCount}/{totalCount}
           </Badge>
         </div>
         <ProgressRing uploaded={uploadedCount} total={totalCount} />
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-1 px-3 pb-3">
         {docTypes.map((dt) => {
           const isUploaded = uploadedDocs.some(
             (d) => d.doc_type_id === dt.id && d.file_url

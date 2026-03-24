@@ -297,6 +297,7 @@ function EditorCanvas({
             <Button
               variant="outline"
               size="sm"
+              className="rounded-full"
               onClick={() => onSaveDraft(getPayload())}
               disabled={isSaving || isCompleting || isResettingTemplate}
             >
@@ -311,7 +312,7 @@ function EditorCanvas({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-orange-600 hover:text-orange-700"
+                className="text-orange-600 hover:text-orange-700 rounded-full"
                 onClick={onResetTemplate}
                 disabled={isSaving || isCompleting || isResettingTemplate}
               >
@@ -328,6 +329,7 @@ function EditorCanvas({
             <Button
               variant="outline"
               size="sm"
+              className="rounded-full"
               onClick={() => onMarkAsSent(getPayload())}
               disabled={isSaving || isCompleting || isResettingTemplate}
             >
@@ -340,6 +342,7 @@ function EditorCanvas({
             </Button>
             <Button
               size="sm"
+              className="rounded-full"
               onClick={() => onSendEmail(getPayload())}
               disabled={isSaving || isCompleting || isResettingTemplate || isLoadingAccount}
               title={!hasEmailAccount && !isLoadingAccount ? 'Configure a conta de email em Definições → Email' : undefined}
@@ -787,7 +790,7 @@ export function SubtaskEmailSheet({
               </div>
             </div>
             {canResend && (
-              <Button variant="outline" size="sm" onClick={handleResend} disabled={isResending} className="shrink-0 self-center">
+              <Button variant="outline" size="sm" onClick={handleResend} disabled={isResending} className="shrink-0 self-center rounded-full">
                 {isResending ? <Spinner variant="infinite" size={14} className="mr-1.5" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
                 Reenviar
               </Button>
@@ -812,7 +815,7 @@ export function SubtaskEmailSheet({
             <Button
               variant="outline"
               size="sm"
-              className="text-orange-600 hover:text-orange-700"
+              className="text-orange-600 hover:text-orange-700 rounded-full"
               onClick={handleResetTemplate}
               disabled={isResettingTemplate}
             >
@@ -933,10 +936,11 @@ export function SubtaskEmailSheet({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)} disabled={isSendingEmail}>
+            <Button variant="outline" className="rounded-full" onClick={() => setEmailDialogOpen(false)} disabled={isSendingEmail}>
               Cancelar
             </Button>
             <Button
+              className="rounded-full"
               onClick={handleConfirmSend}
               disabled={
                 isSendingEmail ||

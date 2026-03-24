@@ -209,7 +209,7 @@ export function SubtaskCardScheduleEvent({
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="flex-1 rounded-full"
                 onClick={() => setDialogOpen(true)}
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -218,7 +218,7 @@ export function SubtaskCardScheduleEvent({
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full"
                 onClick={() => setCancelDialogOpen(true)}
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -232,7 +232,7 @@ export function SubtaskCardScheduleEvent({
             variant="outline"
             size="sm"
             className={cn(
-              'w-full border-dashed',
+              'w-full border-dashed rounded-full',
               !isBlocked && 'border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-500/10'
             )}
             disabled={isBlocked}

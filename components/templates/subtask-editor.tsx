@@ -44,6 +44,7 @@ import {
   ClipboardList,
   TextCursorInput,
   CalendarPlus,
+  MessageCircle,
 } from 'lucide-react'
 import { SUBTASK_TYPES, SUBTASK_TYPE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -63,6 +64,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   TextCursorInput,
   CalendarPlus,
   ExternalLink: ClipboardList,
+  MessageCircle,
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -73,6 +75,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   form: ClipboardList,
   field: TextCursorInput,
   external_form: ClipboardList,
+  whatsapp: MessageCircle,
 }
 
 interface RoleOption {

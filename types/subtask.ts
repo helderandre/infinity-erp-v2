@@ -1,6 +1,6 @@
 import type { AlertsConfig } from './alert'
 
-export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field' | 'schedule_event' | 'external_form'
+export type SubtaskType = 'upload' | 'checklist' | 'email' | 'generate_doc' | 'form' | 'field' | 'schedule_event' | 'external_form' | 'whatsapp'
 
 // Tipos de multiplicação por proprietário
 export type OwnerScope = 'none' | 'all_owners' | 'main_contact_only'
@@ -259,5 +259,8 @@ export interface SubtaskData {
     external_form_fields?: ExternalFormField[]
     external_links?: ExternalLink[]
     document_shortcuts?: DocumentShortcut[]
+    // WhatsApp subtask config
+    whatsapp_template_id?: string   // type === 'whatsapp' → FK auto_wpp_templates
+    whatsapp_instance_id?: string   // instância WhatsApp a usar
   } & SubtaskOwnerConfig
 }

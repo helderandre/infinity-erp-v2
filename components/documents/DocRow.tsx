@@ -77,7 +77,7 @@ export function DocRow({
           }
         }}
         className={`
-          flex items-center gap-3 px-3 py-3
+          flex items-center gap-3 px-3 py-2
           ${canToggle || (isInDeleteMode && hasDoc) ? 'cursor-pointer hover:bg-accent/50' : ''}
           transition-colors duration-150
         `}

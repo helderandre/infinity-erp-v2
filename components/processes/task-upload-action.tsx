@@ -108,6 +108,7 @@ export function TaskUploadAction({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="rounded-full"
                   onClick={() => completeTask(doc.id)}
                   disabled={isCompleting}
                 >

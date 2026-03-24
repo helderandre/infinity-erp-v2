@@ -22,12 +22,14 @@ const createSubtaskSchema = z.object({
   dependency_proc_subtask_id: z.string().optional().nullable(),
   dependency_proc_task_id: z.string().optional().nullable(),
   config: z.object({
-    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field']),
+    type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field', 'whatsapp']),
     doc_type_id: z.string().optional(),
     email_library_id: z.string().optional(),
     doc_library_id: z.string().optional(),
     sections: z.any().optional(),
     field: z.any().optional(),
+    whatsapp_template_id: z.string().optional(),
+    whatsapp_instance_id: z.string().optional(),
   }),
 })
 
@@ -153,7 +155,7 @@ export async function POST(
     } else if (stList.length === 1) {
       const typeMap: Record<string, string> = {
         upload: 'UPLOAD', email: 'EMAIL', generate_doc: 'GENERATE_DOC',
-        form: 'FORM', checklist: 'MANUAL', field: 'FORM',
+        form: 'FORM', checklist: 'MANUAL', field: 'FORM', whatsapp: 'EMAIL',
       }
       newActionType = typeMap[stList[0].config?.type] || 'MANUAL'
     } else {

@@ -527,17 +527,22 @@ export function DynamicFormRenderer({
   return (
     <Form {...form}>
       <form id={formId} onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className={readOnly ? 'pointer-events-none' : undefined}>
+        <div className={readOnly ? 'pointer-events-none space-y-6' : 'space-y-6'}>
         {sections
           .sort((a, b) => a.order_index - b.order_index)
-          .map((section) => (
+          .map((section) => {
+            // Hide section header when single field has the same label
+            const hideSectionHeader = section.fields.length === 1 && section.fields[0].label === section.title
+            return (
             <Card key={`${section.title}-${section.order_index}`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{section.title}</CardTitle>
-                {section.description && (
-                  <CardDescription>{section.description}</CardDescription>
-                )}
-              </CardHeader>
+              {!hideSectionHeader && (
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{section.title}</CardTitle>
+                  {section.description && (
+                    <CardDescription>{section.description}</CardDescription>
+                  )}
+                </CardHeader>
+              )}
               <CardContent>
                 <div className="grid grid-cols-12 gap-4">
                   {section.fields
@@ -568,7 +573,7 @@ export function DynamicFormRenderer({
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
 
         {!hideSubmitButton && !readOnly && (

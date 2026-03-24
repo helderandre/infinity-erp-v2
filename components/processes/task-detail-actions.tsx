@@ -26,6 +26,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TaskUploadAction } from './task-upload-action'
 import { SubtaskCardList } from './subtask-card-list'
+import { BatchDocumentUpload } from './batch-document-upload'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,8 @@ interface TaskDetailActionsProps {
   owners?: ProcessOwner[]
   deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   onTaskUpdate: () => void
+  /** Ref callback to render state buttons in a fixed bar outside the scroll area */
+  stateButtonsRef?: React.MutableRefObject<(() => React.ReactNode) | null>
 }
 
 export function TaskDetailActions({
@@ -99,6 +102,7 @@ export function TaskDetailActions({
   owners = [],
   deal,
   onTaskUpdate,
+  stateButtonsRef,
 }: TaskDetailActionsProps) {
   const { user } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -350,6 +354,7 @@ export function TaskDetailActions({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="rounded-full"
                     asChild
                   >
                     <a href={linkedDoc.file_url} target="_blank" rel="noopener noreferrer">
@@ -359,6 +364,7 @@ export function TaskDetailActions({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="rounded-full"
                     asChild
                   >
                     <a href={linkedDoc.file_url} download={linkedDoc.file_name}>
@@ -428,11 +434,29 @@ export function TaskDetailActions({
                 onDeleteSubtask={(subtask) => setDeletingSubtask(subtask)}
               />
             )}
+            {/* Batch upload with AI classification */}
+            {!['completed', 'skipped'].includes(task.status ?? '') && (() => {
+              const uploadSubtasks = (task.subtasks || []).filter((s) => {
+                const config = s.config as Record<string, unknown>
+                const type = config?.type as string || ''
+                return (type === 'upload' || config?.check_type === 'document') && !s.is_completed
+              })
+              return uploadSubtasks.length > 0 ? (
+                <BatchDocumentUpload
+                  processId={processId}
+                  taskId={task.id}
+                  propertyId={propertyId}
+                  uploadSubtasks={uploadSubtasks}
+                  ownerId={task.owner_id || mainOwnerId}
+                  onComplete={onTaskUpdate}
+                />
+              ) : null
+            })()}
             {canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '') && (
               <div className="opacity-65">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button variant="outline" size="sm" className="w-full rounded-full">
                       <Plus className="mr-2 h-4 w-4" />
                       Adicionar Subtarefa
                     </Button>
@@ -503,7 +527,7 @@ export function TaskDetailActions({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full">
+                <Button variant="outline" size="sm" className="w-full rounded-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Subtarefa
                 </Button>
@@ -545,17 +569,17 @@ export function TaskDetailActions({
 
     if (task.status === 'completed') {
       return (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-emerald-600">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-emerald-400 flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4" />
-            Tarefa concluída em {formatDate(task.completed_at)}
-          </div>
+            Concluída em {formatDate(task.completed_at)}
+          </span>
           {canResendEmail && (() => {
             const emailStatus = latestEmail?.last_event
             const statusConfig = emailStatus ? EMAIL_STATUS_CONFIG[emailStatus] : null
             const StatusIcon = statusConfig ? EMAIL_STATUS_ICONS[statusConfig.icon] : null
             return (
-              <div className="flex items-center gap-2">
+              <>
                 <Badge
                   variant={statusConfig?.badgeVariant || 'secondary'}
                   className="gap-1 text-xs"
@@ -563,27 +587,30 @@ export function TaskDetailActions({
                   {StatusIcon && <StatusIcon className={cn('h-3 w-3', statusConfig?.color)} />}
                   {statusConfig?.label || emailStatus}
                 </Badge>
-                <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={isResendingEmail}>
-                  {isResendingEmail ? <Spinner variant="infinite" size={14} className="mr-1.5" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+                <button
+                  onClick={handleResendEmail}
+                  disabled={isResendingEmail}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white/70 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-50"
+                >
+                  {isResendingEmail ? <Spinner variant="infinite" size={12} /> : <RotateCcw className="h-3 w-3" />}
                   Reenviar
-                </Button>
-              </div>
+                </button>
+              </>
             )
           })()}
           {canManageAdhoc && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => handleAction('reset')}
               disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/90 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-50"
             >
               {isProcessing ? (
-                <Spinner variant="infinite" size={16} className="mr-2" />
+                <Spinner variant="infinite" size={14} />
               ) : (
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="h-4 w-4" />
               )}
               Reabrir Tarefa
-            </Button>
+            </button>
           )}
         </div>
       )
@@ -591,26 +618,24 @@ export function TaskDetailActions({
 
     if (task.status === 'skipped') {
       return (
-        <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
           {task.bypass_reason && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium">Motivo da dispensa: </span>
-              {task.bypass_reason}
-            </p>
+            <span className="text-sm text-white/50">
+              Dispensada: {task.bypass_reason}
+            </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => handleAction('reset')}
             disabled={isProcessing}
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/90 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-50"
           >
             {isProcessing ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
+              <Spinner variant="infinite" size={14} />
             ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
+              <RotateCcw className="h-4 w-4" />
             )}
             Reactivar
-          </Button>
+          </button>
         </div>
       )
     }
@@ -619,55 +644,53 @@ export function TaskDetailActions({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {task.status === 'pending' && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => handleAction('start')}
               disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/90 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-50"
             >
               {isProcessing ? (
-                <Spinner variant="infinite" size={16} className="mr-2" />
+                <Spinner variant="infinite" size={14} />
               ) : (
-                <PlayCircle className="mr-2 h-4 w-4" />
+                <PlayCircle className="h-4 w-4" />
               )}
               Iniciar
-            </Button>
+            </button>
           )}
 
           {task.action_type === 'EMAIL' ? (
-            <Button
-              size="sm"
+            <button
               onClick={handleOpenEmailDialog}
               disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-900 bg-white hover:bg-white/90 transition-colors disabled:opacity-50"
             >
-              <Send className="mr-2 h-4 w-4" />
+              <Send className="h-4 w-4" />
               Enviar Email
-            </Button>
+            </button>
           ) : (
-            <Button
-              size="sm"
+            <button
               onClick={() => handleAction('complete')}
               disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-900 bg-white hover:bg-white/90 transition-colors disabled:opacity-50"
             >
               {isProcessing ? (
-                <Spinner variant="infinite" size={16} className="mr-2" />
+                <Spinner variant="infinite" size={14} />
               ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
+                <CheckCircle2 className="h-4 w-4" />
               )}
               Concluir
-            </Button>
+            </button>
           )}
 
           {!task.is_mandatory && !showBypassInput && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => setShowBypassInput(true)}
               disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-colors disabled:opacity-50"
             >
-              <Ban className="mr-2 h-4 w-4" />
+              <Ban className="h-4 w-4" />
               Dispensar
-            </Button>
+            </button>
           )}
         </div>
 
@@ -683,6 +706,7 @@ export function TaskDetailActions({
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
+                className="rounded-full"
                 onClick={handleBypassSubmit}
                 disabled={isProcessing || bypassReason.length < 10}
               >
@@ -696,6 +720,7 @@ export function TaskDetailActions({
               <Button
                 variant="ghost"
                 size="sm"
+                className="rounded-full"
                 onClick={() => {
                   setShowBypassInput(false)
                   setBypassReason('')
@@ -709,6 +734,11 @@ export function TaskDetailActions({
         )}
       </div>
     )
+  }
+
+  // Expose state buttons to parent via ref
+  if (stateButtonsRef) {
+    stateButtonsRef.current = renderStateButtons
   }
 
   const isEmailFormValid =
@@ -732,9 +762,6 @@ export function TaskDetailActions({
       ) : (
         renderActionContent()
       )}
-
-      {/* State transition buttons */}
-      {renderStateButtons()}
 
       {/* Add Subtask Dialog */}
       {addSubtaskOpen && (
@@ -898,12 +925,14 @@ export function TaskDetailActions({
           <DialogFooter>
             <Button
               variant="outline"
+              className="rounded-full"
               onClick={() => setEmailDialogOpen(false)}
               disabled={isSendingEmail}
             >
               Cancelar
             </Button>
             <Button
+              className="rounded-full"
               onClick={handleSendEmail}
               disabled={isSendingEmail || !isEmailFormValid}
             >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { PropertyImageCropper } from './property-image-cropper'
@@ -121,6 +121,19 @@ export function PropertyMediaUpload({
 
   const isBusy = isUploading || isCompressing
 
+  // Auto-upload when files are selected
+  const pendingCount = pendingImages.length
+  const autoUploadTriggered = useRef(false)
+  useEffect(() => {
+    if (pendingCount > 0 && !isBusy && !autoUploadTriggered.current) {
+      autoUploadTriggered.current = true
+      handleUpload()
+    }
+    if (pendingCount === 0) {
+      autoUploadTriggered.current = false
+    }
+  }, [pendingCount, isBusy])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -130,8 +143,12 @@ export function PropertyMediaUpload({
           onClick={() => fileInputRef.current?.click()}
           disabled={isBusy}
         >
-          <ImagePlus className="mr-2 h-4 w-4" />
-          Adicionar Imagens
+          {isBusy ? (
+            <Spinner variant="infinite" size={16} className="mr-2" />
+          ) : (
+            <ImagePlus className="mr-2 h-4 w-4" />
+          )}
+          {isBusy ? 'A enviar...' : 'Adicionar Imagens'}
         </Button>
         <input
           ref={fileInputRef}
@@ -141,16 +158,6 @@ export function PropertyMediaUpload({
           className="hidden"
           onChange={handleFileSelect}
         />
-        {pendingImages.length > 0 && (
-          <Button size="sm" onClick={handleUpload} disabled={isBusy}>
-            {isBusy ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            Enviar {pendingImages.length} imagem(ns)
-          </Button>
-        )}
       </div>
 
       {isBusy && (

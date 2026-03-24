@@ -35,7 +35,7 @@ const createAdhocTaskSchema = z.object({
     dependency_proc_subtask_id: z.string().optional().nullable(),
     dependency_proc_task_id: z.string().optional().nullable(),
     config: z.object({
-      type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field']),
+      type: z.enum(['upload', 'checklist', 'email', 'generate_doc', 'form', 'field', 'whatsapp']),
       doc_type_id: z.string().optional(),
       email_library_id: z.string().optional(),
       doc_library_id: z.string().optional(),
@@ -169,6 +169,7 @@ export async function POST(
         form: 'FORM',
         checklist: 'MANUAL',
         field: 'FORM',
+        whatsapp: 'EMAIL',
       }
       actionType = typeMap[data.subtasks[0].config.type] || 'MANUAL'
     } else {
