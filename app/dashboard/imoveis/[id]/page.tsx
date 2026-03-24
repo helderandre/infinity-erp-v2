@@ -169,7 +169,7 @@ export default function ImovelDetalhePage() {
       energy_certificate: property.energy_certificate ?? '', external_ref: property.external_ref ?? '',
       address_street: property.address_street ?? '', postal_code: property.postal_code ?? '',
       city: property.city ?? '', zone: property.zone ?? '',
-      url_remax: (property as any).url_remax ?? '', url_idealista: (property as any).url_idealista ?? '', url_imovirtual: (property as any).url_imovirtual ?? '',
+      url_remax: (property as any).link_portal_remax ?? '', url_idealista: (property as any).link_portal_idealista ?? '', url_imovirtual: (property as any).link_portal_imovirtual ?? '',
       // specs
       typology: s?.typology ?? '', bedrooms: s?.bedrooms ?? '', bathrooms: s?.bathrooms ?? '',
       area_gross: s?.area_gross ?? '', area_util: s?.area_util ?? '',
@@ -230,9 +230,9 @@ export default function ImovelDetalhePage() {
         city: str(d.city),
         zone: str(d.zone),
         contract_regime: str(d.contract_regime),
-        url_remax: str(d.url_remax),
-        url_idealista: str(d.url_idealista),
-        url_imovirtual: str(d.url_imovirtual),
+        link_portal_remax: str(d.url_remax),
+        link_portal_idealista: str(d.url_idealista),
+        link_portal_imovirtual: str(d.url_imovirtual),
       }
       // Remove undefined keys
       for (const k of Object.keys(propertyPayload)) {
@@ -652,9 +652,9 @@ export default function ImovelDetalhePage() {
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
-                  { label: 'RE/MAX', url: property.external_ref ? `https://www.remax.pt/imoveis/${property.external_ref}` : null, bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
-                  { label: 'Idealista', url: (property as any).url_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
-                  { label: 'Imovirtual', url: (property as any).url_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
+                  { label: 'RE/MAX', url: (property as any).link_portal_remax || null, bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
+                  { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
+                  { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
                 ].map(portal => (
                   <a
                     key={portal.label}
@@ -662,7 +662,7 @@ export default function ImovelDetalhePage() {
                     target={portal.url ? '_blank' : undefined}
                     rel="noopener noreferrer"
                     className={cn(
-                      'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-3 py-1.5 border shadow-sm transition-all',
+                      'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
                       portal.url
                         ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
                         : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'

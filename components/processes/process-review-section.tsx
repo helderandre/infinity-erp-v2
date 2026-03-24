@@ -68,17 +68,23 @@ export function ProcessReviewSection({
     loadTemplates()
   }, [])
 
+  const processType = (process as any).process_type as string | undefined
+
   const loadTemplates = async () => {
     setIsLoadingTemplates(true)
     try {
       const res = await fetch('/api/templates')
       if (!res.ok) throw new Error('Erro ao carregar templates')
       const data = await res.json()
-      // Filtrar apenas templates activos
-      const activeTemplates = data.filter((t: any) => t.is_active !== false)
+      // Filtrar templates activos e compatíveis com o tipo de processo
+      const activeTemplates = data.filter((t: any) => {
+        if (t.is_active === false) return false
+        if (processType && t.process_type && t.process_type !== processType) return false
+        return true
+      })
       setTemplates(activeTemplates)
 
-      // Se só houver 1 template activo, pré-seleccionar
+      // Auto-select if only 1 compatible template
       if (activeTemplates.length === 1) {
         setSelectedTemplateId(activeTemplates[0].id)
       }
@@ -153,49 +159,47 @@ export function ProcessReviewSection({
           </div>
         )}
 
-        {/* Template selector */}
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-            <FileStack className="h-3.5 w-3.5" />
-            Template de Processo *
-          </Label>
-          {isLoadingTemplates ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
-              <Spinner variant="infinite" size={14} />
-              A carregar templates...
-            </div>
-          ) : templates.length === 0 ? (
-            <p className="text-xs text-destructive">
-              Nenhum template activo encontrado. Crie um template antes de aprovar.
-            </p>
-          ) : (
-            <>
-              <Select
-                value={selectedTemplateId}
-                onValueChange={setSelectedTemplateId}
-              >
-                <SelectTrigger className="h-9 bg-white dark:bg-background">
-                  <SelectValue placeholder="Seleccionar template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((tpl) => (
-                    <SelectItem key={tpl.id} value={tpl.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{tpl.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedTemplate?.description && (
-                <p className="text-[11px] text-muted-foreground">{selectedTemplate.description}</p>
-              )}
-            </>
-          )}
-        </div>
+        {/* Template selector — hidden when auto-selected (single match) */}
+        {isLoadingTemplates ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+            <Spinner variant="infinite" size={14} />
+            A carregar templates...
+          </div>
+        ) : templates.length === 0 ? (
+          <p className="text-xs text-destructive">
+            Nenhum template activo encontrado. Crie um template antes de aprovar.
+          </p>
+        ) : templates.length > 1 ? (
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <FileStack className="h-3.5 w-3.5" />
+              Template de Processo *
+            </Label>
+            <Select
+              value={selectedTemplateId}
+              onValueChange={setSelectedTemplateId}
+            >
+              <SelectTrigger className="h-9 bg-white dark:bg-background">
+                <SelectValue placeholder="Seleccionar template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{tpl.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedTemplate?.description && (
+              <p className="text-[11px] text-muted-foreground">{selectedTemplate.description}</p>
+            )}
+          </div>
+        ) : null}
 
         {/* Action buttons — compact */}
         <div className="flex items-center gap-2">

@@ -4,13 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus,
-  Building2,
   Users,
-  UserCircle,
   FileText,
   Mail,
   Zap,
   Handshake,
+  MessageCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,25 +40,17 @@ export function QuickActions() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
-            <Zap className="mr-2 h-4 w-4" />
-            Nova Angariação
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push('/dashboard/leads/novo')}>
             <Users className="mr-2 h-4 w-4" />
             Novo Lead
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push('/dashboard/imoveis/novo')}>
-            <Building2 className="mr-2 h-4 w-4" />
-            Novo Imóvel
+          <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
+            <Zap className="mr-2 h-4 w-4" />
+            Nova Angariação
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setFechoOpen(true)}>
             <Handshake className="mr-2 h-4 w-4" />
             Novo Fecho
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push('/dashboard/proprietarios/novo')}>
-            <UserCircle className="mr-2 h-4 w-4" />
-            Novo Proprietário
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
@@ -75,6 +66,10 @@ export function QuickActions() {
               <DropdownMenuItem onClick={() => router.push('/dashboard/templates/emails/novo')}>
                 <Mail className="mr-2 h-4 w-4" />
                 Email
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/automacao/templates-wpp/editor')}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
