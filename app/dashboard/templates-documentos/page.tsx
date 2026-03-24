@@ -127,6 +127,7 @@ interface DocTemplate {
   description: string | null
   content_html: string
   doc_type_id: string | null
+  template_type: string | null
   doc_types: { id: string; name: string; category: string | null } | null
   created_at: string | null
   updated_at: string | null
@@ -224,7 +225,16 @@ function DocTemplatesTab() {
             <TableBody>
               {templates.map((tpl) => (
                 <TableRow key={tpl.id}>
-                  <TableCell className="font-medium">{tpl.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      {tpl.name}
+                      {tpl.template_type === 'pdf' ? (
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px]">PDF</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[10px]">HTML</Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {tpl.doc_types ? (
                       <Badge variant="secondary">{tpl.doc_types.name}</Badge>

@@ -19,6 +19,7 @@ const subtaskUpdateSchema = z
         body_html: z.string().optional(),
         content_html: z.string().optional(),
         editor_state: z.any().optional(),
+        pdf_field_values: z.record(z.string(), z.string()).optional(),
       })
       .optional(),
     resend_email_id: z.string().optional(),
@@ -29,9 +30,7 @@ const subtaskUpdateSchema = z
       recipient_email: z.string().optional(),
       cc: z.array(z.string()).optional(),
     }).optional(),
-    task_result: z.object({
-      doc_registry_id: z.string().optional(),
-    }).optional(),
+    task_result: z.any().optional(),
     reset_template: z.boolean().optional(),
   })
   .refine(
@@ -167,21 +166,25 @@ export async function PUT(
     // Construir o update
     const updateData: Record<string, unknown> = {}
 
+    // Build config incrementally so rendered_content + task_result don't overwrite each other
+    let updatedConfig = { ...config }
+
     if (rendered_content) {
-      updateData.config = { ...config, rendered: rendered_content }
+      updatedConfig = { ...updatedConfig, rendered: rendered_content }
+    }
+
+    if (validation.data.task_result) {
+      updatedConfig = { ...updatedConfig, task_result: is_completed ? validation.data.task_result : null }
+    }
+
+    if (rendered_content || validation.data.task_result) {
+      updateData.config = updatedConfig
     }
 
     if (is_completed !== undefined) {
       updateData.is_completed = is_completed
       updateData.completed_at = is_completed ? new Date().toISOString() : null
       updateData.completed_by = is_completed ? auth.user.id : null
-    }
-
-    if (validation.data.task_result) {
-      updateData.config = {
-        ...config,
-        task_result: is_completed ? validation.data.task_result : null,
-      }
     }
 
     // Novos campos: assigned_to, priority, due_date
@@ -472,7 +475,8 @@ export async function PUT(
     return NextResponse.json({ success: true, taskStatus: newTaskStatus })
   } catch (error) {
     console.error('Erro ao actualizar subtarefa:', error)
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Erro interno do servidor', details: message }, { status: 500 })
   }
 }
 

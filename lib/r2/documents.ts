@@ -5,6 +5,7 @@ export type DocumentContext =
   | { type: 'property'; propertyId: string }
   | { type: 'owner'; ownerId: string }
   | { type: 'consultant'; consultantId: string }
+  | { type: 'pdf-template'; templateId: string }
 
 function getBasePath(ctx: DocumentContext): string {
   switch (ctx.type) {
@@ -14,6 +15,8 @@ function getBasePath(ctx: DocumentContext): string {
       return `proprietarios/${ctx.ownerId}`
     case 'consultant':
       return `consultores/${ctx.consultantId}`
+    case 'pdf-template':
+      return `pdf-templates/${ctx.templateId}`
   }
 }
 

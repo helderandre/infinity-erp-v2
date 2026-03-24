@@ -26,6 +26,7 @@ import { SubtaskCardScheduleEvent } from './subtask-card-schedule-event'
 import { FormSubtaskDialog } from './form-subtask-dialog'
 import { SubtaskEmailSheet } from './subtask-email-sheet'
 import { SubtaskDocSheet } from './subtask-doc-sheet'
+import { SubtaskPdfSheet } from './subtask-pdf-sheet'
 import { SubtaskCardExternalForm } from './subtask-card-external-form'
 import { ExternalFormDialog } from './external-form-dialog'
 import type { ProcessTask, ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
@@ -67,6 +68,7 @@ export function SubtaskCardList({
   const [openEmailSubtask, setOpenEmailSubtask] = useState<ProcSubtask | null>(null)
   const [openEmailOwnerEmail, setOpenEmailOwnerEmail] = useState('')
   const [openDocSubtask, setOpenDocSubtask] = useState<ProcSubtask | null>(null)
+  const [openPdfSubtask, setOpenPdfSubtask] = useState<ProcSubtask | null>(null)
   const [openFormSubtask, setOpenFormSubtask] = useState<ProcSubtask | null>(null)
   const [viewFormSubtask, setViewFormSubtask] = useState<ProcSubtask | null>(null)
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
@@ -198,7 +200,29 @@ export function SubtaskCardList({
           <SubtaskCardDoc
             key={subtask.id}
             subtask={subtask}
-            onOpenSheet={(s) => setOpenDocSubtask(s)}
+            onOpenSheet={async (s) => {
+              // Check template_type to decide which sheet to open
+              const c = s.config as Record<string, unknown>
+              let docLibId = c.doc_library_id as string | undefined
+              if (c.has_person_type_variants) {
+                const pt = (s as unknown as { owner?: { person_type?: string } }).owner?.person_type
+                if (pt === 'singular') docLibId = (c.singular_config as Record<string, string> | undefined)?.doc_library_id
+                else if (pt === 'coletiva') docLibId = (c.coletiva_config as Record<string, string> | undefined)?.doc_library_id
+              }
+              if (docLibId) {
+                try {
+                  const res = await fetch(`/api/libraries/docs/${docLibId}`)
+                  if (res.ok) {
+                    const tpl = await res.json()
+                    if (tpl.template_type === 'pdf') {
+                      setOpenPdfSubtask(s)
+                      return
+                    }
+                  }
+                } catch { /* fallback to HTML sheet */ }
+              }
+              setOpenDocSubtask(s)
+            }}
             onRevert={(id) => setRevertTarget(id)}
           />
         )
@@ -408,6 +432,19 @@ export function SubtaskCardList({
           onOpenChange={(v) => { if (!v) setOpenDocSubtask(null) }}
           onComplete={() => onTaskUpdate()}
           onSaveDraft={onTaskUpdate}
+        />
+      )}
+
+      {openPdfSubtask && (
+        <SubtaskPdfSheet
+          subtask={openPdfSubtask}
+          propertyId={propertyId}
+          processId={processId}
+          taskId={task.id}
+          consultantId={consultantId}
+          open={!!openPdfSubtask}
+          onOpenChange={(v) => { if (!v) setOpenPdfSubtask(null) }}
+          onComplete={() => onTaskUpdate()}
         />
       )}
 

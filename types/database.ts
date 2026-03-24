@@ -719,6 +719,207 @@ export type Database = {
           },
         ]
       }
+      company_categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          order_index: number | null
+          type: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          order_index?: number | null
+          type: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          order_index?: number | null
+          type?: string
+        }
+        Relationships: []
+      }
+      company_recurring_templates: {
+        Row: {
+          amount_net: number
+          category: string
+          created_at: string | null
+          day_of_month: number | null
+          description: string | null
+          entity_name: string | null
+          entity_nif: string | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_generated_at: string | null
+          name: string
+          subcategory: string | null
+          updated_at: string | null
+          vat_pct: number | null
+        }
+        Insert: {
+          amount_net: number
+          category: string
+          created_at?: string | null
+          day_of_month?: number | null
+          description?: string | null
+          entity_name?: string | null
+          entity_nif?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean | null
+          last_generated_at?: string | null
+          name: string
+          subcategory?: string | null
+          updated_at?: string | null
+          vat_pct?: number | null
+        }
+        Update: {
+          amount_net?: number
+          category?: string
+          created_at?: string | null
+          day_of_month?: number | null
+          description?: string | null
+          entity_name?: string | null
+          entity_nif?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_generated_at?: string | null
+          name?: string
+          subcategory?: string | null
+          updated_at?: string | null
+          vat_pct?: number | null
+        }
+        Relationships: []
+      }
+      company_transactions: {
+        Row: {
+          ai_confidence: number | null
+          ai_extracted: boolean | null
+          amount_gross: number | null
+          amount_net: number
+          category: string
+          created_at: string | null
+          created_by: string | null
+          date: string
+          description: string
+          due_date: string | null
+          entity_name: string | null
+          entity_nif: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          is_recurring: boolean | null
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          receipt_file_name: string | null
+          receipt_url: string | null
+          recurring_template_id: string | null
+          reference_id: string | null
+          reference_type: string | null
+          status: string
+          subcategory: string | null
+          type: string
+          updated_at: string | null
+          vat_amount: number | null
+          vat_pct: number | null
+        }
+        Insert: {
+          ai_confidence?: number | null
+          ai_extracted?: boolean | null
+          amount_gross?: number | null
+          amount_net: number
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          description: string
+          due_date?: string | null
+          entity_name?: string | null
+          entity_nif?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          is_recurring?: boolean | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          receipt_file_name?: string | null
+          receipt_url?: string | null
+          recurring_template_id?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          subcategory?: string | null
+          type: string
+          updated_at?: string | null
+          vat_amount?: number | null
+          vat_pct?: number | null
+        }
+        Update: {
+          ai_confidence?: number | null
+          ai_extracted?: boolean | null
+          amount_gross?: number | null
+          amount_net?: number
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          description?: string
+          due_date?: string | null
+          entity_name?: string | null
+          entity_nif?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          is_recurring?: boolean | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          receipt_file_name?: string | null
+          receipt_url?: string | null
+          recurring_template_id?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          subcategory?: string | null
+          type?: string
+          updated_at?: string | null
+          vat_amount?: number | null
+          vat_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_transactions_recurring_template_id_fkey"
+            columns: ["recurring_template_id"]
+            isOneToOne: false
+            referencedRelation: "company_recurring_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           created_at: string
@@ -1225,6 +1426,7 @@ export type Database = {
           consultant_amount: number | null
           consultant_invoice_date: string | null
           consultant_invoice_number: string | null
+          consultant_invoice_requested_at: string | null
           consultant_invoice_type: string | null
           consultant_paid: boolean | null
           consultant_paid_date: string | null
@@ -1241,7 +1443,9 @@ export type Database = {
           partner_amount: number | null
           payment_moment: string
           payment_pct: number
+          proc_task_id: string | null
           received_date: string | null
+          reminder_sent_at: string | null
           reported_date: string | null
           signed_date: string | null
           updated_at: string | null
@@ -1259,6 +1463,7 @@ export type Database = {
           consultant_amount?: number | null
           consultant_invoice_date?: string | null
           consultant_invoice_number?: string | null
+          consultant_invoice_requested_at?: string | null
           consultant_invoice_type?: string | null
           consultant_paid?: boolean | null
           consultant_paid_date?: string | null
@@ -1275,7 +1480,9 @@ export type Database = {
           partner_amount?: number | null
           payment_moment: string
           payment_pct: number
+          proc_task_id?: string | null
           received_date?: string | null
+          reminder_sent_at?: string | null
           reported_date?: string | null
           signed_date?: string | null
           updated_at?: string | null
@@ -1293,6 +1500,7 @@ export type Database = {
           consultant_amount?: number | null
           consultant_invoice_date?: string | null
           consultant_invoice_number?: string | null
+          consultant_invoice_requested_at?: string | null
           consultant_invoice_type?: string | null
           consultant_paid?: boolean | null
           consultant_paid_date?: string | null
@@ -1309,7 +1517,9 @@ export type Database = {
           partner_amount?: number | null
           payment_moment?: string
           payment_pct?: number
+          proc_task_id?: string | null
           received_date?: string | null
+          reminder_sent_at?: string | null
           reported_date?: string | null
           signed_date?: string | null
           updated_at?: string | null
@@ -1317,6 +1527,73 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "deal_payments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_payments_proc_task_id_fkey"
+            columns: ["proc_task_id"]
+            isOneToOne: false
+            referencedRelation: "proc_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_referrals: {
+        Row: {
+          consultant_id: string | null
+          created_at: string | null
+          deal_id: string
+          external_contact: string | null
+          external_name: string | null
+          id: string
+          is_paid: boolean | null
+          paid_date: string | null
+          referral_info: string | null
+          referral_pct: number
+          referral_type: string
+          side: string
+        }
+        Insert: {
+          consultant_id?: string | null
+          created_at?: string | null
+          deal_id: string
+          external_contact?: string | null
+          external_name?: string | null
+          id?: string
+          is_paid?: boolean | null
+          paid_date?: string | null
+          referral_info?: string | null
+          referral_pct: number
+          referral_type: string
+          side: string
+        }
+        Update: {
+          consultant_id?: string | null
+          created_at?: string | null
+          deal_id?: string
+          external_contact?: string | null
+          external_name?: string | null
+          id?: string
+          is_paid?: boolean | null
+          paid_date?: string | null
+          referral_info?: string | null
+          referral_pct?: number
+          referral_type?: string
+          side?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_referrals_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_referrals_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
@@ -1387,6 +1664,7 @@ export type Database = {
           referral_type: string | null
           remax_draft_number: string | null
           share_amount: number | null
+          share_network_type: string | null
           share_notes: string | null
           share_pct: number | null
           share_type: string | null
@@ -1455,6 +1733,7 @@ export type Database = {
           referral_type?: string | null
           remax_draft_number?: string | null
           share_amount?: number | null
+          share_network_type?: string | null
           share_notes?: string | null
           share_pct?: number | null
           share_type?: string | null
@@ -1523,6 +1802,7 @@ export type Database = {
           referral_type?: string | null
           remax_draft_number?: string | null
           share_amount?: number | null
+          share_network_type?: string | null
           share_notes?: string | null
           share_pct?: number | null
           share_type?: string | null
@@ -2023,9 +2303,69 @@ export type Database = {
         }
         Relationships: []
       }
+      doc_pdf_field_mappings: {
+        Row: {
+          created_at: string | null
+          default_value: string | null
+          display_label: string | null
+          display_order: number | null
+          field_options: string[] | null
+          field_type: string
+          font_size: number | null
+          id: string
+          is_required: boolean | null
+          page_number: number | null
+          pdf_field_name: string
+          template_id: string
+          transform: string | null
+          variable_key: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_value?: string | null
+          display_label?: string | null
+          display_order?: number | null
+          field_options?: string[] | null
+          field_type?: string
+          font_size?: number | null
+          id?: string
+          is_required?: boolean | null
+          page_number?: number | null
+          pdf_field_name: string
+          template_id: string
+          transform?: string | null
+          variable_key?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_value?: string | null
+          display_label?: string | null
+          display_order?: number | null
+          field_options?: string[] | null
+          field_type?: string
+          font_size?: number | null
+          id?: string
+          is_required?: boolean | null
+          page_number?: number | null
+          pdf_field_name?: string
+          template_id?: string
+          transform?: string | null
+          variable_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_pdf_field_mappings_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_doc_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doc_registry: {
         Row: {
           created_at: string | null
+          deal_id: string | null
           doc_type_id: string | null
           file_name: string
           file_url: string
@@ -2041,6 +2381,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deal_id?: string | null
           doc_type_id?: string | null
           file_name: string
           file_url: string
@@ -2056,6 +2397,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deal_id?: string | null
           doc_type_id?: string | null
           file_name?: string
           file_url?: string
@@ -2070,6 +2412,13 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "doc_registry_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "doc_registry_doc_type_id_fkey"
             columns: ["doc_type_id"]
@@ -9877,39 +10226,60 @@ export type Database = {
       }
       tpl_doc_library: {
         Row: {
-          content_html: string
+          content_html: string | null
           created_at: string | null
           description: string | null
           doc_type_id: string | null
+          file_key: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          font_path: string | null
           id: string
           letterhead_file_name: string | null
           letterhead_file_type: string | null
           letterhead_url: string | null
           name: string
+          template_type: string
+          total_fields: number | null
           updated_at: string | null
         }
         Insert: {
-          content_html: string
+          content_html?: string | null
           created_at?: string | null
           description?: string | null
           doc_type_id?: string | null
+          file_key?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          font_path?: string | null
           id?: string
           letterhead_file_name?: string | null
           letterhead_file_type?: string | null
           letterhead_url?: string | null
           name: string
+          template_type?: string
+          total_fields?: number | null
           updated_at?: string | null
         }
         Update: {
-          content_html?: string
+          content_html?: string | null
           created_at?: string | null
           description?: string | null
           doc_type_id?: string | null
+          file_key?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          font_path?: string | null
           id?: string
           letterhead_file_name?: string | null
           letterhead_file_type?: string | null
           letterhead_url?: string | null
           name?: string
+          template_type?: string
+          total_fields?: number | null
           updated_at?: string | null
         }
         Relationships: [

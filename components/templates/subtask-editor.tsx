@@ -262,7 +262,7 @@ export function SubtaskEditor({
   // Lazy-load data for subtask config
   const [docTypes, setDocTypes] = useState<{ id: string; name: string; category?: string }[]>([])
   const [emailTemplates, setEmailTemplates] = useState<{ id: string; name: string; subject: string }[]>([])
-  const [docTemplates, setDocTemplates] = useState<{ id: string; name: string }[]>([])
+  const [docTemplates, setDocTemplates] = useState<{ id: string; name: string; template_type?: string }[]>([])
 
   const hasUploadSubtask = subtasks.some((s) => s.type === 'upload')
   const hasEmailSubtask = subtasks.some((s) => s.type === 'email')

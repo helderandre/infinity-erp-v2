@@ -5,10 +5,24 @@ import { useParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DocumentTemplateEditor } from '@/components/documents/document-template-editor'
 import type { DocumentTemplatePayload } from '@/components/documents/document-template-editor'
+import { PdfFieldMapper } from '@/components/pdf-templates/pdf-field-mapper'
+
+interface TemplateData {
+  id: string
+  name: string
+  description: string | null
+  content_html: string | null
+  doc_type_id: string | null
+  template_type: string
+  file_url: string | null
+  letterhead_url: string | null
+  letterhead_file_name: string | null
+  letterhead_file_type: string | null
+}
 
 export default function EditarTemplateDocumentoPage() {
   const params = useParams<{ id: string }>()
-  const [template, setTemplate] = useState<DocumentTemplatePayload | null>(null)
+  const [template, setTemplate] = useState<TemplateData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,16 +36,7 @@ export default function EditarTemplateDocumentoPage() {
       })
       .then((data) => {
         if (!isMounted) return
-        setTemplate({
-          id: data.id,
-          name: data.name,
-          description: data.description,
-          content_html: data.content_html,
-          doc_type_id: data.doc_type_id,
-          letterhead_url: data.letterhead_url,
-          letterhead_file_name: data.letterhead_file_name,
-          letterhead_file_type: data.letterhead_file_type,
-        })
+        setTemplate(data)
         setError(null)
       })
       .catch((err) => {
@@ -75,8 +80,31 @@ export default function EditarTemplateDocumentoPage() {
   }
 
   if (error || !template) {
-    return <p className="text-muted-foreground">{error || 'Template não encontrado'}</p>
+    return <p className="p-4 text-muted-foreground">{error || 'Template não encontrado'}</p>
   }
 
-  return <DocumentTemplateEditor templateId={template.id || null} initialTemplate={template} />
+  // PDF template → render PdfFieldMapper (use proxy URL to avoid CORS)
+  if (template.template_type === 'pdf' && template.file_url) {
+    return (
+      <PdfFieldMapper
+        templateId={template.id}
+        templateName={template.name}
+        fileUrl={`/api/libraries/docs/${template.id}/pdf`}
+      />
+    )
+  }
+
+  // HTML template → render DocumentTemplateEditor (existing)
+  const htmlPayload: DocumentTemplatePayload = {
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    content_html: template.content_html || '',
+    doc_type_id: template.doc_type_id,
+    letterhead_url: template.letterhead_url,
+    letterhead_file_name: template.letterhead_file_name,
+    letterhead_file_type: template.letterhead_file_type,
+  }
+
+  return <DocumentTemplateEditor templateId={template.id} initialTemplate={htmlPayload} />
 }

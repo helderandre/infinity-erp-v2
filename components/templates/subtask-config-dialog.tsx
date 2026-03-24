@@ -112,7 +112,7 @@ interface SubtaskConfigDialogProps {
   docTypes: { id: string; name: string; category?: string }[]
   docTypesByCategory: Record<string, { id: string; name: string; category?: string }[]>
   emailTemplates: { id: string; name: string; subject: string }[]
-  docTemplates: { id: string; name: string }[]
+  docTemplates: { id: string; name: string; template_type?: string }[]
   roles?: RoleOption[]
   // Dependencies
   sameTaskSubtasks: SubtaskData[]
@@ -502,7 +502,7 @@ function SectionDados({
   docTypes: { id: string; name: string; category?: string }[]
   docTypesByCategory: Record<string, typeof docTypes>
   emailTemplates: { id: string; name: string; subject: string }[]
-  docTemplates: { id: string; name: string }[]
+  docTemplates: { id: string; name: string; template_type?: string }[]
 }) {
   return (
     <div className="space-y-5">
@@ -593,7 +593,16 @@ function SectionDados({
               <SelectContent>
                 <SelectItem value="__none__">(Nenhum)</SelectItem>
                 {docTemplates.map((dt) => (
-                  <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                  <SelectItem key={dt.id} value={dt.id}>
+                    <span className="flex items-center gap-2">
+                      {dt.name}
+                      {dt.template_type === 'pdf' ? (
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] px-1 py-0">PDF</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] px-1 py-0">HTML</Badge>
+                      )}
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -801,7 +810,7 @@ function SectionProprietarios({
   docTypes: { id: string; name: string; category?: string }[]
   docTypesByCategory: Record<string, typeof docTypes>
   emailTemplates: { id: string; name: string; subject: string }[]
-  docTemplates: { id: string; name: string }[]
+  docTemplates: { id: string; name: string; template_type?: string }[]
 }) {
   const ownerScope = local.config.owner_scope || 'none'
   const isMultiplied = ownerScope !== 'none'
@@ -959,7 +968,7 @@ function VariantSelect({
   onChange: (cfg: typeof config) => void
   docTypesByCategory: Record<string, { id: string; name: string; category?: string }[]>
   emailTemplates: { id: string; name: string; subject: string }[]
-  docTemplates: { id: string; name: string }[]
+  docTemplates: { id: string; name: string; template_type?: string }[]
 }) {
   if (type === 'upload') {
     return (
@@ -1014,7 +1023,16 @@ function VariantSelect({
         <SelectContent>
           <SelectItem value="__none__">(Nenhum)</SelectItem>
           {docTemplates.map((dt) => (
-            <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+            <SelectItem key={dt.id} value={dt.id}>
+              <span className="flex items-center gap-2">
+                {dt.name}
+                {dt.template_type === 'pdf' ? (
+                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] px-1 py-0">PDF</Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] px-1 py-0">HTML</Badge>
+                )}
+              </span>
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { deleteDocumentFromR2 } from '@/lib/r2/documents'
 
 const docTemplateUpdateSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').optional(),
@@ -10,6 +11,7 @@ const docTemplateUpdateSchema = z.object({
   letterhead_url: z.string().optional().nullable(),
   letterhead_file_name: z.string().optional().nullable(),
   letterhead_file_type: z.string().optional().nullable(),
+  font_path: z.string().optional().nullable(),
 })
 
 // GET — detalhe do template de documento
@@ -21,9 +23,10 @@ export async function GET(
     const { id } = await params
     const supabase = await createClient()
 
+    // First fetch the template to check type
     const { data, error } = await supabase
       .from('tpl_doc_library')
-      .select('*, doc_types:doc_type_id(id, name, category)')
+      .select('*, doc_types:doc_type_id(id, name, category), doc_pdf_field_mappings(*)')
       .eq('id', id)
       .single()
 
@@ -64,9 +67,12 @@ export async function PUT(
       )
     }
 
+    // Don't allow changing template_type
+    const updateData = { ...parsed.data, updated_at: new Date().toISOString() }
+
     const { data, error } = await supabase
       .from('tpl_doc_library')
-      .update({ ...parsed.data, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select('*, doc_types:doc_type_id(id, name, category)')
       .single()
@@ -98,6 +104,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
+    // Check if it's a PDF template to clean up R2
+    const { data: template } = await supabase
+      .from('tpl_doc_library')
+      .select('template_type, file_key')
+      .eq('id', id)
+      .single()
+
+    if (template?.template_type === 'pdf' && template.file_key) {
+      try {
+        await deleteDocumentFromR2(template.file_key)
+      } catch (e) {
+        console.error('Erro ao eliminar ficheiro do R2:', e)
+      }
+    }
+
+    // Mappings are deleted automatically via CASCADE
     const { error } = await supabase
       .from('tpl_doc_library')
       .delete()
