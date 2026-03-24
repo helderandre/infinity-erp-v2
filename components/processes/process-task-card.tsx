@@ -129,7 +129,13 @@ export function ProcessTaskCard({
 }: ProcessTaskCardProps) {
   const isAdhoc = !task.tpl_task_id
   const isBlocked = !!task.is_blocked
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !['completed', 'skipped'].includes(task.status ?? '')
+  const isNotDone = !['completed', 'skipped'].includes(task.status ?? '')
+  const now = new Date()
+  const dueDate = task.due_date ? new Date(task.due_date) : null
+  const msLeft = dueDate ? dueDate.getTime() - now.getTime() : null
+  const isOverdue = dueDate && msLeft !== null && msLeft < 0 && isNotDone
+  const isUrgent = dueDate && msLeft !== null && msLeft >= 0 && msLeft < 24 * 60 * 60 * 1000 && isNotDone
+  const isWarning = dueDate && msLeft !== null && msLeft >= 24 * 60 * 60 * 1000 && msLeft < 72 * 60 * 60 * 1000 && isNotDone
   const statusIcon = isBlocked
     ? <Lock className="h-4 w-4 text-primary" />
     : (STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending)
@@ -203,6 +209,7 @@ export function ProcessTaskCard({
       <div
         className={cn(
           'rounded-lg border bg-card p-3 space-y-2 hover:shadow-sm transition-shadow cursor-pointer',
+          task.status === 'completed' && 'shadow-[0_0_8px_0_rgba(16,185,129,0.15)] border-emerald-500/30',
           isOverdue && 'border-red-500/40',
           isBlocked && 'opacity-60 border-dashed'
         )}
@@ -223,80 +230,32 @@ export function ProcessTaskCard({
           </div>
         </div>
 
-        {/* Row 2: badges */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* Action type — for COMPOSITE, show subtask type badges instead */}
-          {task.action_type === 'COMPOSITE' && task.subtasks && task.subtasks.length > 0 ? (
-            <>
-              {/* Show unique subtask type icons */}
-              {(() => {
-                const types = [...new Set(task.subtasks.map((s) => (s.config as any)?.type || (s.config as any)?.check_type || 'checklist'))]
-                return types.map((t) => (
-                  <Badge key={t} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
-                    {SUBTASK_TYPE_ICONS_MAP[t] || <Circle className="h-3 w-3" />}
-                    {t === 'upload' ? 'Upload' : t === 'email' ? 'Email' : t === 'generate_doc' ? 'Doc' : t === 'form' ? 'Formulário' : t === 'field' ? 'Campo' : t === 'schedule_event' ? 'Evento' : t === 'checklist' || t === 'manual' ? 'Checklist' : t}
-                  </Badge>
-                ))
-              })()}
-            </>
-          ) : (
-            <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
-              {actionIcon}
-              {ACTION_TYPE_LABELS[task.action_type as keyof typeof ACTION_TYPE_LABELS] ?? task.action_type}
-            </Badge>
-          )}
-
-          {/* Manual badge */}
-          {isAdhoc && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200">
-              Manual
-            </Badge>
-          )}
-
-          {/* Priority badge */}
-          {task.priority && (
-            <Badge variant="outline" className={cn('text-[10px] gap-1 px-1.5 py-0', PRIORITY_BADGE_CONFIG[task.priority]?.className)}>
-              <span className={cn('h-1.5 w-1.5 rounded-full', PRIORITY_BADGE_CONFIG[task.priority]?.dotColor)} />
-              {TASK_PRIORITY_LABELS[task.priority]}
-            </Badge>
-          )}
-
-          {/* Mandatory */}
-          {task.is_mandatory && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              Obrig.
-            </Badge>
-          )}
-
-          {/* Owner */}
-          {task.owner && (
-            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
-              {task.owner.person_type === 'coletiva' ? (
-                <Building2 className="h-3 w-3" />
-              ) : (
-                <User className="h-3 w-3" />
-              )}
-              <span className="truncate max-w-[80px]">{task.owner.name}</span>
-            </Badge>
-          )}
-
-          {/* Subtask count for FORM and COMPOSITE */}
-          {['FORM', 'COMPOSITE'].includes(task.action_type ?? '') && task.subtasks && task.subtasks.length > 0 && (
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {task.subtasks.filter((s) => s.is_completed).length}/{task.subtasks.length}
-            </span>
-          )}
-        </div>
+        {/* Owner */}
+        {task.owner && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            {task.owner.person_type === 'coletiva' ? (
+              <Building2 className="h-3 w-3" />
+            ) : (
+              <User className="h-3 w-3" />
+            )}
+            <span className="truncate max-w-[80px]">{task.owner.name}</span>
+          </span>
+        )}
 
         {/* Subtask progress bar */}
-        {task.subtasks && task.subtasks.length > 0 && !['completed', 'skipped'].includes(task.status ?? '') && (
+        {task.subtasks && task.subtasks.length > 0 && (
           <SubtaskProgressBar subtasks={task.subtasks} />
         )}
 
         {/* Row 3: due date + assignee */}
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          {task.due_date ? (
-            <span className={cn('flex items-center gap-1', isOverdue && 'text-red-500 font-medium')}>
+          {task.due_date && isNotDone ? (
+            <span className={cn(
+              'flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px]',
+              (isOverdue || isUrgent) && 'bg-red-500/10 text-red-600 font-medium',
+              isWarning && 'bg-amber-400/10 text-amber-600 font-medium',
+              !isOverdue && !isUrgent && !isWarning && 'text-muted-foreground',
+            )}>
               <Calendar className="h-3 w-3" />
               {formatDate(task.due_date)}
             </span>
@@ -359,48 +318,31 @@ export function ProcessTaskCard({
         </Badge>
       )}
 
-      {/* Manual badge */}
-      {isAdhoc && (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 shrink-0">
-          Manual
-        </Badge>
-      )}
-
-      {/* Priority badge */}
-      {task.priority && (
-        <Badge variant="outline" className={cn('text-[10px] gap-1 px-1.5 py-0 shrink-0', PRIORITY_BADGE_CONFIG[task.priority]?.className)}>
-          <span className={cn('h-1.5 w-1.5 rounded-full', PRIORITY_BADGE_CONFIG[task.priority]?.dotColor)} />
-          {TASK_PRIORITY_LABELS[task.priority]}
-        </Badge>
-      )}
-
-      {/* Mandatory */}
-      {task.is_mandatory && (
-        <Badge variant="secondary" className="text-[10px] shrink-0">
-          Obrig.
-        </Badge>
-      )}
-
       {/* Owner */}
       {task.owner && (
-        <Badge variant="outline" className="text-xs gap-1 shrink-0">
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0">
           {task.owner.person_type === 'coletiva' ? (
             <Building2 className="h-3 w-3" />
           ) : (
             <User className="h-3 w-3" />
           )}
           <span className="truncate max-w-[80px]">{task.owner.name}</span>
-        </Badge>
+        </span>
       )}
 
       {/* Subtask progress (list variant) */}
-      {task.subtasks && task.subtasks.length > 0 && !['completed', 'skipped'].includes(task.status ?? '') && (
+      {task.subtasks && task.subtasks.length > 0 && (
         <SubtaskProgressBadge subtasks={task.subtasks} />
       )}
 
       {/* Due date */}
-      {task.due_date && (
-        <span className={cn('text-xs shrink-0 flex items-center gap-1', isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
+      {task.due_date && isNotDone && (
+        <span className={cn(
+          'shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px]',
+          (isOverdue || isUrgent) && 'bg-red-500/10 text-red-600 font-medium',
+          isWarning && 'bg-amber-400/10 text-amber-600 font-medium',
+          !isOverdue && !isUrgent && !isWarning && 'text-muted-foreground',
+        )}>
           <Calendar className="h-3 w-3" />
           {formatDate(task.due_date)}
         </span>

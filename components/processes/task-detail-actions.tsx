@@ -429,22 +429,24 @@ export function TaskDetailActions({
               />
             )}
             {canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '') && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Subtarefa
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-56">
-                  {SUBTASK_TYPE_OPTIONS.map(opt => (
-                    <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
-                      <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                      {opt.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="opacity-65">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Adicionar Subtarefa
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-56">
+                    {SUBTASK_TYPE_OPTIONS.map(opt => (
+                      <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
+                        <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
         )
@@ -717,8 +719,8 @@ export function TaskDetailActions({
     emailForm.body.trim()
 
   return (
-    <div className="space-y-4">
-      <h4 className="text-sm font-medium">Acções</h4>
+    <div className="space-y-3 -mt-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
 
       {/* Action-type specific content — disabled overlay when blocked */}
       {isBlocked && !['completed', 'skipped'].includes(task.status ?? '') ? (

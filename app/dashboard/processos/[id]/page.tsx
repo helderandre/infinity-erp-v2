@@ -99,7 +99,7 @@ import { ProcessTimelineView } from '@/components/processes/process-timeline-vie
 import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
 
-type ViewMode = 'kanban' | 'list' | 'timeline'
+type ViewMode = 'kanban' | 'timeline'
 
 type SidebarSection = string // 'detalhes' | 'imovel' | 'pipeline' | 'proprietarios' | 'proprietarios:<id>' | 'documentos'
 
@@ -1142,10 +1142,6 @@ export default function ProcessoDetailPage() {
                           <LayoutGrid className="h-4 w-4" />
                           Kanban
                         </ToggleGroupItem>
-                        <ToggleGroupItem value="list" aria-label="Vista Lista">
-                          <List className="h-4 w-4" />
-                          Lista
-                        </ToggleGroupItem>
                         <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
                           <Activity className="h-4 w-4" />
                           Timeline
@@ -1166,17 +1162,6 @@ export default function ProcessoDetailPage() {
                       onTaskClick={handleTaskClick}
                       onTaskDelete={(task) => setDeleteTaskTarget(task)}
                       onStageComplete={handleStageCompleteOpen}
-                    />
-                  ) : viewMode === 'list' ? (
-                    <ProcessListView
-                      stages={filteredStages}
-                      isProcessing={isProcessing}
-                      canDeleteAdhoc={canDeleteAdhoc}
-                      onTaskAction={handleTaskAction}
-                      onTaskBypass={handleBypassOpen}
-                      onTaskAssign={handleAssignOpen}
-                      onTaskClick={handleTaskClick}
-                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
                     />
                   ) : (
                     <ProcessTimelineView

@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
-import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
+import { ADHOC_TASK_ROLES, PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 import { z } from 'zod'
 
@@ -523,7 +523,8 @@ export async function DELETE(
       .eq('id', id)
       .single()
 
-    if (!process || !['active', 'on_hold'].includes(process.current_status as string)) {
+    const isProcessManagerDel = authDel.roles.some((r: string) => (PROCESS_MANAGER_ROLES as readonly string[]).includes(r))
+    if (!process || (!['active', 'on_hold'].includes(process.current_status as string) && !isProcessManagerDel)) {
       return NextResponse.json(
         { error: 'Apenas processos activos ou pausados permitem remover subtarefas' },
         { status: 400 }

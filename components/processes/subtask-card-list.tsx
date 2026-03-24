@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { ClipboardList, ExternalLink, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -313,33 +314,41 @@ export function SubtaskCardList({
           <Progress value={progress} className="h-1.5" />
         </div>
 
-        {/* Cards */}
-        <div className="space-y-2">
-          {subtasks.map((subtask) => {
+        {/* Cards — inside a unified card */}
+        <div className="rounded-xl border bg-card/50 overflow-hidden divide-y">
+          {subtasks.map((subtask, idx) => {
             const isAdhocSubtask = !subtask.tpl_subtask_id
             return (
-              <div key={subtask.id} className="relative group">
-                {renderCard(subtask)}
-                {isAdhocSubtask && canDeleteAdhocSubtask && !subtask.is_completed && (
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => onDeleteSubtask?.(subtask)}
-                      title="Remover subtarefa manual"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-                {isAdhocSubtask && (
-                  <div className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="inline-flex items-center text-[9px] text-violet-600 bg-violet-100 px-1 py-0.5 rounded">
-                      Manual
-                    </span>
-                  </div>
-                )}
+              <div key={subtask.id} className="group flex py-2 pr-3">
+                {/* Step number */}
+                <div className="flex items-start pt-2 pl-3 pr-2 shrink-0">
+                  <span className={cn(
+                    'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums',
+                    subtask.is_completed
+                      ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
+                      : 'bg-muted text-muted-foreground'
+                  )}>
+                    {idx + 1}
+                  </span>
+                </div>
+                {/* Subtask content */}
+                <div className="relative flex-1 min-w-0">
+                  {renderCard(subtask)}
+                  {/* Adhoc controls: Manual tag + delete — inside the card */}
+                  {isAdhocSubtask && canDeleteAdhocSubtask && !subtask.is_completed && (
+                    <div className="absolute top-1 right-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => onDeleteSubtask?.(subtask)}
+                        title="Remover subtarefa manual"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}

@@ -5,7 +5,7 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
-import { ADHOC_TASK_ROLES, APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { ADHOC_TASK_ROLES, APPROVER_NOTIFICATION_ROLES, PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 
 const taskUpdateSchema = z.object({
@@ -64,9 +64,10 @@ export async function PUT(
       )
     }
 
-    // Verificar se o processo está activo
+    // Verificar se o processo está activo (admin/gestora pode sempre editar)
     const procStatus = (task as any).proc_instance?.current_status
-    if (!['active', 'on_hold'].includes(procStatus)) {
+    const isProcessManager = auth.roles.some((r: string) => (PROCESS_MANAGER_ROLES as readonly string[]).includes(r))
+    if (!['active', 'on_hold'].includes(procStatus) && !isProcessManager) {
       return NextResponse.json(
         { error: 'Apenas processos activos podem ter tarefas actualizadas' },
         { status: 400 }
