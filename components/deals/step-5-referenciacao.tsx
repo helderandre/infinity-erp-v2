@@ -54,7 +54,7 @@ export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
         </div>
       ) : (
         <>
-          <AcqFieldWrapper fullWidth>
+          <AcqFieldWrapper fullWidth isMissing={hasReferral === undefined || hasReferral === null}>
             <AcqFieldLabel required>Existe Referência?</AcqFieldLabel>
             <div className="mt-2">
               <DealYesNo
@@ -105,6 +105,7 @@ export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
                   required
                   fullWidth
                   error={errors.referral_info}
+                  isMissing={isEmpty('referral_info')}
                 />
               )}
 
@@ -117,6 +118,7 @@ export function StepReferenciacao({ form, errors }: StepReferenciacaoProps) {
                   placeholder={'Nome\nContacto\nEmail\nAgência'}
                   required
                   rows={4}
+                  isMissing={isEmpty('referral_info')}
                 />
               )}
             </>
