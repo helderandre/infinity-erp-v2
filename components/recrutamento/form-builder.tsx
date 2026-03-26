@@ -284,7 +284,7 @@ export function FormBuilder() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-[calc(100vh-10rem)] min-h-0">
       {/* Topbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/30">

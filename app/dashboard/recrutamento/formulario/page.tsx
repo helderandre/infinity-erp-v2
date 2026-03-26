@@ -9,7 +9,7 @@ import { SubmissionsTab } from '@/components/recrutamento/submissions-tab'
 import { FormBuilder } from '@/components/recrutamento/form-builder'
 
 export default function FormularioPage() {
-  const [tab, setTab] = useState<'submissions' | 'editor'>('submissions')
+  const [tab, setTab] = useState<'submissions' | 'editor' | 'preview'>('submissions')
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -46,7 +46,7 @@ export default function FormularioPage() {
 
           {/* Tab selector inside hero */}
           <div className="mt-5 inline-flex items-center gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
-            {([['submissions', 'Submissões', FileText] as const, ['editor', 'Editor', Settings2] as const]).map(([key, label, Icon]) => (
+            {([['submissions', 'Submissões', FileText] as const, ['editor', 'Editor', Settings2] as const, ['preview', 'Pré-visualização', Eye] as const]).map(([key, label, Icon]) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
@@ -70,6 +70,15 @@ export default function FormularioPage() {
         {tab === 'submissions' && (
           <div className="p-6 overflow-y-auto h-full">
             <SubmissionsTab />
+          </div>
+        )}
+        {tab === 'preview' && (
+          <div className="h-full p-6">
+            <iframe
+              src="/entryform"
+              className="w-full h-full rounded-xl border shadow-sm"
+              title="Pré-visualização do Formulário de Entrada"
+            />
           </div>
         )}
       </div>
