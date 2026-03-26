@@ -83,6 +83,32 @@ export function Breadcrumbs() {
     return null
   }
 
+  // Sections with tab navigation — suppress sub-page breadcrumbs
+  // Only show the parent (e.g. "Recrutamento") not "Recrutamento > Candidatos"
+  const tabbedSections = ['/dashboard/recrutamento']
+  const tabbedSubPages = ['candidatos', 'pipeline', 'calendario', 'configuracao']
+  for (const section of tabbedSections) {
+    if (pathname.startsWith(section)) {
+      const rest = pathname.replace(section, '').replace(/^\//, '').split('/').filter(Boolean)
+      // If the first sub-segment is a tab page, treat the whole path as just the section
+      if (rest.length > 0 && tabbedSubPages.includes(rest[0])) {
+        // Only show "Recrutamento" breadcrumb, nothing after
+        const sectionTitle = navMap.get(section)
+        if (sectionTitle) {
+          return (
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{sectionTitle}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          )
+        }
+      }
+    }
+  }
+
   // Remove /dashboard prefix and UUIDs
   const rawSegments = pathname
     .replace(/^\/dashboard\/?/, '')

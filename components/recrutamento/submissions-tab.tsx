@@ -12,7 +12,6 @@ import {
   FileText,
   Image as ImageIcon,
   ExternalLink,
-  Filter,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,7 +21,6 @@ import {
   type EntrySubmission,
 } from "@/app/dashboard/recrutamento/actions"
 
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -108,98 +106,100 @@ export function SubmissionsTab() {
   )
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Filter */}
+    <div className="space-y-4">
+      {/* Filter pills */}
       <div className="flex items-center gap-3">
-        <Filter className="text-muted-foreground h-4 w-4" />
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="pending">Pendentes</SelectItem>
-            <SelectItem value="approved">Aprovadas</SelectItem>
-            <SelectItem value="rejected">Rejeitadas</SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="text-muted-foreground text-sm">
-          {submissions.length} submiss{submissions.length === 1 ? "ao" : "oes"}
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+          {([
+            { value: "all", label: "Todas" },
+            { value: "pending", label: "Pendentes", dot: "#f59e0b" },
+            { value: "approved", label: "Aprovadas", dot: "#10b981" },
+            { value: "rejected", label: "Rejeitadas", dot: "#ef4444" },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setFilterStatus(opt.value)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300 whitespace-nowrap",
+                filterStatus === opt.value
+                  ? "bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              {opt.dot && <span className="inline-block h-1.5 w-1.5 rounded-full mr-1.5" style={{ backgroundColor: opt.dot }} />}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-muted-foreground text-xs ml-auto">
+          {submissions.length} submiss{submissions.length === 1 ? "ão" : "ões"}
         </span>
       </div>
 
       {/* Table */}
       {loading ? (
-        <Card>
-          <div className="p-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4 border-b py-3 last:border-0">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-5 w-24" />
-                <Skeleton className="h-5 w-20" />
-                <Skeleton className="h-5 w-16" />
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
+        </div>
       ) : submissions.length === 0 ? (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-16">
-            <FileText className="text-muted-foreground mb-3 h-10 w-10" />
-            <p className="text-muted-foreground text-sm">
-              Nenhuma submissao encontrada
-            </p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            <FileText className="h-8 w-8 text-muted-foreground/30" />
           </div>
-        </Card>
+          <h3 className="text-lg font-medium">Nenhuma submissão encontrada</h3>
+          <p className="text-sm text-muted-foreground mt-1">Ajuste os filtros ou aguarde novas submissões.</p>
+        </div>
       ) : (
-        <Card>
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/20 hover:bg-muted/20">
                 <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telemovel</TableHead>
+                <TableHead>Contacto</TableHead>
                 <TableHead>NIF</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead className="w-[80px]">Accoes</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {submissions.map((sub) => {
+              {submissions.map((sub, idx) => {
                 const status = STATUS_MAP[sub.status] || STATUS_MAP.pending
+                const dotColor = sub.status === "approved" ? "#10b981" : sub.status === "rejected" ? "#ef4444" : "#f59e0b"
                 return (
-                  <TableRow key={sub.id}>
-                    <TableCell className="font-medium">
-                      {sub.full_name}
-                    </TableCell>
-                    <TableCell className="max-w-[180px] truncate">
-                      {sub.personal_email || "-"}
-                    </TableCell>
-                    <TableCell>{sub.professional_phone || "-"}</TableCell>
-                    <TableCell>{sub.nif || "-"}</TableCell>
+                  <TableRow
+                    key={sub.id}
+                    className="cursor-pointer hover:bg-muted/30 transition-colors animate-in fade-in slide-in-from-bottom-1"
+                    style={{ animationDelay: `${idx * 20}ms`, animationFillMode: "backwards" }}
+                    onClick={() => { setViewing(sub); setReviewNotes(sub.notes || "") }}
+                  >
                     <TableCell>
-                      <Badge className={cn("text-xs", status.color)}>
-                        {status.label}
-                      </Badge>
+                      <span className="font-medium text-sm">{sub.full_name}</span>
                     </TableCell>
                     <TableCell>
-                      {format(new Date(sub.submitted_at), "dd/MM/yyyy HH:mm", {
-                        locale: pt,
-                      })}
+                      <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                        {sub.personal_email && <span>{sub.personal_email}</span>}
+                        {sub.professional_phone && <span>{sub.professional_phone}</span>}
+                      </div>
                     </TableCell>
+                    <TableCell><span className="text-xs text-muted-foreground">{sub.nif || "—"}</span></TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setViewing(sub)
-                          setReviewNotes(sub.notes || "")
-                        }}
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium"
+                        style={{ backgroundColor: `${dotColor}15`, color: dotColor }}
                       >
-                        <Eye className="h-4 w-4" />
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                        {status.label}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(sub.submitted_at), "dd/MM/yyyy", { locale: pt })}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -207,7 +207,7 @@ export function SubmissionsTab() {
               })}
             </TableBody>
           </Table>
-        </Card>
+        </div>
       )}
 
       {/* Detail Dialog */}

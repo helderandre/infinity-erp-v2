@@ -34,19 +34,18 @@ function fmt(date: string | null) {
   return format(parseISO(date), "d MMM yyyy, HH:mm", { locale: pt })
 }
 
-function InfoField({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null | undefined }) {
+function InfoRow({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
   return (
-    <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium truncate">{value || '—'}</p>
-      </div>
+    <div className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={`text-xs font-medium text-right max-w-[60%] truncate ${mono ? 'font-mono' : ''}`}>{value || '—'}</span>
     </div>
   )
 }
 
-const cardClass = 'rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm p-6'
+const cardClass = 'rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm'
+const cardHeaderClass = 'px-4 py-2.5 border-b border-border/20 bg-muted/20'
+const cardBodyClass = 'px-4 py-3'
 
 export function CandidateOverviewTab({
   candidate, communications, stageLogs, recruiters,
@@ -61,101 +60,121 @@ export function CandidateOverviewTab({
   const recruiterName = recruiters.find(r => r.id === candidate.assigned_recruiter_id)?.commercial_name
 
   return (
-    <div className="space-y-6">
-      {/* Section 1: Dados do Candidato */}
-      <div className={cardClass}>
-        <h3 className="mb-4 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Dados do Candidato</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField icon={User} label="Nome" value={candidate.full_name} />
-          <InfoField icon={Mail} label="Email" value={candidate.email} />
-          <InfoField icon={Phone} label="Telemovel" value={candidate.phone} />
-          <InfoField icon={ExternalLink} label="Origem" value={CANDIDATE_SOURCES[candidate.source]} />
-          <InfoField icon={ExternalLink} label="Detalhe origem" value={candidate.source_detail} />
-          <InfoField icon={Calendar} label="Primeiro contacto" value={fmt(candidate.first_contact_date)} />
-          <InfoField icon={User} label="Recrutador" value={recruiterName} />
-        </div>
-        <div className="mt-5">
-          <Label htmlFor="notes" className="text-xs text-muted-foreground">Notas</Label>
-          <Textarea
-            id="notes"
-            className="mt-1.5 min-h-[80px]"
-            placeholder="Notas sobre o candidato..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
-          <div className="mt-2 flex justify-end">
-            <Button
-              size="sm"
-              disabled={savingCandidate || notes === (candidate.notes ?? '')}
-              onClick={() => onUpdateCandidate({ notes })}
-            >
-              {savingCandidate ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-              Guardar notas
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 2: Decisao */}
-      {showDecision && (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ─── Left column: Info + Notes ─── */}
+      <div className="lg:col-span-1 space-y-4">
+        {/* Contact info */}
         <div className={cardClass}>
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Decisao</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="reason-yes" className="text-xs text-muted-foreground">Razoes para aderir</Label>
-              <Textarea id="reason-yes" className="mt-1.5 min-h-[80px]" placeholder="Pontos a favor..." value={reasonYes} onChange={e => setReasonYes(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="reason-no" className="text-xs text-muted-foreground">Razoes para recusar</Label>
-              <Textarea id="reason-no" className="mt-1.5 min-h-[80px]" placeholder="Pontos contra..." value={reasonNo} onChange={e => setReasonNo(e.target.value)} />
-            </div>
+          <div className={cardHeaderClass}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contacto</h3>
           </div>
-          <div className="mt-3 flex justify-end">
-            <Button
-              size="sm"
-              disabled={savingCandidate || (reasonYes === (candidate.reason_yes ?? '') && reasonNo === (candidate.reason_no ?? ''))}
-              onClick={() => onUpdateCandidate({ reason_yes: reasonYes, reason_no: reasonNo })}
-            >
-              {savingCandidate ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-              Guardar decisao
-            </Button>
+          <div className={cardBodyClass}>
+            <InfoRow label="Nome" value={candidate.full_name} />
+            <InfoRow label="Email" value={candidate.email} />
+            <InfoRow label="Telemóvel" value={candidate.phone} mono />
           </div>
         </div>
-      )}
 
-      {/* Section 3: Comunicacoes */}
-      <div className={cardClass}>
-        <h3 className="mb-4 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Comunicacoes</h3>
-        <CommunicationsTimeline communications={communications} onAddCommunication={onAddCommunication} saving={savingComm} />
+        {/* Origin & Assignment */}
+        <div className={cardClass}>
+          <div className={cardHeaderClass}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem & Atribuição</h3>
+          </div>
+          <div className={cardBodyClass}>
+            <InfoRow label="Origem" value={CANDIDATE_SOURCES[candidate.source]} />
+            <InfoRow label="Detalhe" value={candidate.source_detail} />
+            <InfoRow label="Recrutador" value={recruiterName} />
+            <InfoRow label="1.º Contacto" value={fmt(candidate.first_contact_date)} />
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className={cardClass}>
+          <div className={cardHeaderClass}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notas</h3>
+          </div>
+          <div className={cardBodyClass}>
+            <Textarea
+              className="min-h-[60px] text-xs border-0 bg-transparent p-0 focus-visible:ring-0 resize-none"
+              placeholder="Notas sobre o candidato..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+            {notes !== (candidate.notes ?? '') && (
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" className="h-7 text-xs rounded-full gap-1" disabled={savingCandidate} onClick={() => onUpdateCandidate({ notes })}>
+                  {savingCandidate ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Guardar
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Decision (when applicable) */}
+        {showDecision && (
+          <div className={cardClass}>
+            <div className={cardHeaderClass}>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Decisão</h3>
+            </div>
+            <div className={`${cardBodyClass} space-y-3`}>
+              <div>
+                <Label className="text-[10px] text-emerald-600 uppercase tracking-wider font-semibold">A favor</Label>
+                <Textarea className="mt-1 min-h-[50px] text-xs" placeholder="Pontos a favor..." value={reasonYes} onChange={e => setReasonYes(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-[10px] text-red-500 uppercase tracking-wider font-semibold">Contra</Label>
+                <Textarea className="mt-1 min-h-[50px] text-xs" placeholder="Pontos contra..." value={reasonNo} onChange={e => setReasonNo(e.target.value)} />
+              </div>
+              {(reasonYes !== (candidate.reason_yes ?? '') || reasonNo !== (candidate.reason_no ?? '')) && (
+                <div className="flex justify-end">
+                  <Button size="sm" className="h-7 text-xs rounded-full gap-1" disabled={savingCandidate} onClick={() => onUpdateCandidate({ reason_yes: reasonYes, reason_no: reasonNo })}>
+                    {savingCandidate ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    Guardar
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Section 4: Historico de Estagios */}
+      {/* ─── Right column: Communications + History ─── */}
+      <div className="lg:col-span-2 space-y-4">
+        {/* Communications */}
+        <div className={cardClass}>
+          <div className={cardHeaderClass}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Comunicações</h3>
+          </div>
+          <div className={cardBodyClass}>
+            <CommunicationsTimeline communications={communications} onAddCommunication={onAddCommunication} saving={savingComm} />
+          </div>
+        </div>
+
+      {/* Stage history */}
       <div className={cardClass}>
         <button
           type="button"
-          className="flex w-full items-center justify-between text-left"
+          className={`${cardHeaderClass} flex w-full items-center justify-between text-left hover:bg-muted/30 transition-colors`}
           onClick={() => setShowHistory(v => !v)}
         >
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Historico de Estagios
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Histórico de Estágios
           </h3>
-          {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {showHistory ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
         </button>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {showHistory ? 'Ocultar historico' : 'Mostrar historico'}
-        </p>
 
         {showHistory && (
-          <div className="mt-4 space-y-3">
+          <div className={`${cardBodyClass} space-y-2`}>
             {stageLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sem transicoes registadas.</p>
+              <p className="text-xs text-muted-foreground py-2">Sem transições registadas.</p>
             ) : (
               stageLogs.map(log => {
                 const from = log.from_status ? CANDIDATE_STATUSES[log.from_status] : null
                 const to = CANDIDATE_STATUSES[log.to_status]
                 return (
-                  <div key={log.id} className="flex items-start gap-3 rounded-lg border border-border/20 bg-muted/30 px-3 py-2.5">
-                    <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/20 px-3 py-2">
+                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 text-sm">
                         {from ? (
@@ -178,6 +197,7 @@ export function CandidateOverviewTab({
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   )
