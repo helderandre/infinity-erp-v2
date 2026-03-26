@@ -33,9 +33,9 @@ export default function NovoLeadPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Novo Lead</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Novo Contacto</h1>
         <p className="text-muted-foreground">
-          Criar um novo lead no sistema
+          Criar um novo contacto no sistema
         </p>
       </div>
 

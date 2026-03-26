@@ -521,12 +521,63 @@ export default function NegocioDetailPage() {
   // ──── STANDARD VIEW (non-acompanhamento) ────
   if (!isInAcompanhamento) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
+        {/* Back button */}
         <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar
         </button>
-        <div className="flex gap-6 items-start">
-          <div className="w-72 shrink-0">
+
+        {/* Hero header */}
+        <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
+          <div className="relative z-10">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Select value={estado} onValueChange={(v) => saveSidebarField('estado', v)}>
+                    <SelectTrigger className={`${statusStyle.bg} ${statusStyle.text} border-0 rounded-full text-[10px] font-medium h-6 w-auto px-2.5 gap-1 [&>svg]:h-3 [&>svg]:w-3`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot} inline-block shrink-0`} />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NEGOCIO_ESTADO_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-neutral-500 text-xs">
+                    desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick contact */}
+              <div className="hidden sm:flex items-center gap-2">
+                {phone && (
+                  <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                    <Phone className="h-4 w-4" />
+                  </a>
+                )}
+                {phone && (
+                  <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                    <WhatsAppIcon className="h-4 w-4" />
+                  </a>
+                )}
+                {email && (
+                  <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+                    <Mail className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+          <div className="w-full">
             <NegocioSidebar tipo={tipo} leadName={clientName} createdAt={negocio.created_at} phone={phone} email={email} estado={estado} negocioId={negocioId} onEstadoChange={(v) => saveSidebarField('estado', v)} onQuickFillApply={handleQuickFillApply} onStartAcquisition={() => setAcquisitionDialogOpen(true)} />
           </div>
           <div className="flex-1 min-w-0">
@@ -543,7 +594,7 @@ export default function NegocioDetailPage() {
     <div className="space-y-6">
       {/* Back button */}
       <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
-        <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao Lead
+        <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao Contacto
       </button>
 
       {/* Hero header */}

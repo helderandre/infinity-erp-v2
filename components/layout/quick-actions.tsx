@@ -42,7 +42,7 @@ export function QuickActions() {
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onClick={() => router.push('/dashboard/leads/novo')}>
             <Users className="mr-2 h-4 w-4" />
-            Novo Lead
+            Novo Contacto
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
             <Zap className="mr-2 h-4 w-4" />

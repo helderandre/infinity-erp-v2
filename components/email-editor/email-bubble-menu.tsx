@@ -13,10 +13,15 @@ import {
   AlignRight,
   AlignJustify,
   Type,
+  Link2,
+  Unlink,
+  Variable,
 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const PRESET_COLORS = [
   '#000000',
@@ -35,9 +40,21 @@ interface EmailBubbleMenuProps {
   editor: Editor
 }
 
+const LINK_VARIABLES = [
+  { value: '{{link_imovel}}', label: 'Link do Imóvel' },
+  { value: '{{link_portal_remax}}', label: 'Link RE/MAX' },
+  { value: '{{link_portal_idealista}}', label: 'Link Idealista' },
+  { value: '{{link_portal_imovirtual}}', label: 'Link Imovirtual' },
+  { value: '{{link_portal_casasapo}}', label: 'Link Casa Sapo' },
+  { value: '{{link_proposta}}', label: 'Link da Proposta' },
+  { value: '{{link_documento}}', label: 'Link do Documento' },
+]
+
 export function EmailBubbleMenu({ editor }: EmailBubbleMenuProps) {
   const [colorOpen, setColorOpen] = useState(false)
   const [customColor, setCustomColor] = useState('')
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
 
   const applyColor = useCallback(
     (color: string) => {
@@ -46,6 +63,27 @@ export function EmailBubbleMenu({ editor }: EmailBubbleMenuProps) {
     },
     [editor]
   )
+
+  const applyLink = useCallback(
+    (url: string) => {
+      if (!url) return
+      editor.chain().focus().setLink({ href: url, target: '_blank' }).run()
+      setLinkUrl('')
+      setLinkOpen(false)
+    },
+    [editor]
+  )
+
+  const removeLink = useCallback(() => {
+    editor.chain().focus().unsetLink().run()
+    setLinkOpen(false)
+  }, [editor])
+
+  const openLinkPopover = useCallback(() => {
+    const existingHref = editor.getAttributes('link').href as string | undefined
+    setLinkUrl(existingHref || '')
+    setLinkOpen(true)
+  }, [editor])
 
   const currentColor =
     (editor.getAttributes('textStyle').color as string) || '#000000'
@@ -196,6 +234,74 @@ export function EmailBubbleMenu({ editor }: EmailBubbleMenuProps) {
             </div>
           </PopoverContent>
         </Popover>
+
+        <Separator />
+
+        {/* Link */}
+        {editor.isActive('link') ? (
+          <BubbleButton
+            active={true}
+            onClick={removeLink}
+            title="Remover link"
+          >
+            <Unlink className="h-3.5 w-3.5" />
+          </BubbleButton>
+        ) : (
+          <Popover open={linkOpen} onOpenChange={(o) => { if (o) openLinkPopover(); else setLinkOpen(false) }}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+                  editor.isActive('link') ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
+                }`}
+                title="Adicionar link"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-64 p-3 space-y-2"
+              side="top"
+              align="center"
+              sideOffset={8}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <p className="text-xs font-medium text-muted-foreground">URL ou variável</p>
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://..."
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    applyLink(linkUrl)
+                  }
+                }}
+              />
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1"><Variable className="h-2.5 w-2.5" />Variáveis</p>
+                <div className="flex flex-wrap gap-1">
+                  {LINK_VARIABLES.map(v => (
+                    <button
+                      key={v.value}
+                      type="button"
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-accent transition-colors"
+                      onClick={() => applyLink(v.value)}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button size="sm" className="h-6 text-xs rounded-md px-2" onClick={() => applyLink(linkUrl)} disabled={!linkUrl}>
+                  Aplicar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
     </BubbleMenu>
   )

@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmailToolbox } from '@/components/email-editor/email-toolbox'
 import { EmailSettingsPanel } from '@/components/email-editor/email-settings-panel'
 import { EmailLayer } from '@/components/email-editor/email-layer'
@@ -41,6 +42,7 @@ import {
   MailX,
   Clock,
   ShieldAlert,
+  Pen,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -68,6 +70,9 @@ import { EmailSpacer } from '@/components/email-editor/user/email-spacer'
 import { EmailAttachment } from '@/components/email-editor/user/email-attachment'
 import { EmailGrid } from '@/components/email-editor/user/email-grid'
 import { EmailPortalLinks } from '@/components/email-editor/user/email-portal-links'
+import { EmailHeader } from '@/components/email-editor/user/email-header'
+import { EmailFooter } from '@/components/email-editor/user/email-footer'
+import { EmailSignature } from '@/components/email-editor/user/email-signature'
 import { RenderNode } from '@/components/email-editor/email-render-node'
 import { populatePortalLinksInState } from '@/lib/email-portal-utils'
 
@@ -82,6 +87,9 @@ const resolver = {
   EmailAttachment,
   EmailGrid,
   EmailPortalLinks,
+  EmailHeader,
+  EmailFooter,
+  EmailSignature,
 }
 
 interface SubtaskEmailSheetProps {
@@ -453,6 +461,27 @@ export function SubtaskEmailSheet({
     recipientEmail: '',
     cc: '',
   })
+
+  // Signature override
+  const [signatureConsultantId, setSignatureConsultantId] = useState<string>('')
+  const [signatureConsultants, setSignatureConsultants] = useState<{ id: string; commercial_name: string; email_signature_url: string | null }[]>([])
+  const rolePerms = (user?.role?.permissions || {}) as Record<string, boolean>
+  const canOverrideSignature = rolePerms.settings || rolePerms.users || false
+
+  useEffect(() => {
+    if (!canOverrideSignature) return
+    fetch('/api/consultants?status=active&consultant_only=false')
+      .then(r => r.json())
+      .then(data => {
+        const list = (Array.isArray(data) ? data : data.data || []).map((c: any) => ({
+          id: c.id || c.user_id,
+          commercial_name: c.commercial_name,
+          email_signature_url: (c as any).email_signature_url || c.dev_consultant_profiles?.email_signature_url || null,
+        }))
+        setSignatureConsultants(list)
+      })
+      .catch(() => {})
+  }, [canOverrideSignature])
 
   // Guarda o último rascunho salvo nesta sessão.
   // O prop `subtask` não é atualizado pelo pai após guardar, por isso este ref
@@ -918,6 +947,38 @@ export function SubtaskEmailSheet({
               <Label>Assunto</Label>
               <Input value={subject} readOnly className="bg-muted/50 text-muted-foreground" />
             </div>
+
+            {/* Signature override (managers only) */}
+            {canOverrideSignature && signatureConsultants.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Pen className="h-3 w-3" />
+                  Assinatura
+                </Label>
+                <Select
+                  value={signatureConsultantId || consultantId || user?.id || ''}
+                  onValueChange={setSignatureConsultantId}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Assinatura do consultor do processo" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {signatureConsultants.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-sm">
+                        <div className="flex items-center gap-2">
+                          {c.email_signature_url ? (
+                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                          ) : (
+                            <div className="h-2 w-2 rounded-full bg-amber-400" />
+                          )}
+                          {c.commercial_name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Preview do corpo */}
             <div className="space-y-1.5">

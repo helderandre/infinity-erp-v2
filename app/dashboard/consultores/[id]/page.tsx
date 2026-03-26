@@ -43,6 +43,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 const TABS = [
   { key: 'perfil' as const, label: 'Perfil', icon: User },
   { key: 'privado' as const, label: 'Privado', icon: Shield },
+  { key: 'marketing' as const, label: 'Marketing', icon: Sparkles },
   { key: 'imoveis' as const, label: 'Imóveis', icon: Building2 },
   { key: 'comissoes' as const, label: 'Comissões', icon: Briefcase },
 ]
@@ -984,6 +985,109 @@ export default function ConsultorDetalhePage() {
                   Nenhum imóvel atribuído a este consultor.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ═══════ MARKETING ═══════ */}
+          {activeTab === 'marketing' && (
+            <div className="space-y-5">
+              {/* Email Signature */}
+              <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-sm">Assinatura de Email</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Imagem utilizada como assinatura nos templates de email</p>
+                  </div>
+                </div>
+
+                {(profile as any)?.email_signature_url ? (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border bg-muted/20 p-4 text-center">
+                      <img
+                        src={(profile as any).email_signature_url}
+                        alt="Assinatura de email"
+                        className="max-w-full h-auto mx-auto rounded-lg"
+                        style={{ maxHeight: '200px' }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            try {
+                              const compressed = await compressImage(file)
+                              const formData = new FormData()
+                              formData.append('file', compressed)
+                              const res = await fetch(`/api/consultants/${id}/signature`, { method: 'POST', body: formData })
+                              const data = await res.json()
+                              if (!res.ok) throw new Error(data.error)
+                              toast.success('Assinatura actualizada')
+                              refetch()
+                            } catch (err: any) {
+                              toast.error(err.message || 'Erro ao carregar assinatura')
+                            }
+                          }}
+                        />
+                        <Button variant="outline" className="rounded-full w-full gap-2 text-xs" asChild>
+                          <span><Upload className="h-3.5 w-3.5" />Substituir imagem</span>
+                        </Button>
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-xs text-destructive hover:text-destructive gap-1"
+                        onClick={async () => {
+                          try {
+                            await fetch(`/api/consultants/${id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ profile: { email_signature_url: null } }),
+                            })
+                            toast.success('Assinatura removida')
+                            refetch()
+                          } catch {
+                            toast.error('Erro ao remover')
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />Remover
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-10 cursor-pointer hover:bg-muted/30 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        try {
+                          const compressed = await compressImage(file)
+                          const formData = new FormData()
+                          formData.append('file', compressed)
+                          const res = await fetch(`/api/consultants/${id}/signature`, { method: 'POST', body: formData })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data.error)
+                          toast.success('Assinatura carregada')
+                          refetch()
+                        } catch (err: any) {
+                          toast.error(err.message || 'Erro ao carregar assinatura')
+                        }
+                      }}
+                    />
+                    <Upload className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                    <p className="text-sm font-medium">Carregar assinatura</p>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPEG ou WebP</p>
+                  </label>
+                )}
+              </div>
             </div>
           )}
 

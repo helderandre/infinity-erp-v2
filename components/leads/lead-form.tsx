@@ -166,7 +166,7 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
       }
 
       const { id } = await res.json()
-      toast.success('Lead criado com sucesso')
+      toast.success('Contacto criado com sucesso')
       if (onSuccess) {
         onSuccess(id)
       } else {
@@ -347,7 +347,7 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Spinner variant="infinite" size={16} className="mr-2" />}
-          Criar Lead
+          Criar Contacto
         </Button>
       </div>
     </form>

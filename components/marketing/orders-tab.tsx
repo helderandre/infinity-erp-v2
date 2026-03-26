@@ -191,7 +191,7 @@ export function OrdersTab() {
         { action: 'accept', label: 'Aceitar', icon: CheckCircle2, variant: 'default' as const },
         { action: 'reject', label: 'Rejeitar', icon: XCircle, variant: 'destructive' as const, needsReason: true },
       ]
-      case 'accepted': return [{ action: 'schedule', label: 'Agendar', icon: Calendar, variant: 'default' as const, needsSchedule: true }]
+      case 'accepted': return []
       case 'scheduled': return [{ action: 'start_production', label: 'Iniciar', icon: Play, variant: 'default' as const }]
       case 'in_production': return [{ action: 'deliver', label: 'Entregar', icon: Truck, variant: 'default' as const }]
       case 'delivered': return [{ action: 'complete', label: 'Concluir', icon: Star, variant: 'default' as const }]

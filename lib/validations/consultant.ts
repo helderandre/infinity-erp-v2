@@ -7,6 +7,8 @@ export const consultantProfileSchema = z.object({
   languages: z.array(z.string()).nullable().optional(),
   instagram_handle: z.string().max(100).nullable().optional(),
   linkedin_url: z.string().url('URL inválido').or(z.literal('')).nullable().optional(),
+  email_signature_url: z.string().nullable().optional(),
+  email_signature_html: z.string().nullable().optional(),
 })
 
 export const consultantPrivateDataSchema = z.object({

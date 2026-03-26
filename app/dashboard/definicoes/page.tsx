@@ -24,8 +24,9 @@ import {
 } from '@/components/ui/dialog'
 import {
   Plus, Pencil, Trash2, Shield, ShieldCheck, Settings, Euro,
-  Save, Loader2, Users, Landmark, Layers,
+  Save, Loader2, Users, Landmark, Layers, Plug,
 } from 'lucide-react'
+import { MetaIntegrationsClient } from './integracoes/meta/meta-client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RoleDialog } from '@/components/roles/role-dialog'
@@ -110,6 +111,25 @@ export default function DefinicoesPage() {
 
   const vendaTiers = tiers.filter(t => t.business_type === 'venda')
   const arrendamentoTiers = tiers.filter(t => t.business_type === 'arrendamento')
+
+  // Integrations
+  const [intLoading, setIntLoading] = useState(false)
+  const [intConfig, setIntConfig] = useState<any>(null)
+  const [intAudiences, setIntAudiences] = useState<any[]>([])
+
+  const loadIntegrations = useCallback(async () => {
+    if (intConfig) return
+    setIntLoading(true)
+    try {
+      const [configRes, audRes] = await Promise.all([
+        fetch('/api/settings/integrations/meta'),
+        fetch('/api/meta-ads/audiences'),
+      ])
+      if (configRes.ok) setIntConfig(await configRes.json())
+      if (audRes.ok) { const d = await audRes.json(); setIntAudiences(d.audiences || []) }
+    } catch {}
+    finally { setIntLoading(false) }
+  }, [intConfig])
 
   // ── Roles fetch ──
   const fetchRoles = useCallback(async () => {
@@ -265,6 +285,7 @@ export default function DefinicoesPage() {
       <Tabs value={mainTab} onValueChange={(v) => {
         setMainTab(v)
         if (v === 'financeiro' && tiers.length === 0 && settings.length === 0) loadFinancial()
+        if (v === 'integracoes') loadIntegrations()
       }}>
         <TabsList className="bg-muted/30">
           <TabsTrigger value="roles" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
@@ -274,6 +295,10 @@ export default function DefinicoesPage() {
           <TabsTrigger value="financeiro" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Euro className="h-4 w-4" />
             Financeiro
+          </TabsTrigger>
+          <TabsTrigger value="integracoes" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Plug className="h-4 w-4" />
+            Integrações
           </TabsTrigger>
         </TabsList>
 
@@ -457,6 +482,32 @@ export default function DefinicoesPage() {
                 </div>
               </TabsContent>
             </Tabs>
+          )}
+        </TabsContent>
+
+        {/* ═══ Integrações Tab ═══ */}
+        <TabsContent value="integracoes" className="mt-6">
+          {intLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-80" />
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+            </div>
+          ) : intConfig ? (
+            <MetaIntegrationsClient
+              webhookUrl={intConfig.webhookUrl}
+              appId={intConfig.appId}
+              hasAppSecret={intConfig.hasAppSecret}
+              hasAccessToken={intConfig.hasAccessToken}
+              hasPixelId={intConfig.hasPixelId}
+              pixelId={intConfig.pixelId}
+              audiences={intAudiences}
+              audiencesError={null}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+              <Plug className="h-8 w-8 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">Clique na tab para carregar as integrações</p>
+            </div>
           )}
         </TabsContent>
       </Tabs>

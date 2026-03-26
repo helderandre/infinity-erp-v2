@@ -4,18 +4,23 @@ import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye } from 'lucide-react'
+import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
 
 export type EditorMode = 'edit' | 'preview'
 
+export type SignatureMode = 'process_owner' | 'sender'
+
 interface EmailTopbarProps {
   name: string
   subject: string
   mode: EditorMode
+  signatureMode?: SignatureMode
   onNameChange: (value: string) => void
   onSubjectChange: (value: string) => void
+  onSignatureModeChange?: (mode: SignatureMode) => void
   onSave: (editorState: string) => void
   onModeChange: (mode: EditorMode, editorState: string) => void
   isSaving: boolean
@@ -25,8 +30,10 @@ export function EmailTopbar({
   name,
   subject,
   mode,
+  signatureMode = 'process_owner',
   onNameChange,
   onSubjectChange,
+  onSignatureModeChange,
   onSave,
   onModeChange,
   isSaving,
@@ -73,6 +80,22 @@ export function EmailTopbar({
         placeholder="Assunto do email..."
         className="flex-1 border-none shadow-none focus-visible:ring-0 text-sm text-muted-foreground"
       />
+
+      {/* Signature mode */}
+      {onSignatureModeChange && (
+        <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1">
+          <Pen className="h-3.5 w-3.5 text-foreground shrink-0" />
+          <Select value={signatureMode} onValueChange={(v) => onSignatureModeChange(v as SignatureMode)}>
+            <SelectTrigger className="h-7 w-[180px] text-xs font-medium border-none shadow-none bg-transparent p-0 gap-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="process_owner" className="text-xs">Assinatura do consultor</SelectItem>
+              <SelectItem value="sender" className="text-xs">Assinatura de quem envia</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="flex items-center gap-1 ml-auto">
         {/* Mode toggle */}

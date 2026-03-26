@@ -89,7 +89,7 @@ export default function LeadDetailPage() {
       setLead(data)
       setForm(data)
     } catch {
-      toast.error('Erro ao carregar lead')
+      toast.error('Erro ao carregar contacto')
       router.push('/dashboard/leads')
     } finally {
       setIsLoading(false)
@@ -159,7 +159,7 @@ export default function LeadDetailPage() {
       for (const f of fields) body[f] = form[f] ?? null
       const res = await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Erro ao guardar') }
-      toast.success('Lead actualizado com sucesso')
+      toast.success('Contacto actualizado com sucesso')
       setLead((prev) => (prev ? { ...prev, ...body } : prev))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao guardar')
@@ -511,7 +511,7 @@ export default function LeadDetailPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {negocios.map((neg, idx) => {
                     const tipo = neg.tipo as string
                     const isCompra = tipo === 'Compra' || tipo === 'Compra e Venda'
@@ -519,110 +519,105 @@ export default function LeadDetailPage() {
                     const isArrendatario = tipo === 'Arrendatário'
                     const isArrendador = tipo === 'Arrendador'
 
-                    const accentColor = isCompra && isVenda
-                      ? 'border-l-gradient from-blue-500 to-emerald-500'
-                      : isCompra ? 'border-l-blue-500'
-                      : isVenda ? 'border-l-emerald-500'
-                      : isArrendatario ? 'border-l-violet-500'
-                      : isArrendador ? 'border-l-amber-500'
-                      : 'border-l-slate-400'
+                    const tipoBg = isCompra && isVenda
+                      ? 'from-blue-600 to-emerald-600'
+                      : isCompra ? 'from-blue-600 to-blue-700'
+                      : isVenda ? 'from-emerald-600 to-emerald-700'
+                      : isArrendatario ? 'from-violet-600 to-violet-700'
+                      : isArrendador ? 'from-amber-600 to-amber-700'
+                      : 'from-slate-600 to-slate-700'
 
-                    const tipoColors: Record<string, string> = {
-                      'Compra': 'bg-blue-500/10 text-blue-600',
-                      'Venda': 'bg-emerald-500/10 text-emerald-600',
-                      'Compra e Venda': 'bg-indigo-500/10 text-indigo-600',
-                      'Arrendatário': 'bg-violet-500/10 text-violet-600',
-                      'Arrendador': 'bg-amber-500/10 text-amber-600',
-                    }
+                    const tipoLabel = tipo === 'Compra e Venda'
+                      ? 'Compra & Venda'
+                      : tipo
 
-                    const estadoColors: Record<string, string> = {
-                      'Aberto': 'bg-sky-500',
-                      'Em Acompanhamento': 'bg-yellow-500',
-                      'Em progresso': 'bg-blue-500',
-                      'Proposta': 'bg-orange-500',
-                      'Fechado': 'bg-emerald-500',
-                      'Cancelado': 'bg-red-500',
-                      'Perdido': 'bg-red-500',
+                    const estadoColors: Record<string, { dot: string; bg: string; text: string }> = {
+                      'Aberto': { dot: 'bg-sky-400', bg: 'bg-sky-400/15', text: 'text-sky-100' },
+                      'Em Acompanhamento': { dot: 'bg-yellow-400', bg: 'bg-yellow-400/15', text: 'text-yellow-100' },
+                      'Em progresso': { dot: 'bg-blue-400', bg: 'bg-blue-400/15', text: 'text-blue-100' },
+                      'Proposta': { dot: 'bg-orange-400', bg: 'bg-orange-400/15', text: 'text-orange-100' },
+                      'Fechado': { dot: 'bg-emerald-400', bg: 'bg-emerald-400/15', text: 'text-emerald-100' },
+                      'Cancelado': { dot: 'bg-red-400', bg: 'bg-red-400/15', text: 'text-red-100' },
+                      'Perdido': { dot: 'bg-red-400', bg: 'bg-red-400/15', text: 'text-red-100' },
                     }
-                    const estadoDot = estadoColors[(neg.estado as string) || ''] || 'bg-slate-400'
+                    const ec = estadoColors[(neg.estado as string) || ''] || { dot: 'bg-slate-400', bg: 'bg-white/10', text: 'text-white/70' }
 
                     return (
                       <div
                         key={neg.id as string}
                         onClick={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
                         className={cn(
-                          'group rounded-2xl border border-l-4 bg-card shadow-sm p-5 cursor-pointer',
-                          'transition-all duration-300 hover:shadow-xl hover:scale-[1.01]',
+                          'group relative overflow-hidden rounded-2xl cursor-pointer',
+                          'transition-all duration-300 hover:shadow-2xl hover:scale-[1.02]',
                           'animate-in fade-in slide-in-from-bottom-2',
-                          accentColor
                         )}
-                        style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                        style={{ animationDelay: `${idx * 50}ms`, animationFillMode: 'backwards' }}
                       >
-                        {/* Top: tipo badge + estado + delete */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="h-4 w-4 text-muted-foreground" />
-                            <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold', tipoColors[tipo] || 'bg-muted text-muted-foreground')}>
-                              {tipo}
-                            </span>
-                            {tipo === 'Compra e Venda' && (
-                              <div className="flex gap-0.5">
-                                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-blue-500/15 text-blue-600">C</span>
-                                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/15 text-emerald-600">V</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium">
-                              <span className={cn('h-2 w-2 rounded-full', estadoDot)} />
-                              {(neg.estado as string) || 'Aberto'}
-                            </span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
-                              className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
+                        {/* Gradient background */}
+                        <div className={cn('absolute inset-0 bg-gradient-to-br opacity-90', tipoBg)} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
-                        {/* Middle: criteria pills */}
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {!!neg.tipo_imovel && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted px-2.5 py-1 rounded-full">
-                              {neg.tipo_imovel as string}
-                            </span>
-                          )}
-                          {!!neg.quartos_min && (
-                            <span className="text-[11px] font-medium bg-muted px-2.5 py-1 rounded-full">T{neg.quartos_min as number}+</span>
-                          )}
-                          {!!neg.localizacao && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted px-2.5 py-1 rounded-full truncate max-w-[160px]">
-                              {neg.localizacao as string}
-                            </span>
-                          )}
-                          {!neg.tipo_imovel && !neg.quartos_min && !neg.localizacao && (
-                            <span className="text-[11px] text-muted-foreground italic">Sem criterios definidos</span>
-                          )}
-                        </div>
+                        <div className="relative z-10 p-5">
+                          {/* Top: tipo + estado + delete */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-sm text-white px-3 py-1 text-[11px] font-semibold">
+                                <Briefcase className="h-3 w-3" />
+                                {tipoLabel}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium', ec.bg, ec.text)}>
+                                <span className={cn('h-1.5 w-1.5 rounded-full', ec.dot)} />
+                                {(neg.estado as string) || 'Aberto'}
+                              </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-white/20 text-white/30 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
 
-                        {/* Bottom: value + date */}
-                        <div className="flex items-center justify-between pt-3 border-t">
-                          <div className="flex items-center gap-2">
-                            {!!neg.orcamento && (
-                              <span className="text-base font-bold">{formatCurrency(neg.orcamento as number)}</span>
+                          {/* Middle: criteria pills */}
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {!!neg.tipo_imovel && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm">
+                                {neg.tipo_imovel as string}
+                              </span>
                             )}
-                            {!!neg.orcamento_max && neg.orcamento_max !== neg.orcamento && (
-                              <span className="text-xs text-muted-foreground">— {formatCurrency(neg.orcamento_max as number)}</span>
+                            {!!neg.quartos_min && (
+                              <span className="text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm">T{neg.quartos_min as number}+</span>
                             )}
-                            {!!neg.preco_venda && !neg.orcamento && (
-                              <span className="text-base font-bold">{formatCurrency(neg.preco_venda as number)}</span>
+                            {!!neg.localizacao && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm truncate max-w-[160px]">
+                                {neg.localizacao as string}
+                              </span>
                             )}
-                            {!neg.orcamento && !neg.preco_venda && (
-                              <span className="text-xs text-muted-foreground italic">Sem valor</span>
+                            {!neg.tipo_imovel && !neg.quartos_min && !neg.localizacao && (
+                              <span className="text-[11px] text-white/40 italic">Sem criterios definidos</span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatDate(neg.created_at as string)}</span>
+
+                          {/* Bottom: value + date */}
+                          <div className="flex items-center justify-between pt-3 border-t border-white/15">
+                            <div className="flex items-center gap-2">
+                              {!!neg.orcamento && (
+                                <span className="text-lg font-bold text-white">{formatCurrency(neg.orcamento as number)}</span>
+                              )}
+                              {!!neg.orcamento_max && neg.orcamento_max !== neg.orcamento && (
+                                <span className="text-xs text-white/50">— {formatCurrency(neg.orcamento_max as number)}</span>
+                              )}
+                              {!!neg.preco_venda && !neg.orcamento && (
+                                <span className="text-lg font-bold text-white">{formatCurrency(neg.preco_venda as number)}</span>
+                              )}
+                              {!neg.orcamento && !neg.preco_venda && (
+                                <span className="text-xs text-white/40 italic">Sem valor</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-white/40">{formatDate(neg.created_at as string)}</span>
+                          </div>
                         </div>
                       </div>
                     )

@@ -18,11 +18,14 @@ import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
 import { EmailGrid } from './user/email-grid'
 import { EmailPortalLinks } from './user/email-portal-links'
+import { EmailHeader } from './user/email-header'
+import { EmailFooter } from './user/email-footer'
+import { EmailSignature } from './user/email-signature'
 
 import { RenderNode, duplicateNode } from './email-render-node'
 import { EmailToolbox } from './email-toolbox'
 import { EmailSettingsPanel } from './email-settings-panel'
-import { EmailTopbar, type EditorMode } from './email-topbar'
+import { EmailTopbar, type EditorMode, type SignatureMode } from './email-topbar'
 import { EmailLayer } from './email-layer'
 import { EmailPreviewPanel } from './email-preview-panel'
 import { renderEmailToHtml } from '@/lib/email-renderer'
@@ -38,6 +41,9 @@ const resolver = {
   EmailAttachment,
   EmailGrid,
   EmailPortalLinks,
+  EmailHeader,
+  EmailFooter,
+  EmailSignature,
 }
 
 interface EmailEditorProps {
@@ -182,6 +188,7 @@ export function EmailEditorComponent({
   const [description] = useState(initialDescription)
   const [isSaving, setIsSaving] = useState(false)
   const [mode, setMode] = useState<EditorMode>('edit')
+  const [signatureMode, setSignatureMode] = useState<SignatureMode>('process_owner')
   const [previewEditorState, setPreviewEditorState] = useState<string | null>(null)
 
   const sanitizedData = useMemo(
@@ -207,6 +214,7 @@ export function EmailEditorComponent({
         description: description.trim() || undefined,
         body_html: renderEmailToHtml(editorState, {}),
         editor_state: JSON.parse(editorState),
+        signature_mode: signatureMode,
       }
 
       if (templateId) {
@@ -251,8 +259,10 @@ export function EmailEditorComponent({
           name={name}
           subject={subject}
           mode={mode}
+          signatureMode={signatureMode}
           onNameChange={setName}
           onSubjectChange={setSubject}
+          onSignatureModeChange={setSignatureMode}
           onSave={handleSave}
           onModeChange={handleModeChange}
           isSaving={isSaving}
@@ -268,15 +278,30 @@ export function EmailEditorComponent({
                   <Element
                     is={EmailContainer}
                     canvas
-                    padding={24}
+                    padding={0}
                     background="#ffffff"
                     width="100%"
                     direction="column"
                     align="stretch"
                     justify="flex-start"
-                    gap={8}
+                    gap={0}
                   >
-                    <EmailText html="Edite o seu template aqui" />
+                    <EmailHeader />
+                    <Element
+                      is={EmailContainer}
+                      canvas
+                      padding={24}
+                      background="#ffffff"
+                      width="100%"
+                      direction="column"
+                      align="stretch"
+                      justify="flex-start"
+                      gap={8}
+                    >
+                      <EmailText html="Escreva o conteúdo do email aqui..." />
+                    </Element>
+                    <EmailSignature />
+                    <EmailFooter />
                   </Element>
                 </Frame>
               </div>

@@ -35,6 +35,59 @@ import { cn } from '@/lib/utils'
 import { useTemplateVariables, type TemplateVariable } from '@/hooks/use-template-variables'
 import { renderEmailToHtml, extractVariablesFromState } from '@/lib/email-renderer'
 
+/**
+ * Hook that scans editor state for EmailSignature nodes,
+ * fetches the consultant's signature URL, and injects it as _resolvedSignatureUrl prop.
+ */
+function useResolvedSignatures(editorState: string | null): string | null {
+  const [resolved, setResolved] = useState<string | null>(editorState)
+  const [signatureCache, setSignatureCache] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    if (!editorState) { setResolved(null); return }
+    try {
+      const state = JSON.parse(editorState)
+      const consultantIds = new Set<string>()
+      for (const nodeId of Object.keys(state)) {
+        const node = state[nodeId]
+        if (node?.type?.resolvedName === 'EmailSignature' && node?.props?.consultantId) {
+          consultantIds.add(node.props.consultantId)
+        }
+      }
+      if (consultantIds.size === 0) { setResolved(editorState); return }
+
+      // Fetch any uncached consultant signatures
+      const uncached = [...consultantIds].filter(id => !(id in signatureCache))
+      if (uncached.length > 0) {
+        Promise.all(uncached.map(id =>
+          fetch(`/api/consultants/${id}`).then(r => r.json()).then(d => ({
+            id,
+            url: d?.dev_consultant_profiles?.email_signature_url || null,
+          })).catch(() => ({ id, url: null }))
+        )).then(results => {
+          const newCache = { ...signatureCache }
+          for (const r of results) newCache[r.id] = r.url
+          setSignatureCache(newCache)
+        })
+        return // Will re-run when cache updates
+      }
+
+      // Inject resolved URLs into state
+      for (const nodeId of Object.keys(state)) {
+        const node = state[nodeId]
+        if (node?.type?.resolvedName === 'EmailSignature' && node?.props?.consultantId) {
+          node.props._resolvedSignatureUrl = signatureCache[node.props.consultantId] || ''
+        }
+      }
+      setResolved(JSON.stringify(state))
+    } catch {
+      setResolved(editorState)
+    }
+  }, [editorState, signatureCache])
+
+  return resolved
+}
+
 interface EmailPreviewPanelProps {
   editorState: string | null
   subject: string
@@ -258,9 +311,12 @@ export function EmailPreviewPanel({
     ),
   }
 
+  // Resolve signature URLs in editor state before rendering
+  const resolvedEditorState = useResolvedSignatures(editorState)
+
   // Render the preview HTML
-  const previewHtml = editorState
-    ? renderEmailToHtml(editorState, mergedVariables)
+  const previewHtml = resolvedEditorState
+    ? renderEmailToHtml(resolvedEditorState, mergedVariables)
     : '<p style="color: #6b7280; text-align: center; padding: 40px;">Nenhum conteúdo no template</p>'
 
   // Render subject with variables

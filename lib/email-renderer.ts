@@ -606,6 +606,77 @@ function renderPortalLinks(props: Record<string, unknown>): string {
   return html
 }
 
+function renderSignature(props: Record<string, unknown>, variables: VariablesMap): string {
+  const padding = Number(props.padding) || 8
+  const bg = String(props.background || 'transparent')
+  const width = Number(props.width) || 100
+  const align = String(props.align || 'center')
+  // The signature URL is resolved at send time via the variable
+  const signatureUrl = variables['consultor_assinatura_url'] || String(props._resolvedSignatureUrl || '')
+
+  if (!signatureUrl) {
+    return `<table width="100%" cellpadding="0" cellspacing="0" border="0"${bg !== 'transparent' ? ` style="background-color:${bg};"` : ''}>
+    <tr><td align="${align}" style="padding:${padding}px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#999;">
+      <em>Assinatura não configurada</em>
+    </td></tr></table>`
+  }
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0"${bg !== 'transparent' ? ` style="background-color:${bg};"` : ''}>
+  <tr><td align="${align}" style="padding:${padding}px;">
+    <img src="${signatureUrl}" alt="Assinatura" style="width:${width}%;max-width:100%;height:auto;display:inline-block;" />
+  </td></tr></table>`
+}
+
+function renderHeader(props: Record<string, unknown>): string {
+  const bg = String(props.backgroundColor || '#000000')
+  const logoWidth = Number(props.logoWidth) || 180
+  const py = Number(props.paddingY) || 24
+  const headerLogoUrl = 'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/landing-page/43f87d7c-92b5-4403-b7bb-618c8d4a2b9e.png'
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
+  <tr><td align="center" style="padding:${py}px 24px;">
+    <img src="${headerLogoUrl}" alt="Infinity Group" width="${logoWidth}" style="display:block;width:${logoWidth}px;height:auto;" />
+  </td></tr></table>`
+}
+
+function renderFooter(props: Record<string, unknown>): string {
+  const bg = String(props.backgroundColor || '#1a1a1a')
+  const textColor = String(props.textColor || '#999999')
+  const logoWidth = Number(props.logoWidth) || 120
+  const py = Number(props.paddingY) || 32
+  const activityText = String(props.activityText || 'Atividade exercida ao abrigo da Licença AMI 4719 - Convictus Mediação Imobiliária, Lda')
+  const infinitySvg = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>')}`
+  const houseSvg = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>')}`
+  const socials: { url: string; icon: string; label: string; isLogo?: boolean }[] = []
+  if (props.showWebsite !== false && props.websiteUrl) socials.push({ url: String(props.websiteUrl), icon: infinitySvg, label: 'Infinity Group', isLogo: true })
+  if (props.showLinkedin !== false && props.linkedinUrl) socials.push({ url: String(props.linkedinUrl), icon: houseSvg, label: 'RE/MAX' })
+  if (props.showInstagram !== false && props.instagramUrl) socials.push({ url: String(props.instagramUrl), icon: 'https://cdn-icons-png.flaticon.com/32/174/174855.png', label: 'Instagram' })
+  if (props.showFacebook !== false && props.facebookUrl) socials.push({ url: String(props.facebookUrl), icon: 'https://cdn-icons-png.flaticon.com/32/124/124010.png', label: 'Facebook' })
+
+  const socialHtml = socials.length > 0 ? `<tr><td align="center" style="padding-bottom:16px;">
+    ${socials.map(s => {
+      const size = s.isLogo ? 32 : 24
+      const radius = s.isLogo ? '50%' : '4px'
+      return `<a href="${s.url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 8px;text-decoration:none;vertical-align:middle;"><img src="${s.icon}" alt="${s.label}" width="${size}" height="${size}" style="display:block;border-radius:${radius};object-fit:cover;" /></a>`
+    }).join('')}
+  </td></tr>` : ''
+
+  const activityHtml = activityText ? `<tr><td align="center" style="padding:0;">
+    <p style="color:${textColor};font-size:11px;line-height:1.4;margin:0;font-family:Arial,Helvetica,sans-serif;">${activityText}</p>
+  </td></tr>` : ''
+
+  const footerLogoUrl = 'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/landing-page/43f87d7c-92b5-4403-b7bb-618c8d4a2b9e.png'
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
+  <tr><td align="center" style="padding:${py}px 24px 16px;">
+    <img src="${footerLogoUrl}" alt="Infinity Group" width="${logoWidth}" style="display:block;width:${logoWidth}px;height:auto;" />
+  </td></tr>
+  ${socialHtml}
+  ${activityHtml}
+  <tr><td style="height:${py - 16}px;">&nbsp;</td></tr>
+  </table>`
+}
+
 /** Strip the highlighting <span> wrappers from variables, keeping just the raw {{var}} text */
 function stripVariableSpans(html: string): string {
   // Strip data-variable-key spans (Tiptap)
@@ -664,6 +735,12 @@ function renderNode(nodeId: string, state: EditorState, variables: VariablesMap)
           return renderAttachment(props, variables)
         case 'EmailPortalLinks':
           return renderPortalLinks(props)
+        case 'EmailHeader':
+          return renderHeader(props)
+        case 'EmailSignature':
+          return renderSignature(props, variables)
+        case 'EmailFooter':
+          return renderFooter(props)
         default:
           return allChildren
       }

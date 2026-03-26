@@ -86,7 +86,7 @@ export default function MarketingLojaPage() {
   const ORDERS_TABS: { key: OrdersView; label: string; icon: React.ElementType }[] = [
     { key: 'calendar', label: 'Calendário', icon: CalendarDays },
     { key: 'articles', label: 'Artigos', icon: Layers },
-    { key: 'orders', label: 'Encomendas', icon: ClipboardList },
+    { key: 'orders', label: 'Carrinhos', icon: ClipboardList },
     { key: 'analytics', label: 'Análise', icon: BarChart3 },
   ]
 

@@ -15,6 +15,9 @@ import {
   ExternalLink,
   ChevronDown,
   Search,
+  PanelTop,
+  PanelBottom,
+  Pen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -28,6 +31,9 @@ import { EmailSpacer } from './user/email-spacer'
 import { EmailAttachment } from './user/email-attachment'
 import { EmailGrid } from './user/email-grid'
 import { EmailPortalLinks } from './user/email-portal-links'
+import { EmailHeader } from './user/email-header'
+import { EmailFooter } from './user/email-footer'
+import { EmailSignature } from './user/email-signature'
 
 interface ToolboxItem {
   label: string
@@ -55,6 +61,9 @@ export const categories: ToolboxCategory[] = [
     name: 'Media',
     items: [
       { label: 'Imagem', icon: ImageIcon, element: <EmailImage /> },
+      { label: 'Cabeçalho', icon: PanelTop, element: <EmailHeader /> },
+      { label: 'Assinatura', icon: Pen, element: <EmailSignature /> },
+      { label: 'Rodapé', icon: PanelBottom, element: <EmailFooter /> },
     ],
   },
   {

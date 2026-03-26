@@ -32,13 +32,16 @@ export async function GET(request: Request) {
       .order('commercial_name', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    // Filter by active status
-    if (status === 'active') {
-      query = query.eq('is_active', true)
-    } else if (status === 'inactive') {
+    // Filter by active status — DEFAULT to active only
+    // Deactivated users should NEVER appear except when explicitly requesting 'inactive' or 'all'
+    if (status === 'inactive') {
       query = query.eq('is_active', false)
+    } else if (status === 'all') {
+      // Show all (for admin consultores page with filters)
+    } else {
+      // Default: only active users (covers status=active, status=undefined, active=true, etc.)
+      query = query.eq('is_active', true)
     }
-    // 'all' = no filter
 
     if (search) {
       query = query.or(

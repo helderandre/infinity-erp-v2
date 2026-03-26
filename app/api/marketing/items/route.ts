@@ -47,7 +47,8 @@ export async function GET() {
       .from('temp_requisition_items')
       .select(`
         id, quantity, unit_price, subtotal, status, notes, personalization_data,
-        product:temp_products(id, name, category_id, thumbnail_url, category:temp_product_categories(id, name)),
+        supplier_order_id, supplier_order_ref,
+        product:temp_products(id, name, category_id, thumbnail_url, supplier_id, category:temp_product_categories(id, name)),
         requisition:temp_requisitions!inner(
           id, status, checkout_group_id, delivery_type, payment_method, created_at,
           agent:dev_users!temp_requisitions_agent_id_fkey(id, commercial_name)
@@ -55,7 +56,7 @@ export async function GET() {
       `)
       .order('requisition(created_at)', { ascending: false })
 
-    // Flatten product category name and thumbnail for frontend
+    // Flatten product category name, thumbnail and supplier_id for frontend
     const flattenedMaterials = (materialItems || []).map((item: any) => ({
       ...item,
       product: item.product ? {
@@ -63,6 +64,7 @@ export async function GET() {
         name: item.product.name,
         category: item.product.category?.name || '—',
         thumbnail: item.product.thumbnail_url,
+        supplier_id: item.product.supplier_id,
       } : null,
     }))
 

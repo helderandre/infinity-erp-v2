@@ -41,7 +41,8 @@ export function useConsultants({
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (role && role !== 'all') params.set('role', role)
-      if (status && status !== 'all') params.set('status', status)
+      // Always pass status — API defaults to 'active' if omitted
+      params.set('status', status || 'active')
       params.set('page', String(page))
       params.set('per_page', String(perPage))
 

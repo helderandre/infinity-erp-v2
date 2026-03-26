@@ -9,7 +9,7 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, UserCheck, ContactRound, Kanban,
+  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -63,11 +63,10 @@ export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  { title: 'Contactos-B', icon: ContactRound, href: '/dashboard/crm/contactos', permission: 'leads' },
+  { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
 ]
 
 export const negocioItems = [
-  { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
   { title: 'Proprietários', icon: UserCircle, href: '/dashboard/proprietarios', permission: 'owners' },
@@ -80,13 +79,13 @@ export const pessoasItems = [
 ]
 
 export const financeiroItems = [
-  { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
-  { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
-  { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
-  { title: 'Gestão Empresa', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
   { title: 'Dashboard', icon: TrendingUp, href: '/dashboard/comissoes/dashboard', permission: 'commissions' },
-  { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
+  { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
+  { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
+  { title: 'Despesas Empresa', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
+  { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
   { title: 'Relatórios', icon: Briefcase, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
+  { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
 ]
 
 export const recrutamentoItems = [
@@ -96,13 +95,13 @@ export const recrutamentoItems = [
 
 export const lojaItems = [
   { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
+  { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas' },
 ]
 
 export const digitalItems = [
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
-  { title: 'Integrações', icon: Plug, href: '/dashboard/definicoes/integracoes/meta' },
 ]
 
 export const automationItems = [
@@ -345,7 +344,7 @@ export function AppSidebar() {
             items={digitalItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/definicoes/integracoes/meta']}
+            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
           />
         )}
 

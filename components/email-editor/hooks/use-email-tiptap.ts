@@ -9,6 +9,7 @@ import TextStyle from '@tiptap/extension-text-style'
 import FontFamily from '@tiptap/extension-font-family'
 import Color from '@tiptap/extension-color'
 import Placeholder from '@tiptap/extension-placeholder'
+import Link from '@tiptap/extension-link'
 import { VariableNode } from '../extensions/variable-node'
 import { FontSize } from '../extensions/font-size'
 import {
@@ -101,6 +102,14 @@ export function useEmailTiptap({
       FontFamily,
       FontSize,
       Color,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          style: 'color: #2563eb; text-decoration: underline;',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+      }),
       Placeholder.configure({
         placeholder: placeholder || '',
       }),
