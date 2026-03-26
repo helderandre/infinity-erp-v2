@@ -243,7 +243,7 @@ EmailFooter.craft = {
   props: {
     backgroundColor: '#1a1a1a',
     textColor: '#ffffff',
-    logoWidth: 80,
+    logoWidth: 60,
     paddingY: 20,
     companyName: 'Infinity Group',
     activityText: 'Atividade exercida ao abrigo da Licença AMI 4719 - Convictus Mediação Imobiliária, Lda',
@@ -251,10 +251,10 @@ EmailFooter.craft = {
     showFacebook: true,
     showLinkedin: true,
     showWebsite: true,
-    instagramUrl: 'https://instagram.com/infinitygroup.pt',
-    facebookUrl: 'https://facebook.com/infinitygrouppt',
-    linkedinUrl: 'https://linkedin.com/company/infinitygroup',
-    websiteUrl: 'https://infinitygroup.pt',
+    instagramUrl: 'https://www.instagram.com/o.infinitygroup?igsh=MWc5eTJ4cnc1Y2w3aw%3D%3D',
+    facebookUrl: 'https://www.facebook.com/infinitygroupbyfilipepereira/',
+    linkedinUrl: 'https://remax.pt/en/agente/filipe-pereira/121491860',
+    websiteUrl: 'https://www.infinitygroup.pt',
   },
   related: {
     settings: EmailFooterSettings,

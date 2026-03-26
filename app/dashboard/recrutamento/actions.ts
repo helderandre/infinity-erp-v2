@@ -471,6 +471,7 @@ export interface FormFieldConfig {
   field_key: string
   label: string
   section: string
+  section_label: string | null
   field_type: string
   options: string[] | null
   placeholder: string | null
@@ -516,6 +517,20 @@ export async function reorderFormFields(
       .eq("id", item.id)
     if (error) return { success: false, error: error.message }
   }
+  return { success: true, error: null }
+}
+
+export async function updateSectionLabel(
+  section: string,
+  label: string
+): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("recruitment_form_fields")
+    .update({ section_label: label })
+    .eq("section", section)
+
+  if (error) return { success: false, error: error.message }
   return { success: true, error: null }
 }
 
@@ -1475,4 +1490,209 @@ export async function getAllInterviews(monthStart: string, monthEnd: string) {
   }))
 
   return { interviews, error: null }
+}
+
+// ─── Contract Templates ─────────────────────────────────────────────────
+
+export async function getContractTemplates(): Promise<{ templates: any[]; error: string | null }> {
+  const admin = createAdminClient()
+  const { data, error } = await (admin as any).from("recruitment_contract_templates")
+    .select("*")
+    .eq("is_active", true)
+    .order("name")
+  if (error) return { templates: [], error: error.message }
+  return { templates: data ?? [], error: null }
+}
+
+export async function createContractTemplate(template: {
+  name: string
+  description?: string
+  content_html: string
+  variables?: string[]
+}): Promise<{ template: any | null; error: string | null }> {
+  const admin = createAdminClient()
+  const { data, error } = await (admin as any).from("recruitment_contract_templates")
+    .insert({
+      name: template.name,
+      description: template.description || null,
+      content_html: template.content_html,
+      variables: template.variables || [],
+    })
+    .select()
+    .single()
+  if (error) return { template: null, error: error.message }
+  return { template: data, error: null }
+}
+
+export async function updateContractTemplate(id: string, updates: {
+  name?: string
+  description?: string
+  content_html?: string
+  variables?: string[]
+  is_active?: boolean
+}): Promise<{ error: string | null }> {
+  const admin = createAdminClient()
+  const { error } = await (admin as any).from("recruitment_contract_templates")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+  return { error: error?.message || null }
+}
+
+// ─── Contract Generation ────────────────────────────────────────────────
+
+export async function generateContract(candidateId: string, templateId: string, contractData: Record<string, string>): Promise<{ contract: any | null; error: string | null }> {
+  const admin = createAdminClient()
+
+  // Get template
+  const { data: template, error: tplErr } = await (admin as any).from("recruitment_contract_templates")
+    .select("*")
+    .eq("id", templateId)
+    .single()
+  if (tplErr || !template) return { contract: null, error: tplErr?.message || "Template não encontrado" }
+
+  // Replace variables in template HTML
+  let html = template.content_html as string
+  for (const [key, value] of Object.entries(contractData)) {
+    html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '')
+  }
+
+  // Save contract
+  const { data, error } = await (admin as any).from("recruitment_contracts")
+    .insert({
+      candidate_id: candidateId,
+      template_id: templateId,
+      contract_data: contractData,
+      generated_html: html,
+      status: 'draft',
+    })
+    .select()
+    .single()
+  if (error) return { contract: null, error: error.message }
+  return { contract: data, error: null }
+}
+
+export async function getContracts(candidateId: string): Promise<{ contracts: any[]; error: string | null }> {
+  const admin = createAdminClient()
+  const { data, error } = await (admin as any).from("recruitment_contracts")
+    .select("*, template:recruitment_contract_templates(id, name)")
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false })
+  if (error) return { contracts: [], error: error.message }
+  return { contracts: data ?? [], error: null }
+}
+
+export async function updateContractStatus(contractId: string, status: string, sentToEmail?: string): Promise<{ error: string | null }> {
+  const admin = createAdminClient()
+  const updates: Record<string, any> = { status, updated_at: new Date().toISOString() }
+  if (status === 'sent') {
+    updates.sent_at = new Date().toISOString()
+    if (sentToEmail) updates.sent_to_email = sentToEmail
+  }
+  const { error } = await (admin as any).from("recruitment_contracts")
+    .update(updates)
+    .eq("id", contractId)
+  return { error: error?.message || null }
+}
+
+// ─── Linked Entry Submission ────────────────────────────────────────────
+
+export async function getLinkedSubmission(candidateId: string): Promise<{ submission: any | null; error: string | null }> {
+  const admin = createAdminClient()
+  const { data, error } = await (admin as any).from("recruitment_entry_submissions")
+    .select("*")
+    .eq("candidate_id", candidateId)
+    .single()
+  if (error && error.code !== 'PGRST116') return { submission: null, error: error.message }
+  return { submission: data || null, error: null }
+}
+
+export async function linkSubmissionToCandidate(submissionId: string, candidateId: string): Promise<{ error: string | null }> {
+  const admin = createAdminClient()
+  const { error } = await (admin as any).from("recruitment_entry_submissions")
+    .update({ candidate_id: candidateId, updated_at: new Date().toISOString() })
+    .eq("id", submissionId)
+  return { error: error?.message || null }
+}
+
+// ─── Create Consultor from Candidate ────────────────────────────────────
+
+export async function createConsultorFromCandidate(candidateId: string, data: {
+  professional_email: string
+  commercial_name: string
+  full_name: string
+  nif?: string
+  iban?: string
+  address_private?: string
+  commission_rate?: number
+  monthly_salary?: number
+  hiring_date?: string
+  profile_photo_url?: string
+  phone_commercial?: string
+  instagram_handle?: string
+}): Promise<{ userId: string | null; error: string | null }> {
+  const admin = createAdminClient()
+
+  // 1. Get the "Consultor" role
+  const { data: role, error: roleErr } = await (admin as any).from("roles")
+    .select("id")
+    .eq("name", "Consultor")
+    .single()
+  if (roleErr || !role) return { userId: null, error: "Role 'Consultor' não encontrada" }
+
+  // 2. Create auth user (invite)
+  const { data: authData, error: authErr } = await admin.auth.admin.createUser({
+    email: data.professional_email,
+    email_confirm: false,
+    user_metadata: { full_name: data.full_name },
+  })
+  if (authErr || !authData.user) return { userId: null, error: authErr?.message || "Erro ao criar utilizador" }
+
+  const userId = authData.user.id
+
+  // 3. Create dev_users record
+  const { error: userErr } = await (admin as any).from("dev_users").insert({
+    id: userId,
+    role_id: role.id,
+    commercial_name: data.commercial_name,
+    professional_email: data.professional_email,
+    is_active: true,
+  })
+  if (userErr) return { userId: null, error: userErr.message }
+
+  // 4. Create dev_consultant_profiles
+  await (admin as any).from("dev_consultant_profiles").insert({
+    user_id: userId,
+    profile_photo_url: data.profile_photo_url || null,
+    phone_commercial: data.phone_commercial || null,
+    instagram_handle: data.instagram_handle || null,
+  })
+
+  // 5. Create dev_consultant_private_data
+  await (admin as any).from("dev_consultant_private_data").insert({
+    user_id: userId,
+    full_name: data.full_name,
+    nif: data.nif || null,
+    iban: data.iban || null,
+    address_private: data.address_private || null,
+    commission_rate: data.commission_rate || null,
+    monthly_salary: data.monthly_salary || null,
+    hiring_date: data.hiring_date || null,
+  })
+
+  // 6. Link candidate to consultant
+  await (admin as any).from("recruitment_candidates")
+    .update({ consultant_user_id: userId, updated_at: new Date().toISOString() })
+    .eq("id", candidateId)
+
+  // 7. Auto-start probation
+  const startDate = data.hiring_date || new Date().toISOString().slice(0, 10)
+  const endDate = new Date(new Date(startDate).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  await (admin as any).from("temp_recruitment_probation").upsert({
+    candidate_id: candidateId,
+    start_date: startDate,
+    end_date: endDate,
+    status: 'active',
+  }, { onConflict: 'candidate_id' })
+
+  return { userId, error: null }
 }

@@ -125,8 +125,10 @@ export const RenderNode = ({ render }: { render: React.ReactNode }) => {
         ReactDOM.createPortal(
           <div
             ref={toolbarRef}
-            className="fixed flex items-center gap-1 px-2 py-1 text-xs text-white bg-primary rounded z-[9999]"
+            className="fixed flex items-center gap-1 px-2 py-1 text-xs text-white bg-primary rounded z-[9999] pointer-events-auto"
             style={getToolbarPosition()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <span className="mr-1">{name}</span>
             {moveable && (

@@ -268,47 +268,45 @@ export function EmailEditorComponent({
           isSaving={isSaving}
         />
 
-        {/* Edit mode */}
-        {mode === 'edit' && (
-          <div className="flex flex-1 min-h-0">
-            <EmailToolbox />
-            <div className="flex-1 overflow-auto bg-muted/30 p-8">
-              <div className="mx-auto" style={{ maxWidth: 620 }}>
-                <Frame data={sanitizedData}>
+        {/* Edit mode — kept mounted but hidden when in preview to preserve state */}
+        <div className="flex flex-1 min-h-0" style={{ display: mode === 'edit' ? 'flex' : 'none' }}>
+          <EmailToolbox />
+          <div className="flex-1 overflow-auto bg-muted/30 p-8">
+            <div className="mx-auto" style={{ maxWidth: 620 }}>
+              <Frame data={sanitizedData}>
+                <Element
+                  is={EmailContainer}
+                  canvas
+                  padding={0}
+                  background="#ffffff"
+                  width="100%"
+                  direction="column"
+                  align="stretch"
+                  justify="flex-start"
+                  gap={0}
+                >
+                  <EmailHeader />
                   <Element
                     is={EmailContainer}
                     canvas
-                    padding={0}
+                    padding={24}
                     background="#ffffff"
                     width="100%"
                     direction="column"
                     align="stretch"
                     justify="flex-start"
-                    gap={0}
+                    gap={8}
                   >
-                    <EmailHeader />
-                    <Element
-                      is={EmailContainer}
-                      canvas
-                      padding={24}
-                      background="#ffffff"
-                      width="100%"
-                      direction="column"
-                      align="stretch"
-                      justify="flex-start"
-                      gap={8}
-                    >
-                      <EmailText html="Escreva o conteúdo do email aqui..." />
-                    </Element>
-                    <EmailSignature />
-                    <EmailFooter />
+                    <EmailText html="Escreva o conteúdo do email aqui..." />
                   </Element>
-                </Frame>
-              </div>
+                  <EmailSignature />
+                  <EmailFooter />
+                </Element>
+              </Frame>
             </div>
-            <RightSidebar />
           </div>
-        )}
+          <RightSidebar />
+        </div>
 
         {/* Preview mode */}
         {mode === 'preview' && (

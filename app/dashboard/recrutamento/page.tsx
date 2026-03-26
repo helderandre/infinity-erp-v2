@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale/pt'
 import {
   Users,
@@ -22,7 +22,7 @@ import {
   getRecruitmentKPIs,
   getRecruitmentAlerts,
 } from '@/app/dashboard/recrutamento/actions'
-import type { RecruitmentCandidate } from '@/types/recruitment'
+import type { RecruitmentCandidate, RecruitmentAlert } from '@/types/recruitment'
 import { CANDIDATE_STATUSES, CANDIDATE_SOURCES } from '@/types/recruitment'
 import type { AlertSeverity } from '@/types/recruitment'
 
@@ -64,6 +64,7 @@ export default function RecrutamentoDashboardPage() {
     warning: 0,
     info: 0,
   })
+  const [alerts, setAlerts] = useState<RecruitmentAlert[]>([])
   const [recentCandidates, setRecentCandidates] = useState<RecruitmentCandidate[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -86,12 +87,13 @@ export default function RecrutamentoDashboardPage() {
     }
 
     if (!alertsRes.error && alertsRes.alerts) {
-      const alerts = alertsRes.alerts
+      const fetchedAlerts = alertsRes.alerts
+      setAlerts(fetchedAlerts)
       setAlertSummary({
-        total: alerts.length,
-        urgent: alerts.filter((a) => a.severity === 'urgent').length,
-        warning: alerts.filter((a) => a.severity === 'warning').length,
-        info: alerts.filter((a) => a.severity === 'info').length,
+        total: fetchedAlerts.length,
+        urgent: fetchedAlerts.filter((a) => a.severity === 'urgent').length,
+        warning: fetchedAlerts.filter((a) => a.severity === 'warning').length,
+        info: fetchedAlerts.filter((a) => a.severity === 'info').length,
       })
     }
 
@@ -155,6 +157,52 @@ export default function RecrutamentoDashboardPage() {
           loading={loading}
         />
       </div>
+
+      {/* Alerts inline */}
+      {alerts.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">Alertas</h3>
+          <div className="space-y-2">
+            {alerts.slice(0, 5).map((alert, i) => {
+              const borderColor =
+                alert.severity === 'urgent'
+                  ? 'border-l-red-500'
+                  : alert.severity === 'warning'
+                    ? 'border-l-amber-500'
+                    : 'border-l-blue-500'
+              return (
+                <div
+                  key={`${alert.candidate_id}-${alert.type}-${i}`}
+                  className={cn(
+                    'rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm border-l-4 p-3',
+                    borderColor
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/dashboard/recrutamento/${alert.candidate_id}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {alert.candidate_name}
+                      </Link>
+                      <p className="text-sm text-muted-foreground mt-0.5">{alert.message}</p>
+                    </div>
+                    {alert.date && (
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {format(new Date(alert.date), "d MMM yyyy", { locale: pt })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {alerts.length > 5 && (
+              <p className="text-xs text-muted-foreground">+ {alerts.length - 5} mais alertas</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Alerts + Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -379,7 +427,7 @@ function KPICard({
   loading: boolean
 }) {
   return (
-    <Card>
+    <Card className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm">
       <CardContent className="flex items-center gap-3 p-4">
         <div
           className={cn(

@@ -140,7 +140,7 @@ export default function CalendarioEntrevistasPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div>
+      <div className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm p-6">
         <h1 className="text-2xl font-bold tracking-tight">Calendario de Entrevistas</h1>
         <p className="text-muted-foreground text-sm">
           Visualize todas as entrevistas e follow-ups agendados
@@ -149,15 +149,15 @@ export default function CalendarioEntrevistasPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Calendar Grid */}
-        <Card>
+        <Card className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
+            <Button variant="outline" size="icon" className="rounded-full" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-lg font-semibold capitalize">
+            <h2 className="text-lg font-semibold capitalize rounded-xl bg-muted/40 backdrop-blur-sm px-4 py-1.5">
               {format(currentMonth, "MMMM yyyy", { locale: pt })}
             </h2>
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
+            <Button variant="outline" size="icon" className="rounded-full" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </CardHeader>
@@ -189,7 +189,7 @@ export default function CalendarioEntrevistasPage() {
                         key={dateKey}
                         onClick={() => setSelectedDate(day)}
                         className={cn(
-                          "relative flex flex-col items-center justify-center rounded-lg border border-transparent py-3 text-sm transition-colors hover:bg-muted",
+                          "relative flex flex-col items-center justify-center rounded-lg border border-transparent py-3 text-sm transition-colors hover:bg-muted/30",
                           !inMonth && "text-muted-foreground/40",
                           today && "font-bold",
                           selected && "border-primary bg-primary/5 font-semibold"
@@ -225,7 +225,7 @@ export default function CalendarioEntrevistasPage() {
         <div className="flex flex-col gap-4">
           {selectedDate ? (
             <>
-              <Card>
+              <Card className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Calendar className="h-4 w-4" />
@@ -241,7 +241,7 @@ export default function CalendarioEntrevistasPage() {
                     <>
                       {/* Interviews */}
                       {selectedEvents.map((ev) => (
-                        <div key={ev.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                        <div key={ev.id} className="flex flex-col gap-2 rounded-lg border border-border/30 bg-primary/5 backdrop-blur-sm p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate font-medium text-sm">{ev.candidate_name}</p>
@@ -276,7 +276,7 @@ export default function CalendarioEntrevistasPage() {
                       ))}
                       {/* Follow-ups */}
                       {selectedFollowUps.map((ev) => (
-                        <div key={`fu-${ev.id}`} className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <div key={`fu-${ev.id}`} className="flex flex-col gap-2 rounded-lg border border-amber-200/40 bg-amber-50/50 backdrop-blur-sm p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate font-medium text-sm">{ev.candidate_name}</p>
@@ -300,7 +300,7 @@ export default function CalendarioEntrevistasPage() {
               </Card>
             </>
           ) : (
-            <Card>
+            <Card className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Calendar className="text-muted-foreground mb-3 h-10 w-10" />
                 <p className="text-muted-foreground text-sm">

@@ -224,14 +224,14 @@ export default function PipelinePage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 backdrop-blur-sm p-3 border border-border/20">
         <div className="relative min-w-[220px] flex-1 md:max-w-xs">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Pesquisar nome, email, telefone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 rounded-full"
           />
         </div>
 
@@ -299,7 +299,7 @@ export default function PipelinePage() {
               <div
                 key={stage}
                 className={cn(
-                  "flex shrink-0 flex-col rounded-lg border bg-muted/30",
+                  "flex shrink-0 flex-col rounded-2xl border border-border/30 bg-card/30 backdrop-blur-sm p-3",
                   isTerminal ? "w-[220px]" : "w-[280px]"
                 )}
               >
@@ -343,7 +343,7 @@ export default function PipelinePage() {
                       return (
                         <Card
                           key={candidate.id}
-                          className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01]"
+                          className="rounded-xl border border-border/20 bg-card/60 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01]"
                           onClick={() => navigateToDetail(candidate.id)}
                         >
                           <CardContent
@@ -443,7 +443,7 @@ function KanbanSkeleton() {
       {PIPELINE_STAGES.map((stage) => (
         <div
           key={stage}
-          className="flex w-[280px] shrink-0 flex-col rounded-lg border bg-muted/30"
+          className="flex w-[280px] shrink-0 flex-col rounded-2xl border border-border/30 bg-card/30 backdrop-blur-sm p-3"
         >
           <div className="flex items-center gap-2 border-b p-3">
             <Skeleton className="h-2.5 w-2.5 rounded-full" />

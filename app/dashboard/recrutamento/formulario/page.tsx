@@ -1,60 +1,42 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import {
-  FileText,
-  Settings2,
-  Eye,
-  ExternalLink,
-} from "lucide-react"
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { SubmissionsTab } from "@/components/recrutamento/submissions-tab"
-import { FormEditorTab } from "@/components/recrutamento/form-editor-tab"
+import { useState } from 'react'
+import { FileText, Settings2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { SubmissionsTab } from '@/components/recrutamento/submissions-tab'
+import { FormBuilder } from '@/components/recrutamento/form-builder'
 
 export default function FormularioPage() {
+  const [tab, setTab] = useState<'submissions' | 'editor'>('editor')
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Formulário de Entrada
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Gestão de submissões e configuração do formulário de novos consultores
-          </p>
+      <div className="flex items-center gap-4 px-6 py-4 border-b shrink-0">
+        <div className="flex-1">
+          <h1 className="text-xl font-bold tracking-tight">Formulário de Entrada</h1>
+          <p className="text-muted-foreground text-xs">Configuração e gestão do formulário de novos consultores</p>
         </div>
-        <Button variant="outline" className="gap-2" asChild>
-          <a href="/entryform" target="_blank" rel="noopener noreferrer">
-            <Eye className="h-4 w-4" />
-            Ver Formulário
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </Button>
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/30">
+          {([['editor', 'Editor', Settings2] as const, ['submissions', 'Submissões', FileText] as const]).map(([key, label, Icon]) => (
+            <button key={key} onClick={() => setTab(key)}
+              className={cn('inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all',
+                tab === key ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
+              <Icon className="h-3 w-3" />{label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <Tabs defaultValue="submissions" className="w-full">
-        <TabsList>
-          <TabsTrigger value="submissions" className="gap-1.5">
-            <FileText className="h-4 w-4" />
-            Submissões
-          </TabsTrigger>
-          <TabsTrigger value="editor" className="gap-1.5">
-            <Settings2 className="h-4 w-4" />
-            Editor de Campos
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="submissions" className="mt-4">
-          <SubmissionsTab />
-        </TabsContent>
-
-        <TabsContent value="editor" className="mt-4">
-          <FormEditorTab />
-        </TabsContent>
-      </Tabs>
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {tab === 'editor' && <FormBuilder />}
+        {tab === 'submissions' && (
+          <div className="p-6 overflow-y-auto h-full">
+            <SubmissionsTab />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
