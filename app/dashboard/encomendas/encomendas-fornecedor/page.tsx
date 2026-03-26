@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
 import { Plus, ShoppingCart, MoreHorizontal, PackageCheck, Truck, XCircle } from 'lucide-react'
 import type { SupplierOrder } from '@/types/encomenda'
 
@@ -49,9 +50,15 @@ export default function EncomendasFornecedorPage() {
 
   const handleCreate = async (data: {
     supplier_id: string
+    agent_id?: string | null
     items: { product_id: string; variant_id: string | null; quantity_ordered: number; unit_cost: number }[]
     expected_delivery_date: string | null
     notes: string | null
+    billing_entity?: string | null
+    billing_name?: string | null
+    billing_nif?: string | null
+    billing_address?: string | null
+    billing_email?: string | null
   }) => {
     try {
       await createOrder(data)
@@ -163,10 +170,11 @@ export default function EncomendasFornecedorPage() {
               <TableRow>
                 <TableHead>Referencia</TableHead>
                 <TableHead>Fornecedor</TableHead>
+                <TableHead>Consultor</TableHead>
+                <TableHead>Faturacao</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Entrega Prevista</TableHead>
-                <TableHead>Entrega Real</TableHead>
                 <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>
@@ -177,6 +185,23 @@ export default function EncomendasFornecedorPage() {
                     {order.reference}
                   </TableCell>
                   <TableCell>{order.supplier?.name || '—'}</TableCell>
+                  <TableCell className="text-sm">
+                    {order.agent?.commercial_name || '—'}
+                  </TableCell>
+                  <TableCell>
+                    {order.billing_name ? (
+                      <div className="space-y-0.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {order.billing_entity === 'empresa' ? 'Empresa' : 'Pessoal'}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground truncate max-w-[140px]">
+                          {order.billing_name}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={order.status} type="supplier_order" />
                   </TableCell>
@@ -186,11 +211,6 @@ export default function EncomendasFornecedorPage() {
                   <TableCell className="text-muted-foreground">
                     {order.expected_delivery_date
                       ? formatDate(order.expected_delivery_date)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {order.actual_delivery_date
-                      ? formatDate(order.actual_delivery_date)
                       : '—'}
                   </TableCell>
                   <TableCell>

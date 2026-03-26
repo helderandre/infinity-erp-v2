@@ -66,9 +66,9 @@ export default function ProdutosPage() {
     if (!deactivateId) return
     try {
       await deleteProduct(deactivateId)
-      toast.success('Produto desactivado com sucesso')
+      toast.success('Produto desativado com sucesso')
     } catch {
-      toast.error('Erro ao desactivar produto')
+      toast.error('Erro ao desativar produto')
     } finally {
       setDeactivateId(null)
     }
@@ -152,7 +152,7 @@ export default function ProdutosPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                        {product.is_active ? 'Activo' : 'Inactivo'}
+                        {product.is_active ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -173,7 +173,7 @@ export default function ProdutosPage() {
                               onClick={() => setDeactivateId(product.id)}
                             >
                               <Ban className="mr-2 h-4 w-4" />
-                              Desactivar
+                              Desativar
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -202,9 +202,9 @@ export default function ProdutosPage() {
       <AlertDialog open={!!deactivateId} onOpenChange={() => setDeactivateId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar produto</AlertDialogTitle>
+            <AlertDialogTitle>Desativar produto</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende desactivar este produto? Deixara de aparecer no catalogo.
+              Tem a certeza de que pretende desativar este produto? Deixara de aparecer no catalogo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -213,7 +213,7 @@ export default function ProdutosPage() {
               onClick={handleDeactivate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Desactivar
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Phone, MessageSquare, Mail } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+// Card removed — using custom glassmorphism container
 import {
   Select,
   SelectContent,
@@ -53,8 +53,8 @@ export function LeadSidebar({
   }
 
   return (
-    <Card className="w-full">
-      <CardContent className="pt-6 pb-6 space-y-6">
+    <div className="w-full rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm">
+      <div className="p-6 space-y-6">
         {/* Name */}
         <h2 className="text-xl font-semibold text-center">{lead.nome}</h2>
 
@@ -153,7 +153,7 @@ export function LeadSidebar({
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</p>
           <Select value={estado} onValueChange={onEstadoChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full rounded-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +197,7 @@ export function LeadSidebar({
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

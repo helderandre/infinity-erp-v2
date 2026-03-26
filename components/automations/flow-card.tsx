@@ -88,7 +88,7 @@ export function FlowCard({
               variant={flow.is_active ? "default" : "secondary"}
               className="text-[10px] shrink-0"
             >
-              {flow.is_active ? "Activo" : "Inactivo"}
+              {flow.is_active ? "Ativo" : "Inativo"}
             </Badge>
             <PublicationBadge flow={flow} />
           </div>
@@ -157,12 +157,12 @@ export function FlowCard({
                 {flow.is_active ? (
                   <>
                     <ToggleLeft className="mr-2 h-4 w-4" />
-                    Desactivar
+                    Desativar
                   </>
                 ) : (
                   <>
                     <ToggleRight className="mr-2 h-4 w-4" />
-                    Activar
+                    Ativar
                   </>
                 )}
               </DropdownMenuItem>
@@ -171,7 +171,7 @@ export function FlowCard({
                 <TooltipTrigger asChild>
                   <DropdownMenuItem disabled>
                     <ToggleRight className="mr-2 h-4 w-4" />
-                    Activar
+                    Ativar
                   </DropdownMenuItem>
                 </TooltipTrigger>
                 <TooltipContent>Publica o fluxo primeiro</TooltipContent>

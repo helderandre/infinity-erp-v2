@@ -824,7 +824,7 @@ export async function getAgentDashboard(
         direction: myAcq > avgAcq ? "above" : myAcq < avgAcq ? "below" : "equal",
       },
       {
-        metric: "Imóveis Activos",
+        metric: "Imóveis Ativos",
         my_value: active,
         agency_avg: (activeProps_count(myProps ?? [], "active") * totalAgents) > 0 ? active : 0,
         direction: "equal",

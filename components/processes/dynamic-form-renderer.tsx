@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useFormContext } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
@@ -476,6 +476,26 @@ interface DynamicFormRendererProps {
   readOnly?: boolean
 }
 
+function MissingFieldWrapper({ name, className, children }: { name: string; className: string; children: React.ReactNode }) {
+  const form = useFormContext()
+  const value = form?.watch(name)
+
+  const isEmpty = value === null || value === undefined || value === '' ||
+    (typeof value === 'string' && value.trim() === '') ||
+    (typeof value === 'string' && value === '<p></p>') ||
+    (Array.isArray(value) && value.length === 0)
+
+  return (
+    <div className={cn(
+      className,
+      'rounded-xl px-3 py-2 transition-colors',
+      isEmpty && 'border border-amber-200 bg-amber-50/40 dark:border-amber-700 dark:bg-amber-950/20'
+    )}>
+      {children}
+    </div>
+  )
+}
+
 export function DynamicFormRenderer({
   sections,
   defaultValues,
@@ -559,15 +579,17 @@ export function DynamicFormRenderer({
                         field.width === 'half' ? 'col-span-12 sm:col-span-6' :
                         'col-span-12'
 
+                      const passContext = isComposite || field.field_type === 'rich_text'
+
                       return (
-                        <div key={key} className={colSpan}>
+                        <MissingFieldWrapper key={key} name={key} className={colSpan}>
                           <Component
                             field={field}
                             name={key}
                             control={form.control}
-                            {...(isComposite ? { context } : {})}
+                            {...(passContext ? { context } : {})}
                           />
-                        </div>
+                        </MissingFieldWrapper>
                       )
                     })}
                 </div>

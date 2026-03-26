@@ -11,9 +11,10 @@ export default function SimuladorPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar
+        </button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Simulador de Crédito Habitação</h1>
           <p className="text-muted-foreground">

@@ -2,80 +2,30 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Building2,
-  Users,
-  FileText,
-  LayoutDashboard,
-  Settings,
-  UserCircle,
-  UsersRound,
-  Euro,
-  Megaphone,
-  FileStack,
-  CalendarDays,
-  LogOut,
-  ChevronDown,
-  Sun,
-  Moon,
-  Monitor,
-  ChevronRight,
-  Zap,
-  Mail,
-  FileCode2,
-  Workflow,
-  Braces,
-  Bot,
-  MessageCircle,
-  MessageSquareText,
-  Instagram,
-  BarChart3,
-  Plug,
-  Store,
-  ClipboardList,
-  Blocks,
-  UserCog,
-  UserPlus,
-  Target,
-  Landmark,
-  Package,
-  GraduationCap,
-  Briefcase,
-  Boxes,
-  TrendingUp,
-  Wallet,
-  MapPin,
-  Handshake,
-  UserCheck,
+  Building2, Users, FileText, LayoutDashboard, Settings,
+  UserCircle, Euro, Megaphone, FileStack, CalendarDays,
+  LogOut, ChevronDown, Sun, Moon, Monitor, ChevronRight,
+  Zap, Mail, FileCode2, Workflow, Braces, Bot,
+  MessageCircle, MessageSquareText, Instagram, BarChart3,
+  Plug, Store, ClipboardList, Blocks, UserPlus, Target,
+  Landmark, GraduationCap, Briefcase, TrendingUp,
+  Wallet, Handshake, UserCheck, ContactRound, Kanban,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
+  SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail,
 } from '@/components/ui/sidebar'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { useTheme } from 'next-themes'
 import { useUser } from '@/hooks/use-user'
@@ -83,10 +33,9 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
-// ─── Solo items (always visible) ─────────────────────────
-
-// ─── O Meu Espaço (always visible, no collapsible) ───────
+// ─── Menu Data ───────────────────────────────────────────
 
 export const meuEspacoItems = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
@@ -107,18 +56,17 @@ export const creditoItems = [
 ]
 
 export const bottomItems = [
-  {
-    title: 'Definições',
-    icon: Settings,
-    href: '/dashboard/definicoes',
-    permission: 'settings',
-  },
+  { title: 'Definições', icon: Settings, href: '/dashboard/definicoes', permission: 'settings' },
 ]
 
-// ─── Collapsible groups ──────────────────────────────────
+export const crmItems = [
+  { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
+  { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
+  { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Contactos-B', icon: ContactRound, href: '/dashboard/crm/contactos', permission: 'leads' },
+]
 
 export const negocioItems = [
-  { title: 'Leads', icon: Zap, href: '/dashboard/leads', permission: 'leads' },
   { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
@@ -151,7 +99,7 @@ export const lojaItems = [
 ]
 
 export const digitalItems = [
-  { title: 'Redes Sociais', icon: UserCog, href: '/dashboard/marketing/redes-sociais' },
+  { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
   { title: 'Integrações', icon: Plug, href: '/dashboard/definicoes/integracoes/meta' },
@@ -172,19 +120,13 @@ export const builderItems = [
   { title: 'Variáveis de Template', icon: Braces, href: '/dashboard/templates-variaveis' },
 ]
 
-// ─── Backward compat: menuItems includes all items for other code that imports it
 export const menuItems = [
-  ...meuEspacoItems,
-  ...negocioItems,
-  ...pessoasItems,
-  ...financeiroItems,
-  ...creditoItems,
-  ...lojaItems,
-  ...digitalItems,
-  ...bottomItems,
+  ...meuEspacoItems, ...negocioItems, ...pessoasItems,
+  ...financeiroItems, ...creditoItems, ...lojaItems,
+  ...digitalItems, ...bottomItems,
 ]
 
-// ─── Helper to render a collapsible group ────────────────
+// ─── Collapsible Group ───────────────────────────────────
 
 function CollapsibleGroup({
   label,
@@ -211,21 +153,19 @@ function CollapsibleGroup({
   const isDefaultOpen = defaultOpenOverride || pathPrefixes.some((p) => pathname?.startsWith(p))
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="py-1">
       <Collapsible defaultOpen={isDefaultOpen} className="group/collapsible">
         <SidebarGroupLabel asChild>
-          <CollapsibleTrigger className="flex w-full items-center">
-            <Icon className="mr-1.5 size-3.5" />
+          <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+            <Icon className="size-3.5 opacity-60" />
             {label}
-            <ChevronRight className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+            <ChevronRight className="ml-auto size-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>
         <CollapsibleContent>
-          <SidebarGroupContent>
-            <SidebarMenu>
+          <SidebarGroupContent className="mt-0.5">
+            <SidebarMenu className="gap-0.5 px-1">
               {visibleItems.map((item) => {
-                // Exact match for index routes (e.g. /dashboard/credito)
-                // to avoid them staying active on sub-routes
                 const hasSubItems = visibleItems.some(
                   (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`)
                 )
@@ -239,11 +179,16 @@ function CollapsibleGroup({
                       asChild
                       isActive={isActive}
                       tooltip={item.title}
-                      className={!isActive ? 'rounded-lg border border-transparent hover:border-sidebar-border hover:bg-sidebar-accent/60 hover:shadow-sm transition-all' : 'rounded-lg shadow-sm'}
+                      className={cn(
+                        'rounded-xl transition-all duration-150',
+                        isActive
+                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                          : 'hover:bg-muted/60 hover:backdrop-blur-sm'
+                      )}
                     >
                       <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <item.icon className="size-4" />
+                        <span className="text-[13px]">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -267,9 +212,7 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   const handleLogout = async () => {
     try {
@@ -293,18 +236,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader>
+      {/* ─── Header ─── */}
+      <SidebarHeader className="pb-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton size="lg" asChild className="rounded-xl">
               <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                   <Building2 className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">ERP Infinity</span>
-                  <span className="text-xs text-muted-foreground">
-                    Imobiliária
+                  <span className="font-bold text-sm">Infinity</span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium">
+                    ERP Imobiliária
                   </span>
                 </div>
               </Link>
@@ -313,8 +257,8 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        {/* O Meu Espaço */}
+      {/* ─── Content ─── */}
+      <SidebarContent className="gap-0">
         <CollapsibleGroup
           label="O Meu Espaço"
           icon={LayoutDashboard}
@@ -325,17 +269,24 @@ export function AppSidebar() {
           defaultOpenOverride={pathname === '/dashboard'}
         />
 
-        {/* Negócio */}
+        <CollapsibleGroup
+          label="CRM"
+          icon={ContactRound}
+          items={crmItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries']}
+        />
+
         <CollapsibleGroup
           label="Negócio"
           icon={Briefcase}
           items={negocioItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/imoveis', '/dashboard/leads', '/dashboard/processos', '/dashboard/documentos', '/dashboard/proprietarios', '/dashboard/objetivos']}
+          pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/documentos', '/dashboard/proprietarios', '/dashboard/objetivos']}
         />
 
-        {/* Pessoas */}
         <CollapsibleGroup
           label="Pessoas"
           icon={Users}
@@ -345,7 +296,6 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/consultores', '/dashboard/equipas', '/dashboard/formacoes']}
         />
 
-        {/* Financeiro */}
         <CollapsibleGroup
           label="Financeiro"
           icon={Euro}
@@ -355,7 +305,6 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/comissoes']}
         />
 
-        {/* Crédito */}
         {hasPermission('credit' as any) && (
           <CollapsibleGroup
             label="Crédito"
@@ -367,7 +316,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Recrutamento */}
         {hasPermission('recruitment' as any) && (
           <CollapsibleGroup
             label="Recrutamento"
@@ -379,7 +327,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Infinity Store */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
             label="Infinity Store"
@@ -391,7 +338,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Digital */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
             label="Digital"
@@ -403,7 +349,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Automações */}
         {hasPermission('settings' as any) && (
           <CollapsibleGroup
             label="Automações"
@@ -415,7 +360,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Builder */}
         {hasPermission('settings' as any) && (
           <CollapsibleGroup
             label="Builder"
@@ -427,10 +371,10 @@ export function AppSidebar() {
           />
         )}
 
-        {/* Definições (solo) */}
-        <SidebarGroup>
+        {/* Definições */}
+        <SidebarGroup className="py-1">
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5 px-1">
               {bottomItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
                 const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                 return (
@@ -439,11 +383,16 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={item.title}
-                      className={!isActive ? 'rounded-lg border border-transparent hover:border-sidebar-border hover:bg-sidebar-accent/60 hover:shadow-sm transition-all' : 'rounded-lg shadow-sm'}
+                      className={cn(
+                        'rounded-xl transition-all duration-150',
+                        isActive
+                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                          : 'hover:bg-muted/60 hover:backdrop-blur-sm'
+                      )}
                     >
                       <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <item.icon className="size-4" />
+                        <span className="text-[13px]">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -454,92 +403,101 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      {/* ─── Footer ─── */}
+      <SidebarFooter className="pt-2">
         <SidebarMenu>
           <SidebarMenuItem>
             {mounted ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>{userInitials}</AvatarFallback>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="rounded-xl data-[state=open]:bg-muted/60"
+                  >
+                    <Avatar className="h-8 w-8 rounded-xl">
+                      <AvatarFallback className="rounded-xl bg-neutral-900 text-white text-xs font-bold dark:bg-white dark:text-neutral-900">
+                        {userInitials}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
+                      <span className="truncate font-semibold text-[13px]">
                         {user?.commercial_name || 'Utilizador'}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span className="truncate text-[10px] text-muted-foreground/60">
                         {user?.professional_email || ''}
                       </span>
                     </div>
-                    <ChevronDown className="ml-auto size-4" />
+                    <ChevronDown className="ml-auto size-4 opacity-40" />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl shadow-lg"
                   side="top"
                   align="end"
-                  sideOffset={4}
+                  sideOffset={8}
                 >
                   <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/10 text-primary">{userInitials}</AvatarFallback>
+                    <div className="flex items-center gap-3 px-3 py-3 text-left text-sm">
+                      <Avatar className="h-9 w-9 rounded-xl">
+                        <AvatarFallback className="rounded-xl bg-neutral-900 text-white text-xs font-bold dark:bg-white dark:text-neutral-900">
+                          {userInitials}
+                        </AvatarFallback>
                       </Avatar>
                       <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="truncate font-semibold">
                           {user?.commercial_name || 'Utilizador'}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="truncate text-[11px] text-muted-foreground/60">
                           {user?.professional_email || ''}
                         </span>
                       </div>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">Tema</span>
-                    <div className="mt-1 flex gap-1">
-                      <button
-                        onClick={() => setTheme('light')}
-                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'light' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
-                      >
-                        <Sun className="h-3.5 w-3.5" />
-                        Claro
-                      </button>
-                      <button
-                        onClick={() => setTheme('dark')}
-                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'dark' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
-                      >
-                        <Moon className="h-3.5 w-3.5" />
-                        Escuro
-                      </button>
-                      <button
-                        onClick={() => setTheme('system')}
-                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors ${theme === 'system' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
-                      >
-                        <Monitor className="h-3.5 w-3.5" />
-                        Auto
-                      </button>
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  <div className="px-3 py-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Tema</span>
+                    <div className="mt-1.5 flex gap-1 p-0.5 rounded-full bg-muted/40 border border-border/20">
+                      {[
+                        { value: 'light', icon: Sun, label: 'Claro' },
+                        { value: 'dark', icon: Moon, label: 'Escuro' },
+                        { value: 'system', icon: Monitor, label: 'Auto' },
+                      ].map((t) => (
+                        <button
+                          key={t.value}
+                          onClick={() => setTheme(t.value)}
+                          className={cn(
+                            'flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-[11px] font-medium transition-all',
+                            theme === t.value
+                              ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                              : 'text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          <t.icon className="h-3 w-3" />
+                          {t.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut />
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="rounded-xl mx-1 mb-1 text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950/20"
+                  >
+                    <LogOut className="size-4" />
                     Terminar Sessão
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <SidebarMenuButton size="lg">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>U</AvatarFallback>
+              <SidebarMenuButton size="lg" className="rounded-xl">
+                <Avatar className="h-8 w-8 rounded-xl">
+                  <AvatarFallback className="rounded-xl bg-muted">U</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Utilizador</span>
-                  <span className="truncate text-xs text-muted-foreground">&nbsp;</span>
+                  <span className="truncate font-semibold text-[13px]">Utilizador</span>
+                  <span className="truncate text-[10px] text-muted-foreground/60">&nbsp;</span>
                 </div>
-                <ChevronDown className="ml-auto size-4" />
+                <ChevronDown className="ml-auto size-4 opacity-40" />
               </SidebarMenuButton>
             )}
           </SidebarMenuItem>

@@ -239,7 +239,7 @@ export function ConsultantForm({
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel className="font-normal">Activo</FormLabel>
+                    <FormLabel className="font-normal">Ativo</FormLabel>
                   </FormItem>
                 )}
               />

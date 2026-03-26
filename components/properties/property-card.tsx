@@ -63,9 +63,12 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
 
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />
-          <span className="truncate">
-            {[property.city, property.zone].filter(Boolean).join(', ') || 'Sem localização'}
-          </span>
+          <div className="truncate">
+            <span>{[property.city, property.zone].filter(Boolean).join(', ') || 'Sem localização'}</span>
+            {property.external_ref && (
+              <span className="ml-1.5 font-mono text-[10px] text-muted-foreground/60">· {property.external_ref}</span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">

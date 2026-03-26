@@ -4,7 +4,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Globe, Loader2, GraduationCap, BookOpen, FileText, Upload, ImageIcon, X } from 'lucide-react'
+import { ChevronLeft, ArrowLeft, Globe, Loader2, GraduationCap, BookOpen, FileText, Upload, ImageIcon, X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
@@ -197,7 +197,7 @@ function EditarCursoContent() {
   if (!course) return (
     <div className="text-center py-16">
       <p className="text-muted-foreground">Formação não encontrada</p>
-      <Button className="mt-4" asChild><Link href="/dashboard/formacoes/gestao">Voltar</Link></Button>
+      <Link href="/dashboard/formacoes/gestao" className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar</Link>
     </div>
   )
 

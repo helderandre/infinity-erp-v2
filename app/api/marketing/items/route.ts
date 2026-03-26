@@ -47,13 +47,24 @@ export async function GET() {
       .from('temp_requisition_items')
       .select(`
         id, quantity, unit_price, subtotal, status, notes, personalization_data,
-        product:temp_products(id, name, category, thumbnail),
+        product:temp_products(id, name, category_id, thumbnail_url, category:temp_product_categories(id, name)),
         requisition:temp_requisitions!inner(
-          id, status, checkout_group_id, delivery_type, created_at,
+          id, status, checkout_group_id, delivery_type, payment_method, created_at,
           agent:dev_users!temp_requisitions_agent_id_fkey(id, commercial_name)
         )
       `)
       .order('requisition(created_at)', { ascending: false })
+
+    // Flatten product category name and thumbnail for frontend
+    const flattenedMaterials = (materialItems || []).map((item: any) => ({
+      ...item,
+      product: item.product ? {
+        id: item.product.id,
+        name: item.product.name,
+        category: item.product.category?.name || '—',
+        thumbnail: item.product.thumbnail_url,
+      } : null,
+    }))
 
     // Fetch campaigns
     const { data: campaigns, error: campErr } = await supabase
@@ -86,7 +97,7 @@ export async function GET() {
     return NextResponse.json({
       property: propertyItems,
       services: generalServiceItems,
-      materials: materialItems || [],
+      materials: flattenedMaterials,
       campaigns: campaigns || [],
     })
   } catch (error) {

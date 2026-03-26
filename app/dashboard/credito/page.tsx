@@ -168,7 +168,7 @@ export default function CreditoDashboardPage() {
                 <Landmark className="h-5 w-5 text-sky-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Pedidos Activos</p>
+                <p className="text-sm text-muted-foreground">Pedidos Ativos</p>
                 <p className="text-2xl font-bold">{kpis.pedidos_activos}</p>
               </div>
             </div>

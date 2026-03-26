@@ -73,7 +73,7 @@ export function CatalogTab() {
     if (!deleteId) return
     try {
       await deleteItem(deleteId)
-      toast.success('Serviço desactivado')
+      toast.success('Serviço desativado')
       setDeleteId(null)
       if (sheetItem?.id === deleteId) setSheetItem(null)
     } catch (e: any) {
@@ -183,11 +183,11 @@ export function CatalogTab() {
                     <TableCell>
                       {item.is_active ? (
                         <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                          Activo
+                          Ativo
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
-                          Inactivo
+                          Inativo
                         </Badge>
                       )}
                     </TableCell>
@@ -267,7 +267,7 @@ export function CatalogTab() {
                       </Badge>
                     )}
                     {!sheetItem.is_active && (
-                      <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">Inactivo</Badge>
+                      <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">Inativo</Badge>
                     )}
                   </div>
 
@@ -365,15 +365,15 @@ export function CatalogTab() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar serviço</AlertDialogTitle>
+            <AlertDialogTitle>Desativar serviço</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende desactivar este serviço? Ficará oculto para os consultores mas será mantido para encomendas existentes.
+              Tem a certeza de que pretende desativar este serviço? Ficará oculto para os consultores mas será mantido para encomendas existentes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="rounded-full bg-red-600 hover:bg-red-700">
-              Desactivar
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

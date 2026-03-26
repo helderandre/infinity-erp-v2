@@ -140,7 +140,7 @@ export function AddonManagementDialog({ open, onOpenChange, item, onAddonsChange
 
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
-                  <Label>Activo</Label>
+                  <Label>Ativo</Label>
                   <p className="text-xs text-muted-foreground">Visível na loja</p>
                 </div>
                 <Switch checked={watch('is_active')} onCheckedChange={(v) => setValue('is_active', v)} />
@@ -168,7 +168,7 @@ export function AddonManagementDialog({ open, onOpenChange, item, onAddonsChange
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{addon.name}</p>
                           {!addon.is_active && (
-                            <Badge variant="secondary" className="text-[10px]">Inactivo</Badge>
+                            <Badge variant="secondary" className="text-[10px]">Inativo</Badge>
                           )}
                         </div>
                         {addon.description && (

@@ -102,7 +102,7 @@ export default function DealDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20">
         <p className="text-muted-foreground">Negocio nao encontrado.</p>
-        <Button asChild variant="outline" className="rounded-full"><Link href="/dashboard/comissoes"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link></Button>
+        <Link href="/dashboard/comissoes" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" /> Voltar</Link>
       </div>
     )
   }
@@ -116,9 +116,9 @@ export default function DealDetailPage() {
       <div className="bg-neutral-900 rounded-2xl px-6 py-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
         <div className="relative space-y-2">
-          <Button asChild variant="ghost" size="sm" className="rounded-full mb-1 -ml-2 text-neutral-400 hover:text-white hover:bg-white/10">
-            <Link href="/dashboard/comissoes"><ArrowLeft className="mr-1 h-4 w-4" /> Comissoes</Link>
-          </Button>
+          <Link href="/dashboard/comissoes" className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors mb-1">
+            <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+          </Link>
           <h1 className="text-2xl font-semibold text-white">
             {deal.property?.title ?? 'Sem imovel'}
             {deal.property?.external_ref && <span className="ml-2 text-base text-neutral-400">({deal.property.external_ref})</span>}

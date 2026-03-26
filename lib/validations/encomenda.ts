@@ -77,6 +77,7 @@ export const updateSupplierSchema = createSupplierSchema.partial()
 
 export const createSupplierOrderSchema = z.object({
   supplier_id: z.string().min(1, 'Fornecedor obrigatório'),
+  agent_id: z.string().optional().nullable(),
   items: z.array(z.object({
     product_id: z.string().min(1),
     variant_id: z.string().optional().nullable(),
@@ -85,6 +86,11 @@ export const createSupplierOrderSchema = z.object({
   })).min(1, 'Adicione pelo menos 1 item'),
   expected_delivery_date: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  billing_entity: z.enum(['personal', 'empresa']).optional().nullable(),
+  billing_name: z.string().optional().nullable(),
+  billing_nif: z.string().optional().nullable(),
+  billing_address: z.string().optional().nullable(),
+  billing_email: z.string().optional().nullable(),
 })
 
 export const stockAdjustSchema = z.object({

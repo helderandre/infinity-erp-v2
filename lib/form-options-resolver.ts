@@ -45,7 +45,7 @@ export function resolveOptionsFromConstant(
 
   // Object map — two formats:
   // 1. Simple: { apartamento: 'Apartamento' }
-  // 2. With label: { active: { label: 'Activo', bg: '...', ... } }
+  // 2. With label: { active: { label: 'Ativo', bg: '...', ... } }
   return Object.entries(constant as Record<string, unknown>).map(([key, val]) => {
     if (typeof val === 'string') {
       return { value: key, label: val }

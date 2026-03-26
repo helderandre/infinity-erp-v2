@@ -148,7 +148,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     if (variable.is_system) {
       return NextResponse.json(
-        { error: 'Variáveis do sistema não podem ser eliminadas. Desactive-a em vez disso.' },
+        { error: 'Variáveis do sistema não podem ser eliminadas. Desative-a em vez disso.' },
         { status: 403 }
       )
     }

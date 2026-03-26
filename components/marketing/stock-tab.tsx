@@ -237,11 +237,11 @@ export function StockShopTab() {
                     <TableCell>
                       {product.is_active ? (
                         <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                          Activo
+                          Ativo
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
-                          Inactivo
+                          Inativo
                         </Badge>
                       )}
                     </TableCell>
@@ -308,7 +308,7 @@ export function StockShopTab() {
                       <Badge variant="secondary" className="rounded-full text-[11px]">Retornável</Badge>
                     )}
                     {!sheetProduct.is_active && (
-                      <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">Inactivo</Badge>
+                      <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">Inativo</Badge>
                     )}
                   </div>
 

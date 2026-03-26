@@ -261,7 +261,7 @@ export interface RecruitmentProbation {
 }
 
 export const PROBATION_STATUSES: Record<ProbationStatus, { label: string; color: string }> = {
-  active: { label: 'Activo', color: 'bg-blue-100 text-blue-700' },
+  active: { label: 'Ativo', color: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700' },
   failed: { label: 'Não Aprovado', color: 'bg-red-100 text-red-700' },
 }

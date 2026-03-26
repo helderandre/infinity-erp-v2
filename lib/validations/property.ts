@@ -23,6 +23,9 @@ export const propertySchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 
+  // Website
+  show_on_website: z.boolean().optional(),
+
   // Contrato
   contract_regime: z.string().optional(),
 

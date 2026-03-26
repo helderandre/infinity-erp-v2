@@ -59,7 +59,7 @@ export default function CalendarioPage() {
 
   // Fetch users for filters and form
   useEffect(() => {
-    fetch('/api/consultants')
+    fetch('/api/consultants?status=active')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {

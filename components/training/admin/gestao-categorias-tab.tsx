@@ -112,7 +112,7 @@ export function GestaoCategoriasTab() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={cat.is_active ? 'default' : 'secondary'}>
-                      {cat.is_active ? 'Activa' : 'Inactiva'}
+                      {cat.is_active ? 'Ativa' : 'Inativa'}
                     </Badge>
                   </TableCell>
                   <TableCell>

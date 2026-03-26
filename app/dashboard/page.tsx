@@ -401,11 +401,11 @@ function ManagementDashboard() {
             />
             <KpiCard label="Pipeline Ponderado" value={fmt.format(pipeTotal)} sub={`${pipeline.length} negócios`}
               icon={Handshake} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
-              onClick={() => openDrillDown({ title: 'Pipeline Activo', fetcher: () => getDrillDownProperties({ status: ['available'] }) })}
+              onClick={() => openDrillDown({ title: 'Pipeline Ativo', fetcher: () => getDrillDownProperties({ status: ['active'] }) })}
             />
-            <KpiCard label="Carteira Activa" value={fmt.format(pf.active_volume)} sub={`${fmtCompact.format(pf.potential_revenue)} potencial`}
+            <KpiCard label="Carteira Ativa" value={fmt.format(pf.active_volume)} sub={`${fmtCompact.format(pf.potential_revenue)} potencial`}
               icon={Building2} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
-              onClick={() => openDrillDown({ title: 'Imóveis Activos', fetcher: () => getDrillDownProperties({ status: 'available' }) })}
+              onClick={() => openDrillDown({ title: 'Imóveis Ativos', fetcher: () => getDrillDownProperties({ status: 'active' }) })}
             />
           </div>
 
@@ -487,7 +487,7 @@ function ManagementDashboard() {
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {[
                   { label: 'Novas', value: acq.new_this_month, fetcher: () => getDrillDownProperties({ created_after: monthStart }) },
-                  { label: 'Activas', value: acq.active, fetcher: () => getDrillDownProperties({ status: 'available' }) },
+                  { label: 'Ativas', value: acq.active, fetcher: () => getDrillDownProperties({ status: 'active' }) },
                   { label: 'Reservadas', value: acq.reserved, fetcher: () => getDrillDownProperties({ status: 'reserved' }) },
                   { label: 'Vendidas', value: acq.sold, fetcher: () => getDrillDownProperties({ status: 'sold' }) },
                 ].map(s => (
@@ -522,7 +522,7 @@ function ManagementDashboard() {
                 { label: 'Margem Prevista', value: fmt.format(fc.expected_margin) },
                 { label: 'Angariações Previstas', value: String(fc.expected_acquisitions) },
                 { label: 'Negócios a Fechar', value: String(fc.expected_deals) },
-                { label: 'Negócios Activos', value: String(fc.active_deals) },
+                { label: 'Negócios Ativos', value: String(fc.active_deals) },
                 { label: 'Pendentes Aprovação', value: String(fc.pending_acquisitions),
                   onClick: () => openDrillDown({ title: 'Pendentes Aprovação', fetcher: () => getDrillDownProperties({ status: 'pending_approval' }) }) },
               ].map((tile) => {
@@ -899,7 +899,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
           <h3 className="text-sm font-semibold mb-4">Os Meus Imóveis</h3>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Activas', value: data.my_properties.active, status: 'available' },
+              { label: 'Ativas', value: data.my_properties.active, status: 'active' },
               { label: 'Reservadas', value: data.my_properties.reserved, status: 'reserved' },
               { label: 'Vendidas', value: data.my_properties.sold_year, status: 'sold' },
               { label: 'Volume', value: fmtCompact.format(data.my_properties.volume), status: null },

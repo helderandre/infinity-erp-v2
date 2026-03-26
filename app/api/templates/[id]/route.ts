@@ -378,7 +378,7 @@ export async function PUT(
   }
 }
 
-// DELETE — Desactivar (is_active = false) ou eliminar (soft delete com deleted_at)
+// DELETE — Desativar (is_active = false) ou eliminar (soft delete com deleted_at)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -406,7 +406,7 @@ export async function DELETE(
       return NextResponse.json({ success: true, action: 'deleted' })
     }
 
-    // Default: apenas desactivar
+    // Default: apenas desativar
     const { error } = await supabase
       .from('tpl_processes')
       .update({ is_active: false })

@@ -176,7 +176,7 @@ export const DEAL_TYPES: Record<DealType, string> = {
 export const DEAL_STATUSES: Record<DealStatus, { label: string; color: string }> = {
   draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-700' },
   submitted: { label: 'Submetido', color: 'bg-amber-100 text-amber-700' },
-  active: { label: 'Activo', color: 'bg-blue-100 text-blue-700' },
+  active: { label: 'Ativo', color: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700' },
   cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
 }

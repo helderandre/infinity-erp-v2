@@ -150,6 +150,18 @@ export interface StockMovement {
 
 // --- Requisitions ---
 
+export type PaymentMethod = 'conta_corrente' | 'invoice'
+
+export type BillingEntity = 'personal' | 'empresa'
+
+export interface BillingDetails {
+  entity: BillingEntity
+  name: string
+  nif: string
+  address: string | null
+  email: string | null
+}
+
 export interface Requisition {
   id: string
   reference: string
@@ -171,6 +183,7 @@ export interface Requisition {
   internal_notes: string | null
   conta_corrente_tx_id: string | null
   checkout_group_id: string | null
+  payment_method: PaymentMethod
   created_at: string
   updated_at: string
   // Joined
@@ -203,6 +216,7 @@ export interface SupplierOrder {
   id: string
   reference: string
   supplier_id: string
+  agent_id: string | null
   status: SupplierOrderStatus
   total_cost: number
   expected_delivery_date: string | null
@@ -210,6 +224,11 @@ export interface SupplierOrder {
   invoice_reference: string | null
   invoice_url: string | null
   notes: string | null
+  billing_entity: BillingEntity | null
+  billing_name: string | null
+  billing_nif: string | null
+  billing_address: string | null
+  billing_email: string | null
   ordered_by: string
   received_by: string | null
   created_at: string
@@ -218,6 +237,7 @@ export interface SupplierOrder {
   supplier?: Supplier
   items?: SupplierOrderItem[]
   ordered_by_user?: { id: string; commercial_name: string }
+  agent?: { id: string; commercial_name: string } | null
 }
 
 export interface SupplierOrderItem {

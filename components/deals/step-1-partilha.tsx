@@ -62,7 +62,7 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
         .catch(() => {})
     }
 
-    fetch('/api/consultants?per_page=100')
+    fetch('/api/consultants?per_page=100&status=active')
       .then((r) => r.json())
       .then((res) => {
         const list = Array.isArray(res) ? res : res.data

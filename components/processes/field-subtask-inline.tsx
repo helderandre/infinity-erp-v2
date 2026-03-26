@@ -104,6 +104,7 @@ export function FieldSubtaskInline({
   const [editing, setEditing] = useState(!subtask.is_completed)
   const [expanded, setExpanded] = useState(false)
   const [currentValue, setCurrentValue] = useState<unknown>(null)
+  const [propertyId, setPropertyId] = useState<string | undefined>()
 
   const config = subtask.config || {}
   const fieldConfig = config.field as FormFieldConfig | undefined
@@ -128,6 +129,7 @@ export function FieldSubtaskInline({
       const val = data.values?.[fieldKey] ?? null
       setCurrentValue(val)
       form.reset({ [fieldKey]: val })
+      if (data.property_id) setPropertyId(data.property_id)
     } catch {
       toast.error('Erro ao carregar valor do campo')
     } finally {
@@ -289,11 +291,13 @@ export function FieldSubtaskInline({
   }
 
   // Field editor content (shared between inline and dialog)
+  const needsContext = fieldConfig.field_type === 'rich_text' || fieldConfig.field_type === 'address_map' || fieldConfig.field_type === 'media_upload'
   const fieldEditor = (
     <Component
       field={fieldConfig}
       name={fieldKey}
       control={form.control as never}
+      {...(needsContext ? { context: { propertyId } } : {})}
     />
   )
 

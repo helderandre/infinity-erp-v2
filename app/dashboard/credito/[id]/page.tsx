@@ -47,7 +47,7 @@ export default function CreditoDetalhePage({ params }: { params: Promise<{ id: s
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-12">
         <p className="text-muted-foreground">{error || 'Pedido não encontrado'}</p>
-        <Button variant="outline" onClick={() => router.back()}>Voltar</Button>
+        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar</button>
       </div>
     )
   }
@@ -57,9 +57,10 @@ export default function CreditoDetalhePage({ params }: { params: Promise<{ id: s
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/credito')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <button onClick={() => router.push('/dashboard/credito')} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{request.reference}</h1>

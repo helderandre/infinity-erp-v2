@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Minus, Trash2, ShoppingCart, Truck, MapPin, Calendar } from 'lucide-react'
+import { Plus, Minus, Trash2, ShoppingCart, Truck, MapPin, Calendar, Receipt, CreditCard } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import {
@@ -58,6 +58,7 @@ export function RequisitionFormDialog({
   const [priority, setPriority] = useState<string>('normal')
   const [requestedDate, setRequestedDate] = useState('')
   const [propertyId, setPropertyId] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'conta_corrente' | 'invoice'>('conta_corrente')
   const [submitting, setSubmitting] = useState(false)
 
   const total = useMemo(
@@ -153,7 +154,7 @@ export function RequisitionFormDialog({
         delivery_notes: deliveryNotes || null,
         requested_delivery_date: requestedDate || null,
         priority: priority as any,
-        payment_method: 'conta_corrente' as const,
+        payment_method: paymentMethod,
       }
       await onSubmit(data)
       setCart([])
@@ -161,6 +162,7 @@ export function RequisitionFormDialog({
       setDeliveryAddress('')
       setDeliveryNotes('')
       setPriority('normal')
+      setPaymentMethod('conta_corrente')
       setRequestedDate('')
       setPropertyId('')
       onOpenChange(false)
@@ -439,6 +441,45 @@ export function RequisitionFormDialog({
                 className="mt-1"
               />
             </div>
+          </div>
+
+          {/* Payment method */}
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Receipt className="h-3.5 w-3.5" />
+              Metodo de pagamento
+            </Label>
+            <div className="flex p-1 rounded-full bg-muted/30 mt-1">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('conta_corrente')}
+                className={`flex-1 text-sm font-medium py-2 px-4 rounded-full transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'conta_corrente'
+                    ? 'bg-neutral-900 text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Conta Corrente
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('invoice')}
+                className={`flex-1 text-sm font-medium py-2 px-4 rounded-full transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'invoice'
+                    ? 'bg-neutral-900 text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                Fatura
+              </button>
+            </div>
+            {paymentMethod === 'invoice' && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Os dados de faturacao serao apresentados ao processar a requisicao.
+              </p>
+            )}
           </div>
 
           {/* Summary */}

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SA = any
 
-// POST /api/automacao/fluxos/[flowId]/activate — Activar/desactivar fluxo
+// POST /api/automacao/fluxos/[flowId]/activate — Ativar/desativar fluxo
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ flowId: string }> }
@@ -33,13 +33,13 @@ export async function POST(
       }
     }
 
-    // Activar/desactivar flow
+    // Ativar/desativar flow
     await supabase
       .from("auto_flows")
       .update({ is_active: body.active, updated_at: new Date().toISOString() })
       .eq("id", flowId)
 
-    // Activar/desactivar triggers
+    // Ativar/desativar triggers
     await supabase
       .from("auto_triggers")
       .update({ active: body.active })
@@ -49,7 +49,7 @@ export async function POST(
   } catch (err) {
     console.error("[fluxos/[flowId]/activate] POST error:", err)
     return NextResponse.json(
-      { error: "Erro interno ao activar/desactivar fluxo" },
+      { error: "Erro interno ao activar/desativar fluxo" },
       { status: 500 }
     )
   }

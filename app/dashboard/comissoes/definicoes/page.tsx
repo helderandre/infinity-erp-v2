@@ -413,7 +413,7 @@ function TierCard({ tier, onEdit, onDelete, onToggle }: {
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{tier.name}</h3>
               <Badge variant={tier.is_active ? 'default' : 'secondary'} className="rounded-full text-[10px] font-medium border-0">
-                {tier.is_active ? 'Activo' : 'Inactivo'}
+                {tier.is_active ? 'Ativo' : 'Inativo'}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">

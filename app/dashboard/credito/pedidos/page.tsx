@@ -32,7 +32,7 @@ export default function CreditoPedidosPage() {
   })
 
   useEffect(() => {
-    fetch('/api/consultants?active=true')
+    fetch('/api/consultants?status=active')
       .then(res => res.ok ? res.json() : { data: [] })
       .then(json => setConsultants(json.data || []))
       .catch(() => {})

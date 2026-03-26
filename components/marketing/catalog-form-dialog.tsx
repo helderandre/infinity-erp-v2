@@ -232,7 +232,7 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label>Activo</Label>
+              <Label>Ativo</Label>
               <p className="text-xs text-muted-foreground">Visível para consultores</p>
             </div>
             <Switch checked={watch('is_active')} onCheckedChange={(v) => setValue('is_active', v)} />

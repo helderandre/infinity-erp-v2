@@ -19,12 +19,11 @@ export interface DrillDownItem {
 
 const STATUS_LABELS: Record<string, string> = {
   pending_approval: "Pendente",
-  active: "Activo",
+  active: "Ativo",
   sold: "Vendido",
   rented: "Arrendado",
   suspended: "Suspenso",
   cancelled: "Cancelado",
-  available: "Disponível",
 }
 
 const STATUS_VARIANTS: Record<string, DrillDownItem["badge"]["variant"]> = {
@@ -34,7 +33,6 @@ const STATUS_VARIANTS: Record<string, DrillDownItem["badge"]["variant"]> = {
   rented: "secondary",
   suspended: "outline",
   cancelled: "destructive",
-  available: "default",
 }
 
 const TRANSACTION_TYPE_LABELS: Record<string, string> = {
@@ -259,7 +257,7 @@ export async function getDrillDownAlerts(): Promise<{
           id: `alert-inactive-${c.id}`,
           title: c.commercial_name || "Consultor",
           subtitle: "Sem actividade nos últimos 30 dias",
-          badge: { label: "Inactivo", variant: "destructive" },
+          badge: { label: "Inativo", variant: "destructive" },
           href: `/dashboard/consultores/${c.id}`,
         })
       }

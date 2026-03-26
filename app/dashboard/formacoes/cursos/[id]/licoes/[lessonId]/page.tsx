@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LessonPlayer } from '@/components/training/lesson-player'
@@ -160,7 +161,7 @@ function LessonContent() {
   if (!course || !currentLesson) return (
     <div className="flex flex-col items-center py-16">
       <h3 className="font-semibold">Lição não encontrada</h3>
-      <Button className="mt-4" asChild><Link href={`/dashboard/formacoes/cursos/${courseId}`}>Voltar ao Curso</Link></Button>
+      <Link href={`/dashboard/formacoes/cursos/${courseId}`} className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar ao Curso</Link>
     </div>
   )
 

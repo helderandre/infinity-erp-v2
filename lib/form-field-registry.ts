@@ -671,7 +671,7 @@ export const FIELD_REGISTRY: FieldRegistryEntry[] = [
     options: [
       { value: 'draft', label: 'Rascunho' },
       { value: 'submitted', label: 'Submetido' },
-      { value: 'active', label: 'Activo' },
+      { value: 'active', label: 'Ativo' },
       { value: 'completed', label: 'Concluído' },
       { value: 'cancelled', label: 'Cancelado' },
     ],

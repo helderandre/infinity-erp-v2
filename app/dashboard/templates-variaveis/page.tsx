@@ -490,11 +490,11 @@ export default function TemplatesVariaveisPage() {
                   <TableCell>
                     {v.is_active ? (
                       <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15 text-xs">
-                        Activa
+                        Ativa
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="text-xs">
-                        Inactiva
+                        Inativa
                       </Badge>
                     )}
                   </TableCell>
@@ -514,12 +514,12 @@ export default function TemplatesVariaveisPage() {
                           {v.is_active ? (
                             <>
                               <EyeOff className="mr-2 h-4 w-4" />
-                              Desactivar
+                              Desativar
                             </>
                           ) : (
                             <>
                               <Eye className="mr-2 h-4 w-4" />
-                              Activar
+                              Ativar
                             </>
                           )}
                         </DropdownMenuItem>
@@ -777,7 +777,7 @@ export default function TemplatesVariaveisPage() {
                   checked={formData.is_active}
                   onCheckedChange={(v) => setFormData((p) => ({ ...p, is_active: v }))}
                 />
-                <Label className="text-xs">Activa</Label>
+                <Label className="text-xs">Ativa</Label>
               </div>
             </div>
 

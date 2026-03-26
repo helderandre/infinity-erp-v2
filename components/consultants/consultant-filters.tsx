@@ -24,8 +24,8 @@ interface ConsultantFiltersProps {
 }
 
 const statusOptions = [
-  { value: 'active', label: 'Activos' },
-  { value: 'inactive', label: 'Inactivos' },
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
 ]
 
 export function ConsultantFilters({

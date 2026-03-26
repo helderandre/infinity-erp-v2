@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft,
+  ArrowLeft,
   BookOpen,
   Clock,
   FileText,
@@ -162,7 +163,7 @@ function CourseDetailContent() {
   if (!course) return (
     <div className="flex flex-col items-center justify-center py-16">
       <h3 className="text-lg font-semibold">Formação não encontrada</h3>
-      <Button className="mt-4" asChild><Link href="/dashboard/formacoes">Voltar</Link></Button>
+      <Link href="/dashboard/formacoes" className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar</Link>
     </div>
   )
 

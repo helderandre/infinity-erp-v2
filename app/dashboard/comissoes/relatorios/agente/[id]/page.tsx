@@ -97,9 +97,9 @@ export default function AgentReportPage() {
   if (!report) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
-        </Button>
+        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+        </button>
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">Relatorio nao encontrado ou sem dados para este consultor.</p>
         </Card>
@@ -114,9 +114,10 @@ export default function AgentReportPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar
+          </button>
           <div>
             <h1 className="text-xl font-bold">{agent.name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">

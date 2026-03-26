@@ -60,7 +60,7 @@ export function MapaGestaoTab() {
 
   // Fetch consultants for filter
   useEffect(() => {
-    fetch('/api/consultants?active=true')
+    fetch('/api/consultants?status=active')
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {

@@ -522,9 +522,9 @@ export default function NegocioDetailPage() {
   if (!isInAcompanhamento) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/leads/${leadId}`)}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-        </Button>
+        <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+        </button>
         <div className="flex gap-6 items-start">
           <div className="w-72 shrink-0">
             <NegocioSidebar tipo={tipo} leadName={clientName} createdAt={negocio.created_at} phone={phone} email={email} estado={estado} negocioId={negocioId} onEstadoChange={(v) => saveSidebarField('estado', v)} onQuickFillApply={handleQuickFillApply} onStartAcquisition={() => setAcquisitionDialogOpen(true)} />
@@ -542,9 +542,9 @@ export default function NegocioDetailPage() {
   return (
     <div className="space-y-6">
       {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/leads/${leadId}`)}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Lead
-      </Button>
+      <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+        <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao Lead
+      </button>
 
       {/* Hero header */}
       <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">

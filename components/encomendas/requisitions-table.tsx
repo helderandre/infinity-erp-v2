@@ -18,7 +18,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from './status-badge'
-import { formatCurrency, formatDate } from '@/lib/constants'
+import { formatCurrency, formatDate, PAYMENT_METHODS } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
 import type { Requisition, RequisitionStatus } from '@/types/encomenda'
 
 interface RequisitionsTableProps {
@@ -109,6 +110,7 @@ export function RequisitionsTable({ requisitions, loading, onAction }: Requisiti
             <TableHead>Total</TableHead>
             <TableHead>Prioridade</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead>Pagamento</TableHead>
             <TableHead>Data</TableHead>
             <TableHead className="w-12" />
           </TableRow>
@@ -121,6 +123,7 @@ export function RequisitionsTable({ requisitions, loading, onAction }: Requisiti
                 ? req.items[0].product?.name ?? '1 item'
                 : `${req.items.length} itens`
               : '—'
+            const paymentLabel = PAYMENT_METHODS[req.payment_method] ?? '—'
 
             return (
               <TableRow key={req.id}>
@@ -137,6 +140,11 @@ export function RequisitionsTable({ requisitions, loading, onAction }: Requisiti
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={req.status} type="requisition" />
+                </TableCell>
+                <TableCell>
+                  <Badge variant={req.payment_method === 'invoice' ? 'default' : 'secondary'} className="text-xs">
+                    {paymentLabel}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(req.created_at)}

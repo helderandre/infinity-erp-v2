@@ -189,7 +189,7 @@ export default function DefinicoesPage() {
   const handleToggleTier = async (tier: CommissionTier) => {
     const { error } = await upsertCommissionTier({ ...tier, is_active: !tier.is_active })
     if (error) toast.error(error)
-    else { toast.success(tier.is_active ? 'Desactivado.' : 'Activado.'); loadFinancial() }
+    else { toast.success(tier.is_active ? 'Desativado.' : 'Ativado.'); loadFinancial() }
   }
 
   // ── Setting field renderer ──
@@ -580,7 +580,7 @@ function TierCard({ tier, onEdit, onDelete, onToggle }: {
               variant={tier.is_active ? 'default' : 'secondary'}
               className="text-[10px] rounded-full"
             >
-              {tier.is_active ? 'Activo' : 'Inactivo'}
+              {tier.is_active ? 'Ativo' : 'Inativo'}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">

@@ -87,8 +87,13 @@ export function LeadFilters({
           placeholder="Pesquisar por nome..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="pl-9 rounded-full"
         />
+        {search && (
+          <button onClick={() => onSearchChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <MultiSelectFilter
@@ -123,7 +128,7 @@ export function LeadFilters({
       )}
 
       {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClearFilters}>
+        <Button variant="ghost" size="sm" onClick={onClearFilters} className="rounded-full">
           <X className="mr-1 h-4 w-4" />
           Limpar
         </Button>

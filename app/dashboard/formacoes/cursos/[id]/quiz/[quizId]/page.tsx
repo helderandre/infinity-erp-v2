@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QuizPlayer } from '@/components/training/quiz-player'
@@ -78,7 +78,7 @@ function QuizContent() {
   if (!quiz) return (
     <div className="flex flex-col items-center py-16">
       <h3 className="font-semibold">Quiz não encontrado</h3>
-      <Button className="mt-4" asChild><Link href={`/dashboard/formacoes/cursos/${courseId}`}>Voltar ao Curso</Link></Button>
+      <Link href={`/dashboard/formacoes/cursos/${courseId}`} className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar ao Curso</Link>
     </div>
   )
 
@@ -86,11 +86,9 @@ function QuizContent() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href={`/dashboard/formacoes/cursos/${courseId}`}>
-          <ChevronLeft className="h-4 w-4 mr-1" />Voltar ao Curso
-        </Link>
-      </Button>
+      <Link href={`/dashboard/formacoes/cursos/${courseId}`} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+        <ArrowLeft className="h-3.5 w-3.5" />Voltar ao Curso
+      </Link>
 
       {mode === 'start' && (
         <div className="rounded-lg border p-8 text-center space-y-4">

@@ -816,10 +816,10 @@ export default function CandidateDetailPage() {
       <div className="flex flex-col items-center justify-center gap-4 p-12">
         <User className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-xl font-semibold text-muted-foreground">Candidato nao encontrado</h2>
-        <Button variant="outline" onClick={() => router.push('/dashboard/recrutamento')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+        <button onClick={() => router.push('/dashboard/recrutamento')} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
-        </Button>
+        </button>
       </div>
     )
   }
@@ -1128,7 +1128,7 @@ export default function CandidateDetailPage() {
                   checked={originForm.currently_active_real_estate}
                   onCheckedChange={(v) => setOriginForm({ ...originForm, currently_active_real_estate: !!v })}
                 />
-                <Label htmlFor="active_re">Actualmente Activo em Imobiliario</Label>
+                <Label htmlFor="active_re">Atualmente Ativo em Imobiliario</Label>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

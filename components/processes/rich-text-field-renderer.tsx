@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -16,10 +16,11 @@ import {
 } from '@/components/ui/select'
 import {
   Bold, Italic, Underline as UnderlineIcon,
-  List, ListOrdered,
+  List, ListOrdered, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { FieldRendererProps } from './dynamic-form-renderer'
+import type { FieldRendererProps, FormRendererContext } from './dynamic-form-renderer'
+import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
 
 type Level = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -33,9 +34,22 @@ const BLOCK_OPTIONS = [
   { value: 'h6', label: 'Título 6' },
 ]
 
-export function RichTextFieldRenderer({ field, name }: FieldRendererProps) {
+export function RichTextFieldRenderer({ field, name, context }: FieldRendererProps & { context?: FormRendererContext }) {
   const form = useFormContext()
   const currentValue = form.watch(name) as string | null | undefined
+  const [property, setProperty] = useState<any>(null)
+
+  const isDescription = field.field_name === 'description'
+  const propertyId = context?.propertyId
+
+  // Fetch property data for AI generator (only for description fields)
+  useEffect(() => {
+    if (!isDescription || !propertyId) return
+    fetch(`/api/properties/${propertyId}`)
+      .then((r) => r.json())
+      .then((data) => setProperty(data))
+      .catch(() => {})
+  }, [isDescription, propertyId])
 
   const handleUpdate = useCallback(
     ({ editor }: { editor: { getHTML: () => string; isEmpty: boolean } }) => {
@@ -171,6 +185,36 @@ export function RichTextFieldRenderer({ field, name }: FieldRendererProps) {
           >
             <ListOrdered className="h-3.5 w-3.5" />
           </Toggle>
+
+          {/* AI description generator (only for description field with property context) */}
+          {isDescription && propertyId && property && (
+            <>
+              <Separator orientation="vertical" className="h-5 mx-0.5" />
+              <PropertyDescriptionGenerator
+                propertyId={propertyId}
+                property={property}
+                existingDescription={currentValue || ''}
+                onUseDescription={(desc) => {
+                  // Convert markdown-ish bold to HTML and set in editor
+                  const html = desc
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br/>')
+                  editor.commands.setContent(`<p>${html}</p>`)
+                  form.setValue(name, editor.getHTML(), { shouldDirty: true, shouldValidate: true })
+                }}
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 h-7 px-2 text-xs font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Assistente IA</span>
+                  </button>
+                }
+              />
+            </>
+          )}
         </div>
 
         {/* Editor */}

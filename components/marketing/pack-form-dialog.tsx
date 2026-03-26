@@ -119,7 +119,7 @@ export function PackFormDialog({ open, onOpenChange, pack, catalogItems, onSubmi
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label>Activo</Label>
+            <Label>Ativo</Label>
             <Switch checked={watch('is_active')} onCheckedChange={(v) => setValue('is_active', v)} />
           </div>
 

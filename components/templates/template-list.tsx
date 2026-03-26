@@ -44,8 +44,8 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
     setIsLoading(true)
     try {
       const res = await fetch(`/api/templates/${deactivateId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Erro ao desactivar template')
-      toast.success('Template desactivado com sucesso')
+      if (!res.ok) throw new Error('Erro ao desativar template')
+      toast.success('Template desativado com sucesso')
       onRefresh()
     } catch (error: any) {
       toast.error(error.message)
@@ -115,7 +115,7 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
                     </Badge>
                   )}
                   <Badge variant={tpl.is_active ? 'default' : 'secondary'}>
-                    {tpl.is_active ? 'Activo' : 'Inactivo'}
+                    {tpl.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -144,7 +144,7 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
                             onClick={() => setDeactivateId(tpl.id)}
                           >
                             <Power className="mr-2 h-4 w-4" />
-                            Desactivar
+                            Desativar
                           </DropdownMenuItem>
                         </>
                       )}
@@ -184,9 +184,9 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
       <AlertDialog open={!!deactivateId} onOpenChange={(open) => !open && setDeactivateId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar Template</AlertDialogTitle>
+            <AlertDialogTitle>Desativar Template</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende desactivar este template? O template
+              Tem a certeza de que pretende desativar este template? O template
               ficará inactivo mas não será eliminado. Processos já instanciados
               não serão afectados.
             </AlertDialogDescription>
@@ -197,7 +197,7 @@ export function TemplateList({ templates, onRefresh }: TemplateListProps) {
               onClick={handleDeactivate}
               disabled={isLoading}
             >
-              {isLoading ? 'A desactivar...' : 'Desactivar'}
+              {isLoading ? 'A desativar...' : 'Desativar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

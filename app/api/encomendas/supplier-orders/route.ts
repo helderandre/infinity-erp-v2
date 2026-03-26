@@ -10,6 +10,8 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const supplier_id = searchParams.get('supplier_id')
 
+    const agent_id = searchParams.get('agent_id')
+
     let query = supabase
       .from('temp_supplier_orders')
       .select(`
@@ -20,12 +22,14 @@ export async function GET(request: Request) {
           product:temp_products(id, name, sku),
           variant:temp_product_variants(id, name)
         ),
-        ordered_by_user:dev_users!ordered_by(id, commercial_name)
+        ordered_by_user:dev_users!temp_supplier_orders_ordered_by_fkey(id, commercial_name),
+        agent:dev_users!temp_supplier_orders_agent_id_fkey(id, commercial_name)
       `)
       .order('created_at', { ascending: false })
 
     if (status) query = query.eq('status', status)
     if (supplier_id) query = query.eq('supplier_id', supplier_id)
+    if (agent_id) query = query.eq('agent_id', agent_id)
 
     const { data, error } = await query
 
@@ -52,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, ...orderData } = parsed.data
+    const { items, billing_entity, billing_name, billing_nif, billing_address, billing_email, ...orderData } = parsed.data
 
     // Calculate subtotals and total
     const itemsWithSubtotals = items.map((item) => ({
@@ -70,6 +74,11 @@ export async function POST(request: Request) {
         total_cost: totalCost,
         ordered_by: user.id,
         status: 'draft',
+        ...(billing_entity ? { billing_entity } : {}),
+        ...(billing_name ? { billing_name } : {}),
+        ...(billing_nif ? { billing_nif } : {}),
+        ...(billing_address ? { billing_address } : {}),
+        ...(billing_email ? { billing_email } : {}),
       })
       .select()
       .single()

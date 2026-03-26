@@ -1143,7 +1143,7 @@ function CreateAdTab({ pages }: { pages: MetaPage[] }) {
 const PEDIDO_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   pending:   { label: "Pendente",   bg: "bg-amber-500/10", text: "text-amber-600", dot: "bg-amber-500" },
   approved:  { label: "Aprovado",   bg: "bg-emerald-500/10", text: "text-emerald-600", dot: "bg-emerald-500" },
-  active:    { label: "Activo",     bg: "bg-blue-500/10", text: "text-blue-600", dot: "bg-blue-500" },
+  active:    { label: "Ativo",     bg: "bg-blue-500/10", text: "text-blue-600", dot: "bg-blue-500" },
   completed: { label: "Concluído",  bg: "bg-slate-500/10", text: "text-slate-600", dot: "bg-slate-500" },
   rejected:  { label: "Rejeitado",  bg: "bg-red-500/10", text: "text-red-600", dot: "bg-red-500" },
   cancelled: { label: "Cancelado",  bg: "bg-slate-400/10", text: "text-slate-500", dot: "bg-slate-400" },
@@ -1285,7 +1285,7 @@ function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void
           { key: "all", label: "Todos" },
           { key: "pending", label: "Pendentes" },
           { key: "approved", label: "Aprovados" },
-          { key: "active", label: "Activos" },
+          { key: "active", label: "Ativos" },
           { key: "rejected", label: "Rejeitados" },
           { key: "completed", label: "Concluídos" },
         ].map((f) => (

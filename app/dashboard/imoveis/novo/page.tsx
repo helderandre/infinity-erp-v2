@@ -48,9 +48,10 @@ export default function NovoImovelPage() {
         <div className="relative z-10 flex items-center gap-4">
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white hover:bg-white/25 transition-all shrink-0"
+            className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors shrink-0"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar
           </button>
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm">

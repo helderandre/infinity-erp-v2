@@ -59,7 +59,7 @@ async function searchEntities(
       }))
     }
     case 'consultant': {
-      const res = await fetch(`/api/consultants?search=${encodeURIComponent(term)}&per_page=8`)
+      const res = await fetch(`/api/consultants?search=${encodeURIComponent(term)}&per_page=8&status=active`)
       if (!res.ok) return []
       const json = await res.json()
       return (json.data || []).map((c: { id: string; commercial_name: string; professional_email?: string }) => ({

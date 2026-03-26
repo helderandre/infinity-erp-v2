@@ -28,6 +28,8 @@ import {
 import { formatCurrency, formatDate, PROPERTY_TYPES } from '@/lib/constants'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ConsultantPhotoCropper } from '@/components/consultants/consultant-photo-cropper'
+import { useImageCompress } from '@/hooks/use-image-compress'
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -56,6 +58,9 @@ export default function ConsultorDetalhePage() {
   const [propertiesLoading, setPropertiesLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null)
+  const [cropperOpen, setCropperOpen] = useState(false)
+  const { compressImage } = useImageCompress()
 
   // Edit mode
   const [editing, setEditing] = useState(false)
@@ -384,13 +389,22 @@ export default function ConsultorDetalhePage() {
     } catch { toast.error('Erro ao actualizar') }
   }
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const url = URL.createObjectURL(file)
+    setCropperSrc(url)
+    setCropperOpen(true)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleCroppedPhoto = async (blob: Blob) => {
     setUploadingPhoto(true)
     try {
+      const raw = new File([blob], 'photo.webp', { type: 'image/webp' })
+      const compressed = await compressImage(raw)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', compressed)
       const res = await fetch(`/api/consultants/${id}/photo`, { method: 'POST', body: formData })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Erro') }
       toast.success('Foto actualizada')
@@ -399,7 +413,7 @@ export default function ConsultorDetalhePage() {
       toast.error(err instanceof Error ? err.message : 'Erro ao fazer upload')
     } finally {
       setUploadingPhoto(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (cropperSrc) { URL.revokeObjectURL(cropperSrc); setCropperSrc(null) }
     }
   }
 
@@ -468,7 +482,7 @@ export default function ConsultorDetalhePage() {
             >
               {uploadingPhoto ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handlePhotoUpload} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 flex-wrap">
@@ -476,8 +490,19 @@ export default function ConsultorDetalhePage() {
               {consultant.is_active ? (
                 <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30" />
               ) : (
-                <Badge variant="outline" className="text-white/60 border-white/20 text-[10px]">Inactivo</Badge>
+                <Badge variant="outline" className="text-white/60 border-white/20 text-[10px]">Inativo</Badge>
               )}
+              <button
+                onClick={handleToggleWebsite}
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border transition-colors',
+                  consultant.display_website
+                    ? 'bg-emerald-500/30 text-emerald-200 border-emerald-400/30 hover:bg-emerald-500/40'
+                    : 'bg-red-500/20 text-red-300 border-red-400/20 hover:bg-red-500/30'
+                )}
+              >
+                {consultant.display_website ? 'No Website' : 'Oculto do Website'}
+              </button>
             </div>
             <p className="text-neutral-400 text-sm mt-1">
               {roleName || 'Sem função atribuída'}
@@ -987,7 +1012,7 @@ export default function ConsultorDetalhePage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="settings-active" className="text-sm">Activo</Label>
+              <Label htmlFor="settings-active" className="text-sm">Ativo</Label>
               <Switch id="settings-active" checked={!!consultant.is_active} onCheckedChange={() => { handleToggleActive(); }} />
             </div>
             <div className="flex items-center justify-between">
@@ -1083,6 +1108,20 @@ export default function ConsultorDetalhePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ─── Photo Cropper ─── */}
+      {cropperSrc && (
+        <ConsultantPhotoCropper
+          imageSrc={cropperSrc}
+          open={cropperOpen}
+          onOpenChange={(open) => {
+            setCropperOpen(open)
+            if (!open) { URL.revokeObjectURL(cropperSrc); setCropperSrc(null) }
+          }}
+          onCropDone={handleCroppedPhoto}
+          consultantName={consultant.commercial_name}
+        />
+      )}
     </div>
   )
 }

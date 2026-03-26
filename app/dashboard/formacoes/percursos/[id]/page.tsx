@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, BookOpen, CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { ChevronLeft, ArrowLeft, BookOpen, CheckCircle2, Circle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -66,7 +66,7 @@ function PercursoContent() {
   if (!path) return (
     <div className="text-center py-16">
       <p className="text-muted-foreground">Percurso não encontrado</p>
-      <Button className="mt-4" asChild><Link href="/dashboard/formacoes/percursos">Voltar</Link></Button>
+      <Link href="/dashboard/formacoes/percursos" className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"><ArrowLeft className="h-3.5 w-3.5" />Voltar</Link>
     </div>
   )
 
@@ -75,9 +75,9 @@ function PercursoContent() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/dashboard/formacoes/percursos"><ChevronLeft className="h-4 w-4 mr-1" />Voltar</Link>
-      </Button>
+      <Link href="/dashboard/formacoes/percursos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+        <ArrowLeft className="h-3.5 w-3.5" />Voltar
+      </Link>
 
       <div className="space-y-4">
         <h1 className="text-3xl font-bold">{path.title}</h1>

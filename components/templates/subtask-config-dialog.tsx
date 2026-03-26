@@ -752,7 +752,7 @@ function SectionDados({
               checked={!!local.config.form_template_id}
               onCheckedChange={(checked) => {
                 if (checked) {
-                  // Activar modo template — manter sections como backup
+                  // Ativar modo template — manter sections como backup
                   updateConfig({ form_template_id: '' })
                 } else {
                   // Voltar a campos inline — remover referência ao template

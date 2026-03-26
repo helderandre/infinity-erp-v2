@@ -150,7 +150,7 @@ export default function ParceirosPage() {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Total Parceiros', value: kpis.total, icon: Handshake, iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500' },
-          { label: 'Activos', value: kpis.active, icon: CheckCircle2, iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
+          { label: 'Ativos', value: kpis.active, icon: CheckCircle2, iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
           { label: 'Recomendados', value: kpis.recommended, icon: Award, iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500' },
           { label: 'Categorias', value: kpis.categories, icon: Users, iconBg: 'bg-violet-500/10', iconColor: 'text-violet-500' },
         ].map((kpi) => (

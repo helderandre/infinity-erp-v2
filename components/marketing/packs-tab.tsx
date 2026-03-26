@@ -48,7 +48,7 @@ export function PacksTab() {
     if (!deleteId) return
     try {
       await deletePack(deleteId)
-      toast.success('Pack desactivado')
+      toast.success('Pack desativado')
       setDeleteId(null)
     } catch (e: any) {
       toast.error(e.message || 'Erro ao eliminar pack')
@@ -102,12 +102,12 @@ export function PacksTab() {
                     {pack.is_active ? (
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-emerald-500/10 backdrop-blur-sm text-emerald-700 px-2.5 py-1 rounded-full">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Activo
+                        Ativo
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-slate-500/10 backdrop-blur-sm text-slate-600 px-2.5 py-1 rounded-full">
                         <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                        Inactivo
+                        Inativo
                       </span>
                     )}
                   </div>
@@ -193,15 +193,15 @@ export function PacksTab() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar pack</AlertDialogTitle>
+            <AlertDialogTitle>Desativar pack</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende desactivar este pack?
+              Tem a certeza de que pretende desativar este pack?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Desactivar
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

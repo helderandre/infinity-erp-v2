@@ -14,6 +14,7 @@ import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
+import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Progress } from '@/components/ui/progress'
@@ -148,7 +149,7 @@ export default function ImovelDetalhePage() {
   const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
 
   useEffect(() => {
-    fetch('/api/consultants?per_page=100')
+    fetch('/api/consultants?per_page=100&status=active')
       .then(r => r.json())
       .then(d => setConsultantsList(d.data || []))
       .catch(() => {})
@@ -163,13 +164,14 @@ export default function ImovelDetalhePage() {
       // property
       consultant_id: property.consultant_id ?? '',
       status: property.status ?? 'pending_approval',
+      show_on_website: (property as any).show_on_website ?? true,
       title: property.title ?? '', description: property.description ?? '',
       property_type: property.property_type ?? '', business_type: property.business_type ?? '',
       listing_price: property.listing_price ?? '', property_condition: property.property_condition ?? '',
       energy_certificate: property.energy_certificate ?? '', external_ref: property.external_ref ?? '',
       address_street: property.address_street ?? '', postal_code: property.postal_code ?? '',
       city: property.city ?? '', zone: property.zone ?? '',
-      url_remax: (property as any).link_portal_remax ?? '', url_idealista: (property as any).link_portal_idealista ?? '', url_imovirtual: (property as any).link_portal_imovirtual ?? '',
+      url_infinity: (property as any).link_portal_infinity ?? '', url_remax: (property as any).link_portal_remax ?? '', url_idealista: (property as any).link_portal_idealista ?? '', url_imovirtual: (property as any).link_portal_imovirtual ?? '',
       // specs
       typology: s?.typology ?? '', bedrooms: s?.bedrooms ?? '', bathrooms: s?.bathrooms ?? '',
       area_gross: s?.area_gross ?? '', area_util: s?.area_util ?? '',
@@ -230,9 +232,11 @@ export default function ImovelDetalhePage() {
         city: str(d.city),
         zone: str(d.zone),
         contract_regime: str(d.contract_regime),
+        link_portal_infinity: str(d.url_infinity),
         link_portal_remax: str(d.url_remax),
         link_portal_idealista: str(d.url_idealista),
         link_portal_imovirtual: str(d.url_imovirtual),
+        show_on_website: d.show_on_website,
       }
       // Remove undefined keys
       for (const k of Object.keys(propertyPayload)) {
@@ -407,10 +411,10 @@ export default function ImovelDetalhePage() {
   if (!property) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
-        </Button>
+        </button>
         <div className="text-center py-12">
           <h2 className="text-lg font-semibold">Imóvel não encontrado</h2>
           <p className="text-muted-foreground">O imóvel que procura não existe ou foi eliminado.</p>
@@ -437,8 +441,9 @@ export default function ImovelDetalhePage() {
         <div className="relative z-10 px-6 sm:px-8 pt-5 pb-5 flex flex-col justify-between" style={{ minHeight: '16rem' }}>
           {/* Top row: back + edit toggle */}
           <div className="flex items-center justify-between">
-            <button onClick={() => router.push('/dashboard/imoveis')} className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white hover:bg-white/25 transition-all">
-              <ArrowLeft className="h-4 w-4" />
+            <button onClick={() => router.push('/dashboard/imoveis')} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Voltar
             </button>
             <div className="flex items-center gap-2">
               {isEditing && (
@@ -470,6 +475,21 @@ export default function ImovelDetalhePage() {
                   {BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type}
                 </span>
               )}
+              {isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => updateField('show_on_website', !editData.show_on_website)}
+                  className={cn('text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border transition-colors', editData.show_on_website ? 'bg-emerald-500/30 text-emerald-200 border-emerald-400/30' : 'bg-white/10 text-neutral-400 border-white/15')}
+                >
+                  {editData.show_on_website ? 'No Website' : 'Oculto do Website'}
+                </button>
+              ) : (
+                (property as any).show_on_website === false && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-400/20">
+                    Oculto do Website
+                  </span>
+                )
+              )}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">{property.title}</h1>
             {(property.city || property.zone || property.address_street) && (
@@ -478,6 +498,29 @@ export default function ImovelDetalhePage() {
                 {[property.address_street, property.zone, property.city].filter(Boolean).join(', ')}
               </div>
             )}
+            <div className="flex items-center gap-2.5 mt-1.5">
+              {property.external_ref && (
+                <span className="text-sm font-mono font-bold text-white/70 tracking-wide mr-1">ID: {property.external_ref}</span>
+              )}
+              {[
+                  { key: 'infinity', url: (property as any).link_portal_infinity || `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-black', hover: 'hover:bg-neutral-800', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-white"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l7.03-6.24c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z"/></svg>) },
+                  { key: 'remax', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-600', hover: 'hover:bg-blue-700', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#EF4444"/></svg>) },
+                  { key: 'idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-400', hover: 'hover:bg-yellow-300', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#000"/></svg>) },
+                  { key: 'imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-red-500', hover: 'hover:bg-red-600', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#fff"/></svg>) },
+                ].map((portal) => (
+                  <a
+                    key={portal.key}
+                    href={portal.url || '#'}
+                    target={portal.url ? '_blank' : undefined}
+                    rel="noopener noreferrer"
+                    onClick={(e) => { if (!portal.url) e.preventDefault() }}
+                    className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${portal.bg} ${portal.hover} transition-all ${portal.url ? 'opacity-100 shadow-md' : 'opacity-30 cursor-not-allowed'}`}
+                    title={portal.key.charAt(0).toUpperCase() + portal.key.slice(1)}
+                  >
+                    {portal.icon}
+                  </a>
+                ))}
+            </div>
             <div className="flex items-center gap-3 sm:gap-5 mt-3 flex-wrap">
               <HeroStat icon={Euro} value={formatCurrency(property.listing_price)} className="text-white font-bold text-lg" />
               {specs?.typology && <HeroStat icon={Building2} value={specs.typology} />}
@@ -651,8 +694,8 @@ export default function ImovelDetalhePage() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {[
-                  { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
-                  { label: 'RE/MAX', url: (property as any).link_portal_remax || null, bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
+                  { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
+                  { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
                   { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
                   { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
                 ].map(portal => (
@@ -683,16 +726,36 @@ export default function ImovelDetalhePage() {
             />
 
             {/* Description — inside same card */}
-            {(property.description || isEditing) && (
-              <div className="space-y-2 pt-4 border-t">
-                <h3 className="text-base font-semibold">Descrição</h3>
+            <div className="space-y-2 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold">Descrição</h3>
+                  {isEditing && (
+                    <PropertyDescriptionGenerator
+                      propertyId={property.id}
+                      property={property}
+                      existingDescription={property.description || ''}
+                      onUseDescription={async (desc) => {
+                        updateField('description', desc)
+                        try {
+                          await fetch(`/api/properties/${property.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ description: desc }),
+                          })
+                          await refetch()
+                        } catch {
+                          toast.error('Erro ao guardar descrição')
+                        }
+                      }}
+                    />
+                  )}
+                </div>
                 <DescriptionContent
                   text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
                   editing={isEditing}
                   onChange={(v) => updateField('description', v)}
                 />
               </div>
-            )}
 
             {/* Plantas */}
             <PropertyPlantasSection
@@ -1499,7 +1562,6 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
   const [expanded, setExpanded] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isLong = text.length > 300
-  const displayText = isLong && !expanded ? text.slice(0, 300).trimEnd() + '…' : text
 
   useEffect(() => {
     if (editing && textareaRef.current) {
@@ -1524,6 +1586,36 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
       />
     )
   }
+
+  // Check if text contains markdown-style bold or HTML tags
+  const hasRichContent = /\*\*.*?\*\*|<strong>|<br\s*\/?>|<p>|<ul>|<li>/i.test(text)
+
+  if (hasRichContent) {
+    // Convert markdown bold to HTML if needed, then render as rich text
+    const html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n\n/g, '<br/><br/>')
+      .replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+    const displayHtml = isLong && !expanded
+      ? html.slice(0, 500).replace(/<[^>]*$/, '') + '…'
+      : html
+
+    return (
+      <div>
+        <div
+          className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none [&_strong]:text-foreground [&_strong]:font-semibold"
+          dangerouslySetInnerHTML={{ __html: displayHtml }}
+        />
+        {isLong && (
+          <button onClick={() => setExpanded(!expanded)} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors mt-1">
+            {expanded ? 'Ver menos' : 'Ver mais'}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  const displayText = isLong && !expanded ? text.slice(0, 300).trimEnd() + '…' : text
   return (
     <div>
       <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{displayText}</p>

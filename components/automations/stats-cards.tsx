@@ -170,7 +170,7 @@ export function StatsCards() {
                 integrationHealth.email.status === "healthy" ? "bg-emerald-500" : "bg-red-500"
               )} />
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Email: Activo</span>
+              <span className="text-sm">Email: Ativo</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />

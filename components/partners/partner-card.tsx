@@ -78,7 +78,7 @@ export function PartnerCard({
           )}
           {!partner.is_active && (
             <Badge variant="secondary" className="rounded-full text-[10px] bg-red-500/15 text-red-600 border-0">
-              Inactivo
+              Inativo
             </Badge>
           )}
         </div>

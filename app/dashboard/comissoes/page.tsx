@@ -349,7 +349,7 @@ export default function ComissoesPage() {
           {/* Deal KPI Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <KpiCard label="Total Negócios" value={dealStats.total_deals} icon={Briefcase} color="text-slate-600" isCurrency={false} />
-            <KpiCard label="Negócios Activos" value={dealStats.active_deals} icon={Activity} color="text-blue-600" isCurrency={false} />
+            <KpiCard label="Negócios Ativos" value={dealStats.active_deals} icon={Activity} color="text-blue-600" isCurrency={false} />
             <KpiCard label="Comissão Total" value={dealStats.total_commission} icon={CircleDollarSign} color="text-emerald-600" />
             <KpiCard label="Pagamentos Pendentes" value={dealStats.pending_payments} icon={AlertCircle} color="text-amber-600" />
           </div>

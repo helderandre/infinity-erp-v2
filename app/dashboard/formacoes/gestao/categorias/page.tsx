@@ -94,7 +94,7 @@ function CategoriasContent() {
       toast.success('Categoria desactivada')
       fetchCategories()
     } catch {
-      toast.error('Erro ao desactivar')
+      toast.error('Erro ao desativar')
     }
   }
 
@@ -138,7 +138,7 @@ function CategoriasContent() {
                 </TableCell>
                 <TableCell>
                   <Badge variant={cat.is_active ? 'default' : 'secondary'}>
-                    {cat.is_active ? 'Activa' : 'Inactiva'}
+                    {cat.is_active ? 'Ativa' : 'Inativa'}
                   </Badge>
                 </TableCell>
                 <TableCell>

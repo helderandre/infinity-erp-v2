@@ -23,7 +23,7 @@ import type { PortalProperty } from '../actions'
 const fmt = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active: { label: 'Activo', className: 'bg-emerald-500/15 text-emerald-600' },
+  active: { label: 'Ativo', className: 'bg-emerald-500/15 text-emerald-600' },
   pending_approval: { label: 'Pendente', className: 'bg-amber-500/15 text-amber-600' },
   sold: { label: 'Vendido', className: 'bg-blue-500/15 text-blue-600' },
   rented: { label: 'Arrendado', className: 'bg-indigo-500/15 text-indigo-600' },

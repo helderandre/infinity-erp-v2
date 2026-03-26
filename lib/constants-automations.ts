@@ -132,7 +132,7 @@ export const COLUMN_LABELS: Record<string, Record<string, string>> = {
     id: "ID",
     commercial_name: "Nome comercial",
     professional_email: "Email profissional",
-    is_active: "Activo",
+    is_active: "Ativo",
     role_id: "Role",
     created_at: "Data de criação",
   },
@@ -239,8 +239,7 @@ export const STATUS_VALUES: Record<string, { value: string; label: string }[]> =
   ],
   "dev_properties.status": [
     { value: "pending_approval",  label: "Pendente aprovação" },
-    { value: "active",            label: "Activo" },
-    { value: "available",         label: "Disponível" },
+    { value: "active",            label: "Ativo" },
     { value: "reserved",          label: "Reservado" },
     { value: "sold",              label: "Vendido" },
     { value: "rented",            label: "Arrendado" },

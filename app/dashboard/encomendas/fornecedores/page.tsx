@@ -65,9 +65,9 @@ export default function FornecedoresPage() {
     if (!deactivateId) return
     try {
       await deleteSupplier(deactivateId)
-      toast.success('Fornecedor desactivado com sucesso')
+      toast.success('Fornecedor desativado com sucesso')
     } catch {
-      toast.error('Erro ao desactivar fornecedor')
+      toast.error('Erro ao desativar fornecedor')
     } finally {
       setDeactivateId(null)
     }
@@ -166,7 +166,7 @@ export default function FornecedoresPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={supplier.is_active ? 'default' : 'secondary'}>
-                      {supplier.is_active ? 'Activo' : 'Inactivo'}
+                      {supplier.is_active ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -187,7 +187,7 @@ export default function FornecedoresPage() {
                             onClick={() => setDeactivateId(supplier.id)}
                           >
                             <Ban className="mr-2 h-4 w-4" />
-                            Desactivar
+                            Desativar
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -213,9 +213,9 @@ export default function FornecedoresPage() {
       <AlertDialog open={!!deactivateId} onOpenChange={() => setDeactivateId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar fornecedor</AlertDialogTitle>
+            <AlertDialogTitle>Desativar fornecedor</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende desactivar este fornecedor? Podera reactiva-lo posteriormente.
+              Tem a certeza de que pretende desativar este fornecedor? Podera reactiva-lo posteriormente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -224,7 +224,7 @@ export default function FornecedoresPage() {
               onClick={handleDeactivate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Desactivar
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

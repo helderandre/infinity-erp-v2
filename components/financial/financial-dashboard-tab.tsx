@@ -168,7 +168,7 @@ export function FinancialDashboardTab() {
                   </div>
                 </div>
                 <p className="text-xl font-bold tabular-nums">{fmtCurrency(data.portfolio.active_volume)}</p>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Volume dos Imoveis Activos</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Volume dos Imoveis Ativos</p>
               </div>
               <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4">
                 <div className="flex items-center gap-2 mb-2">

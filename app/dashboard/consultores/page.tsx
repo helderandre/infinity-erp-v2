@@ -26,7 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  UsersRound,
+  Briefcase,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { CONSULTANT_ROLES } from '@/lib/auth/roles'
@@ -37,7 +37,7 @@ const PAGE_SIZE = 50
 
 const TABS = [
   { key: 'consultores' as const, label: 'Consultores', icon: Users },
-  { key: 'equipas' as const, label: 'Equipas', icon: UsersRound },
+  { key: 'staff' as const, label: 'Staff', icon: Briefcase },
 ]
 
 type TabKey = (typeof TABS)[number]['key']
@@ -75,15 +75,19 @@ function ConsultoresPageContent() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [createOpen, setCreateOpen] = useState(false)
 
+  // Staff state
+  const [staffMembers, setStaffMembers] = useState<ConsultantWithProfile[]>([])
+  const [isLoadingStaff, setIsLoadingStaff] = useState(true)
+
   // Filters
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
+  const [status, setStatus] = useState('active')
   const [role, setRole] = useState('all')
   const [page, setPage] = useState(0)
 
   const debouncedSearch = useDebounce(search, 300)
 
-  const hasActiveFilters = debouncedSearch !== '' || status !== 'all' || role !== 'all'
+  const hasActiveFilters = debouncedSearch !== '' || (status !== 'all' && status !== 'active') || role !== 'all'
 
   const loadConsultants = useCallback(async () => {
     setIsLoading(true)
@@ -129,13 +133,31 @@ function ConsultoresPageContent() {
     }
   }, [])
 
+  const loadStaff = useCallback(async () => {
+    setIsLoadingStaff(true)
+    try {
+      const res = await fetch('/api/consultants?consultant_only=false&status=active&per_page=100')
+      if (!res.ok) throw new Error('Erro ao carregar staff')
+      const data = await res.json()
+      const all: ConsultantWithProfile[] = data.data || []
+      setStaffMembers(all.filter((u) =>
+        !u.user_roles?.some((ur: any) => (CONSULTANT_ROLES as readonly string[]).includes(ur.roles?.name))
+      ))
+    } catch {
+      setStaffMembers([])
+    } finally {
+      setIsLoadingStaff(false)
+    }
+  }, [])
+
   useEffect(() => { loadConsultants() }, [loadConsultants])
   useEffect(() => { loadRoles() }, [loadRoles])
+  useEffect(() => { loadStaff() }, [loadStaff])
   useEffect(() => { setPage(0) }, [debouncedSearch, status, role])
 
   const clearFilters = () => {
     setSearch('')
-    setStatus('all')
+    setStatus('active')
     setRole('all')
     setPage(0)
   }
@@ -144,14 +166,6 @@ function ConsultoresPageContent() {
 
   const getInitials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-
-  // Group consultants by role for equipas tab
-  const teamGroups = consultants.reduce<Record<string, ConsultantWithProfile[]>>((acc, c) => {
-    const roleName = c.user_roles?.[0]?.roles?.name || 'Sem Função'
-    if (!acc[roleName]) acc[roleName] = []
-    acc[roleName].push(c)
-    return acc
-  }, {})
 
   return (
     <div>
@@ -366,11 +380,11 @@ function ConsultoresPageContent() {
                               <TableCell>
                                 {consultant.is_active ? (
                                   <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                                    Activo
+                                    Ativo
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
-                                    Inactivo
+                                    Inativo
                                   </Badge>
                                 )}
                               </TableCell>
@@ -402,69 +416,48 @@ function ConsultoresPageContent() {
             </div>
           )}
 
-          {/* ═══════ EQUIPAS TAB ═══════ */}
-          {activeTab === 'equipas' && (
-            <div className="space-y-6">
-              {isLoading ? (
-                <div className="space-y-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="space-y-3">
-                      <Skeleton className="h-6 w-40" />
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {[1, 2, 3].map((j) => <Skeleton key={j} className="h-16 rounded-xl" />)}
-                      </div>
-                    </div>
+          {/* ═══════ STAFF TAB ═══════ */}
+          {activeTab === 'staff' && (
+            <div className="space-y-5">
+              {isLoadingStaff ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
                   ))}
                 </div>
-              ) : Object.keys(teamGroups).length === 0 ? (
+              ) : staffMembers.length === 0 ? (
                 <EmptyState
-                  icon={UsersRound}
-                  title="Nenhuma equipa encontrada"
-                  description="Ainda não existem consultores registados."
+                  icon={Briefcase}
+                  title="Nenhum membro de staff encontrado"
+                  description="Ainda não existem membros de staff registados."
                 />
               ) : (
-                Object.entries(teamGroups)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([roleName, members]) => (
-                    <div key={roleName} className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">{roleName}</h3>
-                        <Badge variant="secondary" className="text-[10px] rounded-full bg-muted/50">
-                          {members.length}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {members.map((member) => {
-                          const profile = member.dev_consultant_profiles
-                          return (
-                            <div
-                              key={member.id}
-                              className="flex items-center gap-3 rounded-2xl border bg-card/50 backdrop-blur-sm p-3 transition-all duration-300 hover:shadow-md hover:bg-card/80 cursor-pointer"
-                              onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
-                            >
-                              <Avatar className="h-10 w-10 shrink-0 ring-2 ring-background shadow-sm">
-                                <AvatarImage src={profile?.profile_photo_url || undefined} />
-                                <AvatarFallback className="text-xs bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-600 dark:to-neutral-700">
-                                  {getInitials(member.commercial_name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate">{member.commercial_name}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">
-                                  {profile?.phone_commercial || member.professional_email || '—'}
-                                </p>
-                              </div>
-                              {member.is_active ? (
-                                <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Activo" />
-                              ) : (
-                                <div className="h-2 w-2 rounded-full bg-muted-foreground/30 shrink-0" title="Inactivo" />
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {[...staffMembers]
+                    .sort((a, b) => {
+                      const aRole = a.user_roles?.[0]?.roles?.name || ''
+                      const bRole = b.user_roles?.[0]?.roles?.name || ''
+                      if (aRole === 'Broker/CEO') return -1
+                      if (bRole === 'Broker/CEO') return 1
+                      return a.commercial_name.localeCompare(b.commercial_name)
+                    })
+                    .map((member) => {
+                      const roleName = member.user_roles?.[0]?.roles?.name
+                      return (
+                        <div key={member.id} className="relative">
+                          <ConsultantCard
+                            consultant={member}
+                            onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                          />
+                          {roleName && (
+                            <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
+                              {roleName}
+                            </Badge>
+                          )}
+                        </div>
+                      )
+                    })}
+                </div>
               )}
             </div>
           )}

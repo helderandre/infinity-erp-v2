@@ -47,13 +47,13 @@ export default function EditarTemplateEmailPage() {
         <p className="text-muted-foreground">
           {error || 'Template não encontrado'}
         </p>
-        <Button
-          variant="outline"
+        <button
           onClick={() => router.push('/dashboard/templates-email')}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
-        </Button>
+        </button>
       </div>
     )
   }

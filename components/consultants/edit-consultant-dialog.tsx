@@ -213,7 +213,7 @@ export function EditConsultantDialog({ open, onOpenChange, consultant, roles, on
               <div className="flex items-center gap-6 pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch checked={form.is_active} onCheckedChange={v => update('is_active', v)} />
-                  <span className="text-xs">Activo</span>
+                  <span className="text-xs">Ativo</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch checked={form.display_website} onCheckedChange={v => update('display_website', v)} />

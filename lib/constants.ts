@@ -12,7 +12,7 @@ export const STATUS_COLORS = {
     bg: 'bg-emerald-500/15',
     text: 'text-emerald-500',
     dot: 'bg-emerald-500',
-    label: 'Activo',
+    label: 'Ativo',
   },
   sold: {
     bg: 'bg-blue-500/15',
@@ -157,17 +157,11 @@ export const PROPERTY_STATUS = {
     dot: 'bg-yellow-500',
     label: 'Em Processo',
   },
-  available: {
-    bg: 'bg-emerald-500/15',
-    text: 'text-emerald-500',
-    dot: 'bg-emerald-500',
-    label: 'Disponível',
-  },
   active: {
     bg: 'bg-emerald-500/15',
     text: 'text-emerald-500',
     dot: 'bg-emerald-500',
-    label: 'Activo',
+    label: 'Ativo',
   },
   reserved: {
     bg: 'bg-purple-500/15',
@@ -991,12 +985,16 @@ export const NOTIFICATION_LABELS = {
 // --- LEADS ---
 
 export const LEAD_ESTADOS = [
-  'Novo',
-  'Em contacto',
+  'Lead',
+  'Contactado',
   'Qualificado',
-  'Em negociação',
-  'Convertido',
+  'Potencial Cliente',
+  'Cliente Activo',
+  '1 Negocio Fechado',
+  'Cliente Recorrente',
+  'Cliente Premium',
   'Perdido',
+  'Inactivo',
 ] as const
 
 export const LEAD_TEMPERATURAS = [
@@ -1879,7 +1877,7 @@ export const PRODUCT_CATEGORY_ICONS: Record<string, string> = {
 // ─── Marketing Subscriptions ────────────────────────────
 
 export const SUBSCRIPTION_STATUS = {
-  active:         { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Activa' },
+  active:         { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Ativa' },
   paused:         { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pausada' },
   cancelled:      { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Cancelada' },
   expired:        { bg: 'bg-red-500/15',     text: 'text-red-500',     dot: 'bg-red-500',     label: 'Expirada' },
@@ -1910,7 +1908,7 @@ export const CAMPAIGN_OBJECTIVES: Record<string, string> = {
 export const CAMPAIGN_STATUS = {
   pending:   { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pendente' },
   approved:  { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Aprovada' },
-  active:    { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Activa' },
+  active:    { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Ativa' },
   paused:    { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Pausada' },
   completed: { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-500',   label: 'Concluída' },
   rejected:  { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Rejeitada' },

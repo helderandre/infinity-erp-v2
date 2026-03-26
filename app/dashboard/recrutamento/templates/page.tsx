@@ -241,7 +241,7 @@ export default function CommTemplatesPage() {
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-muted-foreground">{t.is_active ? 'Activo' : 'Inactivo'}</span>
+                  <span className="text-xs text-muted-foreground">{t.is_active ? 'Ativo' : 'Inativo'}</span>
                   <Switch checked={t.is_active} onCheckedChange={() => handleToggleActive(t)} />
                 </div>
               </CardContent>
@@ -318,7 +318,7 @@ export default function CommTemplatesPage() {
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
-              <Label>Activo</Label>
+              <Label>Ativo</Label>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
