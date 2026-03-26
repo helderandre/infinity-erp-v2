@@ -476,11 +476,8 @@ export default function EntryFormPage() {
         {/* Progress bar */}
         <div className="bg-white border-x px-6 py-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-[10px] font-medium text-muted-foreground">
               Passo {currentStep + 1} de {totalSteps}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {currentSection?.label}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
@@ -488,20 +485,6 @@ export default function EntryFormPage() {
               className="h-full rounded-full bg-neutral-900 transition-all duration-500"
               style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
             />
-          </div>
-          {/* Step dots */}
-          <div className="flex justify-center gap-1.5 mt-3">
-            {visibleSections.map((s, i) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setCurrentStep(i)}
-                className={cn(
-                  'h-2 rounded-full transition-all duration-300',
-                  i === currentStep ? 'w-6 bg-neutral-900' : i < currentStep ? 'w-2 bg-neutral-400' : 'w-2 bg-neutral-200'
-                )}
-              />
-            ))}
           </div>
         </div>
 
