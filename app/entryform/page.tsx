@@ -267,6 +267,76 @@ const FIELD_SECTIONS: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
+// Custom Select (popup style, not native)
+// ---------------------------------------------------------------------------
+
+function CustomSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = 'Seleccionar...',
+  required = false,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+  required?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div className="space-y-1" ref={ref}>
+      <label className="text-xs font-medium text-neutral-700 flex items-center gap-1">
+        {label}
+        {required && <RequiredAsterisk />}
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className={cn(
+            'w-full h-9 rounded-lg border bg-white px-3 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-neutral-900/10 transition-shadow',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          <span className="truncate">{value || placeholder}</span>
+          <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0', open && 'rotate-90')} />
+        </button>
+        {open && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border bg-white shadow-lg py-1 max-h-48 overflow-y-auto animate-in fade-in-0 slide-in-from-top-2 duration-150">
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => { onChange(opt); setOpen(false) }}
+                className={cn(
+                  'w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 transition-colors',
+                  value === opt && 'bg-neutral-50 font-medium'
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -417,7 +487,32 @@ export default function EntryFormPage() {
   const isLastStep = currentStep === totalSteps - 1
   const currentSection = visibleSections[currentStep]
 
-  const goNext = () => { if (!isLastStep) setCurrentStep(s => s + 1); window.scrollTo(0, 0) }
+  // Validate current step mandatory fields before advancing
+  const validateCurrentStep = useCallback(() => {
+    if (!currentSection) return true
+    const sectionKey = currentSection.key
+    const sectionFieldKeys = Object.entries(FIELD_SECTIONS)
+      .filter(([, sec]) => sec === sectionKey)
+      .map(([key]) => key)
+
+    for (const key of sectionFieldKeys) {
+      if (!isFieldVisible(key)) continue
+      if (!isFieldRequired(key)) continue
+      const val = form[key as keyof FormData]
+      if (!val?.trim()) {
+        const label = getLabel(key, key)
+        toast.error(`O campo "${label}" é obrigatório.`)
+        return false
+      }
+    }
+    return true
+  }, [currentSection, form, isFieldVisible, isFieldRequired, getLabel])
+
+  const goNext = () => {
+    if (!validateCurrentStep()) return
+    if (!isLastStep) setCurrentStep(s => s + 1)
+    window.scrollTo(0, 0)
+  }
   const goPrev = () => { if (!isFirstStep) setCurrentStep(s => s - 1); window.scrollTo(0, 0) }
 
   // ---------------------------------------------------------------------------
@@ -501,7 +596,7 @@ export default function EntryFormPage() {
                 <div className="space-y-5 animate-in fade-in-0 slide-in-from-right-4 duration-300">
                   <h2 className="text-sm font-bold text-neutral-800">Documento de Identificação</h2>
                   <p className="text-xs text-muted-foreground">
-                    Carregue a frente e verso do Cartão de Cidadão para extrair os dados automaticamente com IA.
+                    Carregue a frente e verso do Cartão de Cidadão.
                   </p>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -515,39 +610,20 @@ export default function EntryFormPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="w-full h-9 rounded-lg bg-neutral-900 text-white text-xs font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
-                    disabled={!idFront || !idBack || extracting}
-                    onClick={handleExtract}
-                  >
-                    {extracting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />A extrair dados...</>
-                      : <><Wand2 className="h-3.5 w-3.5" />Extrair Dados com IA</>}
-                  </button>
-
                   <Separator />
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     {renderField('full_name', 'Nome Completo', { colSpan: 2 })}
                     {renderField('cc_number', 'Número do CC')}
                     {isFieldVisible('estado_civil') && (
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-neutral-700">
-                          {getLabel('estado_civil', 'Estado Civil')}
-                          {isAiFilled('estado_civil') && <AiBadge />}
-                        </label>
-                        <select
-                          value={form.estado_civil}
-                          onChange={(e) => set('estado_civil', e.target.value)}
-                          className={cn(
-                            'w-full h-9 rounded-lg border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10',
-                            isAiFilled('estado_civil') && 'ring-2 ring-violet-500/30 border-violet-300'
-                          )}
-                        >
-                          <option value="">Seleccionar...</option>
-                          {ESTADO_CIVIL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
+                      <CustomSelect
+                        label={getLabel('estado_civil', 'Estado Civil')}
+                        value={form.estado_civil}
+                        onChange={(v) => set('estado_civil', v)}
+                        options={ESTADO_CIVIL_OPTIONS}
+                        placeholder="Seleccionar..."
+                        required={isFieldRequired('estado_civil')}
+                      />
                     )}
                     {renderField('cc_expiry', 'Validade do CC', { type: 'date' })}
                     {renderField('cc_issue_date', 'Data de Emissão', { type: 'date' })}
