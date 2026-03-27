@@ -11,8 +11,9 @@ export async function GET(request: Request) {
     const search = searchParams.get('search')
 
     let query = supabase
-      .from('temp_suppliers')
+      .from('temp_partners')
       .select('*')
+      .eq('category', 'supplier')
       .order('name', { ascending: true })
 
     if (active === 'true') query = query.eq('is_active', true)
@@ -45,8 +46,8 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await supabase
-      .from('temp_suppliers')
-      .insert(parsed.data)
+      .from('temp_partners')
+      .insert({ ...parsed.data, category: 'supplier', visibility: 'public', person_type: 'coletiva' })
       .select()
       .single()
 

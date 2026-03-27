@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createSupplierOrderSchema } from '@/lib/validations/encomenda'
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient() as any
+    const supabase = createAdminClient() as any
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
       .from('temp_supplier_orders')
       .select(`
         *,
-        supplier:temp_suppliers(id, name),
+        supplier:temp_partners(id, name),
         items:temp_supplier_order_items(
           *,
           product:temp_products(id, name, sku),
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       .from('temp_supplier_orders')
       .select(`
         *,
-        supplier:temp_suppliers(id, name),
+        supplier:temp_partners(id, name),
         items:temp_supplier_order_items(
           *,
           product:temp_products(id, name, sku),

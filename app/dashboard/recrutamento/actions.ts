@@ -534,12 +534,59 @@ export async function updateSectionLabel(
   return { success: true, error: null }
 }
 
+export async function createFormField(data: {
+  field_key: string
+  label: string
+  section: string
+  section_label?: string | null
+  field_type: string
+  placeholder?: string | null
+  options?: string[] | null
+  is_visible?: boolean
+  is_required?: boolean
+  order_index: number
+}): Promise<{ field: FormFieldConfig | null; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: field, error } = await (admin as any).from("recruitment_form_fields")
+    .insert({
+      field_key: data.field_key,
+      label: data.label,
+      section: data.section,
+      section_label: data.section_label || null,
+      field_type: data.field_type,
+      placeholder: data.placeholder || null,
+      options: data.options || null,
+      is_visible: data.is_visible ?? true,
+      is_required: data.is_required ?? false,
+      is_ai_extractable: false,
+      order_index: data.order_index,
+    })
+    .select()
+    .single()
+
+  if (error) return { field: null, error: error.message }
+  return { field, error: null }
+}
+
+export async function deleteFormField(id: string): Promise<{ success: boolean; error: string | null }> {
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from("recruitment_form_fields")
+    .delete()
+    .eq("id", id)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, error: null }
+}
+
 // ─── Entry Form Submissions ─────────────────────────────────────────────────
 
 export interface EntrySubmission {
   id: string
   candidate_id: string | null
   full_name: string
+  document_type: string | null
   cc_number: string | null
   cc_expiry: string | null
   cc_issue_date: string | null

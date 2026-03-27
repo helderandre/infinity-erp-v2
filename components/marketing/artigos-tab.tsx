@@ -32,7 +32,7 @@ import {
   Calendar, Clock, MapPin, User, Phone, Zap, Target, Check, X, Plus,
   Pencil, Trash2, Loader2, CheckCircle2, Ban, ExternalLink, FileText,
   Car, Home, Trees, Paintbrush, UserCheck, UserX, Layers, Ruler, DoorOpen,
-  Truck, PackageCheck, Square, CheckSquare, ArrowRight,
+  Truck, PackageCheck, Square, CheckSquare, ArrowRight, ChevronDown,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -79,9 +79,12 @@ interface SupplierOrder {
   id: string; reference: string; status: string; total_cost: number
   expected_delivery_date: string | null; actual_delivery_date: string | null
   notes: string | null; created_at: string
+  payment_method: string | null
+  billing_entity: string | null; billing_name: string | null; billing_nif: string | null
   supplier: { id: string; name: string; email: string | null; phone: string | null } | null
-  items: { id: string; product_id: string; quantity_ordered: number; quantity_received: number; unit_cost: number; subtotal: number; product: { id: string; name: string; thumbnail_url: string | null } | null }[]
+  items: { id: string; product_id: string; quantity_ordered: number; quantity_received: number; unit_cost: number; subtotal: number; product: { id: string; name: string; sku: string | null; thumbnail_url?: string | null } | null; variant?: { id: string; name: string } | null }[]
   ordered_by_user: { id: string; commercial_name: string } | null
+  agent: { id: string; commercial_name: string } | null
 }
 
 interface CampaignItem {
@@ -186,9 +189,10 @@ export function ArtigosTab() {
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set())
   const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>([])
   const [supplierOrdersLoading, setSupplierOrdersLoading] = useState(false)
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
   const [bundleLoading, setBundleLoading] = useState(false)
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false)
-  const [bundleForm, setBundleForm] = useState({ supplier_id: '', expected_delivery_date: '', notes: '' })
+  const [bundleForm, setBundleForm] = useState({ supplier_id: '', supplier_name: '', expected_delivery_date: '', notes: '' })
   const [suppliers, setSuppliers] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([])
 
   const fetchData = useCallback(async () => {
@@ -204,7 +208,7 @@ export function ArtigosTab() {
     try {
       const res = await fetch('/api/encomendas/supplier-orders')
       const d = await res.json()
-      setSupplierOrders(d.data || [])
+      setSupplierOrders(Array.isArray(d) ? d : d.data || [])
     } catch { /* */ } finally { setSupplierOrdersLoading(false) }
   }, [])
 
@@ -256,19 +260,24 @@ export function ArtigosTab() {
     const totalQty = selected.reduce((s, m) => s + m.quantity, 0)
     const totalValue = selected.reduce((s, m) => s + Number(m.subtotal), 0)
     const agents = [...new Set(selected.map(m => m.requisition.agent?.commercial_name).filter(Boolean))]
-    return { count: selected.length, totalQty, totalValue, agents, items: selected }
+    const paymentMethods = [...new Set(selected.map(m => m.requisition.payment_method).filter(Boolean))]
+    const paymentMethod = paymentMethods.length === 1 ? paymentMethods[0] : paymentMethods.length > 1 ? 'mixed' : null
+    const isFatura = paymentMethod === 'fatura'
+    // For fatura: get the agent's info (single consultant)
+    const agentId = isFatura ? selected[0]?.requisition.agent?.id : null
+    return { count: selected.length, totalQty, totalValue, agents, items: selected, paymentMethod, isFatura, agentId }
   }, [selectedMaterialIds, data.materials])
 
   // Open bundle dialog
   const openBundleDialog = useCallback(() => {
     if (!bundleValidation.valid) return
-    setBundleForm({ supplier_id: '', expected_delivery_date: '', notes: '' })
+    setBundleForm({ supplier_id: '', supplier_name: '', expected_delivery_date: '', notes: '' })
     setBundleDialogOpen(true)
   }, [bundleValidation.valid])
 
   // Create bundled supplier order
   const handleCreateBundle = useCallback(async () => {
-    if (!bundleForm.supplier_id) { toast.error('Seleccione um fornecedor'); return }
+    if (!bundleForm.supplier_id && !bundleForm.supplier_name.trim()) { toast.error('Seleccione ou escreva o nome do fornecedor'); return }
     setBundleLoading(true)
     try {
       const res = await fetch('/api/encomendas/bundle', {
@@ -276,7 +285,8 @@ export function ArtigosTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           item_ids: [...selectedMaterialIds],
-          supplier_id: bundleForm.supplier_id,
+          supplier_id: bundleForm.supplier_id || null,
+          supplier_name: bundleForm.supplier_id ? null : bundleForm.supplier_name.trim() || null,
           expected_delivery_date: bundleForm.expected_delivery_date || null,
           notes: bundleForm.notes || null,
         }),
@@ -520,7 +530,7 @@ export function ArtigosTab() {
                   {selectedMaterialIds.size > 0 ? <CheckSquare className="h-3.5 w-3.5 text-primary" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </TableHead>
-              <TableHead>Produto</TableHead><TableHead>Consultor</TableHead><TableHead className="text-center">Qtd.</TableHead>
+              <TableHead>Produto</TableHead><TableHead>Consultor</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-center">Qtd.</TableHead>
               <TableHead className="text-right">Subtotal</TableHead><TableHead>Carrinho</TableHead><TableHead>Encomenda</TableHead><TableHead>Data</TableHead>
             </TableRow></TableHeader>
             <TableBody>{data.materials.map(item => {
@@ -538,6 +548,16 @@ export function ArtigosTab() {
                   </TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setSelectedMaterial(item)}><div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-sm font-medium">{item.product?.name || 'Produto'}</span></div></TableCell>
                   <TableCell className="text-sm">{item.requisition.agent?.commercial_name || '—'}</TableCell>
+                  <TableCell>
+                    {item.requisition.payment_method ? (
+                      <span className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium',
+                        item.requisition.payment_method === 'fatura' ? 'bg-blue-500/10 text-blue-600' : 'bg-amber-500/10 text-amber-600'
+                      )}>
+                        {item.requisition.payment_method === 'fatura' ? 'Fatura' : 'Conta Corrente'}
+                      </span>
+                    ) : <span className="text-[10px] text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell className="text-center"><Badge variant="secondary" className="rounded-full text-[10px]">×{item.quantity}</Badge></TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatCurrency(item.subtotal)}</TableCell>
                   <TableCell><StatusBadge status={cartStatus} /></TableCell>
@@ -563,71 +583,110 @@ export function ArtigosTab() {
         ) : (
           <div className="space-y-3">
             {supplierOrders.map(order => {
-              const statusSteps = ['draft', 'ordered', 'in_transit', 'at_store', 'delivered']
+              const statusSteps = ['ordered', 'at_store', 'picked_up', 'completed']
               const currentStep = statusSteps.indexOf(order.status)
+              const itemCount = order.items.reduce((s, i) => s + i.quantity_ordered, 0)
+              const isExpanded = expandedOrderId === order.id
+              const statusLabelsMap: Record<string, string> = { ordered: 'Encomendado', at_store: 'Na Loja', picked_up: 'Levantado', completed: 'Concluído', cancelled: 'Cancelado' }
               return (
                 <div key={order.id} className="rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-                  {/* Order header */}
-                  <div className="px-4 py-3 flex items-center justify-between border-b bg-muted/20">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm">{order.reference}</span>
-                      <StatusBadge status={order.status} />
-                      {order.supplier && <span className="text-xs text-muted-foreground">· {order.supplier.name}</span>}
+                  {/* Clickable header */}
+                  <button
+                    type="button"
+                    className="w-full p-4 text-left hover:bg-muted/20 transition-colors"
+                    onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-sm">{order.reference}</span>
+                        <span className="text-lg font-bold">{formatCurrency(order.total_cost)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={order.status} />
+                        <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', isExpanded && 'rotate-180')} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{formatCurrency(order.total_cost)}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
+
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {order.supplier && (
+                        <span className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 px-2.5 py-0.5 text-[10px] font-medium">{order.supplier.name}</span>
+                      )}
+                      {order.agent && (
+                        <span className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 px-2.5 py-0.5 text-[10px] text-muted-foreground">{order.agent.commercial_name}</span>
+                      )}
+                      {order.payment_method && (
+                        <span className={cn(
+                          'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium',
+                          order.payment_method === 'fatura' ? 'bg-blue-500/10 text-blue-600' : 'bg-amber-500/10 text-amber-600'
+                        )}>
+                          {order.payment_method === 'fatura' ? 'Fatura' : 'Conta Corrente'}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 px-2.5 py-0.5 text-[10px] text-muted-foreground">
+                        {itemCount} artigo{itemCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-0.5">
+                      {statusSteps.map((_, idx) => (
+                        <div key={idx} className={cn('h-1 flex-1 rounded-full', idx <= currentStep ? 'bg-emerald-500' : 'bg-neutral-200 dark:bg-white/10')} />
+                      ))}
+                    </div>
+                  </button>
+
+                  {/* Expanded detail */}
+                  {isExpanded && (
+                    <div className="border-t px-4 py-3 space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
+                      {/* Items */}
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Artigos</p>
+                        {order.items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-3 w-3 text-muted-foreground" />
+                              <span>{item.product?.name || 'Produto'}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>×{item.quantity_ordered}</span>
+                              <span className="font-medium text-foreground">{formatCurrency(item.subtotal)}</span>
+                              {item.quantity_received > 0 && <span className="text-emerald-600">({item.quantity_received} recebido{item.quantity_received !== 1 ? 's' : ''})</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                        {order.expected_delivery_date && <span>Entrega prevista: {formatDate(order.expected_delivery_date)}</span>}
+                        {order.notes && <span>Notas: {order.notes}</span>}
+                        <span>Criado: {formatDate(order.created_at)}</span>
+                      </div>
+
+                      {/* Status actions — inline buttons instead of dropdown */}
+                      <div className="flex items-center gap-2 pt-1">
+                        {order.status === 'ordered' && (
+                          <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => handleSupplierOrderStatus(order.id, 'at_store')}>
+                            <Home className="h-3 w-3" />Chegou à Loja
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl">
-                          {order.status === 'draft' && <DropdownMenuItem onClick={() => handleSupplierOrderStatus(order.id, 'ordered')} className="text-xs gap-2"><PackageCheck className="h-3 w-3" />Marcar como Encomendado</DropdownMenuItem>}
-                          {order.status === 'ordered' && <DropdownMenuItem onClick={() => handleSupplierOrderStatus(order.id, 'in_transit')} className="text-xs gap-2"><Truck className="h-3 w-3" />Marcar Em Trânsito</DropdownMenuItem>}
-                          {order.status === 'in_transit' && <DropdownMenuItem onClick={() => handleSupplierOrderStatus(order.id, 'at_store')} className="text-xs gap-2"><Home className="h-3 w-3" />Marcar Na Loja</DropdownMenuItem>}
-                          {order.status === 'at_store' && <DropdownMenuItem onClick={() => handleSupplierOrderStatus(order.id, 'delivered')} className="text-xs gap-2"><CheckCircle2 className="h-3 w-3" />Marcar Entregue</DropdownMenuItem>}
-                          {!['delivered', 'cancelled'].includes(order.status) && <DropdownMenuItem onClick={() => handleSupplierOrderStatus(order.id, 'cancelled')} className="text-xs gap-2 text-red-600"><Ban className="h-3 w-3" />Cancelar</DropdownMenuItem>}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                        )}
+                        {order.status === 'at_store' && (
+                          <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => handleSupplierOrderStatus(order.id, 'picked_up')}>
+                            <PackageCheck className="h-3 w-3" />Consultor Levantou
+                          </Button>
+                        )}
+                        {order.status === 'picked_up' && (
+                          <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => handleSupplierOrderStatus(order.id, 'completed')}>
+                            <CheckCircle2 className="h-3 w-3" />Concluído
+                          </Button>
+                        )}
+                        {!['completed', 'cancelled', 'picked_up'].includes(order.status) && (
+                          <Button size="sm" variant="outline" className="rounded-full gap-1.5 text-xs text-red-600" onClick={() => handleSupplierOrderStatus(order.id, 'cancelled')}>
+                            <Ban className="h-3 w-3" />Cancelar
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="px-4 py-2 flex items-center gap-1">
-                    {statusSteps.map((step, idx) => (
-                      <div key={step} className="flex items-center gap-1 flex-1">
-                        <div className={cn('h-1.5 flex-1 rounded-full transition-colors', idx <= currentStep ? 'bg-emerald-500' : 'bg-muted')} />
-                        {idx < statusSteps.length - 1 && <ArrowRight className={cn('h-2.5 w-2.5 shrink-0', idx < currentStep ? 'text-emerald-500' : 'text-muted-foreground/30')} />}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 pb-1 flex items-center justify-between text-[9px] text-muted-foreground">
-                    <span>Rascunho</span><span>Encomendado</span><span>Trânsito</span><span>Na Loja</span><span>Entregue</span>
-                  </div>
-
-                  {/* Order items */}
-                  <div className="px-4 py-2 space-y-1">
-                    {order.items.map(oi => (
-                      <div key={oi.id} className="flex items-center justify-between py-1 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-3 w-3 text-muted-foreground" />
-                          <span>{oi.product?.name || 'Produto'}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>×{oi.quantity_ordered}</span>
-                          <span>{formatCurrency(oi.subtotal)}</span>
-                          {oi.quantity_received > 0 && <span className="text-emerald-600">({oi.quantity_received} recebido{oi.quantity_received !== 1 ? 's' : ''})</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-4 py-2 border-t bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{formatDate(order.created_at)}{order.ordered_by_user && ` · ${order.ordered_by_user.commercial_name}`}</span>
-                    {order.expected_delivery_date && <span>Prev. entrega: {formatDate(order.expected_delivery_date)}</span>}
-                  </div>
+                  )}
                 </div>
               )
             })}
@@ -700,19 +759,69 @@ export function ArtigosTab() {
               </div>
             </div>
 
-            {/* Supplier selection */}
+            {/* Payment info */}
+            {selectedSummary.paymentMethod && (
+              <div className="rounded-xl border p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium',
+                    selectedSummary.isFatura ? 'bg-blue-500/10 text-blue-600' : 'bg-amber-500/10 text-amber-600'
+                  )}>
+                    {selectedSummary.isFatura ? 'Fatura' : 'Conta Corrente'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {selectedSummary.isFatura
+                      ? 'Dados de facturação do consultor'
+                      : 'Facturação em nome da empresa'}
+                  </span>
+                </div>
+                {selectedSummary.isFatura ? (
+                  <div className="text-xs text-muted-foreground space-y-0.5 pl-1">
+                    <p className="font-medium text-foreground">{selectedSummary.agents[0] || '—'}</p>
+                    <p>Os dados de facturação serão obtidos do perfil do consultor.</p>
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground space-y-0.5 pl-1">
+                    <p className="font-medium text-foreground">LECOQUIMMO – Mediação Imobiliária, Unipessoal, Lda</p>
+                    <p>NIF: 514828528</p>
+                    <p>Av. da Liberdade, n.º 129-B, 1250-140 Lisboa</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Supplier selection — select from list or type free text */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Fornecedor *</Label>
-              <Select value={bundleForm.supplier_id} onValueChange={(v) => setBundleForm(f => ({ ...f, supplier_id: v }))}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Seleccionar fornecedor..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {suppliers.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Select
+                  value={bundleForm.supplier_id}
+                  onValueChange={(v) => {
+                    const supplier = suppliers.find(s => s.id === v)
+                    setBundleForm(f => ({ ...f, supplier_id: v, supplier_name: supplier?.name || '' }))
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Seleccionar fornecedor..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {suppliers.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] text-muted-foreground">ou</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <Input
+                  className="rounded-xl"
+                  placeholder="Escrever nome do fornecedor..."
+                  value={bundleForm.supplier_id ? '' : bundleForm.supplier_name}
+                  onChange={(e) => setBundleForm(f => ({ ...f, supplier_id: '', supplier_name: e.target.value }))}
+                />
+              </div>
             </div>
 
             {/* Expected delivery date */}
@@ -741,7 +850,7 @@ export function ArtigosTab() {
 
           <DialogFooter>
             <Button variant="outline" className="rounded-full" onClick={() => setBundleDialogOpen(false)}>Cancelar</Button>
-            <Button className="rounded-full gap-1.5" disabled={!bundleForm.supplier_id || bundleLoading} onClick={handleCreateBundle}>
+            <Button className="rounded-full gap-1.5" disabled={(!bundleForm.supplier_id && !bundleForm.supplier_name.trim()) || bundleLoading} onClick={handleCreateBundle}>
               {bundleLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5" />}
               Criar Encomenda
             </Button>

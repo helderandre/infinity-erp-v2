@@ -351,6 +351,7 @@ export default function EntryFormPage() {
   const [submitted, setSubmitted] = useState(false)
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>([])
   const [currentStep, setCurrentStep] = useState(0)
+  const [ready, setReady] = useState(false)
 
   // Fetch field config
   useEffect(() => {
@@ -358,6 +359,7 @@ export default function EntryFormPage() {
       .then((r) => r.json())
       .then((d) => setFieldConfigs(d.fields ?? []))
       .catch(() => {})
+      .finally(() => setReady(true))
   }, [])
 
   const fieldMap = useMemo(() => {
@@ -555,6 +557,17 @@ export default function EntryFormPage() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-neutral-100/50 flex items-center justify-center">
+        <div className="text-center">
+          <img src={LOGO_URL} alt="Infinity Group" className="h-14 mx-auto mb-4 animate-pulse" />
+          <p className="text-xs text-muted-foreground">A carregar formulário...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-neutral-100/50">

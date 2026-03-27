@@ -5,11 +5,12 @@ import { toast } from 'sonner'
 import {
   Eye, EyeOff, GripVertical, Loader2, Save, Sparkles, X, Pencil,
   Type, Mail, Phone, Calendar, ListChecks, ToggleLeft, Upload, FileText,
-  Plus, Trash2, Settings2, Smartphone, Monitor, ChevronDown, ChevronRight, Copy,
+  Plus, Trash2, Settings2, ChevronDown, ChevronRight, Copy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   getFormFields, updateFormField, reorderFormFields, updateSectionLabel,
+  createFormField, deleteFormField,
   type FormFieldConfig,
 } from '@/app/dashboard/recrutamento/actions'
 import { Button } from '@/components/ui/button'
@@ -47,16 +48,11 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   select: 'Selecção', toggle: 'Toggle', file: 'Ficheiro', textarea: 'Texto longo',
 }
 
-type ViewMode = 'builder' | 'preview'
-type DeviceMode = 'desktop' | 'mobile'
-
 export function FormBuilder() {
   const [fields, setFields] = useState<FormFieldConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('builder')
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>('desktop')
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below'>('below')
@@ -64,6 +60,13 @@ export function FormBuilder() {
   const [draggedSection, setDraggedSection] = useState<string | null>(null)
   const [dragOverSection, setDragOverSection] = useState<string | null>(null)
   const [dragOverSectionPos, setDragOverSectionPos] = useState<'above' | 'below'>('below')
+  const [draggingNewType, setDraggingNewType] = useState<string | null>(null)
+  const [dropTargetSection, setDropTargetSection] = useState<string | null>(null)
+  const [newFieldDialog, setNewFieldDialog] = useState<{ type: string; section: string } | null>(null)
+  const [newFieldLabel, setNewFieldLabel] = useState('')
+  const [newFieldKey, setNewFieldKey] = useState('')
+  const [newFieldPlaceholder, setNewFieldPlaceholder] = useState('')
+  const [creatingField, setCreatingField] = useState(false)
 
   const fetchFields = useCallback(async () => {
     setLoading(true)
@@ -267,6 +270,52 @@ export function FormBuilder() {
     if (error) { toast.error('Erro ao reordenar secções'); fetchFields() }
   }, [draggedSection, dragOverSectionPos, visibleSections, fields, fetchFields])
 
+  // Handle dropping a new field type onto a section
+  const handleNewFieldDrop = useCallback((section: string) => {
+    if (!draggingNewType) return
+    setNewFieldDialog({ type: draggingNewType, section })
+    setNewFieldLabel('')
+    setNewFieldKey('')
+    setNewFieldPlaceholder('')
+    setDraggingNewType(null)
+    setDropTargetSection(null)
+  }, [draggingNewType])
+
+  // Create the new field
+  const handleCreateField = useCallback(async () => {
+    if (!newFieldDialog || !newFieldLabel.trim()) { toast.error('Label obrigatório'); return }
+    const key = newFieldKey.trim() || newFieldLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '')
+    const sectionFields = fields.filter(f => f.section === newFieldDialog.section)
+    const maxOrder = sectionFields.reduce((max, f) => Math.max(max, f.order_index), -1)
+    const sectionLabel = sectionFields[0]?.section_label || null
+
+    setCreatingField(true)
+    const { field, error } = await createFormField({
+      field_key: key,
+      label: newFieldLabel.trim(),
+      section: newFieldDialog.section,
+      section_label: sectionLabel,
+      field_type: newFieldDialog.type,
+      placeholder: newFieldPlaceholder.trim() || null,
+      is_visible: true,
+      is_required: false,
+      order_index: maxOrder + 1,
+    })
+    setCreatingField(false)
+
+    if (error) { toast.error(error); return }
+    toast.success('Campo criado')
+    setNewFieldDialog(null)
+    fetchFields()
+  }, [newFieldDialog, newFieldLabel, newFieldKey, newFieldPlaceholder, fields, fetchFields])
+
+  // Delete a field
+  const handleDeleteField = useCallback(async (fieldId: string) => {
+    const { error } = await deleteFormField(fieldId)
+    if (error) toast.error(error)
+    else { toast.success('Campo eliminado'); if (selectedFieldId === fieldId) setSelectedFieldId(null); fetchFields() }
+  }, [selectedFieldId, fetchFields])
+
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => {
       const next = new Set(prev)
@@ -285,64 +334,42 @@ export function FormBuilder() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Topbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/30">
-          {([['builder', 'Editor', Settings2] as const, ['preview', 'Pré-visualizar', Eye] as const]).map(([key, label, Icon]) => (
-            <button key={key} onClick={() => setViewMode(key)}
-              className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all',
-                viewMode === key ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
-              <Icon className="h-3 w-3" />{label}
-            </button>
-          ))}
-        </div>
-
-        {viewMode === 'preview' && (
-          <div className="flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/30 ml-2">
-            <button onClick={() => setDeviceMode('desktop')} className={cn('p-1.5 rounded-full transition-all', deviceMode === 'desktop' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
-              <Monitor className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => setDeviceMode('mobile')} className={cn('p-1.5 rounded-full transition-all', deviceMode === 'mobile' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
-              <Smartphone className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full text-xs gap-1"
-            onClick={() => {
-              const url = `${window.location.origin}/entryform`
-              navigator.clipboard.writeText(url)
-              toast.success('Link copiado!')
-            }}
-          >
-            <Copy className="h-3 w-3" />Copiar link
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full text-xs gap-1"
-            onClick={() => window.open('/entryform', '_blank')}
-          >
-            <Eye className="h-3 w-3" />Abrir formulário
-          </Button>
-        </div>
-      </div>
-
-      {/* Builder mode */}
-      {viewMode === 'builder' && (
+      {/* Builder */}
+      {(
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left — Field types toolbox */}
           <div className="w-52 border-r bg-muted/10 overflow-y-auto p-3 shrink-0">
+            <div className="flex items-center gap-1 mb-3">
+              <button
+                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/entryform`); toast.success('Link copiado!') }}
+                className="flex-1 inline-flex items-center justify-center gap-1 h-7 rounded-lg border bg-background text-[10px] font-medium hover:bg-muted/50 transition-colors"
+                title="Copiar link"
+              >
+                <Copy className="h-3 w-3" />Link
+              </button>
+              <button
+                onClick={() => window.open('/entryform', '_blank')}
+                className="flex-1 inline-flex items-center justify-center gap-1 h-7 rounded-lg border bg-background text-[10px] font-medium hover:bg-muted/50 transition-colors"
+                title="Abrir formulário"
+              >
+                <Eye className="h-3 w-3" />Abrir
+              </button>
+            </div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Tipos de Campo</p>
             <div className="grid grid-cols-2 gap-1.5">
               {Object.entries(FIELD_TYPE_LABELS).map(([type, label]) => {
                 const Icon = FIELD_TYPE_ICONS[type] || Type
                 return (
-                  <div key={type} className="flex flex-col items-center gap-1 rounded-lg border bg-background p-2 text-center cursor-default opacity-70 hover:opacity-100 transition-opacity">
+                  <div
+                    key={type}
+                    draggable
+                    onDragStart={() => setDraggingNewType(type)}
+                    onDragEnd={() => { setDraggingNewType(null); setDropTargetSection(null) }}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-lg border bg-background p-2 text-center cursor-grab active:cursor-grabbing transition-all",
+                      draggingNewType === type ? "opacity-50 scale-95" : "hover:border-primary/30 hover:shadow-sm"
+                    )}
+                  >
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     <span className="text-[10px] font-medium">{label}</span>
                   </div>
@@ -394,7 +421,10 @@ export function FormBuilder() {
                   <div
                     key={s.section}
                     id={`form-section-${s.section}`}
-                    className="border-b last:border-b-0"
+                    className={cn("border-b last:border-b-0 transition-colors", dropTargetSection === s.section && draggingNewType && "bg-primary/5")}
+                    onDragOver={(e) => { if (draggingNewType) { e.preventDefault(); setDropTargetSection(s.section) } }}
+                    onDragLeave={() => { if (draggingNewType) setDropTargetSection(null) }}
+                    onDrop={() => { if (draggingNewType) handleNewFieldDrop(s.section) }}
                   >
                     {/* Section header — editable title */}
                     <div className="flex items-center gap-2 px-5 py-3 hover:bg-muted/30 transition-colors group">
@@ -481,6 +511,12 @@ export function FormBuilder() {
                             </div>
                           )
                         })}
+                        {/* Drop zone indicator for new fields */}
+                        {draggingNewType && dropTargetSection === s.section && (
+                          <div className="rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 px-3 py-4 text-center transition-all">
+                            <p className="text-xs text-primary/70 font-medium">Largar aqui para adicionar {FIELD_TYPE_LABELS[draggingNewType] || 'campo'}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -613,6 +649,17 @@ export function FormBuilder() {
                   <p>Secção: {selectedField.section_label || SECTION_LABELS_FALLBACK[selectedField.section] || selectedField.section}</p>
                   <p>Ordem: {selectedField.order_index}</p>
                 </div>
+
+                <Separator />
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs rounded-lg gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
+                  onClick={() => handleDeleteField(selectedField.id)}
+                >
+                  <Trash2 className="h-3 w-3" />Eliminar campo
+                </Button>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-6">
@@ -624,70 +671,57 @@ export function FormBuilder() {
         </div>
       )}
 
-      {/* Preview mode */}
-      {viewMode === 'preview' && (
-        <div className="flex-1 overflow-y-auto bg-muted/30 p-6">
-          <div className="mx-auto transition-all duration-300" style={{ maxWidth: deviceMode === 'mobile' ? 375 : 620 }}>
-            {/* Form header */}
-            <div className="rounded-t-2xl bg-neutral-900 px-6 py-8 text-center">
-              <img src={LOGO_URL} alt="Infinity Group" className="h-14 mx-auto mb-3" />
-              <h1 className="text-white text-lg font-bold">Formulário de Entrada</h1>
-              <p className="text-neutral-400 text-xs mt-1">Preencha os dados para iniciar o processo de onboarding</p>
+      {/* New field dialog */}
+      <Dialog open={!!newFieldDialog} onOpenChange={(o) => { if (!o) setNewFieldDialog(null) }}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Novo campo {newFieldDialog && (FIELD_TYPE_LABELS[newFieldDialog.type] || '').toLowerCase()}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Label *</Label>
+              <Input
+                value={newFieldLabel}
+                onChange={(e) => {
+                  setNewFieldLabel(e.target.value)
+                  if (!newFieldKey) setNewFieldKey(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, ''))
+                }}
+                placeholder="Ex: Data de Nascimento"
+                className="text-sm h-9"
+                autoFocus
+              />
             </div>
-
-            {/* Form body */}
-            <div className="bg-white border border-t-0 rounded-b-2xl shadow-sm px-6 py-6 space-y-6">
-              {visibleSections.map(s => {
-                const visibleFields = s.fields.filter(f => f.is_visible)
-                if (visibleFields.length === 0) return null
-                return (
-                  <div key={s.section}>
-                    <h2 className="text-sm font-bold mb-3 text-neutral-800">{s.label}</h2>
-                    <div className="space-y-3">
-                      {visibleFields.map(field => (
-                        <div key={field.id} className="space-y-1">
-                          <label className="text-xs font-medium text-neutral-700">
-                            {field.label}
-                            {field.is_required && <span className="text-red-500 ml-0.5">*</span>}
-                          </label>
-                          {field.field_type === 'select' ? (
-                            <select className="w-full h-9 rounded-lg border bg-white px-3 text-sm text-muted-foreground" disabled>
-                              <option>{field.placeholder || 'Seleccionar...'}</option>
-                            </select>
-                          ) : field.field_type === 'toggle' ? (
-                            <div className="flex items-center gap-3">
-                              <button className="h-5 w-9 rounded-full bg-muted border transition-colors" disabled />
-                              <span className="text-xs text-muted-foreground">{field.placeholder || 'Sim / Não'}</span>
-                            </div>
-                          ) : field.field_type === 'file' ? (
-                            <div className="h-20 rounded-lg border-2 border-dashed bg-muted/20 flex flex-col items-center justify-center gap-1 text-muted-foreground">
-                              <Upload className="h-5 w-5" />
-                              <span className="text-xs">{field.placeholder || 'Carregar ficheiro'}</span>
-                            </div>
-                          ) : field.field_type === 'textarea' ? (
-                            <textarea className="w-full h-20 rounded-lg border bg-white px-3 py-2 text-sm" placeholder={field.placeholder || ''} disabled />
-                          ) : field.field_type === 'date' ? (
-                            <input type="date" className="w-full h-9 rounded-lg border bg-white px-3 text-sm text-muted-foreground" disabled />
-                          ) : (
-                            <input type={field.field_type} className="w-full h-9 rounded-lg border bg-white px-3 text-sm" placeholder={field.placeholder || ''} disabled />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Submit button preview */}
-              <div className="pt-2">
-                <button className="w-full h-10 rounded-xl bg-neutral-900 text-white font-medium text-sm" disabled>
-                  Submeter Formulário
-                </button>
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Chave (identificador)</Label>
+              <Input
+                value={newFieldKey}
+                onChange={(e) => setNewFieldKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                placeholder="ex: data_nascimento"
+                className="text-xs h-8 font-mono"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Placeholder</Label>
+              <Input
+                value={newFieldPlaceholder}
+                onChange={(e) => setNewFieldPlaceholder(e.target.value)}
+                placeholder="Texto de ajuda..."
+                className="text-xs h-8"
+              />
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" className="rounded-full" onClick={() => setNewFieldDialog(null)}>Cancelar</Button>
+            <Button className="rounded-full gap-1" disabled={!newFieldLabel.trim() || creatingField} onClick={handleCreateField}>
+              {creatingField ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

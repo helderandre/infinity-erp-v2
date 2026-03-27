@@ -9,7 +9,7 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package,
+  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -90,12 +90,14 @@ export const financeiroItems = [
 
 export const recrutamentoItems = [
   { title: 'Candidatos', icon: Users, href: '/dashboard/recrutamento' },
-  { title: 'Formulário', icon: FileText, href: '/dashboard/recrutamento/formulario' },
+  { title: 'Integração', icon: FileText, href: '/dashboard/recrutamento/formulario' },
 ]
 
 export const lojaItems = [
   { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
+  { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo' },
   { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas' },
+  { title: 'Fornecedores', icon: Truck, href: '/dashboard/parceiros' },
 ]
 
 export const digitalItems = [

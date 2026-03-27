@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -37,6 +38,7 @@ import { Search, Plus, Truck, MoreHorizontal, Pencil, Ban } from 'lucide-react'
 import type { Supplier } from '@/types/encomenda'
 
 export default function FornecedoresPage() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [showFormDialog, setShowFormDialog] = useState(false)
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null)
@@ -150,7 +152,7 @@ export default function FornecedoresPage() {
             </TableHeader>
             <TableBody>
               {suppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
+                <TableRow key={supplier.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/dashboard/encomendas/fornecedores/${supplier.id}`)}>
                   <TableCell className="font-medium">{supplier.name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {supplier.contact_name || '—'}

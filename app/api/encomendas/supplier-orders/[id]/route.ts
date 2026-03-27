@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -6,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient() as any
+    const supabase = createAdminClient() as any
     const { id } = await params
 
     const { data, error } = await supabase
@@ -53,9 +54,16 @@ export async function PUT(
       return NextResponse.json({ error: 'Status obrigatório' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    // Set timestamps based on status transitions
+    const updates: Record<string, any> = { status }
+    if (status === 'ordered') updates.ordered_at = new Date().toISOString()
+    if (status === 'at_store') updates.at_store_at = new Date().toISOString()
+    if (status === 'delivered' || status === 'picked_up') updates.delivered_at = new Date().toISOString()
+
+    const admin = createAdminClient() as any
+    const { data, error } = await admin
       .from('temp_supplier_orders')
-      .update({ status })
+      .update(updates)
       .eq('id', id)
       .select()
       .single()

@@ -2,7 +2,7 @@ function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (error) => reject(error))
+    image.addEventListener('error', () => reject(new Error(`Não foi possível carregar a imagem: ${url.substring(0, 80)}`)))
     image.setAttribute('crossOrigin', 'anonymous')
     image.src = url
   })

@@ -55,7 +55,6 @@ export function ConsultantPhotoCropper({
     }
   }, [imageSrc])
 
-  // Update preview when crop changes (with interaction complete)
   const handleCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels)
     updatePreview(croppedPixels)
@@ -70,6 +69,8 @@ export function ConsultantPhotoCropper({
         onCropDone(blob)
         onOpenChange(false)
       }
+    } catch (err) {
+      console.error('Erro ao recortar imagem:', err)
     } finally {
       setIsProcessing(false)
     }
@@ -86,6 +87,7 @@ export function ConsultantPhotoCropper({
   }
 
   const displayUrl = previewUrl || imageSrc
+  const isCropped = !!previewUrl
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -150,7 +152,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover"
-                    style={{ objectPosition: 'center 20%' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center 20%' }}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-2 left-2">
@@ -168,7 +170,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover"
-                    style={{ objectPosition: 'center 20%' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center 20%' }}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-1.5 left-2">
@@ -186,7 +188,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover"
-                    style={{ objectPosition: 'center 10%' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center 10%' }}
                   />
                 </div>
               </PreviewCard>
@@ -198,7 +200,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover"
-                    style={{ objectPosition: 'center 20%' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center 20%' }}
                   />
                 </div>
               </PreviewCard>
@@ -210,7 +212,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
-                    style={{ objectPosition: 'center' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center' }}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-2 left-2">
@@ -228,7 +230,7 @@ export function ConsultantPhotoCropper({
                     src={displayUrl}
                     alt="Preview"
                     className="h-full w-full object-cover"
-                    style={{ objectPosition: 'center 20%' }}
+                    style={{ objectPosition: isCropped ? 'center' : 'center 20%' }}
                   />
                 </div>
               </PreviewCard>

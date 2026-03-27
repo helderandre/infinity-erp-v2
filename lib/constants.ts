@@ -1431,6 +1431,7 @@ export const ACOMPANHAMENTO_PROPERTY_STATUS = NEGOCIO_PROPERTY_STATUS
 // === PARCEIROS ===
 
 export const PARTNER_CATEGORY_OPTIONS = [
+  { value: 'supplier' as const, label: 'Fornecedor', icon: 'Truck' },
   { value: 'lawyer' as const, label: 'Advogado', icon: 'Scale' },
   { value: 'notary' as const, label: 'Notário', icon: 'Stamp' },
   { value: 'bank' as const, label: 'Banco', icon: 'Landmark' },
@@ -1454,6 +1455,7 @@ export const PARTNER_CATEGORY_LABELS: Record<string, string> = Object.fromEntrie
 )
 
 export const PARTNER_CATEGORY_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  supplier:        { bg: 'bg-teal-500/15',    text: 'text-teal-600',    dot: 'bg-teal-500' },
   lawyer:          { bg: 'bg-violet-500/15',  text: 'text-violet-600',  dot: 'bg-violet-500' },
   notary:          { bg: 'bg-indigo-500/15',  text: 'text-indigo-600',  dot: 'bg-indigo-500' },
   bank:            { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500' },

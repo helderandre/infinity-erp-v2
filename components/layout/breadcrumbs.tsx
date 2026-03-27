@@ -56,7 +56,7 @@ const segmentTranslations: Record<string, string> = {
   angariacao: 'Angariação',
   templates: 'Templates',
   editor: 'Editor',
-  formulario: 'Formulário',
+  formulario: 'Integração',
   pedidos: 'Pedidos',
   simulador: 'Simulador',
   bancos: 'Bancos',

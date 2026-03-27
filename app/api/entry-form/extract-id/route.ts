@@ -19,20 +19,20 @@ export async function POST(request: Request) {
       const buffer = Buffer.from(await frontFile.arrayBuffer())
       const base64 = buffer.toString("base64")
       const mimeType = frontFile.type || "image/jpeg"
-      images.push({
-        type: "image_url",
-        image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
-      })
+      images.push(
+        { type: "text", text: "FRENTE do Cartão de Cidadão (contém: nome, número do CC, data de nascimento, validade, data de emissão, foto):" },
+        { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
+      )
     }
 
     if (backFile) {
       const buffer = Buffer.from(await backFile.arrayBuffer())
       const base64 = buffer.toString("base64")
       const mimeType = backFile.type || "image/jpeg"
-      images.push({
-        type: "image_url",
-        image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
-      })
+      images.push(
+        { type: "text", text: "VERSO do Cartão de Cidadão (contém: NIF/número de contribuinte, NISS/segurança social, naturalidade/freguesia, filiação, estado civil):" },
+        { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
+      )
     }
 
     const response = await openai.chat.completions.create({
@@ -40,34 +40,33 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "system",
-          content: `You are a document data extraction assistant. You extract information from Portuguese identity documents (Cartão de Cidadão, BI, or Passport).
+          content: `Extrais dados de documentos de identificação portugueses (Cartão de Cidadão).
+Vais receber DUAS imagens: a FRENTE e o VERSO do mesmo cartão. Cada lado tem informações diferentes.
 
-Extract the following fields and return them as JSON. Use null for any field you cannot find or read clearly.
+FRENTE do CC contém: nome completo, número do documento, data de nascimento, data de validade, data de emissão.
+VERSO do CC contém: NIF (número de contribuinte), NISS (segurança social), naturalidade/freguesia, nomes dos pais, estado civil.
 
-Required JSON format:
+Extrai todos os campos possíveis de AMBOS os lados e retorna como JSON. Usa null para campos que não consigas ler.
+
+Formato JSON obrigatório:
 {
   "full_name": string | null,
-  "cc_number": string | null,  // Full number including final check digits
-  "cc_expiry": string | null,  // Format: YYYY-MM-DD
-  "cc_issue_date": string | null,  // Format: YYYY-MM-DD
-  "date_of_birth": string | null,  // Format: YYYY-MM-DD
-  "nif": string | null,  // Número de Identificação Fiscal / Contribuinte
-  "niss": string | null,  // Número de Segurança Social
-  "naturalidade": string | null,  // Place of birth / Naturalidade / Freguesia
-  "estado_civil": string | null  // Marital status in Portuguese (Solteiro/a, Casado/a, Divorciado/a, Viúvo/a, União de facto)
+  "cc_number": string | null,
+  "cc_expiry": string | null,
+  "cc_issue_date": string | null,
+  "date_of_birth": string | null,
+  "nif": string | null,
+  "niss": string | null,
+  "naturalidade": string | null,
+  "estado_civil": string | null
 }
 
-Return ONLY the JSON object, no markdown, no explanation.`,
+Para datas usa formato YYYY-MM-DD.
+Retorna APENAS o JSON, sem markdown, sem explicações.`,
         },
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Extract all available information from this Portuguese identity document (front and/or back).",
-            },
-            ...images,
-          ],
+          content: images,
         },
       ],
       max_tokens: 1000,

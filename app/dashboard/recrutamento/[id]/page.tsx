@@ -214,7 +214,7 @@ export default function CandidateDetailPage() {
       />
 
       {/* ─── Content Card with Tabs ─── */}
-      <div className="rounded-2xl border shadow-lg bg-card overflow-hidden mt-4">
+      <div className="rounded-2xl border shadow-lg bg-card mt-4">
         {/* Tab navigation inside the card */}
         <div className="px-5 pt-5 pb-4 border-b flex items-center gap-3">
           <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">

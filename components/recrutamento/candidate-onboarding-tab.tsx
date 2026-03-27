@@ -83,7 +83,9 @@ function ContractSection({ candidateId, candidate, onReload }: {
     nif: '', niss: '', cc_numero: '', morada: '',
     data_nascimento: '', estado_civil: '', naturalidade: '',
     iban: '', telemovel: candidate.phone || '', email_profissional: candidate.email || '',
-    taxa_comissao: '', salario_base: '', data_inicio: '',
+    taxa_comissao: '', salario_base: '',
+    data_contrato: new Date().toISOString().slice(0, 10),
+    data_inicio: '',
   })
 
   useEffect(() => {
@@ -122,7 +124,7 @@ function ContractSection({ candidateId, candidate, onReload }: {
     setGenerating(true)
     const data: Record<string, string> = {
       ...contractFields,
-      data_contrato: new Date().toISOString().slice(0, 10),
+      data_contrato: contractFields.data_contrato || new Date().toISOString().slice(0, 10),
       empresa: 'Infinity Group',
     }
     const { contract, error } = await generateContract(candidateId, selectedTemplate, data)
@@ -150,6 +152,7 @@ function ContractSection({ candidateId, candidate, onReload }: {
     { key: 'email_profissional', label: 'Email profissional' },
     { key: 'taxa_comissao', label: 'Taxa de comissão (%)', type: 'number' },
     { key: 'salario_base', label: 'Salário base (€)', type: 'number' },
+    { key: 'data_contrato', label: 'Data do contrato', type: 'date' },
     { key: 'data_inicio', label: 'Data de início', type: 'date' },
   ]
 

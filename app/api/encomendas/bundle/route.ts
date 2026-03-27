@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 /**
@@ -16,10 +17,12 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient() as any
     const body = await request.json()
-    const { item_ids, supplier_id, expected_delivery_date, notes } = body as {
+    const { item_ids, supplier_id, supplier_name, expected_delivery_date, notes } = body as {
       item_ids: string[]
-      supplier_id: string
+      supplier_id?: string | null
+      supplier_name?: string | null
       expected_delivery_date?: string
       notes?: string
     }
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch items with product and requisition info
-    const { data: items, error: itemsError } = await supabase
+    const { data: items, error: itemsError } = await admin
       .from('temp_requisition_items')
       .select(`
         id, product_id, variant_id, quantity, unit_price, subtotal, status, notes,
@@ -62,11 +65,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `${unapproved.length} item(ns) de requisições não aprovadas` }, { status: 400 })
     }
 
-    // Validate supplier_id provided
-    if (!supplier_id) {
-      return NextResponse.json({ error: 'Seleccione um fornecedor' }, { status: 400 })
+    // Resolve supplier — use existing or create new from free text
+    let supplierId = supplier_id || ''
+    if (!supplierId && supplier_name?.trim()) {
+      // Create new supplier in temp_partners table
+      const { data: newSupplier, error: createErr } = await admin
+        .from('temp_partners')
+        .insert({
+          name: supplier_name.trim(),
+          category: 'supplier',
+          visibility: 'public',
+          person_type: 'coletiva',
+          is_active: true,
+        })
+        .select('id')
+        .single()
+
+      if (createErr || !newSupplier) {
+        return NextResponse.json({ error: 'Erro ao criar fornecedor: ' + (createErr?.message || '') }, { status: 500 })
+      }
+      supplierId = newSupplier.id
     }
-    const supplierId = supplier_id
+
+    if (!supplierId) {
+      return NextResponse.json({ error: 'Seleccione ou escreva o nome do fornecedor' }, { status: 400 })
+    }
 
     // Validate: fatura = same consultant
     const paymentMethods = new Set(items.map(i => (i.requisition as any)?.payment_method).filter(Boolean))
@@ -79,7 +102,7 @@ export async function POST(request: Request) {
     }
 
     // Generate reference: ENC-XXXX
-    const { data: lastOrder } = await supabase
+    const { data: lastOrder } = await admin
       .from('temp_supplier_orders')
       .select('reference')
       .like('reference', 'ENC-%')
@@ -100,21 +123,23 @@ export async function POST(request: Request) {
     // Get current user for ordered_by
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Get agent_id (first one, for billing purposes)
+    // Get agent_id and payment method from the parent requisitions
     const agentId = (items[0].requisition as any)?.agent_id || null
+    const paymentMethod = [...paymentMethods][0] || null
 
     // Create supplier order
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await admin
       .from('temp_supplier_orders')
       .insert({
         reference,
         supplier_id: supplierId,
-        status: 'draft',
+        status: 'ordered',
         total_cost: totalCost,
         expected_delivery_date: expected_delivery_date || null,
         notes: notes || null,
         ordered_by: user?.id || null,
         agent_id: agentId,
+        payment_method: paymentMethod,
         requisition_item_ids: item_ids,
       })
       .select()
@@ -151,14 +176,15 @@ export async function POST(request: Request) {
       subtotal: a.quantity * a.unit_cost,
     }))
 
-    await supabase.from('temp_supplier_order_items').insert(orderItems)
+    await admin.from('temp_supplier_order_items').insert(orderItems)
 
     // Link requisition items to the supplier order
-    await supabase
+    await admin
       .from('temp_requisition_items')
       .update({ supplier_order_id: order.id, supplier_order_ref: reference })
       .in('id', item_ids)
 
+    console.log('[bundle] Order created:', reference, 'ID:', order.id, 'Supplier:', supplierId)
     return NextResponse.json({ order, reference })
   } catch (err) {
     console.error('[bundle] Error:', err)

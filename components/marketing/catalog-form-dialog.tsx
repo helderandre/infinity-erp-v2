@@ -13,9 +13,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Upload, X, ImageIcon } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { Loader2, Upload, X, ImageIcon, Plus, Trash2, Puzzle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import type { MarketingCatalogAddon } from '@/types/marketing'
 
 type FormData = z.infer<typeof createCatalogItemSchema>
 
@@ -48,6 +50,14 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Add-ons
+  const [addons, setAddons] = useState<MarketingCatalogAddon[]>([])
+  const [newAddonName, setNewAddonName] = useState('')
+  const [newAddonPrice, setNewAddonPrice] = useState('')
+  const [newAddonDesc, setNewAddonDesc] = useState('')
+  const [addingAddon, setAddingAddon] = useState(false)
+  const [deletingAddonId, setDeletingAddonId] = useState<string | null>(null)
+
   useEffect(() => {
     if (item) {
       reset({
@@ -61,6 +71,7 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
         requires_property: item.requires_property,
       })
       setThumbnailPreview(item.thumbnail || null)
+      setAddons(item.addons || [])
     } else {
       reset({
         name: '',
@@ -73,9 +84,50 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
         requires_property: true,
       })
       setThumbnailPreview(null)
+      setAddons([])
     }
     setThumbnailFile(null)
+    setNewAddonName('')
+    setNewAddonPrice('')
+    setNewAddonDesc('')
   }, [item, reset, open])
+
+  const handleAddAddon = async () => {
+    if (!item || !newAddonName.trim()) { toast.error('Nome do add-on é obrigatório'); return }
+    setAddingAddon(true)
+    try {
+      const res = await fetch(`/api/marketing/catalog/${item.id}/addons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAddonName.trim(),
+          description: newAddonDesc.trim() || null,
+          price: parseFloat(newAddonPrice) || 0,
+          is_active: true,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setAddons(prev => [...prev, data])
+      setNewAddonName('')
+      setNewAddonPrice('')
+      setNewAddonDesc('')
+      toast.success('Add-on adicionado')
+    } catch { toast.error('Erro ao adicionar add-on') }
+    finally { setAddingAddon(false) }
+  }
+
+  const handleDeleteAddon = async (addonId: string) => {
+    if (!item) return
+    setDeletingAddonId(addonId)
+    try {
+      const res = await fetch(`/api/marketing/catalog/${item.id}/addons/${addonId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      setAddons(prev => prev.filter(a => a.id !== addonId))
+      toast.success('Add-on eliminado')
+    } catch { toast.error('Erro ao eliminar add-on') }
+    finally { setDeletingAddonId(null) }
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -253,6 +305,86 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
             </div>
             <Switch checked={watch('requires_property')} onCheckedChange={(v) => setValue('requires_property', v)} />
           </div>
+
+          {/* Add-ons section (only when editing existing service) */}
+          {item && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Puzzle className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-semibold">Add-ons</Label>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{addons.length} add-on{addons.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {/* Existing addons */}
+                {addons.length > 0 && (
+                  <div className="space-y-1.5">
+                    {addons.map((addon) => (
+                      <div key={addon.id} className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{addon.name}</p>
+                          {addon.description && <p className="text-[10px] text-muted-foreground truncate">{addon.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-xs font-medium">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(addon.price)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAddon(addon.id)}
+                            disabled={deletingAddonId === addon.id}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
+                          >
+                            {deletingAddonId === addon.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new addon */}
+                <div className="rounded-lg border border-dashed p-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Novo Add-on</p>
+                  <div className="grid grid-cols-[1fr_80px] gap-2">
+                    <Input
+                      placeholder="Nome do add-on"
+                      value={newAddonName}
+                      onChange={(e) => setNewAddonName(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Preço"
+                      value={newAddonPrice}
+                      onChange={(e) => setNewAddonPrice(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <Input
+                    placeholder="Descrição (opcional)"
+                    value={newAddonDesc}
+                    onChange={(e) => setNewAddonDesc(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs"
+                    disabled={!newAddonName.trim() || addingAddon}
+                    onClick={handleAddAddon}
+                  >
+                    {addingAddon ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    Adicionar Add-on
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

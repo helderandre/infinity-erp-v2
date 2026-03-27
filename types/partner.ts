@@ -1,4 +1,5 @@
 export type PartnerCategory =
+  | 'supplier'
   | 'lawyer'
   | 'notary'
   | 'bank'
@@ -46,6 +47,9 @@ export interface Partner {
   rating_count: number
   is_recommended: boolean
   internal_notes: string | null
+
+  average_delivery_days: number | null
+  payment_terms: string | null
 
   is_active: boolean
   created_at: string

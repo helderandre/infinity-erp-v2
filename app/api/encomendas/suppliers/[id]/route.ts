@@ -7,12 +7,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient() as any
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const admin = createAdminClient() as any
     const { id } = await params
 
-    const { data, error } = await supabase
-      .from('temp_suppliers')
-      .select('*, orders:temp_supplier_orders(*)')
+    const { data, error } = await admin
+      .from('temp_partners')
+      .select('*')
       .eq('id', id)
       .single()
 
@@ -45,7 +46,7 @@ export async function PUT(
     }
 
     const { data, error } = await supabase
-      .from('temp_suppliers')
+      .from('temp_partners')
       .update(parsed.data)
       .eq('id', id)
       .select()
@@ -74,7 +75,7 @@ export async function DELETE(
     }
 
     const { data, error } = await supabase
-      .from('temp_suppliers')
+      .from('temp_partners')
       .update({ is_active: false })
       .eq('id', id)
       .select()

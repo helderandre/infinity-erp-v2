@@ -1,52 +1,79 @@
 'use client'
 
-import { useState } from 'react'
-import { FileText, Settings2, Eye, Copy, ExternalLink } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { FileText, Settings2, FileSignature, ScrollText, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+// Dialog removed — contract uses inline editor now
 import { toast } from 'sonner'
 import { SubmissionsTab } from '@/components/recrutamento/submissions-tab'
 import { FormBuilder } from '@/components/recrutamento/form-builder'
+import { ContractEditor } from '@/components/recrutamento/contract-editor'
+import { getContractTemplates, updateContractTemplate } from '@/app/dashboard/recrutamento/actions'
+
+type Tab = 'submissions' | 'formulario' | 'contratos'
 
 export default function FormularioPage() {
-  const [tab, setTab] = useState<'submissions' | 'editor' | 'preview'>('submissions')
+  const [tab, setTab] = useState<Tab>('submissions')
+
+  // Contract template state
+  const [contractTemplate, setContractTemplate] = useState<any>(null)
+  const [contractsLoading, setContractsLoading] = useState(false)
+  const [contractSaving, setContractSaving] = useState(false)
+
+  const loadContractTemplate = useCallback(async () => {
+    setContractsLoading(true)
+    try {
+      const { templates, error } = await getContractTemplates()
+      if (error) throw new Error(error)
+
+      if (templates.length > 0) {
+        setContractTemplate(templates[0])
+      } else {
+        // Auto-seed the default template only if none exists
+        await fetch('/api/entry-form/seed-contract-template', { method: 'POST' })
+        const { templates: t2 } = await getContractTemplates()
+        if (t2.length > 0) setContractTemplate(t2[0])
+      }
+    } catch { /* */ }
+    finally { setContractsLoading(false) }
+  }, [])
+
+  const handleSaveContract = useCallback(async (html: string) => {
+    if (!contractTemplate) return
+    setContractSaving(true)
+    try {
+      const { error } = await updateContractTemplate(contractTemplate.id, { content_html: html })
+      if (error) throw new Error(error)
+      toast.success('Template de contrato guardado')
+      setContractTemplate((prev: any) => prev ? { ...prev, content_html: html } : prev)
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao guardar')
+    } finally { setContractSaving(false) }
+  }, [contractTemplate])
+
+  useEffect(() => { if (tab === 'contratos' && !contractTemplate) loadContractTemplate() }, [tab, contractTemplate, loadContractTemplate])
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl bg-neutral-900 mx-6 mt-6 shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Formulário de Entrada</h2>
-              <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">Configuração e gestão do formulário de novos consultores</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full text-neutral-400 hover:text-white hover:bg-white/10 gap-1.5 text-xs"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/entryform`)
-                  toast.success('Link copiado!')
-                }}
-              >
-                <Copy className="h-3 w-3" />Copiar link
-              </Button>
-              <Button
-                size="sm"
-                className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25 gap-1.5 text-xs"
-                onClick={() => window.open('/entryform', '_blank')}
-              >
-                <ExternalLink className="h-3 w-3" />Abrir formulário
-              </Button>
-            </div>
+      <div className="shrink-0">
+        <div className="relative overflow-hidden rounded-xl bg-neutral-900 mx-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
+          <div className="relative z-10 px-8 py-8 sm:px-10">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Integração</h2>
+            <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">Formulário de entrada, submissões e contratos de novos consultores</p>
           </div>
 
           {/* Tab selector inside hero */}
           <div className="mt-5 inline-flex items-center gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
-            {([['submissions', 'Submissões', FileText] as const, ['editor', 'Editor', Settings2] as const, ['preview', 'Pré-visualização', Eye] as const]).map(([key, label, Icon]) => (
+            {([
+              ['submissions', 'Submissões', FileText] as const,
+              ['formulario', 'Formulário', Settings2] as const,
+              ['contratos', 'Contrato', FileSignature] as const,
+            ]).map(([key, label, Icon]) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
@@ -62,23 +89,52 @@ export default function FormularioPage() {
             ))}
           </div>
         </div>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {tab === 'editor' && <FormBuilder />}
+        {tab === 'formulario' && <FormBuilder />}
+
         {tab === 'submissions' && (
           <div className="p-6 overflow-y-auto h-full">
             <SubmissionsTab />
           </div>
         )}
-        {tab === 'preview' && (
-          <div className="h-full p-6">
-            <iframe
-              src="/entryform"
-              className="w-full h-full rounded-xl border shadow-sm"
-              title="Pré-visualização do Formulário de Entrada"
-            />
+
+        {tab === 'contratos' && (
+          <div className="p-6 overflow-y-auto h-full">
+            {contractsLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-[500px] rounded-xl" />
+              </div>
+            ) : !contractTemplate ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+                <ScrollText className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <h3 className="text-base font-medium">Sem template de contrato</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Crie o template do contrato de prestacao de servicos</p>
+                <Button className="mt-4 rounded-full gap-1.5" onClick={loadContractTemplate}>
+                  <Plus className="h-3.5 w-3.5" />Criar Template
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">{contractTemplate.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Edite o template do contrato. Use o botao "Variavel" para inserir campos que serao preenchidos automaticamente com os dados do consultor.
+                  </p>
+                </div>
+
+                <ContractEditor
+                  initialHtml={contractTemplate.content_html}
+                  mode="template"
+                  onSave={handleSaveContract}
+                  saving={contractSaving}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
