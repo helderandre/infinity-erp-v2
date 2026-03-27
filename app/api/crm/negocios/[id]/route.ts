@@ -1,6 +1,7 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { updateNegocioSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
+import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
 
 export async function GET(
   _request: Request,
@@ -90,6 +91,32 @@ export async function PUT(
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Log deal won to goals system (only via this route if stage was set to terminal won)
+    if (input.pipeline_stage_id && data) {
+      const stage = await supabase
+        .from('leads_pipeline_stages')
+        .select('is_terminal, terminal_type, pipeline_type')
+        .eq('id', input.pipeline_stage_id)
+        .single()
+
+      if (stage.data?.is_terminal && stage.data.terminal_type === 'won') {
+        const consultantId = (data as any)?.assigned_consultant_id
+        const pipelineType = stage.data.pipeline_type as string
+        if (consultantId) {
+          await logGoalActivity({
+            consultantId,
+            activityType: pipelineType === 'comprador' || pipelineType === 'arrendatario' ? 'buyer_close' : 'sale_close',
+            origin: pipelineTypeToOrigin(pipelineType),
+            createdBy: consultantId,
+            revenueAmount: (data as any)?.expected_value || undefined,
+            referenceId: id,
+            referenceType: 'negocio',
+            notes: `Negócio ganho`,
+          })
+        }
+      }
     }
 
     return NextResponse.json(data)

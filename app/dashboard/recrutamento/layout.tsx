@@ -36,8 +36,8 @@ export default function RecrutamentoLayout({ children }: { children: React.React
     <PermissionGuard module="recruitment">
       <div className="flex flex-col gap-0">
         {!hideNav && (
-          <div className="px-6 pt-4 pb-2">
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+          <div className="px-4 sm:px-6 pt-4 pb-2 overflow-x-auto scrollbar-hide">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm w-fit">
               {navItems.map((item) => {
                 const isActive = item.exact
                   ? pathname === item.href

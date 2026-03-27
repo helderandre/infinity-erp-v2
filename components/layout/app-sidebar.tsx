@@ -39,11 +39,15 @@ import { cn } from '@/lib/utils'
 
 export const meuEspacoItems = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
-  { title: 'WhatsApp', icon: MessageCircle, href: '/dashboard/whatsapp', permission: 'dashboard' },
-  { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
   { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
+]
+
+export const comunicacaoItems = [
+  { title: 'WhatsApp', icon: MessageCircle, href: '/dashboard/whatsapp', permission: 'dashboard' },
+  { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
+  { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
 ]
 
 export const soloItems: { title: string; icon: any; href: string; permission: string }[] = []
@@ -69,8 +73,6 @@ export const crmItems = [
 export const negocioItems = [
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
-  { title: 'Proprietários', icon: UserCircle, href: '/dashboard/proprietarios', permission: 'owners' },
-  { title: 'Documentos', icon: FileText, href: '/dashboard/documentos', permission: 'documents' },
 ]
 
 export const pessoasItems = [
@@ -97,7 +99,7 @@ export const lojaItems = [
   { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
   { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo' },
   { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas' },
-  { title: 'Fornecedores', icon: Truck, href: '/dashboard/parceiros' },
+  { title: 'Fornecedores', icon: Truck, href: '/dashboard/parceiros?tab=fornecedores' },
 ]
 
 export const digitalItems = [
@@ -108,7 +110,6 @@ export const digitalItems = [
 
 export const automationItems = [
   { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
-  { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
   { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
   { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
@@ -122,7 +123,7 @@ export const builderItems = [
 ]
 
 export const menuItems = [
-  ...meuEspacoItems, ...negocioItems, ...pessoasItems,
+  ...meuEspacoItems, ...comunicacaoItems, ...negocioItems, ...pessoasItems,
   ...financeiroItems, ...creditoItems, ...lojaItems,
   ...digitalItems, ...bottomItems,
 ]
@@ -266,8 +267,17 @@ export function AppSidebar() {
           items={meuEspacoItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
+          pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
           defaultOpenOverride={pathname === '/dashboard'}
+        />
+
+        <CollapsibleGroup
+          label="Comunicação"
+          icon={MessageCircle}
+          items={comunicacaoItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos']}
         />
 
         <CollapsibleGroup
@@ -285,7 +295,7 @@ export function AppSidebar() {
           items={negocioItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/documentos', '/dashboard/proprietarios', '/dashboard/objetivos']}
+          pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos']}
         />
 
         <CollapsibleGroup

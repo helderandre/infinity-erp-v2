@@ -55,6 +55,7 @@ export default function CandidatosPage() {
 
   // Filters
   const [search, setSearch] = useState("")
+  const [searchOpen, setSearchOpen] = useState(false)
   const debouncedSearch = useRef("")
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [filterStatus, setFilterStatus] = useState("all")
@@ -154,7 +155,7 @@ export default function CandidatosPage() {
   const terminalStatuses: CandidateStatus[] = ["joined", "declined"]
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6 overflow-x-hidden">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
@@ -174,15 +175,29 @@ export default function CandidatosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {/* Desktop: always show full search bar */}
+        <div className="relative hidden sm:block flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Pesquisar por nome, email ou telefone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 rounded-full" />
           {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>}
         </div>
 
+        {/* Mobile: magnifying glass or expanded input */}
+        {searchOpen ? (
+          <div className="relative flex-1 min-w-0 sm:hidden">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Pesquisar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-8 rounded-full" autoFocus />
+            <button onClick={() => { setSearch(""); setSearchOpen(false) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        ) : (
+          <button onClick={() => setSearchOpen(true)} className="sm:hidden h-9 w-9 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0">
+            <Search className="h-4 w-4" />
+          </button>
+        )}
+
         {/* Status pills */}
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm overflow-x-auto">
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm overflow-x-auto max-w-full scrollbar-hide">
           <button onClick={() => setFilterStatus("all")}
             className={cn("px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300 whitespace-nowrap",
               filterStatus === "all" ? "bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>
@@ -199,7 +214,7 @@ export default function CandidatosPage() {
         </div>
 
         {/* View toggle */}
-        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/30 border border-border/30 ml-auto">
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/30 border border-border/30 ml-auto shrink-0">
           <button onClick={() => setViewMode("table")} className={cn("p-1.5 rounded-full transition-all", viewMode === "table" ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-muted-foreground hover:text-foreground")}>
             <List className="h-3.5 w-3.5" />
           </button>

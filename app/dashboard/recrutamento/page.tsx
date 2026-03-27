@@ -39,6 +39,7 @@ interface KPIs {
   bySource: Record<string, number>
   conversionRate: number
   avgTimeToDecision: number | null
+  avgTimeToHire: number | null
 }
 
 interface AlertSummary {
@@ -57,6 +58,7 @@ export default function RecrutamentoDashboardPage() {
     bySource: {},
     conversionRate: 0,
     avgTimeToDecision: null,
+    avgTimeToHire: null,
   })
   const [alertSummary, setAlertSummary] = useState<AlertSummary>({
     total: 0,
@@ -83,6 +85,7 @@ export default function RecrutamentoDashboardPage() {
         bySource: kpiRes.bySource,
         conversionRate: kpiRes.conversionRate,
         avgTimeToDecision: kpiRes.avgTimeToDecision,
+        avgTimeToHire: kpiRes.avgTimeToHire,
       })
     }
 
@@ -145,8 +148,8 @@ export default function RecrutamentoDashboardPage() {
         <KPICard
           icon={Clock}
           iconBg="bg-amber-100 text-amber-700"
-          label="Tempo Medio ate Decisao"
-          value={kpis.avgTimeToDecision !== null ? `${kpis.avgTimeToDecision}d` : 'N/A'}
+          label="Tempo até Contratação"
+          value={kpis.avgTimeToHire !== null ? `${kpis.avgTimeToHire} dias` : 'N/A'}
           loading={loading}
         />
         <KPICard

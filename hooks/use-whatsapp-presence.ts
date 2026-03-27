@@ -75,11 +75,13 @@ export function useWhatsAppPresence(instanceId: string | null) {
   const sendPresence = useCallback(
     async (chatId: string, type: string) => {
       if (!chatId) return
-      await fetch(`/api/whatsapp/chats/${chatId}/presence`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
-      })
+      try {
+        await fetch(`/api/whatsapp/chats/${chatId}/presence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type }),
+        })
+      } catch { /* silently ignore presence errors */ }
     },
     []
   )

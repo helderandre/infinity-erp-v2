@@ -14,6 +14,7 @@ import { Fragment } from 'react'
 import { useBreadcrumbOverrides } from '@/hooks/use-breadcrumb-overrides'
 import {
   meuEspacoItems,
+  comunicacaoItems,
   crmItems,
   negocioItems,
   pessoasItems,
@@ -32,6 +33,7 @@ import {
 const navMap = new Map<string, string>()
 ;[
   ...meuEspacoItems,
+  ...comunicacaoItems,
   ...crmItems,
   ...negocioItems,
   ...pessoasItems,

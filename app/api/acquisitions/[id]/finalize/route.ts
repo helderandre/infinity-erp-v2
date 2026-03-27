@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { notificationService } from '@/lib/notifications/service'
 import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
+import { logGoalActivity } from '@/lib/goals/log-activity'
 
 export async function POST(
   request: Request,
@@ -92,6 +93,17 @@ export async function POST(
         { status: 500 }
       )
     }
+
+    // Log listing to goals system
+    await logGoalActivity({
+      consultantId: auth.user.id,
+      activityType: 'listing',
+      origin: 'sellers',
+      createdBy: auth.user.id,
+      referenceId: proc.property_id,
+      referenceType: 'property',
+      notes: `Angariação submetida: ${property.title}`,
+    })
 
     // Send notifications
     try {

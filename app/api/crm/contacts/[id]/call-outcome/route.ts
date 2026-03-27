@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { logGoalActivity } from '@/lib/goals/log-activity'
 
 export async function POST(
   request: Request,
@@ -111,28 +112,16 @@ export async function POST(
     }
 
     // 3. Log to goals system
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      const consultantId = crmContact?.assigned_consultant_id || user.id
-
-      await admin
-        .from('temp_goal_activity_log')
-        .insert({
-          consultant_id: consultantId,
-          activity_date: today,
-          activity_type: 'call',
-          origin: 'sellers',
-          origin_type: 'system',
-          direction,
-          quantity: 1,
-          reference_id: contactId,
-          reference_type: 'lead',
-          notes: activityDescription,
-          created_by: user.id,
-        })
-    } catch {
-      console.warn('Failed to log call to goals system')
-    }
+    await logGoalActivity({
+      consultantId: crmContact?.assigned_consultant_id || user.id,
+      activityType: 'call',
+      origin: 'sellers',
+      direction,
+      createdBy: user.id,
+      referenceId: contactId,
+      referenceType: 'lead',
+      notes: activityDescription,
+    })
 
     return NextResponse.json({
       success: true,

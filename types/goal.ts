@@ -43,6 +43,9 @@ export interface GoalActivity {
   activity_date: string
   activity_type: GoalActivityType
   origin: GoalOrigin
+  origin_type: 'system' | 'declared'
+  direction: 'inbound' | 'outbound' | null
+  quantity: number
   revenue_amount: number | null
   reference_id: string | null
   reference_type: 'lead' | 'property' | 'negocio' | null
@@ -126,4 +129,59 @@ export interface GoalCompareRow {
   calls: { done: number; target: number }
   visits: { done: number; target: number }
   status: GoalStatus
+}
+
+// ─── Weekly Reports ──────────────────────────────────────
+
+export type WeeklyReportStatus = 'draft' | 'submitted' | 'reviewed'
+
+export interface WeeklyReport {
+  id: string
+  consultant_id: string
+  goal_id: string | null
+  week_start: string // YYYY-MM-DD (Monday)
+  status: WeeklyReportStatus
+  notes_wins: string | null
+  notes_challenges: string | null
+  notes_next_week: string | null
+  submitted_at: string | null
+  manager_feedback: string | null
+  manager_reviewed_at: string | null
+  manager_reviewed_by: string | null
+  ai_summary: string | null
+  ai_advice: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface WeeklyReportWithConsultant extends WeeklyReport {
+  consultant: {
+    id: string
+    commercial_name: string
+    profile_photo_url?: string | null
+  } | null
+}
+
+export interface WeeklyReportWithActivities extends WeeklyReportWithConsultant {
+  activities: {
+    total: number
+    system: number
+    declared: number
+    by_type: Record<GoalActivityType, { done: number; target: number }>
+  }
+  trust_ratio: number
+}
+
+export interface TeamWeekOverview {
+  week_start: string
+  week_end: string
+  reports: WeeklyReportWithActivities[]
+  team_summary?: string | null // AI-generated team briefing
+}
+
+export interface AIAdvice {
+  weekly_tips: string[]     // 2-3 specific actionable tips
+  strengths: string[]       // What they're doing well
+  focus_areas: string[]     // Where to improve
+  manager_talking_points?: string[] // For 1:1 prep
 }

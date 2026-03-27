@@ -25,6 +25,9 @@ export interface RecruitmentCandidate {
   reason_yes: string | null
   reason_no: string | null
   notes: string | null
+  photo_url: string | null
+  cv_url: string | null
+  linkedin_url: string | null
   created_at: string
   updated_at: string
   // Joined

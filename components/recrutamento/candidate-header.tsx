@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow, differenceInDays } from 'date-fns'
 import { pt } from 'date-fns/locale/pt'
-import { ArrowLeft, Mail, Phone, Clock, User, Users } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Clock, User, Users, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   type RecruitmentCandidate,
@@ -61,10 +61,34 @@ export function CandidateHeader({
           </p>
         </div>
 
-        {/* Name */}
-        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-          {candidate.full_name}
-        </h2>
+        {/* Name + Score stars */}
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            {candidate.full_name}
+          </h2>
+          {scoreData && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map(star => {
+                  const filled = scoreData.score >= star * 20
+                  const half = !filled && scoreData.score >= (star - 1) * 20 + 10
+                  return (
+                    <Star
+                      key={star}
+                      className={cn(
+                        'h-4 w-4 transition-colors',
+                        filled ? 'text-amber-400 fill-amber-400' :
+                        half ? 'text-amber-400 fill-amber-400/50' :
+                        'text-white/20'
+                      )}
+                    />
+                  )
+                })}
+              </div>
+              <span className="text-xs font-bold text-amber-400">{scoreData.score}</span>
+            </div>
+          )}
+        </div>
 
         {/* Badges row */}
         <div className="flex items-center gap-2 flex-wrap mt-3">
@@ -86,13 +110,6 @@ export function CandidateHeader({
           <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/10 text-neutral-300 border border-white/10">
             {CANDIDATE_SOURCES[candidate.source]}
           </span>
-
-          {/* Score */}
-          {scoreData && (
-            <span className={cn('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', scoreColor)}>
-              Score: {scoreData.score}
-            </span>
-          )}
 
           {/* Status change */}
           <select

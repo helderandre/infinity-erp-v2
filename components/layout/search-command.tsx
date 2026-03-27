@@ -59,12 +59,12 @@ export function SearchCommand() {
         tabIndex={0}
         onClick={() => setOpen(true)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
-        className="h-8 w-56 cursor-pointer hover:bg-muted/50 transition-colors"
+        className="h-8 w-8 sm:w-56 cursor-pointer hover:bg-muted/50 transition-colors"
       >
         <InputGroupAddon>
           <SearchIcon className="size-4 shrink-0 opacity-50" />
         </InputGroupAddon>
-        <span className="flex-1 text-left text-sm text-muted-foreground">
+        <span className="hidden sm:block flex-1 text-left text-sm text-muted-foreground">
           Pesquisar...
         </span>
         <InputGroupAddon align="inline-end">

@@ -50,3 +50,18 @@ export const createGoalActivitySchema = z.object({
 export type CreateGoalInput = z.infer<typeof goalBaseSchema>
 export type UpdateGoalInput = z.infer<typeof updateGoalSchema>
 export type CreateGoalActivityInput = z.infer<typeof createGoalActivitySchema>
+
+// ─── Weekly Reports ──────────────────────────────────────
+
+export const submitWeeklyReportSchema = z.object({
+  notes_wins: z.string().max(2000).nullable().optional(),
+  notes_challenges: z.string().max(2000).nullable().optional(),
+  notes_next_week: z.string().max(2000).nullable().optional(),
+})
+
+export const managerFeedbackSchema = z.object({
+  manager_feedback: z.string().min(1, 'O feedback não pode estar vazio').max(2000),
+})
+
+export type SubmitWeeklyReportInput = z.infer<typeof submitWeeklyReportSchema>
+export type ManagerFeedbackInput = z.infer<typeof managerFeedbackSchema>

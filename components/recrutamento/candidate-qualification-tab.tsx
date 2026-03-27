@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -31,6 +31,7 @@ import { ORIGIN_BRANDS, CAMPAIGN_PLATFORMS } from '@/types/recruitment'
 
 interface CandidateQualificationTabProps {
   candidateId: string
+  candidateSource?: string
   originProfile: RecruitmentOriginProfile | null
   painPitchRecords: RecruitmentPainPitch[]
   financial: RecruitmentFinancialEvolution | null
@@ -84,7 +85,7 @@ function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void 
 }
 
 export function CandidateQualificationTab({
-  candidateId, originProfile, painPitchRecords, financial, budget, onSave,
+  candidateId, candidateSource = '', originProfile, painPitchRecords, financial, budget, onSave,
 }: CandidateQualificationTabProps) {
   // ─── Origin Profile State ──────────────────────────────────────────
   const [op, setOp] = useState({
@@ -201,84 +202,62 @@ export function CandidateQualificationTab({
       <div className={glassCard}>
         <SectionTitle icon={Briefcase}>Perfil de Origem</SectionTitle>
 
-        <div className="flex items-center gap-3">
-          <Checkbox
-            id="active-re"
-            checked={op.currently_active_real_estate}
-            onCheckedChange={(v) => setOp({ ...op, currently_active_real_estate: !!v })}
-          />
-          <Label htmlFor="active-re">Activo no imobiliário</Label>
+        <div className="flex items-center justify-between rounded-xl border p-3">
+          <div>
+            <Label className="text-sm font-medium">Activo no Imobiliário</Label>
+            <p className="text-xs text-muted-foreground">O candidato trabalha actualmente numa imobiliária?</p>
+          </div>
+          <Switch checked={op.currently_active_real_estate} onCheckedChange={(v) => setOp({ ...op, currently_active_real_estate: v })} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Marca de origem</Label>
-            <Select value={op.origin_brand} onValueChange={(v) => setOp({ ...op, origin_brand: v as OriginBrand })}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(ORIGIN_BRANDS).map(([k, label]) => (
-                  <SelectItem key={k} value={k}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {op.origin_brand === 'other' && (
-            <div className="space-y-1.5">
-              <Label>Outra marca</Label>
-              <Input value={op.origin_brand_custom} onChange={(e) => setOp({ ...op, origin_brand_custom: e.target.value })} placeholder="Nome da marca" />
+        {op.currently_active_real_estate && (
+          <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Marca de origem</Label>
+                <Select value={op.origin_brand} onValueChange={(v) => setOp({ ...op, origin_brand: v as OriginBrand })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ORIGIN_BRANDS).map(([k, label]) => (
+                      <SelectItem key={k} value={k}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {op.origin_brand === 'other' && (
+                <div className="space-y-1.5">
+                  <Label>Outra marca</Label>
+                  <Input value={op.origin_brand_custom} onChange={(e) => setOp({ ...op, origin_brand_custom: e.target.value })} placeholder="Nome da marca" />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Tempo na marca (meses)</Label>
+                <Input type="number" min={0} value={op.time_at_origin_months} onChange={(e) => setOp({ ...op, time_at_origin_months: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Facturação média/mês (€)</Label>
+                <Input type="number" min={0} step={0.01} value={op.billing_avg_month} onChange={(e) => setOp({ ...op, billing_avg_month: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Facturação média/ano (€)</Label>
+                <Input type="number" min={0} step={0.01} value={op.billing_avg_year} onChange={(e) => setOp({ ...op, billing_avg_year: e.target.value })} />
+              </div>
             </div>
-          )}
-          <div className="space-y-1.5">
-            <Label>Tempo na marca (meses)</Label>
-            <Input type="number" min={0} value={op.time_at_origin_months} onChange={(e) => setOp({ ...op, time_at_origin_months: e.target.value })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Facturação média/mês (EUR)</Label>
-            <Input type="number" min={0} step={0.01} value={op.billing_avg_month} onChange={(e) => setOp({ ...op, billing_avg_month: e.target.value })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Facturação média/ano (EUR)</Label>
-            <Input type="number" min={0} step={0.01} value={op.billing_avg_year} onChange={(e) => setOp({ ...op, billing_avg_year: e.target.value })} />
-          </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <Label>Motivo de saída</Label>
-          <Textarea value={op.reason_for_leaving} onChange={(e) => setOp({ ...op, reason_for_leaving: e.target.value })} rows={3} placeholder="Porquê pretende sair da marca actual..." />
-        </div>
+            <div className="space-y-1.5">
+              <Label>Motivo de saída</Label>
+              <Textarea value={op.reason_for_leaving} onChange={(e) => setOp({ ...op, reason_for_leaving: e.target.value })} rows={3} placeholder="Porquê pretende sair da marca actual..." />
+            </div>
+          </div>
+        )}
 
-        <SaveButton saving={savingOp} onClick={handleSaveOrigin} />
       </div>
 
-      {/* ── Section 2: Pain & Pitch ─────────────────────────────────── */}
+      {/* ── Section 2: Projecção Financeira ──────────────────────────── */}
       <div className={glassCard}>
-        <SectionTitle icon={Star}>Pain & Pitch</SectionTitle>
+        <SectionTitle icon={TrendingUp}>Projecção Financeira</SectionTitle>
 
-        <div className="space-y-1.5">
-          <Label>Dores identificadas</Label>
-          <Textarea value={pp.identified_pains} onChange={(e) => setPp({ ...pp, identified_pains: e.target.value })} rows={3} placeholder="Principais dores do candidato..." />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Soluções apresentadas</Label>
-          <Textarea value={pp.solutions_presented} onChange={(e) => setPp({ ...pp, solutions_presented: e.target.value })} rows={3} placeholder="Soluções que a equipa oferece..." />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Objecções do candidato</Label>
-          <Textarea value={pp.candidate_objections} onChange={(e) => setPp({ ...pp, candidate_objections: e.target.value })} rows={3} placeholder="Objecções levantadas..." />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Fit Score</Label>
-          <StarRating value={pp.fit_score} onChange={(v) => setPp({ ...pp, fit_score: v })} />
-        </div>
-
-        <SaveButton saving={savingPp} onClick={handleSavePainPitch} />
-      </div>
-
-      {/* ── Section 3: Projecção Financeira & Budget ─────────────────── */}
-      <div className={glassCard}>
-        <SectionTitle icon={TrendingUp}>Projecção Financeira & Orçamento</SectionTitle>
-
-        <p className="text-sm font-medium text-muted-foreground">Projecção de Facturação</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Projecção de Facturação</p>
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {([
             ['billing_month_1', 'Mês 1'],
@@ -288,7 +267,7 @@ export function CandidateQualificationTab({
             ['billing_month_12', 'Mês 12'],
           ] as const).map(([key, label]) => (
             <div key={key} className="space-y-1.5">
-              <Label>{label} (EUR)</Label>
+              <Label className="text-xs">{label} (€)</Label>
               <Input
                 type="number" min={0} step={0.01}
                 value={fin[key]}
@@ -300,60 +279,49 @@ export function CandidateQualificationTab({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Meses até igualar anterior</Label>
+            <Label className="text-xs">Meses até igualar anterior</Label>
             <Input type="number" min={0} value={fin.months_to_match_previous} onChange={(e) => setFin({ ...fin, months_to_match_previous: e.target.value })} />
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Notas</Label>
+          <Label className="text-xs">Notas</Label>
           <Textarea value={fin.notes} onChange={(e) => setFin({ ...fin, notes: e.target.value })} rows={2} placeholder="Notas sobre projecção..." />
         </div>
 
-        <SaveButton saving={savingFin} onClick={handleSaveFinancial} />
-
         <Separator className="my-2" />
 
-        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Euro className="h-4 w-4" /> Orçamento de Captação
-        </p>
-
-        <div className="flex items-center gap-3">
-          <Checkbox
-            id="campaign-used"
-            checked={bg.paid_campaign_used}
-            onCheckedChange={(v) => setBg({ ...bg, paid_campaign_used: !!v })}
-          />
-          <Label htmlFor="campaign-used">Campanha paga utilizada</Label>
-        </div>
-
-        {bg.paid_campaign_used && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Plataforma</Label>
-              <Select value={bg.campaign_platform} onValueChange={(v) => setBg({ ...bg, campaign_platform: v as CampaignPlatform })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CAMPAIGN_PLATFORMS).map(([k, label]) => (
-                    <SelectItem key={k} value={k}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Custo estimado (EUR)</Label>
-            <Input type="number" min={0} step={0.01} value={bg.estimated_cost} onChange={(e) => setBg({ ...bg, estimated_cost: e.target.value })} />
+        {/* Orçamento de Captação — auto-calculated */}
+        <div className="space-y-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+            <Euro className="h-3.5 w-3.5" /> Custo de Captação
+          </p>
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+            {budget?.paid_campaign_used ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Plataforma</span>
+                  <span className="font-medium">{budget.campaign_platform ? CAMPAIGN_PLATFORMS[budget.campaign_platform as CampaignPlatform] || budget.campaign_platform : '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Custo estimado</span>
+                  <span className="font-medium">{budget.estimated_cost ? `${Number(budget.estimated_cost).toFixed(2)} €` : '—'}</span>
+                </div>
+                {budget.resources_used && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Recursos</span>
+                    <span className="font-medium text-right max-w-[60%]">{budget.resources_used}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {['paid_campaign', 'social_media'].includes(candidateSource)
+                  ? 'Dados de campanha serão preenchidos automaticamente quando associados a uma campanha.'
+                  : 'Este candidato não veio de uma campanha paga — sem custos de captação directos.'}
+              </p>
+            )}
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label>Recursos utilizados</Label>
-          <Textarea value={bg.resources_used} onChange={(e) => setBg({ ...bg, resources_used: e.target.value })} rows={2} placeholder="Tempo, materiais, anúncios..." />
-        </div>
-
-        <SaveButton saving={savingBg} onClick={handleSaveBudget} />
       </div>
     </div>
   )

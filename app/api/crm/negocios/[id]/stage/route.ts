@@ -1,6 +1,7 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { moveNegocioStageSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
+import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
 
 export async function PUT(
   request: Request,
@@ -90,6 +91,43 @@ export async function PUT(
         to_stage_name: targetStage.name,
       },
     })
+
+    // Log to goals system
+    const consultantId = (updated as any)?.assigned_consultant_id
+    const pipelineType = targetStage.pipeline_type as string
+    const origin = pipelineTypeToOrigin(pipelineType)
+
+    if (consultantId) {
+      if (targetStage.is_terminal && targetStage.terminal_type === 'won') {
+        // Deal won
+        await logGoalActivity({
+          consultantId,
+          activityType: pipelineType === 'comprador' || pipelineType === 'arrendatario' ? 'buyer_close' : 'sale_close',
+          origin,
+          createdBy: consultantId,
+          revenueAmount: (updated as any)?.expected_value || undefined,
+          referenceId: id,
+          referenceType: 'negocio',
+          notes: `Negócio ganho: ${targetStage.name}`,
+        })
+      } else if (targetStage.is_terminal && targetStage.terminal_type === 'lost') {
+        // Deal lost — no goal activity (losses don't count as positive activity)
+      } else {
+        // Regular stage change — log as qualification/follow-up depending on context
+        const isQualification = (targetStage as any).probability_pct > 30
+        if (isQualification && (pipelineType === 'comprador' || pipelineType === 'arrendatario')) {
+          await logGoalActivity({
+            consultantId,
+            activityType: 'buyer_qualify',
+            origin,
+            createdBy: consultantId,
+            referenceId: id,
+            referenceType: 'negocio',
+            notes: `Qualificação: ${fromStageName} → ${targetStage.name}`,
+          })
+        }
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (err) {

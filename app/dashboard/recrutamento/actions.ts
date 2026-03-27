@@ -416,6 +416,7 @@ export async function getRecruitmentKPIs(): Promise<{
   bySource: Record<string, number>
   byBrand: Record<string, number>
   avgTimeToDecision: number | null
+  avgTimeToHire: number | null
   conversionRate: number
   error: string | null
 }> {
@@ -423,7 +424,7 @@ export async function getRecruitmentKPIs(): Promise<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (admin as any).from("recruitment_candidates").select("*")
 
-  if (error) return { total: 0, byStatus: {}, bySource: {}, byBrand: {}, avgTimeToDecision: null, conversionRate: 0, error: error.message }
+  if (error) return { total: 0, byStatus: {}, bySource: {}, byBrand: {}, avgTimeToDecision: null, avgTimeToHire: null, conversionRate: 0, error: error.message }
 
   const candidates = (data ?? []) as RecruitmentCandidate[]
   const total = candidates.length
@@ -439,7 +440,7 @@ export async function getRecruitmentKPIs(): Promise<{
   const joined = candidates.filter((c) => c.status === "joined").length
   const conversionRate = total > 0 ? (joined / total) * 100 : 0
 
-  // Avg time to decision (for those with first_contact_date and decision_date)
+  // Avg time to decision (first_contact_date → decision_date)
   const withDecision = candidates.filter((c) => c.first_contact_date && c.decision_date)
   let avgTimeToDecision: number | null = null
   if (withDecision.length > 0) {
@@ -449,6 +450,18 @@ export async function getRecruitmentKPIs(): Promise<{
       return sum + Math.round((dec.getTime() - first.getTime()) / (1000 * 60 * 60 * 24))
     }, 0)
     avgTimeToDecision = Math.round(totalDays / withDecision.length)
+  }
+
+  // Avg time to hire (created_at → decision_date for joined candidates)
+  const hiredCandidates = candidates.filter((c) => c.status === "joined" && c.decision_date)
+  let avgTimeToHire: number | null = null
+  if (hiredCandidates.length > 0) {
+    const totalDays = hiredCandidates.reduce((sum, c) => {
+      const created = new Date(c.created_at)
+      const hired = new Date(c.decision_date!)
+      return sum + Math.round((hired.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+    }, 0)
+    avgTimeToHire = Math.round(totalDays / hiredCandidates.length)
   }
 
   // By brand (need origin profiles)
@@ -461,7 +474,7 @@ export async function getRecruitmentKPIs(): Promise<{
     })
   }
 
-  return { total, byStatus, bySource, byBrand, avgTimeToDecision, conversionRate, error: null }
+  return { total, byStatus, bySource, byBrand, avgTimeToDecision, avgTimeToHire, conversionRate, error: null }
 }
 
 // ─── Form Field Config ──────────────────────────────────────────────────────

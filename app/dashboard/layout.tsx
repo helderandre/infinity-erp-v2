@@ -29,6 +29,10 @@ const GoalDailyPopup = dynamic(
   () => import('@/components/goals/goal-daily-popup').then((m) => m.GoalDailyPopup),
   { ssr: false }
 )
+const MobileBottomNav = dynamic(
+  () => import('@/components/layout/mobile-bottom-nav').then((m) => m.MobileBottomNav),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
@@ -87,7 +91,7 @@ export default function DashboardLayout({
           </header>
           <main
             className={cn(
-              "flex flex-1 flex-col overflow-hidden",
+              "flex flex-1 flex-col overflow-x-hidden overflow-y-auto",
               isFullBleed
                 ? "min-h-0"
                 : isSidebarPage
@@ -98,9 +102,12 @@ export default function DashboardLayout({
             )}
           >
             {children}
+            {/* Spacer for mobile bottom nav */}
+            <div className="h-16 sm:hidden shrink-0" />
           </main>
         </SidebarInset>
         <GoalDailyPopup />
+        <MobileBottomNav />
       </SidebarProvider>
     </BreadcrumbOverrideProvider>
   )
