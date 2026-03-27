@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Toaster, toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -341,6 +342,17 @@ function CustomSelect({
 // ---------------------------------------------------------------------------
 
 export default function EntryFormPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>}>
+      <EntryFormContent />
+    </Suspense>
+  )
+}
+
+function EntryFormContent() {
+  const searchParams = useSearchParams()
+  const candidateId = searchParams.get('c') // ?c=<candidateId> for linking
+
   const [form, setForm] = useState<FormData>(INITIAL_FORM)
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set())
   const [idFront, setIdFront] = useState<FileWithPreview | null>(null)
@@ -353,14 +365,27 @@ export default function EntryFormPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [ready, setReady] = useState(false)
 
-  // Fetch field config
+  // Fetch field config + optionally pre-fill from candidate
   useEffect(() => {
-    fetch('/api/entry-form/fields')
-      .then((r) => r.json())
-      .then((d) => setFieldConfigs(d.fields ?? []))
-      .catch(() => {})
-      .finally(() => setReady(true))
-  }, [])
+    const loadInit = async () => {
+      try {
+        const fieldsRes = await fetch('/api/entry-form/fields')
+        const fieldsData = await fieldsRes.json()
+        setFieldConfigs(fieldsData.fields ?? [])
+
+        // If ?c= param, pre-fill full_name from candidate
+        if (candidateId) {
+          const candRes = await fetch(`/api/recrutamento/candidates/${candidateId}/public`)
+          if (candRes.ok) {
+            const { full_name } = await candRes.json()
+            if (full_name) setForm(prev => ({ ...prev, full_name }))
+          }
+        }
+      } catch {}
+      setReady(true)
+    }
+    loadInit()
+  }, [candidateId])
 
   const fieldMap = useMemo(() => {
     const map: Record<string, FieldConfig> = {}
@@ -467,6 +492,7 @@ export default function EntryFormPage() {
       try {
         const fd = new window.FormData()
         for (const [key, value] of Object.entries(form)) { if (value) fd.append(key, value) }
+        if (candidateId) fd.append('candidate_id', candidateId)
         if (idFront) fd.append('id_document_front', idFront.file)
         if (idBack) fd.append('id_document_back', idBack.file)
         if (photo) fd.append('professional_photo', photo.file)

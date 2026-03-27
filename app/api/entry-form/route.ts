@@ -64,12 +64,15 @@ export async function POST(request: Request) {
       return val === "true" || val === "on"
     }
 
+    const candidateIdValue = getValue("candidate_id")
+
     const admin = createAdminClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (admin as any)
       .from("recruitment_entry_submissions")
       .insert({
         id: submissionId,
+        candidate_id: candidateIdValue,
         full_name: getValue("full_name") ?? "Sem nome",
         cc_number: getValue("cc_number"),
         cc_expiry: getValue("cc_expiry"),

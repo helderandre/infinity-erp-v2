@@ -634,23 +634,30 @@ export interface EntrySubmission {
   updated_at: string
 }
 
-export async function getEntrySubmissions(status?: string): Promise<{ submissions: EntrySubmission[]; error: string | null }> {
+export async function getEntrySubmissions(status?: string): Promise<{ submissions: (EntrySubmission & { linked_candidate?: { id: string; full_name: string } | null })[]; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (admin as any).from("recruitment_entry_submissions")
-    .select("*")
+    .select("*, linked_candidate:recruitment_candidates!recruitment_entry_submissions_candidate_id_fkey(id, full_name)")
     .order("submitted_at", { ascending: false })
 
   if (status) query = query.eq("status", status)
 
   const { data, error } = await query
-  if (error) return { submissions: [], error: error.message }
-  return { submissions: (data ?? []) as EntrySubmission[], error: null }
+  if (error) {
+    // Fallback without join if FK doesn't exist yet
+    let q2 = (admin as any).from("recruitment_entry_submissions").select("*").order("submitted_at", { ascending: false })
+    if (status) q2 = q2.eq("status", status)
+    const { data: d2, error: e2 } = await q2
+    if (e2) return { submissions: [], error: e2.message }
+    return { submissions: (d2 ?? []) as EntrySubmission[], error: null }
+  }
+  return { submissions: (data ?? []) as any[], error: null }
 }
 
 export async function updateEntrySubmission(
   id: string,
-  updates: { status?: string; notes?: string; reviewed_by?: string; reviewed_at?: string }
+  updates: { status?: string; notes?: string; reviewed_by?: string; reviewed_at?: string; candidate_id?: string }
 ): Promise<{ success: boolean; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

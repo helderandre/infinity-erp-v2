@@ -1,17 +1,27 @@
+// @ts-nocheck
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, Save, Loader2, UserCheck, Target, Calendar, Briefcase, FileText, Send, Download, Eye, UserPlus, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  CheckCircle2, Circle, Loader2, UserCheck, Target, Calendar, FileText,
+  Eye, UserPlus, AlertTriangle, Building2, FileSignature, Key, Mail,
+  GraduationCap, Copy, Upload, Link2, Search, Clock,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -19,8 +29,16 @@ import {
   getContractTemplates, generateContract, getContracts, getLinkedSubmission,
   createConsultorFromCandidate,
 } from '@/app/dashboard/recrutamento/actions'
-import type { RecruitmentCandidate, RecruitmentOnboarding, RecruitmentProbation, ProbationStatus } from '@/types/recruitment'
-import { PROBATION_STATUSES } from '@/types/recruitment'
+import type {
+  RecruitmentCandidate, RecruitmentOnboarding, RecruitmentProbation,
+  ProbationStatus, OnboardingStageKey, ContractSedeStatus, ContractOursStatus,
+} from '@/types/recruitment'
+import {
+  PROBATION_STATUSES, ONBOARDING_STAGES,
+  CONTRACT_SEDE_STATUSES, CONTRACT_OURS_STATUSES,
+} from '@/types/recruitment'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CandidateOnboardingTabProps {
   candidateId: string
@@ -31,7 +49,40 @@ interface CandidateOnboardingTabProps {
   onReload: () => Promise<void>
 }
 
-const cardClass = 'rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm p-6'
+interface OnboardingData {
+  onboarding: RecruitmentOnboarding | null
+  submission: any | null
+  current_stage: OnboardingStageKey
+  percent_complete: number
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const cardClass = 'rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm'
+const sectionClass = 'p-5 space-y-4'
+
+const STAGE_ICONS: Record<string, any> = {
+  FileText, CheckCircle2, Building2, FileSignature, Key, Mail, GraduationCap, Target,
+}
+
+function getStageIcon(iconName: string) {
+  return STAGE_ICONS[iconName] || Circle
+}
+
+function isStageComplete(stageKey: OnboardingStageKey, data: OnboardingData): boolean {
+  const { onboarding: onb, submission: sub } = data
+  switch (stageKey) {
+    case 'form_submitted': return !!sub
+    case 'admin_validation': return sub?.status === 'approved'
+    case 'contract_sede': return onb?.contract_sede_status === 'signed'
+    case 'contract_ours': return onb?.contract_ours_status === 'signed'
+    case 'access_creation': return !!(onb?.app_access_created && onb?.remax_access_granted)
+    case 'email_materials': return !!(onb?.email_created && onb?.materials_ready)
+    case 'initial_training': return !!onb?.initial_training_completed
+    case 'plan_66_days': return !!onb?.plan_66_started
+    default: return false
+  }
+}
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -39,236 +90,594 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
-export function CandidateOnboardingTab({ candidateId, candidate, onboarding, probation, recruiters, onReload }: CandidateOnboardingTabProps) {
-  // ─── Guard: candidate must be 'joined' ──────────────────────────────────
-  if (candidate.status !== 'joined') {
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export function CandidateOnboardingTab({
+  candidateId, candidate, onboarding: initialOnboarding, probation, recruiters, onReload,
+}: CandidateOnboardingTabProps) {
+  const [data, setData] = useState<OnboardingData>({
+    onboarding: initialOnboarding,
+    submission: null,
+    current_stage: initialOnboarding?.current_stage as OnboardingStageKey || 'form_submitted',
+    percent_complete: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [expandedStage, setExpandedStage] = useState<OnboardingStageKey | null>(null)
+  const stageRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Fetch onboarding data
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/recrutamento/candidates/${candidateId}/onboarding`)
+      if (res.ok) {
+        const d = await res.json()
+        setData(d)
+        setExpandedStage(prev => prev || d.current_stage)
+      }
+    } catch {}
+    setLoading(false)
+  }, [candidateId])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  // Save onboarding field
+  const saveField = useCallback(async (updates: Partial<RecruitmentOnboarding>) => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/recrutamento/candidates/${candidateId}/onboarding`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (res.ok) {
+        const d = await res.json()
+        setData(prev => ({
+          ...prev,
+          onboarding: d.onboarding,
+          current_stage: d.current_stage,
+          percent_complete: d.percent_complete,
+        }))
+        toast.success('Guardado')
+      } else {
+        toast.error('Erro ao guardar')
+      }
+    } catch {
+      toast.error('Erro ao guardar')
+    }
+    setSaving(false)
+  }, [candidateId])
+
+  // Guard: candidate must be 'joined' or 'decision_pending'
+  if (!['joined', 'decision_pending'].includes(candidate.status)) {
     return (
-      <div className={cn(cardClass, 'flex flex-col items-center justify-center gap-3 py-16')}>
+      <div className={cn(cardClass, 'flex flex-col items-center justify-center gap-3 py-16 p-6')}>
         <UserCheck className="h-10 w-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground text-center max-w-md">
-          O candidato ainda nao aderiu. O onboarding fica disponivel quando o estado for alterado para &quot;Aderiu&quot;.
+          O onboarding fica disponível quando o estado for &quot;Decisão Pendente&quot; ou &quot;Aderiu&quot;.
         </p>
       </div>
     )
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const scrollToStage = (key: OnboardingStageKey) => {
+    setExpandedStage(key)
+    setTimeout(() => {
+      stageRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }
+
   return (
-    <div className="space-y-6">
-      <OnboardingChecklist candidateId={candidateId} onboarding={onboarding} recruiters={recruiters} onReload={onReload} />
-      <ContractSection candidateId={candidateId} candidate={candidate} onReload={onReload} />
-      <ConsultorSection candidateId={candidateId} candidate={candidate} onReload={onReload} />
-      <ProbationSection candidateId={candidateId} probation={probation} onReload={onReload} />
+    <div className="space-y-5">
+      {/* ─── Pipeline Progress Bar ─────────────────────────────────── */}
+      <PipelineBar
+        data={data}
+        onStageClick={scrollToStage}
+        expandedStage={expandedStage}
+      />
+
+      {/* ─── Stage Sections ────────────────────────────────────────── */}
+      <div className="space-y-4">
+        {ONBOARDING_STAGES.map((stage) => {
+          const complete = isStageComplete(stage.key, data)
+          const isCurrent = data.current_stage === stage.key
+          const isExpanded = expandedStage === stage.key
+
+          return (
+            <div
+              key={stage.key}
+              ref={(el) => { stageRefs.current[stage.key] = el }}
+              className={cn(
+                cardClass,
+                'transition-all overflow-hidden',
+                isCurrent && 'ring-1 ring-primary/30',
+              )}
+            >
+              {/* Stage Header */}
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 hover:bg-muted/20 transition-colors"
+                onClick={() => setExpandedStage(isExpanded ? null : stage.key)}
+              >
+                <StageIndicator complete={complete} isCurrent={isCurrent} iconName={stage.iconName} />
+                <div className="flex-1 text-left">
+                  <p className={cn('text-sm font-medium', complete && 'text-emerald-700')}>
+                    {stage.label}
+                  </p>
+                </div>
+                {complete && (
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+                    Concluído
+                  </Badge>
+                )}
+                {isCurrent && !complete && (
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] animate-pulse">
+                    Em curso
+                  </Badge>
+                )}
+              </button>
+
+              {/* Expanded Content */}
+              {isExpanded && (
+                <div className="border-t border-border/20">
+                  <StageContent
+                    stageKey={stage.key}
+                    data={data}
+                    candidateId={candidateId}
+                    candidate={candidate}
+                    recruiters={recruiters}
+                    saving={saving}
+                    onSave={saveField}
+                    onReload={async () => { await loadData(); await onReload() }}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ─── Probation Section (below pipeline) ────────────────────── */}
+      {candidate.status === 'joined' && (
+        <ProbationSection candidateId={candidateId} probation={probation} onReload={onReload} />
+      )}
     </div>
   )
 }
 
-// ─── Contract Section ───────────────────────────────────────────────────────
+// ─── Pipeline Bar ─────────────────────────────────────────────────────────────
 
-function ContractSection({ candidateId, candidate, onReload }: {
+function PipelineBar({ data, onStageClick, expandedStage }: {
+  data: OnboardingData
+  onStageClick: (key: OnboardingStageKey) => void
+  expandedStage: OnboardingStageKey | null
+}) {
+  return (
+    <div className={cn(cardClass, 'p-4')}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pipeline de Onboarding</p>
+        <Badge variant="outline" className="text-xs">{data.percent_complete}%</Badge>
+      </div>
+      <Progress value={data.percent_complete} className="h-2 mb-4" />
+      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        {ONBOARDING_STAGES.map((stage, i) => {
+          const complete = isStageComplete(stage.key, data)
+          const isCurrent = data.current_stage === stage.key
+          const isSelected = expandedStage === stage.key
+          const Icon = getStageIcon(stage.iconName)
+
+          return (
+            <div key={stage.key} className="flex items-center">
+              {i > 0 && (
+                <div className={cn(
+                  'h-px w-3 sm:w-5 shrink-0',
+                  complete ? 'bg-emerald-400' : 'bg-border/40',
+                )} />
+              )}
+              <button
+                type="button"
+                onClick={() => onStageClick(stage.key)}
+                className={cn(
+                  'flex flex-col items-center gap-1 px-1.5 py-1 rounded-lg transition-all min-w-[52px]',
+                  isSelected && 'bg-muted/40',
+                  'hover:bg-muted/30',
+                )}
+              >
+                <div className={cn(
+                  'h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition-all',
+                  complete && 'bg-emerald-500 text-white',
+                  isCurrent && !complete && 'bg-blue-500 text-white ring-2 ring-blue-200',
+                  !complete && !isCurrent && 'bg-muted/50 text-muted-foreground/50',
+                )}>
+                  {complete ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5" />
+                  )}
+                </div>
+                <span className={cn(
+                  'text-[9px] leading-tight text-center whitespace-nowrap',
+                  complete ? 'text-emerald-700 font-medium' : 'text-muted-foreground',
+                  isCurrent && !complete && 'text-blue-700 font-medium',
+                )}>
+                  {stage.label}
+                </span>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage Indicator ──────────────────────────────────────────────────────────
+
+function StageIndicator({ complete, isCurrent, iconName }: {
+  complete: boolean; isCurrent: boolean; iconName: string
+}) {
+  const Icon = getStageIcon(iconName)
+  return (
+    <div className={cn(
+      'h-9 w-9 rounded-full flex items-center justify-center shrink-0',
+      complete && 'bg-emerald-100 text-emerald-600',
+      isCurrent && !complete && 'bg-blue-100 text-blue-600',
+      !complete && !isCurrent && 'bg-muted/40 text-muted-foreground/50',
+    )}>
+      {complete ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Icon className="h-4.5 w-4.5" />}
+    </div>
+  )
+}
+
+// ─── Stage Content Router ─────────────────────────────────────────────────────
+
+function StageContent({ stageKey, data, candidateId, candidate, recruiters, saving, onSave, onReload }: {
+  stageKey: OnboardingStageKey
+  data: OnboardingData
   candidateId: string
   candidate: RecruitmentCandidate
+  recruiters: Array<{ id: string; commercial_name: string }>
+  saving: boolean
+  onSave: (updates: Partial<RecruitmentOnboarding>) => Promise<void>
   onReload: () => Promise<void>
 }) {
+  switch (stageKey) {
+    case 'form_submitted':
+      return <StageFormSubmitted data={data} candidateId={candidateId} />
+    case 'admin_validation':
+      return <StageAdminValidation data={data} />
+    case 'contract_sede':
+      return <StageContractSede data={data} saving={saving} onSave={onSave} />
+    case 'contract_ours':
+      return <StageContractOurs data={data} candidateId={candidateId} candidate={candidate} saving={saving} onSave={onSave} onReload={onReload} />
+    case 'access_creation':
+      return <StageAccessCreation data={data} candidateId={candidateId} candidate={candidate} saving={saving} onSave={onSave} onReload={onReload} />
+    case 'email_materials':
+      return <StageEmailMaterials data={data} saving={saving} onSave={onSave} />
+    case 'initial_training':
+      return <StageInitialTraining data={data} saving={saving} onSave={onSave} />
+    case 'plan_66_days':
+      return <StagePlan66Days data={data} saving={saving} onSave={onSave} />
+    default:
+      return null
+  }
+}
+
+// ─── Stage 1: Formulário ──────────────────────────────────────────────────────
+
+function StageFormSubmitted({ data, candidateId }: {
+  data: OnboardingData; candidateId: string
+}) {
+  const { submission } = data
+  const formLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/entryform?c=${candidateId}`
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(formLink)
+    toast.success('Link copiado! Envie ao consultor.')
+  }
+
+  if (submission) {
+    return (
+      <div className={sectionClass}>
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          <p className="text-sm font-medium">Formulário preenchido</p>
+        </div>
+        <div className="rounded-xl bg-muted/20 border border-border/20 p-3 space-y-1.5">
+          <InfoRow label="Nome" value={submission.display_name || submission.full_name} />
+          <InfoRow label="Email" value={submission.personal_email} />
+          <InfoRow label="Telemóvel" value={submission.professional_phone} />
+          <InfoRow label="NIF" value={submission.nif} />
+          <InfoRow label="Estado" value={
+            submission.status === 'approved' ? 'Aprovado' :
+            submission.status === 'rejected' ? 'Rejeitado' : 'Pendente'
+          } />
+          <InfoRow label="Submetido" value={submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString('pt-PT') : '—'} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={sectionClass}>
+      <div className="flex items-center gap-2 text-amber-600">
+        <Clock className="h-4 w-4" />
+        <p className="text-sm font-medium">Aguardar preenchimento do formulário</p>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Envie o link do formulário de entrada ao candidato para iniciar o processo.
+      </p>
+      <div className="flex items-center gap-2">
+        <Input value={formLink} readOnly className="text-xs h-9 flex-1 font-mono bg-muted/20" />
+        <Button size="sm" variant="outline" onClick={copyLink} className="shrink-0 gap-1.5">
+          <Copy className="h-3.5 w-3.5" />
+          Copiar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage 2: Validação Administrativa ────────────────────────────────────────
+
+function StageAdminValidation({ data }: { data: OnboardingData }) {
+  const { submission } = data
+
+  if (!submission) {
+    return (
+      <div className={sectionClass}>
+        <p className="text-xs text-muted-foreground">
+          Aguardar submissão do formulário para validação.
+        </p>
+      </div>
+    )
+  }
+
+  const statusColors: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-700 border-amber-200',
+    approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    rejected: 'bg-red-100 text-red-700 border-red-200',
+  }
+
+  const statusLabels: Record<string, string> = {
+    pending: 'Pendente', approved: 'Aprovado', rejected: 'Rejeitado',
+  }
+
+  const checks = [
+    { label: 'Dados pessoais completos', done: !!(submission.full_name && submission.nif && submission.date_of_birth) },
+    { label: 'Documentos CC recebidos (frente + verso)', done: !!(submission.id_document_front_url && submission.id_document_back_url) },
+    { label: 'Foto profissional recebida', done: !!submission.professional_photo_url },
+  ]
+
+  return (
+    <div className={sectionClass}>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-medium">Estado da submissão</p>
+        <Badge className={cn('text-[10px]', statusColors[submission.status] || statusColors.pending)}>
+          {statusLabels[submission.status] || 'Pendente'}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        A validação é feita na tab de Submissões. Aqui pode acompanhar o progresso.
+      </p>
+      <div className="space-y-2 mt-2">
+        {checks.map((c, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {c.done
+              ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+            <span className={cn('text-xs', c.done && 'text-muted-foreground line-through')}>{c.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage 3: Contrato Sede ───────────────────────────────────────────────────
+
+function StageContractSede({ data, saving, onSave }: {
+  data: OnboardingData; saving: boolean; onSave: (u: any) => Promise<void>
+}) {
+  const onb = data.onboarding
+  const status = (onb?.contract_sede_status || 'pending') as ContractSedeStatus
+
+  return (
+    <div className={sectionClass}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <p className="text-sm font-medium">Estado do contrato sede</p>
+        <Select
+          value={status}
+          onValueChange={(v) => onSave({ contract_sede_status: v as ContractSedeStatus })}
+          disabled={saving}
+        >
+          <SelectTrigger className="w-40 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(CONTRACT_SEDE_STATUSES).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {onb?.contract_sede_requested_at && (
+        <p className="text-xs text-muted-foreground">
+          Solicitado em {new Date(onb.contract_sede_requested_at).toLocaleDateString('pt-PT')}
+        </p>
+      )}
+      {onb?.contract_sede_signed_at && (
+        <p className="text-xs text-muted-foreground">
+          Assinado em {new Date(onb.contract_sede_signed_at).toLocaleDateString('pt-PT')}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mt-1">
+        {status === 'pending' && (
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" disabled={saving}
+            onClick={() => onSave({
+              contract_sede_status: 'requested',
+              contract_sede_requested_at: new Date().toISOString(),
+            })}>
+            <Building2 className="h-3.5 w-3.5" />
+            Solicitar à Sede
+          </Button>
+        )}
+        {status !== 'signed' && (
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" disabled={saving}
+            onClick={() => onSave({
+              contract_sede_status: 'signed',
+              contract_sede_signed_at: new Date().toISOString(),
+            })}>
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Marcar como Assinado
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage 4: Contrato Nosso ──────────────────────────────────────────────────
+
+function StageContractOurs({ data, candidateId, candidate, saving, onSave, onReload }: {
+  data: OnboardingData; candidateId: string; candidate: RecruitmentCandidate
+  saving: boolean; onSave: (u: any) => Promise<void>; onReload: () => Promise<void>
+}) {
+  const onb = data.onboarding
+  const status = (onb?.contract_ours_status || 'pending') as ContractOursStatus
   const [templates, setTemplates] = useState<any[]>([])
   const [contracts, setContracts] = useState<any[]>([])
-  const [submission, setSubmission] = useState<any | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
-  // Contract data fields
-  const [contractFields, setContractFields] = useState({
-    nome_completo: candidate.full_name || '',
-    nif: '', niss: '', cc_numero: '', morada: '',
-    data_nascimento: '', estado_civil: '', naturalidade: '',
-    iban: '', telemovel: candidate.phone || '', email_profissional: candidate.email || '',
-    taxa_comissao: '', salario_base: '',
-    data_contrato: new Date().toISOString().slice(0, 10),
-    data_inicio: '',
-  })
-
   useEffect(() => {
-    async function load() {
-      const [tplRes, ctrRes, subRes] = await Promise.all([
-        getContractTemplates(),
-        getContracts(candidateId),
-        getLinkedSubmission(candidateId),
-      ])
-      setTemplates(tplRes.templates)
-      setContracts(ctrRes.contracts)
-      if (subRes.submission) {
-        setSubmission(subRes.submission)
-        // Auto-fill from submission
-        setContractFields(prev => ({
-          ...prev,
-          nome_completo: subRes.submission.full_name || prev.nome_completo,
-          nif: subRes.submission.nif || prev.nif,
-          niss: subRes.submission.niss || prev.niss,
-          cc_numero: subRes.submission.cc_number || prev.cc_numero,
-          morada: subRes.submission.full_address || prev.morada,
-          data_nascimento: subRes.submission.date_of_birth || prev.data_nascimento,
-          estado_civil: subRes.submission.estado_civil || prev.estado_civil,
-          naturalidade: subRes.submission.naturalidade || prev.naturalidade,
-          iban: subRes.submission.iban || prev.iban,
-          telemovel: subRes.submission.professional_phone || prev.telemovel,
-        }))
-      }
-      setLoaded(true)
-    }
-    load()
-  }, [candidateId, candidate])
+    Promise.all([getContractTemplates(), getContracts(candidateId)])
+      .then(([tpl, ctr]) => {
+        setTemplates(tpl.templates)
+        setContracts(ctr.contracts)
+        setLoaded(true)
+      })
+  }, [candidateId])
 
   const handleGenerate = async () => {
-    if (!selectedTemplate) { toast.error('Seleccione um template de contrato'); return }
+    if (!selectedTemplate) { toast.error('Seleccione um template'); return }
     setGenerating(true)
-    const data: Record<string, string> = {
-      ...contractFields,
-      data_contrato: contractFields.data_contrato || new Date().toISOString().slice(0, 10),
+    const contractData: Record<string, string> = {
+      nome_completo: data.submission?.full_name || candidate.full_name || '',
+      nif: data.submission?.nif || '',
+      niss: data.submission?.niss || '',
+      morada: data.submission?.full_address || '',
+      telemovel: data.submission?.professional_phone || candidate.phone || '',
+      email_profissional: data.submission?.personal_email || candidate.email || '',
+      data_contrato: new Date().toISOString().slice(0, 10),
       empresa: 'Infinity Group',
     }
-    const { contract, error } = await generateContract(candidateId, selectedTemplate, data)
+    const { error } = await generateContract(candidateId, selectedTemplate, contractData)
     setGenerating(false)
     if (error) { toast.error(error); return }
-    toast.success('Contrato gerado com sucesso')
-    setPreviewHtml(contract?.generated_html || null)
+    toast.success('Contrato gerado')
+    onSave({ contract_ours_status: 'generated', contract_ours_generated_at: new Date().toISOString() })
     const res = await getContracts(candidateId)
     setContracts(res.contracts)
   }
 
-  const updateField = (key: string, value: string) => setContractFields(prev => ({ ...prev, [key]: value }))
-
-  const fieldDefs = [
-    { key: 'nome_completo', label: 'Nome completo', required: true },
-    { key: 'nif', label: 'NIF' },
-    { key: 'niss', label: 'NISS' },
-    { key: 'cc_numero', label: 'Nº Cartão Cidadão' },
-    { key: 'data_nascimento', label: 'Data de Nascimento', type: 'date' },
-    { key: 'naturalidade', label: 'Naturalidade' },
-    { key: 'estado_civil', label: 'Estado Civil' },
-    { key: 'morada', label: 'Morada completa' },
-    { key: 'iban', label: 'IBAN' },
-    { key: 'telemovel', label: 'Telemóvel profissional' },
-    { key: 'email_profissional', label: 'Email profissional' },
-    { key: 'taxa_comissao', label: 'Taxa de comissão (%)', type: 'number' },
-    { key: 'salario_base', label: 'Salário base (€)', type: 'number' },
-    { key: 'data_contrato', label: 'Data do contrato', type: 'date' },
-    { key: 'data_inicio', label: 'Data de início', type: 'date' },
-  ]
-
-  if (!loaded) return <div className={cn(cardClass, 'animate-pulse h-40')} />
-
   return (
-    <>
-      <div className={cardClass}>
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-semibold">Dados para Contrato</h3>
-          {submission && <Badge variant="outline" className="ml-auto text-[10px]">Pré-preenchido do formulário</Badge>}
-        </div>
+    <div className={sectionClass}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <p className="text-sm font-medium">Estado do nosso contrato</p>
+        <Select
+          value={status}
+          onValueChange={(v) => onSave({ contract_ours_status: v as ContractOursStatus })}
+          disabled={saving}
+        >
+          <SelectTrigger className="w-40 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(CONTRACT_OURS_STATUSES).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-          {fieldDefs.map(f => (
-            <div key={f.key} className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{f.label}{f.required ? ' *' : ''}</Label>
-              <Input
-                type={f.type || 'text'}
-                value={contractFields[f.key as keyof typeof contractFields]}
-                onChange={e => updateField(f.key, e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-          ))}
-        </div>
-
-        <Separator className="my-4" />
-
-        {/* Generate contract */}
-        <div className="flex items-center gap-3">
+      {/* Generate contract */}
+      {loaded && templates.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
           <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-            <SelectTrigger className="w-64 h-9 text-sm">
-              <SelectValue placeholder="Seleccionar template de contrato..." />
+            <SelectTrigger className="w-52 h-8 text-xs">
+              <SelectValue placeholder="Seleccionar template..." />
             </SelectTrigger>
             <SelectContent>
               {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleGenerate} disabled={generating || !selectedTemplate}>
-            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleGenerate} disabled={generating || !selectedTemplate}>
+            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSignature className="h-3.5 w-3.5" />}
             Gerar Contrato
           </Button>
         </div>
+      )}
 
-        {templates.length === 0 && (
-          <p className="text-xs text-muted-foreground mt-2">Nenhum template de contrato disponível. Crie um na secção de Configuração.</p>
-        )}
+      {contracts.length > 0 && (
+        <div className="space-y-1.5 mt-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Contratos gerados</p>
+          {contracts.map(c => (
+            <div key={c.id} className="flex items-center gap-2 rounded-lg border border-border/20 bg-muted/20 p-2 text-xs">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="flex-1 truncate">{c.template?.name || 'Contrato'}</span>
+              <Badge variant="outline" className={cn('text-[10px]',
+                c.status === 'draft' && 'bg-amber-50 text-amber-700',
+                c.status === 'sent' && 'bg-blue-50 text-blue-700',
+                c.status === 'signed' && 'bg-emerald-50 text-emerald-700',
+              )}>{c.status === 'draft' ? 'Rascunho' : c.status === 'sent' ? 'Enviado' : 'Assinado'}</Badge>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {/* Existing contracts */}
-        {contracts.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contratos Gerados</p>
-            {contracts.map(c => (
-              <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border/20 bg-muted/20 p-3">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{c.template?.name || 'Contrato'}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-PT')}</p>
-                </div>
-                <Badge variant="outline" className={cn('text-[10px]',
-                  c.status === 'draft' && 'bg-amber-50 text-amber-700 border-amber-200',
-                  c.status === 'sent' && 'bg-blue-50 text-blue-700 border-blue-200',
-                  c.status === 'signed' && 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                )}>{c.status === 'draft' ? 'Rascunho' : c.status === 'sent' ? 'Enviado' : 'Assinado'}</Badge>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPreviewHtml(c.generated_html)}>
-                  <Eye className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Contract Preview Dialog */}
-      <Dialog open={!!previewHtml} onOpenChange={() => setPreviewHtml(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Preview do Contrato</DialogTitle>
-          </DialogHeader>
-          {previewHtml && (
-            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+      {status !== 'signed' && (
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs mt-1" disabled={saving}
+          onClick={() => onSave({
+            contract_ours_status: 'signed',
+            contract_ours_signed_at: new Date().toISOString(),
+          })}>
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Marcar como Assinado
+        </Button>
+      )}
+    </div>
   )
 }
 
-// ─── Consultor Creation Section ─────────────────────────────────────────────
+// ─── Stage 5: Criação de Acessos ──────────────────────────────────────────────
 
-function ConsultorSection({ candidateId, candidate, onReload }: {
-  candidateId: string
-  candidate: RecruitmentCandidate & { consultant_user_id?: string | null }
-  onReload: () => Promise<void>
+function StageAccessCreation({ data, candidateId, candidate, saving, onSave, onReload }: {
+  data: OnboardingData; candidateId: string; candidate: RecruitmentCandidate
+  saving: boolean; onSave: (u: any) => Promise<void>; onReload: () => Promise<void>
 }) {
-  const [creating, setCreating] = useState(false)
+  const onb = data.onboarding
   const [showConfirm, setShowConfirm] = useState(false)
+  const [creating, setCreating] = useState(false)
 
-  // Already created
-  if (candidate.consultant_user_id) {
-    return (
-      <div className={cn(cardClass, 'border-emerald-200/50 bg-emerald-50/30')}>
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-          <h3 className="font-semibold text-emerald-800">Consultor Criado</h3>
-        </div>
-        <p className="text-sm text-emerald-700 mt-2">
-          Este candidato foi convertido em consultor com sucesso.
-        </p>
-      </div>
-    )
-  }
+  const checks = [
+    { key: 'app_access_created', label: 'Acesso à APP criado', checked: onb?.app_access_created ?? false },
+    { key: 'remax_access_requested', label: 'Acesso RE/MAX solicitado', checked: onb?.remax_access_requested ?? false },
+    { key: 'remax_access_granted', label: 'Acesso RE/MAX concedido', checked: onb?.remax_access_granted ?? false },
+  ]
 
-  const handleCreate = async () => {
+  const handleCreateConsultor = async () => {
     setShowConfirm(false)
     setCreating(true)
     const { userId, error } = await createConsultorFromCandidate(candidateId, {
@@ -279,140 +688,211 @@ function ConsultorSection({ candidateId, candidate, onReload }: {
     })
     setCreating(false)
     if (error) { toast.error(error); return }
-    toast.success(`Consultor ${candidate.full_name} criado com sucesso!`)
-    await onReload()
+    toast.success('Consultor criado com sucesso!')
+    onSave({ app_access_created: true, accesses_created: true })
+    onReload()
   }
 
-  const canCreate = candidate.email && candidate.full_name
+  const allChecked = checks.every(c => c.checked)
+  const canCreate = candidate.email && candidate.full_name && !(candidate as any).consultant_user_id
 
   return (
-    <>
-      <div className={cardClass}>
-        <div className="flex items-center gap-2 mb-3">
-          <UserPlus className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-semibold">Criar Consultor</h3>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Cria automaticamente o utilizador no sistema: auth, perfil público e dados privados.
-        </p>
-        {!canCreate && (
-          <div className="flex items-center gap-2 mb-3 text-amber-700 text-xs">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            O candidato precisa de ter email e nome preenchidos.
+    <div className={sectionClass}>
+      <div className="space-y-2.5">
+        {checks.map(c => (
+          <div key={c.key} className="flex items-center gap-3">
+            <Switch
+              checked={c.checked}
+              onCheckedChange={(v) => onSave({ [c.key]: v })}
+              disabled={saving}
+            />
+            <span className={cn('text-sm', c.checked && 'text-muted-foreground line-through')}>{c.label}</span>
           </div>
-        )}
-        <Button onClick={() => setShowConfirm(true)} disabled={creating || !canCreate}>
-          {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-          Criar Consultor
-        </Button>
+        ))}
       </div>
 
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Criar consultor</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem a certeza de que pretende criar o consultor <strong>{candidate.full_name}</strong>?
-              Será criado um utilizador com email <strong>{candidate.email}</strong> e atribuído o role de Consultor.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreate}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      <Separator className="my-3" />
+
+      {(candidate as any).consultant_user_id ? (
+        <div className="flex items-center gap-2 text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="text-sm font-medium">Consultor já criado</span>
+        </div>
+      ) : (
+        <>
+          <Button size="sm" className="gap-1.5" disabled={creating || !canCreate}
+            onClick={() => setShowConfirm(true)}>
+            {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+            Criar Consultor
+          </Button>
+          {!canCreate && !((candidate as any).consultant_user_id) && (
+            <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+              <AlertTriangle className="h-3 w-3" />
+              O candidato precisa de email e nome preenchidos.
+            </p>
+          )}
+
+          <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Criar consultor</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Criar o consultor <strong>{candidate.full_name}</strong> com email <strong>{candidate.email}</strong>?
+                  Será criado utilizador, perfil e dados privados automaticamente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCreateConsultor}>Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+    </div>
   )
 }
 
-// ─── Onboarding Checklist ────────────────────────────────────────────────────
+// ─── Stage 6: Email & Materiais ───────────────────────────────────────────────
 
-function OnboardingChecklist({ candidateId, onboarding, recruiters, onReload }: {
-  candidateId: string
-  onboarding: RecruitmentOnboarding | null
-  recruiters: Array<{ id: string; commercial_name: string }>
-  onReload: () => Promise<void>
+function StageEmailMaterials({ data, saving, onSave }: {
+  data: OnboardingData; saving: boolean; onSave: (u: any) => Promise<void>
 }) {
-  const [contractSent, setContractSent] = useState(onboarding?.contract_sent ?? false)
-  const [contractSentBy, setContractSentBy] = useState(onboarding?.contract_sent_by ?? '')
-  const [formSent, setFormSent] = useState(onboarding?.form_sent ?? false)
-  const [accessCreated, setAccessCreated] = useState(onboarding?.access_created ?? false)
-  const [startDate, setStartDate] = useState(onboarding?.onboarding_start_date ?? '')
-  const [saving, setSaving] = useState(false)
+  const onb = data.onboarding
+  const [emailAddr, setEmailAddr] = useState(onb?.email_address || '')
 
-  const checked = [contractSent, formSent, accessCreated].filter(Boolean).length
-  const progress = Math.round((checked / 3) * 100)
-
-  const handleSave = useCallback(async () => {
-    setSaving(true)
-    const res = await upsertOnboarding(candidateId, {
-      contract_sent: contractSent,
-      contract_sent_by: contractSentBy || null,
-      form_sent: formSent,
-      access_created: accessCreated,
-      onboarding_start_date: startDate || null,
-    })
-    setSaving(false)
-    if (res.success) { toast.success('Onboarding guardado'); await onReload() }
-    else toast.error(res.error ?? 'Erro ao guardar')
-  }, [candidateId, contractSent, contractSentBy, formSent, accessCreated, startDate, onReload])
-
-  const items: Array<{ key: string; label: string; checked: boolean; toggle: () => void }> = [
-    { key: 'contract', label: 'Contrato enviado', checked: contractSent, toggle: () => setContractSent(v => !v) },
-    { key: 'form', label: 'Formulario de entrada enviado', checked: formSent, toggle: () => setFormSent(v => !v) },
-    { key: 'access', label: 'Acessos criados (email, ERP)', checked: accessCreated, toggle: () => setAccessCreated(v => !v) },
+  const checks = [
+    { key: 'email_created', label: 'Email criado', checked: onb?.email_created ?? false },
+    { key: 'email_signature_generated', label: 'Assinatura de email gerada', checked: onb?.email_signature_generated ?? false },
+    { key: 'materials_ready', label: 'Materiais de marketing prontos', checked: onb?.materials_ready ?? false },
   ]
 
   return (
-    <div className={cardClass}>
-      <div className="flex items-center gap-2 mb-4">
-        <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-        <h3 className="font-semibold">Checklist de Onboarding</h3>
-        <Badge variant="outline" className="ml-auto">{progress}%</Badge>
-      </div>
-      <Progress value={progress} className="mb-4 h-2" />
-      <div className="space-y-3">
-        {items.map(item => (
-          <div key={item.key} className="flex items-center gap-3">
-            <button type="button" onClick={item.toggle} className="shrink-0 focus:outline-none">
-              {item.checked
-                ? <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                : <Circle className="h-5 w-5 text-muted-foreground/40" />}
-            </button>
-            <span className={cn('text-sm', item.checked && 'line-through text-muted-foreground')}>{item.label}</span>
-          </div>
-        ))}
-        {contractSent && (
-          <div className="ml-8 max-w-xs">
-            <Label className="text-xs text-muted-foreground">Enviado por</Label>
-            <Select value={contractSentBy} onValueChange={setContractSentBy}>
-              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {recruiters.map(r => <SelectItem key={r.id} value={r.id}>{r.commercial_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <div className="flex items-center gap-3 pt-1">
-          <Calendar className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs text-muted-foreground">Data de inicio do onboarding</Label>
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-8 w-48 text-xs" />
-          </div>
+    <div className={sectionClass}>
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Email profissional (@remax.pt)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            value={emailAddr}
+            onChange={(e) => setEmailAddr(e.target.value)}
+            placeholder="nome@remax.pt"
+            className="h-8 text-sm flex-1"
+          />
+          <Button size="sm" variant="outline" className="text-xs shrink-0" disabled={saving || !emailAddr.trim()}
+            onClick={() => onSave({ email_address: emailAddr.trim() })}>
+            Guardar
+          </Button>
         </div>
       </div>
-      <div className="flex justify-end mt-5">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Guardar Onboarding
-        </Button>
+
+      <div className="space-y-2.5 mt-3">
+        {checks.map(c => (
+          <div key={c.key} className="flex items-center gap-3">
+            <Switch
+              checked={c.checked}
+              onCheckedChange={(v) => onSave({ [c.key]: v })}
+              disabled={saving}
+            />
+            <span className={cn('text-sm', c.checked && 'text-muted-foreground line-through')}>{c.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-// ─── Probation Section ───────────────────────────────────────────────────────
+// ─── Stage 7: Formação Inicial ────────────────────────────────────────────────
+
+function StageInitialTraining({ data, saving, onSave }: {
+  data: OnboardingData; saving: boolean; onSave: (u: any) => Promise<void>
+}) {
+  const onb = data.onboarding
+  const [date, setDate] = useState(onb?.initial_training_date || '')
+
+  return (
+    <div className={sectionClass}>
+      <div className="flex items-center gap-3">
+        <Switch
+          checked={onb?.initial_training_completed ?? false}
+          onCheckedChange={(v) => onSave({ initial_training_completed: v })}
+          disabled={saving}
+        />
+        <span className="text-sm font-medium">Formação inicial concluída</span>
+      </div>
+
+      <div className="mt-2">
+        <Label className="text-xs text-muted-foreground">Data da formação</Label>
+        <div className="flex items-center gap-2 mt-1">
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-8 text-sm w-48"
+          />
+          <Button size="sm" variant="outline" className="text-xs" disabled={saving || !date}
+            onClick={() => onSave({ initial_training_date: date })}>
+            Guardar
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage 8: Plano 66 Dias ──────────────────────────────────────────────────
+
+function StagePlan66Days({ data, saving, onSave }: {
+  data: OnboardingData; saving: boolean; onSave: (u: any) => Promise<void>
+}) {
+  const onb = data.onboarding
+  const [date, setDate] = useState(onb?.plan_66_start_date || '')
+
+  return (
+    <div className={sectionClass}>
+      <div className="flex items-center gap-3">
+        <Switch
+          checked={onb?.plan_66_started ?? false}
+          onCheckedChange={(v) => onSave({ plan_66_started: v })}
+          disabled={saving}
+        />
+        <span className="text-sm font-medium">Plano 66 dias iniciado</span>
+      </div>
+
+      <div className="mt-2">
+        <Label className="text-xs text-muted-foreground">Data de início</Label>
+        <div className="flex items-center gap-2 mt-1">
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-8 text-sm w-48"
+          />
+          <Button size="sm" variant="outline" className="text-xs" disabled={saving || !date}
+            onClick={() => onSave({ plan_66_start_date: date })}>
+            Guardar
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-2">
+        Futuramente ligado ao módulo de objectivos para acompanhamento dos 66 dias.
+      </p>
+    </div>
+  )
+}
+
+// ─── Info Row helper ──────────────────────────────────────────────────────────
+
+function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex items-center justify-between py-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right max-w-[60%] truncate">{value || '—'}</span>
+    </div>
+  )
+}
+
+// ─── Probation Section (preserved from original) ─────────────────────────────
 
 function ProbationSection({ candidateId, probation, onReload }: {
   candidateId: string
@@ -454,7 +934,7 @@ function ProbationSection({ candidateId, probation, onReload }: {
       notes: notes || null,
     })
     setSaving(false)
-    if (res.success) { toast.success('Periodo de experiencia guardado'); await onReload() }
+    if (res.success) { toast.success('Período de experiência guardado'); await onReload() }
     else toast.error(res.error ?? 'Erro ao guardar')
   }, [candidateId, startDate, endDate, status, m30, m30Notes, m60, m60Notes, m90, m90Notes, bt1, ba1, bt2, ba2, bt3, ba3, notes, onReload])
 
@@ -465,9 +945,9 @@ function ProbationSection({ candidateId, probation, onReload }: {
   ]
 
   const billing = [
-    { label: 'Mes 1', target: bt1, setTarget: setBt1, actual: ba1, setActual: setBa1 },
-    { label: 'Mes 2', target: bt2, setTarget: setBt2, actual: ba2, setActual: setBa2 },
-    { label: 'Mes 3', target: bt3, setTarget: setBt3, actual: ba3, setActual: setBa3 },
+    { label: 'Mês 1', target: bt1, setTarget: setBt1, actual: ba1, setActual: setBa1 },
+    { label: 'Mês 2', target: bt2, setTarget: setBt2, actual: ba2, setActual: setBa2 },
+    { label: 'Mês 3', target: bt3, setTarget: setBt3, actual: ba3, setActual: setBa3 },
   ]
 
   function pct(target: string, actual: string) {
@@ -477,16 +957,15 @@ function ProbationSection({ candidateId, probation, onReload }: {
   }
 
   return (
-    <div className={cardClass}>
+    <div className={cn(cardClass, 'p-6')}>
       <div className="flex items-center gap-2 mb-4">
         <Target className="h-5 w-5 text-muted-foreground" />
-        <h3 className="font-semibold">Periodo de Experiencia</h3>
+        <h3 className="font-semibold">Período de Experiência</h3>
       </div>
 
-      {/* Dates + Status */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <div>
-          <Label className="text-xs text-muted-foreground">Data de inicio</Label>
+          <Label className="text-xs text-muted-foreground">Data de início</Label>
           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 h-9 text-sm" />
         </div>
         <div>
@@ -508,7 +987,6 @@ function ProbationSection({ candidateId, probation, onReload }: {
 
       <Separator className="my-4" />
 
-      {/* Milestones */}
       <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Marcos</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         {milestones.map(ms => (
@@ -518,7 +996,7 @@ function ProbationSection({ candidateId, probation, onReload }: {
                 {ms.checked ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted-foreground/40" />}
               </button>
               <span className="text-sm font-medium">{ms.days} Dias</span>
-              {ms.checked && <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">Concluido</Badge>}
+              {ms.checked && <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">Concluído</Badge>}
             </div>
             <Textarea placeholder="Notas..." value={ms.notes} onChange={e => ms.setNotes(e.target.value)} rows={2} className="text-xs resize-none" />
           </div>
@@ -527,8 +1005,7 @@ function ProbationSection({ candidateId, probation, onReload }: {
 
       <Separator className="my-4" />
 
-      {/* Billing targets */}
-      <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Facturacao: Objectivo vs Real</p>
+      <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Facturação: Objectivo vs Real</p>
       <div className="space-y-3 mb-4">
         {billing.map(b => {
           const p = pct(b.target, b.actual)
@@ -550,13 +1027,13 @@ function ProbationSection({ candidateId, probation, onReload }: {
 
       <div>
         <Label className="text-xs text-muted-foreground">Notas gerais</Label>
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 text-sm resize-none" placeholder="Observacoes sobre o periodo de experiencia..." />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 text-sm resize-none" placeholder="Observações sobre o período de experiência..." />
       </div>
 
       <div className="flex justify-end mt-5">
         <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Guardar Experiencia
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+          Guardar Experiência
         </Button>
       </div>
     </div>

@@ -114,18 +114,88 @@ export interface RecruitmentBudget {
 
 // ─── Onboarding ─────────────────────────────────────────────────────────────
 
+export type OnboardingStageKey =
+  | 'form_submitted'
+  | 'admin_validation'
+  | 'contract_sede'
+  | 'contract_ours'
+  | 'access_creation'
+  | 'email_materials'
+  | 'initial_training'
+  | 'plan_66_days'
+
+export type ContractSedeStatus = 'pending' | 'requested' | 'sent' | 'signed'
+export type ContractOursStatus = 'pending' | 'generated' | 'sent' | 'signed'
+
 export interface RecruitmentOnboarding {
   id: string
   candidate_id: string
+  // Legacy fields
   contract_sent: boolean
   contract_sent_by: string | null
   form_sent: boolean
   access_created: boolean
   onboarding_start_date: string | null
+  // Contract Sede
+  contract_sede_status: ContractSedeStatus
+  contract_sede_url: string | null
+  contract_sede_requested_at: string | null
+  contract_sede_signed_at: string | null
+  // Contract Ours
+  contract_ours_status: ContractOursStatus
+  contract_ours_url: string | null
+  contract_ours_generated_at: string | null
+  contract_ours_signed_at: string | null
+  // Access creation
+  accesses_created: boolean
+  remax_access_requested: boolean
+  remax_access_granted: boolean
+  app_access_created: boolean
+  // Email & Materials
+  email_created: boolean
+  email_address: string | null
+  email_signature_generated: boolean
+  materials_ready: boolean
+  // Training
+  initial_training_completed: boolean
+  initial_training_date: string | null
+  plan_66_started: boolean
+  plan_66_start_date: string | null
+  // Current stage (cached)
+  current_stage: OnboardingStageKey
   created_at: string
   updated_at: string
   // Joined
   sent_by_user?: { id: string; commercial_name: string } | null
+}
+
+export const ONBOARDING_STAGES: Array<{
+  key: OnboardingStageKey
+  label: string
+  iconName: string
+}> = [
+  { key: 'form_submitted', label: 'Formulário', iconName: 'FileText' },
+  { key: 'admin_validation', label: 'Validação', iconName: 'CheckCircle2' },
+  { key: 'contract_sede', label: 'Contrato Sede', iconName: 'Building2' },
+  { key: 'contract_ours', label: 'Contrato Nosso', iconName: 'FileSignature' },
+  { key: 'access_creation', label: 'Acessos', iconName: 'Key' },
+  { key: 'email_materials', label: 'Email & Materiais', iconName: 'Mail' },
+  { key: 'initial_training', label: 'Formação Inicial', iconName: 'GraduationCap' },
+  { key: 'plan_66_days', label: 'Plano 66 Dias', iconName: 'Target' },
+]
+
+export const CONTRACT_SEDE_STATUSES: Record<ContractSedeStatus, string> = {
+  pending: 'Pendente',
+  requested: 'Solicitado',
+  sent: 'Enviado',
+  signed: 'Assinado',
+}
+
+export const CONTRACT_OURS_STATUSES: Record<ContractOursStatus, string> = {
+  pending: 'Pendente',
+  generated: 'Gerado',
+  sent: 'Enviado',
+  signed: 'Assinado',
 }
 
 // ─── Stage Log ──────────────────────────────────────────────────────────────

@@ -20,6 +20,8 @@ import {
   Monitor,
   Smartphone,
   Printer,
+  Link2,
+  Search,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -27,6 +29,7 @@ import {
   getEntrySubmissions,
   updateEntrySubmission,
   getContractTemplates,
+  getCandidates,
   type EntrySubmission,
 } from "@/app/dashboard/recrutamento/actions"
 
@@ -388,6 +391,7 @@ export function SubmissionsTab() {
             <TableHeader>
               <TableRow className="bg-muted/20 hover:bg-muted/20">
                 <TableHead>Nome</TableHead>
+                <TableHead>Candidato</TableHead>
                 <TableHead>Contacto</TableHead>
                 <TableHead>NIF</TableHead>
                 <TableHead>Estado</TableHead>
@@ -408,6 +412,13 @@ export function SubmissionsTab() {
                   >
                     <TableCell>
                       <span className="font-medium text-sm">{sub.display_name || sub.full_name || 'Sem nome'}</span>
+                    </TableCell>
+                    <TableCell>
+                      {(sub as any).linked_candidate ? (
+                        <span className="text-xs font-medium text-emerald-700">{(sub as any).linked_candidate.full_name}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">Não associado</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
@@ -559,6 +570,20 @@ export function SubmissionsTab() {
               )}
             </div>
           </div>
+
+          {/* Candidate association */}
+          {viewing && (
+            <CandidateAssociationBar
+              submission={viewing}
+              onLink={async (candidateId) => {
+                const { error } = await updateEntrySubmission(viewing.id, { candidate_id: candidateId })
+                if (error) { toast.error('Erro ao associar'); return }
+                toast.success('Candidato associado')
+                setViewing(prev => prev ? { ...prev, candidate_id: candidateId } : prev)
+                fetchSubmissions()
+              }}
+            />
+          )}
 
           <ScrollArea className="max-h-[55vh] px-6 py-4">
             {viewing && (
@@ -836,3 +861,93 @@ function FieldChip({
   )
 }
 
+// ─── Candidate Association Bar ──────────────────────────────────────────────
+
+function CandidateAssociationBar({ submission, onLink }: {
+  submission: EntrySubmission
+  onLink: (candidateId: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [candidates, setCandidates] = useState<Array<{ id: string; full_name: string; status: string }>>([])
+  const [loading, setLoading] = useState(false)
+
+  const searchCandidates = useCallback(async (q: string) => {
+    if (!q.trim()) { setCandidates([]); return }
+    setLoading(true)
+    const { candidates: results } = await getCandidates({ search: q })
+    setCandidates(results.map(c => ({ id: c.id, full_name: c.full_name, status: c.status })))
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(() => searchCandidates(search), 300)
+    return () => clearTimeout(t)
+  }, [search, open, searchCandidates])
+
+  if (submission.candidate_id) {
+    return (
+      <div className="px-6 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
+        <Link2 className="h-3.5 w-3.5 text-emerald-600" />
+        <span className="text-xs text-emerald-700 font-medium">
+          Associado a candidato
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+        <Link2 className="h-3.5 w-3.5 text-amber-600" />
+        <span className="text-xs text-amber-700">Não associado a nenhum candidato</span>
+        <button
+          type="button"
+          onClick={() => { setOpen(true); setSearch('') }}
+          className="ml-auto text-xs font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2"
+        >
+          Associar Candidato
+        </button>
+      </div>
+
+      {open && (
+        <div className="px-6 py-3 bg-muted/30 border-b border-border/20 space-y-2">
+          <div className="flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar candidato por nome..."
+              className="flex-1 text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground/50"
+            />
+            <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {loading && <p className="text-xs text-muted-foreground">A pesquisar...</p>}
+          {!loading && candidates.length === 0 && search.trim() && (
+            <p className="text-xs text-muted-foreground">Nenhum candidato encontrado.</p>
+          )}
+          {candidates.length > 0 && (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {candidates.slice(0, 8).map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={async () => { await onLink(c.id); setOpen(false) }}
+                  className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <span className="text-sm font-medium">{c.full_name}</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{c.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
