@@ -18,23 +18,39 @@ interface SendEmailParams {
  */
 export function wrapInBrandedTemplate(bodyHtml: string): string {
   return `<!DOCTYPE html>
-<html lang="pt">
+<html lang="pt" xmlns:v="urn:schemas-microsoft-com:vml">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
   <!--[if mso]>
   <style type="text/css">
     table { border-collapse: collapse; }
     .fallback-font { font-family: Arial, sans-serif; }
   </style>
   <![endif]-->
+  <style>
+    :root { color-scheme: light only; supported-color-schemes: light only; }
+    /* Prevent dark mode color inversion */
+    [data-ogsc] .dark-bg, .dark-bg { background-color: #0a0a0a !important; }
+    [data-ogsb] .dark-bg, .dark-bg { background-color: #0a0a0a !important; }
+    @media (prefers-color-scheme: dark) {
+      .dark-bg { background-color: #0a0a0a !important; }
+      .light-text { color: #ffffff !important; }
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 32px 16px;">
-    <!-- Header -->
-    <div style="text-align: center; padding: 32px 24px; background-color: #0a0a0a; border-radius: 16px 16px 0 0;">
-      <img src="${LOGO_URL}" alt="Infinity Group" style="height: 48px; margin-bottom: 8px;" />
-    </div>
+    <!-- Header — uses table for better dark mode support -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius: 16px 16px 0 0; overflow: hidden;">
+      <tr>
+        <td class="dark-bg" align="center" style="background-color: #0a0a0a; padding: 32px 24px; text-align: center;">
+          <img src="${LOGO_URL}" alt="Infinity Group" style="height: 48px; margin-bottom: 8px;" />
+        </td>
+      </tr>
+    </table>
 
     <!-- Body -->
     <div style="background-color: #ffffff; padding: 32px 28px; border-left: 1px solid #e5e5e5; border-right: 1px solid #e5e5e5;">
