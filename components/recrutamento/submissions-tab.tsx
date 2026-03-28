@@ -558,6 +558,41 @@ export function SubmissionsTab() {
                     {editMode ? <><Check className="h-3 w-3" />Guardar</> : <><Pencil className="h-3 w-3" />Editar</>}
                   </button>
                 </div>
+
+                {/* Approve / Reject — always visible in header */}
+                {viewing?.status === 'pending' && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      className="gap-1.5 rounded-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => handleAction(viewing.id, "approved")}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      Aprovar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-400 border-red-400/30 hover:bg-red-500/10 gap-1.5 rounded-full h-8 text-xs"
+                      onClick={() => handleAction(viewing.id, "rejected")}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                      Rejeitar
+                    </Button>
+                  </div>
+                )}
+                {viewing?.status && viewing.status !== 'pending' && (
+                  <div className="mt-3">
+                    <Badge className={cn("text-xs px-2.5 py-1",
+                      viewing.status === 'approved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                      'bg-red-500/20 text-red-300 border-red-500/30'
+                    )}>
+                      {viewing.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                    </Badge>
+                  </div>
+                )}
               </div>
               {/* Photo — clickable for preview */}
               {viewing?.professional_photo_url ? (
