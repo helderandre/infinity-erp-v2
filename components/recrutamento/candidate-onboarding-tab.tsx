@@ -353,7 +353,7 @@ function StageContent({ stageKey, data, candidateId, candidate, recruiters, savi
     case 'form_submitted':
       return <StageFormSubmitted data={data} candidateId={candidateId} />
     case 'admin_validation':
-      return <StageAdminValidation data={data} />
+      return <StageAdminValidation data={data} onReload={onReload} />
     case 'contract_sede':
       return <StageContractSede data={data} saving={saving} onSave={onSave} />
     case 'contract_ours':
@@ -428,8 +428,9 @@ function StageFormSubmitted({ data, candidateId }: {
 
 // ─── Stage 2: Validação Administrativa ────────────────────────────────────────
 
-function StageAdminValidation({ data }: { data: OnboardingData }) {
+function StageAdminValidation({ data, onReload }: { data: OnboardingData; onReload: () => Promise<void> }) {
   const { submission } = data
+  const [saving, setSaving] = useState(false)
 
   if (!submission) {
     return (
@@ -457,6 +458,23 @@ function StageAdminValidation({ data }: { data: OnboardingData }) {
     { label: 'Foto profissional recebida', done: !!submission.professional_photo_url },
   ]
 
+  const handleUpdateStatus = async (newStatus: 'approved' | 'rejected') => {
+    setSaving(true)
+    try {
+      const { updateEntrySubmission } = await import('@/app/dashboard/recrutamento/actions')
+      const { error } = await updateEntrySubmission(submission.id, {
+        status: newStatus,
+        reviewed_at: new Date().toISOString(),
+      })
+      if (error) { toast.error(error); return }
+      toast.success(newStatus === 'approved' ? 'Submissão aprovada' : 'Submissão rejeitada')
+      await onReload()
+    } catch {
+      toast.error('Erro ao actualizar')
+    }
+    setSaving(false)
+  }
+
   return (
     <div className={sectionClass}>
       <div className="flex items-center gap-2">
@@ -465,9 +483,7 @@ function StageAdminValidation({ data }: { data: OnboardingData }) {
           {statusLabels[submission.status] || 'Pendente'}
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground">
-        A validação é feita na tab de Submissões. Aqui pode acompanhar o progresso.
-      </p>
+
       <div className="space-y-2 mt-2">
         {checks.map((c, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -478,6 +494,32 @@ function StageAdminValidation({ data }: { data: OnboardingData }) {
           </div>
         ))}
       </div>
+
+      {/* Approve / Reject buttons */}
+      {submission.status === 'pending' && (
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20">
+          <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={saving} onClick={() => handleUpdateStatus('approved')}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Aprovar
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+            disabled={saving} onClick={() => handleUpdateStatus('rejected')}>
+            <Circle className="h-3.5 w-3.5" />
+            Rejeitar
+          </Button>
+        </div>
+      )}
+
+      {submission.status === 'rejected' && (
+        <div className="mt-3 pt-3 border-t border-border/20">
+          <Button size="sm" variant="outline" className="gap-1.5"
+            disabled={saving} onClick={() => handleUpdateStatus('approved')}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Reverter para Aprovado
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

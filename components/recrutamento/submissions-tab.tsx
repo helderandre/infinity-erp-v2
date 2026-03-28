@@ -413,9 +413,12 @@ export function SubmissionsTab() {
                     <TableCell>
                       <span className="font-medium text-sm">{sub.display_name || sub.full_name || 'Sem nome'}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {(sub as any).linked_candidate ? (
-                        <span className="text-xs font-medium text-emerald-700">{(sub as any).linked_candidate.full_name}</span>
+                        <a href={`/dashboard/recrutamento/${sub.candidate_id}`}
+                          className="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline underline-offset-2">
+                          {(sub as any).linked_candidate.full_name}
+                        </a>
                       ) : (
                         <span className="text-xs text-muted-foreground/50">Não associado</span>
                       )}
@@ -887,13 +890,18 @@ function CandidateAssociationBar({ submission, onLink }: {
   }, [search, open, searchCandidates])
 
   if (submission.candidate_id) {
+    const linkedName = (submission as any).linked_candidate?.full_name
     return (
-      <div className="px-6 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
+      <a
+        href={`/dashboard/recrutamento/${submission.candidate_id}`}
+        className="px-6 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2 hover:bg-emerald-100 transition-colors cursor-pointer"
+      >
         <Link2 className="h-3.5 w-3.5 text-emerald-600" />
         <span className="text-xs text-emerald-700 font-medium">
-          Associado a candidato
+          Associado a {linkedName || 'candidato'}
         </span>
-      </div>
+        <ExternalLink className="h-3 w-3 text-emerald-500 ml-auto" />
+      </a>
     )
   }
 
