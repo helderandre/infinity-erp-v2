@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { sendEmail, replaceVariables } from "@/lib/email/send"
 
 const S3 = new S3Client({
   region: "auto",
@@ -108,9 +109,66 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Erro ao submeter formulário" }, { status: 500 })
     }
 
+    // Send welcome email (non-blocking — don't fail the submission if email fails)
+    const recipientEmail = getValue("personal_email")
+    if (recipientEmail) {
+      sendWelcomeEmail(admin, recipientEmail, {
+        nome: getValue("display_name") || getValue("full_name") || "",
+        email: recipientEmail,
+        telefone: getValue("professional_phone") || "",
+      }).catch(err => console.error("[Entry Form] Welcome email error:", err))
+    }
+
     return NextResponse.json({ success: true, id: data.id })
   } catch (error) {
     console.error("[Entry Form] Error:", error)
     return NextResponse.json({ error: "Erro interno" }, { status: 500 })
+  }
+}
+
+// ─── Welcome Email ────────────────────────────────────────────────────────────
+
+async function sendWelcomeEmail(
+  admin: any,
+  recipientEmail: string,
+  variables: Record<string, string>
+) {
+  // Try to load the editable template from DB
+  const { data: tpl } = await (admin as any)
+    .from("recruitment_email_templates")
+    .select("subject, body_html, from_email, from_name, is_active")
+    .eq("slug", "welcome_entry_form")
+    .single()
+
+  if (tpl && !tpl.is_active) {
+    console.log("[Entry Form] Welcome email template is disabled, skipping")
+    return
+  }
+
+  // Fallback defaults if template doesn't exist yet
+  const subject = tpl?.subject || "Bem-vindo(a) à Infinity Group, {{nome}}!"
+  const bodyHtml = tpl?.body_html || `
+    <h2 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #0a0a0a;">Bem-vindo(a) à equipa!</h2>
+    <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #404040;">
+      Olá <strong>{{nome}}</strong>, obrigado por submeter o formulário de entrada na Infinity Group. A nossa equipa irá analisar os seus dados em breve.
+    </p>
+    <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #404040;">Com os melhores cumprimentos,<br/><strong>Equipa Infinity Group</strong></p>
+  `
+
+  const finalSubject = replaceVariables(subject, variables)
+  const finalBody = replaceVariables(bodyHtml, variables)
+
+  const result = await sendEmail({
+    to: recipientEmail,
+    subject: finalSubject,
+    bodyHtml: finalBody,
+    from: tpl?.from_email || "geral@infinitygroup.pt",
+    fromName: tpl?.from_name || "Infinity Group",
+  })
+
+  if (!result.success) {
+    console.error("[Entry Form] Failed to send welcome email:", result.error)
+  } else {
+    console.log("[Entry Form] Welcome email sent to", recipientEmail, "id:", result.id)
   }
 }
