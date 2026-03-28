@@ -58,12 +58,18 @@ export default function EditarTemplateEmailPage() {
     )
   }
 
-  const editorState =
+  let editorState =
     template.editor_state != null
       ? typeof template.editor_state === 'string'
         ? template.editor_state
         : JSON.stringify(template.editor_state)
       : null
+
+  // If no editor_state but body_html exists, generate a minimal Craft.js state
+  // so the visual editor shows the existing HTML content
+  if (!editorState && template.body_html) {
+    editorState = generateEditorStateFromHtml(template.body_html)
+  }
 
   return (
     <EmailEditorComponent
@@ -74,4 +80,94 @@ export default function EditarTemplateEmailPage() {
       initialDescription={template.description || ''}
     />
   )
+}
+
+/**
+ * Generate a minimal Craft.js editor state from raw HTML.
+ * This allows templates seeded with body_html (but no editor_state) to show
+ * their content in the visual editor instead of an empty canvas.
+ */
+function generateEditorStateFromHtml(bodyHtml: string): string {
+  const textNodeId = 'imported-text'
+  const innerContainerId = 'inner-container'
+  const headerNodeId = 'header-node'
+  const signatureNodeId = 'signature-node'
+  const footerNodeId = 'footer-node'
+
+  const state: Record<string, any> = {
+    ROOT: {
+      type: { resolvedName: 'EmailContainer' },
+      isCanvas: true,
+      props: { padding: 0, background: '#ffffff', width: '100%', direction: 'column', align: 'stretch', justify: 'flex-start', gap: 0 },
+      displayName: 'Contentor',
+      custom: {},
+      hidden: false,
+      nodes: [headerNodeId, innerContainerId, signatureNodeId, footerNodeId],
+      linkedNodes: {},
+    },
+    [headerNodeId]: {
+      type: { resolvedName: 'EmailHeader' },
+      isCanvas: false,
+      props: {},
+      displayName: 'Cabeçalho',
+      custom: {},
+      hidden: false,
+      nodes: [],
+      linkedNodes: {},
+      parent: 'ROOT',
+    },
+    [innerContainerId]: {
+      type: { resolvedName: 'EmailContainer' },
+      isCanvas: true,
+      props: { padding: 24, background: '#ffffff', width: '100%', direction: 'column', align: 'stretch', justify: 'flex-start', gap: 8 },
+      displayName: 'Contentor',
+      custom: {},
+      hidden: false,
+      nodes: [textNodeId],
+      linkedNodes: {},
+      parent: 'ROOT',
+    },
+    [textNodeId]: {
+      type: { resolvedName: 'EmailText' },
+      isCanvas: false,
+      props: {
+        html: bodyHtml,
+        fontSize: 15,
+        color: '#404040',
+        textAlign: 'left',
+        lineHeight: 1.6,
+        fontFamily: 'Arial, sans-serif',
+      },
+      displayName: 'Texto',
+      custom: {},
+      hidden: false,
+      nodes: [],
+      linkedNodes: {},
+      parent: innerContainerId,
+    },
+    [signatureNodeId]: {
+      type: { resolvedName: 'EmailSignature' },
+      isCanvas: false,
+      props: {},
+      displayName: 'Assinatura',
+      custom: {},
+      hidden: false,
+      nodes: [],
+      linkedNodes: {},
+      parent: 'ROOT',
+    },
+    [footerNodeId]: {
+      type: { resolvedName: 'EmailFooter' },
+      isCanvas: false,
+      props: {},
+      displayName: 'Rodapé',
+      custom: {},
+      hidden: false,
+      nodes: [],
+      linkedNodes: {},
+      parent: 'ROOT',
+    },
+  }
+
+  return JSON.stringify(state)
 }
