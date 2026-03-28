@@ -109,15 +109,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Erro ao submeter formulário" }, { status: 500 })
     }
 
-    // Send welcome email (non-blocking — don't fail the submission if email fails)
+    // Send emails (non-blocking — don't fail the submission if emails fail)
     const recipientEmail = getValue("personal_email")
-    if (recipientEmail) {
-      sendWelcomeEmail(admin, recipientEmail, {
-        nome: getValue("display_name") || getValue("full_name") || "",
-        email: recipientEmail,
-        telefone: getValue("professional_phone") || "",
-      }).catch(err => console.error("[Entry Form] Welcome email error:", err))
+    const candidateName = getValue("display_name") || getValue("full_name") || ""
+    const candidatePhone = getValue("professional_phone") || ""
+    const submissionLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.infinitygroup.pt'}/dashboard/recrutamento/formulario`
+
+    const emailVars = {
+      nome: candidateName,
+      email: recipientEmail || "",
+      telefone: candidatePhone,
+      link_submissao: submissionLink,
     }
+
+    // Fire all emails in parallel, non-blocking
+    sendEntryEmails(admin, recipientEmail, emailVars)
+      .catch(err => console.error("[Entry Form] Email error:", err))
 
     return NextResponse.json({ success: true, id: data.id })
   } catch (error) {
@@ -126,49 +133,62 @@ export async function POST(request: Request) {
   }
 }
 
-// ─── Welcome Email ────────────────────────────────────────────────────────────
+// ─── Entry Emails ─────────────────────────────────────────────────────────────
 
-async function sendWelcomeEmail(
-  admin: any,
-  recipientEmail: string,
-  variables: Record<string, string>
-) {
-  // Try to load the editable template from DB
-  const { data: tpl } = await (admin as any)
-    .from("recruitment_email_templates")
-    .select("subject, body_html, from_email, from_name, is_active")
-    .eq("slug", "welcome_entry_form")
+async function loadTemplateBySlug(admin: any, slug: string) {
+  const { data } = await (admin as any)
+    .from("tpl_email_library")
+    .select("subject, body_html, slug")
+    .eq("slug", slug)
     .single()
+  return data
+}
 
-  if (tpl && !tpl.is_active) {
-    console.log("[Entry Form] Welcome email template is disabled, skipping")
-    return
-  }
+async function sendFromTemplate(
+  admin: any,
+  slug: string,
+  to: string,
+  variables: Record<string, string>,
+  fallbackSubject: string,
+  fallbackBody: string,
+) {
+  const tpl = await loadTemplateBySlug(admin, slug)
+  const subject = replaceVariables(tpl?.subject || fallbackSubject, variables)
+  const bodyHtml = replaceVariables(tpl?.body_html || fallbackBody, variables)
 
-  // Fallback defaults if template doesn't exist yet
-  const subject = tpl?.subject || "Bem-vindo(a) à Infinity Group, {{nome}}!"
-  const bodyHtml = tpl?.body_html || `
-    <h2 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #0a0a0a;">Bem-vindo(a) à equipa!</h2>
-    <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #404040;">
-      Olá <strong>{{nome}}</strong>, obrigado por submeter o formulário de entrada na Infinity Group. A nossa equipa irá analisar os seus dados em breve.
-    </p>
-    <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #404040;">Com os melhores cumprimentos,<br/><strong>Equipa Infinity Group</strong></p>
-  `
-
-  const finalSubject = replaceVariables(subject, variables)
-  const finalBody = replaceVariables(bodyHtml, variables)
-
-  const result = await sendEmail({
-    to: recipientEmail,
-    subject: finalSubject,
-    bodyHtml: finalBody,
-    from: tpl?.from_email || "geral@infinitygroup.pt",
-    fromName: tpl?.from_name || "Infinity Group",
-  })
-
+  const result = await sendEmail({ to, subject, bodyHtml })
   if (!result.success) {
-    console.error("[Entry Form] Failed to send welcome email:", result.error)
+    console.error(`[Entry Form] Failed to send ${slug}:`, result.error)
   } else {
-    console.log("[Entry Form] Welcome email sent to", recipientEmail, "id:", result.id)
+    console.log(`[Entry Form] ${slug} sent to ${to}, id:`, result.id)
   }
+}
+
+async function sendEntryEmails(admin: any, recipientEmail: string | null, vars: Record<string, string>) {
+  const tasks: Promise<void>[] = []
+
+  // 1. Welcome email to the candidate
+  if (recipientEmail) {
+    tasks.push(sendFromTemplate(
+      admin, 'entry_welcome', recipientEmail, vars,
+      'Bem-vindo(a) à Infinity Group, {{nome}}!',
+      '<p>Olá <strong>{{nome}}</strong>, obrigado por submeter o formulário. A equipa irá analisar os dados em breve.</p>',
+    ))
+  }
+
+  // 2. Internal notification to admin
+  tasks.push(sendFromTemplate(
+    admin, 'entry_internal_notification', 'duartegtlcosta@gmail.com', vars,
+    'Nova submissão de formulário: {{nome}}',
+    '<p><strong>{{nome}}</strong> submeteu o formulário de entrada.</p><p>Email: {{email}} | Tel: {{telefone}}</p><p><a href="{{link_submissao}}">Ver Submissão</a></p>',
+  ))
+
+  // 3. Convictus notification
+  tasks.push(sendFromTemplate(
+    admin, 'entry_convictus', 'duartegtlcosta@gmail.com', vars,
+    'Novo consultor em integração: {{nome}}',
+    '<p><strong>{{nome}}</strong> está em processo de integração na Infinity Group.</p>',
+  ))
+
+  await Promise.allSettled(tasks)
 }
