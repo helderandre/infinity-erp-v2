@@ -80,44 +80,30 @@ export default function TarefasPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tarefas</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerir e acompanhar tarefas da equipa
-          </p>
-        </div>
-        <Button onClick={() => { setFormDefaults(undefined); setShowForm(true) }} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Tarefa
-        </Button>
-      </div>
-
+    <div className="space-y-4">
       {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2">
         <StatsCard
-          icon={<Clock className="h-4 w-4" />}
+          icon={<Clock className="h-3.5 w-3.5" />}
           label="Pendentes"
           value={stats?.pending}
           isLoading={statsLoading}
         />
         <StatsCard
-          icon={<AlertTriangle className="h-4 w-4 text-red-500" />}
+          icon={<AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
           label="Em atraso"
           value={stats?.overdue}
           isLoading={statsLoading}
           valueClassName="text-red-600"
         />
         <StatsCard
-          icon={<CheckSquare className="h-4 w-4 text-emerald-500" />}
-          label="Concluídas hoje"
+          icon={<CheckSquare className="h-3.5 w-3.5 text-emerald-500" />}
+          label="Hoje"
           value={stats?.completed_today}
           isLoading={statsLoading}
         />
         <StatsCard
-          icon={<Zap className="h-4 w-4 text-orange-500" />}
+          icon={<Zap className="h-3.5 w-3.5 text-orange-500" />}
           label="Urgentes"
           value={stats?.urgent}
           isLoading={statsLoading}
@@ -129,6 +115,7 @@ export default function TarefasPage() {
       <TaskFilters
         filters={filters}
         onFiltersChange={setFilters}
+        onNewTask={() => { setFormDefaults(undefined); setShowForm(true) }}
         consultants={consultants}
         currentUserId={user?.id}
       />
@@ -156,10 +143,11 @@ export default function TarefasPage() {
             </p>
             <Button
               variant="outline"
-              className="mt-4 gap-2"
+              size="sm"
+              className="mt-4 gap-1.5"
               onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               Criar tarefa
             </Button>
           </div>
@@ -220,18 +208,14 @@ function StatsCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-          {icon}
-        </div>
-        <div>
-          {isLoading ? (
-            <Skeleton className="h-6 w-8" />
-          ) : (
-            <p className={`text-xl font-bold ${valueClassName || ''}`}>{value ?? 0}</p>
-          )}
-          <p className="text-xs text-muted-foreground">{label}</p>
-        </div>
+      <CardContent className="flex items-center gap-2 px-3 py-2">
+        {icon}
+        {isLoading ? (
+          <Skeleton className="h-5 w-5" />
+        ) : (
+          <span className={`text-base font-bold ${valueClassName || ''}`}>{value ?? 0}</span>
+        )}
+        <span className="text-[0.65rem] text-muted-foreground hidden sm:inline">{label}</span>
       </CardContent>
     </Card>
   )

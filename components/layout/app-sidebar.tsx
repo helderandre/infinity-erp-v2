@@ -70,6 +70,9 @@ export const crmItems = [
   { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
   { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
+]
+
+export const gestaoLeadsItems = [
   { title: 'Gestora de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
   { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
   { title: 'Campanhas', icon: Megaphone, href: '/dashboard/crm/campanhas', permission: 'pipeline' },
@@ -272,6 +275,7 @@ export function AppSidebar() {
 
       {/* ─── Content ─── */}
       <SidebarContent className="gap-0">
+        {/* 1. O Meu Espaço */}
         <CollapsibleGroup
           label="O Meu Espaço"
           icon={LayoutDashboard}
@@ -282,6 +286,7 @@ export function AppSidebar() {
           defaultOpenOverride={pathname === '/dashboard'}
         />
 
+        {/* 2. Comunicação */}
         <CollapsibleGroup
           label="Comunicação"
           icon={MessageCircle}
@@ -291,6 +296,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos']}
         />
 
+        {/* 3. CRM */}
         <CollapsibleGroup
           label="CRM"
           icon={ContactRound}
@@ -300,6 +306,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries', '/dashboard/acompanhamentos']}
         />
 
+        {/* 4. Negócio */}
         <CollapsibleGroup
           label="Negócio"
           icon={Briefcase}
@@ -309,6 +316,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos']}
         />
 
+        {/* 5. Pessoas */}
         <CollapsibleGroup
           label="Pessoas"
           icon={Users}
@@ -318,6 +326,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/consultores', '/dashboard/equipas', '/dashboard/formacoes']}
         />
 
+        {/* 6. Financeiro */}
         <CollapsibleGroup
           label="Financeiro"
           icon={Euro}
@@ -327,28 +336,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/comissoes']}
         />
 
-        {hasPermission('credit' as any) && (
-          <CollapsibleGroup
-            label="Crédito"
-            icon={Landmark}
-            items={creditoItems}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/credito']}
-          />
-        )}
-
-        {hasPermission('recruitment' as any) && (
-          <CollapsibleGroup
-            label="Recrutamento"
-            icon={UserPlus}
-            items={recrutamentoItems}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/recrutamento']}
-          />
-        )}
-
+        {/* 7. Infinity Store */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
             label="Infinity Store"
@@ -360,17 +348,7 @@ export function AppSidebar() {
           />
         )}
 
-        {hasPermission('marketing' as any) && (
-          <CollapsibleGroup
-            label="Digital"
-            icon={Megaphone}
-            items={digitalItems}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
-          />
-        )}
-
+        {/* 8. Automações */}
         {hasPermission('settings' as any) && (
           <CollapsibleGroup
             label="Automações"
@@ -382,6 +360,7 @@ export function AppSidebar() {
           />
         )}
 
+        {/* 9. Builder */}
         {hasPermission('settings' as any) && (
           <CollapsibleGroup
             label="Builder"
@@ -393,6 +372,41 @@ export function AppSidebar() {
           />
         )}
 
+        {/* 10. Recrutamento */}
+        {hasPermission('recruitment' as any) && (
+          <CollapsibleGroup
+            label="Recrutamento"
+            icon={UserPlus}
+            items={recrutamentoItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/recrutamento']}
+          />
+        )}
+
+        {/* 11. Gestão de Leads */}
+        <CollapsibleGroup
+          label="Gestão de Leads"
+          icon={Shield}
+          items={gestaoLeadsItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/crm/gestora', '/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/crm/regras', '/dashboard/crm/sla']}
+        />
+
+        {/* 12. Digital */}
+        {hasPermission('marketing' as any) && (
+          <CollapsibleGroup
+            label="Digital"
+            icon={Megaphone}
+            items={digitalItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
+          />
+        )}
+
+        {/* 13. Tech */}
         {hasPermission('settings' as any) && (
           <CollapsibleGroup
             label="Tech"
@@ -401,6 +415,18 @@ export function AppSidebar() {
             pathname={pathname}
             hasPermission={() => true}
             pathPrefixes={['/dashboard/tech']}
+          />
+        )}
+
+        {/* 14. Crédito */}
+        {hasPermission('credit' as any) && (
+          <CollapsibleGroup
+            label="Crédito"
+            icon={Landmark}
+            items={creditoItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/credito']}
           />
         )}
 

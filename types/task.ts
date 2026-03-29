@@ -33,6 +33,7 @@ export interface TaskWithRelations extends Task {
   sub_tasks?: Task[]
   _comment_count?: number
   _attachment_count?: number
+  _entity_label?: string
 }
 
 // ─── Task Comment ────────────────────────────────────────────

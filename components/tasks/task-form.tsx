@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, CalendarIcon, RotateCcw } from 'lucide-react'
+import { Loader2, CalendarIcon, RotateCcw, Search } from 'lucide-react'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -39,8 +39,38 @@ interface TaskFormProps {
   }
 }
 
+interface EntityOption {
+  id: string
+  label: string
+}
+
+const ENTITY_ENDPOINTS: Record<string, { url: string; mapFn: (item: any) => EntityOption }> = {
+  property: {
+    url: '/api/properties?limit=50',
+    mapFn: (p) => ({ id: p.id, label: p.title || p.slug || p.id }),
+  },
+  lead: {
+    url: '/api/leads?limit=50',
+    mapFn: (l) => ({ id: l.id, label: l.nome || l.email || l.id }),
+  },
+  process: {
+    url: '/api/processes?limit=50',
+    mapFn: (p) => ({ id: p.id, label: p.external_ref || p.id }),
+  },
+  owner: {
+    url: '/api/proprietarios?limit=50',
+    mapFn: (o) => ({ id: o.id, label: o.name || o.nome || o.id }),
+  },
+  negocio: {
+    url: '/api/negocios?limit=50',
+    mapFn: (n) => ({ id: n.id, label: n.tipo ? `${n.tipo} — ${n.localizacao || n.id}` : n.id }),
+  },
+}
+
 export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultValues }: TaskFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
+  const [isLoadingEntities, setIsLoadingEntities] = useState(false)
   const { createTask } = useTaskMutations()
 
   const form = useForm<FormData>({
@@ -58,6 +88,34 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
   })
 
   const isRecurring = form.watch('is_recurring')
+  const selectedEntityType = form.watch('entity_type')
+
+  // Fetch entity options when type changes
+  const fetchEntities = useCallback(async (type: string) => {
+    const config = ENTITY_ENDPOINTS[type]
+    if (!config) { setEntityOptions([]); return }
+
+    setIsLoadingEntities(true)
+    try {
+      const res = await fetch(config.url)
+      if (!res.ok) throw new Error()
+      const json = await res.json()
+      const items = json.data || json || []
+      setEntityOptions(items.map(config.mapFn))
+    } catch {
+      setEntityOptions([])
+    } finally {
+      setIsLoadingEntities(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedEntityType) {
+      fetchEntities(selectedEntityType)
+    } else {
+      setEntityOptions([])
+    }
+  }, [selectedEntityType, fetchEntities])
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
@@ -272,7 +330,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
 
             {/* Entity link (if not pre-set) */}
             {!defaultValues?.entity_type && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="entity_type"
@@ -283,7 +341,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                         value={field.value || '_none'}
                         onValueChange={(v) => {
                           field.onChange(v === '_none' ? null : v)
-                          if (v === '_none') form.setValue('entity_id', null)
+                          form.setValue('entity_id', null)
                         }}
                       >
                         <FormControl>
@@ -303,20 +361,36 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                   )}
                 />
 
-                {form.watch('entity_type') && (
+                {selectedEntityType && (
                   <FormField
                     control={form.control}
                     name="entity_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>ID da entidade</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="UUID da entidade"
-                            {...field}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
+                        <FormLabel>
+                          {TASK_ENTITY_LABELS[selectedEntityType as TaskEntityType]}
+                        </FormLabel>
+                        <Select
+                          value={field.value || '_none'}
+                          onValueChange={(v) => field.onChange(v === '_none' ? null : v)}
+                          disabled={isLoadingEntities}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={
+                                isLoadingEntities ? 'A carregar...' : 'Seleccionar...'
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="_none">Nenhum</SelectItem>
+                            {entityOptions.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
