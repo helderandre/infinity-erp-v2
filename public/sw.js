@@ -81,13 +81,14 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Focus existing tab if open
+      // Find an existing app tab and navigate it to the target URL
       for (const client of windowClients) {
-        if (client.url.includes(url) && 'focus' in client) {
+        if (client.url.includes('/dashboard') && 'focus' in client) {
+          client.navigate(url)
           return client.focus()
         }
       }
-      // Otherwise open new tab
+      // Otherwise open new tab/window
       return clients.openWindow(url)
     })
   )
