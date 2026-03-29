@@ -43,6 +43,7 @@ export default function RootLayout({
     <html lang="pt" className={dmSans.variable} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#09090b" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body
