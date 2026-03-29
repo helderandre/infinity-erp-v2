@@ -7,9 +7,7 @@ export function SplashScreen() {
   const [fadeOut, setFadeOut] = useState(false)
 
   useEffect(() => {
-    // Start fade-out after 1.8s
     const fadeTimer = setTimeout(() => setFadeOut(true), 1800)
-    // Remove from DOM after fade completes
     const removeTimer = setTimeout(() => setVisible(false), 2400)
     return () => {
       clearTimeout(fadeTimer)
@@ -25,24 +23,33 @@ export function SplashScreen() {
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Animated infinity symbol */}
       <svg
-        viewBox="0 0 200 100"
-        className="w-32 h-16 sm:w-40 sm:h-20"
-        fill="none"
+        height={80}
+        preserveAspectRatio="xMidYMid"
+        viewBox="0 0 100 100"
+        width={80}
         xmlns="http://www.w3.org/2000/svg"
+        className="sm:w-[100px] sm:h-[100px]"
       >
         <path
-          d="M100 50 C100 25, 65 10, 45 25 C25 40, 25 60, 45 75 C65 90, 100 75, 100 50 C100 25, 135 10, 155 25 C175 40, 175 60, 155 75 C135 90, 100 75, 100 50Z"
+          d="M24.3 30C11.4 30 5 43.3 5 50s6.4 20 19.3 20c19.3 0 32.1-40 51.4-40 C88.6 30 95 43.3 95 50s-6.4 20-19.3 20C56.4 70 43.6 30 24.3 30z"
+          fill="none"
           stroke="white"
-          strokeWidth="4"
+          strokeDasharray="205.271142578125 51.317785644531256"
           strokeLinecap="round"
-          strokeLinejoin="round"
-          className="infinity-path"
-        />
+          strokeWidth="6"
+          style={{ transform: 'scale(0.8)', transformOrigin: '50px 50px' }}
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            dur="2s"
+            keyTimes="0;1"
+            repeatCount="indefinite"
+            values="0;256.58892822265625"
+          />
+        </path>
       </svg>
 
-      {/* Text */}
       <div className="mt-6 text-center splash-text">
         <p className="text-white text-xl sm:text-2xl font-light tracking-[0.2em]">
           infinity group
@@ -50,35 +57,13 @@ export function SplashScreen() {
       </div>
 
       <style jsx>{`
-        .infinity-path {
-          stroke-dasharray: 520;
-          stroke-dashoffset: 520;
-          animation: draw-infinity 1.6s ease-in-out forwards;
-        }
-
         .splash-text {
           opacity: 0;
-          animation: fade-in-text 0.8s ease-out 1s forwards;
+          animation: fade-in-text 0.8s ease-out 0.6s forwards;
         }
-
-        @keyframes draw-infinity {
-          0% {
-            stroke-dashoffset: 520;
-          }
-          100% {
-            stroke-dashoffset: 0;
-          }
-        }
-
         @keyframes fade-in-text {
-          0% {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          0% { opacity: 0; transform: translateY(8px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

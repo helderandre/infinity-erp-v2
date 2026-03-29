@@ -1,35 +1,32 @@
 export default function DashboardLoading() {
   return (
     <div className="flex flex-1 items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <svg
-          viewBox="0 0 200 100"
-          className="w-24 h-12 opacity-40"
+      <svg
+        height={48}
+        preserveAspectRatio="xMidYMid"
+        viewBox="0 0 100 100"
+        width={48}
+        xmlns="http://www.w3.org/2000/svg"
+        className="text-muted-foreground opacity-40"
+      >
+        <path
+          d="M24.3 30C11.4 30 5 43.3 5 50s6.4 20 19.3 20c19.3 0 32.1-40 51.4-40 C88.6 30 95 43.3 95 50s-6.4 20-19.3 20C56.4 70 43.6 30 24.3 30z"
           fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+          stroke="currentColor"
+          strokeDasharray="205.271142578125 51.317785644531256"
+          strokeLinecap="round"
+          strokeWidth="8"
+          style={{ transform: 'scale(0.8)', transformOrigin: '50px 50px' }}
         >
-          <path
-            d="M100 50 C100 25, 65 10, 45 25 C25 40, 25 60, 45 75 C65 90, 100 75, 100 50 C100 25, 135 10, 155 25 C175 40, 175 60, 155 75 C135 90, 100 75, 100 50Z"
-            stroke="currentColor"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-muted-foreground"
-            style={{
-              strokeDasharray: 520,
-              strokeDashoffset: 520,
-              animation: 'draw-loop 1.4s ease-in-out infinite',
-            }}
+          <animate
+            attributeName="stroke-dashoffset"
+            dur="2s"
+            keyTimes="0;1"
+            repeatCount="indefinite"
+            values="0;256.58892822265625"
           />
-        </svg>
-        <style>{`
-          @keyframes draw-loop {
-            0% { stroke-dashoffset: 520; }
-            50% { stroke-dashoffset: 0; }
-            100% { stroke-dashoffset: -520; }
-          }
-        `}</style>
-      </div>
+        </path>
+      </svg>
     </div>
   )
 }
