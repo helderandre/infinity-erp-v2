@@ -27,6 +27,8 @@ export type NotificationEntityType =
   | 'proc_task'
   | 'proc_task_comment'
   | 'proc_chat_message'
+  | 'task'
+  | 'task_comment'
 
 export interface CreateNotificationParams {
   recipientId: string

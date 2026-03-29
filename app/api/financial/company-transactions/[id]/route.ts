@@ -51,6 +51,14 @@ export async function PUT(
     }
 
     const supabase = await createClient()
+
+    // Fetch current data for audit trail
+    const { data: oldData } = await supabase
+      .from('company_transactions' as any)
+      .select('*')
+      .eq('id', id)
+      .single()
+
     const { data, error } = await supabase
       .from('company_transactions' as any)
       .update(input)
@@ -59,6 +67,22 @@ export async function PUT(
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Log audit trail for confirmed/paid transactions
+    const old = oldData as any
+    if (old && (old.status === 'confirmed' || old.status === 'paid')) {
+      const action = input.status && input.status !== old.status ? 'status_change' : 'update'
+      await supabase
+        .from('company_transaction_audit' as any)
+        .insert({
+          transaction_id: id,
+          user_id: auth.user.id,
+          action,
+          old_data: oldData,
+          new_data: data,
+        })
+    }
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('Erro ao actualizar transacção:', error)
@@ -77,6 +101,13 @@ export async function DELETE(
     const { id } = await params
     const supabase = await createClient()
 
+    // Fetch current data for audit trail
+    const { data: oldData } = await supabase
+      .from('company_transactions' as any)
+      .select('*')
+      .eq('id', id)
+      .single()
+
     // Soft delete: set status to cancelled
     const { error } = await supabase
       .from('company_transactions' as any)
@@ -84,6 +115,20 @@ export async function DELETE(
       .eq('id', id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Log audit trail
+    if (oldData) {
+      await supabase
+        .from('company_transaction_audit' as any)
+        .insert({
+          transaction_id: id,
+          user_id: auth.user.id,
+          action: 'cancel',
+          old_data: oldData,
+          new_data: { status: 'cancelled' },
+        })
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erro ao eliminar transacção:', error)

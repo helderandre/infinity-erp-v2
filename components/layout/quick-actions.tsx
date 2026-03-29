@@ -1,34 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus,
   Users,
-  FileText,
-  Mail,
   Zap,
   Handshake,
-  MessageCircle,
+  CheckSquare,
+  Bug,
+  Lightbulb,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
+import { TaskForm } from '@/components/tasks/task-form'
+import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
 
 export function QuickActions() {
   const router = useRouter()
   const [acquisitionOpen, setAcquisitionOpen] = useState(false)
   const [fechoOpen, setFechoOpen] = useState(false)
+  const [taskOpen, setTaskOpen] = useState(false)
+  const [ticketOpen, setTicketOpen] = useState(false)
+  const [ideiaOpen, setIdeiaOpen] = useState(false)
+  const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
+
+  useEffect(() => {
+    fetch('/api/users/consultants')
+      .then((res) => res.json())
+      .then((data) => setConsultants(data.data || data || []))
+      .catch(() => {})
+  }, [])
 
   return (
     <>
@@ -53,26 +63,19 @@ export function QuickActions() {
             Novo Fecho
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <FileText className="mr-2 h-4 w-4" />
-              Novo Template
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/templates/documentos/novo')}>
-                <FileText className="mr-2 h-4 w-4" />
-                Documentos
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/templates/emails/novo')}>
-                <Mail className="mr-2 h-4 w-4" />
-                Email
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/automacao/templates-wpp/editor')}>
-                <MessageCircle className="mr-2 h-4 w-4" />
-                WhatsApp
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          <DropdownMenuItem onClick={() => setTaskOpen(true)}>
+            <CheckSquare className="mr-2 h-4 w-4" />
+            Nova Tarefa
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setTicketOpen(true)}>
+            <Bug className="mr-2 h-4 w-4" />
+            Reportar Problema
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIdeiaOpen(true)}>
+            <Lightbulb className="mr-2 h-4 w-4" />
+            Sugerir Ideia
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -92,6 +95,25 @@ export function QuickActions() {
           setFechoOpen(false)
           router.push(`/dashboard/fechos/${dealId}`)
         }}
+      />
+
+      <TaskForm
+        open={taskOpen}
+        onOpenChange={setTaskOpen}
+        onSuccess={() => setTaskOpen(false)}
+        consultants={consultants}
+      />
+
+      <FeedbackDialog
+        type="ticket"
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+      />
+
+      <FeedbackDialog
+        type="ideia"
+        open={ideiaOpen}
+        onOpenChange={setIdeiaOpen}
       />
     </>
   )

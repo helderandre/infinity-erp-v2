@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 1000,
+      max_tokens: 1500,
       messages: [
         {
           role: 'system',
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 - description: Descricao dos servicos/produtos
 - category: Categoria sugerida (uma de: Rendas, Software & Subscricoes, Salarios, Portais Imobiliarios, Ofertas Consultores, Material Fisico, Servicos Profissionais, Outros)
 - confidence: Confianca geral na extraccao de 0.0 a 1.0
+- field_confidences: Objecto com confianca por campo (0.0 a 1.0) para cada campo extraido. Exemplo: { "entity_name": 0.95, "entity_nif": 0.9, "amount_net": 0.85, "amount_gross": 0.85, "vat_amount": 0.8, "vat_pct": 0.9, "invoice_number": 0.7, "invoice_date": 0.95, "description": 0.6 }. Se o campo for null, a confianca deve ser 0.0.
 
 Se nao conseguires ler um campo, coloca null. Responde apenas com o objecto JSON.`,
             },

@@ -367,6 +367,8 @@ export interface CompanyTransaction {
   receipt_file_name: string | null
   ai_extracted: boolean
   ai_confidence: number | null
+  field_confidences: FieldConfidences | null
+  partner_id: string | null
   reference_type: string | null
   reference_id: string | null
   status: CompanyTransactionStatus
@@ -394,6 +396,19 @@ export interface CompanyRecurringTemplate {
   updated_at: string
 }
 
+export interface FieldConfidences {
+  entity_name?: number
+  entity_nif?: number
+  amount_net?: number
+  amount_gross?: number
+  vat_amount?: number
+  vat_pct?: number
+  invoice_number?: number
+  invoice_date?: number
+  description?: number
+  [key: string]: number | undefined
+}
+
 export interface ReceiptScanResult {
   entity_name: string | null
   entity_nif: string | null
@@ -406,6 +421,7 @@ export interface ReceiptScanResult {
   description: string | null
   category: string | null
   confidence: number
+  field_confidences?: FieldConfidences
 }
 
 export interface DealReferral {

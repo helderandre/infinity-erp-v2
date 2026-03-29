@@ -25,6 +25,8 @@ export const companyTransactionSchema = z.object({
   receipt_file_name: z.string().optional(),
   ai_extracted: z.boolean().optional(),
   ai_confidence: z.number().min(0).max(1).optional(),
+  field_confidences: z.record(z.string(), z.number().min(0).max(1)).optional(),
+  partner_id: z.string().uuid().optional().nullable(),
   reference_type: z.string().optional(),
   reference_id: z.string().optional(),
   status: z.enum(['draft', 'confirmed', 'paid', 'cancelled']).optional(),

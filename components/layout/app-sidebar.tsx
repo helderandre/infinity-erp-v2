@@ -10,6 +10,7 @@ import {
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck, Shield,
+  CheckSquare, Cpu, Infinity,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -39,6 +40,7 @@ import { cn } from '@/lib/utils'
 
 export const meuEspacoItems = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: 'dashboard' },
+  { title: 'Tarefas', icon: CheckSquare, href: '/dashboard/tarefas', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
   { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
@@ -125,6 +127,10 @@ export const builderItems = [
   { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates' },
   { title: 'Template de Documentos', icon: FileCode2, href: '/dashboard/templates-documentos' },
   { title: 'Variáveis de Template', icon: Braces, href: '/dashboard/templates-variaveis' },
+]
+
+export const techItems = [
+  { title: 'Pipeline', icon: Cpu, href: '/dashboard/tech' },
 ]
 
 export const menuItems = [
@@ -250,7 +256,7 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild className="rounded-xl">
               <Link href="/dashboard">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <Building2 className="size-4" />
+                  <Infinity className="size-5" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-bold text-sm">Infinity</span>
@@ -384,6 +390,17 @@ export function AppSidebar() {
             pathname={pathname}
             hasPermission={() => true}
             pathPrefixes={['/dashboard/templates-email', '/dashboard/processos/templates', '/dashboard/templates-documentos', '/dashboard/templates-variaveis']}
+          />
+        )}
+
+        {hasPermission('settings' as any) && (
+          <CollapsibleGroup
+            label="Tech"
+            icon={Cpu}
+            items={techItems}
+            pathname={pathname}
+            hasPermission={() => true}
+            pathPrefixes={['/dashboard/tech']}
           />
         )}
 

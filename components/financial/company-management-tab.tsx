@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Camera, RefreshCw,
   TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight,
+  FileImage,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,6 +27,12 @@ import {
 import { ReceiptScanner } from '@/components/financial/receipt-scanner'
 import type { CompanyTransaction, CompanyCategory, ReceiptScanResult } from '@/types/financial'
 import { COMPANY_TRANSACTION_STATUSES } from '@/types/financial'
+
+interface PartnerOption {
+  id: string
+  name: string
+  nif: string | null
+}
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
@@ -50,10 +57,14 @@ export function CompanyManagementTab() {
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
 
+  // Partners
+  const [partners, setPartners] = useState<PartnerOption[]>([])
+
   // Dialogs
   const [addOpen, setAddOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
   // Add form
   const [form, setForm] = useState({
@@ -69,6 +80,7 @@ export function CompanyManagementTab() {
     invoice_date: '',
     due_date: '',
     payment_method: '',
+    partner_id: '',
     notes: '',
   })
 
@@ -76,6 +88,14 @@ export function CompanyManagementTab() {
     fetch('/api/financial/company-categories')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setCategories(data) })
+      .catch(() => {})
+
+    fetch('/api/partners?is_active=true&limit=200')
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.data || data || []
+        if (Array.isArray(list)) setPartners(list.map((p: any) => ({ id: p.id, name: p.name, nif: p.nif })))
+      })
       .catch(() => {})
   }, [])
 
@@ -113,13 +133,15 @@ export function CompanyManagementTab() {
     try {
       const amountNet = parseFloat(form.amount_net)
       const vatPct = parseFloat(form.vat_pct) || 0
+      const { partner_id, ...formRest } = form
       const res = await fetch('/api/financial/company-transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
+          ...formRest,
           amount_net: amountNet,
           vat_pct: vatPct,
+          partner_id: partner_id || null,
           status: 'confirmed',
         }),
       })
@@ -132,8 +154,26 @@ export function CompanyManagementTab() {
     }
   }
 
-  const handleScanConfirm = async (data: ReceiptScanResult & { category: string }) => {
+  const handleScanConfirm = async (data: ReceiptScanResult & { category: string; receiptImageBase64: string | null }) => {
     try {
+      // Duplicate detection: check if invoice_number + entity_nif already exists
+      if (data.invoice_number && data.entity_nif) {
+        const checkParams = new URLSearchParams({ month: String(month), year: String(year) })
+        const checkRes = await fetch(`/api/financial/company-transactions?${checkParams}`)
+        if (checkRes.ok) {
+          const existing = await checkRes.json()
+          const duplicate = (existing.data || []).find(
+            (tx: CompanyTransaction) =>
+              tx.invoice_number === data.invoice_number &&
+              tx.entity_nif === data.entity_nif &&
+              tx.status !== 'cancelled'
+          )
+          if (duplicate) {
+            toast.warning(`Possivel duplicado: ja existe uma transaccao com a fatura ${data.invoice_number} de ${data.entity_nif}`)
+          }
+        }
+      }
+
       const res = await fetch('/api/financial/company-transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,13 +190,15 @@ export function CompanyManagementTab() {
           vat_pct: data.vat_pct,
           invoice_number: data.invoice_number,
           invoice_date: data.invoice_date,
+          receipt_url: data.receiptImageBase64,
           ai_extracted: true,
           ai_confidence: data.confidence,
+          field_confidences: data.field_confidences,
           status: 'draft',
         }),
       })
       if (!res.ok) throw new Error()
-      toast.success('Despesa adicionada (rascunho)')
+      toast.success('Despesa adicionada (rascunho) — recibo guardado')
       loadData()
     } catch {
       toast.error('Erro ao guardar despesa')
@@ -284,7 +326,19 @@ export function CompanyManagementTab() {
                     <TableRow key={tx.id} className="transition-colors duration-200 hover:bg-muted/30">
                       <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
                       <TableCell className="text-sm">
-                        <div>{tx.entity_name || '-'}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span>{tx.entity_name || '-'}</span>
+                          {tx.receipt_url && tx.receipt_url.startsWith('data:') && (
+                            <button
+                              type="button"
+                              onClick={() => setReceiptPreview(tx.receipt_url)}
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                              title="Ver recibo"
+                            >
+                              <FileImage className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                         {tx.ai_extracted && <Badge className="bg-purple-500/10 text-purple-600 text-[8px] border-0 mt-0.5">IA</Badge>}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{tx.due_date ? fmtDate(tx.due_date) : '-'}</TableCell>
@@ -312,6 +366,7 @@ export function CompanyManagementTab() {
       {/* Add Transaction Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md rounded-2xl">
+          <DialogTitle className="sr-only">Nova Transaccao</DialogTitle>
           <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
@@ -347,6 +402,28 @@ export function CompanyManagementTab() {
                 <SelectContent>
                   {categories.filter((c) => c.type === form.type || c.type === 'both').map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] uppercase tracking-wider">Parceiro</Label>
+              <Select
+                value={form.partner_id}
+                onValueChange={(v) => {
+                  const partner = partners.find((p) => p.id === v)
+                  setForm({
+                    ...form,
+                    partner_id: v,
+                    entity_name: partner?.name || form.entity_name,
+                    entity_nif: partner?.nif || form.entity_nif,
+                  })
+                }}
+              >
+                <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Seleccionar parceiro (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {partners.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}{p.nif ? ` (${p.nif})` : ''}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -394,6 +471,23 @@ export function CompanyManagementTab() {
         categories={categories}
         onConfirm={handleScanConfirm}
       />
+
+      {/* Receipt Preview Dialog */}
+      <Dialog open={!!receiptPreview} onOpenChange={(v) => { if (!v) setReceiptPreview(null) }}>
+        <DialogContent className="max-w-lg rounded-2xl p-2">
+          <DialogTitle className="sr-only">Recibo Guardado</DialogTitle>
+          <div className="-mx-6 -mt-6 mb-2 bg-neutral-900 rounded-t-2xl px-6 py-4">
+            <h3 className="text-white font-semibold text-sm">Recibo Guardado</h3>
+          </div>
+          {receiptPreview && (
+            <img
+              src={receiptPreview}
+              alt="Recibo"
+              className="w-full max-h-[70vh] object-contain rounded-xl"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
