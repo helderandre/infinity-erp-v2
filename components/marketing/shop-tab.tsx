@@ -328,8 +328,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
         {/* ═══════════ TAB: IMÓVEL ═══════════ */}
         {shopSection === 'imovel' && <section>
           <div
-            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300"
-            style={{ height: 'calc(100vh - 7rem)' }}
+            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300 shop-viewport"
             onClick={() => setShowPropertyDialog(true)}
           >
             <img
@@ -341,25 +340,27 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
 
             {/* Tab pills overlaid on image */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              {headerAction}
-              <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-                {([
-                  { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
-                  { key: 'services' as const, label: 'Serviços', icon: Camera },
-                  { key: 'materials' as const, label: 'Produtos', icon: Package },
-                  { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
-                ]).map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = shopSection === tab.key
-                  return (
-                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
-                      <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
-                    </button>
-                  )
-                })}
+            <div className="absolute top-4 left-4 right-4 z-20" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                {headerAction}
+                <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg shrink-0">
+                  {([
+                    { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                    { key: 'services' as const, label: 'Serviços', icon: Camera },
+                    { key: 'materials' as const, label: 'Produtos', icon: Package },
+                    { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+                  ]).map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = shopSection === tab.key
+                    return (
+                      <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                        <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <span className="sm:hidden flex-1 text-center py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm truncate">{SHOP_SECTION_LABELS[shopSection]}</span>
               </div>
-              <span className="sm:hidden px-3 py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm">{SHOP_SECTION_LABELS[shopSection]}</span>
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
@@ -382,7 +383,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
 
         {/* ═══════════ TAB: SERVIÇOS ═══════════ */}
         {shopSection === 'services' && <section>
-          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col shop-viewport">
             {/* Header — pills + filters */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
               {headerAction}
@@ -402,7 +403,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                   )
                 })}
               </div>
-              <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">{SHOP_SECTION_LABELS[shopSection]}</span>
+              <span className="sm:hidden flex-1 text-center py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold truncate">{SHOP_SECTION_LABELS[shopSection]}</span>
               <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -600,7 +601,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
 
         {/* ═══════════ TAB: PRODUTOS ═══════════ */}
         {shopSection === 'materials' && <section>
-          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col shop-viewport">
             {/* Header — pills + filters */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
             {/* Tab pills inline with filters */}
@@ -621,7 +622,9 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                 )
               })}
             </div>
-            <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">{SHOP_SECTION_LABELS[shopSection]}</span>
+            <div className="sm:hidden flex-1 min-w-0">
+              <div className="w-full text-center px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">{SHOP_SECTION_LABELS[shopSection]}</div>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -714,8 +717,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
         {/* ═══════════ TAB: CAMPANHAS ═══════════ */}
         {shopSection === 'campanhas' && <section>
           <div
-            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300"
-            style={{ height: 'calc(100vh - 7rem)' }}
+            className="relative rounded-2xl overflow-hidden cursor-pointer group hover:shadow-2xl transition-all duration-300 shop-viewport"
             onClick={() => setShowCampaignDialog(true)}
           >
             <img
@@ -727,25 +729,27 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-neutral-900/20" />
 
             {/* Tab pills overlaid on image */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              {headerAction}
-              <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg overflow-x-auto scrollbar-hide w-fit max-w-[calc(100vw-4rem)]">
-                {([
-                  { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
-                  { key: 'services' as const, label: 'Serviços', icon: Camera },
-                  { key: 'materials' as const, label: 'Produtos', icon: Package },
-                  { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
-                ]).map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = shopSection === tab.key
-                  return (
-                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
-                      <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
-                    </button>
-                  )
-                })}
+            <div className="absolute top-4 left-4 right-4 z-20" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                {headerAction}
+                <div className="flex items-center gap-1 p-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 shadow-lg shrink-0">
+                  {([
+                    { key: 'imovel' as const, label: 'Imóvel', icon: Building2 },
+                    { key: 'services' as const, label: 'Serviços', icon: Camera },
+                    { key: 'materials' as const, label: 'Produtos', icon: Package },
+                    { key: 'campanhas' as const, label: 'Campanhas', icon: Megaphone },
+                  ]).map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = shopSection === tab.key
+                    return (
+                      <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                        <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <span className="sm:hidden flex-1 text-center py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm truncate">{SHOP_SECTION_LABELS[shopSection]}</span>
               </div>
-              <span className="sm:hidden px-3 py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm">{SHOP_SECTION_LABELS[shopSection]}</span>
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">

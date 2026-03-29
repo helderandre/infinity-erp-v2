@@ -116,7 +116,7 @@ export default function MarketingLojaPage() {
       {/* ═══════════ ORDERS VIEW ═══════════ */}
       {view === 'orders' && (
         <div className="animate-in fade-in duration-400">
-          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 7rem)' }}>
+          <div className="rounded-2xl border shadow-lg bg-card overflow-hidden flex flex-col shop-viewport">
             {/* Header — toggle + tabs */}
             <div className="flex items-center gap-2 p-4 border-b flex-wrap shrink-0">
               <button
@@ -146,7 +146,7 @@ export default function MarketingLojaPage() {
                   )
                 })}
               </div>
-              <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">
+              <span className="sm:hidden flex-1 text-center py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold truncate">
                 {ORDERS_TABS.find(t => t.key === ordersTab)?.label}
               </span>
             </div>

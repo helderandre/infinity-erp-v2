@@ -139,6 +139,13 @@
   }
 }
 
+@utility shop-viewport {
+  height: calc(100dvh - 4.5rem);
+  @media (max-width: 639px) {
+    height: calc(100dvh - 8.5rem);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
