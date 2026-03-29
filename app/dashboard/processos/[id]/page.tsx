@@ -762,11 +762,11 @@ export default function ProcessoDetailPage() {
           <Skeleton className="h-8 w-8" />
           <Skeleton className="h-6 w-48" />
         </div>
-        <div className="flex flex-1 min-h-0">
-          <div className="w-52 shrink-0 border-r p-4 space-y-2">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0">
+          <div className="hidden md:block w-52 shrink-0 border-r p-4 space-y-2">
             {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
           </div>
-          <div className="flex-1 p-6 space-y-4">
+          <div className="flex-1 p-4 md:p-6 space-y-4">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
@@ -837,7 +837,7 @@ export default function ProcessoDetailPage() {
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white text-xs font-medium hover:bg-white/20 transition-all disabled:opacity-50"
                 >
                   {isActionLoading ? <Spinner variant="infinite" size={14} /> : <Pause className="h-3.5 w-3.5" />}
-                  Pausar
+                  <span className="hidden sm:inline">Pausar</span>
                 </button>
               )}
               {instance.current_status === 'on_hold' && (
@@ -847,7 +847,7 @@ export default function ProcessoDetailPage() {
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white text-xs font-medium hover:bg-white/20 transition-all disabled:opacity-50"
                 >
                   {isActionLoading ? <Spinner variant="infinite" size={14} /> : <Play className="h-3.5 w-3.5" />}
-                  Retomar
+                  <span className="hidden sm:inline">Retomar</span>
                 </button>
               )}
               <DropdownMenu>
@@ -922,7 +922,7 @@ export default function ProcessoDetailPage() {
       </div>
 
       {/* Sidebar + Content */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0">
         <PageSidebar
           items={sidebarItems.map((item) => ({
             ...item,

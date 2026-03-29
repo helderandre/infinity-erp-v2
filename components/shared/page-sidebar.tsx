@@ -60,84 +60,129 @@ export function PageSidebar({
   className,
 }: PageSidebarProps) {
   return (
-    <Sidebar
-      collapsible="none"
-      className={cn(
-        'w-52 shrink-0 border-r bg-sidebar/50 h-full rounded-bl-xl overflow-hidden',
-        className
-      )}
-    >
-      <SidebarContent className="py-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => {
-                const hasSubItems = item.subItems && item.subItems.length > 0
-                if (hasSubItems) {
-                  return (
-                    <CollapsibleSidebarItem
-                      key={item.key}
-                      item={item}
-                      activeKey={activeKey}
-                      onSelect={onSelect}
-                    />
-                  )
-                }
+    <>
+      {/* Mobile: horizontal scrollable tabs */}
+      <div className={cn("md:hidden border-b overflow-x-auto scrollbar-none", className)}>
+        <div className="flex items-center gap-1 px-3 py-2 min-w-max">
+          {items.map((item) => {
+            const Icon = item.icon
+            const isActive = activeKey === item.key ||
+              item.subItems?.some(sub => activeKey === sub.key)
+            const isDisabled = item.disabled === true
+            return (
+              <button
+                key={item.key}
+                onClick={() => !isDisabled && onSelect(item.key)}
+                disabled={isDisabled}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0',
+                  isActive
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:bg-muted/50',
+                  isDisabled && 'opacity-40 cursor-not-allowed',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </button>
+            )
+          })}
+          {actions?.map((action) => {
+            const Icon = action.icon
+            return (
+              <button
+                key={action.key}
+                onClick={action.onClick}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:bg-muted/50 shrink-0"
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {action.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
-                const Icon = item.icon
-                const isActive = activeKey === item.key
-                const isDisabled = item.disabled === true
-                return (
-                  <SidebarMenuItem key={item.key}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => !isDisabled && onSelect(item.key)}
-                      className={cn(
-                        isDisabled
-                          ? 'cursor-not-allowed opacity-40'
-                          : 'cursor-pointer',
-                        isActive && item.bg && item.text && `${item.bg} ${item.text} hover:${item.bg}`
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {actions && actions.length > 0 && (
-          <>
-            <SidebarSeparator className="mx-0" />
-
-            <SidebarGroup>
-              <SidebarGroupLabel>{actionsLabel}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {actions.map((action) => {
-                    const Icon = action.icon
-                    return (
-                      <SidebarMenuItem key={action.key}>
-                        <SidebarMenuButton
-                          onClick={action.onClick}
-                          className="cursor-pointer"
-                        >
-                          <Icon className="h-4 w-4" />
-                          <span>{action.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
+      {/* Desktop: vertical sidebar */}
+      <Sidebar
+        collapsible="none"
+        className={cn(
+          'hidden md:flex w-52 shrink-0 border-r bg-sidebar/50 h-full rounded-bl-xl overflow-hidden',
+          className
         )}
-      </SidebarContent>
-    </Sidebar>
+      >
+        <SidebarContent className="py-2">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => {
+                  const hasSubItems = item.subItems && item.subItems.length > 0
+                  if (hasSubItems) {
+                    return (
+                      <CollapsibleSidebarItem
+                        key={item.key}
+                        item={item}
+                        activeKey={activeKey}
+                        onSelect={onSelect}
+                      />
+                    )
+                  }
+
+                  const Icon = item.icon
+                  const isActive = activeKey === item.key
+                  const isDisabled = item.disabled === true
+                  return (
+                    <SidebarMenuItem key={item.key}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => !isDisabled && onSelect(item.key)}
+                        className={cn(
+                          isDisabled
+                            ? 'cursor-not-allowed opacity-40'
+                            : 'cursor-pointer',
+                          isActive && item.bg && item.text && `${item.bg} ${item.text} hover:${item.bg}`
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {actions && actions.length > 0 && (
+            <>
+              <SidebarSeparator className="mx-0" />
+
+              <SidebarGroup>
+                <SidebarGroupLabel>{actionsLabel}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {actions.map((action) => {
+                      const Icon = action.icon
+                      return (
+                        <SidebarMenuItem key={action.key}>
+                          <SidebarMenuButton
+                            onClick={action.onClick}
+                            className="cursor-pointer"
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{action.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
+        </SidebarContent>
+      </Sidebar>
+    </>
   )
 }
 
