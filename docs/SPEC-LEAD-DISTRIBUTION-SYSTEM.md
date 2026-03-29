@@ -418,13 +418,17 @@ Os cron endpoints são API routes normais protegidas por `CRON_SECRET`. Precisam
 
 **Opção A — Coolify Scheduled Tasks (recomendado):**
 
-No painel do Coolify, ir a Settings → Scheduled Tasks e adicionar:
+No painel do Coolify, ir a Scheduled Tasks e adicionar:
+
+**IMPORTANTE:** Usar `wget` em vez de `curl` — a imagem Docker Alpine não inclui `curl`.
 
 ```
-*/5 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/sync-meta-leads
-*/5 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/check-sla
-0 6 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/sync-campaign-metrics
+wget -qO- --header="Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/check-sla
+wget -qO- --header="Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/sync-meta-leads
+wget -qO- --header="Authorization: Bearer $CRON_SECRET" https://<APP_URL>/api/cron/sync-campaign-metrics
 ```
+
+Frequências: `*/5 * * * *` para check-sla e sync-meta-leads, `0 6 * * *` para campaign-metrics.
 
 **Opção B — Crontab do servidor:**
 
@@ -533,6 +537,17 @@ Utilizador aceita notificações → browser gera PushSubscription
 | `components/notifications/push-banner.tsx` | Banner dismissível "Active notificações" |
 | `lib/crm/send-push.ts` | Envia push via web-push library |
 | `app/api/push/subscribe/route.ts` | POST save / DELETE remove subscription |
+
+### Integração no Layout
+
+O `PushBanner` é renderizado no `app/dashboard/layout.tsx` via `next/dynamic` (SSR-safe). Aparece no topo de todas as páginas do dashboard, uma única vez (dismissível via localStorage).
+
+### Endpoints de Teste
+
+| Rota | Descrição |
+|------|-----------|
+| `POST /api/push/test` | Envia push de teste imediato ao utilizador autenticado |
+| `POST /api/push/test-sla` | Cria entrada com SLA curto (body: `{ "minutes": 2 }`, default 2min) |
 
 ### Variáveis de Ambiente
 

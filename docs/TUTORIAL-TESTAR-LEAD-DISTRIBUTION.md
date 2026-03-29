@@ -397,27 +397,61 @@ VAPID_PRIVATE_KEY=dGh...
 
 ### 12.2 Activar notificações
 
-1. Abrir o ERP no browser
-2. **Verificar:** banner "Active notificações" aparece no topo (se `PushBanner` integrado no layout)
+1. Abrir o ERP no browser (produção — push requer HTTPS)
+2. **Verificar:** banner azul "Active notificações" aparece no topo do dashboard
 3. Clicar **"Activar"**
 4. Browser pede permissão → aceitar
 5. **Verificar:** subscription guardada em `push_subscriptions` (verificar no Supabase)
 
-### 12.3 Receber push
+### 12.3 Teste imediato de push
 
-1. Forçar um SLA check:
-   ```bash
-   curl http://localhost:3000/api/cron/check-sla
-   ```
-2. Se existe uma lead com SLA a expirar, **verificar:** notificação push nativa aparece
-3. Clicar na notificação → abre a página do contacto
+Na consola do browser:
+```js
+fetch('/api/push/test', { method: 'POST' }).then(r => r.json()).then(console.log)
+```
+- Se retorna `{ success: true, pushes_sent: 1 }` → notificação nativa deve aparecer
+- Se retorna `{ error: "Sem subscriptions..." }` → voltar ao passo 12.2
 
-### 12.4 Desactivar
+### 12.4 Teste com SLA temporizado
 
-1. Usar o hook `usePushSubscription().unsubscribe()` ou limpar no browser
-2. **Verificar:** subscription removida da tabela
+```js
+// Criar entrada com SLA de 2 minutos
+fetch('/api/push/test-sla', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ minutes: 2 })
+}).then(r => r.json()).then(console.log)
+```
 
-**Nota:** Push não funciona em localhost sem HTTPS. Para testar, use ngrok ou deploy.
+Aguardar ~2-5 minutos (até o cron correr). Ou forçar manualmente:
+```js
+fetch('/api/cron/check-sla', {
+  headers: { 'Authorization': 'Bearer SEU_CRON_SECRET' }
+}).then(r => r.json()).then(console.log)
+```
+
+**Verificar:** notificação push + in-app (bell) + email
+
+### 12.5 Teste em mobile
+
+1. Abrir o ERP no Chrome (Android) ou Safari (iOS — requer "Adicionar ao ecrã inicial")
+2. Aceitar o banner de push
+3. No laptop, executar `fetch('/api/push/test', { method: 'POST' })` na consola
+4. **Verificar:** push aparece no telemóvel
+
+### 12.6 Desactivar
+
+1. Nas definições do browser, revogar permissão de notificações para o site
+2. **Verificar:** subscription removida automaticamente na próxima tentativa de envio
+
+**Nota:** Push não funciona em localhost sem HTTPS. Testar sempre na versão publicada.
+
+### 12.7 Nota sobre Coolify Scheduled Tasks
+
+As scheduled tasks do Coolify correm dentro do container Docker. Usar `wget` em vez de `curl`:
+```
+wget -qO- --header="Authorization: Bearer SEU_CRON_SECRET" https://app.infinitygroup.pt/api/cron/check-sla
+```
 
 ---
 
