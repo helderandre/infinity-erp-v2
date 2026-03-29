@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, format, parseISO, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCalendarEvents } from '@/hooks/use-calendar-events'
@@ -36,6 +37,9 @@ export default function CalendarioPage() {
   const isMobile = useIsMobile()
   const { user: currentUser } = useUser()
   useCalendarReminders()
+  const searchParams = useSearchParams()
+  const deepLinkHandled = useRef(false)
+
   const MANAGER_ROLES = ['Broker/CEO', 'admin', 'Office Manager', 'Gestora Processual']
   const isManager = currentUser?.role?.name
     ? MANAGER_ROLES.some((r) => r.toLowerCase() === currentUser.role!.name!.toLowerCase())
@@ -77,6 +81,21 @@ export default function CalendarioPage() {
     categories,
     userId: filterUserId,
   })
+
+  // Auto-open event from URL param (?event=id)
+  useEffect(() => {
+    if (deepLinkHandled.current || !events.length) return
+    const eventParam = searchParams.get('event')
+    if (!eventParam) return
+    const found = events.find((e) =>
+      e.id === eventParam || e.id === `manual:${eventParam}` || e.id.replace('manual:', '') === eventParam
+    )
+    if (found) {
+      deepLinkHandled.current = true
+      setSelectedEvent(found)
+      setDetailOpen(true)
+    }
+  }, [events, searchParams])
 
   // Check if there's a live event right now
   const hasLiveEvent = useMemo(() => {

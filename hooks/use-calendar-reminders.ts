@@ -37,7 +37,7 @@ async function sendPushNotification(title: string, body: string, url?: string) {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: `cal-reminder-${Date.now()}`,
-      data: { url: url || '/dashboard/calendario' },
+      data: { url: url || `/dashboard/calendario?event=${reminder.event_id}` },
     })
   } catch {
     // silently fail
@@ -76,7 +76,7 @@ export function useCalendarReminders() {
           sendPushNotification(
             `🔔 ${reminder.event_title}`,
             `Começa em ${timeLabel}${locationStr}`,
-            '/dashboard/calendario'
+            `/dashboard/calendario?event=${reminder.event_id}`
           )
         }
       } catch {

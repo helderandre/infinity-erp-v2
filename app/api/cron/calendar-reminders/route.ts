@@ -143,7 +143,7 @@ export async function GET(request: Request) {
       const payload = {
         title: `🔔 ${reminder.event_title}`,
         body: `Começa em ${formatMin(reminder.minutes_before)}${locationStr}`,
-        url: '/dashboard/calendario',
+        url: `/dashboard/calendario?event=${reminder.event_id}`,
         tag: `cal-reminder-${reminder.event_id}-${reminder.minutes_before}`,
       }
 
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
           entityId: reminder.event_id,
           title: `🔔 ${reminder.event_title}`,
           body: `Começa em ${formatMin(reminder.minutes_before)}${locationStr}`,
-          actionUrl: '/dashboard/calendario',
+          actionUrl: `/dashboard/calendario?event=${reminder.event_id}`,
           metadata: {
             event_id: reminder.event_id,
             minutes_before: reminder.minutes_before,
