@@ -129,7 +129,7 @@ export default function CalendarioPage() {
   }, [editingEventId, createEvent, updateEvent])
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4 md:p-6">
+    <div className="flex h-full flex-col gap-3 sm:gap-4 -m-4 p-3 sm:p-4 md:-m-6 md:p-6">
       <CalendarToolbar
         currentDate={currentDate}
         view={view}

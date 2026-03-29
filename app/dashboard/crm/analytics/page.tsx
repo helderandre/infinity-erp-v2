@@ -73,6 +73,7 @@ export default function AnalyticsPage() {
 
 function AnalyticsContent() {
   const [data, setData] = useState<AgentMetrics[]>([])
+  const [allAgents, setAllAgents] = useState<AgentMetrics[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [period, setPeriod] = useState('30')
   const [selectedAgent, setSelectedAgent] = useState<string>('')
@@ -86,7 +87,10 @@ function AnalyticsContent() {
       const res = await fetch(`/api/crm/analytics/agents?${params}`)
       if (res.ok) {
         const json = await res.json()
-        setData(json.agents ?? [])
+        const agents = json.agents ?? []
+        setData(agents)
+        // Keep the full agent list when fetching without filter
+        if (!selectedAgent) setAllAgents(agents)
       }
     } finally {
       setIsLoading(false)
@@ -162,12 +166,12 @@ function AnalyticsContent() {
       </div>
 
       {/* Agent Filter */}
-      {data.length > 1 && (
-        <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+      {allAgents.length > 1 && (
+        <div className="flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-none">
           <button
             onClick={() => setSelectedAgent('')}
             className={cn(
-              'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+              'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 shrink-0',
               !selectedAgent
                 ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -175,12 +179,12 @@ function AnalyticsContent() {
           >
             Todos
           </button>
-          {data.map(m => (
+          {allAgents.map(m => (
             <button
               key={m.agent.id}
               onClick={() => setSelectedAgent(m.agent.id === selectedAgent ? '' : m.agent.id)}
               className={cn(
-                'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 shrink-0',
                 selectedAgent === m.agent.id
                   ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -313,7 +317,7 @@ function AnalyticsContent() {
           )}
 
           {/* Individual Agent Detail (when one is selected) */}
-          {selectedAgent && data.length === 1 && (
+          {selectedAgent && data.length >= 1 && (
             <AgentDetail metrics={data[0]} />
           )}
         </>

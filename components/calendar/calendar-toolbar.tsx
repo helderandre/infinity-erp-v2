@@ -39,7 +39,7 @@ export function CalendarToolbar({
   const capitalizedLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)
 
   return (
-    <div className="flex items-center justify-between gap-4 pb-4">
+    <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" onClick={handlePrev} aria-label="Anterior">
@@ -50,7 +50,7 @@ export function CalendarToolbar({
           </Button>
         </div>
 
-        <h2 className="text-lg font-semibold min-w-[180px]">
+        <h2 className="text-base font-semibold sm:text-lg sm:min-w-[180px]">
           {capitalizedLabel}
         </h2>
 
@@ -71,9 +71,9 @@ export function CalendarToolbar({
           </TabsList>
         </Tabs>
 
-        <Button onClick={onCreateEvent}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Novo Evento
+        <Button onClick={onCreateEvent} size="sm" className="sm:size-default">
+          <Plus className="h-4 w-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">Novo Evento</span>
         </Button>
       </div>
     </div>

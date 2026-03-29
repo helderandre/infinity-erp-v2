@@ -69,32 +69,36 @@ export function CalendarWeekView({
   return (
     <div className="flex flex-col border rounded-lg overflow-hidden">
       {/* Header with day names and dates */}
-      <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
-        <div className="px-2 py-2" />
+      <div className="grid grid-cols-[40px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
+        <div className="px-1 py-2 sm:px-2" />
         {weekDays.map((day) => {
           const today = isToday(day)
           const dayLabel = format(day, 'EEE', { locale: ptBR })
           const capitalizedDay = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)
+          const shortDay = capitalizedDay.charAt(0)
 
           return (
             <div
               key={day.toISOString()}
               className={cn(
-                'px-2 py-2 text-center border-l cursor-pointer hover:bg-muted/40 transition-colors',
+                'px-0.5 py-1.5 sm:px-2 sm:py-2 text-center border-l cursor-pointer hover:bg-muted/40 transition-colors',
                 today && 'bg-primary/5'
               )}
               onClick={() => onDayClick(day)}
             >
-              <div className="text-xs text-muted-foreground">{capitalizedDay}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                <span className="hidden sm:inline">{capitalizedDay}</span>
+                <span className="sm:hidden">{shortDay}</span>
+              </div>
               <div
                 className={cn(
-                  'text-sm font-medium mt-0.5',
+                  'text-xs sm:text-sm font-medium mt-0.5',
                   today && 'text-primary'
                 )}
               >
                 <span
                   className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded-full',
+                    'inline-flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full',
                     today && 'bg-primary text-primary-foreground'
                   )}
                 >
@@ -108,9 +112,10 @@ export function CalendarWeekView({
 
       {/* All-day events section */}
       {allDayEvents.length > 0 && (
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/10">
-          <div className="px-1 py-1.5 text-[10px] text-muted-foreground text-right pr-2 flex items-center justify-end">
-            Todo dia
+        <div className="grid grid-cols-[40px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/10">
+          <div className="px-0.5 py-1.5 text-[8px] sm:text-[10px] text-muted-foreground text-right pr-1 sm:pr-2 flex items-center justify-end">
+            <span className="hidden sm:inline">Todo dia</span>
+            <span className="sm:hidden">TD</span>
           </div>
           {weekDays.map((day) => {
             const dayAllDayEvents = getAllDayEventsForDay(day)
@@ -141,9 +146,9 @@ export function CalendarWeekView({
         {HOURS.map((hour) => (
           <div
             key={hour}
-            className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0 min-h-[48px]"
+            className="grid grid-cols-[40px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0 min-h-[40px] sm:min-h-[48px]"
           >
-            <div className="px-1 py-1 text-[10px] text-muted-foreground text-right pr-2 border-r">
+            <div className="px-0.5 py-1 text-[9px] sm:text-[10px] text-muted-foreground text-right pr-1 sm:pr-2 border-r">
               {String(hour).padStart(2, '0')}:00
             </div>
             {weekDays.map((day) => {

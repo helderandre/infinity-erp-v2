@@ -15,6 +15,7 @@ import {
   parseISO,
 } from 'date-fns'
 import { CalendarEventCard } from './calendar-event-card'
+import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
 import { cn } from '@/lib/utils'
 
 interface CalendarMonthGridProps {
@@ -25,6 +26,7 @@ interface CalendarMonthGridProps {
 }
 
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+const WEEKDAY_LABELS_SHORT = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
 const MAX_VISIBLE_EVENTS = 3
 
 export function CalendarMonthGrid({
@@ -70,12 +72,13 @@ export function CalendarMonthGrid({
     <div className="flex flex-col rounded-lg border overflow-hidden">
       {/* Header row */}
       <div className="grid grid-cols-7 border-b bg-muted/40">
-        {WEEKDAY_LABELS.map((label) => (
+        {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className="px-2 py-2 text-center text-xs font-medium text-muted-foreground"
+            className="px-1 py-2 text-center text-xs font-medium text-muted-foreground sm:px-2"
           >
-            {label}
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{WEEKDAY_LABELS_SHORT[i]}</span>
           </div>
         ))}
       </div>
@@ -94,16 +97,16 @@ export function CalendarMonthGrid({
               <div
                 key={key}
                 className={cn(
-                  'min-h-[110px] border-b border-r p-1.5 transition-colors cursor-pointer hover:bg-muted/20',
+                  'min-h-[60px] sm:min-h-[110px] border-b border-r p-0.5 sm:p-1.5 transition-colors cursor-pointer hover:bg-muted/20',
                   !isCurrentMonth && 'bg-muted/5 opacity-40',
                 )}
                 onClick={() => onDayClick(day)}
               >
                 {/* Day number */}
-                <div className="flex items-center justify-end mb-1">
+                <div className="flex items-center justify-end mb-0.5 sm:mb-1">
                   <span
                     className={cn(
-                      'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
+                      'flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[10px] sm:text-xs font-medium',
                       today && 'bg-primary text-primary-foreground font-bold',
                       !today && isCurrentMonth && 'text-foreground',
                       !today && !isCurrentMonth && 'text-muted-foreground',
@@ -113,29 +116,48 @@ export function CalendarMonthGrid({
                   </span>
                 </div>
 
-                {/* Events */}
+                {/* Events - on mobile show dots, on desktop show cards */}
                 <div className="space-y-0.5">
-                  {dayEvents.slice(0, MAX_VISIBLE_EVENTS).map((event) => (
-                    <div
-                      key={event.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEventClick(event)
-                      }}
-                    >
-                      <CalendarEventCard event={event} compact />
+                  {/* Desktop: full event cards */}
+                  <div className="hidden sm:block space-y-0.5">
+                    {dayEvents.slice(0, MAX_VISIBLE_EVENTS).map((event) => (
+                      <div
+                        key={event.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEventClick(event)
+                        }}
+                      >
+                        <CalendarEventCard event={event} compact />
+                      </div>
+                    ))}
+                    {extraCount > 0 && (
+                      <button
+                        className="w-full text-left px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDayClick(day)
+                        }}
+                      >
+                        +{extraCount} mais
+                      </button>
+                    )}
+                  </div>
+                  {/* Mobile: colored dots */}
+                  {dayEvents.length > 0 && (
+                    <div className="flex flex-wrap gap-0.5 justify-center sm:hidden">
+                      {dayEvents.slice(0, 3).map((event) => (
+                        <span
+                          key={event.id}
+                          className={cn('h-1.5 w-1.5 rounded-full', CALENDAR_CATEGORY_COLORS[event.category]?.dot || 'bg-primary')}
+                        />
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <span className="text-[8px] text-muted-foreground leading-none">
+                          +{dayEvents.length - 3}
+                        </span>
+                      )}
                     </div>
-                  ))}
-                  {extraCount > 0 && (
-                    <button
-                      className="w-full text-left px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDayClick(day)
-                      }}
-                    >
-                      +{extraCount} mais
-                    </button>
                   )}
                 </div>
               </div>
