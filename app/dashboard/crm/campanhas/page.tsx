@@ -344,7 +344,7 @@ function CampaignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg rounded-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 dark:bg-neutral-800 rounded-t-2xl px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
@@ -421,9 +421,9 @@ function CampaignDialog({
           </div>
         </div>
 
-        <DialogFooter className="mt-4">
-          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="rounded-full" onClick={handleSave} disabled={isSaving}>
+        <DialogFooter className="mt-4 flex-col-reverse sm:flex-row gap-2">
+          <Button variant="outline" className="rounded-full w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button className="rounded-full w-full sm:w-auto" onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             {isEdit ? 'Guardar' : 'Criar'}
           </Button>

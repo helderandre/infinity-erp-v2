@@ -238,11 +238,11 @@ function GestoraContent() {
 
       {/* 3 Tabs: Distribuição / Em Atraso / Pool */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+        <div className="flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-none max-w-full">
           <button
             onClick={() => { setActiveTab('distribution'); setSelectedEntries(new Set()) }}
             className={cn(
-              'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
               activeTab === 'distribution'
                 ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                 : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -254,7 +254,7 @@ function GestoraContent() {
           <button
             onClick={() => { setActiveTab('overdue'); setSelectedEntries(new Set()) }}
             className={cn(
-              'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
               activeTab === 'overdue'
                 ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                 : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -271,7 +271,7 @@ function GestoraContent() {
           <button
             onClick={() => { setActiveTab('unassigned'); setSelectedEntries(new Set()) }}
             className={cn(
-              'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
               activeTab === 'unassigned'
                 ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                 : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -409,13 +409,13 @@ function GestoraContent() {
       {/* Bulk Reassignment Bar */}
       {selectedEntries.size > 0 && (
         <div className="sticky bottom-4 z-50 animate-in fade-in slide-in-from-bottom-4">
-          <div className="rounded-2xl border border-primary/30 bg-card shadow-xl p-4 flex items-center gap-4">
-            <Badge variant="secondary" className="rounded-full text-xs">
-              {selectedEntries.size} seleccionada{selectedEntries.size > 1 ? 's' : ''}
+          <div className="rounded-2xl border border-primary/30 bg-card shadow-xl p-3 sm:p-4 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+            <Badge variant="secondary" className="rounded-full text-xs shrink-0">
+              {selectedEntries.size} sel.
             </Badge>
-            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 hidden sm:block" />
             <Select value={reassignTarget} onValueChange={setReassignTarget}>
-              <SelectTrigger className="w-56 rounded-full h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-56 rounded-full h-8 text-xs">
                 <SelectValue placeholder="Atribuir a..." />
               </SelectTrigger>
               <SelectContent>
@@ -424,23 +424,27 @@ function GestoraContent() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              className="rounded-full"
-              onClick={handleReassign}
-              disabled={!reassignTarget || isReassigning}
-            >
-              {isReassigning && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Reatribuir
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-full"
-              onClick={() => setSelectedEntries(new Set())}
-            >
-              Cancelar
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                size="sm"
+                className="rounded-full flex-1 sm:flex-none"
+                onClick={handleReassign}
+                disabled={!reassignTarget || isReassigning}
+              >
+                {isReassigning && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <span className="sm:hidden">OK</span>
+                <span className="hidden sm:inline">Reatribuir</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                onClick={() => setSelectedEntries(new Set())}
+              >
+                <span className="sm:hidden">✕</span>
+                <span className="hidden sm:inline">Cancelar</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}

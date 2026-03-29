@@ -98,7 +98,7 @@ export function CallOutcomeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle>Resultado do contacto</DialogTitle>
           <DialogDescription>
@@ -134,12 +134,13 @@ export function CallOutcomeModal({
           className="mt-2 resize-none"
         />
 
-        <div className="flex justify-between mt-2">
-          <Button variant="ghost" size="sm" onClick={handleSkip}>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 mt-2">
+          <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={handleSkip}>
             Ignorar
           </Button>
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             onClick={handleSubmit}
             disabled={!selectedOutcome || isSubmitting}
           >
