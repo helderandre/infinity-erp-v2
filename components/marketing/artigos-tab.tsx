@@ -719,7 +719,7 @@ export function ArtigosTab() {
 
       {/* ═══════ BUNDLE DIALOG ═══════ */}
       <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
-        <DialogContent className="rounded-2xl max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PackageCheck className="h-5 w-5" />

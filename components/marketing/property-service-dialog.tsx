@@ -432,7 +432,7 @@ export function PropertyServiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[460px] h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
+      <DialogContent showCloseButton={false} className="w-[calc(100vw-2rem)] sm:max-w-[460px] h-[85vh] sm:h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
         {/* ── Dark header ── */}
         <div className="bg-neutral-900 px-5 py-4 shrink-0 relative">
           <DialogClose className="absolute top-3 right-3 rounded-sm p-1 text-neutral-400 hover:text-white transition-colors focus:outline-none">

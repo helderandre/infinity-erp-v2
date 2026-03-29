@@ -157,7 +157,7 @@ export function OrderFormDialog({ open, onOpenChange, cartItems, onRemoveItem, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[480px] h-[85vh] sm:h-[80vh] rounded-2xl p-0 flex flex-col overflow-hidden">
         {/* Dark header */}
         <div className="bg-neutral-900 px-5 py-4 shrink-0">
           <DialogHeader>

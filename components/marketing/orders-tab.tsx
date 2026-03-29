@@ -375,7 +375,7 @@ export function OrdersTab() {
 
       {/* ─── Detail Dialog ─── */}
       <Dialog open={!!selectedPurchase} onOpenChange={(open) => { if (!open) setSelectedPurchase(null) }}>
-        <DialogContent className="sm:max-w-[580px] max-h-[85vh] overflow-y-auto rounded-2xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[580px] max-h-[85vh] overflow-y-auto rounded-2xl">
           {selectedPurchase && (
             <>
               {/* Dark header */}

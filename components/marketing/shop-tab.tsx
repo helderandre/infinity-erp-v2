@@ -120,6 +120,8 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
   const [showCampaignDialog, setShowCampaignDialog] = useState(false)
   const [shopSection, setShopSection] = useState<'imovel' | 'services' | 'materials' | 'campanhas'>('imovel')
 
+  const SHOP_SECTION_LABELS: Record<string, string> = { imovel: 'Imóvel', services: 'Serviços', materials: 'Produtos', campanhas: 'Campanhas' }
+
   // Per-card addon selection state
   const [addonSelections, setAddonSelections] = useState<Record<string, boolean>>({})
 
@@ -351,12 +353,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                   const Icon = tab.icon
                   const isActive = shopSection === tab.key
                   return (
-                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
-                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                      <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   )
                 })}
               </div>
+              <span className="sm:hidden px-3 py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm">{SHOP_SECTION_LABELS[shopSection]}</span>
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
@@ -393,12 +396,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                   const Icon = tab.icon
                   const isActive = shopSection === tab.key
                   return (
-                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
-                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
+                      <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   )
                 })}
               </div>
+              <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">{SHOP_SECTION_LABELS[shopSection]}</span>
               <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -611,12 +615,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                 const Icon = tab.icon
                 const isActive = shopSection === tab.key
                 return (
-                  <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
-                    <Icon className="h-3.5 w-3.5" />{tab.label}
+                  <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
+                    <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
                   </button>
                 )
               })}
             </div>
+            <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">{SHOP_SECTION_LABELS[shopSection]}</span>
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -734,12 +739,13 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                   const Icon = tab.icon
                   const isActive = shopSection === tab.key
                   return (
-                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
-                      <Icon className="h-3.5 w-3.5" />{tab.label}
+                    <button key={tab.key} onClick={() => setShopSection(tab.key)} className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isActive ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/15'}`}>
+                      <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   )
                 })}
               </div>
+              <span className="sm:hidden px-3 py-1.5 rounded-full bg-white/90 text-neutral-900 text-xs font-semibold shadow-sm backdrop-blur-sm">{SHOP_SECTION_LABELS[shopSection]}</span>
             </div>
 
             <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
@@ -909,7 +915,7 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
 
       {/* ─── Detail Dialog ─── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl p-0 overflow-hidden max-h-[85vh] sm:max-h-[90vh] flex flex-col gap-0">
           {detailItem && (
             <>
               {/* Image header */}

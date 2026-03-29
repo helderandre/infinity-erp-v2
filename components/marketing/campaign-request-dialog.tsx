@@ -139,7 +139,7 @@ export function CampaignRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] max-h-[80vh] overflow-y-auto rounded-2xl p-0">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[440px] max-h-[85vh] sm:max-h-[80vh] overflow-y-auto rounded-2xl p-0">
         {/* ─── Dark Header ─── */}
         <div className="bg-neutral-900 px-5 py-4">
           <DialogHeader>

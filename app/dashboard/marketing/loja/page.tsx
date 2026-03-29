@@ -134,18 +134,21 @@ export default function MarketingLojaPage() {
                     <button
                       key={t.key}
                       onClick={() => setOrdersTab(t.key)}
-                      className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300 ${
+                      className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300 ${
                         ordersTab === t.key
                           ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5" />
-                      {t.label}
+                      <span className="hidden sm:inline">{t.label}</span>
                     </button>
                   )
                 })}
               </div>
+              <span className="sm:hidden px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-semibold">
+                {ORDERS_TABS.find(t => t.key === ordersTab)?.label}
+              </span>
             </div>
 
             {/* Content — scrollable */}

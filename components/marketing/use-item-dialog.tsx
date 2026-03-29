@@ -237,7 +237,7 @@ export function UseItemDialog({ open, onOpenChange, orderItem, propertyId, prope
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Utilizar: {orderItem.name}</DialogTitle>
           <DialogDescription>

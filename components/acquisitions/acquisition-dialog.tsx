@@ -31,7 +31,7 @@ export function AcquisitionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[800px] w-full h-[90vh] p-0 gap-0 flex flex-col rounded-2xl overflow-hidden"
+        className="max-w-[800px] w-[calc(100%-1rem)] sm:w-full h-[85dvh] sm:h-[90vh] p-0 gap-0 flex flex-col rounded-2xl overflow-hidden"
         showCloseButton={false}
         onInteractOutside={() => onOpenChange(false)}
         onEscapeKeyDown={() => onOpenChange(false)}
