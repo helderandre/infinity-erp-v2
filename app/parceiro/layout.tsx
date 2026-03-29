@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
@@ -16,6 +16,18 @@ const PartnerContext = createContext<PartnerData | null>(null)
 export function usePartner() { return useContext(PartnerContext) }
 
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <PartnerLayoutInner>{children}</PartnerLayoutInner>
+    </Suspense>
+  )
+}
+
+function PartnerLayoutInner({ children }: { children: React.ReactNode }) {
   const [partner, setPartner] = useState<PartnerData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
