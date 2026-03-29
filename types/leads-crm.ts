@@ -46,6 +46,30 @@ export type CampaignStatus = 'active' | 'paused' | 'ended'
 
 export type TagCategory = 'lifecycle' | 'interest' | 'campaign' | 'custom'
 
+export type LeadSector =
+  | 'real_estate_buy'
+  | 'real_estate_sell'
+  | 'real_estate_rent'
+  | 'recruitment'
+  | 'credit'
+  | 'other'
+
+export type EntryStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'archived' | 'expired'
+
+export type EntrySlaStatus = 'pending' | 'on_time' | 'warning' | 'breached' | 'completed'
+
+export type EntryPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+export type NotificationType =
+  | 'sla_warning'
+  | 'sla_breach'
+  | 'sla_escalation'
+  | 'new_lead'
+  | 'assignment'
+  | 'system'
+
+export type AssignmentFallbackAction = 'gestora_pool' | 'round_robin' | 'skip'
+
 // =============================================================================
 // Contact Lifecycle Stage
 // =============================================================================
@@ -150,6 +174,8 @@ export interface LeadsCampaign {
   external_adset_id: string | null
   external_ad_id: string | null
   status: CampaignStatus
+  sector: LeadSector | null
+  description: string | null
   budget: number | null
   start_date: string | null
   end_date: string | null
@@ -195,6 +221,16 @@ export interface LeadsEntry {
   source: EntrySource
   campaign_id: string | null
   partner_id: string | null
+  // Assignment & SLA
+  assigned_agent_id: string | null
+  sector: LeadSector | null
+  is_reactivation: boolean
+  status: EntryStatus
+  priority: EntryPriority
+  sla_deadline: string | null
+  first_contact_at: string | null
+  sla_status: EntrySlaStatus
+  // UTM tracking
   utm_source: string | null
   utm_medium: string | null
   utm_campaign: string | null
@@ -209,6 +245,9 @@ export interface LeadsEntry {
 export interface LeadsEntryWithRelations extends LeadsEntry {
   campaign?: LeadsCampaign | null
   partner?: LeadsPartner | null
+  agent?: { id: string; commercial_name: string | null } | null
+  contact?: Pick<LeadsContact, 'id' | 'full_name' | 'email' | 'phone' | 'nome' | 'telemovel'> | null
+  negocios_count?: number
 }
 
 // =============================================================================
@@ -237,6 +276,7 @@ export interface LeadsNegocio {
   // FK — DB column is `lead_id`; `contact_id` kept for backwards-compat
   lead_id?: string
   contact_id: string  // resolved from lead_id by the API layer or fallback
+  entry_id: string | null  // the lead entry that originated this deal
   pipeline_type: PipelineType
   // `tipo` is the raw DB column; `pipeline_type` may be derived from it
   tipo?: string
@@ -360,16 +400,104 @@ export interface LeadsTag {
 export interface LeadsAssignmentRule {
   id: string
   name: string
+  description: string | null
   source_match: string[] | null
   campaign_id_match: string | null
   zone_match: string[] | null
   pipeline_type_match: string[] | null
+  sector_match: string[] | null
   consultant_id: string | null
   team_consultant_ids: string[] | null
+  overflow_threshold: number | null
+  fallback_action: AssignmentFallbackAction
+  round_robin_index: number
   priority: number
   is_active: boolean
   created_at: string
   updated_at: string
+  // Joins
+  consultant?: { id: string; commercial_name: string | null } | null
+}
+
+// =============================================================================
+// SLA Configuration
+// =============================================================================
+
+export interface LeadsSlaConfig {
+  id: string
+  name: string
+  source_match: string[] | null
+  sector_match: string[] | null
+  priority_match: string[] | null
+  sla_minutes: number
+  warning_pct: number
+  critical_pct: number
+  escalate_pct: number
+  is_active: boolean
+  priority: number
+  created_at: string
+  updated_at: string
+}
+
+// =============================================================================
+// Notification
+// =============================================================================
+
+export interface LeadsNotification {
+  id: string
+  recipient_id: string
+  type: NotificationType
+  title: string
+  body: string | null
+  link: string | null
+  entry_id: string | null
+  contact_id: string | null
+  negocio_id: string | null
+  is_read: boolean
+  read_at: string | null
+  is_email_sent: boolean
+  is_push_sent: boolean
+  created_at: string
+}
+
+// =============================================================================
+// Campaign Metrics (daily snapshot)
+// =============================================================================
+
+export interface LeadsCampaignMetrics {
+  id: string
+  campaign_id: string
+  date: string
+  // Platform metrics
+  impressions: number | null
+  clicks: number | null
+  spend: number | null
+  platform_leads: number | null
+  ctr: number | null
+  cpl: number | null
+  // ERP-derived metrics
+  erp_entries: number | null
+  erp_contacted: number | null
+  erp_qualified: number | null
+  erp_converted: number | null
+  erp_won: number | null
+  erp_revenue: number | null
+  synced_at: string
+}
+
+export interface CampaignWithMetrics extends LeadsCampaign {
+  metrics_summary?: {
+    total_spend: number
+    total_entries: number
+    total_contacted: number
+    total_qualified: number
+    total_converted: number
+    total_won: number
+    total_revenue: number
+    cost_per_qualified: number | null
+    cost_per_won: number | null
+    roas: number | null
+  }
 }
 
 // =============================================================================

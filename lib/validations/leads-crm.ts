@@ -49,18 +49,41 @@ const entrySources = [
   'organic', 'walk_in', 'phone_call', 'social_media', 'other',
 ] as const
 
+const entrySectors = [
+  'real_estate_buy', 'real_estate_sell', 'real_estate_rent',
+  'recruitment', 'credit', 'other',
+] as const
+
+const entryStatuses = ['new', 'contacted', 'qualified', 'converted', 'archived', 'expired'] as const
+const entryPriorities = ['low', 'medium', 'high', 'urgent'] as const
+const slaStatuses = ['pending', 'on_time', 'warning', 'breached', 'completed'] as const
+
 export const createEntrySchema = z.object({
   contact_id: z.string().uuid('ID do contacto invalido'),
-  source: z.enum(entrySources, { errorMap: () => ({ message: 'Origem invalida' }) }),
+  source: z.enum(entrySources),
   campaign_id: z.string().uuid().nullable().optional(),
   partner_id: z.string().uuid().nullable().optional(),
+  assigned_agent_id: z.string().uuid().nullable().optional(),
+  sector: z.enum(entrySectors).nullable().optional(),
+  is_reactivation: z.boolean().optional().default(false),
+  status: z.enum(entryStatuses).optional().default('new'),
+  priority: z.enum(entryPriorities).optional().default('medium'),
   utm_source: z.string().nullable().optional(),
   utm_medium: z.string().nullable().optional(),
   utm_campaign: z.string().nullable().optional(),
   utm_content: z.string().nullable().optional(),
   utm_term: z.string().nullable().optional(),
-  form_data: z.record(z.unknown()).nullable().optional(),
+  form_data: z.record(z.string(), z.unknown()).nullable().optional(),
   form_url: z.string().url().nullable().optional(),
+  notes: z.string().nullable().optional(),
+})
+
+export const updateEntrySchema = z.object({
+  assigned_agent_id: z.string().uuid().nullable().optional(),
+  status: z.enum(entryStatuses).optional(),
+  priority: z.enum(entryPriorities).optional(),
+  sla_status: z.enum(slaStatuses).optional(),
+  first_contact_at: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 })
 
@@ -73,6 +96,7 @@ const pipelineTypes = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as
 // Uses actual `negocios` table column names
 export const createNegocioSchema = z.object({
   lead_id: z.string().uuid('ID do contacto invalido'),
+  entry_id: z.string().uuid('ID da entrada invalido').nullable().optional(),
   tipo: z.string().min(1, 'Tipo de negocio obrigatorio'),
   pipeline_stage_id: z.string().uuid('ID da fase invalido'),
   assigned_consultant_id: z.string().uuid().nullable().optional(),
@@ -108,11 +132,11 @@ const activityDirections = ['inbound', 'outbound'] as const
 export const createActivitySchema = z.object({
   contact_id: z.string().uuid('ID do contacto invalido'),
   negocio_id: z.string().uuid().nullable().optional(),
-  activity_type: z.enum(activityTypes, { errorMap: () => ({ message: 'Tipo de actividade invalido' }) }),
+  activity_type: z.enum(activityTypes),
   direction: z.enum(activityDirections).nullable().optional(),
   subject: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  metadata: z.record(z.unknown()).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
 // =============================================================================
@@ -163,6 +187,8 @@ export const createCampaignSchema = z.object({
   external_adset_id: z.string().nullable().optional(),
   external_ad_id: z.string().nullable().optional(),
   status: z.enum(campaignStatuses).optional().default('active'),
+  sector: z.enum(entrySectors).nullable().optional(),
+  description: z.string().nullable().optional(),
   budget: z.number().positive().nullable().optional(),
   start_date: z.string().nullable().optional(),
   end_date: z.string().nullable().optional(),
@@ -216,16 +242,39 @@ export const createContactStageSchema = z.object({
 // Assignment Rule (admin config)
 // =============================================================================
 
+const fallbackActions = ['gestora_pool', 'round_robin', 'skip'] as const
+
 export const createAssignmentRuleSchema = z.object({
   name: z.string().min(2, 'O nome da regra deve ter pelo menos 2 caracteres'),
+  description: z.string().nullable().optional(),
   source_match: z.array(z.string()).nullable().optional(),
   campaign_id_match: z.string().uuid().nullable().optional(),
   zone_match: z.array(z.string()).nullable().optional(),
   pipeline_type_match: z.array(z.enum(pipelineTypes)).nullable().optional(),
+  sector_match: z.array(z.enum(entrySectors)).nullable().optional(),
   consultant_id: z.string().uuid().nullable().optional(),
   team_consultant_ids: z.array(z.string().uuid()).nullable().optional(),
+  overflow_threshold: z.number().int().positive().nullable().optional(),
+  fallback_action: z.enum(fallbackActions).optional().default('gestora_pool'),
   priority: z.number().int().optional().default(0),
   is_active: z.boolean().optional().default(true),
+})
+
+// =============================================================================
+// SLA Config (admin config)
+// =============================================================================
+
+export const createSlaConfigSchema = z.object({
+  name: z.string().min(2, 'O nome da configuração deve ter pelo menos 2 caracteres'),
+  source_match: z.array(z.string()).nullable().optional(),
+  sector_match: z.array(z.enum(entrySectors)).nullable().optional(),
+  priority_match: z.array(z.enum(entryPriorities)).nullable().optional(),
+  sla_minutes: z.number().int().positive('O SLA deve ser positivo').default(1440),
+  warning_pct: z.number().int().min(1).max(100).default(50),
+  critical_pct: z.number().int().min(1).max(200).default(100),
+  escalate_pct: z.number().int().min(1).max(300).default(150),
+  is_active: z.boolean().optional().default(true),
+  priority: z.number().int().optional().default(0),
 })
 
 // =============================================================================
@@ -248,7 +297,7 @@ export const webhookLeadSchema = z.object({
   // Pipeline hint
   pipeline_type: z.enum(pipelineTypes).nullable().optional(),
   // Raw form
-  form_data: z.record(z.unknown()).nullable().optional(),
+  form_data: z.record(z.string(), z.unknown()).nullable().optional(),
   form_url: z.string().url().nullable().optional(),
 }).refine(
   (data) => data.email || data.phone,
@@ -259,6 +308,7 @@ export const webhookLeadSchema = z.object({
 export type CreateContactInput = z.infer<typeof createContactSchema>
 export type UpdateContactInput = z.infer<typeof updateContactSchema>
 export type CreateEntryInput = z.infer<typeof createEntrySchema>
+export type UpdateEntryInput = z.infer<typeof updateEntrySchema>
 export type CreateNegocioInput = z.infer<typeof createNegocioSchema>
 export type UpdateNegocioInput = z.infer<typeof updateNegocioSchema>
 export type MoveNegocioStageInput = z.infer<typeof moveNegocioStageSchema>
@@ -270,4 +320,5 @@ export type CreatePartnerInput = z.infer<typeof createPartnerSchema>
 export type CreatePipelineStageInput = z.infer<typeof createPipelineStageSchema>
 export type CreateContactStageInput = z.infer<typeof createContactStageSchema>
 export type CreateAssignmentRuleInput = z.infer<typeof createAssignmentRuleSchema>
+export type CreateSlaConfigInput = z.infer<typeof createSlaConfigSchema>
 export type WebhookLeadInput = z.infer<typeof webhookLeadSchema>

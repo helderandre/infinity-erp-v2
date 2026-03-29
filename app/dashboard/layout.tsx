@@ -29,6 +29,10 @@ const GoalDailyPopup = dynamic(
   () => import('@/components/goals/goal-daily-popup').then((m) => m.GoalDailyPopup),
   { ssr: false }
 )
+const PushBanner = dynamic(
+  () => import('@/components/notifications/push-banner').then((m) => m.PushBanner),
+  { ssr: false }
+)
 const MobileBottomNav = dynamic(
   () => import('@/components/layout/mobile-bottom-nav').then((m) => m.MobileBottomNav),
   { ssr: false }
@@ -101,6 +105,7 @@ export default function DashboardLayout({
                     : "gap-4 p-4 md:gap-6 md:p-6"
             )}
           >
+            <PushBanner />
             {children}
             {/* Spacer for mobile bottom nav */}
             <div className="h-16 sm:hidden shrink-0" />

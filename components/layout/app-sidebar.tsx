@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Building2, Users, FileText, LayoutDashboard, Settings,
+  Building2, Users, FileText, LayoutDashboard, Settings, Clock,
   UserCircle, Euro, Megaphone, FileStack, CalendarDays,
   LogOut, ChevronDown, Sun, Moon, Monitor, ChevronRight,
   Zap, Mail, FileCode2, Workflow, Braces, Bot,
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck,
+  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck, Shield,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -68,6 +68,11 @@ export const crmItems = [
   { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
   { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
+  { title: 'Gestora de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
+  { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
+  { title: 'Campanhas', icon: Megaphone, href: '/dashboard/crm/campanhas', permission: 'pipeline' },
+  { title: 'Regras de Atribuição', icon: Target, href: '/dashboard/crm/regras', permission: 'pipeline' },
+  { title: 'Config. SLA', icon: Clock, href: '/dashboard/crm/sla', permission: 'pipeline' },
 ]
 
 export const negocioItems = [
@@ -286,7 +291,7 @@ export function AppSidebar() {
           items={crmItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries']}
+          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries', '/dashboard/acompanhamentos']}
         />
 
         <CollapsibleGroup

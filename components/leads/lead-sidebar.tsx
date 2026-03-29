@@ -1,6 +1,7 @@
 'use client'
 
 import { Phone, MessageSquare, Mail } from 'lucide-react'
+import { ContactActionButtons } from '@/components/crm/contact-action-buttons'
 // Card removed — using custom glassmorphism container
 import {
   Select,
@@ -58,68 +59,14 @@ export function LeadSidebar({
         {/* Name */}
         <h2 className="text-xl font-semibold text-center">{lead.nome}</h2>
 
-        {/* Quick action buttons */}
-        <div className="flex justify-center gap-4">
-          {lead.telemovel && (
-            <a href={`tel:${lead.telemovel}`} className="flex flex-col items-center gap-1">
-              <div className="w-11 h-11 rounded-full bg-green-50 flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors">
-                <Phone className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">Ligar</span>
-            </a>
-          )}
-          {!lead.telemovel && (
-            <div className="flex flex-col items-center gap-1 opacity-40">
-              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
-                <Phone className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">Ligar</span>
-            </div>
-          )}
-
-          <div className="flex flex-col items-center gap-1 opacity-40">
-            <div className="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] text-muted-foreground">SMS</span>
-          </div>
-
-          {lead.telemovel ? (
-            <a
-              href={`https://wa.me/${lead.telemovel?.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1"
-            >
-              <div className="w-11 h-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors">
-                <WhatsAppIcon className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">WhatsApp</span>
-            </a>
-          ) : (
-            <div className="flex flex-col items-center gap-1 opacity-40">
-              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
-                <WhatsAppIcon className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">WhatsApp</span>
-            </div>
-          )}
-
-          {lead.email ? (
-            <a href={`mailto:${lead.email}`} className="flex flex-col items-center gap-1">
-              <div className="w-11 h-11 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 hover:bg-orange-100 transition-colors">
-                <Mail className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">Email</span>
-            </a>
-          ) : (
-            <div className="flex flex-col items-center gap-1 opacity-40">
-              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
-                <Mail className="h-5 w-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">Email</span>
-            </div>
-          )}
+        {/* Quick action buttons with call outcome tracking */}
+        <div className="flex justify-center">
+          <ContactActionButtons
+            contactId={lead.id}
+            phone={lead.telemovel}
+            email={lead.email}
+            name={lead.nome}
+          />
         </div>
 
         {/* Temperature */}

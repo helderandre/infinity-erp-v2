@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { notifyAdmins } from "@/lib/notify"
+import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
+import { ingestLead } from "@/lib/crm/ingest-lead"
 
 // ─── GET: Meta webhook verification ─────────────────────────────────────────
-// Meta sends a GET request to verify the webhook URL.
-// It expects the hub.challenge token back if the verify_token matches.
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -27,80 +25,81 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // Meta sends { object: "page", entry: [...] }
     if (body.object !== "page") {
       return NextResponse.json({ error: "Not a page event" }, { status: 400 })
     }
 
-    const supabase = createAdminClient()
+    const supabase = createCrmAdminClient()
+    const results: Array<{ leadgen_id: string; contact_id: string; entry_id: string }> = []
 
     for (const entry of body.entry ?? []) {
       for (const change of entry.changes ?? []) {
         if (change.field !== "leadgen") continue
 
         const leadgenId = change.value?.leadgen_id
-        const pageId = change.value?.page_id
         const formId = change.value?.form_id
-        const createdTime = change.value?.created_time
 
         if (!leadgenId) continue
 
-        // Fetch the actual lead data from Meta Graph API
+        // Fetch actual lead data from Meta Graph API
         const leadData = await fetchMetaLeadData(leadgenId)
-
         if (!leadData) {
           console.error(`[Meta Webhook] Failed to fetch lead data for leadgen_id: ${leadgenId}`)
           continue
         }
 
-        // Parse field_data into a flat object
         const fields = parseMetaFields(leadData.field_data ?? [])
-
         const fullName =
           [fields.first_name, fields.last_name].filter(Boolean).join(" ") ||
           fields.full_name ||
           fields.email?.split("@")[0] ||
           "Lead Meta"
 
-        // Insert lead (adapted to existing leads table — PT column names)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: lead } = await (supabase.from("leads") as any)
-          .insert({
-            nome: fullName,
-            full_name: fullName,
-            email: fields.email ?? null,
-            telemovel: fields.phone_number ?? fields.phone ?? null,
-            origem: "meta_lead_ad",
-            estado: "novo",
-            platform: "facebook",
-            meta_data: {
-              leadgen_id: leadgenId,
-              page_id: pageId,
-              meta_form_id: formId,
-              created_time: createdTime,
-              source_detail: `Meta Lead Ads — Form ${formId ?? "unknown"}`,
-              company_name: fields.company_name ?? null,
-              raw_fields: fields,
-              raw_response: leadData,
-            },
-          })
-          .select("id")
-          .single()
+        // Resolve campaign from Meta's campaign_id
+        const metaCampaignId = leadData.campaign_id ?? change.value?.campaign_id
+        let campaignId: string | null = null
 
-        // Notify admins
-        await notifyAdmins({
-          type: "lead_new",
-          title: "Novo lead via Meta Ads",
-          body: `${fullName}${fields.email ? ` — ${fields.email}` : ""}`,
-          action_url: lead ? `/leads/${lead.id}` : "/leads",
-          metadata: { leadgen_id: leadgenId, source: "meta_ads" },
+        if (metaCampaignId) {
+          const { data: campaign } = await supabase
+            .from("leads_campaigns")
+            .select("id")
+            .eq("external_campaign_id", String(metaCampaignId))
+            .limit(1)
+            .single()
+          campaignId = campaign?.id ?? null
+        }
+
+        // Use the unified ingestion pipeline
+        const result = await ingestLead(supabase, {
+          name: fullName,
+          email: fields.email || null,
+          phone: fields.phone_number || fields.phone || null,
+          source: "meta_ads",
+          campaign_id: campaignId,
+          form_data: {
+            leadgen_id: leadgenId,
+            form_id: formId,
+            meta_campaign_id: metaCampaignId,
+            meta_adset_id: leadData.adset_id,
+            meta_ad_id: leadData.ad_id,
+            raw_fields: fields,
+          },
         })
 
-        console.log(`[Meta Webhook] Lead created: ${fullName} (leadgen_id: ${leadgenId})`)
+        results.push({
+          leadgen_id: leadgenId,
+          contact_id: result.contact_id,
+          entry_id: result.entry_id,
+        })
+
+        console.log(
+          `[Meta Webhook] Lead ingested: ${fullName} (leadgen: ${leadgenId}, ` +
+          `reactivation: ${result.is_reactivation}, agent: ${result.assigned_agent_id ?? "pool"})`
+        )
       }
     }
 
-    return NextResponse.json({ status: "ok" }, { status: 200 })
+    return NextResponse.json({ status: "ok", processed: results.length, results }, { status: 200 })
   } catch (err) {
     console.error("[Meta Webhook] Error processing:", err)
     return NextResponse.json({ error: "Internal error" }, { status: 500 })
@@ -118,7 +117,7 @@ async function fetchMetaLeadData(leadgenId: string) {
 
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v21.0/${leadgenId}?access_token=${accessToken}`,
+      `https://graph.facebook.com/v21.0/${leadgenId}?fields=id,created_time,field_data,ad_id,adset_id,campaign_id,form_id&access_token=${accessToken}`,
       { next: { revalidate: 0 } }
     )
 

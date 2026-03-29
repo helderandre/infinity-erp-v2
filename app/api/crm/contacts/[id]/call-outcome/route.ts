@@ -111,7 +111,21 @@ export async function POST(
       }
     }
 
-    // 3. Log to goals system
+    // 3. Update SLA tracking on lead entries (first contact)
+    if (outcome === 'success') {
+      // Mark all uncontacted entries for this contact as contacted
+      await admin
+        .from('leads_entries')
+        .update({
+          first_contact_at: new Date().toISOString(),
+          sla_status: 'completed',
+          status: 'contacted',
+        })
+        .eq('contact_id', contactId)
+        .is('first_contact_at', null)
+    }
+
+    // 4. Log to goals system
     await logGoalActivity({
       consultantId: crmContact?.assigned_consultant_id || user.id,
       activityType: 'call',
