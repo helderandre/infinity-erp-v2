@@ -382,12 +382,24 @@ export default function CalendarioPage() {
             {(() => {
               const now = new Date()
               const companyEvents = events
-                .filter((e) => e.category === 'company_event' || (e.category === 'meeting' && e.requires_rsvp))
+                .filter((e) => e.category === 'company_event' || e.category === 'meeting')
                 .filter((e) => {
-                  const end = e.end_date ? new Date(e.end_date) : new Date(new Date(e.start_date).getTime() + 3600000)
+                  const start = new Date(e.start_date)
+                  const end = e.end_date ? new Date(e.end_date) : new Date(start.getTime() + 3600000)
                   return end >= now // include live + future
                 })
-                .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+                .sort((a, b) => {
+                  // Live events first, then by start date
+                  const aStart = new Date(a.start_date)
+                  const aEnd = a.end_date ? new Date(a.end_date) : new Date(aStart.getTime() + 3600000)
+                  const bStart = new Date(b.start_date)
+                  const bEnd = b.end_date ? new Date(b.end_date) : new Date(bStart.getTime() + 3600000)
+                  const aLive = now >= aStart && now <= aEnd
+                  const bLive = now >= bStart && now <= bEnd
+                  if (aLive && !bLive) return -1
+                  if (!aLive && bLive) return 1
+                  return aStart.getTime() - bStart.getTime()
+                })
 
               if (companyEvents.length === 0) {
                 return <p className="text-sm text-muted-foreground text-center py-8">Sem eventos de empresa.</p>
