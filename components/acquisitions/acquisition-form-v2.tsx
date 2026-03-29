@@ -491,34 +491,36 @@ export function AcquisitionFormV2({
         <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
 
         {/* Header */}
-        <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">
-              {draftId ? 'Retomar Angariação' : 'Nova Angariação'}
+        <DialogHeader className="flex-shrink-0 border-b px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-base sm:text-lg font-semibold shrink-0">
+              {draftId ? 'Retomar Angariação' : 'Nova\nAngariação'}
             </DialogTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 sm:px-3"
                 onClick={handleSaveDraft}
                 disabled={isSavingDraft || isSubmitting}
               >
                 {isSavingDraft ? (
-                  <Spinner variant="infinite" size={14} className="mr-1.5" />
+                  <Spinner variant="infinite" size={14} className="sm:mr-1.5" />
                 ) : (
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  <Save className="h-3.5 w-3.5 sm:mr-1.5" />
                 )}
-                Guardar Rascunho
+                <span className="hidden sm:inline">Guardar Rascunho</span>
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 sm:px-3"
                 onClick={() => setQuickFillOpen(true)}
               >
-                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                Preencher com IA
+                <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Preencher com IA</span>
               </Button>
               <Button
                 type="button"
@@ -536,16 +538,16 @@ export function AcquisitionFormV2({
         {/* Content with Tabs */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full gap-0">
-            <div className="flex-shrink-0 border-b px-6">
-              <TabsList variant="line" className="w-full justify-start -mb-px">
+            <div className="flex-shrink-0 border-b px-4 sm:px-6 overflow-x-auto scrollbar-none">
+              <TabsList variant="line" className="w-max sm:w-full justify-start -mb-px">
                 {TABS.map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
+                  <TabsTrigger key={tab.value} value={tab.value} className="shrink-0 text-xs sm:text-sm">
                     {tab.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
               <TabsContent value="property" className="mt-0"><StepProperty form={form} /></TabsContent>
               <TabsContent value="location" className="mt-0"><StepLocation form={form} /></TabsContent>
               <TabsContent value="owners" className="mt-0"><StepOwners form={form} /></TabsContent>
@@ -556,8 +558,8 @@ export function AcquisitionFormV2({
         </div>
 
         {/* Footer */}
-        <DialogFooter className="flex-shrink-0 border-t px-6 py-4 !m-0 !rounded-none items-center">
-          <div className="flex items-center justify-end gap-3 w-full">
+        <DialogFooter className="flex-shrink-0 border-t px-4 sm:px-6 py-3 sm:py-4 !m-0 !rounded-none items-center">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 w-full">
             {missingCount > 0 && (
               <Badge className="bg-amber-100 text-amber-700 border-0 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
                 <AlertCircle className="h-3 w-3 mr-1" />
