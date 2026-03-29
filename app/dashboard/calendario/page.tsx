@@ -493,7 +493,7 @@ export default function CalendarioPage() {
       {isManager && (
         <Button
           size="icon"
-          className="fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full shadow-lg sm:hidden"
+          className="fixed bottom-24 right-3 z-40 h-10 w-10 rounded-full shadow-lg sm:hidden"
           asChild
         >
           <Link href="/dashboard/calendario/assiduidade">
