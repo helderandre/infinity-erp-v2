@@ -36,9 +36,11 @@ export async function POST(req: NextRequest) {
       contactId = newContact!.id
     }
 
-    // 2. Create entry with 1-minute SLA (warning at 30s, breach at 1min)
+    // 2. Create entry with configurable SLA (default 2 minutes)
+    const body = await req.json().catch(() => ({}))
+    const slaMinutes = body.minutes ?? 2
     const now = new Date()
-    const deadline = new Date(now.getTime() + 60 * 1000) // 1 minute from now
+    const deadline = new Date(now.getTime() + slaMinutes * 60 * 1000)
 
     const { data: entry, error } = await db
       .from("leads_entries")
@@ -64,11 +66,13 @@ export async function POST(req: NextRequest) {
       entry_id: entry!.id,
       contact_id: contactId,
       sla_deadline: deadline.toISOString(),
-      message: "Entrada criada com SLA de 1 minuto. O cron check-sla irá detectar e enviar notificações. Execute manualmente: curl <URL>/api/cron/check-sla",
+      sla_minutes: slaMinutes,
+      message: `Entrada criada com SLA de ${slaMinutes} minuto(s). O cron check-sla irá detectar automaticamente.`,
       timeline: {
         "agora": "SLA status: pending",
-        "~30s": "SLA warning → push + email + in-app notification",
-        "~1min": "SLA breached → push + email + in-app notification to you + gestoras",
+        [`~${Math.round(slaMinutes * 0.5)}min`]: "SLA warning → push + in-app notification",
+        [`~${slaMinutes}min`]: "SLA breached → push + in-app + email notification",
+        [`~${Math.round(slaMinutes * 1.5)}min`]: "SLA escalation → push + in-app + email to gestoras",
       },
     })
   } catch (err) {
