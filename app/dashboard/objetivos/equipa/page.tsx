@@ -82,7 +82,7 @@ export default function EquipaPage() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
           </div>
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
@@ -98,7 +98,7 @@ export default function EquipaPage() {
                   <Users className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-3xl font-bold">{totalConsultants}</p>
+              <p className="text-xl sm:text-3xl font-bold truncate">{totalConsultants}</p>
               <p className="text-xs text-white/70 mt-1">Com objectivos activos</p>
             </div>
 
@@ -109,7 +109,7 @@ export default function EquipaPage() {
                   <Send className="h-4 w-4 text-blue-600" />
                 </div>
               </div>
-              <p className="text-3xl font-bold">{submitted}</p>
+              <p className="text-xl sm:text-3xl font-bold truncate">{submitted}</p>
               <p className="text-xs text-muted-foreground mt-1">de {totalConsultants} consultores</p>
             </div>
 
@@ -120,7 +120,7 @@ export default function EquipaPage() {
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-3xl font-bold">{reviewed}</p>
+              <p className="text-xl sm:text-3xl font-bold truncate">{reviewed}</p>
               <p className="text-xs text-muted-foreground mt-1">com feedback enviado</p>
             </div>
 
@@ -131,7 +131,7 @@ export default function EquipaPage() {
                   <Clock className="h-4 w-4 text-amber-600" />
                 </div>
               </div>
-              <p className="text-3xl font-bold">{pending}</p>
+              <p className="text-xl sm:text-3xl font-bold truncate">{pending}</p>
               <p className="text-xs text-muted-foreground mt-1">sem relatório</p>
             </div>
           </div>

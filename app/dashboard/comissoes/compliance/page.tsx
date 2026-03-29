@@ -285,7 +285,7 @@ function KpiCard({ label, value, icon: Icon, color, isCurrency = true }: {
       <Icon className={`h-5 w-5 shrink-0 ${color}`} />
       <div className="min-w-0">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold">{isCurrency ? fmtCurrency(value) : value}</p>
+        <p className="text-base sm:text-xl font-bold truncate">{isCurrency ? fmtCurrency(value) : value}</p>
       </div>
     </div>
   )

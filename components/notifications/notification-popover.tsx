@@ -43,7 +43,7 @@ export function NotificationPopover() {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-96 p-0 gap-0"
+        className="w-[calc(100vw-2rem)] sm:w-96 p-0 gap-0"
         align="end"
         sideOffset={8}
       >

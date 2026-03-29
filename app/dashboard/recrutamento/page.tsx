@@ -445,7 +445,7 @@ function KPICard({
           {loading ? (
             <Skeleton className="mt-1 h-6 w-12" />
           ) : (
-            <p className="text-xl font-bold">{value}</p>
+            <p className="text-base sm:text-xl font-bold truncate">{value}</p>
           )}
         </div>
       </CardContent>

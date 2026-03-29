@@ -22,6 +22,7 @@ interface ChatThreadProps {
   chatId: string
   instanceId: string
   onToggleInfo: () => void
+  onBack?: () => void
 }
 
 function formatDateSeparator(ts: number): string {
@@ -31,7 +32,7 @@ function formatDateSeparator(ts: number): string {
   return format(date, "d 'de' MMMM 'de' yyyy", { locale: pt })
 }
 
-export function ChatThread({ chatId, instanceId, onToggleInfo }: ChatThreadProps) {
+export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThreadProps) {
   const {
     messages,
     quotedMessages,
@@ -183,6 +184,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo }: ChatThreadProps
         chat={chat}
         isTyping={chatTyping}
         onToggleInfo={onToggleInfo}
+        onBack={onBack}
       />
 
       {/* Messages */}

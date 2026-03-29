@@ -191,7 +191,7 @@ function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor,
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2">{label}</p>
-          <p className={cn('text-2xl font-bold tracking-tight tabular-nums', valueColor)}>{value}</p>
+          <p className={cn('text-lg sm:text-2xl font-bold tracking-tight tabular-nums truncate', valueColor)}>{value}</p>
           <div className="flex items-center gap-2 mt-1">
             {trend && (
               <span className={cn(
@@ -248,7 +248,7 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-32 rounded-xl" />
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
       </div>
       <div className="grid gap-4 md:grid-cols-3">
@@ -387,7 +387,7 @@ function ManagementDashboard() {
         {/* ═══ Tab: Visão Geral ═══ */}
         <TabsContent value="overview" className="mt-6 space-y-6">
           {/* KPIs */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <KpiCard label="Facturação YTD" value={fmt.format(rpt.reported_this_year)} sub="este mês"
               icon={Euro} iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
               sparkData={chart.slice(-6).map(c => c.revenue)}
@@ -862,7 +862,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       </div>
 
       {/* Row 1: KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Facturação YTD" value={fmt.format(data.revenue_ytd)} icon={Euro}
           iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
           onClick={() => openDrillDown({ title: 'As Minhas Transacções (Ano)', fetcher: () => getDrillDownTransactions({ consultant_id: userId, date_from: `${new Date().getFullYear()}-01-01` }) })}

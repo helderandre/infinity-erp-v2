@@ -3,6 +3,7 @@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import { TRAINING_DIFFICULTY_OPTIONS } from '@/lib/constants'
 import { Search, X } from 'lucide-react'
 import type { TrainingCategory } from '@/types/training'
@@ -40,6 +41,21 @@ export function TrainingFilters({
     label: opt.label,
   }))
 
+  const activeFilterCount = selectedCategories.length + selectedDifficulties.length
+
+  const filterButtons = (
+    <>
+      <MultiSelectFilter title="Categoria" options={categoryOptions} selected={selectedCategories} onSelectedChange={onCategoriesChange} searchable={categories.length > 8} />
+      <MultiSelectFilter title="Nível" options={difficultyOptions} selected={selectedDifficulties} onSelectedChange={onDifficultiesChange} />
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 rounded-full text-xs">
+          <X className="mr-1 h-3.5 w-3.5" />
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 max-w-xs">
@@ -52,27 +68,9 @@ export function TrainingFilters({
         />
       </div>
 
-      <MultiSelectFilter
-        title="Categoria"
-        options={categoryOptions}
-        selected={selectedCategories}
-        onSelectedChange={onCategoriesChange}
-        searchable={categories.length > 8}
-      />
-
-      <MultiSelectFilter
-        title="Nível"
-        options={difficultyOptions}
-        selected={selectedDifficulties}
-        onSelectedChange={onDifficultiesChange}
-      />
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 rounded-full text-xs">
-          <X className="mr-1 h-3.5 w-3.5" />
-          Limpar
-        </Button>
-      )}
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

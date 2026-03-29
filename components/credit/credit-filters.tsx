@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Search, X } from 'lucide-react'
 import { CREDIT_STATUS_COLORS } from '@/lib/constants'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 
 interface CreditFiltersProps {
   search: string
@@ -56,6 +57,23 @@ export function CreditFilters({
     label: c.commercial_name,
   }))
 
+  const activeFilterCount = effectiveStatuses.length + effectiveAssigned.length
+
+  const filterButtons = (
+    <>
+      <MultiSelectFilter title="Estado" options={statusOptions} selected={effectiveStatuses} onSelectedChange={handleStatuses} />
+      {consultants.length > 0 && (
+        <MultiSelectFilter title="Responsável" options={consultantOptions} selected={effectiveAssigned} onSelectedChange={handleAssigned} searchable />
+      )}
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={onClearFilters}>
+          <X className="mr-1 h-4 w-4" />
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative flex-1 min-w-[200px]">
@@ -68,29 +86,9 @@ export function CreditFilters({
         />
       </div>
 
-      <MultiSelectFilter
-        title="Estado"
-        options={statusOptions}
-        selected={effectiveStatuses}
-        onSelectedChange={handleStatuses}
-      />
-
-      {consultants.length > 0 && (
-        <MultiSelectFilter
-          title="Responsável"
-          options={consultantOptions}
-          selected={effectiveAssigned}
-          onSelectedChange={handleAssigned}
-          searchable
-        />
-      )}
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClearFilters}>
-          <X className="mr-1 h-4 w-4" />
-          Limpar
-        </Button>
-      )}
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

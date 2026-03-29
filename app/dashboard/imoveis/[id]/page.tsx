@@ -502,32 +502,36 @@ export default function ImovelDetalhePage() {
               {property.external_ref && (
                 <span className="text-sm font-mono font-bold text-white/70 tracking-wide mr-1">ID: {property.external_ref}</span>
               )}
-              {[
-                  { key: 'infinity', url: (property as any).link_portal_infinity || `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-black', hover: 'hover:bg-neutral-800', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-white"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l7.03-6.24c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z"/></svg>) },
-                  { key: 'remax', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-600', hover: 'hover:bg-blue-700', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#EF4444"/></svg>) },
-                  { key: 'idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-400', hover: 'hover:bg-yellow-300', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#000"/></svg>) },
-                  { key: 'imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-red-500', hover: 'hover:bg-red-600', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#fff"/></svg>) },
-                ].map((portal) => (
-                  <a
-                    key={portal.key}
-                    href={portal.url || '#'}
-                    target={portal.url ? '_blank' : undefined}
-                    rel="noopener noreferrer"
-                    onClick={(e) => { if (!portal.url) e.preventDefault() }}
-                    className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${portal.bg} ${portal.hover} transition-all ${portal.url ? 'opacity-100 shadow-md' : 'opacity-30 cursor-not-allowed'}`}
-                    title={portal.key.charAt(0).toUpperCase() + portal.key.slice(1)}
-                  >
-                    {portal.icon}
-                  </a>
-                ))}
+              <div className="hidden sm:flex items-center gap-2">
+                {[
+                    { key: 'infinity', url: (property as any).link_portal_infinity || `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-black', hover: 'hover:bg-neutral-800', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-white"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l7.03-6.24c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z"/></svg>) },
+                    { key: 'remax', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-600', hover: 'hover:bg-blue-700', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#EF4444"/></svg>) },
+                    { key: 'idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-400', hover: 'hover:bg-yellow-300', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#000"/></svg>) },
+                    { key: 'imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-red-500', hover: 'hover:bg-red-600', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#fff"/></svg>) },
+                  ].map((portal) => (
+                    <a
+                      key={portal.key}
+                      href={portal.url || '#'}
+                      target={portal.url ? '_blank' : undefined}
+                      rel="noopener noreferrer"
+                      onClick={(e) => { if (!portal.url) e.preventDefault() }}
+                      className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${portal.bg} ${portal.hover} transition-all ${portal.url ? 'opacity-100 shadow-md' : 'opacity-30 cursor-not-allowed'}`}
+                      title={portal.key.charAt(0).toUpperCase() + portal.key.slice(1)}
+                    >
+                      {portal.icon}
+                    </a>
+                  ))}
+              </div>
             </div>
             <div className="flex items-center gap-3 sm:gap-5 mt-3 flex-wrap">
               <HeroStat icon={Euro} value={formatCurrency(property.listing_price)} className="text-white font-bold text-lg" />
               {specs?.typology && <HeroStat icon={Building2} value={specs.typology} />}
-              {specs?.bedrooms != null && <HeroStat icon={BedDouble} value={`${specs.bedrooms} quartos`} />}
-              {specs?.bathrooms != null && <HeroStat icon={Bath} value={`${specs.bathrooms} WC`} />}
-              {specs?.area_util && <HeroStat icon={Maximize} value={formatArea(specs.area_util)} />}
-              {(specs?.parking_spaces || specs?.garage_spaces) && <HeroStat icon={Car} value={`${(specs?.parking_spaces || 0) + (specs?.garage_spaces || 0)} lug.`} />}
+              <span className="hidden sm:contents">
+                {specs?.bedrooms != null && <HeroStat icon={BedDouble} value={`${specs.bedrooms} quartos`} />}
+                {specs?.bathrooms != null && <HeroStat icon={Bath} value={`${specs.bathrooms} WC`} />}
+                {specs?.area_util && <HeroStat icon={Maximize} value={formatArea(specs.area_util)} />}
+                {(specs?.parking_spaces || specs?.garage_spaces) && <HeroStat icon={Car} value={`${(specs?.parking_spaces || 0) + (specs?.garage_spaces || 0)} lug.`} />}
+              </span>
             </div>
           </div>
 

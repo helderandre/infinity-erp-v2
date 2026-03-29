@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, X } from 'lucide-react'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 
 interface ConsultantFiltersProps {
   search: string
@@ -51,6 +52,23 @@ export function ConsultantFilters({
 
   const roleOptions = roles.map((r) => ({ value: r.name, label: r.name }))
 
+  const activeFilterCount = effectiveStatuses.length + effectiveRoles.length
+
+  const filterButtons = (
+    <>
+      <MultiSelectFilter title="Estado" options={statusOptions} selected={effectiveStatuses} onSelectedChange={handleStatuses} />
+      {roles.length > 0 && (
+        <MultiSelectFilter title="Função" options={roleOptions} selected={effectiveRoles} onSelectedChange={handleRoles} searchable />
+      )}
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 px-2 rounded-full text-xs">
+          <X className="mr-1 h-3.5 w-3.5" />
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 max-w-xs">
@@ -63,29 +81,9 @@ export function ConsultantFilters({
         />
       </div>
 
-      <MultiSelectFilter
-        title="Estado"
-        options={statusOptions}
-        selected={effectiveStatuses}
-        onSelectedChange={handleStatuses}
-      />
-
-      {roles.length > 0 && (
-        <MultiSelectFilter
-          title="Função"
-          options={roleOptions}
-          selected={effectiveRoles}
-          onSelectedChange={handleRoles}
-          searchable
-        />
-      )}
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 px-2 rounded-full text-xs">
-          <X className="mr-1 h-3.5 w-3.5" />
-          Limpar
-        </Button>
-      )}
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

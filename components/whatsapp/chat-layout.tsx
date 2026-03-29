@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { ChatSidebar } from './chat-sidebar'
 import { ChatThread } from './chat-thread'
 import { ChatInfoPanel } from './chat-info-panel'
@@ -49,6 +51,7 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
   const [showInfo, setShowInfo] = useState(false)
   const [connectId, setConnectId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   const refetchInstances = useCallback(async () => {
     try {
@@ -120,6 +123,95 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
     )
   }
 
+  const handleBack = useCallback(() => {
+    setSelectedChatId(null)
+    setShowInfo(false)
+  }, [])
+
+  // Mobile: full-screen views that switch between sidebar ↔ thread
+  if (isMobile) {
+    return (
+      <div className="flex h-full overflow-hidden">
+        {/* Chat list (full-screen when no chat selected) */}
+        {!selectedChatId && (
+          <div className="w-full flex flex-col">
+            <ChatSidebar
+              instances={instances}
+              selectedInstance={selectedInstance}
+              onInstanceChange={(id) => {
+                setSelectedInstance(id)
+                setSelectedChatId(null)
+                setShowInfo(false)
+              }}
+              selectedChatId={selectedChatId}
+              onChatSelect={(id) => {
+                setSelectedChatId(id)
+                setShowInfo(false)
+              }}
+              onRenameInstance={handleRenameInstance}
+              onConnectInstance={setConnectId}
+              onDisconnectInstance={handleDisconnectInstance}
+              onDeleteInstance={handleDeleteInstance}
+              onCreateInstance={() => setCreateOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* Chat thread (full-screen when chat selected) */}
+        {selectedChatId && (
+          <div className="w-full flex flex-col">
+            <ChatThread
+              chatId={selectedChatId}
+              instanceId={selectedInstance}
+              onToggleInfo={() => setShowInfo((v) => !v)}
+              onBack={handleBack}
+            />
+          </div>
+        )}
+
+        {/* Info panel as bottom sheet on mobile */}
+        <Sheet open={showInfo && !!selectedChatId} onOpenChange={(open) => { if (!open) setShowInfo(false) }}>
+          <SheetContent side="right" className="w-full sm:w-96 p-0">
+            {selectedChatId && (
+              <ChatInfoPanel
+                chatId={selectedChatId}
+                instanceId={selectedInstance}
+                onClose={() => setShowInfo(false)}
+                onChatSelect={(id) => {
+                  setSelectedChatId(id)
+                  setShowInfo(false)
+                }}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {/* Connection Sheet */}
+        {connectingInstance && (
+          <InstanceConnectionSheet
+            open={!!connectId}
+            onOpenChange={(open) => { if (!open) setConnectId(null) }}
+            instanceId={connectId}
+            instanceName={connectingInstance.name}
+            onConnect={handleConnectInstance}
+            onCheckStatus={handleCheckStatus}
+            onSuccess={async () => {
+              setConnectId(null)
+              await refetchInstances()
+            }}
+          />
+        )}
+
+        <CreateInstanceDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSubmit={handleCreateInstance}
+        />
+      </div>
+    )
+  }
+
+  // Desktop: side-by-side layout
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}

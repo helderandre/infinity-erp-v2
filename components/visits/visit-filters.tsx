@@ -6,6 +6,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import type { VisitFilters } from '@/types/visit'
 
 interface VisitFiltersBarProps {
@@ -39,9 +40,27 @@ export function VisitFiltersBar({
       label: c.commercial_name!,
     }))
 
+  const activeFilterCount = (filters.statuses?.length || 0) + (filters.consultant_ids?.length || 0) + (filters.date_from ? 1 : 0) + (filters.date_to ? 1 : 0)
+
+  const filterButtons = (
+    <>
+      <MultiSelectFilter title="Estado" options={statusOptions} selected={filters.statuses || []} onSelectedChange={(vals) => onFiltersChange({ ...filters, statuses: vals })} />
+      {consultantOptions.length > 0 && (
+        <MultiSelectFilter title="Consultor" options={consultantOptions} selected={filters.consultant_ids || []} onSelectedChange={(vals) => onFiltersChange({ ...filters, consultant_ids: vals })} searchable />
+      )}
+      <Input type="date" className="w-[150px]" value={filters.date_from || ''} onChange={(e) => onFiltersChange({ ...filters, date_from: e.target.value })} placeholder="De" />
+      <Input type="date" className="w-[150px]" value={filters.date_to || ''} onChange={(e) => onFiltersChange({ ...filters, date_to: e.target.value })} placeholder="Até" />
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={() => onFiltersChange({})}>
+          <X className="mr-1 h-4 w-4" />
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Search */}
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -52,48 +71,9 @@ export function VisitFiltersBar({
         />
       </div>
 
-      {/* Status */}
-      <MultiSelectFilter
-        title="Estado"
-        options={statusOptions}
-        selected={filters.statuses || []}
-        onSelectedChange={(vals) => onFiltersChange({ ...filters, statuses: vals })}
-      />
-
-      {/* Consultant */}
-      {consultantOptions.length > 0 && (
-        <MultiSelectFilter
-          title="Consultor"
-          options={consultantOptions}
-          selected={filters.consultant_ids || []}
-          onSelectedChange={(vals) => onFiltersChange({ ...filters, consultant_ids: vals })}
-          searchable
-        />
-      )}
-
-      {/* Date range */}
-      <Input
-        type="date"
-        className="w-[150px]"
-        value={filters.date_from || ''}
-        onChange={(e) => onFiltersChange({ ...filters, date_from: e.target.value })}
-        placeholder="De"
-      />
-      <Input
-        type="date"
-        className="w-[150px]"
-        value={filters.date_to || ''}
-        onChange={(e) => onFiltersChange({ ...filters, date_to: e.target.value })}
-        placeholder="Até"
-      />
-
-      {/* Clear */}
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={() => onFiltersChange({})}>
-          <X className="mr-1 h-4 w-4" />
-          Limpar
-        </Button>
-      )}
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

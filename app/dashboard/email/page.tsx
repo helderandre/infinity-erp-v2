@@ -33,12 +33,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import {
   PenSquare,
   Mail,
   Settings,
   ArrowLeft,
   Folder,
   Users,
+  Menu,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -69,6 +76,7 @@ export default function EmailInboxPage() {
 
   // Mobile: show message view when a message is selected
   const [mobileView, setMobileView] = useState<'list' | 'message'>('list')
+  const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false)
 
   // Group accounts by consultant for admin view
   const groupedAccounts = useMemo(() => {
@@ -197,26 +205,141 @@ export default function EmailInboxPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="border-b px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Mobile back button */}
-            {mobileView === 'message' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="sm:hidden h-8 w-8"
-                onClick={handleBack}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-lg font-semibold">Email</h1>
+        {/* ── Mobile layout ─────────────────────────────────────── */}
+        <div className="flex flex-col h-full sm:hidden">
+          {/* Mobile header */}
+          <div className="border-b px-3 py-2.5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {mobileView === 'message' ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex-shrink-0"
+                  onClick={handleBack}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex-shrink-0"
+                  onClick={() => setMobileFoldersOpen(true)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold truncate">Email</h1>
+                {accounts.length <= 1 && selectedAccount && (
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {selectedAccount.email_address}
+                  </p>
+                )}
               </div>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {accounts.length > 1 && (
+                <Select value={selectedAccountId ?? ''} onValueChange={handleAccountChange}>
+                  <SelectTrigger className="h-8 w-auto max-w-[140px] text-xs">
+                    <SelectValue placeholder="Conta..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupedAccounts ? (
+                      Array.from(groupedAccounts.entries()).map(([consultantName, accs]) => (
+                        <SelectGroup key={consultantName}>
+                          <SelectLabel className="flex items-center gap-1.5 text-xs">
+                            <Users className="h-3 w-3" />
+                            {consultantName}
+                          </SelectLabel>
+                          {accs.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                              {acc.display_name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))
+                    ) : (
+                      accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                          {acc.display_name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button size="icon" className="h-8 w-8" onClick={handleNewEmail} disabled={!selectedAccount}>
+                <PenSquare className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                <Link href="/dashboard/definicoes/email">
+                  <Settings className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
 
-              {/* Account selector */}
+          {/* Mobile body: full-screen list ↔ full-screen message */}
+          <div className="flex-1 overflow-hidden">
+            {mobileView === 'list' ? (
+              <MessageList
+                messages={inbox.messages}
+                total={inbox.total}
+                page={inbox.page}
+                limit={inbox.limit}
+                isLoading={inbox.isLoading}
+                selectedUid={selectedUid}
+                searchQuery={inbox.searchQuery}
+                isSearching={inbox.isSearching}
+                onSelect={handleSelectMessage}
+                onPageChange={inbox.changePage}
+                onRefresh={inbox.refresh}
+                onToggleFlag={inbox.toggleFlag}
+                onSearch={inbox.search}
+                onClearSearch={inbox.clearSearch}
+              />
+            ) : (
+              <MessageView
+                message={message}
+                isLoading={messageLoading}
+                error={messageError}
+                onReply={handleReply}
+                onForward={handleForward}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+              />
+            )}
+          </div>
+
+          {/* Mobile folders sheet */}
+          <Sheet open={mobileFoldersOpen} onOpenChange={setMobileFoldersOpen}>
+            <SheetContent side="left" className="w-72 p-0">
+              <SheetHeader className="px-4 pt-4 pb-2">
+                <SheetTitle>Pastas</SheetTitle>
+              </SheetHeader>
+              <FolderSidebar
+                folders={inbox.folders}
+                activeFolder={inbox.folder}
+                onFolderChange={(path) => {
+                  inbox.changeFolder(path)
+                  setSelectedUid(null)
+                  setMobileView('list')
+                  setMobileFoldersOpen(false)
+                }}
+                isLoading={inbox.foldersLoading}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* ── Desktop layout ────────────────────────────────────── */}
+        <div className="hidden sm:flex flex-col h-full">
+          {/* Desktop header */}
+          <div className="border-b px-4 py-3 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold">Email</h1>
               {accounts.length > 1 ? (
                 <Select value={selectedAccountId ?? ''} onValueChange={handleAccountChange}>
                   <SelectTrigger className="h-8 w-auto min-w-[200px] max-w-[320px] text-xs">
@@ -224,7 +347,6 @@ export default function EmailInboxPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {groupedAccounts ? (
-                      // Admin view: grouped by consultant
                       Array.from(groupedAccounts.entries()).map(([consultantName, accs]) => (
                         <SelectGroup key={consultantName}>
                           <SelectLabel className="flex items-center gap-1.5 text-xs">
@@ -239,7 +361,6 @@ export default function EmailInboxPage() {
                         </SelectGroup>
                       ))
                     ) : (
-                      // Regular user: flat list
                       accounts.map((acc) => (
                         <SelectItem key={acc.id} value={acc.id} className="text-xs">
                           {acc.display_name} &lt;{acc.email_address}&gt;
@@ -254,118 +375,78 @@ export default function EmailInboxPage() {
                 </p>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleNewEmail} disabled={!selectedAccount}>
+                <PenSquare className="h-4 w-4 mr-1.5" />
+                Novo Email
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                <Link href="/dashboard/definicoes/email">
+                  <Settings className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleNewEmail} disabled={!selectedAccount}>
-              <PenSquare className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Novo Email</span>
-            </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-              <Link href="/dashboard/definicoes/email">
-                <Settings className="h-4 w-4" />
-              </Link>
-            </Button>
+
+          {/* Desktop resizable 3-column layout */}
+          <div className="flex-1 min-h-0">
+            <ResizablePanelGroup orientation="horizontal" className="h-full">
+              <ResizablePanel defaultSize="10%" minSize="8%" maxSize="18%">
+                <div className="h-full overflow-hidden">
+                  <FolderSidebar
+                    folders={inbox.folders}
+                    activeFolder={inbox.folder}
+                    onFolderChange={(path) => {
+                      inbox.changeFolder(path)
+                      setSelectedUid(null)
+                    }}
+                    isLoading={inbox.foldersLoading}
+                  />
+                </div>
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              <ResizablePanel defaultSize="16%" minSize="15%" maxSize="30%">
+                <div className="h-full overflow-hidden">
+                  <MessageList
+                    messages={inbox.messages}
+                    total={inbox.total}
+                    page={inbox.page}
+                    limit={inbox.limit}
+                    isLoading={inbox.isLoading}
+                    selectedUid={selectedUid}
+                    searchQuery={inbox.searchQuery}
+                    isSearching={inbox.isSearching}
+                    onSelect={handleSelectMessage}
+                    onPageChange={inbox.changePage}
+                    onRefresh={inbox.refresh}
+                    onToggleFlag={inbox.toggleFlag}
+                    onSearch={inbox.search}
+                    onClearSearch={inbox.clearSearch}
+                  />
+                </div>
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              <ResizablePanel defaultSize="50%" minSize="25%">
+                <div className="h-full overflow-hidden">
+                  <MessageView
+                    message={message}
+                    isLoading={messageLoading}
+                    error={messageError}
+                    onReply={handleReply}
+                    onForward={handleForward}
+                    onBack={handleBack}
+                    onDelete={handleDelete}
+                    onArchive={handleArchive}
+                    onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                  />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
-        </div>
-
-        {/* Body: 3-column resizable layout (desktop) / stacked (mobile) */}
-
-        {/* Mobile layout */}
-        <div className="flex-1 flex overflow-hidden sm:hidden">
-          <div className={`w-full ${mobileView === 'message' ? 'hidden' : ''}`}>
-            <MessageList
-              messages={inbox.messages}
-              total={inbox.total}
-              page={inbox.page}
-              limit={inbox.limit}
-              isLoading={inbox.isLoading}
-              selectedUid={selectedUid}
-              searchQuery={inbox.searchQuery}
-              isSearching={inbox.isSearching}
-              onSelect={handleSelectMessage}
-              onPageChange={inbox.changePage}
-              onRefresh={inbox.refresh}
-              onToggleFlag={inbox.toggleFlag}
-              onSearch={inbox.search}
-              onClearSearch={inbox.clearSearch}
-            />
-          </div>
-          <div className={`w-full ${mobileView === 'list' ? 'hidden' : ''}`}>
-            <MessageView
-              message={message}
-              isLoading={messageLoading}
-              error={messageError}
-              onReply={handleReply}
-              onForward={handleForward}
-              onBack={handleBack}
-              onDelete={handleDelete}
-              onArchive={handleArchive}
-              onMoveToFolder={(uid) => setMoveDialogUid(uid)}
-            />
-          </div>
-        </div>
-
-        {/* Desktop resizable layout */}
-        <div className="flex-1 min-h-0 hidden sm:flex">
-          <ResizablePanelGroup orientation="horizontal" className="h-full">
-            {/* Folders panel */}
-            <ResizablePanel defaultSize="10%" minSize="8%" maxSize="18%">
-              <div className="h-full overflow-hidden">
-                <FolderSidebar
-                  folders={inbox.folders}
-                  activeFolder={inbox.folder}
-                  onFolderChange={(path) => {
-                    inbox.changeFolder(path)
-                    setSelectedUid(null)
-                  }}
-                  isLoading={inbox.foldersLoading}
-                />
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            {/* Message list panel */}
-            <ResizablePanel defaultSize="16%" minSize="15%" maxSize="30%">
-              <div className="h-full overflow-hidden">
-                <MessageList
-                  messages={inbox.messages}
-                  total={inbox.total}
-                  page={inbox.page}
-                  limit={inbox.limit}
-                  isLoading={inbox.isLoading}
-                  selectedUid={selectedUid}
-                  searchQuery={inbox.searchQuery}
-                  isSearching={inbox.isSearching}
-                  onSelect={handleSelectMessage}
-                  onPageChange={inbox.changePage}
-                  onRefresh={inbox.refresh}
-                  onToggleFlag={inbox.toggleFlag}
-                  onSearch={inbox.search}
-                  onClearSearch={inbox.clearSearch}
-                />
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            {/* Message view panel */}
-            <ResizablePanel defaultSize="50%" minSize="25%">
-              <div className="h-full overflow-hidden">
-                <MessageView
-                  message={message}
-                  isLoading={messageLoading}
-                  error={messageError}
-                  onReply={handleReply}
-                  onForward={handleForward}
-                  onBack={handleBack}
-                  onDelete={handleDelete}
-                  onArchive={handleArchive}
-                  onMoveToFolder={(uid) => setMoveDialogUid(uid)}
-                />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
         </div>
       </div>
 

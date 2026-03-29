@@ -306,7 +306,7 @@ export default function ContaCorrentePage() {
                   <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
                     {kpi.label}
                   </p>
-                  <p className={cn('text-xl font-bold tracking-tight', kpi.color)}>
+                  <p className={cn('text-base sm:text-xl font-bold tracking-tight truncate', kpi.color)}>
                     {kpi.isCurrency === false ? kpi.value : formatCurrency(kpi.value)}
                   </p>
                 </div>

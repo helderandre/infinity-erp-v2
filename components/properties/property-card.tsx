@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatCurrency } from '@/lib/constants'
 import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
-import { MapPin, BedDouble, Bath, Maximize } from 'lucide-react'
+import { MapPin, Maximize } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
 
 interface PropertyCardProps {
@@ -52,23 +52,11 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
         )}
       </div>
       <CardContent className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-semibold text-sm line-clamp-1">{property.title}</h3>
-          {property.external_ref && (
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-              {property.external_ref}
-            </span>
-          )}
-        </div>
+        <h3 className="font-semibold text-sm line-clamp-1">{property.title}</h3>
 
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />
-          <div className="truncate">
-            <span>{[property.city, property.zone].filter(Boolean).join(', ') || 'Sem localização'}</span>
-            {property.external_ref && (
-              <span className="ml-1.5 font-mono text-[10px] text-muted-foreground/60">· {property.external_ref}</span>
-            )}
-          </div>
+          <span className="truncate">{[property.city, property.zone].filter(Boolean).join(', ') || 'Sem localização'}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -77,35 +65,6 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
           </span>
           <span className="text-xs text-muted-foreground">{propertyTypeLabel}</span>
         </div>
-
-        {specs && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 border-t">
-            {specs.bedrooms != null && (
-              <span className="flex items-center gap-1">
-                <BedDouble className="h-3 w-3" />
-                {specs.bedrooms}
-              </span>
-            )}
-            {specs.bathrooms != null && (
-              <span className="flex items-center gap-1">
-                <Bath className="h-3 w-3" />
-                {specs.bathrooms}
-              </span>
-            )}
-            {specs.area_util != null && (
-              <span className="flex items-center gap-1">
-                <Maximize className="h-3 w-3" />
-                {specs.area_util} m²
-              </span>
-            )}
-          </div>
-        )}
-
-        {property.consultant && (
-          <p className="text-xs text-muted-foreground truncate">
-            {property.consultant.commercial_name}
-          </p>
-        )}
       </CardContent>
     </Card>
   )

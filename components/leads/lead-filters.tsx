@@ -9,6 +9,7 @@ import {
   LEAD_ORIGENS,
 } from '@/lib/constants'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 
 interface LeadFiltersProps {
   search: string
@@ -79,6 +80,25 @@ export function LeadFilters({
     label: c.commercial_name,
   }))
 
+  const activeFilterCount = effectiveEstados.length + effectiveTemps.length + effectiveOrigens.length + effectiveAgents.length
+
+  const filterButtons = (
+    <>
+      <MultiSelectFilter title="Estado" options={estadoOptions} selected={effectiveEstados} onSelectedChange={handleEstados} />
+      <MultiSelectFilter title="Temperatura" options={temperaturaOptions} selected={effectiveTemps} onSelectedChange={handleTemps} />
+      <MultiSelectFilter title="Origem" options={origemOptions} selected={effectiveOrigens} onSelectedChange={handleOrigens} />
+      {consultants.length > 0 && (
+        <MultiSelectFilter title="Consultor" options={consultantOptions} selected={effectiveAgents} onSelectedChange={handleAgents} searchable />
+      )}
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={onClearFilters} className="rounded-full">
+          <X className="mr-1 h-4 w-4" />
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative flex-1 min-w-[200px]">
@@ -96,43 +116,9 @@ export function LeadFilters({
         )}
       </div>
 
-      <MultiSelectFilter
-        title="Estado"
-        options={estadoOptions}
-        selected={effectiveEstados}
-        onSelectedChange={handleEstados}
-      />
-
-      <MultiSelectFilter
-        title="Temperatura"
-        options={temperaturaOptions}
-        selected={effectiveTemps}
-        onSelectedChange={handleTemps}
-      />
-
-      <MultiSelectFilter
-        title="Origem"
-        options={origemOptions}
-        selected={effectiveOrigens}
-        onSelectedChange={handleOrigens}
-      />
-
-      {consultants.length > 0 && (
-        <MultiSelectFilter
-          title="Consultor"
-          options={consultantOptions}
-          selected={effectiveAgents}
-          onSelectedChange={handleAgents}
-          searchable
-        />
-      )}
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={onClearFilters} className="rounded-full">
-          <X className="mr-1 h-4 w-4" />
-          Limpar
-        </Button>
-      )}
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

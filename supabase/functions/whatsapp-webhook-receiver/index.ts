@@ -163,7 +163,7 @@ async function handleNewMessage(instanceId: string, msg: any, chatInfo?: any) {
   const waChatId = msg.chatid || msg.from || ""
   if (!waChatId) return
 
-  const fromMe = msg.fromMe === true
+  const fromMe = msg.fromMe === true || msg.fromMe === "true" || msg.fromMe === 1
   const rawMessageType = msg.messageType || msg.type || "text"
   const messageType = normalizeMessageType(rawMessageType)
   const phone = extractPhone(waChatId)
@@ -398,11 +398,16 @@ async function handleNewMessage(instanceId: string, msg: any, chatInfo?: any) {
     await supabase.from("wpp_chats").update({ name: phone }).eq("id", chat.id)
   }
 
-  // Incrementar unread_count se não é mensagem minha
+  // Incrementar unread_count se não é mensagem minha; reset se é minha (já vi o chat)
   if (!fromMe) {
     await supabase
       .from("wpp_chats")
       .update({ unread_count: (chat.unread_count || 0) + 1 })
+      .eq("id", chat.id)
+  } else if (chat.unread_count > 0) {
+    await supabase
+      .from("wpp_chats")
+      .update({ unread_count: 0 })
       .eq("id", chat.id)
   }
 

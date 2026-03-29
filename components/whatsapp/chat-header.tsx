@@ -1,6 +1,6 @@
 'use client'
 
-import { Info, Search, MoreVertical, Archive, Pin, VolumeX } from 'lucide-react'
+import { ArrowLeft, Info, Search, MoreVertical, Archive, Pin, VolumeX } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,9 +15,10 @@ interface ChatHeaderProps {
   chat: WppChat | null
   isTyping: boolean
   onToggleInfo: () => void
+  onBack?: () => void
 }
 
-export function ChatHeader({ chat, isTyping, onToggleInfo }: ChatHeaderProps) {
+export function ChatHeader({ chat, isTyping, onToggleInfo, onBack }: ChatHeaderProps) {
   const displayName = chat?.name || chat?.contact?.name || chat?.phone || 'Conversa'
   const picUrl = chat?.contact?.profile_pic_url || chat?.profile_pic_url || chat?.image
 
@@ -26,7 +27,12 @@ export function ChatHeader({ chat, isTyping, onToggleInfo }: ChatHeaderProps) {
     : chat?.phone || ''
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background">
+    <div className="flex items-center gap-2 px-2 sm:px-4 py-2.5 border-b bg-background">
+      {onBack && (
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      )}
       <button type="button" onClick={onToggleInfo} className="flex-shrink-0">
         <Avatar className="h-9 w-9">
           {picUrl && <AvatarImage src={picUrl} alt={displayName} />}

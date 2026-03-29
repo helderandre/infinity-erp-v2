@@ -232,7 +232,7 @@ function GestoraContent() {
                 <Icon className={cn("h-5 w-5", color)} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{value}</p>
                 <p className="text-[11px] text-muted-foreground">{label}</p>
               </div>
             </div>

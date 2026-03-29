@@ -54,17 +54,27 @@ export function SearchCommand() {
 
   return (
     <>
+      {/* Mobile: simple icon button */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex sm:hidden h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-muted/50 transition-colors"
+      >
+        <SearchIcon className="size-4 opacity-50" />
+      </button>
+
+      {/* Desktop: full search bar */}
       <InputGroup
         role="button"
         tabIndex={0}
         onClick={() => setOpen(true)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
-        className="h-8 w-8 sm:w-56 cursor-pointer hover:bg-muted/50 transition-colors"
+        className="hidden sm:flex h-8 w-56 cursor-pointer hover:bg-muted/50 transition-colors"
       >
         <InputGroupAddon>
           <SearchIcon className="size-4 shrink-0 opacity-50" />
         </InputGroupAddon>
-        <span className="hidden sm:block flex-1 text-left text-sm text-muted-foreground">
+        <span className="flex-1 text-left text-sm text-muted-foreground">
           Pesquisar...
         </span>
         <InputGroupAddon align="inline-end">

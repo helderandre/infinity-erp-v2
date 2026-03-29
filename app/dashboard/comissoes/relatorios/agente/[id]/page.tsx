@@ -162,17 +162,17 @@ export default function AgentReportPage() {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-xs text-muted-foreground">Facturacao Prevista</p>
-                <p className="text-lg font-bold">{fmt(objective.forecast)}</p>
+                <p className="text-sm sm:text-lg font-bold truncate">{fmt(objective.forecast)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Em Valor</p>
-                <p className={cn("text-lg font-bold", objective.in_value >= 0 ? "text-emerald-600" : "text-red-600")}>
+                <p className={cn("text-sm sm:text-lg font-bold truncate", objective.in_value >= 0 ? "text-emerald-600" : "text-red-600")}>
                   {objective.in_value >= 0 ? "+" : ""}{fmt(objective.in_value)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Crescimento</p>
-                <p className={cn("text-lg font-bold", objective.growth_pct >= 0 ? "text-emerald-600" : "text-red-600")}>
+                <p className={cn("text-sm sm:text-lg font-bold truncate", objective.growth_pct >= 0 ? "text-emerald-600" : "text-red-600")}>
                   {objective.growth_pct >= 0 ? "+" : ""}{objective.growth_pct.toFixed(1)}%
                 </p>
               </div>

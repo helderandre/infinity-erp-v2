@@ -10,6 +10,7 @@ import {
   PROPERTY_CONDITIONS,
 } from '@/lib/constants'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 
 interface PropertyFiltersProps {
   search: string
@@ -102,18 +103,10 @@ export function PropertyFilters({
     label: c.commercial_name,
   }))
 
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Pesquisar por título, cidade..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+  const activeFilterCount = selectedStatuses.length + effectiveTypes.length + effectiveBusiness.length + effectiveConditions.length + effectiveConsultants.length
 
+  const filterButtons = (
+    <>
       <MultiSelectFilter
         title="Estado"
         options={statusOptions}
@@ -159,6 +152,24 @@ export function PropertyFilters({
           Limpar
         </Button>
       )}
+    </>
+  )
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative flex-1 min-w-[200px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Pesquisar por título, cidade..."
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      <MobileFilterSheet activeCount={activeFilterCount}>
+        {filterButtons}
+      </MobileFilterSheet>
     </div>
   )
 }

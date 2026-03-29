@@ -83,7 +83,7 @@ export default function CreditoDashboardPage() {
     return (
       <div className="flex flex-col gap-6 p-6">
         <Skeleton className="h-8 w-80" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -169,7 +169,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pedidos Ativos</p>
-                <p className="text-2xl font-bold">{kpis.pedidos_activos}</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{kpis.pedidos_activos}</p>
               </div>
             </div>
           </CardContent>
@@ -183,7 +183,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Volume em Pipeline</p>
-                <p className="text-2xl font-bold">{fmt(kpis.volume_pipeline)}</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{fmt(kpis.volume_pipeline)}</p>
               </div>
             </div>
           </CardContent>
@@ -197,7 +197,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Volume Aprovado</p>
-                <p className="text-2xl font-bold">{fmt(kpis.volume_aprovado)}</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{fmt(kpis.volume_aprovado)}</p>
               </div>
             </div>
           </CardContent>
@@ -211,7 +211,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Taxa de Aprovação</p>
-                <p className="text-2xl font-bold">{kpis.taxa_aprovacao}%</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{kpis.taxa_aprovacao}%</p>
               </div>
             </div>
           </CardContent>
@@ -228,7 +228,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Melhor Spread</p>
-                <p className="text-2xl font-bold">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   {kpis.melhor_spread != null ? `${kpis.melhor_spread}%` : '-'}
                 </p>
               </div>
@@ -244,7 +244,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Taxa Esforço Média</p>
-                <p className="text-2xl font-bold">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   {kpis.taxa_esforco_media != null ? `${kpis.taxa_esforco_media}%` : '-'}
                 </p>
               </div>
@@ -260,7 +260,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">LTV Médio</p>
-                <p className="text-2xl font-bold">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   {kpis.ltv_medio != null ? `${kpis.ltv_medio}%` : '-'}
                 </p>
               </div>
@@ -276,7 +276,7 @@ export default function CreditoDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Docs Pendentes</p>
-                <p className="text-2xl font-bold">{kpis.docs_pendentes}</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">{kpis.docs_pendentes}</p>
                 <p className="text-xs text-muted-foreground">de {kpis.docs_total} total</p>
               </div>
             </div>

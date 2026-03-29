@@ -84,7 +84,7 @@ function KpiCard({ label, value, icon: Icon, color, isCurrency = true }: {
         <Icon className={`h-4 w-4 ${c.text}`} />
       </div>
       <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-2">{label}</p>
-      <p className={`text-xl font-bold tracking-tight ${c.text}`}>
+      <p className={`text-base sm:text-xl font-bold tracking-tight truncate ${c.text}`}>
         {isCurrency ? fmtCurrency(value) : value}
       </p>
     </div>
@@ -347,7 +347,7 @@ export default function ComissoesPage() {
             ═══════════════════════════════════════════════════════════════════════ */}
         <TabsContent value="negocios" className="space-y-6 mt-6">
           {/* Deal KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             <KpiCard label="Total Negócios" value={dealStats.total_deals} icon={Briefcase} color="text-slate-600" isCurrency={false} />
             <KpiCard label="Negócios Ativos" value={dealStats.active_deals} icon={Activity} color="text-blue-600" isCurrency={false} />
             <KpiCard label="Comissão Total" value={dealStats.total_commission} icon={CircleDollarSign} color="text-emerald-600" />
