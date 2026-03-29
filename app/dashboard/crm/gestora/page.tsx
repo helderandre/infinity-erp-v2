@@ -109,7 +109,7 @@ function GestoraContent() {
   const [isReassigning, setIsReassigning] = useState(false)
   const [agentFilter, setAgentFilter] = useState<string>('')
   const [sectorFilter, setSectorFilter] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'overdue' | 'unassigned'>('overdue')
+  const [activeTab, setActiveTab] = useState<'distribution' | 'overdue' | 'unassigned'>('distribution')
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -197,10 +197,6 @@ function GestoraContent() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-4 w-4 text-neutral-400" />
-            <span className="text-xs font-medium uppercase tracking-wider text-neutral-400">Gestão de Leads</span>
-          </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">Gestora de Leads</h2>
           <p className="text-neutral-400 mt-1.5 text-sm">
             Monitorize SLAs, reatribua leads e garanta que nenhum contacto fica sem resposta.
@@ -240,97 +236,21 @@ function GestoraContent() {
         ))}
       </div>
 
-      {/* Agent Workload */}
-      <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-        <div className="px-5 py-4 border-b flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            Carga por Consultor
-          </h3>
-          {agentFilter && (
-            <Button variant="ghost" size="sm" className="text-xs rounded-full h-7" onClick={() => setAgentFilter('')}>
-              Limpar filtro
-            </Button>
-          )}
-        </div>
-        <div className="divide-y">
-          {data?.agents.map(agent => {
-            const totalSla = agent.sla.warning + agent.sla.breached
-            const isFiltered = agentFilter === agent.id
-            return (
-              <div
-                key={agent.id}
-                className={cn(
-                  "flex items-center gap-4 px-5 py-3.5 transition-colors",
-                  isFiltered && "bg-primary/5",
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{agent.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 dark:bg-muted/30 px-2 py-0.5 rounded-full">
-                      {agent.active_leads} leads
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 dark:bg-muted/30 px-2 py-0.5 rounded-full">
-                      {agent.active_negocios} negócios
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {agent.sla.breached > 0 && (
-                    <Badge variant="destructive" className="text-[9px] rounded-full px-2">
-                      {agent.sla.breached} atraso
-                    </Badge>
-                  )}
-                  {agent.sla.warning > 0 && (
-                    <Badge variant="outline" className="text-[9px] rounded-full px-2 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700">
-                      {agent.sla.warning} aviso
-                    </Badge>
-                  )}
-                  {totalSla === 0 && (
-                    <Badge variant="outline" className="text-[9px] rounded-full px-2 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-700">
-                      Em dia
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs rounded-full h-7"
-                    onClick={() => setAgentFilter(isFiltered ? '' : agent.id)}
-                  >
-                    {isFiltered ? 'Todos' : 'Filtrar'}
-                  </Button>
-                  {totalSla > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs rounded-full h-7 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
-                      onClick={() => handlePullOverdue(agent.id)}
-                      disabled={isReassigning}
-                    >
-                      <UserX className="h-3 w-3 mr-1" />
-                      Devolver {totalSla}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          {(!data?.agents || data.agents.length === 0) && (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Nenhum consultor activo
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tab Toggle: Overdue vs Unassigned */}
-      <div className="flex items-center gap-3">
+      {/* 3 Tabs: Distribuição / Em Atraso / Pool */}
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+          <button
+            onClick={() => { setActiveTab('distribution'); setSelectedEntries(new Set()) }}
+            className={cn(
+              'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+              activeTab === 'distribution'
+                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
+            )}
+          >
+            <Users className="h-3.5 w-3.5" />
+            Distribuição
+          </button>
           <button
             onClick={() => { setActiveTab('overdue'); setSelectedEntries(new Set()) }}
             className={cn(
@@ -367,30 +287,124 @@ function GestoraContent() {
           </button>
         </div>
 
-        <Select value={sectorFilter || 'all'} onValueChange={v => setSectorFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px] h-8 rounded-full text-xs">
-            <SelectValue placeholder="Sector" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os sectores</SelectItem>
-            <SelectItem value="real_estate_buy">Compra</SelectItem>
-            <SelectItem value="real_estate_sell">Venda</SelectItem>
-            <SelectItem value="real_estate_rent">Arrendamento</SelectItem>
-            <SelectItem value="recruitment">Recrutamento</SelectItem>
-            <SelectItem value="credit">Crédito</SelectItem>
-          </SelectContent>
-        </Select>
+        {activeTab !== 'distribution' && (
+          <>
+            <Select value={sectorFilter || 'all'} onValueChange={v => setSectorFilter(v === 'all' ? '' : v)}>
+              <SelectTrigger className="w-[160px] h-8 rounded-full text-xs">
+                <SelectValue placeholder="Sector" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os sectores</SelectItem>
+                <SelectItem value="real_estate_buy">Compra</SelectItem>
+                <SelectItem value="real_estate_sell">Venda</SelectItem>
+                <SelectItem value="real_estate_rent">Arrendamento</SelectItem>
+                <SelectItem value="recruitment">Recrutamento</SelectItem>
+                <SelectItem value="credit">Crédito</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <div className="ml-auto flex items-center gap-2">
-          {(activeEntries?.length ?? 0) > 0 && (
-            <Checkbox
-              checked={activeEntries?.every(e => selectedEntries.has(e.id))}
-              onCheckedChange={(checked) => handleSelectAll(activeEntries ?? [], !!checked)}
-            />
-          )}
-          <span className="text-xs text-muted-foreground">Seleccionar tudo</span>
-        </div>
+            <div className="ml-auto flex items-center gap-2">
+              {(activeEntries?.length ?? 0) > 0 && (
+                <Checkbox
+                  checked={activeEntries?.every(e => selectedEntries.has(e.id))}
+                  onCheckedChange={(checked) => handleSelectAll(activeEntries ?? [], !!checked)}
+                />
+              )}
+              <span className="text-xs text-muted-foreground">Seleccionar tudo</span>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Tab: Distribuição — Agent Workload */}
+      {activeTab === 'distribution' && (
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+          <div className="px-5 py-4 border-b flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              Carga por Consultor
+            </h3>
+            {agentFilter && (
+              <Button variant="ghost" size="sm" className="text-xs rounded-full h-7" onClick={() => setAgentFilter('')}>
+                Limpar filtro
+              </Button>
+            )}
+          </div>
+          <div className="divide-y">
+            {data?.agents.map(agent => {
+              const totalSla = agent.sla.warning + agent.sla.breached
+              const isFiltered = agentFilter === agent.id
+              return (
+                <div
+                  key={agent.id}
+                  className={cn(
+                    "flex items-center gap-4 px-5 py-3.5 transition-colors",
+                    isFiltered && "bg-primary/5",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{agent.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 dark:bg-muted/30 px-2 py-0.5 rounded-full">
+                        {agent.active_leads} leads
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 dark:bg-muted/30 px-2 py-0.5 rounded-full">
+                        {agent.active_negocios} negócios
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {agent.sla.breached > 0 && (
+                      <Badge variant="destructive" className="text-[9px] rounded-full px-2">
+                        {agent.sla.breached} atraso
+                      </Badge>
+                    )}
+                    {agent.sla.warning > 0 && (
+                      <Badge variant="outline" className="text-[9px] rounded-full px-2 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700">
+                        {agent.sla.warning} aviso
+                      </Badge>
+                    )}
+                    {totalSla === 0 && (
+                      <Badge variant="outline" className="text-[9px] rounded-full px-2 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-700">
+                        Em dia
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs rounded-full h-7"
+                      onClick={() => { setAgentFilter(isFiltered ? '' : agent.id); setActiveTab('overdue') }}
+                    >
+                      Ver leads
+                    </Button>
+                    {totalSla > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs rounded-full h-7 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
+                        onClick={() => handlePullOverdue(agent.id)}
+                        disabled={isReassigning}
+                      >
+                        <UserX className="h-3 w-3 mr-1" />
+                        Devolver {totalSla}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {(!data?.agents || data.agents.length === 0) && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum consultor activo
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bulk Reassignment Bar */}
       {selectedEntries.size > 0 && (
@@ -431,8 +445,8 @@ function GestoraContent() {
         </div>
       )}
 
-      {/* Entries List */}
-      {isLoading && !data ? (
+      {/* Tab: Em Atraso / Pool — Entries List */}
+      {activeTab === 'distribution' ? null : isLoading && !data ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-2xl" />

@@ -110,6 +110,31 @@ export async function GET(req: NextRequest) {
       if (c.external_campaign_id) campaignMap.set(c.external_campaign_id, c.id)
     }
 
+    // 3b. Auto-create campaigns for Meta campaign IDs we don't have yet
+    let campaignsCreated = 0
+    for (const ad of ads) {
+      const metaCampaignId = ad.campaign_id
+      if (metaCampaignId && !campaignMap.has(metaCampaignId)) {
+        const campaignName = ad.campaign?.name || `Meta Campaign ${metaCampaignId}`
+        const { data: newCampaign } = await supabase
+          .from("leads_campaigns")
+          .insert({
+            name: campaignName,
+            platform: "meta",
+            external_campaign_id: metaCampaignId,
+            status: "active",
+          })
+          .select("id")
+          .single()
+
+        if (newCampaign) {
+          campaignMap.set(metaCampaignId, newCampaign.id)
+          campaignsCreated++
+          console.log(`[Cron Meta Sync] Auto-created campaign: ${campaignName} (${metaCampaignId})`)
+        }
+      }
+    }
+
     // 4. Fetch and ingest leads from each ad
     let synced = 0
     let skipped = 0
@@ -175,7 +200,7 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`[Cron Meta Sync] Done: ${synced} synced, ${skipped} skipped`)
-    return NextResponse.json({ synced, skipped, ads: ads.length })
+    return NextResponse.json({ synced, skipped, ads: ads.length, campaigns_created: campaignsCreated })
   } catch (err) {
     console.error("[Cron Meta Sync] Error:", err)
     return NextResponse.json(

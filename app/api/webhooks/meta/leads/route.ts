@@ -67,6 +67,21 @@ export async function POST(req: NextRequest) {
             .limit(1)
             .single()
           campaignId = campaign?.id ?? null
+
+          // Auto-create campaign if it doesn't exist
+          if (!campaignId) {
+            const { data: newCampaign } = await supabase
+              .from("leads_campaigns")
+              .insert({
+                name: `Meta Campaign ${metaCampaignId}`,
+                platform: "meta",
+                external_campaign_id: String(metaCampaignId),
+                status: "active",
+              })
+              .select("id")
+              .single()
+            if (newCampaign) campaignId = newCampaign.id
+          }
         }
 
         // Use the unified ingestion pipeline

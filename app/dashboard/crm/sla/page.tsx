@@ -96,10 +96,6 @@ function SlaContent() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <Timer className="h-4 w-4 text-neutral-400" />
-            <span className="text-xs font-medium uppercase tracking-wider text-neutral-400">CRM</span>
-          </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">Configuração de SLA</h2>
           <p className="text-neutral-400 mt-1.5 text-sm">
             Defina prazos de resposta por origem, sector e prioridade. O sistema notifica automaticamente quando os prazos estão a expirar.

@@ -16,6 +16,7 @@ import {
   meuEspacoItems,
   comunicacaoItems,
   crmItems,
+  gestaoLeadsItems,
   negocioItems,
   pessoasItems,
   financeiroItems,
@@ -35,6 +36,7 @@ const navMap = new Map<string, string>()
   ...meuEspacoItems,
   ...comunicacaoItems,
   ...crmItems,
+  ...gestaoLeadsItems,
   ...negocioItems,
   ...pessoasItems,
   ...financeiroItems,
@@ -70,6 +72,7 @@ const segmentTranslations: Record<string, string> = {
   estatisticas: 'Estatísticas',
   percursos: 'Percursos',
   'meus-cursos': 'Meus Cursos',
+  campanhas: 'Campanhas',
 }
 
 export function Breadcrumbs() {
