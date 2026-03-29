@@ -33,7 +33,7 @@ export async function GET() {
       .from('calendar_events')
       .select('id, title, start_date, reminders, category, location, visibility, visibility_mode, visibility_user_ids, visibility_role_names, user_id')
       .not('reminders', 'eq', '[]')
-      .gte('start_date', now.toISOString())
+      .gte('start_date', new Date(now.getTime() - 30 * 60 * 1000).toISOString())
       .lte('start_date', futureLimit)
 
     if (error) {
