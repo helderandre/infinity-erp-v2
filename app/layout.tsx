@@ -22,6 +22,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ERP Infinity | Gestão Imobiliária",
   description: "Sistema de gestão interno para a Infinity Group - Imobiliária em Portugal",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Infinity ERP",
+    startupImage: "/icon-512.png",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -31,6 +41,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt" className={dmSans.variable} suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#09090b" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
