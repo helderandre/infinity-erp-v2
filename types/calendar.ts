@@ -21,6 +21,7 @@ export interface CalendarEvent {
   title: string
   description?: string
   category: CalendarCategory
+  item_type?: 'event' | 'task'
   start_date: string
   end_date?: string
   all_day: boolean
@@ -29,6 +30,20 @@ export interface CalendarEvent {
   is_recurring: boolean
   is_overdue: boolean
   status?: string
+  cover_image_url?: string
+  location?: string
+  requires_rsvp?: boolean
+  visibility_mode?: 'all' | 'include' | 'exclude'
+  visibility_user_ids?: string[]
+  visibility_role_names?: string[]
+  livestream_url?: string
+  registration_url?: string
+  links?: { name: string; url: string }[]
+  reminders?: { minutes_before: number }[]
+
+  // RSVP (populated on detail)
+  rsvp_status?: 'pending' | 'going' | 'not_going'
+  rsvp_counts?: { going: number; not_going: number; pending: number }
 
   // Relações (para navegação)
   user_id?: string

@@ -72,6 +72,68 @@ function CategoryItem({
   )
 }
 
+function CategoryGroup({
+  label,
+  icon,
+  groupCategories,
+  activeCategories,
+  onToggleCategory,
+  onSetCategories,
+  allCategories,
+}: {
+  label: string
+  icon: React.ReactNode
+  groupCategories: CalendarCategory[]
+  activeCategories: CalendarCategory[]
+  onToggleCategory: (cat: CalendarCategory) => void
+  onSetCategories?: (cats: CalendarCategory[]) => void
+  allCategories: CalendarCategory[]
+}) {
+  const allActive = groupCategories.every((c) => activeCategories.includes(c))
+  const someActive = groupCategories.some((c) => activeCategories.includes(c))
+
+  const handleToggleGroup = () => {
+    if (!onSetCategories) return
+    if (allActive) {
+      // Remove all group categories
+      onSetCategories(activeCategories.filter((c) => !groupCategories.includes(c)))
+    } else {
+      // Add all group categories
+      const toAdd = groupCategories.filter((c) => !activeCategories.includes(c))
+      onSetCategories([...activeCategories, ...toAdd])
+    }
+  }
+
+  return (
+    <div>
+      <label
+        className="flex items-center gap-2 mb-2 cursor-pointer group"
+        onClick={(e) => { e.preventDefault(); handleToggleGroup() }}
+      >
+        <Checkbox
+          checked={allActive ? true : someActive ? 'indeterminate' : false}
+          onCheckedChange={handleToggleGroup}
+          className="h-3.5 w-3.5"
+        />
+        {icon}
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide group-hover:text-foreground transition-colors">
+          {label}
+        </h3>
+      </label>
+      <div className="space-y-0.5 pl-1">
+        {groupCategories.map((cat) => (
+          <CategoryItem
+            key={cat}
+            cat={cat}
+            isActive={activeCategories.includes(cat)}
+            onToggle={() => onToggleCategory(cat)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CalendarFilters({
   categories,
   onToggleCategory,
@@ -114,60 +176,42 @@ export function CalendarFilters({
           </div>
         )}
 
-        {/* Processos & Leads */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Automáticos</h3>
-          </div>
-          <div className="space-y-0.5">
-            {AUTO_CATEGORIES.map((cat) => (
-              <CategoryItem
-                key={cat}
-                cat={cat}
-                isActive={categories.includes(cat)}
-                onToggle={() => onToggleCategory(cat)}
-              />
-            ))}
-          </div>
-        </div>
+        {/* Automáticos */}
+        <CategoryGroup
+          label="Automáticos"
+          icon={<Filter className="h-3.5 w-3.5 text-muted-foreground" />}
+          groupCategories={AUTO_CATEGORIES}
+          activeCategories={categories}
+          onToggleCategory={onToggleCategory}
+          onSetCategories={onSetCategories}
+          allCategories={allCategories}
+        />
 
         <Separator />
 
         {/* Processos */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Processos</h3>
-          </div>
-          <div className="space-y-0.5">
-            {PROCESS_CATEGORIES.map((cat) => (
-              <CategoryItem
-                key={cat}
-                cat={cat}
-                isActive={categories.includes(cat)}
-                onToggle={() => onToggleCategory(cat)}
-              />
-            ))}
-          </div>
-        </div>
+        <CategoryGroup
+          label="Processos"
+          icon={<ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />}
+          groupCategories={PROCESS_CATEGORIES}
+          activeCategories={categories}
+          onToggleCategory={onToggleCategory}
+          onSetCategories={onSetCategories}
+          allCategories={allCategories}
+        />
 
         <Separator />
 
         {/* Eventos Manuais */}
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-2">Eventos</h3>
-          <div className="space-y-0.5">
-            {MANUAL_CATEGORIES.map((cat) => (
-              <CategoryItem
-                key={cat}
-                cat={cat}
-                isActive={categories.includes(cat)}
-                onToggle={() => onToggleCategory(cat)}
-              />
-            ))}
-          </div>
-        </div>
+        <CategoryGroup
+          label="Eventos"
+          icon={null}
+          groupCategories={MANUAL_CATEGORIES}
+          activeCategories={categories}
+          onToggleCategory={onToggleCategory}
+          onSetCategories={onSetCategories}
+          allCategories={allCategories}
+        />
 
         <Separator />
 

@@ -353,7 +353,7 @@ function KpiCard({ icon: Icon, label, value, subtitle, color }: {
           <Icon className={cn("h-5 w-5", c.text)} />
         </div>
         <div>
-          <p className="text-2xl font-bold">{value}</p>
+          <p className="text-lg sm:text-2xl font-bold truncate">{value}</p>
           <div className="flex items-center gap-1.5">
             <p className="text-[11px] text-muted-foreground">{label}</p>
             {subtitle && (

@@ -3,17 +3,19 @@
 import type { CalendarEvent } from '@/types/calendar'
 import { CalendarMonthGrid } from './calendar-month-grid'
 import { CalendarWeekView } from './calendar-week-view'
+import { CalendarAgendaView } from './calendar-agenda-view'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface CalendarViewProps {
   events: CalendarEvent[]
   isLoading: boolean
   currentDate: Date
-  view: 'month' | 'week'
+  view: 'month' | 'week' | 'agenda'
   onDateChange: (date: Date) => void
-  onViewChange: (view: 'month' | 'week') => void
+  onViewChange: (view: 'month' | 'week' | 'agenda') => void
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
+  onDayNumberClick?: (date: Date) => void
 }
 
 function CalendarSkeleton({ view }: { view: 'month' | 'week' }) {
@@ -95,9 +97,20 @@ export function CalendarView({
   onViewChange,
   onEventClick,
   onDayClick,
+  onDayNumberClick,
 }: CalendarViewProps) {
   if (isLoading) {
     return <CalendarSkeleton view={view} />
+  }
+
+  if (view === 'agenda') {
+    return (
+      <CalendarAgendaView
+        currentDate={currentDate}
+        events={events}
+        onEventClick={onEventClick}
+      />
+    )
   }
 
   if (view === 'week') {
@@ -117,6 +130,7 @@ export function CalendarView({
       events={events}
       onEventClick={onEventClick}
       onDayClick={onDayClick}
+      onDayNumberClick={onDayNumberClick}
     />
   )
 }

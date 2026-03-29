@@ -20,6 +20,7 @@ export type NotificationType =
   | 'alert_on_overdue'
   | 'alert_on_unblock'
   | 'alert_on_assign'
+  | 'calendar_reminder'
 
 export type NotificationEntityType =
   | 'proc_instance'

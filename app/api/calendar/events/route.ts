@@ -58,6 +58,21 @@ export async function GET(request: Request) {
     const now = new Date().toISOString()
     const admin = createAdminClient() as any
 
+    // Get current user for visibility filtering
+    const supabase = await createClient()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    let currentUserId: string | null = null
+    let currentUserRole = ''
+    if (authUser) {
+      currentUserId = authUser.id
+      const { data: ud } = await admin
+        .from('dev_users')
+        .select('user_roles:user_roles!user_roles_user_id_fkey(role:roles!user_roles_role_id_fkey(name))')
+        .eq('id', authUser.id)
+        .single()
+      currentUserRole = (ud?.user_roles as any)?.[0]?.role?.name ?? ''
+    }
+
     // Run all queries in parallel
     const [
       manualRes,
@@ -152,10 +167,30 @@ export async function GET(request: Request) {
     if (manualRes.data) {
       for (const ev of manualRes.data) {
         // For recurring yearly events, check if month/day falls in range
+        // Common fields for recurring event occurrences
+        const recurringBase = {
+          source: 'manual' as const,
+          is_recurring: true,
+          is_overdue: false,
+          item_type: ev.item_type ?? 'event',
+          cover_image_url: ev.cover_image_url ?? undefined,
+          location: ev.location ?? undefined,
+          requires_rsvp: ev.requires_rsvp ?? false,
+          livestream_url: ev.livestream_url ?? undefined,
+          registration_url: ev.registration_url ?? undefined,
+          links: ev.links ?? [],
+          reminders: ev.reminders ?? [],
+          user_id: ev.user_id ?? undefined,
+          user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
+          property_id: ev.property_id ?? undefined,
+          lead_id: ev.lead_id ?? undefined,
+        }
+
         if (ev.is_recurring && ev.recurrence_rule === 'yearly') {
           const occurrences = getYearlyOccurrences(ev.start_date, startDate, endDate)
           for (const occ of occurrences) {
             events.push({
+              ...recurringBase,
               id: `${ev.id}_${occ.toISOString()}`,
               title: ev.title,
               description: ev.description ?? undefined,
@@ -166,19 +201,13 @@ export async function GET(request: Request) {
                 : undefined,
               all_day: ev.all_day ?? false,
               color: ev.color || CATEGORY_COLORS[ev.category as CalendarCategory] || 'gray-500',
-              source: 'manual',
-              is_recurring: true,
-              is_overdue: false,
-              user_id: ev.user_id ?? undefined,
-              user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
-              property_id: ev.property_id ?? undefined,
-              lead_id: ev.lead_id ?? undefined,
             })
           }
         } else if (ev.is_recurring && ev.recurrence_rule === 'monthly') {
           const occurrences = getMonthlyOccurrences(ev.start_date, startDate, endDate)
           for (const occ of occurrences) {
             events.push({
+              ...recurringBase,
               id: `${ev.id}_${occ.toISOString()}`,
               title: ev.title,
               description: ev.description ?? undefined,
@@ -187,19 +216,13 @@ export async function GET(request: Request) {
               end_date: undefined,
               all_day: ev.all_day ?? false,
               color: ev.color || CATEGORY_COLORS[ev.category as CalendarCategory] || 'gray-500',
-              source: 'manual',
-              is_recurring: true,
-              is_overdue: false,
-              user_id: ev.user_id ?? undefined,
-              user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
-              property_id: ev.property_id ?? undefined,
-              lead_id: ev.lead_id ?? undefined,
             })
           }
         } else if (ev.is_recurring && ev.recurrence_rule === 'weekly') {
           const occurrences = getWeeklyOccurrences(ev.start_date, startDate, endDate)
           for (const occ of occurrences) {
             events.push({
+              ...recurringBase,
               id: `${ev.id}_${occ.toISOString()}`,
               title: ev.title,
               description: ev.description ?? undefined,
@@ -208,13 +231,6 @@ export async function GET(request: Request) {
               end_date: undefined,
               all_day: ev.all_day ?? false,
               color: ev.color || CATEGORY_COLORS[ev.category as CalendarCategory] || 'gray-500',
-              source: 'manual',
-              is_recurring: true,
-              is_overdue: false,
-              user_id: ev.user_id ?? undefined,
-              user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
-              property_id: ev.property_id ?? undefined,
-              lead_id: ev.lead_id ?? undefined,
             })
           }
         } else {
@@ -227,6 +243,7 @@ export async function GET(request: Request) {
             title: ev.title,
             description: ev.description ?? undefined,
             category: ev.category as CalendarCategory,
+            item_type: ev.item_type ?? 'event',
             start_date: ev.start_date,
             end_date: ev.end_date ?? undefined,
             all_day: ev.all_day ?? false,
@@ -234,6 +251,14 @@ export async function GET(request: Request) {
             source: 'manual',
             is_recurring: false,
             is_overdue: false,
+            cover_image_url: ev.cover_image_url ?? undefined,
+            location: ev.location ?? undefined,
+            requires_rsvp: ev.requires_rsvp ?? false,
+            livestream_url: ev.livestream_url ?? undefined,
+            registration_url: ev.registration_url ?? undefined,
+            links: ev.links ?? [],
+            reminders: ev.reminders ?? [],
+            visibility_mode: ev.visibility_mode ?? 'all',
             user_id: ev.user_id ?? undefined,
             user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
             property_id: ev.property_id ?? undefined,
@@ -401,6 +426,27 @@ export async function GET(request: Request) {
           }
         }
       }
+    }
+
+    // ------ Filter by visibility ------
+    if (currentUserId) {
+      filtered = filtered.filter((ev) => {
+        // Auto-generated events are always visible
+        if (ev.source === 'auto') return true
+
+        // Simple visibility check
+        const vis = (ev as any).visibility_mode ?? 'all'
+        if (vis === 'all') return true
+
+        const allowedUsers: string[] = (ev as any).visibility_user_ids ?? []
+        const allowedRoles: string[] = (ev as any).visibility_role_names ?? []
+        const userMatch = allowedUsers.includes(currentUserId!)
+        const roleMatch = allowedRoles.some((r: string) => r.toLowerCase() === currentUserRole.toLowerCase())
+
+        if (vis === 'include') return userMatch || roleMatch
+        if (vis === 'exclude') return !userMatch && !roleMatch
+        return true
+      })
     }
 
     // ------ Sort by start_date ------

@@ -1558,6 +1558,29 @@ export const CALENDAR_VISIBILITY_OPTIONS = [
   { value: 'private' as const, label: 'Apenas eu' },
 ] as const
 
+export const CALENDAR_VISIBILITY_MODE_OPTIONS = [
+  { value: 'all' as const, label: 'Todos' },
+  { value: 'include' as const, label: 'Apenas pessoas/cargos seleccionados' },
+  { value: 'exclude' as const, label: 'Todos excepto seleccionados' },
+] as const
+
+export const CALENDAR_ROLE_OPTIONS = [
+  { value: 'Broker/CEO', label: 'Broker/CEO' },
+  { value: 'Consultor', label: 'Consultor' },
+  { value: 'Consultora Executiva', label: 'Consultora Executiva' },
+  { value: 'Team Leader', label: 'Team Leader' },
+  { value: 'Gestor Processual', label: 'Gestor Processual' },
+  { value: 'Office Manager', label: 'Office Manager' },
+  { value: 'Marketing', label: 'Marketing' },
+  { value: 'Recrutador', label: 'Recrutador' },
+  { value: 'Intermediário de Crédito', label: 'Intermediário de Crédito' },
+] as const
+
+export const CALENDAR_ITEM_TYPE_OPTIONS = [
+  { value: 'event' as const, label: 'Evento' },
+  { value: 'task' as const, label: 'Tarefa' },
+] as const
+
 // Módulos de Permissão — labels PT-PT
 export const PERMISSION_MODULES: { key: string; label: string; group: string }[] = [
   // Core
