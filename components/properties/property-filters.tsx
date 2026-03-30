@@ -20,6 +20,8 @@ interface PropertyFiltersProps {
   consultants: { id: string; commercial_name: string }[]
   onClearFilters: () => void
   hasActiveFilters: boolean
+  /** Optional element rendered before the filter button on mobile */
+  mobilePrefix?: React.ReactNode
   // Multi-select (optional)
   selectedPropertyTypes?: string[]
   onPropertyTypesChange?: (value: string[]) => void
@@ -86,6 +88,7 @@ export function PropertyFilters({
   onConditionChange,
   consultantId,
   onConsultantChange,
+  mobilePrefix,
 }: PropertyFiltersProps) {
   // Support both multi-select and legacy single-select
   const handleTypesChange = onPropertyTypesChange || ((vals: string[]) => onPropertyTypeChange?.(vals[0] || 'all'))
@@ -156,17 +159,18 @@ export function PropertyFilters({
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="relative flex-1 min-w-[200px]">
+    <div className="flex items-center gap-2 sm:gap-3">
+      <div className="relative flex-1 min-w-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Pesquisar por título, cidade..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="pl-9 rounded-full"
         />
       </div>
 
+      {mobilePrefix}
       <MobileFilterSheet activeCount={activeFilterCount}>
         {filterButtons}
       </MobileFilterSheet>
