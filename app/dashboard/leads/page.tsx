@@ -32,8 +32,9 @@ import {
 import { LeadForm } from '@/components/leads/lead-form'
 import {
   Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight,
-  Phone, Mail, Zap, LayoutGrid, List,
+  Phone, Mail, Zap, LayoutGrid, List, Download,
 } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDate } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -104,6 +105,7 @@ function LeadsPageContent() {
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table')
 
   const [search, setSearch] = useState(searchParams.get('nome') || '')
@@ -226,14 +228,24 @@ function LeadsPageContent() {
             {total} contacto{total !== 1 ? 's' : ''} no sistema
           </p>
         </div>
-        <Button
-          size="sm"
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-          onClick={() => setShowNewDialog(true)}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo Contacto
-        </Button>
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setExportOpen(true)}
+          >
+            <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setShowNewDialog(true)}
+          >
+            <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Novo Contacto</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters + View toggle */}
@@ -511,6 +523,13 @@ function LeadsPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/leads"
+        title="Leads"
+      />
     </div>
   )
 }

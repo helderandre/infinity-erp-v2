@@ -47,7 +47,9 @@ import {
   ArrowDown,
   ChevronsUpDown,
   RotateCcw,
+  Download,
 } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { formatCurrency, formatDate, PROPERTY_TYPES, PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
@@ -111,6 +113,7 @@ function ImoveisPageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = usePersistentState<'table' | 'grid'>('imoveis-view-mode', 'table')
   const [sortBy, setSortBy] = useState<string>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -320,10 +323,13 @@ function ImoveisPageContent() {
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
             </div>
-            {/* Novo Imóvel — always in card */}
+            <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
             <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
               <Plus className="h-3.5 w-3.5" />
-              Novo Imóvel
+              <span className="hidden sm:inline">Novo Imóvel</span>
             </button>
           </div>
         </div>
@@ -592,6 +598,13 @@ function ImoveisPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/properties"
+        title="Imóveis"
+      />
     </div>
   )
 }

@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X, Upload } from 'lucide-react'
+import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X, Upload, Download } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDistanceToNow } from 'date-fns'
@@ -40,6 +41,7 @@ function ContactosPageContent() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [stageFilter, setStageFilter] = useState(searchParams.get('lifecycle_stage_id') || '')
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
@@ -92,10 +94,18 @@ function ContactosPageContent() {
           <Button
             size="sm"
             className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setExportOpen(true)}
+          >
+            <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
             onClick={() => setImportOpen(true)}
           >
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            Importar
+            <Upload className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Importar</span>
           </Button>
           <Button
             size="sm"
@@ -271,6 +281,12 @@ function ContactosPageContent() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onComplete={() => fetchContacts()}
+      />
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/contacts"
+        title="Contactos"
       />
     </div>
   )
