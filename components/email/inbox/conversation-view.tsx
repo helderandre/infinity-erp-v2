@@ -348,6 +348,7 @@ export function ConversationView({
       fetch(`/api/email/thread?${params}`)
         .then(r => r.json())
         .then(async (data) => {
+          console.log('[thread] Sent folder response:', data._debug || data)
           const sentMsgs = (data.messages || []) as ImapMessageEnvelope[]
           const sentFolderName = data.folder as string | undefined
           if (sentFolderName) setSentFolder(sentFolderName)

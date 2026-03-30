@@ -45,13 +45,13 @@ export async function GET(request: Request) {
     )
 
     if (!sentFolder) {
-      // Return folder list for debugging
-      console.warn('[email/thread] No Sent folder found. Available:', folders.map((f: { path: string }) => f.path))
+      console.error('[email/thread] NO SENT FOLDER FOUND. Available folders:', folders.map((f: { path: string; specialUse?: string }) => `${f.path} (${f.specialUse || 'no special-use'})`))
       return NextResponse.json({ messages: [], folder: null })
     }
 
-    // Fetch ALL envelopes from Sent folder (recent pages)
-    // Then filter client-side by subject match
+    console.log('[email/thread] Using Sent folder:', sentFolder.path)
+    console.log('[email/thread] Searching for subject:', subject)
+
     const normalizeSubject = (s: string) =>
       s.replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
         .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
@@ -59,22 +59,43 @@ export async function GET(request: Request) {
         .toLowerCase()
 
     const targetSubject = normalizeSubject(subject)
+    console.log('[email/thread] Normalized target:', targetSubject)
 
     // Fetch up to 200 recent sent messages and filter by subject
-    const { messages: sentMessages } = await fetchMessageEnvelopes(imapConfig, {
+    const { messages: sentMessages, total } = await fetchMessageEnvelopes(imapConfig, {
       folder: sentFolder.path,
       limit: 200,
       page: 1,
     })
+
+    console.log(`[email/thread] Fetched ${sentMessages.length} of ${total} sent messages`)
 
     const matching = sentMessages.filter(m => {
       const msgSubject = normalizeSubject(m.subject || '')
       return msgSubject === targetSubject || msgSubject.includes(targetSubject) || targetSubject.includes(msgSubject)
     })
 
+    console.log(`[email/thread] Found ${matching.length} matching messages`)
+    if (matching.length > 0) {
+      matching.forEach(m => console.log(`  - UID ${m.uid}: "${m.subject}" from ${m.from[0]?.address}`))
+    } else if (sentMessages.length > 0) {
+      // Log first 5 sent subjects for debugging
+      console.log('[email/thread] Sample sent subjects:')
+      sentMessages.slice(0, 5).forEach(m => console.log(`  - "${m.subject}"`))
+    }
+
     return NextResponse.json({
       messages: matching,
       folder: sentFolder.path,
+      _debug: {
+        sentFolderPath: sentFolder.path,
+        totalInSent: total,
+        fetchedFromSent: sentMessages.length,
+        targetSubject,
+        matchingCount: matching.length,
+        sampleSubjects: sentMessages.slice(0, 5).map(m => m.subject),
+        allFolders: folders.map((f: { path: string; specialUse?: string }) => `${f.path} (${f.specialUse || '-'})`),
+      },
     })
   } catch (error) {
     console.error('[email/thread] Error:', error)
