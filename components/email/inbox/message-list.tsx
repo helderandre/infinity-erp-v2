@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Input } from '@/components/ui/input'
@@ -17,10 +16,12 @@ import {
   RefreshCw,
   Search,
   X,
+  MessageSquare,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { ImapMessageEnvelope } from '@/types/email'
+import { groupMessagesIntoThreads, type EmailThread } from '@/lib/email/thread-grouping'
 
 interface MessageListProps {
   messages: ImapMessageEnvelope[]
@@ -32,6 +33,7 @@ interface MessageListProps {
   searchQuery?: string
   isSearching?: boolean
   onSelect: (uid: number) => void
+  onSelectThread?: (thread: EmailThread) => void
   onPageChange: (page: number) => void
   onRefresh: () => void
   onToggleFlag: (uid: number, flagged: boolean) => void
@@ -49,6 +51,7 @@ export function MessageList({
   searchQuery = '',
   isSearching = false,
   onSelect,
+  onSelectThread,
   onPageChange,
   onRefresh,
   onToggleFlag,
@@ -57,6 +60,9 @@ export function MessageList({
 }: MessageListProps) {
   const [localQuery, setLocalQuery] = useState('')
   const totalPages = Math.ceil(total / limit)
+
+  // Group messages into threads
+  const threads = useMemo(() => groupMessagesIntoThreads(messages), [messages])
 
   if (isLoading) {
     return (
@@ -82,7 +88,7 @@ export function MessageList({
           <span className="text-sm text-muted-foreground">
             {isSearching
               ? `${total} resultado${total !== 1 ? 's' : ''}`
-              : `${total} ${total === 1 ? 'mensagem' : 'mensagens'}`}
+              : `${threads.length} conversa${threads.length !== 1 ? 's' : ''}`}
           </span>
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -127,40 +133,41 @@ export function MessageList({
         )}
       </div>
 
-      {/* Messages */}
+      {/* Threads */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {messages.length === 0 ? (
+        {threads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <p className="text-sm">Nenhuma mensagem nesta pasta.</p>
           </div>
         ) : (
           <div className="divide-y">
-            {messages.map((msg) => {
-              const isRead = msg.flags.includes('\\Seen')
-              const isFlagged = msg.flags.includes('\\Flagged')
-              const isSelected = msg.uid === selectedUid
-              const fromName =
-                msg.from[0]?.name || msg.from[0]?.address || 'Desconhecido'
-              const dateStr = msg.date
-                ? formatDistanceToNow(new Date(msg.date), {
-                    addSuffix: true,
-                    locale: pt,
-                  })
+            {threads.map((thread) => {
+              const latest = thread.latest
+              const isSelected = thread.messages.some(m => m.uid === selectedUid)
+              const fromName = latest.from[0]?.name || latest.from[0]?.address || 'Desconhecido'
+              const dateStr = latest.date
+                ? formatDistanceToNow(new Date(latest.date), { addSuffix: true, locale: pt })
                 : ''
 
               return (
                 <div
-                  key={msg.uid}
+                  key={thread.id}
                   className={cn(
                     'flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/50',
                     isSelected && 'bg-accent',
-                    !isRead && 'bg-primary/[0.03]'
+                    thread.hasUnread && 'bg-primary/[0.03]'
                   )}
-                  onClick={() => onSelect(msg.uid)}
+                  onClick={() => {
+                    if (thread.count > 1 && onSelectThread) {
+                      onSelectThread(thread)
+                    } else {
+                      onSelect(latest.uid)
+                    }
+                  }}
                 >
                   {/* Unread dot */}
                   <div className="pt-1.5 shrink-0 w-2">
-                    {!isRead && (
+                    {thread.hasUnread && (
                       <div className="h-2 w-2 rounded-full bg-primary" />
                     )}
                   </div>
@@ -168,14 +175,22 @@ export function MessageList({
                   {/* Content */}
                   <div className="min-w-0 flex-1 overflow-hidden">
                     <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={cn(
-                          'text-sm truncate block',
-                          !isRead && 'font-semibold'
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={cn(
+                            'text-sm truncate block',
+                            thread.hasUnread && 'font-semibold'
+                          )}
+                        >
+                          {fromName}
+                        </span>
+                        {thread.count > 1 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 shrink-0">
+                            <MessageSquare className="h-2.5 w-2.5" />
+                            {thread.count}
+                          </span>
                         )}
-                      >
-                        {fromName}
-                      </span>
+                      </div>
                       <span className="text-xs text-muted-foreground shrink-0">
                         {dateStr}
                       </span>
@@ -184,26 +199,26 @@ export function MessageList({
                       <span
                         className={cn(
                           'text-sm truncate block',
-                          !isRead ? 'text-foreground' : 'text-muted-foreground'
+                          thread.hasUnread ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {msg.subject || '(sem assunto)'}
+                        {latest.subject || '(sem assunto)'}
                       </span>
-                      {msg.hasAttachments && (
+                      {thread.hasAttachments && (
                         <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}
                     </div>
                   </div>
 
-                  {/* Flag */}
+                  {/* Flag — use latest message's UID */}
                   <button
                     className="shrink-0 pt-0.5"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onToggleFlag(msg.uid, !isFlagged)
+                      onToggleFlag(latest.uid, !thread.hasFlagged)
                     }}
                   >
-                    {isFlagged ? (
+                    {thread.hasFlagged ? (
                       <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                     ) : (
                       <StarOff className="h-4 w-4 text-muted-foreground/40 hover:text-muted-foreground" />

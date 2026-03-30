@@ -6,7 +6,9 @@ import { useEmailInbox, useEmailMessage } from '@/hooks/use-email-inbox'
 import { FolderSidebar } from '@/components/email/inbox/folder-sidebar'
 import { MessageList } from '@/components/email/inbox/message-list'
 import { MessageView } from '@/components/email/inbox/message-view'
+import { ConversationView } from '@/components/email/inbox/conversation-view'
 import { ComposeEmailDialog } from '@/components/email/compose-email-dialog'
+import type { EmailThread } from '@/lib/email/thread-grouping'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -69,6 +71,9 @@ export default function EmailInboxPage() {
     selectedAccountId
   )
 
+  // Thread state
+  const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null)
+
   // Compose state
   const [composeOpen, setComposeOpen] = useState(false)
   const [replyTo, setReplyTo] = useState<FullMessage | null>(null)
@@ -92,8 +97,19 @@ export default function EmailInboxPage() {
 
   function handleSelectMessage(uid: number) {
     setSelectedUid(uid)
+    setSelectedThread(null)
     setMobileView('message')
     inbox.markRead(uid)
+  }
+
+  function handleSelectThread(thread: EmailThread) {
+    setSelectedThread(thread)
+    setSelectedUid(thread.latest.uid)
+    setMobileView('message')
+    // Mark all unread messages in thread as read
+    thread.messages.forEach(m => {
+      if (!m.flags.includes('\\Seen')) inbox.markRead(m.uid)
+    })
   }
 
   function handleReply(msg: FullMessage) {
@@ -116,6 +132,7 @@ export default function EmailInboxPage() {
 
   function handleBack() {
     setSelectedUid(null)
+    setSelectedThread(null)
     setMobileView('list')
   }
 
@@ -293,11 +310,25 @@ export default function EmailInboxPage() {
                 searchQuery={inbox.searchQuery}
                 isSearching={inbox.isSearching}
                 onSelect={handleSelectMessage}
+                onSelectThread={handleSelectThread}
                 onPageChange={inbox.changePage}
                 onRefresh={inbox.refresh}
                 onToggleFlag={inbox.toggleFlag}
                 onSearch={inbox.search}
                 onClearSearch={inbox.clearSearch}
+              />
+            ) : selectedThread && selectedThread.count > 1 ? (
+              <ConversationView
+                threadMessages={selectedThread.messages}
+                folder={inbox.folder}
+                accountId={selectedAccountId}
+                onReply={handleReply}
+                onForward={handleForward}
+                onBack={handleBack}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                onSent={inbox.refresh}
               />
             ) : (
               <MessageView
@@ -307,6 +338,7 @@ export default function EmailInboxPage() {
                 onReply={handleReply}
                 accountId={selectedAccountId}
                 onForward={handleForward}
+                onBack={handleBack}
                 onDelete={handleDelete}
                 onArchive={handleArchive}
                 onMoveToFolder={(uid) => setMoveDialogUid(uid)}
@@ -421,6 +453,7 @@ export default function EmailInboxPage() {
                     searchQuery={inbox.searchQuery}
                     isSearching={inbox.isSearching}
                     onSelect={handleSelectMessage}
+                    onSelectThread={handleSelectThread}
                     onPageChange={inbox.changePage}
                     onRefresh={inbox.refresh}
                     onToggleFlag={inbox.toggleFlag}
@@ -434,19 +467,34 @@ export default function EmailInboxPage() {
 
               <ResizablePanel defaultSize="50%" minSize="25%">
                 <div className="h-full overflow-hidden">
-                  <MessageView
-                    message={message}
-                    isLoading={messageLoading}
-                    error={messageError}
-                    onReply={handleReply}
-                    accountId={selectedAccountId}
-                    onForward={handleForward}
-                    onBack={handleBack}
-                    onDelete={handleDelete}
-                    onArchive={handleArchive}
-                    onMoveToFolder={(uid) => setMoveDialogUid(uid)}
-                    onSent={inbox.refresh}
-                  />
+                  {selectedThread && selectedThread.count > 1 ? (
+                    <ConversationView
+                      threadMessages={selectedThread.messages}
+                      folder={inbox.folder}
+                      accountId={selectedAccountId}
+                      onReply={handleReply}
+                      onForward={handleForward}
+                      onBack={handleBack}
+                      onDelete={handleDelete}
+                      onArchive={handleArchive}
+                      onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                      onSent={inbox.refresh}
+                    />
+                  ) : (
+                    <MessageView
+                      message={message}
+                      isLoading={messageLoading}
+                      error={messageError}
+                      onReply={handleReply}
+                      accountId={selectedAccountId}
+                      onForward={handleForward}
+                      onBack={handleBack}
+                      onDelete={handleDelete}
+                      onArchive={handleArchive}
+                      onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                      onSent={inbox.refresh}
+                    />
+                  )}
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>

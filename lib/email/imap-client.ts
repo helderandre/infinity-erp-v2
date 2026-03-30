@@ -358,6 +358,106 @@ export async function searchMessages(
 }
 
 /**
+ * Search a folder for messages whose In-Reply-To or Message-ID match any of the given IDs.
+ * Used to find sent replies that belong to a thread.
+ */
+export async function searchThreadMessages(
+  config: ImapConfig,
+  folder: string,
+  messageIds: string[],
+): Promise<ImapMessageEnvelope[]> {
+  if (messageIds.length === 0) return []
+
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: { user: config.user, pass: config.pass },
+    logger: false,
+    emitLogs: false,
+  })
+
+  try {
+    await client.connect()
+
+    // Check if folder exists
+    const mailboxes = await client.list()
+    const target = mailboxes.find(
+      (mb) =>
+        mb.path === folder ||
+        mb.specialUse === '\\Sent' ||
+        mb.path.toLowerCase() === folder.toLowerCase()
+    )
+    if (!target) return []
+
+    const lock = await client.getMailboxLock(target.path)
+
+    try {
+      // Search for messages that reply to any of the given IDs
+      const allUids = new Set<number>()
+
+      for (const mid of messageIds) {
+        try {
+          const uids = await client.search(
+            { header: { 'In-Reply-To': mid } },
+            { uid: true }
+          )
+          for (const uid of uids) allUids.add(uid)
+        } catch { /* skip individual search failures */ }
+
+        try {
+          const uids = await client.search(
+            { header: { 'Message-ID': mid } },
+            { uid: true }
+          )
+          for (const uid of uids) allUids.add(uid)
+        } catch { /* skip */ }
+      }
+
+      if (allUids.size === 0) return []
+
+      const uidRange = Array.from(allUids).join(',')
+      const messages: ImapMessageEnvelope[] = []
+
+      for await (const msg of client.fetch(uidRange, {
+        envelope: true,
+        flags: true,
+        bodyStructure: true,
+        uid: true,
+        size: true,
+      }, { uid: true })) {
+        const env = msg.envelope
+        messages.push({
+          uid: msg.uid,
+          messageId: env?.messageId || null,
+          inReplyTo: env?.inReplyTo || null,
+          from: (env?.from || []).map((a: { name?: string; address?: string }) => ({
+            name: a.name, address: a.address,
+          })),
+          to: (env?.to || []).map((a: { name?: string; address?: string }) => ({
+            name: a.name, address: a.address,
+          })),
+          cc: (env?.cc || []).map((a: { name?: string; address?: string }) => ({
+            name: a.name, address: a.address,
+          })),
+          subject: env?.subject || '(sem assunto)',
+          date: env?.date ? new Date(env.date).toISOString() : null,
+          flags: Array.from(msg.flags || []),
+          size: msg.size || 0,
+          hasAttachments: hasAttachmentParts(msg.bodyStructure),
+        })
+      }
+
+      return messages
+    } finally {
+      lock.release()
+    }
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
  * Append a sent message (raw RFC822) to the Sent/IMAP folder
  * so it appears in Outlook, webmail, etc.
  */
