@@ -64,27 +64,29 @@ export function ProcessDealTab({ deal, dealClients }: ProcessDealTabProps) {
     <Card>
       <CardContent className="pt-4">
         <Tabs defaultValue="geral">
-          <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 w-full justify-start flex-wrap">
-            <TabsTrigger value="geral" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Informacao Geral
-            </TabsTrigger>
-            <TabsTrigger value="comissao" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Comissao
-            </TabsTrigger>
-            <TabsTrigger value="condicoes" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Condicoes
-            </TabsTrigger>
-            {(deal.has_share || deal.partner_agency_name) && (
-              <TabsTrigger value="partilha" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Partilha
+          <div className="overflow-x-auto scrollbar-none -mx-1">
+            <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 w-max justify-start">
+              <TabsTrigger value="geral" className="rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm shrink-0 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Info. Geral
               </TabsTrigger>
-            )}
-            {dealClients.length > 0 && (
-              <TabsTrigger value="compradores" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Compradores ({dealClients.length})
+              <TabsTrigger value="comissao" className="rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm shrink-0 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Comissao
               </TabsTrigger>
-            )}
-          </TabsList>
+              <TabsTrigger value="condicoes" className="rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm shrink-0 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Condicoes
+              </TabsTrigger>
+              {(deal.has_share || deal.partner_agency_name) && (
+                <TabsTrigger value="partilha" className="rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm shrink-0 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  Partilha
+                </TabsTrigger>
+              )}
+              {dealClients.length > 0 && (
+                <TabsTrigger value="compradores" className="rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm shrink-0 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  Compradores ({dealClients.length})
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
           {/* Informacao Geral */}
           <TabsContent value="geral" className="mt-4">

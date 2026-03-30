@@ -1061,37 +1061,10 @@ export default function ProcessoDetailPage() {
             <div className="space-y-4">
               {isActive && stages && stages.length > 0 ? (
                 <>
-                  {/* Progress bar */}
-                  <Card>
-                    <CardContent className="px-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold shrink-0">Progresso</span>
-                        <Progress value={progressPercent} className="h-2 flex-1" />
-                        <span className="text-sm font-bold tabular-nums shrink-0">{progressPercent}%</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                          {completedTasks} concluídas
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-slate-400" />
-                          {totalTasks - completedTasks} pendentes
-                        </span>
-                        {overdueTasks > 0 && (
-                          <span className="flex items-center gap-1 text-red-500">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            {overdueTasks} em atraso
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
                   {/* Filters + view toggle */}
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger className="w-[150px]">
+                      <SelectTrigger className="w-[140px] sm:w-[150px] h-8 rounded-full text-xs">
                         <SelectValue placeholder="Estado" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1103,7 +1076,7 @@ export default function ProcessoDetailPage() {
                     </Select>
 
                     <Select value={filterPriority} onValueChange={setFilterPriority}>
-                      <SelectTrigger className="w-[150px]">
+                      <SelectTrigger className="w-[140px] sm:w-[150px] h-8 rounded-full text-xs">
                         <SelectValue placeholder="Prioridade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1115,7 +1088,7 @@ export default function ProcessoDetailPage() {
                     </Select>
 
                     <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                      <SelectTrigger className="w-[170px]">
+                      <SelectTrigger className="w-[130px] sm:w-[170px] h-8 rounded-full text-xs">
                         <SelectValue placeholder="Responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1128,7 +1101,7 @@ export default function ProcessoDetailPage() {
 
                     {roles.length > 0 && (
                       <Select value={filterRole} onValueChange={setFilterRole}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[140px] sm:w-[180px] h-8 rounded-full text-xs">
                           <SelectValue placeholder="Papel" />
                         </SelectTrigger>
                         <SelectContent>
