@@ -85,10 +85,10 @@ export const negocioItems = [
 ]
 
 export const infinityItems = [
-  { title: 'Consultores', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
+  { title: 'Equipa', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
   { title: 'Parceiros', icon: Handshake, href: '/dashboard/parceiros', permission: 'consultants' },
-  { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
   { title: 'Acessos', icon: KeyRound, href: '/dashboard/acessos', permission: 'dashboard' },
+  { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
 ]
 
 export const financeiroItems = [
@@ -297,7 +297,17 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos']}
         />
 
-        {/* 3. CRM */}
+        {/* 3. Infinity */}
+        <CollapsibleGroup
+          label="Infinity"
+          icon={Infinity}
+          items={infinityItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
+        />
+
+        {/* 4. CRM */}
         <CollapsibleGroup
           label="CRM"
           icon={ContactRound}
@@ -307,7 +317,7 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries', '/dashboard/acompanhamentos']}
         />
 
-        {/* 4. Negócio */}
+        {/* 5. Negócio */}
         <CollapsibleGroup
           label="Negócio"
           icon={Briefcase}
@@ -315,16 +325,6 @@ export function AppSidebar() {
           pathname={pathname}
           hasPermission={hasPermission}
           pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos']}
-        />
-
-        {/* 5. Infinity */}
-        <CollapsibleGroup
-          label="Infinity"
-          icon={Infinity}
-          items={infinityItems}
-          pathname={pathname}
-          hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
         {/* 6. Financeiro */}

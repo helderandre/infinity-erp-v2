@@ -3,20 +3,28 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
+import { usePartners } from '@/hooks/use-partners'
+import { PartnerCard } from '@/components/partners/partner-card'
+import { PartnerForm } from '@/components/partners/partner-form'
+import { PartnerDetailSheet } from '@/components/partners/partner-detail-sheet'
 import { EmptyState } from '@/components/shared/empty-state'
-import { SupplierFormDialog } from '@/components/encomendas/supplier-form-dialog'
-import { useEncomendaSuppliers } from '@/hooks/use-encomenda-suppliers'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  PARTNER_CATEGORY_OPTIONS,
+  PARTNER_CATEGORY_LABELS,
+  PARTNER_CATEGORY_COLORS,
+} from '@/lib/constants'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,50 +35,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import {
-  Search, Plus, Truck, MoreHorizontal, Pencil, Ban, Star,
-  Package, Phone, Mail, ArrowRight,
+  Search, Plus, Handshake, Users, Star, Award, Filter,
 } from 'lucide-react'
-import type { Supplier } from '@/types/encomenda'
+import type { Partner, PartnerCategory } from '@/types/partner'
 
 export default function ParceirosPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<PartnerCategory | undefined>()
   const [showFormDialog, setShowFormDialog] = useState(false)
-  const [editSupplier, setEditSupplier] = useState<Supplier | null>(null)
-  const [deactivateId, setDeactivateId] = useState<string | null>(null)
+  const [editPartner, setEditPartner] = useState<Partner | null>(null)
+  const [deletePartnerId, setDeletePartnerId] = useState<string | null>(null)
+  const [detailPartner, setDetailPartner] = useState<Partner | null>(null)
 
-  const { suppliers, loading, setFilters, createSupplier, updateSupplier, deleteSupplier } =
-    useEncomendaSuppliers()
+  const {
+    partners, isLoading, total, canSeePrivate,
+    createPartner, updatePartner, deletePartner, ratePartner,
+  } = usePartners({
+    filters: {
+      search: search || undefined,
+      category: categoryFilter,
+    },
+  })
 
-  const handleFormSubmit = async (data: Partial<Supplier>) => {
-    try {
-      if (editSupplier) {
-        await updateSupplier(editSupplier.id, data)
-        toast.success('Fornecedor actualizado')
-      } else {
-        await createSupplier(data)
-        toast.success('Fornecedor criado')
-      }
-      setShowFormDialog(false)
-      setEditSupplier(null)
-    } catch {
-      toast.error('Erro ao guardar fornecedor')
+  const activeCount = partners.filter(p => p.is_active).length
+  const ratedCount = partners.filter(p => p.rating_count > 0).length
+  const recommendedCount = partners.filter(p => p.is_recommended).length
+
+  const handleFormSubmit = async (data: any) => {
+    if (editPartner) {
+      const ok = await updatePartner(editPartner.id, data)
+      if (ok) { setShowFormDialog(false); setEditPartner(null) }
+    } else {
+      const created = await createPartner(data)
+      if (created) { setShowFormDialog(false) }
     }
   }
 
-  const handleDeactivate = async () => {
-    if (!deactivateId) return
-    try {
-      await deleteSupplier(deactivateId)
-      toast.success('Fornecedor desativado')
-    } catch {
-      toast.error('Erro ao desativar')
-    } finally {
-      setDeactivateId(null)
-    }
+  const handleDelete = async () => {
+    if (!deletePartnerId) return
+    await deletePartner(deletePartnerId)
+    setDeletePartnerId(null)
   }
+
+  // Category counts for filter badges
+  const categoryCounts = partners.reduce<Record<string, number>>((acc, p) => {
+    acc[p.category] = (acc[p.category] || 0) + 1
+    return acc
+  }, {})
 
   return (
     <div className="space-y-6">
@@ -81,154 +94,148 @@ export default function ParceirosPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">Parceiros & Fornecedores</h1>
-              <p className="text-neutral-400 mt-1 text-sm">Gestão de fornecedores de materiais e parceiros comerciais</p>
+              <p className="text-neutral-400 mt-1 text-sm">Rede de parceiros comerciais, prestadores de servicos e fornecedores</p>
             </div>
             <Button
               size="sm"
               className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25 gap-1.5 text-xs"
-              onClick={() => { setEditSupplier(null); setShowFormDialog(true) }}
+              onClick={() => { setEditPartner(null); setShowFormDialog(true) }}
             >
-              <Plus className="h-3.5 w-3.5" />Novo Fornecedor
+              <Plus className="h-3.5 w-3.5" />Novo Parceiro
             </Button>
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-cols-3 gap-3 mt-6">
-            <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3">
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Total</p>
-              <p className="text-xl font-bold text-white">{suppliers.length}</p>
-            </div>
-            <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3">
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Activos</p>
-              <p className="text-xl font-bold text-white">{suppliers.filter(s => s.is_active).length}</p>
-            </div>
-            <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3">
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Com Rating</p>
-              <p className="text-xl font-bold text-white">{suppliers.filter(s => s.rating_count > 0).length}</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+            {[
+              { label: 'Total', value: total, icon: Handshake },
+              { label: 'Activos', value: activeCount, icon: Users },
+              { label: 'Com Rating', value: ratedCount, icon: Star },
+              { label: 'Recomendados', value: recommendedCount, icon: Award },
+            ].map((kpi) => (
+              <div key={kpi.label} className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider">{kpi.label}</p>
+                  <kpi.icon className="h-3.5 w-3.5 text-neutral-500" />
+                </div>
+                <p className="text-xl font-bold text-white mt-1">{kpi.value}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Pesquisar fornecedores..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setFilters((prev) => ({ ...prev, search: e.target.value || undefined }))
-          }}
-          className="pl-9 rounded-xl"
-        />
+      {/* Search + Category Filters */}
+      <div className="space-y-3">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar parceiros..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 rounded-xl"
+          />
+        </div>
+
+        {/* Category pill filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setCategoryFilter(undefined)}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
+              !categoryFilter
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            )}
+          >
+            Todos ({total})
+          </button>
+          {PARTNER_CATEGORY_OPTIONS.filter(cat => categoryCounts[cat.value]).map((cat) => {
+            const color = PARTNER_CATEGORY_COLORS[cat.value]
+            const isActive = categoryFilter === cat.value
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setCategoryFilter(isActive ? undefined : cat.value)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5',
+                  isActive
+                    ? `${color.bg} ${color.text}`
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full', isActive ? color.dot : 'bg-muted-foreground/40')} />
+                {cat.label} ({categoryCounts[cat.value]})
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* List */}
-      {loading ? (
+      {/* Grid */}
+      {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-52 rounded-2xl" />)}
         </div>
-      ) : suppliers.length === 0 ? (
+      ) : partners.length === 0 ? (
         <EmptyState
-          icon={Truck}
-          title="Nenhum fornecedor encontrado"
-          description={search ? 'Tente ajustar a pesquisa' : 'Comece por adicionar o primeiro fornecedor'}
-          action={!search ? { label: 'Novo Fornecedor', onClick: () => { setEditSupplier(null); setShowFormDialog(true) } } : undefined}
+          icon={Handshake}
+          title="Nenhum parceiro encontrado"
+          description={search || categoryFilter ? 'Tente ajustar os filtros de pesquisa' : 'Comece por adicionar o primeiro parceiro'}
+          action={!search && !categoryFilter ? { label: 'Novo Parceiro', onClick: () => { setEditPartner(null); setShowFormDialog(true) } } : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {suppliers.map((supplier) => (
-            <div
-              key={supplier.id}
-              onClick={() => router.push(`/dashboard/parceiros/${supplier.id}`)}
-              className="group rounded-2xl border bg-card/50 backdrop-blur-sm p-5 cursor-pointer hover:shadow-md transition-all"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="min-w-0">
-                  <h3 className="font-bold text-sm truncate group-hover:text-primary transition-colors">{supplier.name}</h3>
-                  {supplier.contact_name && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{supplier.contact_name}</p>
-                  )}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full shrink-0">
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem onClick={() => { setEditSupplier(supplier); setShowFormDialog(true) }} className="text-xs gap-2">
-                      <Pencil className="h-3 w-3" />Editar
-                    </DropdownMenuItem>
-                    {supplier.is_active && (
-                      <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => setDeactivateId(supplier.id)}>
-                        <Ban className="h-3 w-3" />Desativar
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Contact chips */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {supplier.phone && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-white/10 px-2 py-0.5 text-[10px] text-muted-foreground">
-                    <Phone className="h-2.5 w-2.5" />{supplier.phone}
-                  </span>
-                )}
-                {supplier.email && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-white/10 px-2 py-0.5 text-[10px] text-muted-foreground truncate max-w-[180px]">
-                    <Mail className="h-2.5 w-2.5" />{supplier.email}
-                  </span>
-                )}
-                {!supplier.is_active && (
-                  <Badge variant="secondary" className="text-[9px] rounded-full">Inativo</Badge>
-                )}
-              </div>
-
-              {/* Footer: rating + delivery */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {supplier.rating_count > 0 ? (
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs font-bold">{supplier.rating_avg}</span>
-                      <span className="text-[10px] text-muted-foreground">({supplier.rating_count})</span>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">Sem avaliações</span>
-                  )}
-                  {supplier.average_delivery_days && (
-                    <span className="text-[10px] text-muted-foreground">· {supplier.average_delivery_days}d entrega</span>
-                  )}
-                </div>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors" />
-              </div>
-            </div>
+          {partners.map((partner) => (
+            <PartnerCard
+              key={partner.id}
+              partner={partner}
+              canEdit={canSeePrivate}
+              onView={(p) => router.push(`/dashboard/parceiros/${p.id}`)}
+              onEdit={(p) => { setEditPartner(p); setShowFormDialog(true) }}
+              onDelete={(p) => setDeletePartnerId(p.id)}
+            />
           ))}
         </div>
       )}
 
       {/* Form Dialog */}
-      <SupplierFormDialog
-        open={showFormDialog}
-        onOpenChange={(open) => { setShowFormDialog(open); if (!open) setEditSupplier(null) }}
-        supplier={editSupplier}
-        onSubmit={handleFormSubmit}
+      <Dialog open={showFormDialog} onOpenChange={(open) => { setShowFormDialog(open); if (!open) setEditPartner(null) }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editPartner ? 'Editar Parceiro' : 'Novo Parceiro'}</DialogTitle>
+          </DialogHeader>
+          <PartnerForm
+            partner={editPartner}
+            canSeePrivate={canSeePrivate}
+            onSubmit={handleFormSubmit}
+            onCancel={() => { setShowFormDialog(false); setEditPartner(null) }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Sheet (quick view) */}
+      <PartnerDetailSheet
+        partner={detailPartner}
+        open={!!detailPartner}
+        onOpenChange={(open) => { if (!open) setDetailPartner(null) }}
+        canEdit={canSeePrivate}
+        canSeePrivate={canSeePrivate}
+        onEdit={(p) => { setDetailPartner(null); setEditPartner(p); setShowFormDialog(true) }}
+        onRate={ratePartner}
       />
 
-      {/* Deactivate Dialog */}
-      <AlertDialog open={!!deactivateId} onOpenChange={() => setDeactivateId(null)}>
+      {/* Delete Dialog */}
+      <AlertDialog open={!!deletePartnerId} onOpenChange={() => setDeletePartnerId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desativar fornecedor</AlertDialogTitle>
-            <AlertDialogDescription>Tem a certeza? Poderá reactivá-lo posteriormente.</AlertDialogDescription>
+            <AlertDialogTitle>Eliminar parceiro</AlertDialogTitle>
+            <AlertDialogDescription>Tem a certeza de que pretende eliminar este parceiro? Esta accao e irreversivel.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Desativar
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
