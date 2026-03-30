@@ -339,16 +339,13 @@ export function ConversationView({
       }
     })
 
-    // In parallel: fetch sent messages from Sent folder by subject
-    const threadSubject = sorted[0]?.subject || ''
-    if (threadSubject) {
-      const params = new URLSearchParams({ subject: threadSubject })
-      if (accountId) params.set('account_id', accountId)
+    // Sent message threading disabled for now — only shows inbox messages
+    if (false) {
+      const params = new URLSearchParams()
 
       fetch(`/api/email/thread?${params}`)
         .then(r => r.json())
         .then(async (data) => {
-          console.log('[thread] Sent folder response:', data._debug || data)
           const sentMsgs = (data.messages || []) as ImapMessageEnvelope[]
           const sentFolderName = data.folder as string | undefined
           if (sentFolderName) setSentFolder(sentFolderName)
