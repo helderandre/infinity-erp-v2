@@ -345,8 +345,10 @@ export function ConversationView({
       .filter((id): id is string => !!id)
 
     if (messageIds.length > 0) {
+      const threadSubject = sorted[0]?.subject || ''
       const params = new URLSearchParams({
         message_ids: messageIds.join(','),
+        subject: threadSubject,
       })
       if (accountId) params.set('account_id', accountId)
 

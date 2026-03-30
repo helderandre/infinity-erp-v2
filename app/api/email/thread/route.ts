@@ -13,15 +13,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const messageIdsParam = searchParams.get('message_ids')
     const accountId = searchParams.get('account_id')
+    const subject = searchParams.get('subject')
 
-    if (!messageIdsParam) {
-      return NextResponse.json({ error: 'message_ids é obrigatório' }, { status: 400 })
+    if (!messageIdsParam && !subject) {
+      return NextResponse.json({ error: 'message_ids ou subject é obrigatório' }, { status: 400 })
     }
 
-    const messageIds = messageIdsParam.split(',').filter(Boolean)
-    if (messageIds.length === 0) {
-      return NextResponse.json({ messages: [] })
-    }
+    const messageIds = messageIdsParam ? messageIdsParam.split(',').filter(Boolean) : []
 
     const resolved = await resolveEmailAccount(accountId || undefined)
     if (!resolved.ok) {
@@ -51,7 +49,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ messages: [] })
     }
 
-    const messages = await searchThreadMessages(imapConfig, sentFolder.path, messageIds)
+    const messages = await searchThreadMessages(imapConfig, sentFolder.path, messageIds, subject || undefined)
 
     return NextResponse.json({ messages, folder: sentFolder.path })
   } catch (error) {

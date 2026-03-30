@@ -365,8 +365,8 @@ export async function searchThreadMessages(
   config: ImapConfig,
   folder: string,
   messageIds: string[],
+  subject?: string,
 ): Promise<ImapMessageEnvelope[]> {
-  if (messageIds.length === 0) return []
 
   const client = new ImapFlow({
     host: config.host,
@@ -396,6 +396,7 @@ export async function searchThreadMessages(
       // Search for messages that reply to any of the given IDs
       const allUids = new Set<number>()
 
+      // 1. Search by In-Reply-To and Message-ID headers
       for (const mid of messageIds) {
         try {
           const uids = await client.search(
@@ -412,6 +413,24 @@ export async function searchThreadMessages(
           )
           for (const uid of uids) allUids.add(uid)
         } catch { /* skip */ }
+      }
+
+      // 2. Fallback: search by subject (most reliable for finding sent replies)
+      if (subject) {
+        // Strip Re:/Fwd: prefixes to get the base subject
+        const baseSubject = subject
+          .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+          .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+          .trim()
+        if (baseSubject.length > 3) {
+          try {
+            const uids = await client.search(
+              { subject: baseSubject },
+              { uid: true }
+            )
+            for (const uid of uids) allUids.add(uid)
+          } catch { /* skip */ }
+        }
       }
 
       if (allUids.size === 0) return []
