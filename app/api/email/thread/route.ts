@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { resolveEmailAccount } from '@/lib/email/resolve-account'
-import { fetchMessageEnvelopes, listFolders } from '@/lib/email/imap-client'
+import { listFolders, searchMessages } from '@/lib/email/imap-client'
 
 /**
  * GET /api/email/thread?subject=<subject>&account_id=<uuid>
  *
- * Fetches messages from the Sent folder that match the thread subject.
- * Uses the same envelope fetch that works for INBOX — no IMAP SEARCH needed.
+ * Searches the Sent folder for messages matching the thread subject.
+ * Uses IMAP SUBJECT search which scans all messages in the folder.
  */
 export async function GET(request: Request) {
   try {
@@ -40,61 +40,42 @@ export async function GET(request: Request) {
         f.path.toLowerCase() === 'sent' ||
         f.path.toLowerCase() === 'sent items' ||
         f.path.toLowerCase() === 'enviados' ||
+        f.path.toLowerCase() === 'enviadas' ||
         f.path.toLowerCase() === 'sent mail' ||
-        f.path.toLowerCase().includes('sent')
+        f.path.toLowerCase().includes('sent') ||
+        f.path.toLowerCase().includes('enviad')
     )
 
     if (!sentFolder) {
-      console.error('[email/thread] NO SENT FOLDER FOUND. Available folders:', folders.map((f: { path: string; specialUse?: string }) => `${f.path} (${f.specialUse || 'no special-use'})`))
-      return NextResponse.json({ messages: [], folder: null })
+      return NextResponse.json({
+        messages: [],
+        folder: null,
+        _debug: { error: 'No Sent folder', available: folders.map((f: { path: string }) => f.path) },
+      })
     }
 
-    console.log('[email/thread] Using Sent folder:', sentFolder.path)
-    console.log('[email/thread] Searching for subject:', subject)
+    // Strip Re:/Fwd: to get the base subject for search
+    const baseSubject = subject
+      .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+      .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+      .trim()
 
-    const normalizeSubject = (s: string) =>
-      s.replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
-        .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
-        .trim()
-        .toLowerCase()
-
-    const targetSubject = normalizeSubject(subject)
-    console.log('[email/thread] Normalized target:', targetSubject)
-
-    // Fetch up to 200 recent sent messages and filter by subject
-    const { messages: sentMessages, total } = await fetchMessageEnvelopes(imapConfig, {
-      folder: sentFolder.path,
-      limit: 200,
-      page: 1,
-    })
-
-    console.log(`[email/thread] Fetched ${sentMessages.length} of ${total} sent messages`)
-
-    const matching = sentMessages.filter(m => {
-      const msgSubject = normalizeSubject(m.subject || '')
-      return msgSubject === targetSubject || msgSubject.includes(targetSubject) || targetSubject.includes(msgSubject)
-    })
-
-    console.log(`[email/thread] Found ${matching.length} matching messages`)
-    if (matching.length > 0) {
-      matching.forEach(m => console.log(`  - UID ${m.uid}: "${m.subject}" from ${m.from[0]?.address}`))
-    } else if (sentMessages.length > 0) {
-      // Log first 5 sent subjects for debugging
-      console.log('[email/thread] Sample sent subjects:')
-      sentMessages.slice(0, 5).forEach(m => console.log(`  - "${m.subject}"`))
-    }
+    // Use IMAP SUBJECT search — this searches ALL messages in the folder
+    const { messages, total } = await searchMessages(
+      imapConfig,
+      sentFolder.path,
+      baseSubject,
+      50
+    )
 
     return NextResponse.json({
-      messages: matching,
+      messages,
       folder: sentFolder.path,
       _debug: {
         sentFolderPath: sentFolder.path,
-        totalInSent: total,
-        fetchedFromSent: sentMessages.length,
-        targetSubject,
-        matchingCount: matching.length,
-        sampleSubjects: sentMessages.slice(0, 5).map(m => m.subject),
-        allFolders: folders.map((f: { path: string; specialUse?: string }) => `${f.path} (${f.specialUse || '-'})`),
+        searchQuery: baseSubject,
+        matchingCount: messages.length,
+        totalResults: total,
       },
     })
   } catch (error) {
