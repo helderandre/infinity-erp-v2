@@ -68,6 +68,7 @@ import {
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
@@ -1062,64 +1063,71 @@ export default function ProcessoDetailPage() {
               {isActive && stages && stages.length > 0 ? (
                 <>
                   {/* Filters + view toggle */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger className="w-[140px] sm:w-[150px] h-8 rounded-full text-xs">
-                        <SelectValue placeholder="Estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os estados</SelectItem>
-                        {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={filterPriority} onValueChange={setFilterPriority}>
-                      <SelectTrigger className="w-[140px] sm:w-[150px] h-8 rounded-full text-xs">
-                        <SelectValue placeholder="Prioridade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as prioridades</SelectItem>
-                        {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                      <SelectTrigger className="w-[130px] sm:w-[170px] h-8 rounded-full text-xs">
-                        <SelectValue placeholder="Responsável" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {assignees.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {roles.length > 0 && (
-                      <Select value={filterRole} onValueChange={setFilterRole}>
-                        <SelectTrigger className="w-[140px] sm:w-[180px] h-8 rounded-full text-xs">
-                          <SelectValue placeholder="Papel" />
+                  <div className="flex items-center gap-2">
+                    <MobileFilterSheet activeCount={
+                      (filterStatus !== 'all' ? 1 : 0) +
+                      (filterPriority !== 'all' ? 1 : 0) +
+                      (filterAssignee !== 'all' ? 1 : 0) +
+                      (filterRole !== 'all' ? 1 : 0)
+                    }>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
+                          <SelectValue placeholder="Estado" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todos os papéis</SelectItem>
-                          {roles.map((role) => {
-                            const rc = getRoleBadgeColors(role)
-                            return (
-                              <SelectItem key={role} value={role}>
-                                <span className="flex items-center gap-2">
-                                  <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
-                                  {role}
-                                </span>
-                              </SelectItem>
-                            )
-                          })}
+                          <SelectItem value="all">Todos os estados</SelectItem>
+                          {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>{label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                    )}
+
+                      <Select value={filterPriority} onValueChange={setFilterPriority}>
+                        <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
+                          <SelectValue placeholder="Prioridade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas as prioridades</SelectItem>
+                          {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                        <SelectTrigger className="w-[170px] h-8 rounded-full text-xs">
+                          <SelectValue placeholder="Responsável" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {assignees.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {roles.length > 0 && (
+                        <Select value={filterRole} onValueChange={setFilterRole}>
+                          <SelectTrigger className="w-[180px] h-8 rounded-full text-xs">
+                            <SelectValue placeholder="Papel" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos os papéis</SelectItem>
+                            {roles.map((role) => {
+                              const rc = getRoleBadgeColors(role)
+                              return (
+                                <SelectItem key={role} value={role}>
+                                  <span className="flex items-center gap-2">
+                                    <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
+                                    {role}
+                                  </span>
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </MobileFilterSheet>
 
                     <div className="ml-auto flex items-center gap-2">
                       {user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any) && ['active', 'on_hold'].includes(instance.current_status) && (
