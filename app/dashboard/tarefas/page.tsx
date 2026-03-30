@@ -5,7 +5,7 @@ import { Plus, CheckSquare, AlertTriangle, Clock, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+// Card removed — stats use custom styled divs
 import { Skeleton } from '@/components/ui/skeleton'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskListItem } from '@/components/tasks/task-list-item'
@@ -82,32 +82,34 @@ export default function TarefasPage() {
   return (
     <div className="space-y-4">
       {/* Stats cards */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatsCard
           icon={<Clock className="h-3.5 w-3.5" />}
           label="Pendentes"
           value={stats?.pending}
           isLoading={statsLoading}
+          color="neutral"
         />
         <StatsCard
-          icon={<AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+          icon={<AlertTriangle className="h-3.5 w-3.5" />}
           label="Em atraso"
           value={stats?.overdue}
           isLoading={statsLoading}
-          valueClassName="text-red-600"
+          color="red"
         />
         <StatsCard
-          icon={<CheckSquare className="h-3.5 w-3.5 text-emerald-500" />}
+          icon={<CheckSquare className="h-3.5 w-3.5" />}
           label="Hoje"
           value={stats?.completed_today}
           isLoading={statsLoading}
+          color="emerald"
         />
         <StatsCard
-          icon={<Zap className="h-3.5 w-3.5 text-orange-500" />}
+          icon={<Zap className="h-3.5 w-3.5" />}
           label="Urgentes"
           value={stats?.urgent}
           isLoading={statsLoading}
-          valueClassName={stats?.urgent ? 'text-orange-600' : undefined}
+          color="orange"
         />
       </div>
 
@@ -193,30 +195,38 @@ export default function TarefasPage() {
 
 // ─── Stats Card ──────────────────────────────────────────────
 
+const STAT_COLORS = {
+  neutral: { bg: 'bg-neutral-100 dark:bg-neutral-800/50', icon: 'text-neutral-600 dark:text-neutral-400', value: '' },
+  red: { bg: 'bg-red-50 dark:bg-red-950/30', icon: 'text-red-500', value: 'text-red-600 dark:text-red-400' },
+  emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', icon: 'text-emerald-500', value: 'text-emerald-600 dark:text-emerald-400' },
+  orange: { bg: 'bg-orange-50 dark:bg-orange-950/30', icon: 'text-orange-500', value: 'text-orange-600 dark:text-orange-400' },
+} as const
+
 function StatsCard({
   icon,
   label,
   value,
   isLoading,
-  valueClassName,
+  color = 'neutral',
 }: {
   icon: React.ReactNode
   label: string
   value?: number
   isLoading: boolean
-  valueClassName?: string
+  color?: keyof typeof STAT_COLORS
 }) {
+  const c = STAT_COLORS[color]
+  const hasValue = (value ?? 0) > 0
+
   return (
-    <Card>
-      <CardContent className="flex items-center gap-2 px-3 py-2">
-        {icon}
-        {isLoading ? (
-          <Skeleton className="h-5 w-5" />
-        ) : (
-          <span className={`text-base font-bold ${valueClassName || ''}`}>{value ?? 0}</span>
-        )}
-        <span className="text-[0.65rem] text-muted-foreground hidden sm:inline">{label}</span>
-      </CardContent>
-    </Card>
+    <div className={`rounded-xl ${c.bg} px-3 py-2.5 flex items-center gap-2.5 transition-colors`}>
+      <div className={c.icon}>{icon}</div>
+      {isLoading ? (
+        <Skeleton className="h-5 w-6" />
+      ) : (
+        <span className={`text-lg font-bold tabular-nums ${hasValue ? c.value : 'text-muted-foreground/50'}`}>{value ?? 0}</span>
+      )}
+      <span className="text-[0.65rem] text-muted-foreground">{label}</span>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { createClient } from '@/lib/supabase/server'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions'
 
@@ -41,6 +42,7 @@ const tools: ChatCompletionTool[] = [
           business_type: { type: 'string', description: 'Tipo de negócio: venda, arrendamento' },
           min_price: { type: 'number', description: 'Preço mínimo' },
           max_price: { type: 'number', description: 'Preço máximo' },
+          bedrooms: { type: 'number', description: 'Número de quartos (T1=1, T2=2, T3=3, etc.)' },
           count_only: { type: 'boolean', description: 'Se true, retorna apenas a contagem' },
           limit: { type: 'number', description: 'Máximo de resultados (default 10)' },
         },
@@ -152,11 +154,15 @@ async function executeTool(name: string, args: Record<string, any>, supabase: an
       }
 
       case 'query_properties': {
+        // When filtering by bedrooms, fetch more since we post-filter
+        const needsPostFilter = !!args.bedrooms
+        const fetchLimit = needsPostFilter ? 500 : (args.count_only ? 0 : (args.limit || 10))
+
         let query = supabase
           .from('dev_properties')
-          .select('id, title, listing_price, property_type, business_type, status, city, zone, external_ref, consultant:dev_users(commercial_name)', { count: 'exact' })
+          .select('id, title, slug, listing_price, property_type, business_type, status, city, zone, external_ref, consultant:dev_users(commercial_name), specs:dev_property_specifications(bedrooms, bathrooms, area_gross, area_util, typology, construction_year, parking_spaces)', { count: 'exact' })
           .order('created_at', { ascending: false })
-          .limit(args.count_only ? 0 : (args.limit || 10))
+          .limit(fetchLimit)
 
         if (args.search) query = query.or(`title.ilike.%${args.search}%,external_ref.ilike.%${args.search}%`)
         if (args.city) query = query.ilike('city', `%${args.city}%`)
@@ -166,8 +172,28 @@ async function executeTool(name: string, args: Record<string, any>, supabase: an
         if (args.min_price) query = query.gte('listing_price', args.min_price)
         if (args.max_price) query = query.lte('listing_price', args.max_price)
 
-        const { data, count, error } = await query
-        if (error) return JSON.stringify({ error: error.message })
+        let { data, count, error } = await query
+        if (error) {
+          console.error('[agent] query_properties error:', error.message)
+          return JSON.stringify({ error: error.message })
+        }
+
+        console.log(`[agent] query_properties: ${count} total, ${data?.length} fetched, bedrooms filter: ${args.bedrooms}`)
+
+        // Post-filter by bedrooms (specs is a joined 1:1 table)
+        if (args.bedrooms && data) {
+          data = data.filter((p: any) => {
+            const beds = p.specs?.bedrooms
+            return beds === args.bedrooms
+          })
+          count = data.length
+        }
+
+        // Trim to requested limit after filtering
+        if (needsPostFilter && !args.count_only) {
+          data = data?.slice(0, args.limit || 10)
+        }
+
         if (args.count_only) return JSON.stringify({ total: count })
         return JSON.stringify({ properties: data, total: count })
       }
@@ -175,8 +201,7 @@ async function executeTool(name: string, args: Record<string, any>, supabase: an
       case 'query_tasks': {
         let query = supabase
           .from('tasks')
-          .select('id, title, status, priority, due_date, created_at', { count: 'exact' })
-          .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
+          .select('id, title, status, priority, due_date, created_at, assigned:dev_users!tasks_assigned_to_fkey(commercial_name)', { count: 'exact' })
           .order('due_date', { ascending: true, nullsFirst: false })
           .limit(args.count_only ? 0 : (args.limit || 10))
 
@@ -315,6 +340,7 @@ export async function POST(request: Request) {
     if (!auth.authorized) return auth.response
 
     const supabase = await createClient()
+    const adminDb = createCrmAdminClient()
     const { messages: clientMessages } = await request.json()
 
     if (!Array.isArray(clientMessages) || clientMessages.length === 0) {
@@ -352,6 +378,8 @@ NÃO inventes dados — usa sempre as ferramentas para consultar informação re
     // Run the agent loop (max 5 iterations for tool calls)
     let iterations = 0
     const maxIterations = 5
+    // Collect structured data from tool calls to return alongside the message
+    const toolResults: Array<{ tool: string; data: unknown }> = []
 
     while (iterations < maxIterations) {
       iterations++
@@ -375,6 +403,7 @@ NÃO inventes dados — usa sempre as ferramentas para consultar informação re
         return NextResponse.json({
           message: assistantMessage.content || '',
           role: 'assistant',
+          data: toolResults.length > 0 ? toolResults : undefined,
         })
       }
 
@@ -382,7 +411,13 @@ NÃO inventes dados — usa sempre as ferramentas para consultar informação re
       for (const toolCall of assistantMessage.tool_calls) {
         const fn = (toolCall as any).function
         const args = JSON.parse(fn.arguments)
-        const result = await executeTool(fn.name, args, supabase, auth.user.id)
+        const result = await executeTool(fn.name, args, adminDb, auth.user.id)
+
+        // Store structured data
+        try {
+          const parsed = JSON.parse(result)
+          toolResults.push({ tool: fn.name, data: parsed })
+        } catch { /* ignore parse errors */ }
 
         messages.push({
           role: 'tool',
@@ -397,6 +432,7 @@ NÃO inventes dados — usa sempre as ferramentas para consultar informação re
     return NextResponse.json({
       message: (lastAssistant as { content?: string })?.content || 'Desculpe, não consegui completar a pesquisa.',
       role: 'assistant',
+      data: toolResults.length > 0 ? toolResults : undefined,
     })
   } catch (error) {
     console.error('Agent error:', error)

@@ -96,7 +96,7 @@ export function GoalDailyPopup() {
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss() }}>
       <DialogContent className="sm:max-w-md overflow-hidden rounded-2xl p-0 gap-0">
         {/* Black header */}
-        <div className="bg-neutral-900 px-6 py-5 text-white">
+        <div className="bg-neutral-900 rounded-t-2xl px-5 py-4 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
               <Target className="h-5 w-5 text-white" />
@@ -110,7 +110,7 @@ export function GoalDailyPopup() {
           </div>
 
           {/* Revenue targets in header */}
-          <div className="mt-4 flex items-end justify-between">
+          <div className="mt-3 flex items-end justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-white/50">Objetivo diário</p>
               <p className="text-2xl font-bold text-white">{formatCurrency(data.dailyRevenue || 0)}</p>
@@ -123,9 +123,9 @@ export function GoalDailyPopup() {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 py-3 space-y-2.5">
           {/* Actions list */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Ações necessárias hoje</p>
 
             {data.actions?.map((action) => {
@@ -135,7 +135,7 @@ export function GoalDailyPopup() {
               const isDone = action.done >= action.target
 
               return (
-                <div key={action.key} className="rounded-xl border bg-muted/20 px-4 py-3 space-y-2">
+                <div key={action.key} className="rounded-lg border-[0.5px] border-border/30 bg-muted/10 px-3 py-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className={cn(
@@ -163,13 +163,13 @@ export function GoalDailyPopup() {
 
           {/* Projection message */}
           {data.projectionMessage && (
-            <p className="rounded-xl border border-dashed bg-muted/10 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+            <p className="rounded-lg border border-dashed border-border/20 bg-muted/10 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
               {data.projectionMessage}
             </p>
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between pt-0.5">
             <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleDismiss}>
               Fechar
             </Button>
