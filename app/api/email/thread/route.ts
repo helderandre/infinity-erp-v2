@@ -1,25 +1,22 @@
 import { NextResponse } from 'next/server'
 import { resolveEmailAccount } from '@/lib/email/resolve-account'
-import { searchThreadMessages, listFolders } from '@/lib/email/imap-client'
+import { fetchMessageEnvelopes, listFolders } from '@/lib/email/imap-client'
 
 /**
- * GET /api/email/thread?message_ids=<id1>,<id2>&account_id=<uuid>
+ * GET /api/email/thread?subject=<subject>&account_id=<uuid>
  *
- * Searches the Sent folder for messages that belong to a thread
- * (matching In-Reply-To or Message-ID headers).
+ * Fetches messages from the Sent folder that match the thread subject.
+ * Uses the same envelope fetch that works for INBOX — no IMAP SEARCH needed.
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const messageIdsParam = searchParams.get('message_ids')
-    const accountId = searchParams.get('account_id')
     const subject = searchParams.get('subject')
+    const accountId = searchParams.get('account_id')
 
-    if (!messageIdsParam && !subject) {
-      return NextResponse.json({ error: 'message_ids ou subject é obrigatório' }, { status: 400 })
+    if (!subject) {
+      return NextResponse.json({ messages: [], folder: null })
     }
-
-    const messageIds = messageIdsParam ? messageIdsParam.split(',').filter(Boolean) : []
 
     const resolved = await resolveEmailAccount(accountId || undefined)
     if (!resolved.ok) {
@@ -35,23 +32,50 @@ export async function GET(request: Request) {
       pass: password,
     }
 
-    // Find the Sent folder name
+    // Find the Sent folder
     const folders = await listFolders(imapConfig)
     const sentFolder = folders.find(
       (f: { path: string; specialUse?: string }) =>
         f.specialUse === '\\Sent' ||
         f.path.toLowerCase() === 'sent' ||
         f.path.toLowerCase() === 'sent items' ||
-        f.path.toLowerCase() === 'enviados'
+        f.path.toLowerCase() === 'enviados' ||
+        f.path.toLowerCase() === 'sent mail' ||
+        f.path.toLowerCase().includes('sent')
     )
 
     if (!sentFolder) {
-      return NextResponse.json({ messages: [] })
+      // Return folder list for debugging
+      console.warn('[email/thread] No Sent folder found. Available:', folders.map((f: { path: string }) => f.path))
+      return NextResponse.json({ messages: [], folder: null })
     }
 
-    const messages = await searchThreadMessages(imapConfig, sentFolder.path, messageIds, subject || undefined)
+    // Fetch ALL envelopes from Sent folder (recent pages)
+    // Then filter client-side by subject match
+    const normalizeSubject = (s: string) =>
+      s.replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+        .replace(/^(re|fwd|fw|enc|rsp)\s*:\s*/gi, '')
+        .trim()
+        .toLowerCase()
 
-    return NextResponse.json({ messages, folder: sentFolder.path })
+    const targetSubject = normalizeSubject(subject)
+
+    // Fetch up to 200 recent sent messages and filter by subject
+    const { messages: sentMessages } = await fetchMessageEnvelopes(imapConfig, {
+      folder: sentFolder.path,
+      limit: 200,
+      page: 1,
+    })
+
+    const matching = sentMessages.filter(m => {
+      const msgSubject = normalizeSubject(m.subject || '')
+      return msgSubject === targetSubject || msgSubject.includes(targetSubject) || targetSubject.includes(msgSubject)
+    })
+
+    return NextResponse.json({
+      messages: matching,
+      folder: sentFolder.path,
+    })
   } catch (error) {
     console.error('[email/thread] Error:', error)
     return NextResponse.json({ error: 'Erro ao pesquisar conversa' }, { status: 500 })

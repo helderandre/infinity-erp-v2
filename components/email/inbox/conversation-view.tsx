@@ -339,17 +339,10 @@ export function ConversationView({
       }
     })
 
-    // In parallel: search Sent folder for related messages
-    const messageIds = sorted
-      .map(m => m.messageId)
-      .filter((id): id is string => !!id)
-
-    if (messageIds.length > 0) {
-      const threadSubject = sorted[0]?.subject || ''
-      const params = new URLSearchParams({
-        message_ids: messageIds.join(','),
-        subject: threadSubject,
-      })
+    // In parallel: fetch sent messages from Sent folder by subject
+    const threadSubject = sorted[0]?.subject || ''
+    if (threadSubject) {
+      const params = new URLSearchParams({ subject: threadSubject })
       if (accountId) params.set('account_id', accountId)
 
       fetch(`/api/email/thread?${params}`)
