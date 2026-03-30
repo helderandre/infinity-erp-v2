@@ -311,7 +311,8 @@ function ImoveisPageContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 border border-white/15">
+            {/* View toggle — desktop only (inside card) */}
+            <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 border border-white/15">
               <button onClick={() => setViewMode('table')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'table' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400 hover:text-white')}>
                 <List className="h-3.5 w-3.5" />
               </button>
@@ -319,6 +320,7 @@ function ImoveisPageContent() {
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
             </div>
+            {/* Novo Imóvel — always in card */}
             <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
               <Plus className="h-3.5 w-3.5" />
               Novo Imóvel
@@ -344,6 +346,16 @@ function ImoveisPageContent() {
         onConsultantChange={setConsultantId}
         onClearFilters={clearFilters}
         hasActiveFilters={hasActiveFilters}
+        mobilePrefix={
+          <div className="sm:hidden flex items-center gap-0.5 p-0.5 rounded-full bg-muted border border-border/30">
+            <button onClick={() => setViewMode('table')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'table' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
+              <List className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setViewMode('grid')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'grid' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        }
       />
 
       {isLoading ? (

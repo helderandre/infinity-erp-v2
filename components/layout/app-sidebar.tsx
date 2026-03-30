@@ -10,7 +10,7 @@ import {
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck, Shield,
-  CheckSquare, Cpu, Infinity,
+  CheckSquare, Cpu, Infinity, KeyRound,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -43,7 +43,6 @@ export const meuEspacoItems = [
   { title: 'Tarefas', icon: CheckSquare, href: '/dashboard/tarefas', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
-  { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
 ]
 
 export const comunicacaoItems = [
@@ -85,9 +84,11 @@ export const negocioItems = [
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
 ]
 
-export const pessoasItems = [
+export const infinityItems = [
   { title: 'Consultores', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
   { title: 'Parceiros', icon: Handshake, href: '/dashboard/parceiros', permission: 'consultants' },
+  { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
+  { title: 'Acessos', icon: KeyRound, href: '/dashboard/acessos', permission: 'dashboard' },
 ]
 
 export const financeiroItems = [
@@ -137,7 +138,7 @@ export const techItems = [
 ]
 
 export const menuItems = [
-  ...meuEspacoItems, ...comunicacaoItems, ...negocioItems, ...pessoasItems,
+  ...meuEspacoItems, ...comunicacaoItems, ...negocioItems, ...infinityItems,
   ...financeiroItems, ...creditoItems, ...lojaItems,
   ...digitalItems, ...bottomItems,
 ]
@@ -282,7 +283,7 @@ export function AppSidebar() {
           items={meuEspacoItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes']}
+          pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos']}
           defaultOpenOverride={pathname === '/dashboard'}
         />
 
@@ -316,14 +317,14 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos']}
         />
 
-        {/* 5. Pessoas */}
+        {/* 5. Infinity */}
         <CollapsibleGroup
-          label="Pessoas"
-          icon={Users}
-          items={pessoasItems}
+          label="Infinity"
+          icon={Infinity}
+          items={infinityItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/consultores', '/dashboard/equipas', '/dashboard/formacoes']}
+          pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
         {/* 6. Financeiro */}

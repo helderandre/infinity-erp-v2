@@ -279,26 +279,63 @@ export default function ProcessosPage() {
       <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Processos</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground hidden sm:block">
             Gestão de processos documentais
           </p>
+        </div>
+        {/* Mobile actions */}
+        <div className="flex sm:hidden items-center gap-2">
+          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}>
+            <Plus className="h-3.5 w-3.5" />
+            Angariação
+          </Button>
+          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => setShowFechoDialog(true)}>
+            <Handshake className="h-3.5 w-3.5" />
+            Fecho
+          </Button>
         </div>
       </div>
 
       {/* Sidebar + Content */}
       <div className="flex flex-1 min-h-0">
-        <PageSidebar
-          items={TYPE_SIDEBAR_ITEMS}
-          activeKey={activeType}
-          onSelect={setActiveType}
-          actions={sidebarActions}
-        />
+        {/* Desktop sidebar */}
+        <div className="hidden sm:block">
+          <PageSidebar
+            items={TYPE_SIDEBAR_ITEMS}
+            activeKey={activeType}
+            onSelect={setActiveType}
+            actions={sidebarActions}
+          />
+        </div>
 
         {/* Main content */}
         <div className="flex-1 min-w-0 space-y-4 p-4 md:p-6 overflow-y-auto">
 
+        {/* Mobile type filter */}
+        <div className="flex sm:hidden items-center gap-1.5 overflow-x-auto pb-1">
+          {TYPE_SIDEBAR_ITEMS.map((item) => {
+            const Icon = item.icon
+            const isActive = activeType === item.key
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveType(item.key)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors shrink-0',
+                  isActive
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+
         {/* Status filter tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {STATUS_TABS.map((tab) => {
           const isActive = statusFilter === tab.value
           const count = tab.value === ''
@@ -341,7 +378,7 @@ export default function ProcessosPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por referência, imóvel ou cidade..."
+            placeholder="Pesquisar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -407,10 +444,10 @@ export default function ProcessosPage() {
                   <TableHead className="w-[180px]">Referência</TableHead>
                   <TableHead>Imóvel</TableHead>
                   <TableHead className="w-[140px]">Estado</TableHead>
-                  <TableHead className="w-[100px]">Progresso</TableHead>
-                  <TableHead className="w-[120px]">Consultor</TableHead>
-                  <TableHead className="w-[120px] text-right">Preço</TableHead>
-                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead className="w-[100px] hidden md:table-cell">Progresso</TableHead>
+                  <TableHead className="w-[120px] hidden lg:table-cell">Consultor</TableHead>
+                  <TableHead className="w-[120px] text-right hidden md:table-cell">Preço</TableHead>
+                  <TableHead className="w-[100px] hidden lg:table-cell">Data</TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
               </TableHeader>
@@ -420,10 +457,10 @@ export default function ProcessosPage() {
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-2 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-2 w-full" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-6" /></TableCell>
                   </TableRow>
                 ))}
@@ -431,7 +468,7 @@ export default function ProcessosPage() {
             </Table>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <Card key={i}>
                 <CardHeader>
@@ -469,7 +506,7 @@ export default function ProcessosPage() {
           }
         />
       ) : viewMode === 'list' ? (
-        <div className="rounded-lg border">
+        <div className="rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -484,10 +521,10 @@ export default function ProcessosPage() {
                 <TableHead className="w-[180px]">Referência</TableHead>
                 <TableHead>Imóvel</TableHead>
                 <TableHead className="w-[140px]">Estado</TableHead>
-                <TableHead className="w-[100px]">Progresso</TableHead>
-                <TableHead className="w-[120px]">Consultor</TableHead>
-                <TableHead className="w-[120px] text-right">Preço</TableHead>
-                <TableHead className="w-[100px]">Data</TableHead>
+                <TableHead className="w-[100px] hidden md:table-cell">Progresso</TableHead>
+                <TableHead className="w-[120px] hidden lg:table-cell">Consultor</TableHead>
+                <TableHead className="w-[120px] text-right hidden md:table-cell">Preço</TableHead>
+                <TableHead className="w-[100px] hidden lg:table-cell">Data</TableHead>
                 <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>
@@ -560,7 +597,7 @@ export default function ProcessosPage() {
                     <TableCell>
                       <StatusBadge status={proc.current_status} type="process" showDot={false} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
                           <div
@@ -582,7 +619,7 @@ export default function ProcessosPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {proc.requested_by_user?.commercial_name && (
                         <span className="flex items-center gap-1.5 text-sm">
                           <Avatar className="h-5 w-5">
@@ -597,7 +634,7 @@ export default function ProcessosPage() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right hidden md:table-cell">
                       {proc.dev_properties?.listing_price ? (
                         <span className="font-semibold text-sm">
                           {formatCurrency(Number(proc.dev_properties.listing_price))}
@@ -606,7 +643,7 @@ export default function ProcessosPage() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
                       {proc.started_at
                         ? formatDate(proc.started_at)
                         : proc.updated_at
@@ -630,7 +667,7 @@ export default function ProcessosPage() {
           </Table>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {processes.map((proc) => {
             const isDraft = proc.current_status === 'draft'
 

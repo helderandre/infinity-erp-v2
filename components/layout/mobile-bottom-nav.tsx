@@ -6,10 +6,10 @@ import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ContactRound, Briefcase, Users, Euro, Landmark,
-  GraduationCap, Store, Megaphone, Bot, MessageCircle,
+  GraduationCap, Store, Megaphone, Bot, MessageCircle, Infinity,
 } from 'lucide-react'
 import {
-  meuEspacoItems, comunicacaoItems, crmItems, negocioItems, pessoasItems,
+  meuEspacoItems, comunicacaoItems, crmItems, negocioItems, infinityItems,
   financeiroItems, creditoItems, recrutamentoItems, lojaItems,
   digitalItems, automationItems,
 } from '@/components/layout/app-sidebar'
@@ -26,11 +26,11 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: ['/dashboard/calendario', '/dashboard/objetivos', '/dashboard/formacoes'] },
+  { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: ['/dashboard/calendario', '/dashboard/objetivos'] },
   { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: ['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos'] },
   { key: 'crm', label: 'CRM', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries', '/dashboard/acompanhamentos'] },
   { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: ['/dashboard/imoveis', '/dashboard/processos'] },
-  { key: 'pessoas', label: 'Pessoas', icon: Users, items: pessoasItems, prefixes: ['/dashboard/consultores', '/dashboard/parceiros'] },
+  { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: ['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos'] },
   { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: ['/dashboard/comissoes'] },
   { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: ['/dashboard/credito'] },
   { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: ['/dashboard/recrutamento'] },
