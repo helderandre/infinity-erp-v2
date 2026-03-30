@@ -23,9 +23,11 @@ import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { TaskForm } from '@/components/tasks/task-form'
 import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
+import { ContactDialog } from '@/components/leads/contact-dialog'
 
 export function QuickActions() {
   const router = useRouter()
+  const [contactOpen, setContactOpen] = useState(false)
   const [acquisitionOpen, setAcquisitionOpen] = useState(false)
   const [fechoOpen, setFechoOpen] = useState(false)
   const [taskOpen, setTaskOpen] = useState(false)
@@ -50,9 +52,9 @@ export function QuickActions() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onClick={() => router.push('/dashboard/leads/novo')}>
+          <DropdownMenuItem onClick={() => setContactOpen(true)}>
             <Users className="mr-2 h-4 w-4" />
-            Novo Contacto
+            Nova Lead
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
             <Zap className="mr-2 h-4 w-4" />
@@ -78,6 +80,15 @@ export function QuickActions() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ContactDialog
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+        onComplete={(id) => {
+          setContactOpen(false)
+          router.push(`/dashboard/leads/${id}`)
+        }}
+      />
 
       <AcquisitionDialog
         open={acquisitionOpen}
