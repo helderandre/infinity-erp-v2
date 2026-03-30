@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { createLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
@@ -102,6 +103,19 @@ export async function POST(request: Request) {
         { error: 'Erro ao criar lead', details: error.message },
         { status: 500 }
       )
+    }
+
+    // Notify assigned agent if it's a different person
+    if (data.agent_id && data.agent_id !== auth.user.id) {
+      const db = createCrmAdminClient()
+      db.from('leads_notifications').insert({
+        recipient_id: data.agent_id,
+        type: 'new_lead',
+        title: 'Nova lead atribuída',
+        body: `${data.nome} foi-lhe atribuída.`,
+        link: `/dashboard/leads/${lead.id}`,
+        contact_id: lead.id,
+      }).then(() => {}).catch(() => {})
     }
 
     return NextResponse.json({ id: lead.id }, { status: 201 })
