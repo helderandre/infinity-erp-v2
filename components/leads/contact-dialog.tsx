@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
-import { LEAD_ORIGENS } from '@/lib/constants'
+import { LEAD_ORIGENS, LEAD_TYPES } from '@/lib/constants'
 import {
   Mic, MicOff, Loader2, Sparkles, Users, ChevronDown, ChevronUp,
 } from 'lucide-react'
@@ -28,9 +28,10 @@ interface ContactDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onComplete?: (id: string) => void
+  defaultValues?: Partial<CreateLeadInput>
 }
 
-export function ContactDialog({ open, onOpenChange, onComplete }: ContactDialogProps) {
+export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }: ContactDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [aiExpanded, setAiExpanded] = useState(false)
@@ -47,6 +48,7 @@ export function ContactDialog({ open, onOpenChange, onComplete }: ContactDialogP
     formState: { errors },
   } = useForm<CreateLeadInput>({
     resolver: zodResolver(createLeadSchema),
+    defaultValues: defaultValues || {},
   })
 
   useEffect(() => {
@@ -62,11 +64,13 @@ export function ContactDialog({ open, onOpenChange, onComplete }: ContactDialogP
 
   useEffect(() => {
     if (!open) {
-      reset()
+      reset(defaultValues || {})
       setTranscription(null)
       setAiExpanded(false)
+    } else if (defaultValues) {
+      reset(defaultValues)
     }
-  }, [open, reset])
+  }, [open, reset, defaultValues])
 
   const startRecording = useCallback(async () => {
     try {
@@ -241,12 +245,24 @@ export function ContactDialog({ open, onOpenChange, onComplete }: ContactDialogP
                   mask={phonePTMask}
                   placeholder="+351 9XX XXX XXX"
                   className="rounded-xl"
+                  value={watch('telemovel') || ''}
                   onValueChange={(_m, u) => setValue('telemovel', u)}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label className="text-xs font-medium">Tipo de Lead</Label>
+                <Select value={watch('lead_type') || ''} onValueChange={v => setValue('lead_type', v)}>
+                  <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LEAD_TYPES).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
                 <Label className="text-xs font-medium">Origem</Label>
                 <Select onValueChange={v => setValue('origem', v)}>
@@ -256,6 +272,9 @@ export function ContactDialog({ open, onOpenChange, onComplete }: ContactDialogP
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label className="text-xs font-medium">Consultor</Label>
                 <Select onValueChange={v => setValue('agent_id', v)}>

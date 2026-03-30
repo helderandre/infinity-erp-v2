@@ -15,6 +15,7 @@ import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
+import { MarketResearch } from '@/components/shared/market-research'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Progress } from '@/components/ui/progress'
@@ -446,6 +447,18 @@ export default function ImovelDetalhePage() {
               Voltar
             </button>
             <div className="flex items-center gap-2">
+              {!isEditing && (
+                <MarketResearch
+                  variant="icon"
+                  context={property ? `Imóvel: ${property.title}, ${property.property_type}, ${property.city || ''} ${property.zone || ''}, Preço: ${property.listing_price ? (property.listing_price / 1000).toFixed(0) + 'k€' : 'N/A'}` : undefined}
+                  suggestions={[
+                    property?.city ? `Qual o preço médio por m2 em ${property.city}?` : 'Qual o preço médio por m2 em Lisboa?',
+                    property?.city ? `Tendências do mercado imobiliário em ${property.city}` : 'Tendências do mercado imobiliário em Portugal',
+                    'Qual a taxa de rentabilidade média para arrendamento?',
+                    property?.property_type ? `Procura actual por ${property.property_type} em Portugal` : 'Como está a procura de imóveis em Portugal?',
+                  ]}
+                />
+              )}
               {isEditing && (
                 <>
                   <button onClick={cancelEditing} className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-red-500/20 backdrop-blur-sm border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-all" title="Cancelar"><X className="h-4 w-4" /></button>

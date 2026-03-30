@@ -10,6 +10,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { BreadcrumbOverrideProvider } from '@/hooks/use-breadcrumb-overrides'
 
@@ -35,6 +36,10 @@ const PushBanner = dynamic(
 )
 const MobileBottomNav = dynamic(
   () => import('@/components/layout/mobile-bottom-nav').then((m) => m.MobileBottomNav),
+  { ssr: false }
+)
+const AiAgentChat = dynamic(
+  () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
   { ssr: false }
 )
 
@@ -72,6 +77,13 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const mainRef = useRef<HTMLElement>(null)
+
+  // Scroll main container to top on route change
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [pathname])
+
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
     || /^\/dashboard\/formacoes\/cursos\/[^/]+\/licoes\/[^/]+$/.test(pathname ?? '')
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
@@ -88,12 +100,14 @@ export default function DashboardLayout({
             <Separator orientation="vertical" className="mr-2 h-6" />
             <Breadcrumbs />
             <div className="ml-auto flex items-center gap-2">
+              <AiAgentChat />
               <SearchCommand />
               <QuickActions />
               <NotificationPopover />
             </div>
           </header>
           <main
+            ref={mainRef}
             className={cn(
               "flex flex-1 flex-col overflow-x-hidden overflow-y-auto",
               isFullBleed

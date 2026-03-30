@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X } from 'lucide-react'
+import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X, Upload } from 'lucide-react'
+import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -38,6 +39,7 @@ function ContactosPageContent() {
   const [stages, setStages] = useState<LeadsContactStage[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [importOpen, setImportOpen] = useState(false)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [stageFilter, setStageFilter] = useState(searchParams.get('lifecycle_stage_id') || '')
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
@@ -86,14 +88,24 @@ function ContactosPageContent() {
             {total} contacto{total !== 1 ? 's' : ''} no sistema
           </p>
         </div>
-        <Button
-          size="sm"
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-          onClick={() => router.push('/dashboard/crm/contactos/novo')}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo Contacto
-        </Button>
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            Importar
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => router.push('/dashboard/crm/contactos/novo')}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Novo Contacto
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -255,6 +267,11 @@ function ContactosPageContent() {
           )}
         </>
       )}
+      <BulkImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onComplete={() => fetchContacts()}
+      />
     </div>
   )
 }

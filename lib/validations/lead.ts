@@ -9,6 +9,7 @@ export const createLeadSchema = z.object({
   origem: z.string().optional(),
   agent_id: z.string().uuid().optional().or(z.literal('')),
   estado: z.string().optional(),
+  lead_type: z.string().optional(),
   observacoes: z.string().optional(),
 })
 

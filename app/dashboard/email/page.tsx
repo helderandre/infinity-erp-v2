@@ -305,10 +305,12 @@ export default function EmailInboxPage() {
                 isLoading={messageLoading}
                 error={messageError}
                 onReply={handleReply}
+                accountId={selectedAccountId}
                 onForward={handleForward}
                 onDelete={handleDelete}
                 onArchive={handleArchive}
                 onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                onSent={inbox.refresh}
               />
             )}
           </div>
@@ -437,11 +439,13 @@ export default function EmailInboxPage() {
                     isLoading={messageLoading}
                     error={messageError}
                     onReply={handleReply}
+                    accountId={selectedAccountId}
                     onForward={handleForward}
                     onBack={handleBack}
                     onDelete={handleDelete}
                     onArchive={handleArchive}
                     onMoveToFolder={(uid) => setMoveDialogUid(uid)}
+                    onSent={inbox.refresh}
                   />
                 </div>
               </ResizablePanel>

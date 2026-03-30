@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { X, Archive, VolumeX, Image as ImageIcon, FileText, Link2, Users, Shield, MessageSquare, Loader2 } from 'lucide-react'
+import { X, Archive, VolumeX, Image as ImageIcon, FileText, Link2, Users, Shield, MessageSquare, Loader2, UserPlus, Handshake, ChevronDown } from 'lucide-react'
+import { ContactDialog } from '@/components/leads/contact-dialog'
+import { CreatePartnerDialog } from './create-partner-dialog'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +49,9 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
   const [media, setMedia] = useState<MediaItem[]>([])
   const [docs, setDocs] = useState<MediaItem[]>([])
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [createLeadOpen, setCreateLeadOpen] = useState(false)
+  const [createPartnerOpen, setCreatePartnerOpen] = useState(false)
+  const [partnerSaving, setPartnerSaving] = useState(false)
   const [erpKey, setErpKey] = useState(0)
   const [participants, setParticipants] = useState<GroupParticipant[]>([])
   const [loadingParticipants, setLoadingParticipants] = useState(false)
@@ -219,18 +227,40 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
                 Contacto sem vinculacao ERP
               </p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 w-full"
-              onClick={() => setLinkDialogOpen(true)}
-              disabled={!chat?.contact}
-            >
-              <Link2 className="h-3.5 w-3.5 mr-1.5" />
-              {chat?.contact?.owner_id || chat?.contact?.lead_id
-                ? 'Alterar vinculacao'
-                : 'Vincular a Owner/Lead'}
-            </Button>
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setLinkDialogOpen(true)}
+                disabled={!chat?.contact}
+              >
+                <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                {chat?.contact?.owner_id || chat?.contact?.lead_id
+                  ? 'Alterar'
+                  : 'Vincular'}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                    Criar
+                    <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => setCreateLeadOpen(true)}>
+                    <UserPlus className="h-3.5 w-3.5 mr-2" />
+                    Criar Lead
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCreatePartnerOpen(true)}>
+                    <Handshake className="h-3.5 w-3.5 mr-2" />
+                    Criar Parceiro
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <Separator />
         </>
@@ -248,6 +278,29 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
           onOpenChange={setLinkDialogOpen}
         />
       )}
+
+      {/* Create Lead Dialog */}
+      <ContactDialog
+        open={createLeadOpen}
+        onOpenChange={setCreateLeadOpen}
+        defaultValues={{
+          nome: displayName !== 'Conversa' ? displayName : '',
+          telemovel: phone || '',
+        }}
+        onComplete={(id) => {
+          handleLinked()
+          setCreateLeadOpen(false)
+        }}
+      />
+
+      {/* Create Partner Dialog */}
+      <CreatePartnerDialog
+        open={createPartnerOpen}
+        onOpenChange={setCreatePartnerOpen}
+        defaultName={displayName !== 'Conversa' ? displayName : ''}
+        defaultPhone={phone || ''}
+        onComplete={() => handleLinked()}
+      />
 
       {/* Media Gallery */}
       <div className="px-4 py-3">

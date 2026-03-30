@@ -17,7 +17,13 @@ import {
   Trash2,
   Archive,
   FolderInput,
+  UserPlus,
+  Sparkles,
 } from 'lucide-react'
+import { useState } from 'react'
+import { ContactDialog } from '@/components/leads/contact-dialog'
+import { AiReplyDialog } from '@/components/email/ai-reply-dialog'
+import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import DOMPurify from 'dompurify'
@@ -34,11 +40,13 @@ interface MessageViewProps {
   isLoading: boolean
   error: string | null
   onReply?: (msg: FullMessage) => void
+  accountId?: string | null
   onForward?: (msg: FullMessage) => void
   onBack?: () => void
   onDelete?: (uid: number) => void
   onArchive?: (uid: number) => void
   onMoveToFolder?: (uid: number) => void
+  onSent?: () => void
 }
 
 export function MessageView({
@@ -46,13 +54,17 @@ export function MessageView({
   isLoading,
   error,
   onReply,
+  accountId,
   onForward,
   onBack,
   onDelete,
   onArchive,
   onMoveToFolder,
+  onSent,
 }: MessageViewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [createLeadOpen, setCreateLeadOpen] = useState(false)
+  const [aiReplyOpen, setAiReplyOpen] = useState(false)
 
   // Render HTML safely in iframe
   useEffect(() => {
@@ -254,6 +266,34 @@ export function MessageView({
             </Tooltip>
           )}
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAiReplyOpen(true)}
+              >
+                <Sparkles className="h-4 w-4 mr-1.5" />
+                Resposta IA
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Gerar resposta com IA</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateLeadOpen(true)}
+              >
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                Criar Lead
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Criar lead a partir do remetente</TooltipContent>
+          </Tooltip>
+
           <div className="h-4 w-px bg-border mx-1" />
 
           {onArchive && (
@@ -375,6 +415,24 @@ export function MessageView({
             </div>
           </>
         )}
+        {/* Create Lead Dialog */}
+        <ContactDialog
+          open={createLeadOpen}
+          onOpenChange={setCreateLeadOpen}
+          defaultValues={{
+            nome: message.from[0]?.name || '',
+            email: message.from[0]?.address || '',
+          }}
+        />
+
+        {/* AI Reply Dialog */}
+        <AiReplyDialog
+          open={aiReplyOpen}
+          onOpenChange={setAiReplyOpen}
+          message={message}
+          accountId={accountId}
+          onSent={onSent}
+        />
       </div>
     </ScrollArea>
   )

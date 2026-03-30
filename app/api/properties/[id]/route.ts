@@ -110,6 +110,22 @@ export async function PUT(
       }
     }
 
+    // If status changed to active/available, trigger property matching
+    const newStatus = property?.status
+    if (newStatus === 'active' || newStatus === 'available') {
+      const { data: propData } = await supabase
+        .from('dev_properties')
+        .select('id, title, listing_price, property_type, business_type, city, zone, status')
+        .eq('id', id)
+        .single()
+
+      if (propData) {
+        import('@/lib/properties/notify-matches').then(({ notifyPropertyMatches }) => {
+          notifyPropertyMatches(supabase, propData).catch(() => {})
+        }).catch(() => {})
+      }
+    }
+
     return NextResponse.json({ id })
   } catch (error) {
     console.error('Erro ao actualizar imóvel:', error)

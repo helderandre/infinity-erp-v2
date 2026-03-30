@@ -160,6 +160,20 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fire-and-forget: notify agents with matching deals
+    import('@/lib/properties/notify-matches').then(({ notifyPropertyMatches }) => {
+      notifyPropertyMatches(supabase, {
+        id: property.id,
+        title: insertData.title || '',
+        listing_price: insertData.listing_price || null,
+        property_type: insertData.property_type || null,
+        business_type: insertData.business_type || null,
+        city: insertData.city || null,
+        zone: insertData.zone || null,
+        status: insertData.status || null,
+      }).catch(() => {})
+    }).catch(() => {})
+
     return NextResponse.json({ id: property.id }, { status: 201 })
   } catch (error) {
     console.error('Erro ao criar imóvel:', error)
