@@ -30,9 +30,9 @@ export default function NovoImovelPage() {
         const err = await res.json()
         throw new Error(err.error || 'Erro ao criar imóvel')
       }
-      const { id } = await res.json()
+      const { id, slug } = await res.json()
       toast.success('Imóvel criado com sucesso')
-      router.push(`/dashboard/imoveis/${id}`)
+      router.push(`/dashboard/imoveis/${slug || id}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar imóvel')
     } finally {

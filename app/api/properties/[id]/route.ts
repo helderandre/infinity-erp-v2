@@ -3,6 +3,15 @@ import { NextResponse } from 'next/server'
 import { updatePropertySchema } from '@/lib/validations/property'
 import { requirePermission } from '@/lib/auth/permissions'
 
+const IS_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Resolve a slug or UUID param to the actual property UUID */
+async function resolvePropertyId(supabase: Awaited<ReturnType<typeof createClient>>, param: string): Promise<string | null> {
+  if (IS_UUID.test(param)) return param
+  const { data } = await supabase.from('dev_properties').select('id').eq('slug', param).single()
+  return data?.id ?? null
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -14,6 +23,10 @@ export async function GET(
     const { id } = await params
     const supabase = await createClient()
 
+    // Accept either UUID or slug
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    const filterCol = isUuid ? 'id' : 'slug'
+
     const { data, error } = await supabase
       .from('dev_properties')
       .select(
@@ -24,7 +37,7 @@ export async function GET(
         consultant:dev_users!consultant_id(id, commercial_name),
         property_owners(ownership_percentage, is_main_contact, owner_role_id, owners(*))`
       )
-      .eq('id', id)
+      .eq(filterCol, id)
       .order('order_index', { referencedTable: 'dev_property_media', ascending: true })
       .single()
 
@@ -53,8 +66,10 @@ export async function PUT(
     const auth = await requirePermission('properties')
     if (!auth.authorized) return auth.response
 
-    const { id } = await params
+    const { id: param } = await params
     const supabase = await createClient()
+    const id = await resolvePropertyId(supabase, param)
+    if (!id) return NextResponse.json({ error: 'Imóvel não encontrado' }, { status: 404 })
 
     const body = await request.json()
     const { property, specifications, internal } = body
@@ -144,10 +159,12 @@ export async function DELETE(
     const auth = await requirePermission('properties')
     if (!auth.authorized) return auth.response
 
-    const { id } = await params
+    const { id: param } = await params
+    const supabase = await createClient()
+    const id = await resolvePropertyId(supabase, param)
+    if (!id) return NextResponse.json({ error: 'Imóvel não encontrado' }, { status: 404 })
     const { searchParams } = new URL(request.url)
     const mode = searchParams.get('mode') || 'cancel'
-    const supabase = await createClient()
 
     if (mode === 'permanent') {
       // Hard delete: remove from DB entirely

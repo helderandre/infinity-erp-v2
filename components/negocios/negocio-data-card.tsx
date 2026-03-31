@@ -235,6 +235,13 @@ function AmenityGrid({
 }
 
 /* ─── Main Component ─── */
+interface ExtraTab {
+  value: string
+  label: string
+  content: React.ReactNode
+  onActivate?: () => void
+}
+
 interface NegocioDataCardProps {
   tipo: string
   negocioId: string
@@ -243,6 +250,7 @@ interface NegocioDataCardProps {
   onSave: () => Promise<void>
   isSaving: boolean
   refreshKey?: number
+  extraTabs?: ExtraTab[]
 }
 
 export function NegocioDataCard({
@@ -253,8 +261,11 @@ export function NegocioDataCard({
   onSave,
   isSaving,
   refreshKey,
+  extraTabs = [],
 }: NegocioDataCardProps) {
   const [isEditing, setIsEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState('dados')
+  const showEditButton = activeTab === 'dados' || activeTab === 'financiamento'
 
   const val = (field: string) => (form[field] as string) ?? ''
   const numVal = (field: string) => form[field] as number | null
@@ -559,15 +570,18 @@ export function NegocioDataCard({
   )
 
   /* ─── Build tabs ─── */
-  const tabs: { value: string; label: string }[] = [
+  const tabs: { value: string; label: string; onActivate?: () => void }[] = [
     { value: 'dados', label: 'Dados do negócio' },
   ]
   if (isCompra) tabs.push({ value: 'financiamento', label: 'Financiamento' })
+  for (const et of extraTabs) {
+    tabs.push({ value: et.value, label: et.label, onActivate: et.onActivate })
+  }
 
   return (
     <Card>
       <CardContent className="pt-6 pb-6">
-        <Tabs defaultValue="dados">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="flex items-center justify-between mb-4">
             <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0">
               {tabs.map((t) => (
@@ -575,14 +589,15 @@ export function NegocioDataCard({
                   key={t.value}
                   value={t.value}
                   className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  onClick={t.onActivate}
                 >
                   {t.label}
                 </TabsTrigger>
               ))}
             </TabsList>
 
-            {/* Edit / Save (only for dados tab) */}
-            {isEditing ? (
+            {/* Edit / Save (only for dados/financiamento tabs) */}
+            {showEditButton && (isEditing ? (
               <button
                 onClick={handleSaveAndExit}
                 disabled={isSaving}
@@ -597,7 +612,7 @@ export function NegocioDataCard({
               >
                 <Pencil className="h-4 w-4" />
               </button>
-            )}
+            ))}
           </div>
 
           <TabsContent value="dados" className="mt-0">
@@ -609,6 +624,12 @@ export function NegocioDataCard({
               {renderFinanciamentoTab()}
             </TabsContent>
           )}
+
+          {extraTabs.map((et) => (
+            <TabsContent key={et.value} value={et.value} className="mt-0">
+              {et.content}
+            </TabsContent>
+          ))}
 
         </Tabs>
       </CardContent>

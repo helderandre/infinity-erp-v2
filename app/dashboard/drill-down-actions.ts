@@ -137,7 +137,7 @@ export async function getDrillDownProperties(filter: {
           variant: STATUS_VARIANTS[status] ?? "outline",
         },
         extra: p.listing_price ? fmtCurrency(p.listing_price) : undefined,
-        href: `/dashboard/imoveis/${p.id}`,
+        href: `/dashboard/imoveis/${p.slug || p.id}`,
         date: p.created_at ? fmtDate(p.created_at) : undefined,
       }
     })
@@ -280,7 +280,7 @@ export async function getDrillDownAlerts(): Promise<{
           title: p.title || "Imóvel sem título",
           subtitle: "Pendente aprovação há mais de 7 dias",
           badge: { label: "Pendente", variant: "outline" },
-          href: `/dashboard/imoveis/${p.id}`,
+          href: `/dashboard/imoveis/${p.slug || p.id}`,
           date: p.created_at ? fmtDate(p.created_at) : undefined,
         })
       }

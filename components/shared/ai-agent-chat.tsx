@@ -71,7 +71,7 @@ function PropertyCard({ p, onNavigate }: { p: any; onNavigate: (path: string) =>
           variant="default"
           size="sm"
           className="h-6 text-[10px] rounded-full gap-1 w-full mt-1"
-          onClick={() => onNavigate(`/dashboard/imoveis/${p.id}`)}
+          onClick={() => onNavigate(`/dashboard/imoveis/${p.slug || p.id}`)}
         >
           <Eye className="h-2.5 w-2.5" /> Ver Imóvel
         </Button>

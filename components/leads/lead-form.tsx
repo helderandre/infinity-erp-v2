@@ -20,9 +20,13 @@ import {
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { LEAD_ORIGENS } from '@/lib/constants'
-import { Mic, MicOff, Loader2, Sparkles } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { LEAD_ORIGENS, LEAD_TYPES } from '@/lib/constants'
+import { useUser } from '@/hooks/use-user'
+import { Mic, MicOff, Loader2, Sparkles, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+type ReferralDirection = null | 'incoming' | 'outgoing'
 
 interface LeadFormProps {
   consultants: { id: string; commercial_name: string }[]
@@ -32,7 +36,13 @@ interface LeadFormProps {
 
 export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
   const router = useRouter()
+  const { user } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Referral
+  const [referralDir, setReferralDir] = useState<ReferralDirection>(null)
+  const [referralConsultantId, setReferralConsultantId] = useState('')
+  const [referralNotes, setReferralNotes] = useState('')
 
   // Audio recording
   const [isRecording, setIsRecording] = useState(false)
@@ -49,6 +59,9 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
     formState: { errors },
   } = useForm<CreateLeadInput>({
     resolver: zodResolver(createLeadSchema),
+    defaultValues: {
+      agent_id: user?.id || '',
+    },
   })
 
   const startRecording = useCallback(async () => {
@@ -166,6 +179,27 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
       }
 
       const { id } = await res.json()
+
+      // Create referral if set
+      if (referralDir && referralConsultantId && user?.id) {
+        try {
+          await fetch('/api/crm/referrals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contact_id: id,
+              referral_type: 'internal',
+              from_consultant_id: referralDir === 'incoming' ? referralConsultantId : user.id,
+              to_consultant_id: referralDir === 'incoming' ? user.id : referralConsultantId,
+              notes: referralNotes || null,
+            }),
+          })
+        } catch {
+          // Don't block lead creation if referral fails
+          toast.error('Lead criado, mas erro ao registar referência')
+        }
+      }
+
       toast.success('Contacto criado com sucesso')
       if (onSuccess) {
         onSuccess(id)
@@ -294,6 +328,22 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
+            <Label htmlFor="lead_type">Tipo de Lead</Label>
+            <Select onValueChange={(v) => setValue('lead_type', v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(LEAD_TYPES).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="origem">Origem</Label>
             <Select onValueChange={(v) => setValue('origem', v)}>
               <SelectTrigger>
@@ -308,22 +358,82 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
               </SelectContent>
             </Select>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="agent_id">Consultor</Label>
-            <Select onValueChange={(v) => setValue('agent_id', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Atribuir consultor" />
-              </SelectTrigger>
-              <SelectContent>
-                {consultants.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.commercial_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="space-y-2">
+          <Label htmlFor="agent_id">Atribuir a</Label>
+          <Select defaultValue={user?.id || ''} onValueChange={(v) => setValue('agent_id', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar consultor" />
+            </SelectTrigger>
+            <SelectContent>
+              {consultants.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.commercial_name}{c.id === user?.id ? ' (eu)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Referral section */}
+        <div className="rounded-2xl border bg-neutral-50 dark:bg-white/5 p-4 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Referência</p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={referralDir === 'incoming' ? 'default' : 'outline'}
+              size="sm"
+              className="rounded-full gap-1.5 text-xs"
+              onClick={() => setReferralDir(referralDir === 'incoming' ? null : 'incoming')}
+            >
+              <ArrowDownLeft className="size-3.5" />
+              Recebi esta referência
+            </Button>
+            <Button
+              type="button"
+              variant={referralDir === 'outgoing' ? 'default' : 'outline'}
+              size="sm"
+              className="rounded-full gap-1.5 text-xs"
+              onClick={() => setReferralDir(referralDir === 'outgoing' ? null : 'outgoing')}
+            >
+              <ArrowUpRight className="size-3.5" />
+              Estou a referenciar
+            </Button>
           </div>
+
+          {referralDir && (
+            <div className="space-y-3 pt-1">
+              <div className="space-y-2">
+                <Label className="text-xs">
+                  {referralDir === 'incoming' ? 'Quem me referenciou?' : 'Referenciar para quem?'}
+                </Label>
+                <Select value={referralConsultantId} onValueChange={setReferralConsultantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar consultor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {consultants
+                      .filter((c) => c.id !== user?.id)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.commercial_name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Notas da referência</Label>
+                <Input
+                  placeholder="Ex: contacto do cliente X..."
+                  value={referralNotes}
+                  onChange={(e) => setReferralNotes(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

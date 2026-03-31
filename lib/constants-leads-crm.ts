@@ -20,15 +20,15 @@ import type {
 export const PIPELINE_TYPE_LABELS: Record<PipelineType, string> = {
   comprador: 'Comprador',
   vendedor: 'Vendedor',
-  arrendatario: 'Arrendatario',
-  arrendador: 'Arrendador',
+  arrendatario: 'Arrendatário',
+  arrendador: 'Senhorio',
 }
 
 export const PIPELINE_TYPE_DESCRIPTIONS: Record<PipelineType, string> = {
-  comprador: 'Pipeline para clientes que querem comprar imovel',
-  vendedor: 'Pipeline para proprietarios que querem vender',
+  comprador: 'Pipeline para clientes que querem comprar imóvel',
+  vendedor: 'Pipeline para proprietários que querem vender',
   arrendatario: 'Pipeline para clientes que querem arrendar',
-  arrendador: 'Pipeline para proprietarios que querem colocar para arrendamento',
+  arrendador: 'Pipeline para senhorios que querem colocar para arrendamento',
 }
 
 export const PIPELINE_TYPE_ICONS: Record<PipelineType, string> = {

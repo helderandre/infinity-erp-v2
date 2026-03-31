@@ -105,6 +105,21 @@ export const createNegocioSchema = z.object({
   probability_pct: z.number().min(0).max(100).nullable().optional(),
   expected_close_date: z.string().nullable().optional(),
   observacoes: z.string().nullable().optional(),
+  // Source/origin
+  origem: z.string().nullable().optional(),
+  origem_detalhe: z.string().nullable().optional(),
+  origem_mensagem: z.string().nullable().optional(),
+  // Referral
+  has_referral: z.boolean().optional(),
+  referral_pct: z.number().nullable().optional(),
+  referral_type: z.enum(['interna', 'externa']).nullable().optional(),
+  referral_side: z.enum(['angariacao', 'comprador']).nullable().optional(),
+  referral_info: z.string().nullable().optional(),
+  referral_consultant_id: z.string().uuid().nullable().optional(),
+  referral_external_name: z.string().nullable().optional(),
+  referral_external_phone: z.string().nullable().optional(),
+  referral_external_email: z.string().nullable().optional(),
+  referral_external_agency: z.string().nullable().optional(),
 })
 
 export const updateNegocioSchema = createNegocioSchema.partial().extend({

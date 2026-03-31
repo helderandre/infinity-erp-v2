@@ -321,6 +321,7 @@ export interface CartCampaignItem {
   type: 'campaign'
   campaignData: {
     objective: string
+    campaign_type: 'compradores' | 'vendedores' | 'arrendatarios' | 'senhorios' | 'outros'
     property_id?: string
     promote_url?: string
     target_zone?: string
@@ -332,6 +333,7 @@ export interface CartCampaignItem {
     duration_days: number
     creative_notes?: string
   }
+  managementFee: number
   totalCost: number
   label: string
 }

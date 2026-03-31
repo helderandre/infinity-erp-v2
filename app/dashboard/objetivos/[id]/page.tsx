@@ -73,16 +73,16 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
   const sellerParams = [
     { label: 'Valor médio venda', value: goal.sellers_avg_sale_value ? formatCurrency(goal.sellers_avg_sale_value) : null },
     { label: 'Comissão média', value: goal.sellers_avg_commission_pct ? `${goal.sellers_avg_commission_pct}%` : null },
-    { label: '% angariações vendidas', value: goal.sellers_pct_listings_sold ? `${goal.sellers_pct_listings_sold}%` : null },
-    { label: '% visita → angariação', value: goal.sellers_pct_visit_to_listing ? `${goal.sellers_pct_visit_to_listing}%` : null },
-    { label: '% lead → visita', value: goal.sellers_pct_lead_to_visit ? `${goal.sellers_pct_lead_to_visit}%` : null },
+    { label: '% angariações → fecho', value: goal.sellers_pct_listings_sold ? `${goal.sellers_pct_listings_sold}%` : null },
+    { label: '% estudo mercado → angariação', value: goal.sellers_pct_visit_to_listing ? `${goal.sellers_pct_visit_to_listing}%` : null },
+    { label: '% pré-angariação → estudo mercado', value: goal.sellers_pct_lead_to_visit ? `${goal.sellers_pct_lead_to_visit}%` : null },
     { label: 'Chamadas por lead', value: goal.sellers_avg_calls_per_lead },
   ]
   const buyerParams = [
     { label: 'Valor médio compra', value: goal.buyers_avg_purchase_value ? formatCurrency(goal.buyers_avg_purchase_value) : null },
     { label: 'Comissão média', value: goal.buyers_avg_commission_pct ? `${goal.buyers_avg_commission_pct}%` : null },
-    { label: 'Taxa de fecho', value: goal.buyers_close_rate ? `${goal.buyers_close_rate}%` : null },
-    { label: '% lead → qualificado', value: goal.buyers_pct_lead_to_qualified ? `${goal.buyers_pct_lead_to_qualified}%` : null },
+    { label: '% visitas → fecho', value: goal.buyers_close_rate ? `${goal.buyers_close_rate}%` : null },
+    { label: '% pesquisa → visitas', value: goal.buyers_pct_lead_to_qualified ? `${goal.buyers_pct_lead_to_qualified}%` : null },
     { label: 'Chamadas por lead', value: goal.buyers_avg_calls_per_lead },
   ]
 
@@ -326,11 +326,11 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
               funnel={funnel_sellers}
               rows={[
                 { key: 'revenue', label: 'Faturação' },
-                { key: 'sales', label: 'Vendas' },
-                { key: 'listings', label: 'Angariações' },
-                { key: 'visits', label: 'Visitas' },
-                { key: 'leads', label: 'Leads' },
-                { key: 'calls', label: 'Chamadas' },
+                { key: 'sales', label: 'Fecho' },
+                { key: 'listings', label: 'Angariação' },
+                { key: 'visits', label: 'Estudo de Mercado' },
+                { key: 'leads', label: 'Pré-Angariação' },
+                { key: 'calls', label: 'Leads' },
               ]}
               params={sellerParams}
             />
@@ -344,10 +344,10 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
               funnel={funnel_buyers}
               rows={[
                 { key: 'revenue', label: 'Faturação' },
-                { key: 'closes', label: 'Fechos' },
-                { key: 'qualified', label: 'Qualificados' },
-                { key: 'leads', label: 'Leads' },
-                { key: 'calls', label: 'Chamadas' },
+                { key: 'closes', label: 'Fecho' },
+                { key: 'qualified', label: 'Visitas' },
+                { key: 'leads', label: 'Pesquisa de Imóveis' },
+                { key: 'calls', label: 'Leads' },
               ]}
               params={buyerParams}
             />

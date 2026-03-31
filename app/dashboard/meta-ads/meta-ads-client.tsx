@@ -1456,7 +1456,7 @@ function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void
                         </div>
                         {req.property ? (
                           <Link
-                            href={`/dashboard/imoveis/${req.property.id}`}
+                            href={`/dashboard/imoveis/${req.property.slug || req.property.id}`}
                             className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >

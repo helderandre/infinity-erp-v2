@@ -96,7 +96,7 @@ export async function notifyPropertyMatches(
       type: 'property_match',
       title: 'Novo imóvel compatível',
       body: `${property.title || 'Novo imóvel'} (${priceStr}) — corresponde ao negócio de ${deal.lead?.nome || 'lead'}`,
-      link: `/dashboard/imoveis/${property.id}`,
+      link: `/dashboard/imoveis/${property.slug || property.id}`,
       contact_id: deal.lead_id,
     })
   }
@@ -122,7 +122,7 @@ export async function notifyPropertyMatches(
         type: 'property_match',
         title: 'Novo imóvel compatível',
         body: `${property.title || 'Novo imóvel'} corresponde a ${agentNotifs.length} negócios seus`,
-        link: `/dashboard/imoveis/${property.id}`,
+        link: `/dashboard/imoveis/${property.slug || property.id}`,
         contact_id: agentNotifs[0].contact_id,
       })
       sent++

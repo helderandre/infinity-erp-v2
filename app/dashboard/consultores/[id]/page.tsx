@@ -964,7 +964,7 @@ export default function ConsultorDetalhePage() {
                     </TableHeader>
                     <TableBody>
                       {properties.map((prop: any) => (
-                        <TableRow key={prop.id} className="cursor-pointer transition-colors duration-200 hover:bg-muted/30" onClick={() => router.push(`/dashboard/imoveis/${prop.id}`)}>
+                        <TableRow key={prop.id} className="cursor-pointer transition-colors duration-200 hover:bg-muted/30" onClick={() => router.push(`/dashboard/imoveis/${prop.slug || prop.id}`)}>
                           <TableCell className="text-sm font-medium max-w-[200px] truncate">{prop.title}</TableCell>
                           <TableCell className="text-xs font-mono text-muted-foreground">{prop.external_ref || '—'}</TableCell>
                           <TableCell>

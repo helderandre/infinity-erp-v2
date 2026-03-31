@@ -401,7 +401,6 @@ export type PropertyPortalKey = keyof typeof PROPERTY_PORTALS
 
 // Tipos de Lead
 export const LEAD_TYPES = {
-  unknown: 'Desconhecido',
   buyer: 'Comprador',
   seller: 'Vendedor',
   landlord: 'Senhorio',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -49,12 +49,15 @@ import { toast } from 'sonner'
 import { formatDate, formatCurrency, NEGOCIO_TIPOS, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { LeadDataCard } from '@/components/leads/lead-data-card'
+import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
 
   const [lead, setLead] = useState<LeadWithAgent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -148,7 +151,7 @@ export default function LeadDetailPage() {
     } catch {} finally { setAttachmentsLoading(false) }
   }, [id])
 
-  useEffect(() => { loadLead(); loadPendingLeads() }, [loadLead, loadPendingLeads])
+  useEffect(() => { loadLead(); loadPendingLeads(); loadEntries() }, [loadLead, loadPendingLeads, loadEntries])
 
   const updateField = (field: string, value: unknown) => setForm((prev) => ({ ...prev, [field]: value }))
 
@@ -412,36 +415,12 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {/* Pending leads banner */}
-      {pendingLeads.length > 0 && (
-        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
-            <Zap className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              {pendingLeads.length} lead{pendingLeads.length !== 1 ? 's' : ''} novo{pendingLeads.length !== 1 ? 's' : ''} para este contacto
-            </p>
-            <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
-              {pendingLeads.map((l) => l.source).filter(Boolean).join(', ') || 'Leads por processar'}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shrink-0"
-            onClick={() => router.push('/dashboard/lead-entries')}
-          >
-            Ver Leads
-          </Button>
-        </div>
-      )}
-
       {/* Full-width main content (no sidebar) */}
       <div>
           <Tabs
-            defaultValue="dados"
+            defaultValue={tabFromUrl || (pendingLeads.length > 0 ? 'leads' : 'dados')}
             onValueChange={(tab) => {
+              if (tab === 'leads') loadEntries()
               if (tab === 'negocios') loadNegocios()
               if (tab === 'historico') { loadAttachments(); loadActivities(); loadEntries() }
             }}
@@ -449,24 +428,40 @@ export default function LeadDetailPage() {
             {/* Pill tabs */}
             <TabsList className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm mb-4 h-auto">
               {[
+                { key: 'leads', label: 'Leads', count: pendingLeads.length || undefined },
+                { key: 'negocios', label: 'Negócios' },
                 { key: 'dados', label: 'Dados' },
-                { key: 'negocios', label: 'Negocios' },
-                { key: 'historico', label: 'Historico' },
+                { key: 'historico', label: 'Histórico' },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.key}
                   value={tab.key}
                   className={cn(
-                    'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                    'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 gap-1.5',
                     'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
                     'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
                     'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900'
                   )}
                 >
                   {tab.label}
+                  {'count' in tab && tab.count ? (
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
+                      {tab.count}
+                    </span>
+                  ) : null}
                 </TabsTrigger>
               ))}
             </TabsList>
+
+            {/* Leads Tab */}
+            <TabsContent value="leads" className="mt-0 space-y-4">
+              <LeadsEntryCards
+                entries={entries}
+                loading={entriesLoading}
+                contactId={id}
+                onQualified={() => { loadEntries(); loadNegocios(); loadPendingLeads() }}
+              />
+            </TabsContent>
 
             {/* Dados Tab */}
             <TabsContent value="dados" className="mt-0">

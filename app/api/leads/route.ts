@@ -90,10 +90,8 @@ export async function POST(request: Request) {
     if (data.origem) insertData.origem = data.origem
     if (data.agent_id) insertData.agent_id = data.agent_id
     if (data.estado) insertData.estado = data.estado
-    // lead_type: prepend to observacoes since column doesn't exist in DB yet
-    const leadTypeLabel = data.lead_type ? { unknown: 'Desconhecido', buyer: 'Comprador', seller: 'Vendedor', landlord: 'Senhorio', tenant: 'Inquilino', investor: 'Investidor', buyer_seller: 'Comprador/Vendedor', other: 'Outro' }[data.lead_type] || data.lead_type : null
-    const obs = [leadTypeLabel ? `Tipo: ${leadTypeLabel}` : '', data.observacoes || ''].filter(Boolean).join('\n')
-    if (obs) insertData.observacoes = obs
+    if (data.lead_type) (insertData as any).lead_type = data.lead_type
+    if (data.observacoes) insertData.observacoes = data.observacoes
 
     const { data: lead, error } = await supabase
       .from('leads')

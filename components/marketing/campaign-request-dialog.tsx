@@ -21,7 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Megaphone, Loader2, Building2, Link2 } from 'lucide-react'
+import { Megaphone, Loader2, Building2, Link2, Users } from 'lucide-react'
+
+const MANAGEMENT_FEE = 70
+
+const CAMPAIGN_TYPES = {
+  compradores: 'Compradores',
+  vendedores: 'Vendedores',
+  arrendatarios: 'Arrendatários',
+  senhorios: 'Senhorios',
+  outros: 'Outros',
+} as const
 
 interface CampaignRequestDialogProps {
   open: boolean
@@ -42,6 +52,7 @@ export function CampaignRequestDialog({
 }: CampaignRequestDialogProps) {
   // Form state
   const [objective, setObjective] = useState('')
+  const [campaignType, setCampaignType] = useState('')
   const [linkMode, setLinkMode] = useState<'property' | 'url'>('property')
   const [propertyId, setPropertyId] = useState('')
   const [promoteUrl, setPromoteUrl] = useState('')
@@ -82,6 +93,7 @@ export function CampaignRequestDialog({
   useEffect(() => {
     if (!open) {
       setObjective('')
+      setCampaignType('')
       setLinkMode('property')
       setPropertyId('')
       setPromoteUrl('')
@@ -99,13 +111,16 @@ export function CampaignRequestDialog({
   const amount = parseFloat(budgetAmount) || 0
   const days = parseInt(durationDays) || 0
 
-  const computedTotal = useMemo(() => {
+  const adsBudget = useMemo(() => {
     if (budgetType === 'daily') return amount * days
     return amount
   }, [budgetType, amount, days])
 
+  const computedTotal = adsBudget + MANAGEMENT_FEE
+
   const isValid =
     objective !== '' &&
+    campaignType !== '' &&
     (linkMode === 'property' ? propertyId !== '' : promoteUrl.trim() !== '') &&
     amount > 0 &&
     days > 0
@@ -113,12 +128,14 @@ export function CampaignRequestDialog({
   const handleSubmit = () => {
     if (!isValid) return
 
-    const label = `Campanha ${CAMPAIGN_OBJECTIVES[objective] ?? objective} — ${days} dias`
+    const typeLabel = CAMPAIGN_TYPES[campaignType as keyof typeof CAMPAIGN_TYPES] ?? campaignType
+    const label = `Campanha ${CAMPAIGN_OBJECTIVES[objective] ?? objective} (${typeLabel}) — ${days} dias`
 
     onAddToCart({
       type: 'campaign',
       campaignData: {
         objective,
+        campaign_type: campaignType as CartCampaignItem['campaignData']['campaign_type'],
         property_id: linkMode === 'property' ? propertyId : undefined,
         promote_url: linkMode === 'url' ? promoteUrl.trim() : undefined,
         target_zone: targetZone.trim() || undefined,
@@ -130,6 +147,7 @@ export function CampaignRequestDialog({
         duration_days: days,
         creative_notes: creativeNotes.trim() || undefined,
       },
+      managementFee: MANAGEMENT_FEE,
       totalCost: computedTotal,
       label,
     })
@@ -167,6 +185,25 @@ export function CampaignRequestDialog({
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(CAMPAIGN_OBJECTIVES).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* ─── Tipo de Campanha ─── */}
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              Tipo *
+            </Label>
+            <Select value={campaignType} onValueChange={setCampaignType}>
+              <SelectTrigger className="rounded-full">
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CAMPAIGN_TYPES).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}
                   </SelectItem>
@@ -353,7 +390,7 @@ export function CampaignRequestDialog({
             {amount > 0 && days > 0 && (
               <p className="text-xs text-muted-foreground">
                 {budgetType === 'daily'
-                  ? `${formatCurrency(amount)} /dia x ${days} dias = ${formatCurrency(computedTotal)}`
+                  ? `${formatCurrency(amount)} /dia x ${days} dias = ${formatCurrency(adsBudget)}`
                   : `${formatCurrency(amount)} total durante ${days} dias`}
               </p>
             )}
@@ -373,16 +410,21 @@ export function CampaignRequestDialog({
           </div>
 
           {/* ─── Total ─── */}
-          <div className="rounded-xl bg-neutral-900 text-white p-4">
-            <div className="flex justify-between text-base font-bold">
+          <div className="rounded-xl bg-neutral-900 text-white p-4 space-y-1">
+            {adsBudget > 0 && (
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Orçamento Ads</span>
+                <span>{formatCurrency(adsBudget)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs text-white/60">
+              <span>Gestão de campanha</span>
+              <span>{formatCurrency(MANAGEMENT_FEE)}</span>
+            </div>
+            <div className="border-t border-white/10 pt-1 flex justify-between text-base font-bold">
               <span>Total estimado</span>
               <span>{formatCurrency(computedTotal)}</span>
             </div>
-            {budgetType === 'daily' && days > 0 && amount > 0 && (
-              <p className="text-xs text-white/50 mt-1">
-                {formatCurrency(amount)} /dia &times; {days} dias
-              </p>
-            )}
           </div>
 
           {/* ─── Footer ─── */}

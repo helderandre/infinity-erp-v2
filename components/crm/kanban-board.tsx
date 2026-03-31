@@ -15,13 +15,25 @@ import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KanbanCard } from '@/components/crm/kanban-card'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
+import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import type {
   PipelineType,
-  KanbanBoard as KanbanBoardType,
-  KanbanColumn,
-  LeadsNegocioWithRelations,
   LeadsPipelineStage,
 } from '@/types/leads-crm'
+
+interface KanbanBoardType {
+  pipeline_type: string
+  columns: KanbanColumn[]
+  totals: { negocios: number; entries?: number; expected_value: number; weighted_value: number }
+}
+
+interface KanbanColumn {
+  stage: LeadsPipelineStage
+  negocios: any[]
+  count: number
+  total_value: number
+  weighted_value: number
+}
 
 interface KanbanBoardProps {
   pipelineType: PipelineType
@@ -65,6 +77,7 @@ interface ColumnProps {
   onDragLeave: () => void
   onDrop: (e: React.DragEvent<HTMLDivElement>, stage: LeadsPipelineStage) => void
   onCardDragStart: (negocioId: string) => void
+  onEntryClick?: (entry: any) => void
 }
 
 function KanbanColumnView({
@@ -74,6 +87,7 @@ function KanbanColumnView({
   onDragLeave,
   onDrop,
   onCardDragStart,
+  onEntryClick,
 }: ColumnProps) {
   const { stage, negocios, count, total_value } = column
 
@@ -130,8 +144,9 @@ function KanbanColumnView({
         {negocios.map((negocio) => (
           <KanbanCard
             key={negocio.id}
-            negocio={negocio as LeadsNegocioWithRelations}
+            negocio={negocio}
             onDragStart={onCardDragStart}
+            onEntryClick={onEntryClick}
           />
         ))}
 
@@ -161,6 +176,13 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
     open: boolean
     negocioId: string
     targetStage: LeadsPipelineStage
+  } | null>(null)
+
+  // Qualify entry dialog
+  const [qualifyDialog, setQualifyDialog] = useState<{
+    open: boolean
+    entry: any
+    targetStageId?: string
   } | null>(null)
 
   // Consultant filter
@@ -231,7 +253,20 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
     e.preventDefault()
     setDragOverStageId(null)
 
+    const entryId = e.dataTransfer.getData('entry_id')
     const negocioId = e.dataTransfer.getData('negocio_id')
+
+    if (entryId && draggedId) {
+      setDraggedId(null)
+      const entry = board?.columns
+        .flatMap((col) => col.negocios)
+        .find((n) => n.id === entryId && n._type === 'entry')
+      if (entry) {
+        setQualifyDialog({ open: true, entry, targetStageId: targetStage.id })
+      }
+      return
+    }
+
     if (!negocioId || !draggedId) return
     setDraggedId(null)
 
@@ -364,6 +399,7 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onCardDragStart={setDraggedId}
+                onEntryClick={(entry) => setQualifyDialog({ open: true, entry })}
               />
             ))}
           </div>
@@ -375,6 +411,16 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
         open={lostDialog?.open ?? false}
         onConfirm={handleLostConfirm}
         onCancel={handleLostCancel}
+      />
+
+      {/* Qualify entry dialog */}
+      <QualifyEntryDialog
+        open={qualifyDialog?.open ?? false}
+        onOpenChange={(open) => { if (!open) setQualifyDialog(null) }}
+        entry={qualifyDialog?.entry ?? null}
+        pipelineType={pipelineType}
+        targetStageId={qualifyDialog?.targetStageId}
+        onQualified={fetchBoard}
       />
     </div>
   )

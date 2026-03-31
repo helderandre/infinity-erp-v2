@@ -448,7 +448,7 @@ export default function OwnerDetailPage() {
                           key={p.id}
                           className="cursor-pointer"
                           onClick={() =>
-                            router.push(`/dashboard/imoveis/${p.id}`)
+                            router.push(`/dashboard/imoveis/${p.slug || p.id}`)
                           }
                         >
                           <TableCell className="font-medium">

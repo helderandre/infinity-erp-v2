@@ -47,12 +47,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { checkout_group_id, payment_method, ...campaignData } = parsed.data
+    const { checkout_group_id, payment_method, management_fee, ...campaignData } = parsed.data
 
-    // Compute total cost
-    const total_cost = campaignData.budget_type === 'daily'
+    // Compute total cost (ads budget + management fee)
+    const ads_budget = campaignData.budget_type === 'daily'
       ? campaignData.budget_amount * campaignData.duration_days
       : campaignData.budget_amount
+    const total_cost = ads_budget + (management_fee ?? 70)
 
     // Create campaign
     const { data: campaign, error: campaignError } = await supabase
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
         ...campaignData,
         agent_id: user.id,
         total_cost,
+        management_fee: management_fee ?? 70,
         payment_method,
         status: 'pending',
         ...(checkout_group_id ? { checkout_group_id } : {}),

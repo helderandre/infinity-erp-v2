@@ -445,7 +445,12 @@ export function ComposeEmailDialog({
     if (replyTo) {
       const replyAddr = replyTo.from[0]?.address || ''
       setTo(replyAddr)
-      setCc('')
+      // Pre-fill CC with original CC recipients (excluding our own sender address)
+      const originalCc = (replyTo.cc || [])
+        .map((a) => a.address)
+        .filter((addr): addr is string => !!addr && addr.toLowerCase() !== senderEmail?.toLowerCase())
+      setCc(originalCc.join(', '))
+      if (originalCc.length > 0) setShowCcBcc(true)
       setBcc('')
       setSubject(
         replyTo.subject.startsWith('Re:')
@@ -470,7 +475,7 @@ export function ComposeEmailDialog({
 
     // Force re-mount editor
     setEditorKey((k) => k + 1)
-  }, [open, replyTo, forwardMessage])
+  }, [open, replyTo, forwardMessage, senderEmail])
 
   // Load template when selected
   const handleTemplateChange = useCallback(async (templateId: string) => {

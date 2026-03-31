@@ -142,7 +142,7 @@ function VendaPerspective({ negocio, negocioId, leadId, onStartAcquisition, onOp
             <div className="space-y-4">
               {/* Property hero card */}
               <div className="group rounded-2xl border overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl bg-card"
-                onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
+                onClick={() => router.push(`/dashboard/imoveis/${property.slug || property.id}`)}
               >
                 <div className="relative h-56 sm:h-72 bg-muted">
                   {cover ? (
@@ -268,6 +268,46 @@ export default function NegocioDetailPage() {
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [addingPropertyId, setAddingPropertyId] = useState<string | null>(null)
 
+  // Dossier AI scores
+  const [dossierScores, setDossierScores] = useState<Map<string, { score: number; reason: string }>>(new Map())
+  const [isLoadingDossierScores, setIsLoadingDossierScores] = useState(false)
+
+  const scoreDossierProperties = useCallback(async () => {
+    const propertyIds = properties.filter(p => p.property_id).map(p => p.property_id!)
+    if (propertyIds.length === 0) return
+    setIsLoadingDossierScores(true)
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}/property-matches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_ids: propertyIds }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const map = new Map<string, { score: number; reason: string }>()
+        for (const s of json.scores || []) {
+          map.set(s.id, { score: s.score, reason: s.reason })
+        }
+        setDossierScores(map)
+      }
+    } catch { /* silent */ }
+    finally { setIsLoadingDossierScores(false) }
+  }, [properties, negocioId])
+
+  const openBuyerDetail = useCallback(async (buyer: any) => {
+    setSelectedBuyer(buyer)
+    setBuyerDetail(null)
+    setIsLoadingBuyerDetail(true)
+    try {
+      const res = await fetch(`/api/negocios/${buyer.negocioId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setBuyerDetail(data)
+      }
+    } catch { /* silent */ }
+    finally { setIsLoadingBuyerDetail(false) }
+  }, [])
+
   // Property detail sheet
   const [selectedProperty, setSelectedProperty] = useState<NegocioProperty | null>(null)
 
@@ -290,7 +330,11 @@ export default function NegocioDetailPage() {
   const [interessados, setInteressados] = useState<any[]>([])
   const [isLoadingInteressados, setIsLoadingInteressados] = useState(false)
   const [hiddenInteressados, setHiddenInteressados] = useState<Set<string>>(new Set())
+  const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [showHidden, setShowHidden] = useState(false)
+  const [selectedBuyer, setSelectedBuyer] = useState<any | null>(null)
+  const [buyerDetail, setBuyerDetail] = useState<any | null>(null)
+  const [isLoadingBuyerDetail, setIsLoadingBuyerDetail] = useState(false)
 
   // Profile sheets
   const [showProfileSheet, setShowProfileSheet] = useState(false)
@@ -327,10 +371,11 @@ export default function NegocioDetailPage() {
     }
   }, [negocioId])
 
-  const fetchMatches = useCallback(async () => {
+  const fetchMatches = useCallback(async (withScore = false) => {
     setIsLoadingMatches(true)
     try {
-      const res = await fetch(`/api/negocios/${negocioId}/property-matches`)
+      const url = `/api/negocios/${negocioId}/property-matches${withScore ? '?score=true' : ''}`
+      const res = await fetch(url)
       if (res.ok) {
         const json = await res.json()
         setMatches(json.data || [])
@@ -348,10 +393,11 @@ export default function NegocioDetailPage() {
     finally { setIsLoadingVisits(false) }
   }, [leadId])
 
-  const fetchInteressados = useCallback(async () => {
+  const fetchInteressados = useCallback(async (withScore = false) => {
     setIsLoadingInteressados(true)
     try {
-      const res = await fetch(`/api/negocios/${negocioId}/interessados`)
+      const url = `/api/negocios/${negocioId}/interessados${withScore ? '?score=true' : ''}`
+      const res = await fetch(url)
       if (res.ok) { const json = await res.json(); setInteressados(json.data || []) }
     } catch { setInteressados([]) }
     finally { setIsLoadingInteressados(false) }
@@ -365,10 +411,10 @@ export default function NegocioDetailPage() {
   const isSellerType = ['Venda', 'Compra e Venda'].includes(tipo)
   const isInAcompanhamento = isBuyerType && ['Em Acompanhamento', 'Proposta'].includes(estado)
 
-  // Load properties when entering acompanhamento mode
+  // Load properties (both standard + acompanhamento)
   useEffect(() => {
-    if (isInAcompanhamento && negocioId) { fetchProperties() }
-  }, [isInAcompanhamento, negocioId, fetchProperties])
+    if (isBuyerType && negocioId) { fetchProperties() }
+  }, [isBuyerType, negocioId, fetchProperties])
 
   // Fetch venda stats (visits/interessados/propostas for the linked property)
   useEffect(() => {
@@ -488,6 +534,361 @@ export default function NegocioDetailPage() {
     router.push(`/dashboard/credito/novo?lead_id=${leadId}&negocio_id=${negocioId}${propertyId ? `&property_id=${propertyId}` : ''}`)
   }
 
+  // ── Build matching extra tabs for NegocioDataCard ──
+  const buildMatchingTabs = () => {
+    const tabs: { value: string; label: string; content: React.ReactNode; onActivate?: () => void }[] = []
+
+    // Buyer → Imóveis tab
+    if (isBuyerType) {
+      tabs.push({
+        value: 'imoveis',
+        label: `Imóveis${properties.length > 0 ? ` (${properties.length})` : ''}`,
+        onActivate: () => { if (matches.length === 0 && !isLoadingMatches) fetchMatches() },
+        content: (
+          <div className="space-y-5">
+            {/* ── Added properties ── */}
+            {properties.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Adicionados ao dossier</p>
+                  <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={scoreDossierProperties} disabled={isLoadingDossierScores}>
+                    {isLoadingDossierScores ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {properties.map((ap) => {
+                    const isExternal = !ap.property_id && ap.external_url
+                    const p = ap.property
+                    const cover = p?.dev_property_media?.find((m: any) => m.is_cover)?.url || p?.dev_property_media?.[0]?.url
+                    const specs = p?.dev_property_specifications
+                    const propStatus = NEGOCIO_PROPERTY_STATUS[ap.status as keyof typeof NEGOCIO_PROPERTY_STATUS]
+                    const price = isExternal ? ap.external_price : p?.listing_price
+                    const dScore = ap.property_id ? dossierScores.get(ap.property_id) : null
+                    const dScoreColor = dScore
+                      ? dScore.score >= 80 ? 'bg-emerald-500 text-white'
+                      : dScore.score >= 60 ? 'bg-amber-500 text-white'
+                      : dScore.score >= 40 ? 'bg-orange-500 text-white'
+                      : 'bg-red-500 text-white'
+                      : ''
+
+                    return (
+                      <div key={ap.id} className="group rounded-xl border-2 border-emerald-200 dark:border-emerald-800/50 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
+                        <div className="flex">
+                          <div className="w-28 shrink-0 relative bg-muted">
+                            {cover ? (
+                              <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {isExternal ? <Globe className="h-6 w-6 text-muted-foreground/30" /> : <Building2 className="h-6 w-6 text-muted-foreground/30" />}
+                              </div>
+                            )}
+                            {price && (
+                              <div className="absolute bottom-2 left-2">
+                                <span className="inline-flex items-center bg-neutral-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-full">{(Number(price) / 1000).toFixed(0)}k €</span>
+                              </div>
+                            )}
+                            {dScore && (
+                              <div className="absolute top-2 right-2">
+                                <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', dScoreColor)}>{dScore.score}%</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 p-3.5 min-w-0 flex flex-col">
+                            <p className="text-sm font-semibold truncate leading-tight">{isExternal ? (ap.external_title || 'Link Externo') : (p?.title || 'Imóvel')}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                              {isExternal ? (ap.external_source || 'Portal externo') : [p?.external_ref, p?.city, p?.zone].filter(Boolean).join(' · ')}
+                            </p>
+                            {!isExternal && specs && (
+                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                                {specs.bedrooms && <span>{specs.bedrooms} quartos</span>}
+                                {specs.area_util && <span>{specs.area_util} m²</span>}
+                              </div>
+                            )}
+                            {dScore?.reason && (
+                              <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{dScore.reason}</p>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-auto pt-2">
+                              <Badge className={cn('rounded-full text-[9px] px-2 border-0', propStatus?.bg, propStatus?.text)}>{propStatus?.label}</Badge>
+                              {isExternal ? (
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-auto" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
+                              ) : p?.id && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-auto" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground/40 hover:text-destructive" onClick={() => handleRemoveProperty(ap.id)}><Trash2 className="h-3 w-3" /></Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Matching suggestions ── */}
+            <div className="space-y-3">
+              {properties.length > 0 && <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Sugestões</p>}
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{matches.length > 0 ? `${matches.length} imóveis compatíveis` : 'Baseado no orçamento, localização e tipo'}</p>
+                <div className="flex items-center gap-1.5">
+                  {matches.length > 0 && (
+                    <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches(true)} disabled={isLoadingMatches}>
+                      {isLoadingMatches ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches()}>
+                    <Sparkles className="mr-1 h-3 w-3" />Actualizar
+                  </Button>
+                </div>
+              </div>
+            {isLoadingMatches ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (<div key={i} className="rounded-xl border overflow-hidden flex"><Skeleton className="w-28 h-24" /><div className="flex-1 p-3.5 space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-20" /></div></div>))}
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+                <Building2 className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum imóvel compatível encontrado</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Ajuste o perfil de procura para ampliar os resultados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {matches.map((p, idx) => {
+                  const cover = p.dev_property_media?.find((m: any) => m.is_cover)?.url || p.dev_property_media?.[0]?.url
+                  const specs = p.dev_property_specifications
+                  const isAdding = addingPropertyId === p.id
+                  const score = p.match_score as number | null
+                  const scoreColor = score != null
+                    ? score >= 80 ? 'bg-emerald-500 text-white'
+                    : score >= 60 ? 'bg-amber-500 text-white'
+                    : score >= 40 ? 'bg-orange-500 text-white'
+                    : 'bg-red-500 text-white'
+                    : ''
+                  return (
+                    <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
+                      p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
+                      p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
+                      p.price_flag === 'red' && 'ring-2 ring-red-400/60'
+                    )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
+                      <div className="flex">
+                        <div className="w-28 shrink-0 relative bg-muted">
+                          {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
+                          {p.listing_price && (
+                            <div className="absolute bottom-2 left-2">
+                              <span className={cn('inline-flex items-center backdrop-blur-sm text-[11px] font-bold px-2 py-0.5 rounded-full',
+                                p.price_flag === 'green' ? 'bg-emerald-900/80 text-emerald-100' :
+                                p.price_flag === 'yellow' ? 'bg-amber-900/80 text-amber-100' :
+                                p.price_flag === 'orange' ? 'bg-orange-900/80 text-orange-100' :
+                                'bg-red-900/80 text-red-100'
+                              )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
+                            </div>
+                          )}
+                          {score != null && (
+                            <div className="absolute top-2 right-2">
+                              <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 p-3.5 min-w-0 flex flex-col">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate leading-tight">{p.title}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{[p.external_ref, p.city, p.zone].filter(Boolean).join(' · ')}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                            {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
+                            {specs?.area_util && <span>{specs.area_util} m²</span>}
+                          </div>
+                          {p.match_reason && (
+                            <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{p.match_reason}</p>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-auto pt-2">
+                            <Button variant="outline" size="sm" className="h-7 rounded-full text-xs flex-1" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
+                              {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}>
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            </div>
+          </div>
+        ),
+      })
+    }
+
+    // Seller → Compradores tab
+    if (isSellerType) {
+      const myBuyers = interessados.filter((i: any) => i.isMine)
+      const colleagueBuyers = interessados.filter((i: any) => !i.isMine)
+      // Unique colleagues that have matching buyers
+      const availableColleagues = [...new Set(colleagueBuyers.map((i: any) => i.colleague as string))].filter(Boolean).sort()
+      const filteredColleagueBuyers = colleagueFilter
+        ? colleagueBuyers.filter((i: any) => i.colleague === colleagueFilter)
+        : colleagueBuyers
+
+      const renderBuyerCard = (int: any, idx: number) => {
+        const isHidden = hiddenInteressados.has(int.negocioId)
+        const score = int.match_score as number | null
+        const scoreColor = score != null
+          ? score >= 80 ? 'bg-emerald-500 text-white'
+          : score >= 60 ? 'bg-amber-500 text-white'
+          : score >= 40 ? 'bg-orange-500 text-white'
+          : 'bg-red-500 text-white'
+          : ''
+        if (!showHidden && isHidden) return null
+        return (
+          <div key={int.negocioId} className={cn('rounded-xl border bg-card/50 backdrop-blur-sm px-4 py-3 flex items-center justify-between transition-all duration-300 animate-in fade-in slide-in-from-bottom-2', isHidden && 'opacity-50', int.isMine && 'cursor-pointer hover:shadow-md hover:bg-card/80')} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }} onClick={int.isMine ? () => openBuyerDetail(int) : undefined}>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{int.firstName}</p>
+                {score != null && (
+                  <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
+                )}
+                {int.stageName && (
+                  <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-muted/60" style={int.stageColor ? { backgroundColor: `${int.stageColor}20`, color: int.stageColor } : undefined}>{int.stageName}</span>
+                )}
+              </div>
+              {!int.isMine && (
+                <p className="text-xs text-muted-foreground truncate">{int.colleague}</p>
+              )}
+              {int.match_reason && (
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic truncate">{int.match_reason}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {int.phone && (
+                <a href={`tel:${int.phone}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title={`Ligar ${int.isMine ? int.firstName : int.colleague}`}>
+                  <Phone className="h-3.5 w-3.5" />
+                </a>
+              )}
+              {int.phone && (
+                <a href={`https://wa.me/351${int.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title={`WhatsApp ${int.isMine ? int.firstName : int.colleague}`}>
+                  <WhatsAppIcon className="h-3.5 w-3.5" />
+                </a>
+              )}
+              {int.email && (
+                <a href={`mailto:${int.email}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title={`Email ${int.isMine ? int.firstName : int.colleague}`}>
+                  <Mail className="h-3.5 w-3.5" />
+                </a>
+              )}
+              {!int.isMine && (
+                <button
+                  onClick={() => {
+                    setHiddenInteressados(prev => {
+                      const next = new Set(prev)
+                      if (next.has(int.negocioId)) next.delete(int.negocioId)
+                      else next.add(int.negocioId)
+                      return next
+                    })
+                  }}
+                  className={cn('h-8 w-8 rounded-full border border-border/50 flex items-center justify-center transition-all',
+                    isHidden ? 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70' : 'bg-muted/40 text-muted-foreground hover:text-red-500 hover:bg-red-50 hover:border-red-200'
+                  )}
+                  title={isHidden ? 'Mostrar' : 'Ocultar'}
+                >
+                  {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      }
+
+      tabs.push({
+        value: 'compradores',
+        label: `Compradores${interessados.length > 0 ? ` (${interessados.length})` : ''}`,
+        onActivate: () => { if (interessados.length === 0 && !isLoadingInteressados) fetchInteressados() },
+        content: (
+          <div className="space-y-4">
+            {/* Actions bar */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {interessados.length > 0
+                  ? `${myBuyers.length} meu${myBuyers.length !== 1 ? 's' : ''} · ${colleagueBuyers.length} de colegas`
+                  : 'Compradores que procuram imóveis semelhantes'}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {hiddenInteressados.size > 0 && (
+                  <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => setShowHidden(!showHidden)}>
+                    {showHidden ? <EyeOff className="mr-1 h-3 w-3" /> : <Eye className="mr-1 h-3 w-3" />}
+                    {showHidden ? 'Ocultar' : `${hiddenInteressados.size} oculto${hiddenInteressados.size !== 1 ? 's' : ''}`}
+                  </Button>
+                )}
+                {interessados.length > 0 && (
+                  <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados(true)} disabled={isLoadingInteressados}>
+                    {isLoadingInteressados ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados()}>
+                  <Users className="mr-1 h-3 w-3" />Actualizar
+                </Button>
+              </div>
+            </div>
+
+            {isLoadingInteressados ? (
+              <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+            ) : interessados.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+                <Users className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum comprador potencial encontrado</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Preencha os dados do imóvel para encontrar compradores compatíveis</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* ── My buyers ── */}
+                {myBuyers.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Os meus compradores</p>
+                    {myBuyers.map((int, idx) => renderBuyerCard(int, idx))}
+                  </div>
+                )}
+
+                {/* ── Colleague buyers ── */}
+                {colleagueBuyers.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Compradores de colegas</p>
+                      {availableColleagues.length > 1 && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <button
+                            onClick={() => setColleagueFilter(null)}
+                            className={cn('text-[10px] px-2 py-0.5 rounded-full transition-colors',
+                              !colleagueFilter ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                            )}
+                          >Todos</button>
+                          {availableColleagues.map((name) => (
+                            <button
+                              key={name}
+                              onClick={() => setColleagueFilter(colleagueFilter === name ? null : name)}
+                              className={cn('text-[10px] px-2 py-0.5 rounded-full transition-colors',
+                                colleagueFilter === name ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                              )}
+                            >{name}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {filteredColleagueBuyers.map((int, idx) => renderBuyerCard(int, idx))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ),
+      })
+    }
+
+    return tabs
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -581,10 +982,150 @@ export default function NegocioDetailPage() {
             <NegocioSidebar tipo={tipo} leadName={clientName} createdAt={negocio.created_at} phone={phone} email={email} estado={estado} negocioId={negocioId} onEstadoChange={(v) => saveSidebarField('estado', v)} onQuickFillApply={handleQuickFillApply} onStartAcquisition={() => setAcquisitionDialogOpen(true)} />
           </div>
           <div className="flex-1 min-w-0">
-            <NegocioDataCard tipo={tipo} negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
+            <NegocioDataCard tipo={tipo} negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey}
+              extraTabs={buildMatchingTabs()}
+            />
           </div>
         </div>
         <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
+
+        {/* Buyer Detail Sheet (own buyers) */}
+        <Sheet open={!!selectedBuyer} onOpenChange={(open) => { if (!open) { setSelectedBuyer(null); setBuyerDetail(null) } }}>
+          <SheetContent className="sm:max-w-md p-0 flex flex-col gap-0 overflow-y-auto">
+            {selectedBuyer && (
+              <>
+                <div className="shrink-0 bg-neutral-900 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white font-bold text-sm">
+                      {selectedBuyer.firstName?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <SheetHeader className="space-y-0"><SheetTitle className="text-white text-base">{selectedBuyer.firstName}</SheetTitle></SheetHeader>
+                      <div className="flex items-center gap-2 mt-1">
+                        {selectedBuyer.stageName && (
+                          <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/15 text-white/80">{selectedBuyer.stageName}</span>
+                        )}
+                        {selectedBuyer.match_score != null && (
+                          <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                            selectedBuyer.match_score >= 80 ? 'bg-emerald-500 text-white' :
+                            selectedBuyer.match_score >= 60 ? 'bg-amber-500 text-white' :
+                            selectedBuyer.match_score >= 40 ? 'bg-orange-500 text-white' :
+                            'bg-red-500 text-white'
+                          )}>{selectedBuyer.match_score}%</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Contact info */}
+                  {(selectedBuyer.phone || selectedBuyer.email) && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Contacto</p>
+                      <div className="flex items-center gap-2">
+                        {selectedBuyer.phone && (
+                          <a href={`tel:${selectedBuyer.phone}`} className="flex-1 flex items-center gap-2 rounded-xl border px-3 py-2.5 hover:bg-muted/30 transition-colors">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{selectedBuyer.phone}</span>
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedBuyer.phone && (
+                          <a href={`https://wa.me/351${selectedBuyer.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border px-3 py-2.5 hover:bg-muted/30 transition-colors">
+                            <WhatsAppIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">WhatsApp</span>
+                          </a>
+                        )}
+                        {selectedBuyer.email && (
+                          <a href={`mailto:${selectedBuyer.email}`} className="flex-1 flex items-center gap-2 rounded-xl border px-3 py-2.5 hover:bg-muted/30 transition-colors">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm truncate">{selectedBuyer.email}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Match reason */}
+                  {selectedBuyer.match_reason && (
+                    <div className="rounded-xl border border-dashed bg-muted/10 px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mb-1">Razão do match</p>
+                      <p className="text-sm">{selectedBuyer.match_reason}</p>
+                    </div>
+                  )}
+
+                  {/* Negócio details */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Perfil de procura</p>
+                    {isLoadingBuyerDetail ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-10 rounded-xl" />
+                        <Skeleton className="h-10 rounded-xl" />
+                        <Skeleton className="h-10 rounded-xl" />
+                      </div>
+                    ) : buyerDetail ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {buyerDetail.tipo_imovel && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Tipo</p>
+                            <p className="text-sm font-medium">{buyerDetail.tipo_imovel}</p>
+                          </div>
+                        )}
+                        {buyerDetail.localizacao && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Localização</p>
+                            <p className="text-sm font-medium">{buyerDetail.localizacao}</p>
+                          </div>
+                        )}
+                        {(buyerDetail.orcamento || buyerDetail.orcamento_max) && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Orçamento</p>
+                            <p className="text-sm font-medium">
+                              {buyerDetail.orcamento ? `${(buyerDetail.orcamento / 1000).toFixed(0)}k` : '—'}
+                              {buyerDetail.orcamento_max ? ` — ${(buyerDetail.orcamento_max / 1000).toFixed(0)}k €` : ' €'}
+                            </p>
+                          </div>
+                        )}
+                        {buyerDetail.quartos_min && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Quartos mín.</p>
+                            <p className="text-sm font-medium">{buyerDetail.quartos_min}</p>
+                          </div>
+                        )}
+                        {buyerDetail.area_min_m2 && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Área mín.</p>
+                            <p className="text-sm font-medium">{buyerDetail.area_min_m2} m²</p>
+                          </div>
+                        )}
+                        {buyerDetail.estado_imovel && (
+                          <div className="rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Estado</p>
+                            <p className="text-sm font-medium">{buyerDetail.estado_imovel}</p>
+                          </div>
+                        )}
+                        {buyerDetail.observacoes && (
+                          <div className="col-span-2 rounded-xl border px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Observações</p>
+                            <p className="text-sm">{buyerDetail.observacoes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Navigate to negócio */}
+                  <Button variant="outline" className="w-full rounded-full" onClick={() => { setSelectedBuyer(null); router.push(`/dashboard/crm/negocios/${selectedBuyer.negocioId}`) }}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                    Ver negócio completo
+                  </Button>
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     )
   }
@@ -845,7 +1386,7 @@ export default function NegocioDetailPage() {
                               {isExternal ? (
                                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
                               ) : p?.id && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
                               )}
                               {!isExternal && p?.id && (
                                 <Button variant="ghost" size="sm" className="h-6 rounded-full text-[10px] px-2" onClick={() => { setVisitPropertyId(p.id); setShowVisitDialog(true) }}><CalendarDays className="mr-1 h-2.5 w-2.5" />Visita</Button>
@@ -875,21 +1416,37 @@ export default function NegocioDetailPage() {
                   <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Sparkles className="h-7 w-7 text-muted-foreground/30" /></div>
                   <h3 className="text-base font-medium">Nenhum imóvel compatível</h3>
                   <p className="text-xs text-muted-foreground mt-1 max-w-xs">Ajuste o perfil de procura para ampliar os resultados.</p>
-                  <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={fetchMatches}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Pesquisar novamente</Button>
+                  <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={() => fetchMatches()}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Pesquisar novamente</Button>
                 </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs text-muted-foreground">{matches.length} imóveis compatíveis</p>
-                    <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={fetchMatches}><Sparkles className="mr-1 h-3 w-3" />Actualizar</Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches(true)} disabled={isLoadingMatches}>
+                        {isLoadingMatches ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                      </Button>
+                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches()}><Sparkles className="mr-1 h-3 w-3" />Actualizar</Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {matches.map((p, idx) => {
                       const cover = p.dev_property_media?.find((m: any) => m.is_cover)?.url || p.dev_property_media?.[0]?.url
                       const specs = p.dev_property_specifications
                       const isAdding = addingPropertyId === p.id
+                      const score = p.match_score as number | null
+                      const scoreColor = score != null
+                        ? score >= 80 ? 'bg-emerald-500 text-white'
+                        : score >= 60 ? 'bg-amber-500 text-white'
+                        : score >= 40 ? 'bg-orange-500 text-white'
+                        : 'bg-red-500 text-white'
+                        : ''
                       return (
-                        <div key={p.id} className="group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
+                        <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
+                          p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
+                          p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
+                          p.price_flag === 'red' && 'ring-2 ring-red-400/60'
+                        )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
                           <div className="flex">
                             <div className="w-28 shrink-0 relative bg-muted">
                               {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
@@ -903,6 +1460,11 @@ export default function NegocioDetailPage() {
                                   )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
                                 </div>
                               )}
+                              {score != null && (
+                                <div className="absolute top-2 right-2">
+                                  <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
+                                </div>
+                              )}
                             </div>
                             <div className="flex-1 p-3.5 min-w-0 flex flex-col">
                               <p className="text-sm font-semibold truncate leading-tight">{p.title}</p>
@@ -911,6 +1473,9 @@ export default function NegocioDetailPage() {
                                 {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
                                 {specs?.area_util && <span>{specs.area_util} m²</span>}
                               </div>
+                              {p.match_reason && (
+                                <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{p.match_reason}</p>
+                              )}
                               <div className="mt-auto pt-2">
                                 <Button variant="outline" size="sm" className="h-7 rounded-full text-xs w-full" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
                                   {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar ao dossier
@@ -1018,7 +1583,10 @@ export default function NegocioDetailPage() {
                           {showHidden ? 'Ocultar escondidos' : 'Ver ocultos'}
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={fetchInteressados}><Users className="mr-1 h-3 w-3" />Actualizar</Button>
+                      <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados(true)} disabled={isLoadingInteressados}>
+                        {isLoadingInteressados ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                      </Button>
+                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados()}><Users className="mr-1 h-3 w-3" />Actualizar</Button>
                     </div>
                   </div>
 
@@ -1027,6 +1595,13 @@ export default function NegocioDetailPage() {
                       .filter(int => showHidden || !hiddenInteressados.has(int.negocioId))
                       .map((int, idx) => {
                         const isHidden = hiddenInteressados.has(int.negocioId)
+                        const score = int.match_score as number | null
+                        const scoreColor = score != null
+                          ? score >= 80 ? 'bg-emerald-500 text-white'
+                          : score >= 60 ? 'bg-amber-500 text-white'
+                          : score >= 40 ? 'bg-orange-500 text-white'
+                          : 'bg-red-500 text-white'
+                          : ''
                         return (
                           <div
                             key={int.negocioId}
@@ -1036,9 +1611,22 @@ export default function NegocioDetailPage() {
                             )}
                             style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
                           >
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm">{int.firstName}</p>
-                              <p className="text-xs text-muted-foreground truncate">{int.colleague}</p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-sm">{int.firstName}</p>
+                                {score != null && (
+                                  <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                            <span>Colega: {int.colleague}</span>
+                            {int.stageName && (
+                              <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-muted/60" style={int.stageColor ? { backgroundColor: `${int.stageColor}20`, color: int.stageColor } : undefined}>{int.stageName}</span>
+                            )}
+                          </div>
+                              {int.match_reason && (
+                                <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic truncate">{int.match_reason}</p>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1349,7 +1937,7 @@ export default function NegocioDetailPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
-                    <Button className="flex-1 rounded-full" onClick={() => { setSelectedProperty(null); router.push(`/dashboard/imoveis/${sp.id}`) }}>
+                    <Button className="flex-1 rounded-full" onClick={() => { setSelectedProperty(null); router.push(`/dashboard/imoveis/${sp.slug || sp.id}`) }}>
                       Ver no CRM
                     </Button>
                   </div>

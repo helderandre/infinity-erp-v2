@@ -387,7 +387,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
             />
             <NumberFieldWithSuggestion
               name="sellers_pct_listings_sold"
-              label="% Angariações Vendidas"
+              label="% Angariações → Fecho"
               suffix="%"
               step="1"
               suggestion={suggestions?.sellers.pct_listings_sold}
@@ -395,7 +395,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
             />
             <NumberFieldWithSuggestion
               name="sellers_pct_visit_to_listing"
-              label="% Visita → Angariação"
+              label="% Estudo Mercado → Angariação"
               suffix="%"
               step="1"
               suggestion={suggestions?.sellers.pct_visit_to_listing}
@@ -403,7 +403,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
             />
             <NumberFieldWithSuggestion
               name="sellers_pct_lead_to_visit"
-              label="% Lead → Visita"
+              label="% Pré-Angariação → Estudo Mercado"
               suffix="%"
               step="1"
               suggestion={suggestions?.sellers.pct_lead_to_visit}
@@ -442,7 +442,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
             />
             <NumberFieldWithSuggestion
               name="buyers_close_rate"
-              label="Taxa de Fecho"
+              label="% Visitas → Fecho"
               suffix="%"
               step="0.5"
               description="Ex: 16.67% = 1 em cada 6"
@@ -451,7 +451,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
             />
             <NumberFieldWithSuggestion
               name="buyers_pct_lead_to_qualified"
-              label="% Lead → Qualificado"
+              label="% Pesquisa → Visitas"
               suffix="%"
               step="1"
               suggestion={suggestions?.buyers.pct_lead_to_qualified}

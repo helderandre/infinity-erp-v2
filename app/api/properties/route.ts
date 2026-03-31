@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const { data: property, error } = await supabase
       .from('dev_properties')
       .insert(insertData)
-      .select('id')
+      .select('id, slug')
       .single()
 
     if (error) {

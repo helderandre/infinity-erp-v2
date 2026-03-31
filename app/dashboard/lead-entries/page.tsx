@@ -22,8 +22,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Zap, Plus, MoreHorizontal, Check, X, Eye, UserCheck, Mic, MicOff,
-  Loader2, Phone, Mail, Link2, AlertTriangle, ExternalLink, Megaphone,
+  Loader2, Phone, Mail, Link2, AlertTriangle, ExternalLink, Megaphone, Upload,
 } from 'lucide-react'
+import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -99,8 +100,25 @@ export default function LeadEntriesPage() {
 
   // New lead dialog
   const [showNewDialog, setShowNewDialog] = useState(false)
-  const [newForm, setNewForm] = useState({ raw_name: '', raw_email: '', raw_phone: '', source: 'manual' as LeadEntrySource, notes: '' })
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [newForm, setNewForm] = useState({
+    raw_name: '', raw_email: '', raw_phone: '', source: 'manual' as LeadEntrySource, notes: '',
+    has_referral: false, referral_pct: '', referral_consultant_id: '', referral_external_name: '',
+    referral_external_phone: '', referral_external_email: '', referral_external_agency: '',
+  })
+  const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
   const [creating, setCreating] = useState(false)
+
+  // Load consultants for referral selector
+  useEffect(() => {
+    fetch('/api/consultants?limit=100')
+      .then((r) => r.json())
+      .then((d) => {
+        const list = (d.data || d || []).map((c: any) => ({ id: c.id, commercial_name: c.commercial_name }))
+        setConsultantsList(list)
+      })
+      .catch(() => {})
+  }, [])
 
   // Voice recording
   const [isRecording, setIsRecording] = useState(false)
@@ -144,15 +162,33 @@ export default function LeadEntriesPage() {
     if (!newForm.raw_name.trim()) { toast.error('Nome obrigatorio'); return }
     setCreating(true)
     try {
+      const payload: Record<string, any> = {
+        raw_name: newForm.raw_name,
+        raw_email: newForm.raw_email,
+        raw_phone: newForm.raw_phone,
+        source: newForm.source,
+        notes: newForm.notes,
+      }
+      if (newForm.has_referral) {
+        payload.has_referral = true
+        payload.referral_pct = newForm.referral_pct ? parseFloat(newForm.referral_pct) : null
+        payload.referral_consultant_id = newForm.referral_consultant_id || null
+        payload.referral_external_name = newForm.referral_external_name || null
+        payload.referral_external_phone = newForm.referral_external_phone || null
+        payload.referral_external_email = newForm.referral_external_email || null
+        payload.referral_external_agency = newForm.referral_external_agency || null
+      }
       const res = await fetch('/api/lead-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newForm),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       toast.success('Lead registado com sucesso')
       setShowNewDialog(false)
-      setNewForm({ raw_name: '', raw_email: '', raw_phone: '', source: 'manual', notes: '' })
+      setNewForm({ raw_name: '', raw_email: '', raw_phone: '', source: 'manual', notes: '',
+        has_referral: false, referral_pct: '', referral_consultant_id: '', referral_external_name: '',
+        referral_external_phone: '', referral_external_email: '', referral_external_agency: '' })
       fetchEntries()
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar lead')
@@ -227,6 +263,14 @@ export default function LeadEntriesPage() {
           </p>
         </div>
         <div className="absolute top-6 right-6 z-20 flex gap-2">
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setShowImportDialog(true)}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            Importar
+          </Button>
           <Button
             size="sm"
             className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
@@ -489,6 +533,97 @@ export default function LeadEntriesPage() {
                 />
               </div>
             </div>
+
+            {/* Referral section */}
+            <div className="rounded-xl border p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="has_referral"
+                  checked={newForm.has_referral}
+                  onChange={(e) => setNewForm((p) => ({ ...p, has_referral: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="has_referral" className="text-xs font-medium cursor-pointer">
+                  Este lead foi referenciado
+                </Label>
+              </div>
+
+              {newForm.has_referral && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <Label className="text-xs">Percentagem da referência</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        placeholder="ex: 25"
+                        value={newForm.referral_pct}
+                        onChange={(e) => setNewForm((p) => ({ ...p, referral_pct: e.target.value }))}
+                        className="pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Referenciado por (consultor interno)</Label>
+                    <Select
+                      value={newForm.referral_consultant_id || '_none'}
+                      onValueChange={(v) => setNewForm((p) => ({ ...p, referral_consultant_id: v === '_none' ? '' : v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar consultor..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">Externo (não é consultor)</SelectItem>
+                        {consultantsList.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {!newForm.referral_consultant_id && (
+                    <div className="space-y-2">
+                      <div>
+                        <Label className="text-xs">Nome do referenciador</Label>
+                        <Input
+                          placeholder="Nome"
+                          value={newForm.referral_external_name}
+                          onChange={(e) => setNewForm((p) => ({ ...p, referral_external_name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Telefone</Label>
+                          <Input
+                            placeholder="Contacto"
+                            value={newForm.referral_external_phone}
+                            onChange={(e) => setNewForm((p) => ({ ...p, referral_external_phone: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Email</Label>
+                          <Input
+                            placeholder="Email"
+                            value={newForm.referral_external_email}
+                            onChange={(e) => setNewForm((p) => ({ ...p, referral_external_email: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Agência</Label>
+                        <Input
+                          placeholder="Nome da agência (se aplicável)"
+                          value={newForm.referral_external_agency}
+                          onChange={(e) => setNewForm((p) => ({ ...p, referral_external_agency: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
@@ -502,6 +637,13 @@ export default function LeadEntriesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══ Bulk Import Dialog ═══ */}
+      <BulkImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onComplete={() => loadEntries()}
+      />
     </div>
   )
 }

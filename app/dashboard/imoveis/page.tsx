@@ -458,7 +458,7 @@ function ImoveisPageContent() {
                   <TableRow
                     key={property.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
+                    onClick={() => router.push(`/dashboard/imoveis/${property.slug || property.id}`)}
                   >
                     <TableCell>
                       {getCoverUrl(property) ? (
@@ -523,7 +523,7 @@ function ImoveisPageContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
-                          <DropdownMenuItem className="rounded-lg" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/imoveis/${property.id}`) }}>
+                          <DropdownMenuItem className="rounded-lg" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/imoveis/${property.slug || property.id}`) }}>
                             <Building2 className="mr-2 h-3.5 w-3.5" />
                             Ver Detalhe
                           </DropdownMenuItem>
@@ -560,7 +560,7 @@ function ImoveisPageContent() {
               <PropertyCard
                 key={property.id}
                 property={property}
-                onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
+                onClick={() => router.push(`/dashboard/imoveis/${property.slug || property.id}`)}
               />
             ))}
           </div>

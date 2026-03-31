@@ -168,20 +168,29 @@ function CollapsibleGroup({
   if (visibleItems.length === 0) return null
 
   const isDefaultOpen = defaultOpenOverride || pathPrefixes.some((p) => pathname?.startsWith(p))
+  const isSectionActive = visibleItems.some((item) => {
+    if (item.href === '/dashboard') return pathname === '/dashboard'
+    return pathname === item.href || pathname?.startsWith(`${item.href}/`)
+  })
 
   return (
     <SidebarGroup className="py-1">
       <Collapsible defaultOpen={isDefaultOpen} className="group/collapsible">
         <SidebarGroupLabel asChild>
-          <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 hover:text-muted-foreground transition-colors">
-            <Icon className="size-3.5 opacity-60" />
+          <CollapsibleTrigger className={cn(
+            'flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold transition-colors',
+            isSectionActive
+              ? 'border border-border text-foreground/90 bg-muted/40 shadow-sm'
+              : 'text-muted-foreground/70 hover:text-muted-foreground'
+          )}>
+            <Icon className={cn('size-3.5', isSectionActive ? 'opacity-80' : 'opacity-60')} />
             {label}
             <ChevronRight className="ml-auto size-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>
         <CollapsibleContent>
           <SidebarGroupContent className="mt-0.5">
-            <SidebarMenu className="gap-0.5 px-1">
+            <SidebarMenu className="gap-0.5 pl-4 pr-1">
               {visibleItems.map((item) => {
                 const hasSubItems = visibleItems.some(
                   (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`)
@@ -434,7 +443,7 @@ export function AppSidebar() {
         {/* Definições */}
         <SidebarGroup className="py-1">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 px-1">
+            <SidebarMenu className="gap-0.5 pl-1 pr-1">
               {bottomItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
                 const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                 return (

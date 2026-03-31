@@ -482,7 +482,6 @@ export function CalendarEventForm({
                           if (d) {
                             const time = endDate ? endDate.split('T')[1]?.slice(0, 8) || '10:00:00' : '10:00:00'
                             const c = toLocalISO(format(d, 'yyyy-MM-dd'), time)
-                            if (startDate && new Date(c) <= new Date(startDate)) { toast.error('A data/hora de fim deve ser posterior à de início.'); return }
                             setValue('end_date', c, { shouldValidate: true })
                           }
                         }} locale={ptBR} />
@@ -494,7 +493,6 @@ export function CalendarEventForm({
                         <Input type="time" className="w-[110px]" value={endDate ? format(parseISO(endDate), 'HH:mm') : ''} onChange={(e) => {
                           const base = endDate ? endDate.split('T')[0] : (startDate ? startDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd'))
                           const c = toLocalISO(base, `${e.target.value}:00`)
-                          if (startDate && new Date(c) <= new Date(startDate)) { toast.error('A data/hora de fim deve ser posterior à de início.'); return }
                           setValue('end_date', c, { shouldValidate: true })
                         }} />
                       </div>

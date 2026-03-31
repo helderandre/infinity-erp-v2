@@ -83,6 +83,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ sent: 0, due: 0 })
     }
 
+    // 2b. Deduplicate — check which reminders were already sent (per user)
+    const { data: alreadySent } = await admin
+      .from('notifications')
+      .select('entity_id, recipient_id, metadata')
+      .eq('notification_type', 'calendar_reminder')
+      .in('entity_id', dueReminders.map((r) => r.event_id))
+
+    // Key: "eventId::minutesBefore::userId"
+    const sentKeys = new Set(
+      (alreadySent ?? []).map(
+        (n: any) => `${n.entity_id}::${n.metadata?.minutes_before ?? ''}::${n.recipient_id}`
+      )
+    )
+
     // 3. Get all active users with their roles
     const { data: allUsers } = await admin
       .from('dev_users')
@@ -151,6 +165,10 @@ export async function GET(request: Request) {
       const notifService = new NotificationService()
 
       for (const userId of targetUserIds) {
+        // Skip if this user already received this specific reminder
+        const dedupeKey = `${reminder.event_id}::${reminder.minutes_before}::${userId}`
+        if (sentKeys.has(dedupeKey)) continue
+
         // Push notification
         const sent = await sendPushToUser(admin, userId, payload)
         totalSent += sent

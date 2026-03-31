@@ -71,9 +71,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Fase de pipeline não encontrada' }, { status: 404 })
     }
 
+    // If created from a lead entry, copy referral data
+    let referralFields: Record<string, any> = {}
+    if (input.entry_id) {
+      const { data: entry } = await supabase
+        .from('leads_entries')
+        .select('has_referral, referral_pct, referral_consultant_id, referral_external_name, referral_external_phone, referral_external_email, referral_external_agency, source')
+        .eq('id', input.entry_id)
+        .single()
+
+      if (entry) {
+        if (entry.has_referral) {
+          referralFields = {
+            has_referral: true,
+            referral_pct: entry.referral_pct,
+            referral_consultant_id: entry.referral_consultant_id,
+            referral_external_name: entry.referral_external_name,
+            referral_external_phone: entry.referral_external_phone,
+            referral_external_email: entry.referral_external_email,
+            referral_external_agency: entry.referral_external_agency,
+            referral_type: entry.referral_consultant_id ? 'interna' : 'externa',
+          }
+        }
+        // Copy source from entry if not provided
+        if (!input.origem && entry.source) {
+          referralFields.origem = entry.source
+        }
+      }
+
+      // Mark entry as converted
+      await supabase
+        .from('leads_entries')
+        .update({ status: 'converted', processed_at: new Date().toISOString() })
+        .eq('id', input.entry_id)
+    }
+
     const { data, error } = await supabase
       .from('negocios')
-      .insert({ ...input, stage_entered_at: new Date().toISOString() })
+      .insert({
+        ...input,
+        ...referralFields,
+        stage_entered_at: new Date().toISOString(),
+      })
       .select(
         `*, leads_pipeline_stages!pipeline_stage_id(*), leads!lead_id(id, nome, email, telemovel, tags), dev_users!assigned_consultant_id(id, commercial_name)`
       )

@@ -20,6 +20,14 @@ export const createLeadEntrySchema = z.object({
   notes: z.string().optional().nullable(),
   // Assignment override
   assigned_consultant_id: z.string().optional().nullable(),
+  // Referral
+  has_referral: z.boolean().optional(),
+  referral_pct: z.number().nullable().optional(),
+  referral_consultant_id: z.string().uuid().nullable().optional(),
+  referral_external_name: z.string().nullable().optional(),
+  referral_external_phone: z.string().nullable().optional(),
+  referral_external_email: z.string().nullable().optional(),
+  referral_external_agency: z.string().nullable().optional(),
 })
 
 export const updateLeadEntryStatusSchema = z.object({

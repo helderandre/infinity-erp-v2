@@ -29,18 +29,18 @@ export function GoalFunnelTable({ title, type, funnel, pct, params }: GoalFunnel
   const rows = type === 'sellers'
     ? [
         { key: 'revenue', label: 'Faturação' },
-        { key: 'sales', label: 'Vendas' },
-        { key: 'listings', label: 'Angariações' },
-        { key: 'visits', label: 'Visitas' },
-        { key: 'leads', label: 'Leads' },
-        { key: 'calls', label: 'Chamadas' },
+        { key: 'sales', label: 'Fecho' },
+        { key: 'listings', label: 'Angariação' },
+        { key: 'visits', label: 'Estudo de Mercado' },
+        { key: 'leads', label: 'Pré-Angariação' },
+        { key: 'calls', label: 'Leads' },
       ]
     : [
         { key: 'revenue', label: 'Faturação' },
-        { key: 'closes', label: 'Fechos' },
-        { key: 'qualified', label: 'Qualificados' },
-        { key: 'leads', label: 'Leads' },
-        { key: 'calls', label: 'Chamadas' },
+        { key: 'closes', label: 'Fecho' },
+        { key: 'qualified', label: 'Visitas' },
+        { key: 'leads', label: 'Pesquisa de Imóveis' },
+        { key: 'calls', label: 'Leads' },
       ]
 
   function formatValue(key: string, value: number): string {

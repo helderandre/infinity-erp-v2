@@ -105,7 +105,7 @@ export function ErpLinkTags({ contactId }: ErpLinkTagsProps) {
           {owner.properties.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {owner.properties.map((p) => (
-                <Link key={p.id} href={`/dashboard/imoveis/${p.id}`}>
+                <Link key={p.id} href={`/dashboard/imoveis/${p.slug || p.id}`}>
                   <Badge variant="secondary" className="text-[11px] cursor-pointer hover:opacity-80">
                     <Building2 className="h-3 w-3 mr-1" />
                     <span className="truncate max-w-[120px]">{p.title}</span>

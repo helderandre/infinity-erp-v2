@@ -877,12 +877,20 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                               <span>{cartItem.campaignData.objective}</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span>Orçamento</span>
+                              <span>Tipo</span>
+                              <span className="capitalize">{cartItem.campaignData.campaign_type}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span>Orçamento Ads</span>
                               <span>{formatCurrency(cartItem.campaignData.budget_amount)} ({cartItem.campaignData.budget_type === 'daily' ? 'diário' : 'total'})</span>
                             </div>
                             <div className="flex justify-between text-xs">
                               <span>Duração</span>
                               <span>{cartItem.campaignData.duration_days} dias</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span>Gestão</span>
+                              <span>{formatCurrency(cartItem.managementFee)}</span>
                             </div>
                             <div className="border-t border-background/20 pt-1 flex justify-between text-xs font-medium">
                               <span>Custo total</span>
