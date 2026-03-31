@@ -23,7 +23,7 @@ import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { TaskForm } from '@/components/tasks/task-form'
 import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
-import { ContactDialog } from '@/components/leads/contact-dialog'
+import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 
 export function QuickActions() {
   const router = useRouter()
@@ -81,13 +81,10 @@ export function QuickActions() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ContactDialog
+      <LeadEntryDialog
         open={contactOpen}
         onOpenChange={setContactOpen}
-        onComplete={(id) => {
-          setContactOpen(false)
-          router.push(`/dashboard/leads/${id}`)
-        }}
+        onComplete={() => setContactOpen(false)}
       />
 
       <AcquisitionDialog

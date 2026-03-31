@@ -94,7 +94,7 @@ export function GoalDailyPopup() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss() }}>
-      <DialogContent className="sm:max-w-md overflow-hidden rounded-2xl p-0 gap-0">
+      <DialogContent className="sm:max-w-md overflow-hidden !rounded-2xl !p-0 !gap-0 !ring-0" showCloseButton={false}>
         {/* Black header */}
         <div className="bg-neutral-900 rounded-t-2xl px-5 py-4 text-white">
           <div className="flex items-center gap-3">

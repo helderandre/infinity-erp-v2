@@ -227,12 +227,45 @@ export async function POST(request: Request) {
         status: 'new',
         assigned_consultant_id: assignedConsultantId,
         notes: input.notes || null,
+        sector: input.sector || null,
+        has_referral: input.has_referral || false,
+        referral_pct: input.referral_pct ?? null,
+        referral_consultant_id: input.referral_consultant_id || null,
+        referral_external_name: input.referral_external_name || null,
+        referral_external_phone: input.referral_external_phone || null,
+        referral_external_email: input.referral_external_email || null,
+        referral_external_agency: input.referral_external_agency || null,
       })
       .select()
       .single()
 
     if (entryError) {
       return NextResponse.json({ error: entryError.message }, { status: 500 })
+    }
+
+    // ── Step 6: If recruitment sector, also create a recruitment_candidates record ──
+
+    if (input.sector === 'recruitment') {
+      // Map lead entry source to recruitment candidate source
+      const sourceMap: Record<string, string> = {
+        meta_ads: 'paid_campaign', google_ads: 'paid_campaign',
+        social_media: 'social_media', partner: 'referral',
+        organic: 'inbound', website: 'inbound', landing_page: 'inbound',
+        walk_in: 'inbound', phone_call: 'inbound',
+      }
+      const candidateSource = sourceMap[input.source] || 'other'
+
+      await supabase.from('recruitment_candidates').insert({
+        full_name: input.raw_name,
+        phone: normPhone || null,
+        email: normEmail || null,
+        source: candidateSource,
+        source_detail: input.source,
+        status: 'prospect',
+        assigned_recruiter_id: assignedConsultantId || null,
+        notes: input.notes || null,
+        first_contact_date: new Date().toISOString().split('T')[0],
+      })
     }
 
     return NextResponse.json(entry, { status: 201 })

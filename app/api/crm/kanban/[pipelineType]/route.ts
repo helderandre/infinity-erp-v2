@@ -9,7 +9,7 @@ const PIPELINE_TO_SECTORS: Record<PipelineType, string[]> = {
   comprador: ['real_estate_buy'],
   vendedor: ['real_estate_sell'],
   arrendatario: ['real_estate_rent'],
-  arrendador: ['real_estate_sell'], // landlords come from sell-side entries too
+  arrendador: ['real_estate_landlord'],
 }
 
 export async function GET(

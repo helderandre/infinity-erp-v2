@@ -14,6 +14,8 @@ export const createLeadEntrySchema = z.object({
   utm_campaign: z.string().optional().nullable(),
   utm_content: z.string().optional().nullable(),
   utm_term: z.string().optional().nullable(),
+  // Sector (pipeline type)
+  sector: z.enum(['real_estate_buy', 'real_estate_sell', 'real_estate_rent', 'real_estate_landlord', 'recruitment', 'credit']).optional().nullable(),
   // Extra
   form_data: z.record(z.string(), z.unknown()).optional().nullable(),
   form_url: z.string().optional().nullable(),
