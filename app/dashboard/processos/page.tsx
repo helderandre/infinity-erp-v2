@@ -29,7 +29,8 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List, Download } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -136,6 +137,7 @@ export default function ProcessosPage() {
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>()
   const [showFechoDialog, setShowFechoDialog] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const suppressClickUntilRef = useRef(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -285,6 +287,9 @@ export default function ProcessosPage() {
         </div>
         {/* Mobile actions */}
         <div className="flex sm:hidden items-center gap-2">
+          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => setExportOpen(true)}>
+            <Download className="h-3.5 w-3.5" />
+          </Button>
           <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}>
             <Plus className="h-3.5 w-3.5" />
             Angariação
@@ -294,6 +299,11 @@ export default function ProcessosPage() {
             Fecho
           </Button>
         </div>
+        {/* Desktop export */}
+        <Button size="sm" variant="outline" className="hidden sm:inline-flex rounded-full gap-1.5" onClick={() => setExportOpen(true)}>
+          <Download className="h-3.5 w-3.5" />
+          Exportar
+        </Button>
       </div>
 
       {/* Sidebar + Content */}
@@ -923,6 +933,12 @@ export default function ProcessosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/processes"
+        title="Processos"
+      />
       </div>
       </div>
     </div>

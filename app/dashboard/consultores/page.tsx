@@ -27,7 +27,9 @@ import {
   ChevronRight,
   Users,
   Briefcase,
+  Download,
 } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { CONSULTANT_ROLES } from '@/lib/auth/roles'
 import type { ConsultantWithProfile } from '@/types/consultant'
@@ -74,6 +76,7 @@ function ConsultoresPageContent() {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [createOpen, setCreateOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   // Staff state
   const [staffMembers, setStaffMembers] = useState<ConsultantWithProfile[]>([])
@@ -186,15 +189,24 @@ function ConsultoresPageContent() {
             Gestão de consultores, perfis e equipas da imobiliária.
           </p>
         </div>
-        {/* Add button */}
-        <Button
-          size="sm"
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo Consultor
-        </Button>
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setExportOpen(true)}
+          >
+            <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Novo Consultor</span>
+          </Button>
+        </div>
       </div>
 
       {/* ─── Pill Toggle Navigation ─── */}
@@ -469,6 +481,13 @@ function ConsultoresPageContent() {
         open={createOpen}
         onOpenChange={(open) => { setCreateOpen(open); if (!open) loadConsultants() }}
         roles={roles}
+      />
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/consultants"
+        title="Consultores"
+        showConsultantFilter={false}
       />
     </div>
   )

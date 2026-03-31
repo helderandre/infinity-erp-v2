@@ -12,7 +12,10 @@ import {
   Briefcase,
   Euro,
   Kanban,
+  Download,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import {
   PIPELINE_TYPE_LABELS,
   PIPELINE_TYPE_COLORS,
@@ -89,6 +92,7 @@ function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
 
 export default function CRMPage() {
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
+  const [exportOpen, setExportOpen] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -105,6 +109,14 @@ export default function CRMPage() {
             Gestao de negocios e pipeline de vendas, compras e arrendamentos.
           </p>
         </div>
+        <Button
+          size="sm"
+          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+          onClick={() => setExportOpen(true)}
+        >
+          <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Exportar</span>
+        </Button>
       </div>
 
       {/* Tabs + Summary inline */}
@@ -136,6 +148,13 @@ export default function CRMPage() {
 
       {/* Kanban board */}
       <KanbanBoard pipelineType={activeTab} />
+
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/negocios"
+        title="Negócios"
+      />
     </div>
   )
 }

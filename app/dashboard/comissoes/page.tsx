@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Search, CheckCheck, Check, Banknote, X, Loader2,
   ChevronLeft, ChevronRight, Clock, CheckCircle2, TrendingUp,
-  Briefcase, Activity, CircleDollarSign, AlertCircle,
+  Briefcase, Activity, CircleDollarSign, AlertCircle, Download,
 } from 'lucide-react'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -120,6 +121,7 @@ export default function ComissoesPage() {
   const router = useRouter()
 
   // ── Transaction state (existing) ──
+  const [exportOpen, setExportOpen] = useState(false)
   const [txLoading, setTxLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([])
@@ -332,6 +334,14 @@ export default function ComissoesPage() {
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Comissoes</h2>
           <p className="text-neutral-400 mt-1.5 text-sm">Negocios e transaccoes de comissoes</p>
         </div>
+        <Button
+          size="sm"
+          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+          onClick={() => setExportOpen(true)}
+        >
+          <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Exportar</span>
+        </Button>
       </div>
 
       <Tabs defaultValue="negocios">
@@ -699,6 +709,12 @@ export default function ComissoesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/commissions"
+        title="Comissões"
+      />
     </div>
   )
 }

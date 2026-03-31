@@ -14,8 +14,10 @@ import {
   AlertTriangle,
   AlertCircle,
   Info,
+  Download,
 } from 'lucide-react'
-
+import { Button } from '@/components/ui/button'
+import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { cn } from '@/lib/utils'
 import {
   getCandidates,
@@ -66,6 +68,7 @@ export default function RecrutamentoDashboardPage() {
     warning: 0,
     info: 0,
   })
+  const [exportOpen, setExportOpen] = useState(false)
   const [alerts, setAlerts] = useState<RecruitmentAlert[]>([])
   const [recentCandidates, setRecentCandidates] = useState<RecruitmentCandidate[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,11 +125,17 @@ export default function RecrutamentoDashboardPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard de Recrutamento</h1>
-        <p className="text-muted-foreground text-sm">
-          Visao geral do pipeline e actividade recente
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard de Recrutamento</h1>
+          <p className="text-muted-foreground text-sm">
+            Visao geral do pipeline e actividade recente
+          </p>
+        </div>
+        <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => setExportOpen(true)}>
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Exportar</span>
+        </Button>
       </div>
 
       {/* KPI Cards */}
@@ -410,6 +419,13 @@ export default function RecrutamentoDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <CsvExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        endpoint="/api/export/candidates"
+        title="Candidatos"
+      />
     </div>
   )
 }
