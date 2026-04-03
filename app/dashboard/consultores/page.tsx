@@ -210,7 +210,7 @@ function ConsultoresPageContent() {
       </div>
 
       {/* ─── Pill Toggle Navigation ─── */}
-      <div className="mt-6 flex items-center justify-between gap-3">
+      <div className="mt-6 flex items-center justify-center sm:justify-between gap-3 flex-wrap">
         <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
           {TABS.map((tab) => {
             const Icon = tab.icon
@@ -226,7 +226,7 @@ function ConsultoresPageContent() {
                     : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 hidden sm:block" />
                 {tab.label}
               </button>
             )

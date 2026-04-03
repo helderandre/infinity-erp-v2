@@ -32,6 +32,8 @@ interface LeadEntryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onComplete?: () => void
+  /** When true, hides the category selector and locks to real estate only */
+  realEstateOnly?: boolean
 }
 
 const SOURCE_OPTIONS: { value: string; label: string }[] = [
@@ -62,7 +64,7 @@ const TOP_CATEGORIES: { value: TopCategory; label: string; icon: React.ElementTy
 
 // ─── Component ──────────────────────────────────────────────────
 
-export function LeadEntryDialog({ open, onOpenChange, onComplete }: LeadEntryDialogProps) {
+export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly }: LeadEntryDialogProps) {
   const [dialogMode, setDialogMode] = useState<DialogMode>('criar')
   const [category, setCategory] = useState<TopCategory>('imobiliario')
   const [creating, setCreating] = useState(false)
@@ -315,21 +317,23 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete }: LeadEntryDia
           )}
 
           {/* ── Top category: Imobiliário / Recrutamento / Crédito ── */}
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Área</Label>
-            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-              {TOP_CATEGORIES.map((cat) => {
-                const isActive = category === cat.value
-                return (
-                  <button key={cat.value} type="button" onClick={() => { setCategory(cat.value); setForm((p) => ({ ...p, sector: '' })) }}
-                    className={cn('rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-                    <cat.icon className="h-3.5 w-3.5" />
-                    {cat.label}
-                  </button>
-                )
-              })}
+          {!realEstateOnly && (
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Área</Label>
+              <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                {TOP_CATEGORIES.map((cat) => {
+                  const isActive = category === cat.value
+                  return (
+                    <button key={cat.value} type="button" onClick={() => { setCategory(cat.value); setForm((p) => ({ ...p, sector: '' })) }}
+                      className={cn('rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                      <cat.icon className="h-3.5 w-3.5" />
+                      {cat.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ── Imobiliário sub-type ── */}
           {category === 'imobiliario' && (

@@ -159,7 +159,7 @@ export default function LeadEntriesPage() {
             onClick={() => setShowNewDialog(true)}
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Novo Lead
+            Nova Lead
           </Button>
         </div>
       </div>
@@ -353,6 +353,7 @@ export default function LeadEntriesPage() {
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
         onComplete={fetchEntries}
+        realEstateOnly
       />
 
       {/* ═══ Bulk Import Dialog ═══ */}
