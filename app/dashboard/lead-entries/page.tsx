@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -11,19 +10,21 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
+import { LeadEntrySheet } from '@/components/leads/lead-entry-sheet'
+import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import {
-  Zap, Plus, MoreHorizontal, Check, X, Eye, UserCheck,
-  Phone, Mail, Link2, AlertTriangle, ExternalLink, Megaphone, Upload,
+  Zap, Plus, MoreHorizontal, X, Eye, ArrowRight,
+  Phone, Mail, Link2, AlertTriangle, UserCheck, Megaphone, Upload,
 } from 'lucide-react'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import type { LeadEntry, LeadEntrySource, LeadEntryStatus } from '@/types/lead-entry'
+import type { LeadEntry, LeadEntryStatus } from '@/types/lead-entry'
 
 const SOURCE_LABELS: Record<string, { label: string; class: string }> = {
   meta_ads:     { label: 'Meta Ads',      class: 'bg-blue-500/10 text-blue-600' },
@@ -47,7 +48,6 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
 }
 
 function MatchTag({ entry }: { entry: LeadEntry }) {
-  const details = entry.match_details
   const consultantName = entry.contact?.agent?.commercial_name
   const isMatch = entry.match_type && entry.match_type !== 'none'
 
@@ -57,7 +57,7 @@ function MatchTag({ entry }: { entry: LeadEntry }) {
         <>
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-medium">
             <Link2 className="h-2.5 w-2.5" />
-            Ja no sistema · {entry.match_type === 'both' ? 'via telefone e email' : entry.match_type === 'phone' ? 'via telefone' : 'via email'}
+            Ja no sistema · {entry.match_type === 'both' ? 'tel + email' : entry.match_type === 'phone' ? 'telefone' : 'email'}
           </span>
           {consultantName && (
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 text-[10px] font-medium">
@@ -69,13 +69,13 @@ function MatchTag({ entry }: { entry: LeadEntry }) {
       ) : (
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-medium">
           <Plus className="h-2.5 w-2.5" />
-          Novo contacto criado
+          Novo
         </span>
       )}
-      {details?.is_duplicate_conflict && (
+      {entry.match_details?.is_duplicate_conflict && (
         <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 text-red-600 px-2 py-0.5 text-[10px] font-medium">
           <AlertTriangle className="h-2.5 w-2.5" />
-          Conflito duplicado
+          Conflito
         </span>
       )}
     </div>
@@ -83,16 +83,17 @@ function MatchTag({ entry }: { entry: LeadEntry }) {
 }
 
 export default function LeadEntriesPage() {
-  const router = useRouter()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('new')
   const [sourceFilter, setSourceFilter] = useState<string>('all')
 
-  // New lead dialog
+  // Dialogs & Sheet
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [sheetEntryId, setSheetEntryId] = useState<string | null>(null)
+  const [qualifyEntry, setQualifyEntry] = useState<LeadEntry | null>(null)
 
   const fetchEntries = useCallback(async () => {
     setLoading(true)
@@ -138,7 +139,7 @@ export default function LeadEntriesPage() {
             <Zap className="h-5 w-5 text-blue-400" />
             <p className="text-blue-400 text-xs font-medium tracking-widest uppercase">Inbound</p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Leads</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Leads por Contactar</h2>
           <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
             {total} lead{total !== 1 ? 's' : ''} · {newCount > 0 ? `${newCount} novo${newCount !== 1 ? 's' : ''}` : 'nenhum novo'}
           </p>
@@ -207,7 +208,7 @@ export default function LeadEntriesPage() {
           </div>
           <h3 className="text-lg font-medium">Nenhum lead encontrado</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {statusFilter !== 'all' ? 'Tente ajustar os filtros.' : 'Os leads aparecerao aqui quando chegarem.'}
+            {statusFilter !== 'all' ? 'Tente ajustar os filtros.' : 'Os leads aparecerão aqui quando chegarem.'}
           </p>
         </div>
       ) : (
@@ -218,7 +219,7 @@ export default function LeadEntriesPage() {
                 <TableHead className="w-[200px]">Nome</TableHead>
                 <TableHead>Contacto</TableHead>
                 <TableHead>Origem</TableHead>
-                <TableHead>Correspondencia</TableHead>
+                <TableHead>Correspondência</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Consultor</TableHead>
                 <TableHead>Data</TableHead>
@@ -231,7 +232,6 @@ export default function LeadEntriesPage() {
                 const srcInfo = SOURCE_LABELS[entry.source] || SOURCE_LABELS.other
                 const statusInfo = STATUS_CONFIG[entry.status] || STATUS_CONFIG.new
                 const isNew = entry.status === 'new'
-                const isMatch = entry.match_type && entry.match_type !== 'none'
 
                 return (
                   <TableRow
@@ -240,7 +240,7 @@ export default function LeadEntriesPage() {
                       'cursor-pointer hover:bg-muted/50 transition-colors',
                       isNew && 'bg-blue-50/50 dark:bg-blue-950/20'
                     )}
-                    onClick={() => router.push(`/dashboard/lead-entries/${entry.id}`)}
+                    onClick={() => setSheetEntryId(entry.id)}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -303,19 +303,19 @@ export default function LeadEntriesPage() {
                               <Eye className="mr-2 h-4 w-4" /> Marcar Visto
                             </DropdownMenuItem>
                           )}
-                          {['new', 'seen'].includes(entry.status) && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateStatus(entry.id, 'converted') }}>
-                              <Check className="mr-2 h-4 w-4" /> Converter
+                          {!['converted', 'discarded'].includes(entry.status) && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setQualifyEntry(entry) }}>
+                              <ArrowRight className="mr-2 h-4 w-4" /> Qualificar
                             </DropdownMenuItem>
                           )}
                           {!['converted', 'discarded'].includes(entry.status) && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateStatus(entry.id, 'discarded') }} className="text-destructive">
-                              <X className="mr-2 h-4 w-4" /> Descartar
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateStatus(entry.id, 'discarded') }} className="text-destructive">
+                                <X className="mr-2 h-4 w-4" /> Descartar
+                              </DropdownMenuItem>
+                            </>
                           )}
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/leads/${entry.contact_id}`) }}>
-                            <ExternalLink className="mr-2 h-4 w-4" /> Ver Contacto
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -326,6 +326,27 @@ export default function LeadEntriesPage() {
           </Table>
         </div>
       )}
+
+      {/* ═══ Lead Detail Sheet ═══ */}
+      <LeadEntrySheet
+        entryId={sheetEntryId}
+        open={!!sheetEntryId}
+        onOpenChange={(open) => { if (!open) setSheetEntryId(null) }}
+        onQualify={(entry) => setQualifyEntry(entry)}
+        onStatusChange={fetchEntries}
+      />
+
+      {/* ═══ Qualify Dialog ═══ */}
+      <QualifyEntryDialog
+        open={!!qualifyEntry}
+        onOpenChange={(open) => { if (!open) setQualifyEntry(null) }}
+        entry={qualifyEntry}
+        onQualified={() => {
+          setQualifyEntry(null)
+          setSheetEntryId(null)
+          fetchEntries()
+        }}
+      />
 
       {/* ═══ New Lead Dialog ═══ */}
       <LeadEntryDialog

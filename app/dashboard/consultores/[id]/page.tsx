@@ -29,6 +29,7 @@ import { formatCurrency, formatDate, PROPERTY_TYPES } from '@/lib/constants'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ConsultantPhotoCropper } from '@/components/consultants/consultant-photo-cropper'
+import { KitMarketingTab } from '@/components/consultants/kit-marketing-tab'
 import { useImageCompress } from '@/hooks/use-image-compress'
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -991,6 +992,53 @@ export default function ConsultorDetalhePage() {
           {/* ═══════ MARKETING ═══════ */}
           {activeTab === 'marketing' && (
             <div className="space-y-5">
+              {/* Kit Marketing */}
+              <KitMarketingTab consultantId={id} />
+
+              {/* Fotos do Consultor */}
+              <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-4">
+                <div>
+                  <h3 className="font-semibold text-sm">Fotos do Consultor</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Foto original e versão sem fundo (gerada automaticamente)</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Original</p>
+                    {(profile as any)?.profile_photo_url ? (
+                      <div className="rounded-xl border bg-muted/20 overflow-hidden aspect-square">
+                        <img
+                          src={(profile as any).profile_photo_url}
+                          alt="Foto original"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed bg-muted/10 aspect-square flex items-center justify-center">
+                        <p className="text-xs text-muted-foreground">Sem foto</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Sem Fundo</p>
+                    {(profile as any)?.profile_photo_nobg_url ? (
+                      <div className="rounded-xl border overflow-hidden aspect-square" style={{ backgroundImage: 'repeating-conic-gradient(#e5e7eb 0% 25%, transparent 0% 50%)', backgroundSize: '16px 16px' }}>
+                        <img
+                          src={(profile as any).profile_photo_nobg_url}
+                          alt="Foto sem fundo"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed bg-muted/10 aspect-square flex items-center justify-center">
+                        <p className="text-xs text-muted-foreground text-center px-2">
+                          {(profile as any)?.profile_photo_url ? 'A gerar...' : 'Sem foto'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Email Signature */}
               <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-4">
                 <div className="flex items-center justify-between">

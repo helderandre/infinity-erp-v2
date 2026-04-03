@@ -48,9 +48,12 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
+    const contact_id = searchParams.get('contact_id')
+
     if (status) query = query.eq('status', status)
     if (source) query = query.eq('source', source)
     if (consultant_id) query = query.eq('assigned_consultant_id', consultant_id)
+    if (contact_id) query = query.eq('contact_id', contact_id)
 
     const { data, error, count } = await query
 

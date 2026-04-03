@@ -2,13 +2,12 @@
 
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles, UserPlus } from 'lucide-react'
+import { Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface KanbanCardProps {
   negocio: any
   onDragStart: (negocioId: string) => void
-  onEntryClick?: (entry: any) => void
 }
 
 const formatEUR = (value: number) =>
@@ -31,110 +30,9 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'Outro',
 }
 
-// ─── Lead Entry Card (unqualified) ──────────────────────────────────────────
+// ─── Negócio Card ──────────────────────────────────────────────────────────
 
-function EntryCard({ entry, onDragStart, onEntryClick }: { entry: any; onDragStart: (id: string) => void; onEntryClick?: (entry: any) => void }) {
-  const router = useRouter()
-  const contact = entry.contact
-  const consultant = entry.assigned_consultant
-  const daysInStage = entry.days_in_stage ?? 0
-  const slaOverdue = entry.sla_overdue ?? false
-
-  const displayName = contact?.nome || entry.raw_name || 'Sem nome'
-  const source = entry.source
-  const hasReferral = entry.has_referral
-
-  function handleDragStart(e: React.DragEvent<HTMLDivElement>) {
-    e.dataTransfer.setData('entry_id', entry.id)
-    e.dataTransfer.effectAllowed = 'move'
-    onDragStart(entry.id)
-  }
-
-  function handleClick() {
-    if (contact?.id) {
-      router.push(`/dashboard/leads/${contact.id}?tab=leads&entry=${entry.id}`)
-    } else if (onEntryClick) {
-      onEntryClick(entry)
-    }
-  }
-
-  return (
-    <div
-      draggable
-      onDragStart={handleDragStart}
-      onClick={handleClick}
-      className={cn(
-        'bg-card rounded-2xl border border-dashed border-border/40 p-3 shadow-sm cursor-pointer',
-        'hover:shadow-lg hover:border-primary/30 hover:bg-card transition-all duration-200 select-none',
-        slaOverdue && 'border-l-2 border-l-red-400'
-      )}
-    >
-      {/* Top row: name + source badge */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <UserPlus className="h-3 w-3 text-primary/60 shrink-0" />
-          <p className="font-semibold text-sm text-foreground leading-snug truncate">
-            {displayName}
-          </p>
-        </div>
-        {source && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 py-0 font-medium rounded-full shrink-0">
-            {SOURCE_LABELS[source] || source}
-          </Badge>
-        )}
-      </div>
-
-      {/* Message snippet */}
-      {entry.notes && (
-        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-          {entry.notes}
-        </p>
-      )}
-
-      {/* Referral badge */}
-      {hasReferral && (
-        <div className="mt-1.5">
-          <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5">
-            <Sparkles className="h-2.5 w-2.5" />
-            Referência{entry.referral_pct ? ` ${entry.referral_pct}%` : ''}
-          </Badge>
-        </div>
-      )}
-
-      {/* Footer: consultant + days */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/20 gap-2">
-        {consultant?.commercial_name ? (
-          <div className="flex items-center gap-1 min-w-0">
-            <User className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-[11px] text-muted-foreground truncate">
-              {consultant.commercial_name}
-            </span>
-          </div>
-        ) : (
-          <span className="text-[11px] text-muted-foreground/50 italic">Sem consultor</span>
-        )}
-
-        <div className="flex items-center gap-1 shrink-0">
-          {slaOverdue ? (
-            <Badge variant="destructive" className="h-4 px-1.5 text-[10px] font-medium gap-0.5 rounded-full">
-              <AlertTriangle className="h-2.5 w-2.5" />
-              {daysInStage}d
-            </Badge>
-          ) : (
-            <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>{daysInStage}d</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Negócio Card (qualified) ───────────────────────────────────────────────
-
-function NegocioCard({ negocio, onDragStart }: { negocio: any; onDragStart: (id: string) => void }) {
+export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
   const router = useRouter()
 
   const contact = negocio.contact ?? negocio.leads
@@ -271,13 +169,4 @@ function NegocioCard({ negocio, onDragStart }: { negocio: any; onDragStart: (id:
       </div>
     </div>
   )
-}
-
-// ─── Export: auto-select card type based on _type ───────────────────────────
-
-export function KanbanCard({ negocio, onDragStart, onEntryClick }: KanbanCardProps) {
-  if (negocio._type === 'entry') {
-    return <EntryCard entry={negocio} onDragStart={onDragStart} onEntryClick={onEntryClick} />
-  }
-  return <NegocioCard negocio={negocio} onDragStart={onDragStart} />
 }

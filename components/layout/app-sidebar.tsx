@@ -9,8 +9,8 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, UserCheck, ContactRound, Kanban, Package, Boxes, Truck, Shield,
-  CheckSquare, Cpu, Infinity, KeyRound,
+  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield,
+  CheckSquare, Cpu, Infinity, KeyRound, Library,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -43,6 +43,7 @@ export const meuEspacoItems = [
   { title: 'Tarefas', icon: CheckSquare, href: '/dashboard/tarefas', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
+  { title: 'Docs e Marketing', icon: Library, href: '/dashboard/documentos', permission: 'dashboard' },
 ]
 
 export const comunicacaoItems = [
@@ -68,7 +69,6 @@ export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  { title: 'Acompanhamentos', icon: UserCheck, href: '/dashboard/acompanhamentos', permission: 'leads' },
 ]
 
 export const gestaoLeadsItems = [
@@ -114,6 +114,7 @@ export const lojaItems = [
 ]
 
 export const digitalItems = [
+  { title: 'Kit Consultor', icon: Blocks, href: '/dashboard/marketing/kit-consultor' },
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },

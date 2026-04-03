@@ -11,7 +11,7 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import {
   Infinity, Send, Sparkles, Mic, MicOff, Loader2,
   MapPin, BedDouble, Maximize, Euro, ExternalLink, Eye,
-  Phone, Mail, User, Building2,
+  Phone, Mail, User, Building2, FileText, Download, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,8 @@ const SUGGESTIONS = [
   'Quais são as minhas tarefas pendentes?',
   'Resume os meus KPIs',
   'Imóveis disponíveis em Lisboa',
+  'Preciso do documento CMI',
+  'Que templates de marketing temos?',
 ]
 
 // ── Card Renderers ────────────────────────────────────────────
@@ -159,6 +161,61 @@ function DataCards({ data, onNavigate }: { data: ToolResult[]; onNavigate: (path
       )
     }
 
+    // Documents & marketing templates
+    if (result.tool === 'search_documents') {
+      const docs = d.documents || []
+      const mktTemplates = d.marketing_templates || []
+      const allDocs = [...docs, ...mktTemplates]
+      if (allDocs.length > 0) {
+        items.push(
+          <div key={`docs-${items.length}`} className="space-y-1">
+            {docs.slice(0, 5).map((doc: any) => (
+              <a
+                key={doc.id}
+                href={doc.file_path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 rounded-lg border p-2.5 hover:bg-muted/50 transition-colors"
+              >
+                <div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate">{doc.name}</p>
+                  <p className="text-[9px] text-muted-foreground uppercase">{doc.file_extension} · {doc.category}</p>
+                </div>
+                <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+              </a>
+            ))}
+            {mktTemplates.slice(0, 5).map((t: any) => (
+              <a
+                key={t.id}
+                href={t.canva_url || '#'}
+                target={t.canva_url ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 rounded-lg border p-2.5 hover:bg-muted/50 transition-colors"
+              >
+                {t.thumbnail_url ? (
+                  <div className="h-7 w-7 rounded-md overflow-hidden bg-muted shrink-0">
+                    <img src={t.thumbnail_url} alt={t.name} className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate">{t.name}</p>
+                  <p className="text-[9px] text-muted-foreground capitalize">{t.category} · {t.is_team_design ? 'Equipa' : 'Pessoal'}</p>
+                </div>
+                <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+              </a>
+            ))}
+          </div>
+        )
+      }
+    }
+
     // Search contacts
     if (result.tool === 'search_contacts') {
       const all = [
@@ -190,6 +247,7 @@ export function AiAgentChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -352,6 +410,36 @@ export function AiAgentChat() {
               <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2">
                 <Spinner variant="infinite" size={12} />
                 A pensar...
+              </div>
+            )}
+
+            {/* Show suggestions button + suggestions grid */}
+            {messages.length > 0 && !loading && (
+              <div className="pt-2">
+                {showSuggestions ? (
+                  <div className="space-y-2">
+                    <div className="grid sm:grid-cols-2 gap-2 max-w-lg mx-auto">
+                      {SUGGESTIONS.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setShowSuggestions(false); sendMessage(s) }}
+                          className="text-left text-[11px] rounded-xl border p-3 transition-colors hover:bg-muted/50 text-muted-foreground"
+                        >
+                          <Sparkles className="h-3 w-3 inline-block mr-1.5 opacity-40" />
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowSuggestions(true)}
+                    className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors mx-auto"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Ver sugestões
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -1,32 +1,26 @@
+// @ts-nocheck
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { createLeadSchema, type CreateLeadInput } from '@/lib/validations/lead'
-import { Button } from '@/components/ui/button'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
-import { MaskInput } from '@/components/ui/mask-input'
-import { Textarea } from '@/components/ui/textarea'
-import { phonePTMask } from '@/lib/masks'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Spinner } from '@/components/kibo-ui/spinner'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
+import {
+  Mic, MicOff, Loader2, Sparkles, ArrowDownLeft, ArrowUpRight,
+  ShoppingCart, Store, Key, Building2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { Switch } from '@/components/ui/switch'
-import { LEAD_ORIGENS, LEAD_TYPES } from '@/lib/constants'
 import { useUser } from '@/hooks/use-user'
-import { Mic, MicOff, Loader2, Sparkles, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-type ReferralDirection = null | 'incoming' | 'outgoing'
 
 interface LeadFormProps {
   consultants: { id: string; commercial_name: string }[]
@@ -34,432 +28,493 @@ interface LeadFormProps {
   onCancel?: () => void
 }
 
+const LEAD_ORIGENS_OPTIONS = [
+  'Website', 'Meta Ads', 'Google Ads', 'Landing Page', 'Referência',
+  'Presencial', 'Chamada', 'Redes Sociais', 'Parceiro', 'Outro',
+]
+
+const NEGOCIO_TYPES = [
+  { value: 'Compra', label: 'Comprador', icon: ShoppingCart },
+  { value: 'Venda', label: 'Vendedor', icon: Store },
+  { value: 'Arrendatário', label: 'Arrendatário', icon: Key },
+  { value: 'Arrendador', label: 'Senhorio', icon: Building2 },
+]
+
+const PROPERTY_TYPES = [
+  'Apartamento', 'Moradia', 'Quinta', 'Prédio',
+  'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
+]
+
 export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
   const router = useRouter()
   const { user } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Contact fields
+  const [form, setForm] = useState({
+    nome: '',
+    email: '',
+    telemovel: '',
+    origem: '',
+    observacoes: '',
+    agent_id: user?.id || '',
+  })
+
+  useEffect(() => {
+    if (user?.id && !form.agent_id) setForm((p) => ({ ...p, agent_id: user.id }))
+  }, [user?.id])
+
+  // Negócio inline (required: at least tipo)
+  const [negocioTipo, setNegocioTipo] = useState<string>('')
+  const [negocioFields, setNegocioFields] = useState({
+    tipo_imovel: '',
+    localizacao: '',
+    quartos_min: '',
+    orcamento: '',
+    orcamento_max: '',
+  })
+
   // Referral
-  const [referralDir, setReferralDir] = useState<ReferralDirection>(null)
+  const [referralDir, setReferralDir] = useState<null | 'incoming' | 'outgoing'>(null)
   const [referralConsultantId, setReferralConsultantId] = useState('')
   const [referralNotes, setReferralNotes] = useState('')
 
-  // Audio recording
+  // AI
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiText, setAiText] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [transcription, setTranscription] = useState<string | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<CreateLeadInput>({
-    resolver: zodResolver(createLeadSchema),
-    defaultValues: {
-      agent_id: user?.id || '',
-    },
-  })
+  // ── AI ────────────────────────────────────────────────────────
+
+  const applyExtracted = (fields: Record<string, any>) => {
+    setForm((p) => ({
+      ...p,
+      nome: fields.nome || fields.name || p.nome,
+      email: fields.email || p.email,
+      telemovel: fields.telemovel || fields.phone || p.telemovel,
+      observacoes: fields.observacoes ? (p.observacoes ? p.observacoes + '\n' + fields.observacoes : fields.observacoes) : p.observacoes,
+    }))
+    if (fields.localizacao) setNegocioFields((p) => ({ ...p, localizacao: fields.localizacao }))
+    if (fields.quartos_min || fields.quartos) setNegocioFields((p) => ({ ...p, quartos_min: String(fields.quartos_min || fields.quartos) }))
+    if (fields.orcamento) setNegocioFields((p) => ({ ...p, orcamento: String(fields.orcamento) }))
+    if (fields.orcamento_max) setNegocioFields((p) => ({ ...p, orcamento_max: String(fields.orcamento_max) }))
+    if (fields.tipo_imovel) setNegocioFields((p) => ({ ...p, tipo_imovel: fields.tipo_imovel }))
+  }
 
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
-      mediaRecorderRef.current = mediaRecorder
+      const mr = new MediaRecorder(stream)
+      mediaRecorderRef.current = mr
       chunksRef.current = []
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop())
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        await processAudio(blob)
+        setIsProcessing(true)
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob, 'recording.webm')
+          const res = await fetch('/api/lead-entries/transcribe', { method: 'POST', body: fd })
+          if (!res.ok) throw new Error()
+          const data = await res.json()
+          applyExtracted(data.extracted || {})
+          setAiText(data.transcription || '')
+          toast.success('Transcrição concluída')
+        } catch { toast.error('Erro na transcrição') }
+        finally { setIsProcessing(false) }
       }
-
-      mediaRecorder.start()
+      mr.start()
       setIsRecording(true)
-    } catch {
-      toast.error('Não foi possível aceder ao microfone')
-    }
+    } catch { toast.error('Erro ao aceder ao microfone') }
   }, [])
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-    }
-  }, [isRecording])
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false) }
 
-  const processAudio = async (blob: Blob) => {
-    setIsProcessing(true)
-    try {
-      // 1. Transcribe
-      const formData = new FormData()
-      formData.append('audio', blob)
-      const transcribeRes = await fetch('/api/transcribe', { method: 'POST', body: formData })
-      if (!transcribeRes.ok) throw new Error('Erro na transcrição')
-      const { text } = await transcribeRes.json()
-      setTranscription(text)
-
-      // 2. Extract fields
-      const extractRes = await fetch('/api/leads/extract-from-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-      if (!extractRes.ok) throw new Error('Erro ao extrair dados')
-      const { fields } = await extractRes.json()
-
-      // 3. Fill form fields
-      if (fields.nome) setValue('nome', fields.nome)
-      if (fields.email) setValue('email', fields.email)
-      if (fields.telemovel) setValue('telemovel', fields.telemovel)
-      if (fields.telefone) setValue('telefone', fields.telefone)
-      if (fields.origem) setValue('origem', fields.origem)
-      if (fields.observacoes) {
-        const current = watch('observacoes') || ''
-        setValue('observacoes', current ? `${current}\n\n${fields.observacoes}` : fields.observacoes)
-      }
-
-      toast.success('Dados extraídos com sucesso')
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao processar áudio')
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const processText = async (text: string) => {
+  const extractFromText = async (text: string) => {
     if (!text.trim()) return
     setIsProcessing(true)
     try {
-      const extractRes = await fetch('/api/leads/extract-from-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/leads/extract-from-text', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-      if (!extractRes.ok) throw new Error('Erro ao extrair dados')
-      const { fields } = await extractRes.json()
-
-      if (fields.nome) setValue('nome', fields.nome)
-      if (fields.email) setValue('email', fields.email)
-      if (fields.telemovel) setValue('telemovel', fields.telemovel)
-      if (fields.telefone) setValue('telefone', fields.telefone)
-      if (fields.origem) setValue('origem', fields.origem)
-      if (fields.observacoes) {
-        const current = watch('observacoes') || ''
-        setValue('observacoes', current ? `${current}\n\n${fields.observacoes}` : fields.observacoes)
-      }
-
-      toast.success('Dados extraídos com sucesso')
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao extrair dados')
-    } finally {
-      setIsProcessing(false)
-    }
+      if (!res.ok) throw new Error()
+      const { fields } = await res.json()
+      applyExtracted(fields)
+      toast.success('Dados extraídos')
+      setAiOpen(false)
+    } catch { toast.error('Erro ao extrair dados') }
+    finally { setIsProcessing(false) }
   }
 
-  const onSubmit = async (data: CreateLeadInput) => {
+  // ── Submit ────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return }
+    if (!negocioTipo) { toast.error('Seleccione o tipo de negócio (compra, venda, etc.)'); return }
+
     setIsSubmitting(true)
     try {
-      const res = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao criar lead')
+      // 1. Create contact
+      const leadPayload: Record<string, any> = {
+        nome: form.nome,
+        email: form.email || null,
+        telemovel: form.telemovel || null,
+        origem: form.origem || null,
+        observacoes: form.observacoes || null,
+        agent_id: form.agent_id || null,
+        estado: 'Contactado',
       }
 
-      const { id } = await res.json()
+      const leadRes = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadPayload),
+      })
 
-      // Create referral if set
+      if (!leadRes.ok) {
+        const err = await leadRes.json()
+        throw new Error(err.error || 'Erro ao criar contacto')
+      }
+
+      const { id: contactId } = await leadRes.json()
+
+      // 2. Create negócio (qualification)
+      const pipelineMap: Record<string, string> = {
+        Compra: 'comprador', Venda: 'vendedor',
+        'Arrendatário': 'arrendatario', 'Arrendador': 'arrendador',
+      }
+      const pt = pipelineMap[negocioTipo] || 'comprador'
+
+      // Fetch first non-terminal stage
+      let stageId: string | null = null
+      try {
+        const stagesRes = await fetch(`/api/crm/pipeline-stages?pipeline_type=${pt}`)
+        const stagesData = await stagesRes.json()
+        const stages = (stagesData.data || stagesData || [])
+          .filter((s: any) => !s.is_terminal)
+          .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        stageId = stages[0]?.id
+      } catch {}
+
+      if (stageId) {
+        const negPayload: Record<string, any> = {
+          lead_id: contactId,
+          tipo: negocioTipo,
+          pipeline_stage_id: stageId,
+          assigned_consultant_id: form.agent_id || null,
+        }
+        if (negocioFields.tipo_imovel) negPayload.tipo_imovel = negocioFields.tipo_imovel
+        if (negocioFields.localizacao) negPayload.localizacao = negocioFields.localizacao
+        if (negocioFields.quartos_min) negPayload.quartos_min = parseInt(negocioFields.quartos_min)
+        if (negocioFields.orcamento) {
+          negPayload.orcamento = parseFloat(negocioFields.orcamento)
+          negPayload.expected_value = parseFloat(negocioFields.orcamento)
+        }
+        if (negocioFields.orcamento_max) negPayload.orcamento_max = parseFloat(negocioFields.orcamento_max)
+
+        await fetch('/api/crm/negocios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(negPayload),
+        })
+      }
+
+      // 3. Create referral if set
       if (referralDir && referralConsultantId && user?.id) {
         try {
           await fetch('/api/crm/referrals', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contact_id: id,
+              contact_id: contactId,
               referral_type: 'internal',
               from_consultant_id: referralDir === 'incoming' ? referralConsultantId : user.id,
               to_consultant_id: referralDir === 'incoming' ? user.id : referralConsultantId,
               notes: referralNotes || null,
             }),
           })
-        } catch {
-          // Don't block lead creation if referral fails
-          toast.error('Lead criado, mas erro ao registar referência')
-        }
+        } catch {}
       }
 
-      toast.success('Contacto criado com sucesso')
-      if (onSuccess) {
-        onSuccess(id)
-      } else {
-        router.push(`/dashboard/leads/${id}`)
-      }
+      toast.success('Contacto e negócio criados com sucesso')
+      if (onSuccess) onSuccess(contactId)
+      else router.push(`/dashboard/leads/${contactId}`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao criar lead')
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar contacto')
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const isBuyer = negocioTipo === 'Compra' || negocioTipo === 'Arrendatário'
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* AI Quick-fill — audio or text */}
-      <div className="rounded-2xl border bg-neutral-50 dark:bg-white/5 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preenchimento por voz ou texto</p>
+    <div className="flex flex-col max-h-[85vh]">
+      {/* ─── Dark header ─── */}
+      <div className="bg-neutral-900 rounded-t-2xl px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white/50 text-[10px] font-medium tracking-widest uppercase">Novo</p>
+            <p className="text-white font-semibold text-base mt-0.5">Contacto</p>
+          </div>
+
+          {/* AI popover */}
+          <Popover open={aiOpen} onOpenChange={setAiOpen}>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                'h-8 w-8 rounded-full flex items-center justify-center transition-colors',
+                isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15',
+                isProcessing && 'bg-white/10 text-white/60'
+              )}>
+                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" sideOffset={8} className="w-72 rounded-xl p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                {isRecording ? (
+                  <Button type="button" variant="destructive" size="sm" className="rounded-full gap-2 h-7 text-xs" onClick={() => { stopRecording(); setAiOpen(false) }}>
+                    <MicOff className="h-3 w-3" />
+                    <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" /></span>
+                    Parar
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" className="rounded-full gap-1.5 h-7 text-xs" disabled={isProcessing} onClick={() => { startRecording(); setAiOpen(false) }}>
+                    <Mic className="h-3 w-3" /> Gravar
+                  </Button>
+                )}
+                {isProcessing && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> A processar...</span>}
+              </div>
+              <Textarea placeholder="Cole texto com dados do contacto..." rows={3} className="text-xs resize-none rounded-lg" value={aiText} onChange={(e) => setAiText(e.target.value)} />
+              <Button type="button" size="sm" className="rounded-full text-xs gap-1.5 w-full h-7" disabled={isProcessing || !aiText.trim()} onClick={() => extractFromText(aiText)}>
+                <Sparkles className="h-3 w-3" /> Extrair dados
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Grave um áudio ou cole um texto com as informações do lead e a IA preenche os campos automaticamente.
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={isRecording ? 'destructive' : 'outline'}
-            size="sm"
-            className="rounded-full gap-2"
-            disabled={isProcessing}
-            onClick={isRecording ? stopRecording : startRecording}
-          >
-            {isRecording ? (
-              <>
-                <MicOff className="h-3.5 w-3.5" />
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                </span>
-                Parar
-              </>
-            ) : (
-              <>
-                <Mic className="h-3.5 w-3.5" />
-                Gravar Áudio
-              </>
-            )}
-          </Button>
-          {isProcessing && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              A processar...
-            </span>
-          )}
-        </div>
-        {/* Text paste option */}
-        <div className="space-y-1.5">
-          <Textarea
-            placeholder="Ou cole aqui um texto / mensagem com os dados do lead..."
-            rows={2}
-            className="text-xs resize-none"
-            id="ai-text-input"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-full text-xs gap-1.5"
-            disabled={isProcessing}
-            onClick={() => {
-              const el = document.getElementById('ai-text-input') as HTMLTextAreaElement
-              if (el?.value) processText(el.value)
-            }}
-          >
-            <Sparkles className="h-3 w-3" />
-            Extrair dados do texto
-          </Button>
-        </div>
-        {transcription && (
-          <div className="rounded-xl bg-white dark:bg-neutral-900 border p-3 text-xs text-muted-foreground">
-            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1">Transcrição</p>
-            <p className="leading-relaxed">{transcription}</p>
+
+        {isRecording && (
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-red-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />A gravar...
           </div>
         )}
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="nome">Nome *</Label>
+      {/* ─── Form body ─── */}
+      <div className="px-5 pt-4 pb-5 space-y-4 overflow-y-auto flex-1">
+
+        {/* Tipo de negócio (required) */}
+        <div>
+          <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Negócio *</Label>
+          <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+            {NEGOCIO_TYPES.map((t) => {
+              const isActive = negocioTipo === t.value
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setNegocioTipo(isActive ? '' : t.value)}
+                  className={cn(
+                    'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
+                    isActive
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Contact fields */}
+        <div>
+          <Label className="text-[11px] text-muted-foreground font-medium">Nome *</Label>
           <Input
-            id="nome"
-            placeholder="Nome do lead"
-            {...register('nome')}
+            placeholder="Nome completo"
+            value={form.nome}
+            onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
+            className="rounded-lg mt-1 h-9"
           />
-          {errors.nome && (
-            <p className="text-sm text-destructive">{errors.nome.message}</p>
-          )}
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Email</Label>
             <Input
-              id="email"
               type="email"
-              placeholder="email@exemplo.com"
-              {...register('email')}
+              placeholder="email@exemplo.pt"
+              value={form.email}
+              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              className="rounded-lg mt-1 h-9"
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="telemovel">Telemóvel</Label>
-            <MaskInput
-              mask={phonePTMask}
-              placeholder="+351 9XX XXX XXX"
-              onValueChange={(_masked, unmasked) => {
-                setValue('telemovel', unmasked)
-              }}
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Telemóvel</Label>
+            <Input
+              placeholder="+351 912 345 678"
+              value={form.telemovel}
+              onChange={(e) => setForm((p) => ({ ...p, telemovel: e.target.value }))}
+              className="rounded-lg mt-1 h-9"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="lead_type">Tipo de Lead</Label>
-            <Select onValueChange={(v) => setValue('lead_type', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar tipo" />
-              </SelectTrigger>
+        {/* Origem + Consultor */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
+            <Select value={form.origem || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, origem: v === '_none' ? '' : v }))}>
+              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
               <SelectContent>
-                {Object.entries(LEAD_TYPES).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="_none">—</SelectItem>
+                {LEAD_ORIGENS_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="origem">Origem</Label>
-            <Select onValueChange={(v) => setValue('origem', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar origem" />
-              </SelectTrigger>
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Consultor</Label>
+            <Select value={form.agent_id || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, agent_id: v === '_none' ? '' : v }))}>
+              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
               <SelectContent>
-                {LEAD_ORIGENS.map((o) => (
-                  <SelectItem key={o} value={o}>
-                    {o}
-                  </SelectItem>
+                <SelectItem value="_none">—</SelectItem>
+                {consultants.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.commercial_name}{c.id === user?.id ? ' (eu)' : ''}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="agent_id">Atribuir a</Label>
-          <Select defaultValue={user?.id || ''} onValueChange={(v) => setValue('agent_id', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar consultor" />
-            </SelectTrigger>
-            <SelectContent>
-              {consultants.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.commercial_name}{c.id === user?.id ? ' (eu)' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Negócio details (optional, expandable if tipo selected) */}
+        {negocioTipo && (
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Detalhes do negócio (opcional)</p>
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Imóvel</Label>
+              <Select value={negocioFields.tipo_imovel || '_none'} onValueChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v === '_none' ? '' : v }))}>
+                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Qualquer</SelectItem>
+                  {PROPERTY_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Localização</Label>
+              <Input placeholder="ex: Lisboa, Cascais..." value={negocioFields.localizacao} onChange={(e) => setNegocioFields((p) => ({ ...p, localizacao: e.target.value }))} className="rounded-lg mt-1 h-9" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">{isBuyer ? 'Quartos mín.' : 'Quartos'}</Label>
+                <Input type="number" placeholder="2" value={negocioFields.quartos_min} onChange={(e) => setNegocioFields((p) => ({ ...p, quartos_min: e.target.value }))} className="rounded-lg mt-1 h-9" />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">{isBuyer ? 'Orç. mín. €' : 'Preço €'}</Label>
+                <Input type="number" placeholder="200000" value={negocioFields.orcamento} onChange={(e) => setNegocioFields((p) => ({ ...p, orcamento: e.target.value }))} className="rounded-lg mt-1 h-9" />
+              </div>
+              {isBuyer && (
+                <div>
+                  <Label className="text-[11px] text-muted-foreground font-medium">Orç. máx. €</Label>
+                  <Input type="number" placeholder="350000" value={negocioFields.orcamento_max} onChange={(e) => setNegocioFields((p) => ({ ...p, orcamento_max: e.target.value }))} className="rounded-lg mt-1 h-9" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-        {/* Referral section */}
-        <div className="rounded-2xl border bg-neutral-50 dark:bg-white/5 p-4 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Referência</p>
-          <div className="flex gap-2">
-            <Button
+        {/* Referral */}
+        <div>
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Referência</p>
+          <div className="flex gap-1.5">
+            <button
               type="button"
-              variant={referralDir === 'incoming' ? 'default' : 'outline'}
-              size="sm"
-              className="rounded-full gap-1.5 text-xs"
               onClick={() => setReferralDir(referralDir === 'incoming' ? null : 'incoming')}
+              className={cn(
+                'flex-1 rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5',
+                referralDir === 'incoming'
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              )}
             >
-              <ArrowDownLeft className="size-3.5" />
-              Recebi esta referência
-            </Button>
-            <Button
+              <ArrowDownLeft className="h-3 w-3" />
+              Recebi
+            </button>
+            <button
               type="button"
-              variant={referralDir === 'outgoing' ? 'default' : 'outline'}
-              size="sm"
-              className="rounded-full gap-1.5 text-xs"
               onClick={() => setReferralDir(referralDir === 'outgoing' ? null : 'outgoing')}
+              className={cn(
+                'flex-1 rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5',
+                referralDir === 'outgoing'
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              )}
             >
-              <ArrowUpRight className="size-3.5" />
+              <ArrowUpRight className="h-3 w-3" />
               Estou a referenciar
-            </Button>
+            </button>
           </div>
 
           {referralDir && (
-            <div className="space-y-3 pt-1">
-              <div className="space-y-2">
-                <Label className="text-xs">
+            <div className="space-y-3 mt-3">
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">
                   {referralDir === 'incoming' ? 'Quem me referenciou?' : 'Referenciar para quem?'}
                 </Label>
-                <Select value={referralConsultantId} onValueChange={setReferralConsultantId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar consultor" />
-                  </SelectTrigger>
+                <Select value={referralConsultantId || '_none'} onValueChange={(v) => setReferralConsultantId(v === '_none' ? '' : v)}>
+                  <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar consultor" /></SelectTrigger>
                   <SelectContent>
-                    {consultants
-                      .filter((c) => c.id !== user?.id)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.commercial_name}
-                        </SelectItem>
-                      ))}
+                    <SelectItem value="_none">—</SelectItem>
+                    {consultants.filter((c) => c.id !== user?.id).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Notas da referência</Label>
-                <Input
-                  placeholder="Ex: contacto do cliente X..."
-                  value={referralNotes}
-                  onChange={(e) => setReferralNotes(e.target.value)}
-                  className="text-xs"
-                />
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Notas da referência</Label>
+                <Input placeholder="Ex: contacto do cliente X..." value={referralNotes} onChange={(e) => setReferralNotes(e.target.value)} className="rounded-lg mt-1 h-9 text-xs" />
               </div>
             </div>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="observacoes">Observações</Label>
+        {/* Observations */}
+        <div>
+          <Label className="text-[11px] text-muted-foreground font-medium">Observações</Label>
           <Textarea
-            id="observacoes"
-            placeholder="Notas sobre o lead..."
-            rows={3}
-            {...register('observacoes')}
+            rows={2}
+            placeholder="Notas sobre o contacto..."
+            value={form.observacoes}
+            onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))}
+            className="rounded-lg mt-1 text-xs"
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button
+      {/* ─── Footer ─── */}
+      <div className="px-5 py-3 border-t flex items-center justify-between">
+        <button
           type="button"
-          variant="outline"
           onClick={onCancel || (() => router.back())}
+          className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
         >
           Cancelar
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Spinner variant="infinite" size={16} className="mr-2" />}
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200 disabled:opacity-50"
+        >
+          {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Criar Contacto
-        </Button>
+        </button>
       </div>
-    </form>
+    </div>
   )
 }

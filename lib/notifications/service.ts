@@ -83,6 +83,27 @@ export class NotificationService {
 
     return [...new Set(filtered.map((u: any) => u.id as string))]
   }
+
+  /** Buscar IDs de utilizadores activos com um role específico (por role.id) */
+  async getUserIdsByRoleId(roleId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role_id', roleId)
+
+    if (error || !data) return []
+
+    const userIds = data.map((ur: any) => ur.user_id as string)
+    if (userIds.length === 0) return []
+
+    const { data: activeUsers } = await this.supabase
+      .from('dev_users')
+      .select('id')
+      .in('id', userIds)
+      .eq('is_active', true)
+
+    return activeUsers?.map((u: any) => u.id as string) || []
+  }
 }
 
 export const notificationService = new NotificationService()

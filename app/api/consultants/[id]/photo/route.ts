@@ -4,6 +4,7 @@ import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, R2_PUBLIC_DOMAIN } from '@/lib/r2/client'
 import { sanitizeFileName } from '@/lib/r2/documents'
 import { requirePermission } from '@/lib/auth/permissions'
+import { removeBackground } from '@/lib/removebg'
 
 export async function POST(
   request: Request,
@@ -34,7 +35,7 @@ export async function POST(
     // Get current photo to delete old one
     const { data: profile } = await supabase
       .from('dev_consultant_profiles')
-      .select('profile_photo_url')
+      .select('profile_photo_url, profile_photo_nobg_url')
       .eq('user_id', id)
       .single()
 
@@ -56,13 +57,39 @@ export async function POST(
 
     const url = R2_PUBLIC_DOMAIN ? `${R2_PUBLIC_DOMAIN}/${key}` : key
 
+    // Generate no-background version via remove.bg
+    let nobgUrl: string | null = null
+    try {
+      const nobgBuffer = await removeBackground(bytes)
+      if (nobgBuffer) {
+        const nobgKey = `public/usuarios-fotos/${id}/${Date.now()}-nobg-${sanitized.replace(/\.\w+$/, '.png')}`
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: nobgKey,
+            Body: new Uint8Array(nobgBuffer),
+            ContentType: 'image/png',
+          })
+        )
+        nobgUrl = R2_PUBLIC_DOMAIN ? `${R2_PUBLIC_DOMAIN}/${nobgKey}` : nobgKey
+      }
+    } catch (err) {
+      console.error('Erro ao remover fundo:', err)
+      // Continue without no-bg version
+    }
+
     // Update profile
+    const profileUpdate: Record<string, any> = {
+      user_id: id,
+      profile_photo_url: url,
+    }
+    if (nobgUrl) {
+      profileUpdate.profile_photo_nobg_url = nobgUrl
+    }
+
     const { error: updateError } = await supabase
       .from('dev_consultant_profiles')
-      .upsert({
-        user_id: id,
-        profile_photo_url: url,
-      })
+      .upsert(profileUpdate)
 
     if (updateError) {
       return NextResponse.json(
@@ -71,20 +98,24 @@ export async function POST(
       )
     }
 
-    // Delete old photo from R2 if exists
-    if (profile?.profile_photo_url) {
+    // Delete old photos from R2 if exist
+    if (profile?.profile_photo_url || profile?.profile_photo_nobg_url) {
       try {
         const domain = R2_PUBLIC_DOMAIN || ''
-        const oldKey = profile.profile_photo_url.replace(`${domain}/`, '')
-        if (oldKey) {
-          await s3.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }))
+        for (const oldUrl of [profile.profile_photo_url, profile.profile_photo_nobg_url]) {
+          if (oldUrl) {
+            const oldKey = oldUrl.replace(`${domain}/`, '')
+            if (oldKey) {
+              await s3.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }))
+            }
+          }
         }
       } catch {
         // Silent fail on old photo deletion
       }
     }
 
-    return NextResponse.json({ url })
+    return NextResponse.json({ url, nobg_url: nobgUrl })
   } catch (error) {
     console.error('Erro ao fazer upload de foto:', error)
     return NextResponse.json(

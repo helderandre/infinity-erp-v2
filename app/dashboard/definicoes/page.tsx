@@ -24,13 +24,14 @@ import {
 } from '@/components/ui/dialog'
 import {
   Plus, Pencil, Trash2, Shield, ShieldCheck, Settings, Euro,
-  Save, Loader2, Users, Landmark, Layers, Plug,
+  Save, Loader2, Users, Landmark, Layers, Plug, Bell,
 } from 'lucide-react'
 import { MetaIntegrationsClient } from './integracoes/meta/meta-client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RoleDialog } from '@/components/roles/role-dialog'
 import { PERMISSION_MODULES } from '@/lib/constants'
+import { NotificationRoutingTab } from '@/components/settings/notification-routing-tab'
 import {
   getAgencySettings, updateAgencySetting,
   getCommissionTiers, upsertCommissionTier, deleteCommissionTier,
@@ -296,6 +297,10 @@ export default function DefinicoesPage() {
             <Euro className="h-4 w-4" />
             Financeiro
           </TabsTrigger>
+          <TabsTrigger value="notificacoes" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Bell className="h-4 w-4" />
+            Notificações
+          </TabsTrigger>
           <TabsTrigger value="integracoes" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Plug className="h-4 w-4" />
             Integrações
@@ -483,6 +488,11 @@ export default function DefinicoesPage() {
               </TabsContent>
             </Tabs>
           )}
+        </TabsContent>
+
+        {/* ═══ Notificações Tab ═══ */}
+        <TabsContent value="notificacoes" className="mt-6">
+          <NotificationRoutingTab />
         </TabsContent>
 
         {/* ═══ Integrações Tab ═══ */}

@@ -115,6 +115,21 @@ const tools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'search_documents',
+      description: 'Pesquisar documentos e templates da empresa (contratos, checklists, KYC, etc.) e templates de marketing (placas, cartões, badges).',
+      parameters: {
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: 'Pesquisar por nome do documento ou template' },
+          category: { type: 'string', description: 'Categoria do documento: angariacao, institucional, cliente, contratos, kyc, fiscal, marketing, formacao, outro' },
+          type: { type: 'string', description: 'Tipo: documents (documentos da empresa) ou marketing (templates de marketing). Se não especificado, pesquisa ambos.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'query_processes',
       description: 'Pesquisar processos/instâncias. Pode filtrar por estado ou referência.',
       parameters: {
@@ -308,6 +323,43 @@ async function executeTool(name: string, args: Record<string, any>, supabase: an
         })
       }
 
+      case 'search_documents': {
+        const results: any = {}
+
+        // Search company documents
+        if (!args.type || args.type === 'documents') {
+          let docQuery = supabase
+            .from('company_documents')
+            .select('id, name, category, file_path, file_extension, download_count')
+            .eq('is_active', true)
+            .order('download_count', { ascending: false })
+            .limit(10)
+
+          if (args.search) docQuery = docQuery.ilike('name', `%${args.search}%`)
+          if (args.category) docQuery = docQuery.eq('category', args.category)
+
+          const { data: docs } = await docQuery
+          results.documents = docs || []
+        }
+
+        // Search marketing design templates
+        if (!args.type || args.type === 'marketing') {
+          let mktQuery = supabase
+            .from('marketing_design_templates')
+            .select('id, name, category, canva_url, thumbnail_url, is_team_design')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .limit(10)
+
+          if (args.search) mktQuery = mktQuery.ilike('name', `%${args.search}%`)
+
+          const { data: templates } = await mktQuery
+          results.marketing_templates = templates || []
+        }
+
+        return JSON.stringify(results)
+      }
+
       case 'query_processes': {
         let query = supabase
           .from('proc_instances')
@@ -362,6 +414,8 @@ A data actual é: ${new Date().toLocaleDateString('pt-PT')}.
 
 Respondes sempre em Português de Portugal (PT-PT).
 Usas as ferramentas disponíveis para consultar dados reais do sistema.
+Podes pesquisar documentos da empresa (contratos, checklists, KYC) e templates de marketing (placas, cartões, badges).
+Quando o utilizador pedir um documento ou template, usa a ferramenta search_documents.
 Sê conciso e directo nas respostas.
 Quando mostras listas, formata-as de forma legível.
 Para valores monetários, usa o formato €X.XXX.

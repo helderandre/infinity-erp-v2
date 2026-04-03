@@ -4,14 +4,6 @@ import { NextResponse } from 'next/server'
 const VALID_PIPELINE_TYPES = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as const
 type PipelineType = (typeof VALID_PIPELINE_TYPES)[number]
 
-// Map pipeline types to the sectors that feed into them from leads_entries
-const PIPELINE_TO_SECTORS: Record<PipelineType, string[]> = {
-  comprador: ['real_estate_buy'],
-  vendedor: ['real_estate_sell'],
-  arrendatario: ['real_estate_rent'],
-  arrendador: ['real_estate_landlord'],
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ pipelineType: string }> }
@@ -41,48 +33,13 @@ export async function GET(
 
     if (stagesError) return NextResponse.json({ error: stagesError.message }, { status: 500 })
 
-    const leadsStage = (stages ?? []).find((s) => s.order_index === 0 && !s.is_terminal)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const nonTerminalIds = (stages ?? []).filter((s) => !s.is_terminal).map((s) => s.id)
     const terminalIds = (stages ?? []).filter((s) => s.is_terminal).map((s) => s.id)
 
-    // ── 2. Fetch unqualified lead entries for the "Leads" column ──────────
-
-    let entries: any[] = []
-    if (leadsStage) {
-      let entriesQuery = supabase
-        .from('leads_entries')
-        .select(`
-          id, raw_name, raw_email, raw_phone, source, notes, created_at, status,
-          sector, priority, has_referral, referral_pct, referral_consultant_id, referral_external_name,
-          contact:leads!leads_entries_contact_id_fkey(id, nome, telemovel, email, tags),
-          assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name),
-          campaign:leads_campaigns(id, name)
-        `)
-        .in('status', ['new', 'contacted', 'qualified'])
-
-      // Filter by sectors relevant to this pipeline
-      const sectors = PIPELINE_TO_SECTORS[pipelineType]
-      if (sectors.length > 0) {
-        // Include entries with matching sector OR null sector (unclassified)
-        entriesQuery = entriesQuery.or(`sector.in.(${sectors.join(',')}),sector.is.null`)
-      }
-
-      if (assigned_consultant_id) {
-        entriesQuery = entriesQuery.eq('assigned_consultant_id', assigned_consultant_id)
-      }
-
-      entriesQuery = entriesQuery.order('created_at', { ascending: false }).limit(100)
-
-      const { data: entriesData } = await entriesQuery
-      entries = (entriesData ?? [])
-        // Exclude entries that already have a negócio in this pipeline
-        // We'll filter client-side after fetching negócios
-    }
-
-    // ── 3. Fetch negócios (qualified deals in the pipeline) ───────────────
+    // ── 2. Fetch negócios (qualified deals in the pipeline) ───────────────
 
     let negociosQuery = supabase
       .from('negocios')
@@ -113,14 +70,7 @@ export async function GET(
     const { data: negocios, error: negociosError } = await negociosQuery
     if (negociosError) return NextResponse.json({ error: negociosError.message }, { status: 500 })
 
-    // ── 4. Filter entries that already became negócios ─────────────────────
-
-    const entryIdsWithNegocio = new Set(
-      (negocios ?? []).map((n: any) => n.entry_id).filter(Boolean)
-    )
-    const unqualifiedEntries = entries.filter((e) => !entryIdsWithNegocio.has(e.id))
-
-    // ── 5. Enrich negócios with SLA data ──────────────────────────────────
+    // ── 3. Enrich negócios with SLA data ──────────────────────────────────
 
     const now = new Date()
     const stageMap = new Map((stages ?? []).map((s) => [s.id, s]))
@@ -145,37 +95,13 @@ export async function GET(
       return { ...n, days_in_stage, sla_overdue, _type: 'negocio' as const }
     })
 
-    // ── 6. Enrich lead entries as cards for the "Leads" column ────────────
-
-    const enrichedEntries = unqualifiedEntries.map((e: any) => {
-      const createdAt = new Date(e.created_at)
-      const days_in_stage = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
-      const sla_days = leadsStage?.sla_days ?? null
-      const sla_overdue = sla_days !== null ? days_in_stage > sla_days : false
-      return {
-        ...e,
-        days_in_stage,
-        sla_overdue,
-        _type: 'entry' as const,
-        pipeline_stage_id: leadsStage?.id ?? null,
-      }
-    })
-
-    // ── 7. Build columns ──────────────────────────────────────────────────
+    // ── 4. Build columns (negocios only) ─────────────────────────────────
 
     let totalExpectedValue = 0
     let totalWeightedValue = 0
 
     const columns = (stages ?? []).map((stage) => {
-      let items: any[]
-
-      if (stage.id === leadsStage?.id) {
-        // "Leads" column: unqualified entries + negócios still in first stage
-        const stageNegocios = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
-        items = [...enrichedEntries, ...stageNegocios]
-      } else {
-        items = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
-      }
+      const items = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
 
       const total_value = items.reduce((sum, n) => sum + (n.expected_value ?? 0), 0)
       const weighted_value = items.reduce(
@@ -202,7 +128,6 @@ export async function GET(
       columns,
       totals: {
         negocios: filteredNegocios.length,
-        entries: unqualifiedEntries.length,
         expected_value: totalExpectedValue,
         weighted_value: totalWeightedValue,
       },

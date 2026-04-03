@@ -26,9 +26,9 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { LeadForm } from '@/components/leads/lead-form'
 import {
   Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight,
@@ -132,6 +132,7 @@ function LeadsPageContent() {
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(page * PAGE_SIZE))
 
+      params.set('qualified_only', 'true')
       const res = await fetch(`/api/leads?${params.toString()}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -225,7 +226,7 @@ function LeadsPageContent() {
         <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
           <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            {total} contacto{total !== 1 ? 's' : ''} no sistema
+            {total} contacto{total !== 1 ? 's' : ''} qualificado{total !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
@@ -488,10 +489,8 @@ function LeadsPageContent() {
 
       {/* New Lead Dialog */}
       <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Novo Contacto</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden" showCloseButton={false}>
+          <VisuallyHidden><DialogTitle>Novo Contacto</DialogTitle></VisuallyHidden>
           <LeadForm
             consultants={consultants}
             onSuccess={(id) => {

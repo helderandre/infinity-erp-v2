@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Bug,
   Lightbulb,
+  Library,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -68,6 +69,10 @@ export function QuickActions() {
           <DropdownMenuItem onClick={() => setTaskOpen(true)}>
             <CheckSquare className="mr-2 h-4 w-4" />
             Nova Tarefa
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push('/dashboard/documentos')}>
+            <Library className="mr-2 h-4 w-4" />
+            Documentos e Marketing
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setTicketOpen(true)}>

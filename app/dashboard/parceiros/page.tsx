@@ -150,9 +150,10 @@ export default function ParceirosPage() {
           >
             Todos ({total})
           </button>
-          {PARTNER_CATEGORY_OPTIONS.filter(cat => categoryCounts[cat.value]).map((cat) => {
-            const color = PARTNER_CATEGORY_COLORS[cat.value]
+          {PARTNER_CATEGORY_OPTIONS.filter(cat => typeof categoryCounts[cat.value] === 'number' && categoryCounts[cat.value] > 0).map((cat) => {
+            const color = PARTNER_CATEGORY_COLORS[cat.value] || { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted-foreground' }
             const isActive = categoryFilter === cat.value
+            const count = categoryCounts[cat.value] || 0
             return (
               <button
                 key={cat.value}
@@ -165,7 +166,7 @@ export default function ParceirosPage() {
                 )}
               >
                 <span className={cn('h-1.5 w-1.5 rounded-full', isActive ? color.dot : 'bg-muted-foreground/40')} />
-                {cat.label} ({categoryCounts[cat.value]})
+                {cat.label} ({count})
               </button>
             )
           })}

@@ -20,12 +20,16 @@ export async function GET(request: Request) {
     const temperatura = searchParams.get('temperatura')
     const origem = searchParams.get('origem')
     const agent_id = searchParams.get('agent_id')
+    const qualified_only = searchParams.get('qualified_only') === 'true'
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100)
     const offset = Number(searchParams.get('offset')) || 0
 
+    // When qualified_only is true, use inner join to only return contacts with negocios
+    const negociosJoin = qualified_only ? 'negocios!inner(id, tipo)' : 'negocios(id, tipo)'
+
     let query = supabase
       .from('leads')
-      .select('*, agent:dev_users(id, commercial_name), negocios(id, tipo)', { count: 'exact' })
+      .select(`*, agent:dev_users(id, commercial_name), ${negociosJoin}`, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
