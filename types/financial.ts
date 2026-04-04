@@ -440,7 +440,9 @@ export interface DealReferral {
   created_at: string
 }
 
+// Each row = one agent × one payment moment (split)
 export interface MapaGestaoRow {
+  // Deal info
   deal_id: string
   reference: string | null
   pv_number: string | null
@@ -449,35 +451,21 @@ export interface MapaGestaoRow {
   deal_date: string
   business_type: string | null
   commission_pct: number
-  commission_total: number
   has_share: boolean
-  share_pct: number | null
-  consultant_amount: number | null
-  network_amount: number | null
-  agency_margin: number | null
-  agency_net: number | null
-  partner_amount: number | null
-  share_role: 'comprador' | 'angariacao' | 'referencia' | null
-  referral_pct_display: number | null
-  referral_deductions: { name: string; pct: number; type: 'interna' | 'externa' }[]
-  consultant: { id: string; commercial_name: string } | null
   property: { id: string; title: string; external_ref: string } | null
   proc_instance_id: string | null
-  status: string
-  payments: MapaGestaoPayment[]
-}
-
-export interface MapaGestaoPayment {
-  id: string
+  deal_status: string
+  // Payment moment info (deal-level)
+  payment_id: string
   payment_moment: string
   payment_pct: number
-  amount: number
+  payment_amount: number
   network_amount: number | null
   agency_amount: number | null
-  consultant_amount: number | null
   partner_amount: number | null
   is_signed: boolean
   signed_date: string | null
+  date_type: 'predicted' | 'confirmed'
   is_received: boolean
   received_date: string | null
   is_reported: boolean
@@ -490,6 +478,13 @@ export interface MapaGestaoPayment {
   agency_invoice_amount_gross: number | null
   network_invoice_number: string | null
   network_invoice_date: string | null
+  // Split info (per-agent)
+  split_id: string
+  agent: { id: string; commercial_name: string } | null
+  split_role: 'main' | 'partner' | 'referral'
+  share_pct: number
+  tier_pct: number
+  split_amount: number
   consultant_invoice_number: string | null
   consultant_invoice_date: string | null
   consultant_invoice_type: string | null
@@ -498,11 +493,27 @@ export interface MapaGestaoPayment {
 }
 
 export interface MapaGestaoTotals {
-  report: number
-  consultant_total: number
+  split_total: number
   network_total: number
-  margin_total: number
+  agency_total: number
   partner_total: number
+  row_count: number
+}
+
+// Used by payment-timeline component (deal detail page)
+export interface MapaGestaoPayment {
+  id: string
+  payment_moment: string
+  payment_pct: number
+  amount: number
+  is_signed: boolean
+  signed_date: string | null
+  is_received: boolean
+  received_date: string | null
+  is_reported: boolean
+  reported_date: string | null
+  consultant_paid: boolean
+  consultant_paid_date: string | null
 }
 
 export interface FinancialDashboardData {

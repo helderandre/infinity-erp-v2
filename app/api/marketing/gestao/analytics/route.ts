@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     let txQuery = admin
       .from('conta_corrente_transactions')
       .select('date, category, amount')
-      .in('category', ['marketing_purchase', 'physical_material', 'subscription_renewal'])
+      .in('category', ['marketing_purchase', 'subscription'])
       .gte('date', periodStart)
       .order('date', { ascending: true })
 
@@ -77,8 +77,7 @@ export async function GET(request: Request) {
     // Map transaction categories to spending buckets
     const categoryToBucket: Record<string, string> = {
       marketing_purchase: 'services',
-      physical_material: 'materials',
-      subscription_renewal: 'subscriptions',
+      subscription: 'subscriptions',
     }
 
     // Build monthly spending map

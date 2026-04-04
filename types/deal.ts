@@ -120,12 +120,14 @@ export interface DealPayment {
   agency_amount: number | null
   consultant_amount: number | null
   partner_amount: number | null
+  // Deal-level status (shared across all agents)
   is_signed: boolean
   signed_date: string | null
   is_received: boolean
   received_date: string | null
   is_reported: boolean
   reported_date: string | null
+  // Agency & network invoices (deal-level)
   agency_invoice_number: string | null
   agency_invoice_date: string | null
   agency_invoice_recipient: string | null
@@ -135,6 +137,29 @@ export interface DealPayment {
   agency_invoice_id: string | null
   network_invoice_number: string | null
   network_invoice_date: string | null
+  // Legacy consultant fields (now in splits)
+  consultant_invoice_number: string | null
+  consultant_invoice_date: string | null
+  consultant_invoice_type: ConsultantInvoiceType | null
+  consultant_paid: boolean
+  consultant_paid_date: string | null
+  date_type: 'predicted' | 'confirmed'
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  splits?: DealPaymentSplit[]
+}
+
+export type SplitRole = 'main' | 'partner' | 'referral'
+
+export interface DealPaymentSplit {
+  id: string
+  deal_payment_id: string
+  agent_id: string
+  role: SplitRole
+  split_pct: number
+  amount: number
   consultant_invoice_number: string | null
   consultant_invoice_date: string | null
   consultant_invoice_type: ConsultantInvoiceType | null
@@ -143,6 +168,8 @@ export interface DealPayment {
   notes: string | null
   created_at: string
   updated_at: string
+  // Joined
+  agent?: { id: string; commercial_name: string }
 }
 
 export interface DealCommissionPreview {

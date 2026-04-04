@@ -9,9 +9,13 @@ export type MarketingRequestStatus = 'pending' | 'scheduled' | 'in_progress' | '
 export type ContaCorrenteType = 'DEBIT' | 'CREDIT'
 
 export type ContaCorrenteCategory =
-  | 'marketing_purchase' | 'physical_material' | 'fee_registration' | 'fee_renewal'
-  | 'fee_technology' | 'fee_process_management' | 'manual_adjustment'
-  | 'commission_payment' | 'refund'
+  | 'commission'              // CREDIT from deal payments
+  | 'marketing_purchase'      // DEBIT from shop orders
+  | 'subscription'            // DEBIT from recurring marketing services
+  | 'manual_adjustment'       // manual CREDIT or DEBIT by office manager
+  | 'refund'                  // CREDIT refund for cancelled order
+
+export type SettlementStatus = 'pending' | 'available' | 'confirmed' | 'allocated' | 'settled'
 
 // --- Catalog ---
 
@@ -166,13 +170,18 @@ export interface ContaCorrenteTransaction {
   category: ContaCorrenteCategory
   amount: number
   description: string
+  settlement_status: SettlementStatus
   reference_id: string | null
   reference_type: string | null
+  payout_id: string | null
   balance_after: number
+  settled_at: string | null
   created_by: string | null
   created_at: string
+  updated_at: string
   // Joined
   agent?: { id: string; commercial_name: string }
+  payout?: ConsultantPayout | null
 }
 
 export interface ContaCorrenteLimit {
@@ -336,4 +345,70 @@ export interface CartCampaignItem {
   managementFee: number
   totalCost: number
   label: string
+}
+
+// ─── Consultant Payouts ──────────────────────────────────────────────────────
+
+export type PayoutStatus = 'draft' | 'pending_invoice' | 'invoice_received' | 'paid' | 'cancelled'
+
+export interface ConsultantPayout {
+  id: string
+  agent_id: string
+  reference: string | null
+  status: PayoutStatus
+  gross_commission: number
+  total_deductions: number
+  net_amount: number
+  consultant_invoice_number: string | null
+  consultant_invoice_date: string | null
+  consultant_invoice_type: 'factura' | 'recibo_verde' | 'recibo' | null
+  consultant_invoice_url: string | null
+  paid_date: string | null
+  paid_amount: number | null
+  payment_method: string | null
+  payment_reference: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  agent?: { id: string; commercial_name: string }
+  lines?: ConsultantPayoutLine[]
+}
+
+export interface ConsultantPayoutLine {
+  id: string
+  payout_id: string
+  transaction_id: string
+  line_type: 'credit' | 'deduction'
+  amount: number
+  created_at: string
+  // Joined
+  transaction?: ContaCorrenteTransaction
+}
+
+export interface AgentBalanceView {
+  agent_id: string
+  commercial_name: string
+  available_credits: number
+  outstanding_debits: number
+  total_balance: number
+  debit_limit: number
+}
+
+// Payout constants
+export const PAYOUT_STATUSES: Record<PayoutStatus, { label: string; color: string }> = {
+  draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-700' },
+  pending_invoice: { label: 'Aguarda Fatura', color: 'bg-amber-100 text-amber-700' },
+  invoice_received: { label: 'Fatura Recebida', color: 'bg-blue-100 text-blue-700' },
+  paid: { label: 'Pago', color: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
+}
+
+export const SETTLEMENT_STATUSES: Record<SettlementStatus, { label: string; color: string }> = {
+  pending: { label: 'Pendente', color: 'bg-slate-100 text-slate-600' },
+  available: { label: 'Disponível', color: 'bg-emerald-100 text-emerald-700' },
+  confirmed: { label: 'Confirmado', color: 'bg-blue-100 text-blue-700' },
+  allocated: { label: 'Alocado', color: 'bg-amber-100 text-amber-700' },
+  settled: { label: 'Liquidado', color: 'bg-slate-100 text-slate-500' },
 }

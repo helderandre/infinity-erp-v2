@@ -61,6 +61,41 @@ export async function POST(request: Request) {
     const { items, checkout_group_id, payment_method, property_id, property_bundle_data, proposed_dates } = parsed.data
     const total_amount = items.reduce((sum, item) => sum + item.price, 0)
 
+    // Check debit limit for conta_corrente purchases
+    if (payment_method !== 'invoice') {
+      const { data: limitData } = await supabase
+        .from('conta_corrente_limits')
+        .select('credit_limit')
+        .eq('agent_id', user.id)
+        .single()
+
+      const debitLimit = limitData?.credit_limit ?? 0
+
+      if (debitLimit > 0) {
+        // Sum all confirmed/pending debits (non-settled)
+        const { data: debitRows } = await supabase
+          .from('conta_corrente_transactions')
+          .select('amount')
+          .eq('agent_id', user.id)
+          .eq('type', 'DEBIT')
+          .in('settlement_status', ['pending', 'confirmed'])
+
+        const outstandingDebits = (debitRows || []).reduce((s: number, r: any) => s + Number(r.amount), 0)
+
+        if (outstandingDebits + total_amount > debitLimit) {
+          return NextResponse.json({
+            error: 'Limite de conta corrente atingido',
+            details: {
+              debit_limit: debitLimit,
+              outstanding_debits: outstandingDebits,
+              order_amount: total_amount,
+              excess: (outstandingDebits + total_amount) - debitLimit,
+            },
+          }, { status: 403 })
+        }
+      }
+    }
+
     // Extract address fields from property_bundle_data for indexed columns
     const bundleData = property_bundle_data && typeof property_bundle_data === 'object' ? property_bundle_data : null
     const addressFields = bundleData ? {
@@ -200,6 +235,7 @@ export async function POST(request: Request) {
         category: 'marketing_purchase',
         amount: total_amount,
         description: `Encomenda Marketing — ${items.map(i => i.name).join(', ')}`,
+        settlement_status: 'pending',
         reference_id: order.id,
         reference_type: 'marketing_order',
         balance_after: newBalance,

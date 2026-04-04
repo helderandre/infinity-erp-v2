@@ -1268,17 +1268,14 @@ export const MARKETING_CONTACT_RELATIONSHIPS = {
 } as const
 
 export const CONTA_CORRENTE_CATEGORIES = {
+  // CREDIT
+  commission: 'Comissão',
+  refund: 'Reembolso',
   // DEBIT
   marketing_purchase: 'Compra Marketing',
-  physical_material: 'Material Físico',
-  fee_registration: 'Taxa de Registo',
-  fee_renewal: 'Taxa de Renovação',
-  fee_technology: 'Taxa de Tecnologia',
-  fee_process_management: 'Taxa Gestão Processual',
+  subscription: 'Subscrição',
+  // BOTH
   manual_adjustment: 'Ajuste Manual',
-  // CREDIT
-  commission_payment: 'Pagamento Comissão',
-  refund: 'Reembolso',
 } as const
 
 export const MARKETING_LABELS = {

@@ -20,6 +20,8 @@ export async function GET(request: Request) {
       return await getBalancesSummary(supabase)
     }
 
+    const settlement_status = searchParams.get('settlement_status')
+
     let query = supabase
       .from('conta_corrente_transactions')
       .select(`
@@ -31,6 +33,7 @@ export async function GET(request: Request) {
 
     if (agent_id) query = query.eq('agent_id', agent_id)
     if (type === 'DEBIT' || type === 'CREDIT') query = query.eq('type', type)
+    if (settlement_status) query = query.eq('settlement_status', settlement_status)
     if (from) query = query.gte('created_at', from)
     if (to) query = query.lte('created_at', to)
 
@@ -84,6 +87,7 @@ export async function POST(request: Request) {
         category: 'manual_adjustment',
         amount,
         description,
+        settlement_status: type === 'CREDIT' ? 'available' : 'confirmed',
         reference_type: 'manual',
         balance_after: newBalance,
         created_by: user.id,
@@ -100,7 +104,7 @@ export async function POST(request: Request) {
 }
 
 async function getBalancesSummary(supabase: any) {
-  // Get all agents with their latest balance and profile photo
+  // Get all agents with their latest balance, profile photo, and breakdown
   const { data: agents, error: agentsError } = await supabase
     .from('dev_users')
     .select('id, commercial_name, dev_consultant_profiles(profile_photo_url)')
@@ -111,6 +115,7 @@ async function getBalancesSummary(supabase: any) {
 
   const balances = await Promise.all(
     (agents || []).map(async (agent: any) => {
+      // Get last balance_after for running total
       const { data: lastTx } = await supabase
         .from('conta_corrente_transactions')
         .select('balance_after')
@@ -118,6 +123,22 @@ async function getBalancesSummary(supabase: any) {
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
+
+      // Get available credits
+      const { data: creditRows } = await supabase
+        .from('conta_corrente_transactions')
+        .select('amount')
+        .eq('agent_id', agent.id)
+        .eq('type', 'CREDIT')
+        .eq('settlement_status', 'available')
+
+      // Get outstanding (confirmed) debits
+      const { data: debitRows } = await supabase
+        .from('conta_corrente_transactions')
+        .select('amount')
+        .eq('agent_id', agent.id)
+        .eq('type', 'DEBIT')
+        .eq('settlement_status', 'confirmed')
 
       const { data: limitData } = await supabase
         .from('conta_corrente_limits')
@@ -130,7 +151,9 @@ async function getBalancesSummary(supabase: any) {
         commercial_name: agent.commercial_name,
         profile_photo_url: agent.dev_consultant_profiles?.profile_photo_url ?? null,
         current_balance: lastTx?.balance_after ?? 0,
-        credit_limit: limitData?.credit_limit ?? null,
+        available_credits: (creditRows || []).reduce((s: number, r: any) => s + Number(r.amount), 0),
+        outstanding_debits: (debitRows || []).reduce((s: number, r: any) => s + Number(r.amount), 0),
+        debit_limit: limitData?.credit_limit ?? null,
       }
     })
   )

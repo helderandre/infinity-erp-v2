@@ -96,3 +96,25 @@ export const manualTransactionSchema = z.object({
   amount: z.coerce.number().positive('Valor deve ser positivo'),
   description: z.string().min(1, 'Descrição é obrigatória').trim(),
 })
+
+// --- Payouts ---
+
+export const createPayoutSchema = z.object({
+  agent_id: z.string().uuid('ID do consultor inválido'),
+  credit_transaction_ids: z.array(z.string().uuid()).min(1, 'Seleccione pelo menos um crédito'),
+  deduction_transaction_ids: z.array(z.string().uuid()).default([]),
+  notes: z.string().optional().nullable(),
+})
+
+export const updatePayoutSchema = z.object({
+  action: z.enum(['submit', 'receive_invoice', 'mark_paid', 'cancel']),
+  consultant_invoice_number: z.string().optional().nullable(),
+  consultant_invoice_date: z.string().optional().nullable(),
+  consultant_invoice_type: z.enum(['factura', 'recibo_verde', 'recibo']).optional().nullable(),
+  consultant_invoice_url: z.string().optional().nullable(),
+  paid_date: z.string().optional().nullable(),
+  paid_amount: z.coerce.number().optional().nullable(),
+  payment_method: z.string().optional().nullable(),
+  payment_reference: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+})

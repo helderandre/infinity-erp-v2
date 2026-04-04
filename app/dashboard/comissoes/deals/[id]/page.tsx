@@ -68,7 +68,13 @@ export default function DealDetailPage() {
         payments: prev.payments.map((p) => p.id === paymentId ? { ...p, [field]: value } : p),
       }
     })
-    debounced(`status-${paymentId}-${field}`, () => updatePaymentStatus(paymentId, field as 'is_signed' | 'is_received' | 'is_reported' | 'consultant_paid', value as boolean).then((r) => { if (r.error) toast.error(r.error) }))
+    // Date fields go through invoice update, boolean fields through status update
+    const dateFields = ['signed_date', 'received_date', 'reported_date', 'consultant_paid_date']
+    if (dateFields.includes(field)) {
+      debounced(`inv-${paymentId}-${field}`, () => updatePaymentInvoice(paymentId, { [field]: value }).then((r) => { if (r.error) toast.error(r.error) }))
+    } else {
+      debounced(`status-${paymentId}-${field}`, () => updatePaymentStatus(paymentId, field as 'is_signed' | 'is_received' | 'is_reported', value as boolean).then((r) => { if (r.error) toast.error(r.error) }))
+    }
   }, [deal, debounced])
 
   const handleInvoiceChange = useCallback((paymentId: string, field: string, value: string | null) => {

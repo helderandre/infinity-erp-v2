@@ -58,11 +58,11 @@ export async function getDeals(filters?: {
       return { deals: [], total: count ?? 0, error: null }
     }
 
-    // Fetch payments for all deal IDs in one query
+    // Fetch payments with splits for all deal IDs in one query
     const dealIds = deals.map((d: any) => d.id)
     const { data: payments, error: paymentsError } = await (admin as any)
       .from('deal_payments')
-      .select('*')
+      .select('*, deal_payment_splits(*, agent:dev_users!deal_payment_splits_agent_id_fkey(id, commercial_name))')
       .in('deal_id', dealIds)
       .order('payment_moment', { ascending: true })
 
@@ -70,13 +70,17 @@ export async function getDeals(filters?: {
       return { deals: [], total: 0, error: paymentsError.message }
     }
 
-    // Merge payments into deals
+    // Merge payments into deals (map splits from nested query)
     const paymentsByDeal: Record<string, DealPayment[]> = {}
     for (const p of (payments ?? [])) {
       if (!paymentsByDeal[p.deal_id]) {
         paymentsByDeal[p.deal_id] = []
       }
-      paymentsByDeal[p.deal_id].push(p)
+      paymentsByDeal[p.deal_id].push({
+        ...p,
+        splits: p.deal_payment_splits || [],
+        deal_payment_splits: undefined,
+      })
     }
 
     const dealsWithPayments = deals.map((d: any) => ({
@@ -108,10 +112,10 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
       return { deal: null, error: error.message }
     }
 
-    // Fetch payments
+    // Fetch payments with splits
     const { data: payments, error: paymentsError } = await (admin as any)
       .from('deal_payments')
-      .select('*')
+      .select('*, deal_payment_splits(*, agent:dev_users!deal_payment_splits_agent_id_fkey(id, commercial_name))')
       .eq('deal_id', id)
       .order('payment_moment', { ascending: true })
 
@@ -119,7 +123,13 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
       return { deal: null, error: paymentsError.message }
     }
 
-    return { deal: { ...deal, payments: payments ?? [] }, error: null }
+    const mappedPayments = (payments ?? []).map((p: any) => ({
+      ...p,
+      splits: p.deal_payment_splits || [],
+      deal_payment_splits: undefined,
+    }))
+
+    return { deal: { ...deal, payments: mappedPayments }, error: null }
   } catch (err: any) {
     return { deal: null, error: err.message ?? 'Erro ao carregar negócio' }
   }
@@ -137,6 +147,7 @@ export async function createDeal(data: {
   commission_total: number
   has_share: boolean
   share_type?: string
+  internal_colleague_id?: string
   share_pct?: number
   share_amount?: number
   partner_agency_name?: string
@@ -162,6 +173,14 @@ export async function createDeal(data: {
     agency_amount: number
     consultant_amount: number
     partner_amount: number
+    date?: string
+  }>
+  partner_tier_pct?: number
+  referrals?: Array<{
+    side: 'angariacao' | 'negocio'
+    agent_id: string
+    pct: number
+    tier_pct?: number
   }>
 }): Promise<{ deal: Deal | null; error: string | null }> {
   try {
@@ -174,7 +193,7 @@ export async function createDeal(data: {
       return { deal: null, error: 'Não autenticado' }
     }
 
-    const { payments, ...dealData } = data
+    const { payments, referrals: _referrals, partner_tier_pct: _partnerTierPct, ...dealData } = data
 
     // Insert deal
     const { data: deal, error: dealError } = await (admin as any)
@@ -187,6 +206,7 @@ export async function createDeal(data: {
         share_amount: dealData.share_amount ?? null,
         partner_agency_name: dealData.partner_agency_name || null,
         partner_contact: dealData.partner_contact || null,
+        internal_colleague_id: dealData.internal_colleague_id || null,
         partner_amount: dealData.partner_amount ?? null,
         network_pct: dealData.network_pct ?? null,
         network_amount: dealData.network_amount ?? null,
@@ -209,7 +229,7 @@ export async function createDeal(data: {
       return { deal: null, error: dealError.message }
     }
 
-    // Insert payments
+    // Insert payments + splits
     if (payments.length > 0) {
       const paymentRows = payments.map((p) => ({
         deal_id: deal.id,
@@ -220,16 +240,142 @@ export async function createDeal(data: {
         agency_amount: p.agency_amount,
         consultant_amount: p.consultant_amount,
         partner_amount: p.partner_amount,
+        ...(p.date ? { signed_date: p.date } : {}),
       }))
 
-      const { error: paymentsError } = await (admin as any)
+      const { data: createdPayments, error: paymentsError } = await (admin as any)
         .from('deal_payments')
         .insert(paymentRows)
+        .select('id, payment_moment, consultant_amount, agency_amount')
 
-      if (paymentsError) {
-        // Rollback: delete the deal
+      if (paymentsError || !createdPayments) {
         await (admin as any).from('deals').delete().eq('id', deal.id)
-        return { deal: null, error: paymentsError.message }
+        return { deal: null, error: paymentsError?.message || 'Erro ao criar pagamentos' }
+      }
+
+      // Create splits for each payment moment
+      // Each agent gets their share of agency_margin × their own tier %
+      const splitRows: any[] = []
+      const isInternalShare = dealData.has_share && dealData.share_type === 'internal_agency'
+      const sharePctVal = Number(dealData.share_pct || 50)
+      const mainTierPct = Number(dealData.consultant_pct || 0)
+      const partnerTierPct = Number(data.partner_tier_pct ?? mainTierPct)
+      const referrals = data.referrals || []
+
+      // Referral deductions per side (% taken from that side before tier)
+      const sellerRefs = referrals.filter((r) => r.side === 'angariacao')
+      const buyerRefs = referrals.filter((r) => r.side === 'negocio')
+      const sellerRefPct = sellerRefs.reduce((s, r) => s + r.pct, 0)
+      const buyerRefPct = buyerRefs.reduce((s, r) => s + r.pct, 0)
+
+      for (const cp of createdPayments) {
+        // agency_amount on the payment is the agency margin for this moment
+        const agencyMargin = Number(cp.agency_amount || 0)
+
+        if (isInternalShare) {
+          // Each side gets their share of agency_margin
+          const sellerMargin = agencyMargin * (sharePctVal / 100)
+          const buyerMargin = agencyMargin * ((100 - sharePctVal) / 100)
+
+          // Seller side — main consultant
+          const sellerAfterRef = sellerMargin * (1 - sellerRefPct / 100)
+          splitRows.push({
+            deal_payment_id: cp.id,
+            agent_id: dealData.consultant_id,
+            role: 'main',
+            split_pct: mainTierPct,
+            amount: sellerAfterRef * (mainTierPct / 100),
+          })
+
+          // Seller referral splits
+          for (const ref of sellerRefs) {
+            const refBase = sellerMargin * (ref.pct / 100)
+            const refTier = ref.tier_pct ?? mainTierPct
+            splitRows.push({
+              deal_payment_id: cp.id,
+              agent_id: ref.agent_id,
+              role: 'referral',
+              split_pct: refTier,
+              amount: refBase * (refTier / 100),
+            })
+          }
+
+          // Buyer side — partner consultant
+          if (dealData.internal_colleague_id) {
+            const buyerAfterRef = buyerMargin * (1 - buyerRefPct / 100)
+            splitRows.push({
+              deal_payment_id: cp.id,
+              agent_id: dealData.internal_colleague_id,
+              role: 'partner',
+              split_pct: partnerTierPct,
+              amount: buyerAfterRef * (partnerTierPct / 100),
+            })
+
+            // Buyer referral splits
+            for (const ref of buyerRefs) {
+              const refBase = buyerMargin * (ref.pct / 100)
+              const refTier = ref.tier_pct ?? partnerTierPct
+              splitRows.push({
+                deal_payment_id: cp.id,
+                agent_id: ref.agent_id,
+                role: 'referral',
+                split_pct: refTier,
+                amount: refBase * (refTier / 100),
+              })
+            }
+          }
+        } else {
+          // No internal share — all referrals deduct from main side
+          const mainMargin = agencyMargin * (1 - sellerRefPct / 100)
+          splitRows.push({
+            deal_payment_id: cp.id,
+            agent_id: dealData.consultant_id,
+            role: 'main',
+            split_pct: mainTierPct,
+            amount: mainMargin * (mainTierPct / 100),
+          })
+
+          for (const ref of sellerRefs) {
+            const refBase = agencyMargin * (ref.pct / 100)
+            const refTier = ref.tier_pct ?? mainTierPct
+            splitRows.push({
+              deal_payment_id: cp.id,
+              agent_id: ref.agent_id,
+              role: 'referral',
+              split_pct: refTier,
+              amount: refBase * (refTier / 100),
+            })
+          }
+        }
+      }
+
+      if (splitRows.length > 0) {
+        const { error: splitsError } = await (admin as any)
+          .from('deal_payment_splits')
+          .insert(splitRows)
+
+        if (splitsError) {
+          console.error('Erro ao criar splits:', splitsError.message)
+        }
+      }
+
+      // Store referrals in deal_referrals table
+      if (referrals.length > 0) {
+        const referralRows = referrals.map((r) => ({
+          deal_id: deal.id,
+          side: r.side,
+          referral_type: 'interna',
+          consultant_id: r.agent_id,
+          referral_pct: r.pct,
+        }))
+
+        const { error: refError } = await (admin as any)
+          .from('deal_referrals')
+          .insert(referralRows)
+
+        if (refError) {
+          console.error('Erro ao criar referenciações:', refError.message)
+        }
       }
     }
 
@@ -319,19 +465,18 @@ export async function cancelDeal(id: string): Promise<{ success: boolean; error:
 
 export async function updatePaymentStatus(
   paymentId: string,
-  field: 'is_signed' | 'is_received' | 'is_reported' | 'consultant_paid',
+  field: 'is_signed' | 'is_received' | 'is_reported',
   value: boolean,
   date?: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
     const admin = createAdminClient()
 
-    // Map field to corresponding date field
+    // Deal-level fields only (consultant_paid is now on splits via payout system)
     const dateFieldMap: Record<string, string> = {
       is_signed: 'signed_date',
       is_received: 'received_date',
       is_reported: 'reported_date',
-      consultant_paid: 'consultant_paid_date',
     }
 
     const dateField = dateFieldMap[field]
@@ -352,75 +497,8 @@ export async function updatePaymentStatus(
       return { success: false, error: error.message }
     }
 
-    // ── Register conta corrente transaction when consultant_paid changes ──
-    if (field === 'consultant_paid' && payment.consultant_amount) {
-      try {
-        // Get deal with property info and consultant
-        const { data: deal } = await (admin as any)
-          .from('deals')
-          .select('id, consultant_id, reference, property:dev_properties!deals_property_id_fkey(id, title, external_ref)')
-          .eq('id', payment.deal_id)
-          .single()
-
-        if (deal && deal.consultant_id) {
-          // Build description label from payment_moment
-          const momentLabels: Record<string, string> = {
-            cpcv: 'CPCV',
-            escritura: 'Escritura',
-            pagamento: 'Pagamento',
-            unico: 'Pagamento',
-          }
-          const momentLabel = momentLabels[payment.payment_moment] ?? payment.payment_moment
-          const propertyLabel = deal.property?.title || deal.property?.external_ref || deal.reference || deal.id
-
-          // Get consultant's current balance (last transaction)
-          const { data: lastTx } = await (admin as any)
-            .from('conta_corrente_transactions')
-            .select('balance_after')
-            .eq('agent_id', deal.consultant_id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single()
-
-          const currentBalance = lastTx?.balance_after ?? 0
-
-          if (value === true) {
-            // CREDIT — consultant marked as paid
-            await (admin as any)
-              .from('conta_corrente_transactions')
-              .insert({
-                agent_id: deal.consultant_id,
-                date: new Date().toISOString(),
-                type: 'CREDIT',
-                category: 'commission_payment',
-                amount: payment.consultant_amount,
-                description: `Comissão ${momentLabel} — ${propertyLabel}`,
-                reference_id: deal.id,
-                reference_type: 'deal_payment',
-                balance_after: currentBalance + Number(payment.consultant_amount),
-              })
-          } else {
-            // DEBIT — undo consultant paid (reversal)
-            await (admin as any)
-              .from('conta_corrente_transactions')
-              .insert({
-                agent_id: deal.consultant_id,
-                date: new Date().toISOString(),
-                type: 'DEBIT',
-                category: 'commission_payment',
-                amount: payment.consultant_amount,
-                description: `Estorno comissão — ${propertyLabel}`,
-                reference_id: deal.id,
-                reference_type: 'deal_payment_reversal',
-                balance_after: currentBalance - Number(payment.consultant_amount),
-              })
-          }
-        }
-      } catch (ccError: any) {
-        // Log but don't fail the main operation
-        console.error('Erro ao registar transacção conta corrente:', ccError.message)
-      }
-    }
+    // Credits are created automatically by DB trigger when is_received = true.
+    // Consultant payment is managed by the payout system via deal_payment_splits.
 
     // Check if all payments of this deal are fully complete
     const { data: allPayments, error: fetchError } = await (admin as any)
@@ -447,11 +525,15 @@ export async function updatePaymentStatus(
   }
 }
 
-// ─── 7. updatePaymentInvoice ────────────────────────────────────────────────
+// ─── 7. updatePaymentInvoice (deal-level: agency + network invoices) ────────
 
 export async function updatePaymentInvoice(
   paymentId: string,
   data: {
+    signed_date?: string | null
+    received_date?: string | null
+    reported_date?: string | null
+    consultant_paid_date?: string | null
     agency_invoice_number?: string
     agency_invoice_date?: string
     agency_invoice_recipient?: string
@@ -460,9 +542,6 @@ export async function updatePaymentInvoice(
     agency_invoice_amount_gross?: number
     network_invoice_number?: string
     network_invoice_date?: string
-    consultant_invoice_number?: string
-    consultant_invoice_date?: string
-    consultant_invoice_type?: string
   }
 ): Promise<{ success: boolean; error: string | null }> {
   try {
@@ -480,6 +559,34 @@ export async function updatePaymentInvoice(
     return { success: true, error: null }
   } catch (err: any) {
     return { success: false, error: err.message ?? 'Erro ao actualizar factura' }
+  }
+}
+
+// ─── 7b. updateSplitInvoice (per-agent: consultant invoice) ────────────────
+
+export async function updateSplitInvoice(
+  splitId: string,
+  data: {
+    consultant_invoice_number?: string
+    consultant_invoice_date?: string
+    consultant_invoice_type?: string
+  }
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const admin = createAdminClient()
+
+    const { error } = await (admin as any)
+      .from('deal_payment_splits')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', splitId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, error: null }
+  } catch (err: any) {
+    return { success: false, error: err.message ?? 'Erro ao actualizar factura do consultor' }
   }
 }
 

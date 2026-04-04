@@ -3,16 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Search, Euro, TrendingUp,
-  Banknote, ExternalLink, MoreHorizontal, FileText, Eye,
+  ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -21,15 +19,14 @@ import {
 } from '@/components/ui/table'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
 import { PaymentStatusDot } from '@/components/financial/payment-status-dot'
-import { MapaGestaoFunnel } from '@/components/financial/mapa-gestao-funnel'
 import { updatePaymentStatus } from '@/app/dashboard/comissoes/deals/actions'
 import type { MapaGestaoRow, MapaGestaoTotals } from '@/types/financial'
-import { DEAL_SCENARIOS } from '@/types/deal'
-import type { DealScenario } from '@/types/deal'
+import { DEAL_SCENARIOS, PAYMENT_MOMENTS } from '@/types/deal'
+import type { PaymentMoment } from '@/types/deal'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
@@ -40,6 +37,12 @@ const MONTHS = [
   'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
+
+const ROLE_LABELS: Record<string, string> = {
+  main: 'Vendedor',
+  partner: 'Comprador',
+  referral: 'Referência',
+}
 
 interface Consultant { id: string; commercial_name: string }
 
@@ -52,13 +55,12 @@ export function MapaGestaoTab() {
   const [dealType, setDealType] = useState<string>('all')
 
   const [rows, setRows] = useState<MapaGestaoRow[]>([])
-  const [totals, setTotals] = useState<MapaGestaoTotals & { partner_total: number; deal_count: number }>({
-    report: 0, consultant_total: 0, network_total: 0, margin_total: 0, partner_total: 0, deal_count: 0,
+  const [totals, setTotals] = useState<MapaGestaoTotals>({
+    split_total: 0, network_total: 0, agency_total: 0, partner_total: 0, row_count: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<Consultant[]>([])
 
-  // Fetch consultants for filter
   useEffect(() => {
     fetch('/api/consultants?status=active')
       .then((r) => r.json())
@@ -81,7 +83,7 @@ export function MapaGestaoTab() {
       if (!res.ok) throw new Error('Erro ao carregar dados')
       const data = await res.json()
       setRows(data.rows || [])
-      setTotals(data.totals || { report: 0, consultant_total: 0, network_total: 0, margin_total: 0, partner_total: 0, deal_count: 0 })
+      setTotals(data.totals || { split_total: 0, network_total: 0, agency_total: 0, partner_total: 0, row_count: 0 })
     } catch {
       toast.error('Erro ao carregar mapa de gestao')
     } finally {
@@ -100,14 +102,9 @@ export function MapaGestaoTab() {
     else setMonth(month + 1)
   }
 
-  const handlePaymentUpdate = async (_dealId: string, paymentId: string, field: string, date: string) => {
+  const handlePaymentUpdate = async (paymentId: string, field: 'is_signed' | 'is_received' | 'is_reported', date: string) => {
     try {
-      const result = await updatePaymentStatus(
-        paymentId,
-        field as 'is_signed' | 'is_received' | 'is_reported' | 'consultant_paid',
-        true,
-        date
-      )
+      const result = await updatePaymentStatus(paymentId, field, true, date)
       if (result.error) throw new Error(result.error)
       toast.success('Actualizado com sucesso')
       loadData()
@@ -126,19 +123,22 @@ export function MapaGestaoTab() {
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Mapa de Gestao</h2>
           <p className="text-neutral-400 mt-1.5 text-sm">{MONTHS[month - 1]} de {year}</p>
 
-          {/* KPI row */}
           <div className="flex flex-wrap gap-6 mt-6">
             <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Report</p>
-              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.report)}</p>
+              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Comissoes Consultor</p>
+              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.split_total)}</p>
             </div>
             <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Margem</p>
-              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.margin_total)}</p>
+              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Rede</p>
+              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.network_total)}</p>
             </div>
             <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Negocios</p>
-              <p className="text-white text-xl font-bold tabular-nums">{totals.deal_count}</p>
+              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Agencia</p>
+              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.agency_total)}</p>
+            </div>
+            <div>
+              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Linhas</p>
+              <p className="text-white text-xl font-bold tabular-nums">{totals.row_count}</p>
             </div>
           </div>
         </div>
@@ -146,7 +146,6 @@ export function MapaGestaoTab() {
 
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Month navigator */}
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={prevMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -159,7 +158,6 @@ export function MapaGestaoTab() {
           </Button>
         </div>
 
-        {/* Consultant filter */}
         <Select value={consultantId} onValueChange={setConsultantId}>
           <SelectTrigger className="h-9 w-[180px] text-sm rounded-full bg-muted/50 border-0">
             <SelectValue placeholder="Consultor" />
@@ -172,7 +170,6 @@ export function MapaGestaoTab() {
           </SelectContent>
         </Select>
 
-        {/* Deal type filter */}
         <Select value={dealType} onValueChange={setDealType}>
           <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0">
             <SelectValue placeholder="Cenario" />
@@ -203,147 +200,133 @@ export function MapaGestaoTab() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[50px]">#</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">ID</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[40px]">#</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Ref</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Consultor</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">PV</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Momento</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Data</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Ass</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Rec</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Rep</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Assinatura</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Cenario</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">%</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Report</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Pago</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor Neg.</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Comissao</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Escalao</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Convictus</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Margem</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Pag. Consultor</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[40px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row, idx) => {
-                  // Determine signing type label
-                  const signingLabel = row.payments.length === 1
-                    ? '100% Escritura'
-                    : row.payments.length >= 2
-                      ? `${row.payments[0]?.payment_pct || 0}% CPCV / ${row.payments[1]?.payment_pct || 0}% Esc.`
-                      : '-'
-
-                  // Aggregate status across all payments
-                  const allSigned = row.payments.every((p: any) => p.is_signed)
-                  const allReceived = row.payments.every((p: any) => p.is_received)
-                  const allReported = row.payments.every((p: any) => p.is_reported)
-                  const anySigned = row.payments.some((p: any) => p.is_signed)
-                  const anyReceived = row.payments.some((p: any) => p.is_received)
-                  const anyReported = row.payments.some((p: any) => p.is_reported)
-
-                  const scenarioLabel = DEAL_SCENARIOS[row.deal_type as DealScenario]?.label ?? row.deal_type
+                  const momentLabel = PAYMENT_MOMENTS[row.payment_moment as PaymentMoment] ?? row.payment_moment
 
                   return (
                     <TableRow
-                      key={`${row.deal_id}-${row.share_role || 'main'}-${row.consultant?.id || idx}`}
+                      key={row.split_id}
                       className="transition-colors duration-200 hover:bg-muted/30 cursor-pointer"
                       onClick={() => router.push(`/dashboard/comissoes/deals/${row.deal_id}`)}
                     >
                       <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
                       <TableCell className="text-sm font-medium">
                         <div className="flex items-center gap-1.5">
-                          {row.reference || row.pv_number || row.deal_id.slice(0, 8)}
-                          {row.share_role === 'angariacao' && (
-                            <Badge variant="outline" className="rounded-full text-[8px] font-medium px-1.5 py-0">Ang.</Badge>
+                          <span>{row.reference || row.pv_number || row.deal_id.slice(0, 8)}</span>
+                          {row.split_role === 'referral' && (
+                            <span className="text-[10px] text-orange-600">Ref.</span>
                           )}
-                          {row.share_role === 'comprador' && (
-                            <Badge variant="outline" className="rounded-full text-[8px] font-medium px-1.5 py-0">Comp.</Badge>
+                          {row.split_role === 'partner' && (
+                            <span className="text-[10px] text-muted-foreground">Parc.</span>
                           )}
-                          {row.share_role === 'referencia' && (
-                            <Badge className="rounded-full text-[8px] font-medium px-1.5 py-0 bg-orange-500/10 text-orange-600 border-0">
-                              Ref. {row.referral_pct_display}%
-                            </Badge>
+                          {(row as any).share_pct < 100 && (
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              {(row as any).share_pct}%
+                            </span>
+                          )}
+                          {(row as any).tier_pct < 100 && (
+                            <span className="text-[10px] text-blue-600 tabular-nums">
+                              {(row as any).tier_pct}%
+                            </span>
                           )}
                         </div>
-                        {/* Show referral deductions on the agent's row */}
-                        {row.referral_deductions && row.referral_deductions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {row.referral_deductions.map((d: any, i: number) => (
-                              <span key={i} className="text-[9px] text-muted-foreground">
-                                -{d.pct}% {d.type === 'externa' ? 'ext.' : ''} {d.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
                             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                              {row.consultant?.commercial_name?.slice(0, 2).toUpperCase() || '??'}
+                              {row.agent?.commercial_name?.slice(0, 2).toUpperCase() || '??'}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm truncate max-w-[120px]">{row.consultant?.commercial_name || '-'}</span>
+                          <span className="text-sm truncate max-w-[120px]">{row.agent?.commercial_name || '-'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{row.pv_number || '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{fmtDate(row.deal_date)}</TableCell>
-
-                      {/* Status dots */}
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={allSigned}
-                            label=""
-                            editable={!allSigned && row.payments.length > 0}
-                            onToggle={(date) => {
-                              const unsigned = row.payments.find((p: any) => !p.is_signed)
-                              if (unsigned) handlePaymentUpdate(row.deal_id, unsigned.id, 'is_signed', date)
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={allReceived}
-                            label=""
-                            editable={anySigned && !allReceived && row.payments.length > 0}
-                            onToggle={(date) => {
-                              const unreceived = row.payments.find((p: any) => p.is_signed && !p.is_received)
-                              if (unreceived) handlePaymentUpdate(row.deal_id, unreceived.id, 'is_received', date)
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={allReported}
-                            label=""
-                            editable={anyReceived && !allReported && row.payments.length > 0}
-                            onToggle={(date) => {
-                              const unreported = row.payments.find((p: any) => p.is_received && !p.is_reported)
-                              if (unreported) handlePaymentUpdate(row.deal_id, unreported.id, 'is_reported', date)
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-
                       <TableCell>
                         <Badge variant="secondary" className="rounded-full text-[10px] font-medium px-2.5 py-0.5 bg-muted/50 whitespace-nowrap">
-                          {signingLabel}
+                          {momentLabel}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="rounded-full text-[10px] font-medium whitespace-nowrap">
-                          {row.has_share ? 'Partilha' : scenarioLabel}
-                        </Badge>
+                      <TableCell className={`text-sm ${(row as any).date_type === 'predicted' ? 'text-amber-500 italic' : 'text-muted-foreground'}`}>
+                        {row.signed_date ? fmtDate(row.signed_date) : fmtDate(row.deal_date)}
+                        {(row as any).date_type === 'predicted' && <span className="text-[9px] ml-1">(prev.)</span>}
                       </TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(row.deal_value)}</TableCell>
+
+                      {/* Deal-level status dots */}
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-center">
+                          <PaymentStatusDot
+                            checked={row.is_signed}
+                            label=""
+                            editable={!row.is_signed}
+                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_signed', date)}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-center">
+                          <PaymentStatusDot
+                            checked={row.is_received}
+                            label=""
+                            editable={row.is_signed && !row.is_received}
+                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_received', date)}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-center">
+                          <PaymentStatusDot
+                            checked={row.is_reported}
+                            label=""
+                            editable={row.is_received && !row.is_reported}
+                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_reported', date)}
+                          />
+                        </div>
+                      </TableCell>
+
+                      {/* Per-agent: consultant paid */}
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <PaymentStatusDot
+                            checked={row.consultant_paid}
+                            label=""
+                            editable={false}
+                          />
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="text-sm text-right tabular-nums">{fmtCurrency(row.deal_value)}</TableCell>
                       <TableCell className="text-right">
-                        <Badge className="bg-emerald-500/10 text-emerald-600 rounded-full text-[10px] font-semibold border-0">
-                          {row.commission_pct}%
-                        </Badge>
+                        <span className="text-sm tabular-nums">{row.commission_pct}%</span>
                       </TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(row.commission_total)}</TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(row.agency_net || row.agency_margin || 0)}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-sm tabular-nums">{(row as any).tier_pct}%</span>
+                      </TableCell>
+                      <TableCell className="text-sm text-right tabular-nums text-muted-foreground">
+                        {row.network_amount != null ? fmtCurrency(row.network_amount) : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-right tabular-nums text-muted-foreground">
+                        {row.agency_amount != null ? fmtCurrency(Math.max(0, row.agency_amount - row.split_amount)) : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(row.split_amount)}</TableCell>
 
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -373,11 +356,6 @@ export function MapaGestaoTab() {
             </Table>
           </div>
         </div>
-      )}
-
-      {/* Funnel */}
-      {!isLoading && rows.length > 0 && (
-        <MapaGestaoFunnel totals={totals} />
       )}
     </div>
   )

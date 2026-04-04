@@ -72,6 +72,14 @@ export async function PUT(
           return NextResponse.json({ error: 'Encomenda não está pendente' }, { status: 400 })
         }
         updateData = { status: 'accepted', assigned_to: extra.assigned_to || null }
+        // Confirm the debit in conta corrente (pending → confirmed)
+        await supabase
+          .from('conta_corrente_transactions')
+          .update({ settlement_status: 'confirmed' })
+          .eq('reference_id', id)
+          .eq('reference_type', 'marketing_order')
+          .eq('type', 'DEBIT')
+          .eq('settlement_status', 'pending')
         break
 
       case 'reject':
@@ -79,7 +87,7 @@ export async function PUT(
           return NextResponse.json({ error: 'Encomenda não está pendente' }, { status: 400 })
         }
         updateData = { status: 'rejected', rejection_reason: extra.reason || '' }
-        // Refund debit
+        // Refund debit and mark original as settled
         await refundOrder(supabase, order, user.id)
         break
 
@@ -203,6 +211,14 @@ export async function DELETE(
 }
 
 async function refundOrder(supabase: any, order: any, userId: string) {
+  // Mark the original DEBIT as settled (cancelled)
+  await supabase
+    .from('conta_corrente_transactions')
+    .update({ settlement_status: 'settled', settled_at: new Date().toISOString() })
+    .eq('reference_id', order.id)
+    .eq('reference_type', 'marketing_order')
+    .eq('type', 'DEBIT')
+
   const { data: lastTx } = await supabase
     .from('conta_corrente_transactions')
     .select('balance_after')
@@ -220,6 +236,7 @@ async function refundOrder(supabase: any, order: any, userId: string) {
     category: 'refund',
     amount: order.total_amount,
     description: `Reembolso — Encomenda cancelada/rejeitada`,
+    settlement_status: 'settled',
     reference_id: order.id,
     reference_type: 'marketing_order',
     balance_after: newBalance,

@@ -2,6 +2,20 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 
+// Determine which month a payment belongs to:
+// - If reported → reported_date
+// - Else if signed → signed_date
+// - Else → deal_date (fallback)
+function getEffectiveDate(payment: any, dealDate: string): string {
+  if (payment.is_reported && payment.reported_date) return payment.reported_date
+  if (payment.signed_date) return payment.signed_date
+  return dealDate
+}
+
+function isInMonth(dateStr: string, startDate: string, endDate: string): boolean {
+  return dateStr >= startDate && dateStr < endDate
+}
+
 export async function GET(request: Request) {
   try {
     const auth = await requirePermission('financial')
@@ -14,54 +28,56 @@ export async function GET(request: Request) {
     const dealType = searchParams.get('deal_type')
     const businessType = searchParams.get('business_type')
 
-    // Date range for the month
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const endMonth = month === 12 ? 1 : month + 1
     const endYear = month === 12 ? year + 1 : year
     const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
-    const supabase = await createClient()
+    const supabase = await createClient() as any
 
-    // Build deal query — fetch deals with payments where deal_date is in the month
-    // OR where any deal_payment signed_date is in the month
+    // Fetch deals broadly — we filter per-payment by effective date below.
+    // Include deals where deal_date, any signed_date, or any reported_date could fall in this month.
+    // We use a wide window: 3 months back from start (a CPCV signed 3 months ago could be reported now)
+    const wideStart = new Date(year, month - 4, 1).toISOString().slice(0, 10)
+
     let query = supabase
       .from('deals')
       .select(`
-        id, reference, pv_number, remax_draft_number,
+        id, reference, pv_number,
         deal_type, deal_value, deal_date, business_type,
-        commission_pct, commission_type, commission_total,
-        has_share, share_type, share_pct, share_amount,
-        consultant_amount, network_amount, agency_margin, agency_net,
+        commission_pct, commission_total,
+        has_share, share_type, share_pct,
+        network_amount, agency_margin, agency_net,
         partner_amount, partner_agency_name,
-        internal_colleague_id,
-        consultant_pct,
         status, proc_instance_id,
-        consultant:dev_users!deals_consultant_id_fkey(id, commercial_name),
-        colleague:dev_users!deals_internal_colleague_id_fkey(id, commercial_name),
         property:dev_properties!deals_property_id_fkey(id, title, external_ref),
+        consultant_id,
+        internal_colleague_id,
         deal_payments(
           id, payment_moment, payment_pct, amount,
-          network_amount, agency_amount, consultant_amount, partner_amount,
-          is_signed, signed_date,
+          network_amount, agency_amount, partner_amount,
+          is_signed, signed_date, date_type,
           is_received, received_date,
           is_reported, reported_date,
           agency_invoice_number, agency_invoice_date,
           agency_invoice_recipient, agency_invoice_recipient_nif,
           agency_invoice_amount_net, agency_invoice_amount_gross,
-          agency_invoice_id,
           network_invoice_number, network_invoice_date,
-          consultant_invoice_number, consultant_invoice_date, consultant_invoice_type,
-          consultant_paid, consultant_paid_date,
-          notes
+          deal_payment_splits(
+            id, agent_id, role, split_pct, amount,
+            consultant_invoice_number, consultant_invoice_date, consultant_invoice_type,
+            consultant_paid, consultant_paid_date,
+            agent:dev_users!deal_payment_splits_agent_id_fkey(id, commercial_name)
+          )
+        ),
+        deal_referrals(
+          consultant_id, referral_pct, side
         )
       `)
       .in('status', ['submitted', 'active', 'completed'])
-      .gte('deal_date', startDate)
+      .gte('deal_date', wideStart)
       .lt('deal_date', endDate)
 
-    // When filtering by consultant, also include deals where they are the internal colleague
-    // or where they appear as a referral consultant
-    if (consultantId) query = query.or(`consultant_id.eq.${consultantId},internal_colleague_id.eq.${consultantId}`)
     if (dealType) query = query.eq('deal_type', dealType)
     if (businessType) query = query.eq('business_type', businessType)
 
@@ -72,273 +88,111 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Fetch all referrals for the deals in one query
-    const dealIds = (deals || []).map((d: any) => d.id)
-    let referralsMap: Record<string, any[]> = {}
-    if (dealIds.length > 0) {
-      const { data: allReferrals } = await (supabase as any)
-        .from('deal_referrals')
-        .select('*, consultant:dev_users!deal_referrals_consultant_id_fkey(id, commercial_name)')
-        .in('deal_id', dealIds)
-
-      for (const ref of (allReferrals || [])) {
-        if (!referralsMap[ref.deal_id]) referralsMap[ref.deal_id] = []
-        referralsMap[ref.deal_id].push(ref)
-      }
-    }
-
-    // Also check if consultant appears as a referral (for filtering)
-    let referralDealIds: string[] = []
-    if (consultantId) {
-      const { data: refDeals } = await (supabase as any)
-        .from('deal_referrals')
-        .select('deal_id')
-        .eq('consultant_id', consultantId)
-        .eq('referral_type', 'interna')
-      referralDealIds = (refDeals || []).map((r: any) => r.deal_id)
-
-      // Fetch those extra deals if not already loaded
-      const missingIds = referralDealIds.filter((id) => !dealIds.includes(id))
-      if (missingIds.length > 0) {
-        const { data: extraDeals } = await supabase
-          .from('deals')
-          .select(`
-            id, reference, pv_number, remax_draft_number,
-            deal_type, deal_value, deal_date, business_type,
-            commission_pct, commission_type, commission_total,
-            has_share, share_type, share_pct, share_amount,
-            consultant_amount, network_amount, agency_margin, agency_net,
-            partner_amount, partner_agency_name,
-            internal_colleague_id, consultant_pct,
-            status, proc_instance_id,
-            consultant:dev_users!deals_consultant_id_fkey(id, commercial_name),
-            colleague:dev_users!deals_internal_colleague_id_fkey(id, commercial_name),
-            property:dev_properties!deals_property_id_fkey(id, title, external_ref),
-            deal_payments(
-              id, payment_moment, payment_pct, amount,
-              network_amount, agency_amount, consultant_amount, partner_amount,
-              is_signed, signed_date, is_received, received_date,
-              is_reported, reported_date,
-              agency_invoice_number, agency_invoice_date,
-              agency_invoice_recipient, agency_invoice_recipient_nif,
-              agency_invoice_amount_net, agency_invoice_amount_gross,
-              agency_invoice_id,
-              network_invoice_number, network_invoice_date,
-              consultant_invoice_number, consultant_invoice_date, consultant_invoice_type,
-              consultant_paid, consultant_paid_date, notes
-            )
-          `)
-          .in('id', missingIds)
-
-        if (extraDeals) {
-          deals!.push(...(extraDeals as any[]))
-          for (const d of extraDeals as any[]) {
-            // Fetch referrals for extra deals
-            const { data: extraRefs } = await (supabase as any)
-              .from('deal_referrals')
-              .select('*, consultant:dev_users!deal_referrals_consultant_id_fkey(id, commercial_name)')
-              .eq('deal_id', d.id)
-            if (extraRefs) referralsMap[d.id] = extraRefs
-          }
-        }
-      }
-    }
-
-    // ── Build rows ──
+    // Build rows: one row per split, filtered by effective date in the selected month
     const momentOrder: Record<string, number> = { cpcv: 0, escritura: 1, single: 2 }
     const rows: any[] = []
-
-    // Helper: build a base row object
-    function baseRow(deal: any, payments: any[]) {
-      return {
-        deal_id: deal.id,
-        reference: deal.reference,
-        pv_number: deal.pv_number,
-        remax_draft_number: deal.remax_draft_number,
-        deal_type: deal.deal_type,
-        deal_value: Number(deal.deal_value),
-        deal_date: deal.deal_date,
-        business_type: deal.business_type,
-        commission_pct: Number(deal.commission_pct),
-        has_share: deal.has_share,
-        property: deal.property,
-        proc_instance_id: deal.proc_instance_id,
-        status: deal.status,
-        payments,
-      }
-    }
-
-    // Helper: create rows for one "side" of a deal
-    function createSideRows(
-      deal: any,
-      payments: any[],
-      sideAgent: any,
-      sideShare: number, // absolute amount for this side
-      sideRole: 'comprador' | 'angariacao' | null,
-      sidePct: number | null,
-      sideName: 'negocio' | 'angariacao',
-      partnerName: string | null,
-      referrals: any[],
-    ) {
-      // Get referrals for this side
-      const sideReferrals = referrals.filter((r: any) => r.side === sideName)
-      const internalRefs = sideReferrals.filter((r: any) => r.referral_type === 'interna' && r.consultant)
-      const externalRefs = sideReferrals.filter((r: any) => r.referral_type === 'externa')
-
-      // Total referral deductions (both internal and external)
-      const totalRefPct = sideReferrals.reduce((s: number, r: any) => s + Number(r.referral_pct), 0) / 100
-      const agentAmount = sideShare * (1 - totalRefPct)
-
-      // Build deductions list for display
-      const deductions = sideReferrals.map((r: any) => ({
-        name: r.referral_type === 'interna'
-          ? r.consultant?.commercial_name || 'Consultor'
-          : r.external_name || 'Externo',
-        pct: Number(r.referral_pct),
-        type: r.referral_type,
-      }))
-
-      // Main agent row
-      rows.push({
-        ...baseRow(deal, payments),
-        commission_total: agentAmount,
-        share_pct: sidePct,
-        share_role: sideRole,
-        referral_pct_display: null,
-        referral_deductions: deductions,
-        consultant_amount: null,
-        network_amount: null,
-        agency_margin: null,
-        agency_net: null,
-        partner_amount: null,
-        partner_agency_name: partnerName,
-        consultant: sideAgent,
-      })
-
-      // Internal referral rows
-      for (const ref of internalRefs) {
-        const refAmount = sideShare * (Number(ref.referral_pct) / 100)
-        rows.push({
-          ...baseRow(deal, payments),
-          commission_total: refAmount,
-          share_pct: null,
-          share_role: 'referencia' as const,
-          referral_pct_display: Number(ref.referral_pct),
-          referral_deductions: [],
-          consultant_amount: null,
-          network_amount: null,
-          agency_margin: null,
-          agency_net: null,
-          partner_amount: null,
-          partner_agency_name: sideAgent?.commercial_name || null,
-          consultant: ref.consultant,
-        })
-      }
-    }
 
     for (const deal of (deals || [])) {
       const payments = (deal.deal_payments || []).sort(
         (a: any, b: any) => (momentOrder[a.payment_moment] ?? 9) - (momentOrder[b.payment_moment] ?? 9)
       )
 
-      const commissionTotal = Number(deal.commission_total)
-      const dealReferrals = referralsMap[deal.id] || []
-      const isInternalShare = deal.share_type === 'internal_agency' && deal.internal_colleague_id && deal.colleague
+      for (const payment of payments) {
+        // Check if this payment belongs to this month
+        const effectiveDate = getEffectiveDate(payment, deal.deal_date)
+        if (!isInMonth(effectiveDate, startDate, endDate)) continue
 
-      if (isInternalShare) {
-        const sharePct = Number(deal.share_pct || 50) / 100
-        const consultantShare = commissionTotal * sharePct
-        const colleagueShare = commissionTotal * (1 - sharePct)
+        const splits = payment.deal_payment_splits || []
+        const dealSharePct = Number(deal.share_pct || 100)
+        const referrals = deal.deal_referrals || []
 
-        // Comprador side (main consultant) — referrals with side='negocio'
-        createSideRows(
-          deal, payments,
-          deal.consultant, consultantShare,
-          'comprador', Number(deal.share_pct || 50),
-          'negocio',
-          deal.colleague?.commercial_name || null,
-          dealReferrals,
-        )
+        for (const split of splits) {
+          // Compute the share % for display
+          let sharePctDisplay: number
+          if (split.role === 'main') {
+            sharePctDisplay = deal.has_share ? dealSharePct : 100
+          } else if (split.role === 'partner') {
+            sharePctDisplay = 100 - dealSharePct
+          } else {
+            // referral — find their referral_pct
+            const ref = referrals.find((r: any) => r.consultant_id === split.agent_id)
+            sharePctDisplay = ref ? Number(ref.referral_pct) : Number(split.split_pct)
+          }
 
-        // Angariação side (colleague) — referrals with side='angariacao'
-        createSideRows(
-          deal, payments,
-          deal.colleague, colleagueShare,
-          'angariacao', 100 - Number(deal.share_pct || 50),
-          'angariacao',
-          deal.consultant?.commercial_name || null,
-          dealReferrals,
-        )
-      } else {
-        // Non-internal-share: single side, all referrals apply to the main consultant
-        // Determine side name based on deal_type
-        const sideName = deal.deal_type === 'angariacao_externa' ? 'negocio' : 'negocio'
+          // Proportional Convictus and Margem for this split
+          const totalConsultantAmount = Number(payment.amount) - Number(payment.network_amount || 0) - Number(payment.agency_amount || 0) - Number(payment.partner_amount || 0)
+          const allSplitsAmount = splits.reduce((s: number, sp: any) => s + Number(sp.amount), 0)
+          const splitRatio = allSplitsAmount > 0 ? Number(split.amount) / allSplitsAmount : 0
+          const splitNetworkAmount = Number(payment.network_amount || 0) * (sharePctDisplay / 100)
+          const splitAgencyAmount = Number(payment.agency_amount || 0) * (sharePctDisplay / 100)
 
-        const allRefs = dealReferrals
-        const totalRefPct = allRefs.reduce((s: number, r: any) => s + Number(r.referral_pct), 0) / 100
-        const internalRefs = allRefs.filter((r: any) => r.referral_type === 'interna' && r.consultant)
-        const agentAmount = commissionTotal * (1 - totalRefPct)
-
-        const deductions = allRefs.map((r: any) => ({
-          name: r.referral_type === 'interna'
-            ? r.consultant?.commercial_name || 'Consultor'
-            : r.external_name || 'Externo',
-          pct: Number(r.referral_pct),
-          type: r.referral_type,
-        }))
-
-        // Main row
-        rows.push({
-          ...baseRow(deal, payments),
-          commission_total: allRefs.length > 0 ? agentAmount : commissionTotal,
-          share_pct: deal.share_pct ? Number(deal.share_pct) : null,
-          share_role: null,
-          referral_pct_display: null,
-          referral_deductions: deductions,
-          consultant_amount: deal.consultant_amount ? Number(deal.consultant_amount) : null,
-          network_amount: deal.network_amount ? Number(deal.network_amount) : null,
-          agency_margin: deal.agency_margin ? Number(deal.agency_margin) : null,
-          agency_net: deal.agency_net ? Number(deal.agency_net) : null,
-          partner_amount: deal.partner_amount ? Number(deal.partner_amount) : null,
-          partner_agency_name: deal.partner_agency_name,
-          consultant: deal.consultant,
-        })
-
-        // Internal referral rows
-        for (const ref of internalRefs) {
-          const refAmount = commissionTotal * (Number(ref.referral_pct) / 100)
           rows.push({
-            ...baseRow(deal, payments),
-            commission_total: refAmount,
-            share_pct: null,
-            share_role: 'referencia' as const,
-            referral_pct_display: Number(ref.referral_pct),
-            referral_deductions: [],
-            consultant_amount: null,
-            network_amount: null,
-            agency_margin: null,
-            agency_net: null,
-            partner_amount: null,
-            partner_agency_name: deal.consultant?.commercial_name || null,
-            consultant: ref.consultant,
+            // Deal info
+            deal_id: deal.id,
+            reference: deal.reference,
+            pv_number: deal.pv_number,
+            deal_type: deal.deal_type,
+            deal_value: Number(deal.deal_value),
+            deal_date: deal.deal_date,
+            effective_date: effectiveDate,
+            business_type: deal.business_type,
+            commission_pct: Number(deal.commission_pct),
+            has_share: deal.has_share,
+            property: deal.property,
+            proc_instance_id: deal.proc_instance_id,
+            deal_status: deal.status,
+            // Payment moment (deal-level)
+            payment_id: payment.id,
+            payment_moment: payment.payment_moment,
+            payment_pct: Number(payment.payment_pct),
+            payment_amount: Number(payment.amount),
+            network_amount: splitNetworkAmount,
+            agency_amount: splitAgencyAmount,
+            partner_amount: payment.partner_amount ? Number(payment.partner_amount) * (sharePctDisplay / 100) : null,
+            is_signed: payment.is_signed ?? false,
+            signed_date: payment.signed_date,
+            date_type: payment.date_type || 'confirmed',
+            is_received: payment.is_received ?? false,
+            received_date: payment.received_date,
+            is_reported: payment.is_reported ?? false,
+            reported_date: payment.reported_date,
+            agency_invoice_number: payment.agency_invoice_number,
+            agency_invoice_date: payment.agency_invoice_date,
+            agency_invoice_recipient: payment.agency_invoice_recipient,
+            agency_invoice_recipient_nif: payment.agency_invoice_recipient_nif,
+            agency_invoice_amount_net: payment.agency_invoice_amount_net ? Number(payment.agency_invoice_amount_net) : null,
+            agency_invoice_amount_gross: payment.agency_invoice_amount_gross ? Number(payment.agency_invoice_amount_gross) : null,
+            network_invoice_number: payment.network_invoice_number,
+            network_invoice_date: payment.network_invoice_date,
+            // Split (per-agent)
+            split_id: split.id,
+            agent: split.agent,
+            split_role: split.role,
+            share_pct: sharePctDisplay,
+            tier_pct: Number(split.split_pct),
+            split_amount: Number(split.amount),
+            consultant_invoice_number: split.consultant_invoice_number,
+            consultant_invoice_date: split.consultant_invoice_date,
+            consultant_invoice_type: split.consultant_invoice_type,
+            consultant_paid: split.consultant_paid ?? false,
+            consultant_paid_date: split.consultant_paid_date,
           })
         }
       }
     }
 
-    // If filtering by consultant, keep only rows where the consultant matches
+    // Filter by consultant if requested
     const filteredRows = consultantId
-      ? rows.filter((r: any) => r.consultant?.id === consultantId)
+      ? rows.filter((r: any) => r.agent?.id === consultantId)
       : rows
 
     // Compute totals
     const totals = {
-      report: filteredRows.reduce((s: number, r: any) => s + r.commission_total, 0),
-      consultant_total: filteredRows.reduce((s: number, r: any) => s + (r.consultant_amount || 0), 0),
+      split_total: filteredRows.reduce((s: number, r: any) => s + r.split_amount, 0),
       network_total: filteredRows.reduce((s: number, r: any) => s + (r.network_amount || 0), 0),
-      margin_total: filteredRows.reduce((s: number, r: any) => s + (r.agency_net || r.agency_margin || 0), 0),
+      agency_total: filteredRows.reduce((s: number, r: any) => s + (r.agency_amount || 0), 0),
       partner_total: filteredRows.reduce((s: number, r: any) => s + (r.partner_amount || 0), 0),
-      deal_count: filteredRows.length,
+      row_count: filteredRows.length,
     }
 
     return NextResponse.json({ rows: filteredRows, totals })

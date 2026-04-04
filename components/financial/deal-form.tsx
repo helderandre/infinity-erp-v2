@@ -64,12 +64,26 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
   const [shareType, setShareType] = useState<ShareType>('external')
   const [sharePct, setSharePct] = useState('')
   const [partnerName, setPartnerName] = useState('')
+  const [internalColleagueId, setInternalColleagueId] = useState('')
   const [consultantPct, setConsultantPct] = useState('')
+  const [partnerPct, setPartnerPct] = useState('')
+
+  // Referrals (per side)
+  const [sellerHasReferral, setSellerHasReferral] = useState(false)
+  const [sellerReferralAgentId, setSellerReferralAgentId] = useState('')
+  const [sellerReferralPct, setSellerReferralPct] = useState('')
+  const [sellerReferralTierPct, setSellerReferralTierPct] = useState('')
+  const [buyerHasReferral, setBuyerHasReferral] = useState(false)
+  const [buyerReferralAgentId, setBuyerReferralAgentId] = useState('')
+  const [buyerReferralPct, setBuyerReferralPct] = useState('')
+  const [buyerReferralTierPct, setBuyerReferralTierPct] = useState('')
 
   // Step 3
   const [paymentStructure, setPaymentStructure] = useState<PaymentStructure>('escritura_only')
   const [cpcvPct, setCpcvPct] = useState('30')
   const [escrituraPct, setEscrituraPct] = useState('70')
+  const [cpcvDate, setCpcvDate] = useState('')
+  const [escrituraDate, setEscrituraDate] = useState('')
 
   const selectedProperty = useMemo(
     () => properties.find((p) => p.id === propertyId) ?? null,
@@ -110,10 +124,22 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
       setShareType('external')
       setSharePct('')
       setPartnerName('')
+      setInternalColleagueId('')
       setConsultantPct('')
+      setPartnerPct('')
+      setSellerHasReferral(false)
+      setSellerReferralAgentId('')
+      setSellerReferralPct('')
+      setSellerReferralTierPct('')
+      setBuyerHasReferral(false)
+      setBuyerReferralAgentId('')
+      setBuyerReferralPct('')
+      setBuyerReferralTierPct('')
       setPaymentStructure('escritura_only')
       setCpcvPct('30')
       setEscrituraPct('70')
+      setCpcvDate('')
+      setEscrituraDate('')
     }
   }, [open])
 
@@ -132,6 +158,26 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
       setConsultantPct(String(tier.consultant_rate))
     }
   }, [tier, consultantPct])
+
+  // Auto-fill partner pct from tier when internal colleague selected
+  useEffect(() => {
+    if (tier && internalColleagueId && !partnerPct) {
+      setPartnerPct(String(tier.consultant_rate))
+    }
+  }, [tier, internalColleagueId, partnerPct])
+
+  // Auto-fill referral tier pcts
+  useEffect(() => {
+    if (tier && sellerReferralAgentId && !sellerReferralTierPct) {
+      setSellerReferralTierPct(String(tier.consultant_rate))
+    }
+  }, [tier, sellerReferralAgentId, sellerReferralTierPct])
+
+  useEffect(() => {
+    if (tier && buyerReferralAgentId && !buyerReferralTierPct) {
+      setBuyerReferralTierPct(String(tier.consultant_rate))
+    }
+  }, [tier, buyerReferralAgentId, buyerReferralTierPct])
 
   // Force arrendamento to single payment
   useEffect(() => {
@@ -187,10 +233,11 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
         commission_pct: calcInput.commission_pct,
         commission_total: calc.commission_total,
         has_share: hasShare,
-        share_type: hasShare ? shareType : undefined,
+        share_type: hasShare ? (shareType === 'internal' ? 'internal_agency' : shareType) : undefined,
         share_pct: hasShare ? parseFloat(sharePct) || undefined : undefined,
         share_amount: hasShare ? calc.share_amount : undefined,
-        partner_agency_name: hasShare ? partnerName || undefined : undefined,
+        partner_agency_name: hasShare && shareType !== 'internal' ? partnerName || undefined : undefined,
+        internal_colleague_id: hasShare && shareType === 'internal' ? internalColleagueId || undefined : undefined,
         network_pct: networkPct,
         network_amount: calc.network_amount,
         agency_margin: calc.agency_margin,
@@ -208,7 +255,23 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
           agency_amount: p.agency,
           consultant_amount: p.consultant,
           partner_amount: p.partner,
+          date: p.moment === 'cpcv' ? (cpcvDate || dealDate) : p.moment === 'escritura' ? (escrituraDate || dealDate) : dealDate,
         })),
+        partner_tier_pct: partnerPct ? parseFloat(partnerPct) : undefined,
+        referrals: [
+          ...(sellerHasReferral && sellerReferralAgentId ? [{
+            side: 'angariacao' as const,
+            agent_id: sellerReferralAgentId,
+            pct: parseFloat(sellerReferralPct) || 0,
+            tier_pct: parseFloat(sellerReferralTierPct) || 0,
+          }] : []),
+          ...(buyerHasReferral && buyerReferralAgentId ? [{
+            side: 'negocio' as const,
+            agent_id: buyerReferralAgentId,
+            pct: parseFloat(buyerReferralPct) || 0,
+            tier_pct: parseFloat(buyerReferralTierPct) || 0,
+          }] : []),
+        ],
       })
       if (res.error) {
         toast.error(res.error)
@@ -222,7 +285,7 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [propertyId, consultantId, dealType, dealValue, dealDate, reference, pvNumber, commissionPct, hasShare, shareType, sharePct, partnerName, consultantPct, paymentStructure, cpcvPct, escrituraPct, onSuccess, onOpenChange])
+  }, [propertyId, consultantId, dealType, dealValue, dealDate, reference, pvNumber, commissionPct, hasShare, shareType, sharePct, partnerName, internalColleagueId, consultantPct, partnerPct, sellerHasReferral, sellerReferralAgentId, sellerReferralPct, sellerReferralTierPct, buyerHasReferral, buyerReferralAgentId, buyerReferralPct, buyerReferralTierPct, paymentStructure, cpcvPct, escrituraPct, cpcvDate, escrituraDate, onSuccess, onOpenChange])
 
   const canNext = step === 1
     ? consultantId && dealType && dealValue && dealDate
@@ -373,13 +436,105 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
                     <Label>% Partilha</Label>
                     <Input type="number" min={0} max={100} step={0.1} value={sharePct} onChange={(e) => setSharePct(e.target.value)} />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Agencia Parceira</Label>
-                    <Input placeholder="Nome da agencia" value={partnerName} onChange={(e) => setPartnerName(e.target.value)} />
-                  </div>
+                  {shareType === 'internal' ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Consultor Parceiro</Label>
+                        <Select value={internalColleagueId} onValueChange={(v) => { setInternalColleagueId(v); setPartnerPct('') }}>
+                          <SelectTrigger><SelectValue placeholder="Seleccionar consultor..." /></SelectTrigger>
+                          <SelectContent>
+                            {consultants.filter((c) => c.id !== consultantId).map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {internalColleagueId && (
+                        <div className="space-y-2 col-span-2">
+                          <Label>% Escalao Parceiro</Label>
+                          <Input type="number" min={0} max={100} step={0.1} value={partnerPct} onChange={(e) => setPartnerPct(e.target.value)} />
+                          {tier && <p className="text-[10px] text-muted-foreground">Auto: {tier.consultant_rate}%</p>}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Agencia Parceira</Label>
+                      <Input placeholder="Nome da agencia" value={partnerName} onChange={(e) => setPartnerName(e.target.value)} />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
+
+            {/* Referrals */}
+            <div className="space-y-3">
+              {/* Seller side referral */}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <Label htmlFor="seller-ref" className="font-normal">
+                  Referenciacao lado {hasShare && shareType === 'internal' ? 'angariacao' : 'vendedor'}
+                </Label>
+                <Switch id="seller-ref" checked={sellerHasReferral} onCheckedChange={setSellerHasReferral} />
+              </div>
+              {sellerHasReferral && (
+                <div className="grid grid-cols-3 gap-4 rounded-lg border p-4 bg-muted/30">
+                  <div className="space-y-2">
+                    <Label>Consultor</Label>
+                    <Select value={sellerReferralAgentId} onValueChange={(v) => { setSellerReferralAgentId(v); setSellerReferralTierPct('') }}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        {consultants.filter((c) => c.id !== consultantId && c.id !== internalColleagueId).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>% Referenciacao</Label>
+                    <Input type="number" min={0} max={100} step={0.1} placeholder="10" value={sellerReferralPct} onChange={(e) => setSellerReferralPct(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>% Escalao</Label>
+                    <Input type="number" min={0} max={100} step={0.1} value={sellerReferralTierPct} onChange={(e) => setSellerReferralTierPct(e.target.value)} />
+                    {tier && <p className="text-[10px] text-muted-foreground">Auto: {tier.consultant_rate}%</p>}
+                  </div>
+                </div>
+              )}
+
+              {/* Buyer side referral (only visible with internal share) */}
+              {hasShare && shareType === 'internal' && (
+                <>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <Label htmlFor="buyer-ref" className="font-normal">Referenciacao lado comprador</Label>
+                    <Switch id="buyer-ref" checked={buyerHasReferral} onCheckedChange={setBuyerHasReferral} />
+                  </div>
+                  {buyerHasReferral && (
+                    <div className="grid grid-cols-3 gap-4 rounded-lg border p-4 bg-muted/30">
+                      <div className="space-y-2">
+                        <Label>Consultor</Label>
+                        <Select value={buyerReferralAgentId} onValueChange={(v) => { setBuyerReferralAgentId(v); setBuyerReferralTierPct('') }}>
+                          <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                          <SelectContent>
+                            {consultants.filter((c) => c.id !== consultantId && c.id !== internalColleagueId).map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>% Referenciacao</Label>
+                        <Input type="number" min={0} max={100} step={0.1} placeholder="10" value={buyerReferralPct} onChange={(e) => setBuyerReferralPct(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>% Escalao</Label>
+                        <Input type="number" min={0} max={100} step={0.1} value={buyerReferralTierPct} onChange={(e) => setBuyerReferralTierPct(e.target.value)} />
+                        {tier && <p className="text-[10px] text-muted-foreground">Auto: {tier.consultant_rate}%</p>}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Tier */}
             {tier && (
@@ -452,6 +607,31 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
                 </div>
               </div>
             )}
+
+            {/* Per-moment dates */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Datas dos Momentos</Label>
+              <div className="grid grid-cols-2 gap-4">
+                {dealType === 'venda' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Data CPCV</Label>
+                      <Input type="date" value={cpcvDate} onChange={(e) => setCpcvDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Data Escritura</Label>
+                      <Input type="date" value={escrituraDate} onChange={(e) => setEscrituraDate(e.target.value)} />
+                    </div>
+                  </>
+                )}
+                {(dealType === 'arrendamento' || dealType === 'trespasse') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Data de Assinatura</Label>
+                    <Input type="date" value={cpcvDate} onChange={(e) => setCpcvDate(e.target.value)} />
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Payment preview */}
             {preview && preview.payments.length > 0 && (

@@ -92,7 +92,8 @@ export async function POST(
       .insert({
         agent_id: requisition.agent_id,
         type: 'DEBIT',
-        category: 'physical_material',
+        category: 'marketing_purchase',
+        settlement_status: 'confirmed',
         amount: requisition.total_amount,
         balance_after: balanceAfter,
         reference_id: requisition.id,
