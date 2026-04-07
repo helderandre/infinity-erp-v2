@@ -240,83 +240,114 @@ export function CompanyManagementTab() {
       {/* Hero header — contém title, month picker, tabs e action buttons */}
       <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-6 py-7 sm:px-10 sm:py-9">
-          {/* Top row: title + actions */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Gestao da Empresa</h2>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/20 hover:text-white"
-                onClick={handleGenerateRecurring}
-                disabled={isGenerating}
-              >
-                {isGenerating ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Gerar Recorrentes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/20 hover:text-white"
-                onClick={() => setScannerOpen(true)}
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Digitalizar Recibo
-              </Button>
-              <Button
-                size="sm"
-                className="rounded-full bg-white text-neutral-900 hover:bg-neutral-100"
-                onClick={() => setAddOpen(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar
-              </Button>
-            </div>
+        <div className="relative z-10 px-5 py-5 sm:px-10 sm:py-7">
+          {/* Top row: title only */}
+          <div>
+            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Gestao da Empresa</h2>
           </div>
 
-          {/* Bottom row: month picker + tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mt-8">
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+          {/* Controls row 1 — mobile: picker + actions only; desktop: picker + actions + tabs */}
+          <div className="flex items-center gap-2 sm:gap-3 mt-6 sm:mt-7">
+            {/* Month picker — fixed size */}
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                className="h-5 w-5 sm:h-6 sm:w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
                 onClick={prevMonth}
               >
                 <ChevronLeft className="h-3 w-3" />
               </Button>
-              <span className="text-[11px] font-medium px-1.5 min-w-[90px] text-center text-white">
+              <span className="text-[10px] sm:text-[11px] font-medium px-1 sm:px-1.5 min-w-[72px] sm:min-w-[90px] text-center text-white">
                 {MONTHS[month - 1]} {year}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                className="h-5 w-5 sm:h-6 sm:w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
                 onClick={nextMonth}
               >
                 <ChevronRight className="h-3 w-3" />
               </Button>
             </div>
 
-            <TabsList className="grid grid-cols-2 rounded-full p-1 h-10 bg-white/10 backdrop-blur-sm border border-white/20 w-full sm:w-auto">
+            {/* Icon-only action buttons — share remaining space equally */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Button
+                variant="ghost"
+                className="flex-1 h-7 px-0 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                onClick={handleGenerateRecurring}
+                disabled={isGenerating}
+                title="Gerar Recorrentes"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-1 h-7 px-0 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                onClick={() => setScannerOpen(true)}
+                title="Digitalizar Recibo"
+              >
+                <Camera className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                className="flex-1 h-7 px-0 rounded-full bg-white text-neutral-900 hover:bg-neutral-100"
+                onClick={() => setAddOpen(true)}
+                title="Adicionar"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Desktop tabs — inline */}
+            <TabsList className="hidden sm:grid grid-cols-2 rounded-full p-1 h-9 bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
               <TabsTrigger
                 value="stats"
-                className="rounded-full text-xs px-6 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+                className="rounded-full text-xs px-5 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
               >
                 Estatísticas
               </TabsTrigger>
               <TabsTrigger
                 value="entries"
-                className="rounded-full text-xs px-6 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+                className="rounded-full text-xs px-5 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
               >
                 Lançamentos
               </TabsTrigger>
             </TabsList>
+          </div>
+
+          {/* Mobile tabs — full width on its own row */}
+          <TabsList className="sm:hidden grid grid-cols-2 rounded-full p-1 h-9 bg-white/10 backdrop-blur-sm border border-white/20 w-full mt-2">
+            <TabsTrigger
+              value="stats"
+              className="rounded-full text-xs text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+            >
+              Estatísticas
+            </TabsTrigger>
+            <TabsTrigger
+              value="entries"
+              className="rounded-full text-xs text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+            >
+              Lançamentos
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Mobile-only: pill compacto com Balanço + Transacções */}
+          <div className="sm:hidden mt-3 flex items-center justify-around gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-medium">Balanço</span>
+              <span className={`text-xs font-bold tabular-nums ${result >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {fmtCurrency(result)}
+              </span>
+            </div>
+            <div className="h-3 w-px bg-white/15" />
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-medium">Transacções</span>
+              <span className="text-xs font-bold tabular-nums text-white">
+                {transactions.length}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -345,21 +376,6 @@ export function CompanyManagementTab() {
           />
         )}
 
-        {/* Mobile-only: Balanço + Transacções pill (substitui os KPI cards no mobile) */}
-        <div className="sm:hidden grid grid-cols-2 gap-1 p-1 rounded-full bg-muted/40 border border-border/30">
-          <div className="flex flex-col items-center justify-center px-3 py-2 rounded-full bg-card shadow-sm">
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Balanço</span>
-            <span className={`text-sm font-bold tabular-nums ${result >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {fmtCurrency(result)}
-            </span>
-          </div>
-          <div className="flex flex-col items-center justify-center px-3 py-2 rounded-full">
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Transacções</span>
-            <span className="text-sm font-bold tabular-nums text-blue-600">
-              {transactions.length}
-            </span>
-          </div>
-        </div>
       </TabsContent>
 
       {/* ─── Tab Lançamentos ─── */}
