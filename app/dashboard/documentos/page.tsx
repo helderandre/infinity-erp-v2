@@ -159,7 +159,9 @@ function DocumentosTab() {
   const [editDoc, setEditDoc] = useState<CompanyDocument | null>(null)
   const [editName, setEditName] = useState('')
   const [editCategory, setEditCategory] = useState('')
+  const [editFile, setEditFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+  const editFileInputRef = useRef<HTMLInputElement>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadCategory, setUploadCategory] = useState('angariacao')
   const [uploading, setUploading] = useState(false)
@@ -212,14 +214,27 @@ function DocumentosTab() {
     if (!editDoc) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/company-documents/${editDoc.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, category: editCategory }),
-      })
+      let res: Response
+      if (editFile) {
+        const fd = new FormData()
+        fd.append('name', editName)
+        fd.append('category', editCategory)
+        fd.append('file', editFile)
+        res = await fetch(`/api/company-documents/${editDoc.id}`, {
+          method: 'PUT',
+          body: fd,
+        })
+      } else {
+        res = await fetch(`/api/company-documents/${editDoc.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: editName, category: editCategory }),
+        })
+      }
       if (!res.ok) throw new Error()
       toast.success('Documento actualizado')
       setEditDoc(null)
+      setEditFile(null)
       fetchDocuments()
     } catch {
       toast.error('Erro ao actualizar documento')
@@ -474,7 +489,7 @@ function DocumentosTab() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editDoc} onOpenChange={(open) => !open && setEditDoc(null)}>
+      <Dialog open={!!editDoc} onOpenChange={(open) => { if (!open) { setEditDoc(null); setEditFile(null) } }}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader><DialogTitle>Editar Documento</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
@@ -492,6 +507,42 @@ function DocumentosTab() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ficheiro</label>
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) setEditFile(f)
+                  e.target.value = ''
+                }}
+              />
+              {editFile ? (
+                <div className="flex items-center gap-2 text-sm rounded-lg bg-muted/30 px-3 py-2">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate">{editFile.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{formatFileSize(editFile.size)}</span>
+                  <button className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => setEditFile(null)} type="button">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs rounded-lg bg-muted/20 px-3 py-2">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate text-muted-foreground">{editDoc?.file_name}</span>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline shrink-0"
+                    onClick={() => editFileInputRef.current?.click()}
+                  >
+                    Substituir
+                  </button>
+                </div>
+              )}
             </div>
             <Button className="w-full rounded-full" disabled={saving} onClick={handleEdit}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
