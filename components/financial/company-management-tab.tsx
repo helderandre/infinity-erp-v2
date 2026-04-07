@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Camera, RefreshCw,
   TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight,
-  FileImage, Receipt, Building, BarChart3, ListFilter,
+  FileImage, Receipt, Building, BarChart3, ListFilter, Repeat,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 import { ReceiptScanner } from '@/components/financial/receipt-scanner'
 import { CompanyStatsView } from '@/components/financial/company-stats-view'
+import { RecurringTemplatesDialog } from '@/components/financial/recurring-templates-dialog'
 import type { CompanyTransaction, CompanyCategory, ReceiptScanResult } from '@/types/financial'
 import { COMPANY_TRANSACTION_STATUSES } from '@/types/financial'
 
@@ -66,12 +67,15 @@ export function CompanyManagementTab() {
   // Dialogs
   const [addOpen, setAddOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
   // Stats view tab + type toggle
   const [activeTab, setActiveTab] = useState<'stats' | 'entries'>('stats')
   const [statsType, setStatsType] = useState<'income' | 'expense'>('expense')
+
+  // Picker + recurring templates dialog
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [recurringOpen, setRecurringOpen] = useState(false)
 
   // Add form
   const [form, setForm] = useState({
@@ -212,24 +216,6 @@ export function CompanyManagementTab() {
     }
   }
 
-  const handleGenerateRecurring = async () => {
-    setIsGenerating(true)
-    try {
-      const res = await fetch('/api/financial/recurring-templates/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, year }),
-      })
-      const data = await res.json()
-      toast.success(data.message || `${data.generated} transaccoes geradas`)
-      loadData()
-    } catch {
-      toast.error('Erro ao gerar recorrentes')
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
   // Filter to expenses only — receitas removidas do scope
   const expenseTransactions = transactions.filter((t) => t.type === 'expense')
 
@@ -259,54 +245,75 @@ export function CompanyManagementTab() {
               >
                 <ChevronLeft className="h-3 w-3" />
               </Button>
-              <Popover>
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="text-[10px] sm:text-[11px] font-medium px-1 sm:px-1.5 min-w-[72px] sm:min-w-[90px] text-center text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                    className="text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 min-w-[100px] sm:min-w-[120px] text-center text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap"
                   >
                     {MONTHS[month - 1]} {year}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64 p-3" align="center">
+                <PopoverContent className="w-72 p-4" align="center">
                   <div className="flex items-center justify-between mb-3">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-7 w-7 rounded-full"
                       onClick={() => setYear(year - 1)}
                     >
-                      <ChevronLeft className="h-3.5 w-3.5" />
+                      <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm font-semibold tabular-nums">{year}</span>
+                    <span className="text-base font-bold tabular-nums">{year}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-7 w-7 rounded-full"
                       onClick={() => setYear(year + 1)}
                     >
-                      <ChevronRight className="h-3.5 w-3.5" />
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     {MONTHS.map((m, idx) => {
                       const isSelected = month === idx + 1
+                      const isCurrent = (now.getMonth() + 1) === idx + 1 && now.getFullYear() === year
                       return (
                         <button
                           key={m}
                           type="button"
-                          onClick={() => setMonth(idx + 1)}
-                          className={`text-xs py-1.5 rounded-md transition-colors ${
+                          onClick={() => {
+                            setMonth(idx + 1)
+                            setPickerOpen(false)
+                          }}
+                          className={`text-xs py-2 rounded-lg transition-all relative ${
                             isSelected
-                              ? 'bg-primary text-primary-foreground font-semibold'
-                              : 'hover:bg-muted text-foreground'
+                              ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                              : isCurrent
+                                ? 'bg-muted/60 text-foreground hover:bg-muted'
+                                : 'hover:bg-muted text-foreground'
                           }`}
                         >
                           {m.slice(0, 3)}
+                          {isCurrent && !isSelected && (
+                            <span className="absolute top-1 right-1.5 h-1 w-1 rounded-full bg-primary" />
+                          )}
                         </button>
                       )
                     })}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 rounded-full text-xs"
+                    onClick={() => {
+                      setMonth(now.getMonth() + 1)
+                      setYear(now.getFullYear())
+                      setPickerOpen(false)
+                    }}
+                  >
+                    Hoje
+                  </Button>
                 </PopoverContent>
               </Popover>
               <Button
@@ -324,11 +331,10 @@ export function CompanyManagementTab() {
                 variant="ghost"
                 size="sm"
                 className="flex-1 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[11px] gap-1.5"
-                onClick={handleGenerateRecurring}
-                disabled={isGenerating}
-                title="Gerar despesas recorrentes do mês"
+                onClick={() => setRecurringOpen(true)}
+                title="Gerir despesas recorrentes"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+                <Repeat className="h-3.5 w-3.5" />
                 <span className="truncate">Recorrentes</span>
               </Button>
               <Button
@@ -591,6 +597,16 @@ export function CompanyManagementTab() {
         onOpenChange={setScannerOpen}
         categories={categories}
         onConfirm={handleScanConfirm}
+      />
+
+      {/* Recurring templates manager */}
+      <RecurringTemplatesDialog
+        open={recurringOpen}
+        onOpenChange={setRecurringOpen}
+        categories={categories}
+        month={month}
+        year={year}
+        onGenerated={loadData}
       />
 
       {/* Receipt Preview Dialog */}
