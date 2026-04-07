@@ -24,6 +24,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 import { ReceiptScanner } from '@/components/financial/receipt-scanner'
 import { CompanyStatsView } from '@/components/financial/company-stats-view'
@@ -258,9 +259,56 @@ export function CompanyManagementTab() {
               >
                 <ChevronLeft className="h-3 w-3" />
               </Button>
-              <span className="text-[10px] sm:text-[11px] font-medium px-1 sm:px-1.5 min-w-[72px] sm:min-w-[90px] text-center text-white">
-                {MONTHS[month - 1]} {year}
-              </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-[10px] sm:text-[11px] font-medium px-1 sm:px-1.5 min-w-[72px] sm:min-w-[90px] text-center text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                  >
+                    {MONTHS[month - 1]} {year}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="center">
+                  <div className="flex items-center justify-between mb-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setYear(year - 1)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-sm font-semibold tabular-nums">{year}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setYear(year + 1)}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {MONTHS.map((m, idx) => {
+                      const isSelected = month === idx + 1
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setMonth(idx + 1)}
+                          className={`text-xs py-1.5 rounded-md transition-colors ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground font-semibold'
+                              : 'hover:bg-muted text-foreground'
+                          }`}
+                        >
+                          {m.slice(0, 3)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 variant="ghost"
                 size="icon"

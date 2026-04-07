@@ -95,7 +95,7 @@ export const financeiroItems = [
   { title: 'Dashboard', icon: TrendingUp, href: '/dashboard/comissoes/dashboard', permission: 'commissions' },
   { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
   { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
-  { title: 'Despesas Empresa', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
+  { title: 'Despesas', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
   { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
   { title: 'Relatórios', icon: Briefcase, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
   { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },

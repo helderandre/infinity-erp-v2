@@ -325,7 +325,7 @@ export default function ComissoesPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Hero Header */}
       <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
