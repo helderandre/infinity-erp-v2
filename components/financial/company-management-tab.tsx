@@ -248,8 +248,8 @@ export function CompanyManagementTab() {
             Gastos da empresa por categoria, com digitalização de faturas via QR fiscal AT.
           </p>
 
-          {/* Controls row: month picker + icon actions */}
-          <div className="flex items-center gap-2 sm:gap-3 mt-6">
+          {/* Controls row: month picker + actions (mobile: 2 rows; desktop: 1 row) */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-6">
             <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
               <Button
                 variant="ghost"
@@ -319,30 +319,36 @@ export function CompanyManagementTab() {
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0">
               <Button
                 variant="ghost"
-                className="flex-1 h-7 px-0 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                size="sm"
+                className="flex-1 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[11px] gap-1.5"
                 onClick={handleGenerateRecurring}
                 disabled={isGenerating}
-                title="Gerar Recorrentes"
+                title="Gerar despesas recorrentes do mês"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+                <span className="truncate">Recorrentes</span>
               </Button>
               <Button
                 variant="ghost"
-                className="flex-1 h-7 px-0 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                size="sm"
+                className="flex-1 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[11px] gap-1.5"
                 onClick={() => setScannerOpen(true)}
-                title="Digitalizar Recibo"
+                title="Digitalizar recibo / fatura"
               >
                 <Camera className="h-3.5 w-3.5" />
+                <span className="truncate">Digitalizar</span>
               </Button>
               <Button
-                className="flex-1 h-7 px-0 rounded-full bg-white text-neutral-900 hover:bg-neutral-100"
+                size="sm"
+                className="flex-1 h-8 rounded-full bg-white text-neutral-900 hover:bg-neutral-100 text-[11px] gap-1.5"
                 onClick={() => setAddOpen(true)}
-                title="Adicionar"
+                title="Adicionar despesa manual"
               >
                 <Plus className="h-3.5 w-3.5" />
+                <span className="truncate">Adicionar</span>
               </Button>
             </div>
           </div>
@@ -417,70 +423,122 @@ export function CompanyManagementTab() {
                 </div>
 
                 {/* Individual list */}
-                {expenseTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center gap-3 rounded-2xl border bg-card/40 hover:bg-muted/30 px-3 sm:px-4 py-3 transition-colors"
-                  >
-                    {/* Receipt thumbnail or icon */}
-                    {tx.receipt_url && tx.receipt_url.startsWith('data:') ? (
+                {expenseTransactions.map((tx) => {
+                  const cat = categories.find((c) => c.name === tx.category)
+                  const catColor = cat?.color && /^#[0-9a-f]{3,8}$/i.test(cat.color)
+                    ? cat.color
+                    : '#ef4444'
+                  const hasReceipt = tx.receipt_url && tx.receipt_url.startsWith('data:')
+                  return (
+                    <div
+                      key={tx.id}
+                      className="group relative flex items-stretch gap-0 rounded-2xl border bg-card hover:shadow-sm hover:border-border transition-all overflow-hidden"
+                    >
+                      {/* Left color stripe (category indicator) */}
+                      <div
+                        className="w-1 shrink-0"
+                        style={{ backgroundColor: catColor }}
+                      />
+
+                      {/* Receipt thumbnail */}
                       <button
                         type="button"
-                        onClick={() => setReceiptPreview(tx.receipt_url)}
-                        className="h-10 w-10 shrink-0 rounded-xl bg-muted/40 flex items-center justify-center hover:bg-muted/60 transition-colors"
-                        title="Ver recibo"
+                        onClick={() => hasReceipt && setReceiptPreview(tx.receipt_url!)}
+                        disabled={!hasReceipt}
+                        className={`h-auto w-14 sm:w-16 shrink-0 flex items-center justify-center bg-muted/30 ${
+                          hasReceipt ? 'cursor-pointer hover:bg-muted/60' : 'cursor-default'
+                        } transition-colors`}
+                        title={hasReceipt ? 'Ver recibo digitalizado' : undefined}
                       >
-                        <FileImage className="h-4 w-4 text-muted-foreground" />
+                        {hasReceipt ? (
+                          <div className="relative">
+                            <FileImage className="h-5 w-5 text-muted-foreground" />
+                            <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500" />
+                          </div>
+                        ) : (
+                          <Receipt className="h-5 w-5 text-muted-foreground/40" />
+                        )}
                       </button>
-                    ) : (
-                      <div className="h-10 w-10 shrink-0 rounded-xl bg-red-500/10 flex items-center justify-center">
-                        <Receipt className="h-4 w-4 text-red-500" />
-                      </div>
-                    )}
 
-                    {/* Main info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-medium truncate">
-                          {tx.entity_name || tx.description || 'Sem fornecedor'}
-                        </p>
-                        {tx.ai_extracted && (
-                          <Badge className="bg-purple-500/10 text-purple-600 text-[8px] border-0 px-1.5 h-4">IA</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className="rounded-full text-[10px] font-medium bg-muted/50 px-2 h-4"
-                        >
-                          {tx.category}
-                        </Badge>
-                        {tx.invoice_number && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {tx.invoice_number}
+                      {/* Main content */}
+                      <div className="flex-1 min-w-0 px-3 sm:px-4 py-3">
+                        {/* Top row: supplier + amount */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold truncate text-foreground">
+                              {tx.entity_name || tx.description || 'Sem fornecedor'}
+                            </p>
+                            {tx.entity_name && tx.description && tx.description !== tx.entity_name && (
+                              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                                {tx.description}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <p className="text-base font-bold text-foreground tabular-nums leading-none">
+                              {fmtCurrency(Number(tx.amount_gross || tx.amount_net))}
+                            </p>
+                            {tx.amount_gross && tx.amount_net && Number(tx.amount_gross) !== Number(tx.amount_net) && (
+                              <p className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                                {fmtCurrency(Number(tx.amount_net))} s/IVA
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bottom row: meta chips */}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: `${catColor}1a`,
+                              color: catColor,
+                            }}
+                          >
+                            <span
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: catColor }}
+                            />
+                            {tx.category}
                           </span>
-                        )}
-                        {tx.invoice_date && (
-                          <span className="text-[10px] text-muted-foreground">
-                            · {fmtDate(tx.invoice_date)}
-                          </span>
-                        )}
+
+                          {tx.invoice_number && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <FileImage className="h-2.5 w-2.5" />
+                              {tx.invoice_number}
+                            </span>
+                          )}
+
+                          {tx.invoice_date && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {fmtDate(tx.invoice_date)}
+                            </span>
+                          )}
+
+                          {tx.is_recurring && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 font-medium">
+                              <RefreshCw className="h-2.5 w-2.5" />
+                              Recorrente
+                            </span>
+                          )}
+
+                          {tx.ai_extracted && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 font-medium">
+                              ✨ IA
+                            </span>
+                          )}
+
+                          {tx.status === 'draft' && (
+                            <span className="inline-flex items-center text-[10px] text-amber-600 font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10">
+                              Rascunho
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Amount */}
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-red-600 tabular-nums">
-                        {fmtCurrency(Number(tx.amount_gross || tx.amount_net))}
-                      </p>
-                      {tx.amount_gross && tx.amount_net && Number(tx.amount_gross) !== Number(tx.amount_net) && (
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
-                          {fmtCurrency(Number(tx.amount_net))} s/IVA
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </TabsContent>
