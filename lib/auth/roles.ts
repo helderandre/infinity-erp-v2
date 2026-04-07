@@ -15,6 +15,14 @@ export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as 
 /** Roles consideradas "consultores" (não back-office/admin) */
 export const CONSULTANT_ROLES = ['Consultor', 'Consultora Executiva', 'Team Leader'] as const
 
+/** Roles que podem ser responsáveis por um imóvel ou processo (consultores + brokers) */
+export const PROPERTY_RESPONSIBLE_ROLES = [
+  'Consultor',
+  'Consultora Executiva',
+  'Team Leader',
+  'Broker/CEO',
+] as const
+
 /** Roles que recebem notificações de aprovação/gestão */
 export const APPROVER_NOTIFICATION_ROLES = ['Broker/CEO', 'Gestor Processual'] as const
 

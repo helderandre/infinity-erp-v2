@@ -150,7 +150,7 @@ export default function ImovelDetalhePage() {
   const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
 
   useEffect(() => {
-    fetch('/api/consultants?per_page=100&status=active')
+    fetch('/api/consultants?per_page=100&status=active&include_brokers=true')
       .then(r => r.json())
       .then(d => setConsultantsList(d.data || []))
       .catch(() => {})

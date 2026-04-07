@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { consultantUserSchema } from '@/lib/validations/consultant'
-import { CONSULTANT_ROLES } from '@/lib/auth/roles'
+import { CONSULTANT_ROLES, PROPERTY_RESPONSIBLE_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const role = searchParams.get('role')
     const status = searchParams.get('status') // 'active' | 'inactive' | 'all'
     const consultantOnly = searchParams.get('consultant_only') !== 'false' // default true
+    const includeBrokers = searchParams.get('include_brokers') === 'true'
     const limit = Math.min(Number(searchParams.get('per_page')) || 50, 100)
     const page = Math.max(Number(searchParams.get('page')) || 1, 1)
     const offset = (page - 1) * limit
@@ -61,8 +62,11 @@ export async function GET(request: Request) {
 
     // By default, only show consultants (not admin, office manager, etc.)
     if (consultantOnly) {
+      const allowedRoles: readonly string[] = includeBrokers
+        ? PROPERTY_RESPONSIBLE_ROLES
+        : CONSULTANT_ROLES
       filtered = filtered.filter((c: any) =>
-        c.user_roles?.some((ur: any) => CONSULTANT_ROLES.includes(ur.roles?.name))
+        c.user_roles?.some((ur: any) => allowedRoles.includes(ur.roles?.name))
       )
     }
 

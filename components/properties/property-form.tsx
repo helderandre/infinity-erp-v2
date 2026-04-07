@@ -142,7 +142,7 @@ export function PropertyForm({
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
 
   useEffect(() => {
-    fetch('/api/consultants?per_page=100&status=active')
+    fetch('/api/consultants?per_page=100&status=active&include_brokers=true')
       .then(r => r.json())
       .then(d => setConsultants(d.data || []))
       .catch(() => {})
