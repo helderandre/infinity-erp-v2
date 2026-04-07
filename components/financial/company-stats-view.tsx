@@ -12,6 +12,10 @@ interface CompanyStatsViewProps {
   totalIncome: number
   totalExpense: number
   onTypeChange: (type: 'income' | 'expense') => void
+  /** Esconde o toggle Receitas/Despesas — usado quando a página só lida com despesas */
+  hideTypeToggle?: boolean
+  /** Esconde o card border externo (quando o componente já está dentro de outro card) */
+  hideOuterCard?: boolean
 }
 
 const fmtCurrency = (v: number) =>
@@ -45,6 +49,8 @@ export function CompanyStatsView({
   totalIncome,
   totalExpense,
   onTypeChange,
+  hideTypeToggle = false,
+  hideOuterCard = false,
 }: CompanyStatsViewProps) {
   const filtered = useMemo(
     () => transactions.filter((t) => t.type === type),
@@ -76,37 +82,43 @@ export function CompanyStatsView({
 
   const isEmpty = byCategory.length === 0 || total === 0
 
+  const wrapperClass = hideOuterCard
+    ? ''
+    : 'rounded-3xl border bg-card/50 backdrop-blur-sm p-5 sm:p-6 shadow-sm'
+
   return (
-    <div className="rounded-3xl border bg-card/50 backdrop-blur-sm p-5 sm:p-6 shadow-sm">
+    <div className={wrapperClass}>
       {/* Toggle Receitas / Despesas */}
-      <div className="flex items-center justify-center gap-1 p-1 rounded-full bg-muted/40 mb-6">
-        <button
-          type="button"
-          onClick={() => onTypeChange('income')}
-          className={`flex-1 px-4 py-2 text-xs font-medium rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 ${
-            type === 'income'
-              ? 'bg-card shadow-sm text-emerald-600'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <TrendingUp className="h-3.5 w-3.5" />
-          Receitas
-          <span className="text-[10px] opacity-70 tabular-nums">({fmtCurrency(totalIncome)})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onTypeChange('expense')}
-          className={`flex-1 px-4 py-2 text-xs font-medium rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 ${
-            type === 'expense'
-              ? 'bg-card shadow-sm text-red-600'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <TrendingDown className="h-3.5 w-3.5" />
-          Despesas
-          <span className="text-[10px] opacity-70 tabular-nums">({fmtCurrency(totalExpense)})</span>
-        </button>
-      </div>
+      {!hideTypeToggle && (
+        <div className="flex items-center justify-center gap-1 p-1 rounded-full bg-muted/40 mb-6">
+          <button
+            type="button"
+            onClick={() => onTypeChange('income')}
+            className={`flex-1 px-4 py-2 text-xs font-medium rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 ${
+              type === 'income'
+                ? 'bg-card shadow-sm text-emerald-600'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            Receitas
+            <span className="text-[10px] opacity-70 tabular-nums">({fmtCurrency(totalIncome)})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onTypeChange('expense')}
+            className={`flex-1 px-4 py-2 text-xs font-medium rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 ${
+              type === 'expense'
+                ? 'bg-card shadow-sm text-red-600'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <TrendingDown className="h-3.5 w-3.5" />
+            Despesas
+            <span className="text-[10px] opacity-70 tabular-nums">({fmtCurrency(totalExpense)})</span>
+          </button>
+        </div>
+      )}
 
       {/* Donut chart */}
       <div className="relative h-[260px] w-full">

@@ -327,12 +327,17 @@ export default function ComissoesPage() {
   return (
     <div className="space-y-6 p-6">
       {/* Hero Header */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
+      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-12">
-          <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Comissoes</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">Negocios e transaccoes de comissoes</p>
+        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
+          <div className="flex items-center gap-2 mb-2">
+            <CircleDollarSign className="h-5 w-5 text-neutral-400" />
+            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Comissoes</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
+            Negócios e transacções de comissões dos consultores.
+          </p>
         </div>
         <Button
           size="sm"

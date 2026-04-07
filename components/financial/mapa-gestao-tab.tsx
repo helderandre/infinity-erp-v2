@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye,
+  ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye, Map,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -116,29 +116,34 @@ export function MapaGestaoTab() {
   return (
     <div className="space-y-6">
       {/* Hero header */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
+      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-12">
-          <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Mapa de Gestao</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">{MONTHS[month - 1]} de {year}</p>
+        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
+          <div className="flex items-center gap-2 mb-2">
+            <Map className="h-5 w-5 text-neutral-400" />
+            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Mapa de Gestao</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
+            Mapa de pagamentos e split de comissões em {MONTHS[month - 1]} de {year}.
+          </p>
 
-          <div className="flex flex-wrap gap-6 mt-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-3 mt-6">
             <div>
               <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Comissoes Consultor</p>
-              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.split_total)}</p>
+              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.split_total)}</p>
             </div>
             <div>
               <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Rede</p>
-              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.network_total)}</p>
+              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.network_total)}</p>
             </div>
             <div>
               <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Agencia</p>
-              <p className="text-white text-xl font-bold tabular-nums">{fmtCurrency(totals.agency_total)}</p>
+              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.agency_total)}</p>
             </div>
             <div>
               <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Linhas</p>
-              <p className="text-white text-xl font-bold tabular-nums">{totals.row_count}</p>
+              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{totals.row_count}</p>
             </div>
           </div>
         </div>

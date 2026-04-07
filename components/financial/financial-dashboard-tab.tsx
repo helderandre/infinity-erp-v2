@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, TrendingUp, TrendingDown,
   Wallet, Building2, FileSignature, FileCheck, CreditCard,
-  Banknote, Target,
+  Banknote, Target, LayoutDashboard,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -47,12 +47,17 @@ export function FinancialDashboardTab() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
+      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-12">
-          <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Visao Geral</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Dashboard Financeiro</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">{MONTHS[month - 1]} de {year}</p>
+        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
+          <div className="flex items-center gap-2 mb-2">
+            <LayoutDashboard className="h-5 w-5 text-neutral-400" />
+            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Visao Geral</p>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Dashboard Financeiro</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
+            Indicadores e evolução financeira da empresa em {MONTHS[month - 1]} de {year}.
+          </p>
         </div>
       </div>
 

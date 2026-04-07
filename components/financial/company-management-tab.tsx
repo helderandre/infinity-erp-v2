@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Plus, Camera, RefreshCw,
   TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight,
-  FileImage,
+  FileImage, Receipt, Building, BarChart3, ListFilter,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -229,27 +229,26 @@ export function CompanyManagementTab() {
     }
   }
 
-  const result = totalIncome - totalExpense
+  // Filter to expenses only — receitas removidas do scope
+  const expenseTransactions = transactions.filter((t) => t.type === 'expense')
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) => setActiveTab(v as 'stats' | 'entries')}
-      className="space-y-6"
-    >
-      {/* Hero header — contém title, month picker, tabs e action buttons */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
+    <div className="space-y-6">
+      {/* Hero header — title + actions only */}
+      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-5 py-5 sm:px-10 sm:py-7">
-          {/* Top row: title only */}
-          <div>
+        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
+          <div className="flex items-center gap-2 mb-2">
+            <Building className="h-5 w-5 text-neutral-400" />
             <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Gestao da Empresa</h2>
           </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Despesas</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
+            Gastos da empresa por categoria, com digitalização de faturas via QR fiscal AT.
+          </p>
 
-          {/* Controls row 1 — mobile: picker + actions only; desktop: picker + actions + tabs */}
-          <div className="flex items-center gap-2 sm:gap-3 mt-6 sm:mt-7">
-            {/* Month picker — fixed size */}
+          {/* Controls row: month picker + icon actions */}
+          <div className="flex items-center gap-2 sm:gap-3 mt-6">
             <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
               <Button
                 variant="ghost"
@@ -272,7 +271,6 @@ export function CompanyManagementTab() {
               </Button>
             </div>
 
-            {/* Icon-only action buttons — share remaining space equally */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <Button
                 variant="ghost"
@@ -299,158 +297,147 @@ export function CompanyManagementTab() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-
-            {/* Desktop tabs — inline */}
-            <TabsList className="hidden sm:grid grid-cols-2 rounded-full p-1 h-9 bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
-              <TabsTrigger
-                value="stats"
-                className="rounded-full text-xs px-5 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
-              >
-                Estatísticas
-              </TabsTrigger>
-              <TabsTrigger
-                value="entries"
-                className="rounded-full text-xs px-5 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
-              >
-                Lançamentos
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Mobile tabs — full width on its own row */}
-          <TabsList className="sm:hidden grid grid-cols-2 rounded-full p-1 h-9 bg-white/10 backdrop-blur-sm border border-white/20 w-full mt-2">
-            <TabsTrigger
-              value="stats"
-              className="rounded-full text-xs text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
-            >
-              Estatísticas
-            </TabsTrigger>
-            <TabsTrigger
-              value="entries"
-              className="rounded-full text-xs text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
-            >
-              Lançamentos
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Mobile-only: pill compacto com Balanço + Transacções */}
-          <div className="sm:hidden mt-3 flex items-center justify-around gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-medium">Balanço</span>
-              <span className={`text-xs font-bold tabular-nums ${result >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {fmtCurrency(result)}
-              </span>
-            </div>
-            <div className="h-3 w-px bg-white/15" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-medium">Transacções</span>
-              <span className="text-xs font-bold tabular-nums text-white">
-                {transactions.length}
-              </span>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* ─── Tab Estatísticas ─── */}
-      <TabsContent value="stats" className="space-y-6">
-        {/* KPI cards — hidden on mobile */}
-        <div className="hidden sm:grid gap-3 grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={ArrowUpRight} label="Receitas" value={totalIncome} color="emerald" />
-          <KpiCard icon={ArrowDownRight} label="Despesas" value={totalExpense} color="red" />
-          <KpiCard icon={Wallet} label="Resultado" value={result} color={result >= 0 ? 'emerald' : 'red'} />
-          <KpiCard icon={TrendingUp} label="Transaccoes" value={transactions.length} color="blue" isCurrency={false} />
-        </div>
+      {/* White card com tabs Estatísticas / Despesas */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'stats' | 'entries')}
+      >
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm shadow-sm overflow-hidden">
+          {/* Tabs header */}
+          <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-2">
+            <TabsList className="grid w-full sm:w-auto sm:inline-grid grid-cols-2 rounded-full p-1 h-9 bg-muted/40 border border-border/30">
+              <TabsTrigger
+                value="stats"
+                className="rounded-full text-xs px-5 gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              >
+                <BarChart3 className="h-3 w-3" /> Estatísticas
+              </TabsTrigger>
+              <TabsTrigger
+                value="entries"
+                className="rounded-full text-xs px-5 gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              >
+                <ListFilter className="h-3 w-3" /> Despesas
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        {/* Donut chart + categories list */}
-        {isLoading ? (
-          <Skeleton className="h-[600px] w-full rounded-3xl" />
-        ) : (
-          <CompanyStatsView
-            transactions={transactions}
-            categories={categories}
-            type={statsType}
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-            onTypeChange={setStatsType}
-          />
-        )}
+          {/* ─── Tab Estatísticas (donut + categorias) ─── */}
+          <TabsContent value="stats" className="px-4 sm:px-6 pb-6 pt-2 mt-0">
+            {isLoading ? (
+              <Skeleton className="h-[500px] w-full rounded-2xl" />
+            ) : (
+              <CompanyStatsView
+                transactions={expenseTransactions}
+                categories={categories}
+                type="expense"
+                totalIncome={0}
+                totalExpense={totalExpense}
+                onTypeChange={() => {}}
+                hideTypeToggle
+                hideOuterCard
+              />
+            )}
+          </TabsContent>
 
-      </TabsContent>
+          {/* ─── Tab Despesas (lista individual) ─── */}
+          <TabsContent value="entries" className="px-4 sm:px-6 pb-6 pt-2 mt-0">
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
+              </div>
+            ) : expenseTransactions.length === 0 ? (
+              <div className="rounded-2xl border bg-muted/20 p-12 text-center">
+                <Receipt className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                <p className="font-medium text-muted-foreground">Sem despesas neste período</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Total summary */}
+                <div className="flex items-center justify-between rounded-2xl bg-muted/30 px-4 py-3 mb-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total despesas</p>
+                    <p className="text-xl font-bold text-red-600 tabular-nums">{fmtCurrency(totalExpense)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Lançamentos</p>
+                    <p className="text-xl font-bold tabular-nums">{expenseTransactions.length}</p>
+                  </div>
+                </div>
 
-      {/* ─── Tab Lançamentos ─── */}
-      <TabsContent value="entries" className="space-y-6">
-      {/* Table */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
-        </div>
-      ) : transactions.length === 0 ? (
-        <div className="rounded-2xl border bg-card/30 backdrop-blur-sm p-12 text-center">
-          <Wallet className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="font-medium text-muted-foreground">Sem transaccoes neste periodo</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[40px]">#</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Entidade</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Vencimento</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">N.o Fatura</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor s/IVA</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Valor c/IVA</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Pagamento</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Descricao</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Rubrica</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx, idx) => {
-                  const statusInfo = COMPANY_TRANSACTION_STATUSES[tx.status]
-                  return (
-                    <TableRow key={tx.id} className="transition-colors duration-200 hover:bg-muted/30">
-                      <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <span>{tx.entity_name || '-'}</span>
-                          {tx.receipt_url && tx.receipt_url.startsWith('data:') && (
-                            <button
-                              type="button"
-                              onClick={() => setReceiptPreview(tx.receipt_url)}
-                              className="text-muted-foreground hover:text-primary transition-colors"
-                              title="Ver recibo"
-                            >
-                              <FileImage className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        {tx.ai_extracted && <Badge className="bg-purple-500/10 text-purple-600 text-[8px] border-0 mt-0.5">IA</Badge>}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{tx.due_date ? fmtDate(tx.due_date) : '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{tx.invoice_number || '-'}</TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(Number(tx.amount_net))}</TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">
-                        {tx.amount_gross ? fmtCurrency(Number(tx.amount_gross)) : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{tx.payment_date ? fmtDate(tx.payment_date) : '-'}</TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{tx.description}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="rounded-full text-[10px] font-medium bg-muted/50 whitespace-nowrap">
+                {/* Individual list */}
+                {expenseTransactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center gap-3 rounded-2xl border bg-card/40 hover:bg-muted/30 px-3 sm:px-4 py-3 transition-colors"
+                  >
+                    {/* Receipt thumbnail or icon */}
+                    {tx.receipt_url && tx.receipt_url.startsWith('data:') ? (
+                      <button
+                        type="button"
+                        onClick={() => setReceiptPreview(tx.receipt_url)}
+                        className="h-10 w-10 shrink-0 rounded-xl bg-muted/40 flex items-center justify-center hover:bg-muted/60 transition-colors"
+                        title="Ver recibo"
+                      >
+                        <FileImage className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded-xl bg-red-500/10 flex items-center justify-center">
+                        <Receipt className="h-4 w-4 text-red-500" />
+                      </div>
+                    )}
+
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium truncate">
+                          {tx.entity_name || tx.description || 'Sem fornecedor'}
+                        </p>
+                        {tx.ai_extracted && (
+                          <Badge className="bg-purple-500/10 text-purple-600 text-[8px] border-0 px-1.5 h-4">IA</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <Badge
+                          variant="secondary"
+                          className="rounded-full text-[10px] font-medium bg-muted/50 px-2 h-4"
+                        >
                           {tx.category}
                         </Badge>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                        {tx.invoice_number && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {tx.invoice_number}
+                          </span>
+                        )}
+                        {tx.invoice_date && (
+                          <span className="text-[10px] text-muted-foreground">
+                            · {fmtDate(tx.invoice_date)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-red-600 tabular-nums">
+                        {fmtCurrency(Number(tx.amount_gross || tx.amount_net))}
+                      </p>
+                      {tx.amount_gross && tx.amount_net && Number(tx.amount_gross) !== Number(tx.amount_net) && (
+                        <p className="text-[10px] text-muted-foreground tabular-nums">
+                          {fmtCurrency(Number(tx.amount_net))} s/IVA
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </div>
-      )}
-      </TabsContent>
+      </Tabs>
 
       {/* Add Transaction Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -577,7 +564,7 @@ export function CompanyManagementTab() {
           )}
         </DialogContent>
       </Dialog>
-    </Tabs>
+    </div>
   )
 }
 
