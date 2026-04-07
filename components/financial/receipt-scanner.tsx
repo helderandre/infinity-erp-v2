@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Camera, Upload, Loader2, Sparkles, X, AlertTriangle } from 'lucide-react'
+import { Camera, Upload, Loader2, Sparkles, X, AlertTriangle, QrCode } from 'lucide-react'
+import jsQR from 'jsqr'
+import { parsePtFiscalQr } from '@/lib/financial/parse-pt-fiscal-qr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +28,42 @@ interface ReceiptScannerProps {
 }
 
 const LOW_CONFIDENCE_THRESHOLD = 0.7
+
+/**
+ * Tenta encontrar um QR code numa imagem usando jsQR.
+ * Faz um upscale moderado e tenta a imagem inteira (suficiente para faturas PT,
+ * onde o QR está sempre num canto e ocupa 5–15% da área).
+ */
+async function detectQrFromImage(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      // Limita o canvas a 1600px no lado maior — chega para QR fiscal
+      const maxDim = 1600
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(null); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      try {
+        const imageData = ctx.getImageData(0, 0, width, height)
+        const code = jsQR(imageData.data, width, height, { inversionAttempts: 'attemptBoth' })
+        resolve(code?.data || null)
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = dataUrl
+  })
+}
 
 /** Compress an image file to WebP, max 300KB / 1200px */
 async function compressImage(file: File): Promise<string> {
@@ -66,6 +104,8 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
   const [compressedImage, setCompressedImage] = useState<string | null>(null)
   const [isScanning, setIsScanning] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
+  const [isDetectingQr, setIsDetectingQr] = useState(false)
+  const [qrDetected, setQrDetected] = useState(false)
   const [result, setResult] = useState<ReceiptScanResult | null>(null)
   const [editedResult, setEditedResult] = useState<Partial<ReceiptScanResult>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -75,24 +115,43 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
     if (!file) return
 
     // Show preview immediately
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string)
-      setResult(null)
-      setEditedResult({})
-    }
-    reader.readAsDataURL(file)
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Erro ao ler ficheiro'))
+      reader.readAsDataURL(file)
+    })
 
-    // Compress in background
+    setImagePreview(dataUrl)
+    setResult(null)
+    setEditedResult({})
+    setQrDetected(false)
+
+    // Run compression and QR detection in parallel
     setIsCompressing(true)
-    try {
-      const compressed = await compressImage(file)
-      setCompressedImage(compressed)
-    } catch {
-      toast.error('Erro ao comprimir imagem')
-    } finally {
-      setIsCompressing(false)
-    }
+    setIsDetectingQr(true)
+
+    const compressPromise = compressImage(file)
+      .then((c) => { setCompressedImage(c); return c })
+      .catch(() => { toast.error('Erro ao comprimir imagem'); return null })
+      .finally(() => setIsCompressing(false))
+
+    const qrPromise = detectQrFromImage(dataUrl)
+      .then((qrText) => {
+        if (!qrText) return null
+        const parsed = parsePtFiscalQr(qrText)
+        if (!parsed) return null
+        // QR fiscal PT detectado — preencher resultado e saltar a IA
+        setResult(parsed)
+        setEditedResult(parsed)
+        setQrDetected(true)
+        toast.success('QR fiscal detectado — dados preenchidos automaticamente')
+        return parsed
+      })
+      .catch(() => null)
+      .finally(() => setIsDetectingQr(false))
+
+    await Promise.all([compressPromise, qrPromise])
   }, [])
 
   const handleScan = async () => {
@@ -106,9 +165,33 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
         body: JSON.stringify({ image: imageToSend }),
       })
       if (!res.ok) throw new Error('Erro na digitalização')
-      const data = await res.json()
-      setResult(data)
-      setEditedResult(data)
+      const aiData: ReceiptScanResult = await res.json()
+
+      if (qrDetected && result) {
+        // Modo enriquecimento: preserva os dados oficiais do QR (numéricos + fatura)
+        // e só usa a IA para campos que o QR não traz (entity_name, description, category).
+        const merged: ReceiptScanResult = {
+          ...aiData,
+          entity_nif: result.entity_nif || aiData.entity_nif,
+          amount_net: result.amount_net ?? aiData.amount_net,
+          amount_gross: result.amount_gross ?? aiData.amount_gross,
+          vat_amount: result.vat_amount ?? aiData.vat_amount,
+          vat_pct: result.vat_pct ?? aiData.vat_pct,
+          invoice_number: result.invoice_number || aiData.invoice_number,
+          invoice_date: result.invoice_date || aiData.invoice_date,
+          confidence: 1,
+          field_confidences: {
+            ...(aiData.field_confidences || {}),
+            ...(result.field_confidences || {}),
+          },
+        }
+        setResult(merged)
+        setEditedResult(merged)
+        toast.success('Nome do fornecedor enriquecido com IA')
+      } else {
+        setResult(aiData)
+        setEditedResult(aiData)
+      }
     } catch {
       toast.error('Erro ao digitalizar recibo')
     } finally {
@@ -134,6 +217,7 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
     setCompressedImage(null)
     setResult(null)
     setEditedResult({})
+    setQrDetected(false)
   }
 
   const confidenceColor = (c: number) =>
@@ -165,7 +249,7 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
             </div>
             <div>
               <h3 className="text-white font-semibold">Digitalizar Recibo</h3>
-              <p className="text-neutral-400 text-xs mt-0.5">Upload de foto → IA extrai dados → imagem guardada na base de dados</p>
+              <p className="text-neutral-400 text-xs mt-0.5">Upload de foto → leitura de QR fiscal AT (com fallback para IA) → guardado na base de dados</p>
             </div>
           </div>
         </div>
@@ -183,9 +267,15 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
                 >
                   <X className="h-4 w-4" />
                 </button>
-                {isCompressing && (
+                {(isCompressing || isDetectingQr) && (
                   <div className="absolute bottom-2 left-2 right-2 bg-black/60 rounded-lg px-3 py-1.5 text-[10px] text-white flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" /> A comprimir imagem...
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {isDetectingQr ? 'A procurar QR fiscal...' : 'A comprimir imagem...'}
+                  </div>
+                )}
+                {qrDetected && !isDetectingQr && (
+                  <div className="absolute bottom-2 left-2 right-2 bg-emerald-600/90 rounded-lg px-3 py-1.5 text-[10px] text-white flex items-center gap-2 shadow-lg">
+                    <QrCode className="h-3 w-3" /> QR fiscal detectado
                   </div>
                 )}
               </div>
@@ -202,7 +292,7 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
             )}
             <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileSelect} />
 
-            {imagePreview && !result && (
+            {imagePreview && !result && !isDetectingQr && (
               <Button
                 className="w-full rounded-full"
                 onClick={handleScan}
@@ -212,6 +302,21 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> A digitalizar...</>
                 ) : (
                   <><Sparkles className="mr-2 h-4 w-4" /> Extrair dados com IA</>
+                )}
+              </Button>
+            )}
+
+            {imagePreview && qrDetected && (
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={handleScan}
+                disabled={isScanning || isCompressing}
+              >
+                {isScanning ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> A enriquecer...</>
+                ) : (
+                  <><Sparkles className="mr-2 h-4 w-4" /> Enriquecer com IA (nome do fornecedor)</>
                 )}
               </Button>
             )}
@@ -226,13 +331,17 @@ export function ReceiptScanner({ open, onOpenChange, categories, onConfirm }: Re
               </div>
             ) : (
               <TooltipProvider delayDuration={200}>
-                <div className="flex items-center gap-2 mb-1">
-                  {result.confidence != null && (
-                    <Badge className={`${confidenceColor(result.confidence)} rounded-full text-[10px] border-0`}>
-                      Confianca: {Math.round(result.confidence * 100)}%
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {qrDetected ? (
+                    <Badge className="bg-emerald-500/10 text-emerald-600 rounded-full text-[10px] border-0 gap-1">
+                      <QrCode className="h-2.5 w-2.5" /> QR fiscal AT
+                    </Badge>
+                  ) : result.confidence != null && (
+                    <Badge className={`${confidenceColor(result.confidence)} rounded-full text-[10px] border-0 gap-1`}>
+                      <Sparkles className="h-2.5 w-2.5" /> IA · {Math.round(result.confidence * 100)}%
                     </Badge>
                   )}
-                  {result.confidence != null && result.confidence < LOW_CONFIDENCE_THRESHOLD && (
+                  {!qrDetected && result.confidence != null && result.confidence < LOW_CONFIDENCE_THRESHOLD && (
                     <span className="text-[10px] text-amber-600 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" /> Revise os campos destacados
                     </span>

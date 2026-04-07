@@ -23,8 +23,10 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 import { ReceiptScanner } from '@/components/financial/receipt-scanner'
+import { CompanyStatsView } from '@/components/financial/company-stats-view'
 import type { CompanyTransaction, CompanyCategory, ReceiptScanResult } from '@/types/financial'
 import { COMPANY_TRANSACTION_STATUSES } from '@/types/financial'
 
@@ -65,6 +67,10 @@ export function CompanyManagementTab() {
   const [scannerOpen, setScannerOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
+
+  // Stats view tab + type toggle
+  const [activeTab, setActiveTab] = useState<'stats' | 'entries'>('stats')
+  const [statsType, setStatsType] = useState<'income' | 'expense'>('expense')
 
   // Add form
   const [form, setForm] = useState({
@@ -226,72 +232,138 @@ export function CompanyManagementTab() {
   const result = totalIncome - totalExpense
 
   return (
-    <div className="space-y-6">
-      {/* Hero header */}
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as 'stats' | 'entries')}
+      className="space-y-6"
+    >
+      {/* Hero header — contém title, month picker, tabs e action buttons */}
       <div className="relative overflow-hidden bg-neutral-900 rounded-2xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-12">
-          <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Gestao da Empresa</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">{MONTHS[month - 1]} de {year}</p>
+        <div className="relative z-10 px-6 py-7 sm:px-10 sm:py-9">
+          {/* Top row: title + actions */}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Gestao da Empresa</h2>
+            </div>
 
-          <div className="flex flex-wrap gap-6 mt-6">
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Receitas</p>
-              <p className="text-emerald-400 text-xl font-bold tabular-nums">{fmtCurrency(totalIncome)}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/20 hover:text-white"
+                onClick={handleGenerateRecurring}
+                disabled={isGenerating}
+              >
+                {isGenerating ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Gerar Recorrentes
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/20 hover:text-white"
+                onClick={() => setScannerOpen(true)}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Digitalizar Recibo
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full bg-white text-neutral-900 hover:bg-neutral-100"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar
+              </Button>
             </div>
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Despesas</p>
-              <p className="text-red-400 text-xl font-bold tabular-nums">{fmtCurrency(totalExpense)}</p>
+          </div>
+
+          {/* Bottom row: month picker + tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mt-8">
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                onClick={prevMonth}
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+              <span className="text-[11px] font-medium px-1.5 min-w-[90px] text-center text-white">
+                {MONTHS[month - 1]} {year}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                onClick={nextMonth}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
             </div>
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Resultado</p>
-              <p className={`text-xl font-bold tabular-nums ${result >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {fmtCurrency(result)}
-              </p>
-            </div>
+
+            <TabsList className="grid grid-cols-2 rounded-full p-1 h-10 bg-white/10 backdrop-blur-sm border border-white/20 w-full sm:w-auto">
+              <TabsTrigger
+                value="stats"
+                className="rounded-full text-xs px-6 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+              >
+                Estatísticas
+              </TabsTrigger>
+              <TabsTrigger
+                value="entries"
+                className="rounded-full text-xs px-6 text-neutral-300 data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm"
+              >
+                Lançamentos
+              </TabsTrigger>
+            </TabsList>
           </div>
         </div>
       </div>
 
-      {/* Actions bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={prevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium px-2 min-w-[120px] text-center">
-            {MONTHS[month - 1]} {year}
-          </span>
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={nextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {/* ─── Tab Estatísticas ─── */}
+      <TabsContent value="stats" className="space-y-6">
+        {/* KPI cards — hidden on mobile */}
+        <div className="hidden sm:grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <KpiCard icon={ArrowUpRight} label="Receitas" value={totalIncome} color="emerald" />
+          <KpiCard icon={ArrowDownRight} label="Despesas" value={totalExpense} color="red" />
+          <KpiCard icon={Wallet} label="Resultado" value={result} color={result >= 0 ? 'emerald' : 'red'} />
+          <KpiCard icon={TrendingUp} label="Transaccoes" value={transactions.length} color="blue" isCurrency={false} />
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-full" onClick={handleGenerateRecurring} disabled={isGenerating}>
-            {isGenerating ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Gerar Recorrentes
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setScannerOpen(true)}>
-            <Camera className="mr-2 h-4 w-4" />
-            Digitalizar Recibo
-          </Button>
-          <Button size="sm" className="rounded-full" onClick={() => setAddOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar
-          </Button>
+        {/* Donut chart + categories list */}
+        {isLoading ? (
+          <Skeleton className="h-[600px] w-full rounded-3xl" />
+        ) : (
+          <CompanyStatsView
+            transactions={transactions}
+            categories={categories}
+            type={statsType}
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            onTypeChange={setStatsType}
+          />
+        )}
+
+        {/* Mobile-only: Balanço + Transacções pill (substitui os KPI cards no mobile) */}
+        <div className="sm:hidden grid grid-cols-2 gap-1 p-1 rounded-full bg-muted/40 border border-border/30">
+          <div className="flex flex-col items-center justify-center px-3 py-2 rounded-full bg-card shadow-sm">
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Balanço</span>
+            <span className={`text-sm font-bold tabular-nums ${result >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {fmtCurrency(result)}
+            </span>
+          </div>
+          <div className="flex flex-col items-center justify-center px-3 py-2 rounded-full">
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Transacções</span>
+            <span className="text-sm font-bold tabular-nums text-blue-600">
+              {transactions.length}
+            </span>
+          </div>
         </div>
-      </div>
+      </TabsContent>
 
-      {/* KPI cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={ArrowUpRight} label="Receitas" value={totalIncome} color="emerald" />
-        <KpiCard icon={ArrowDownRight} label="Despesas" value={totalExpense} color="red" />
-        <KpiCard icon={Wallet} label="Resultado" value={result} color={result >= 0 ? 'emerald' : 'red'} />
-        <KpiCard icon={TrendingUp} label="Transaccoes" value={transactions.length} color="blue" isCurrency={false} />
-      </div>
-
+      {/* ─── Tab Lançamentos ─── */}
+      <TabsContent value="entries" className="space-y-6">
       {/* Table */}
       {isLoading ? (
         <div className="space-y-2">
@@ -362,6 +434,7 @@ export function CompanyManagementTab() {
           </div>
         </div>
       )}
+      </TabsContent>
 
       {/* Add Transaction Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -488,7 +561,7 @@ export function CompanyManagementTab() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </Tabs>
   )
 }
 
