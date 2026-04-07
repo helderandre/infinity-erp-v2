@@ -423,122 +423,61 @@ export function CompanyManagementTab() {
                 </div>
 
                 {/* Individual list */}
-                {expenseTransactions.map((tx) => {
-                  const cat = categories.find((c) => c.name === tx.category)
-                  const catColor = cat?.color && /^#[0-9a-f]{3,8}$/i.test(cat.color)
-                    ? cat.color
-                    : '#ef4444'
-                  const hasReceipt = tx.receipt_url && tx.receipt_url.startsWith('data:')
-                  return (
-                    <div
-                      key={tx.id}
-                      className="group relative flex items-stretch gap-0 rounded-2xl border bg-card hover:shadow-sm hover:border-border transition-all overflow-hidden"
-                    >
-                      {/* Left color stripe (category indicator) */}
+                <div className="divide-y">
+                  {expenseTransactions.map((tx) => {
+                    const cat = categories.find((c) => c.name === tx.category)
+                    const catColor = cat?.color && /^#[0-9a-f]{3,8}$/i.test(cat.color)
+                      ? cat.color
+                      : '#64748b'
+                    const hasReceipt = tx.receipt_url && tx.receipt_url.startsWith('data:')
+                    const displayDate = tx.invoice_date || tx.date
+                    const amount = Number(tx.amount_gross || tx.amount_net)
+                    return (
                       <div
-                        className="w-1 shrink-0"
-                        style={{ backgroundColor: catColor }}
-                      />
-
-                      {/* Receipt thumbnail */}
-                      <button
-                        type="button"
-                        onClick={() => hasReceipt && setReceiptPreview(tx.receipt_url!)}
-                        disabled={!hasReceipt}
-                        className={`h-auto w-14 sm:w-16 shrink-0 flex items-center justify-center bg-muted/30 ${
-                          hasReceipt ? 'cursor-pointer hover:bg-muted/60' : 'cursor-default'
-                        } transition-colors`}
-                        title={hasReceipt ? 'Ver recibo digitalizado' : undefined}
+                        key={tx.id}
+                        className="group flex items-center gap-3 sm:gap-4 py-3 px-1 sm:px-2 hover:bg-muted/30 rounded-xl transition-colors"
                       >
-                        {hasReceipt ? (
-                          <div className="relative">
-                            <FileImage className="h-5 w-5 text-muted-foreground" />
-                            <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500" />
-                          </div>
-                        ) : (
-                          <Receipt className="h-5 w-5 text-muted-foreground/40" />
-                        )}
-                      </button>
+                        {/* Avatar — receipt thumbnail or category icon */}
+                        <button
+                          type="button"
+                          onClick={() => hasReceipt && setReceiptPreview(tx.receipt_url!)}
+                          disabled={!hasReceipt}
+                          className={`relative h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center transition-all ${
+                            hasReceipt ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+                          }`}
+                          style={{ backgroundColor: `${catColor}15` }}
+                          title={hasReceipt ? 'Ver recibo digitalizado' : tx.category}
+                        >
+                          <Receipt className="h-5 w-5" style={{ color: catColor }} />
+                          {hasReceipt && (
+                            <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-card" />
+                          )}
+                        </button>
 
-                      {/* Main content */}
-                      <div className="flex-1 min-w-0 px-3 sm:px-4 py-3">
-                        {/* Top row: supplier + amount */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold truncate text-foreground">
-                              {tx.entity_name || tx.description || 'Sem fornecedor'}
-                            </p>
-                            {tx.entity_name && tx.description && tx.description !== tx.entity_name && (
-                              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                                {tx.description}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <p className="text-base font-bold text-foreground tabular-nums leading-none">
-                              {fmtCurrency(Number(tx.amount_gross || tx.amount_net))}
-                            </p>
-                            {tx.amount_gross && tx.amount_net && Number(tx.amount_gross) !== Number(tx.amount_net) && (
-                              <p className="text-[10px] text-muted-foreground tabular-nums mt-1">
-                                {fmtCurrency(Number(tx.amount_net))} s/IVA
-                              </p>
-                            )}
-                          </div>
+                        {/* Name + date */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate text-foreground">
+                            {tx.entity_name || tx.description || tx.category}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            {displayDate ? fmtDate(displayDate) : '—'} · {tx.category}
+                            {tx.is_recurring && ' · Recorrente'}
+                          </p>
                         </div>
 
-                        {/* Bottom row: meta chips */}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <span
-                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: `${catColor}1a`,
-                              color: catColor,
-                            }}
-                          >
-                            <span
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: catColor }}
-                            />
-                            {tx.category}
-                          </span>
-
-                          {tx.invoice_number && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <FileImage className="h-2.5 w-2.5" />
-                              {tx.invoice_number}
-                            </span>
-                          )}
-
-                          {tx.invoice_date && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {fmtDate(tx.invoice_date)}
-                            </span>
-                          )}
-
-                          {tx.is_recurring && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 font-medium">
-                              <RefreshCw className="h-2.5 w-2.5" />
-                              Recorrente
-                            </span>
-                          )}
-
-                          {tx.ai_extracted && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 font-medium">
-                              ✨ IA
-                            </span>
-                          )}
-
+                        {/* Amount */}
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-red-600 tabular-nums whitespace-nowrap">
+                            − {fmtCurrency(amount)}
+                          </p>
                           {tx.status === 'draft' && (
-                            <span className="inline-flex items-center text-[10px] text-amber-600 font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10">
-                              Rascunho
-                            </span>
+                            <p className="text-[10px] text-amber-600 font-medium mt-0.5">Rascunho</p>
                           )}
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             )}
           </TabsContent>
