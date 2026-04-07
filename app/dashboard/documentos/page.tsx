@@ -21,6 +21,7 @@ import {
   Search, Download, Eye, Upload, FileText, File, FileImage,
   FileSpreadsheet, Loader2, Trash2, MoreHorizontal, Pencil,
   FolderOpen, Library, Blocks, Check, ChevronRight, ChevronLeft,
+  Filter,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -98,7 +99,7 @@ async function downloadFile(url: string, filename: string) {
 
 // ─── Main Page ───
 
-type Tab = 'documentos' | 'templates' | 'kit'
+type Tab = 'documentos' | 'templates'
 
 export default function BibliotecaPage() {
   const [tab, setTab] = useState<Tab>('documentos')
@@ -106,7 +107,6 @@ export default function BibliotecaPage() {
   const tabs: { key: Tab; label: string; icon: typeof Library }[] = [
     { key: 'documentos', label: 'Documentos', icon: Library },
     { key: 'templates', label: 'Marketing', icon: FileImage },
-    { key: 'kit', label: 'O Meu Kit', icon: Blocks },
   ]
 
   return (
@@ -143,7 +143,6 @@ export default function BibliotecaPage() {
       {/* Tab Content */}
       {tab === 'documentos' && <DocumentosTab />}
       {tab === 'templates' && <MarketingTemplatesTab />}
-      {tab === 'kit' && <KitConsultorTab />}
     </div>
   )
 }
@@ -164,7 +163,7 @@ function DocumentosTab() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadCategory, setUploadCategory] = useState('angariacao')
   const [uploading, setUploading] = useState(false)
-  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [uploadFiles, setUploadFiles] = useState<{ file: File; name: string }[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = useCallback(async () => {
@@ -235,8 +234,9 @@ function DocumentosTab() {
     try {
       const formData = new FormData()
       formData.append('category', uploadCategory)
-      for (const file of uploadFiles) {
-        formData.append('files', file)
+      for (const item of uploadFiles) {
+        formData.append('files', item.file)
+        formData.append('names', item.name)
       }
       const res = await fetch('/api/company-documents/upload', { method: 'POST', body: formData })
       if (!res.ok) throw new Error((await res.json()).error)
@@ -428,7 +428,14 @@ function DocumentosTab() {
               </Select>
             </div>
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" className="hidden"
-              onChange={(e) => { const f = Array.from(e.target.files || []); if (f.length) setUploadFiles((p) => [...p, ...f]); e.target.value = '' }} />
+              onChange={(e) => {
+                const f = Array.from(e.target.files || [])
+                if (f.length) {
+                  const items = f.map((file) => ({ file, name: file.name.replace(/\.\w+$/, '').replace(/[_-]/g, ' ').trim() }))
+                  setUploadFiles((p) => [...p, ...items])
+                }
+                e.target.value = ''
+              }} />
             <button
               className="w-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 cursor-pointer hover:bg-muted/30 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -438,15 +445,23 @@ function DocumentosTab() {
               <p className="text-xs text-muted-foreground mt-1">PDF, Word, Excel, Imagens · Pode seleccionar vários</p>
             </button>
             {uploadFiles.length > 0 && (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {uploadFiles.map((file, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm rounded-lg bg-muted/30 px-3 py-2">
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="flex-1 truncate">{file.name}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">{formatFileSize(file.size)}</span>
-                    <button className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => setUploadFiles((p) => p.filter((_, j) => j !== i))}>
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {uploadFiles.map((item, i) => (
+                  <div key={i} className="rounded-lg bg-muted/30 px-3 py-2 space-y-1.5">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <FileText className="h-3 w-3 shrink-0" />
+                      <span className="flex-1 truncate">{item.file.name}</span>
+                      <span className="shrink-0">{formatFileSize(item.file.size)}</span>
+                      <button className="hover:text-destructive shrink-0" onClick={() => setUploadFiles((p) => p.filter((_, j) => j !== i))}>
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <Input
+                      value={item.name}
+                      onChange={(e) => setUploadFiles((p) => p.map((it, j) => j === i ? { ...it, name: e.target.value } : it))}
+                      placeholder="Nome do documento"
+                      className="h-8 rounded-full text-xs"
+                    />
                   </div>
                 ))}
               </div>
@@ -539,46 +554,12 @@ const DESIGN_CATEGORY_ICONS: Record<string, string> = {
 }
 
 function MarketingTemplatesTab() {
-  const [templates, setTemplates] = useState<DesignTemplate[]>([])
-  const [loading, setLoading] = useState(true)
   const [subTab, setSubTab] = useState<'personal' | 'team'>('personal')
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('all')
-
-  const fetchTemplates = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      params.set('team', subTab === 'team' ? 'true' : 'false')
-      if (category !== 'all') params.set('category', category)
-      const res = await fetch(`/api/marketing/design-templates?${params}`)
-      const data = await res.json()
-      setTemplates(Array.isArray(data) ? data : [])
-    } catch {
-      setTemplates([])
-    } finally {
-      setLoading(false)
-    }
-  }, [subTab, category])
-
-  useEffect(() => { fetchTemplates() }, [fetchTemplates])
-
-  // Filter by search
-  const filtered = search
-    ? templates.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : templates
-
-  // Group by category
-  const grouped = filtered.reduce<Record<string, DesignTemplate[]>>((acc, t) => {
-    if (!acc[t.category]) acc[t.category] = []
-    acc[t.category].push(t)
-    return acc
-  }, {})
 
   return (
     <>
       {/* Sub-tabs */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-center sm:justify-start gap-4">
         <div className="flex gap-1 bg-muted/50 rounded-full p-1">
           <button
             className={cn(
@@ -601,19 +582,175 @@ function MarketingTemplatesTab() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      {subTab === 'personal' ? <KitConsultorTab /> : <TeamDesignsTab />}
+    </>
+  )
+}
+
+// ─── Team Designs Tab (CRUD) ───
+
+interface TeamDesignFormState {
+  id: string | null
+  name: string
+  category: string
+  canva_url: string
+  thumbnail_url: string
+}
+
+const EMPTY_TEAM_DESIGN: TeamDesignFormState = {
+  id: null,
+  name: '',
+  category: 'placas',
+  canva_url: '',
+  thumbnail_url: '',
+}
+
+function TeamDesignsTab() {
+  const [templates, setTemplates] = useState<DesignTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('all')
+  const [formOpen, setFormOpen] = useState(false)
+  const [form, setForm] = useState<TeamDesignFormState>(EMPTY_TEAM_DESIGN)
+  const [saving, setSaving] = useState(false)
+  const [thumbUploading, setThumbUploading] = useState(false)
+  const [deleteDesign, setDeleteDesign] = useState<DesignTemplate | null>(null)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
+
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('team', 'true')
+      if (category !== 'all') params.set('category', category)
+      const res = await fetch(`/api/marketing/design-templates?${params}`)
+      const data = await res.json()
+      setTemplates(Array.isArray(data) ? data : [])
+    } catch {
+      setTemplates([])
+    } finally {
+      setLoading(false)
+    }
+  }, [category])
+
+  useEffect(() => { fetchTemplates() }, [fetchTemplates])
+
+  const filtered = search
+    ? templates.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    : templates
+
+  const grouped = filtered.reduce<Record<string, DesignTemplate[]>>((acc, t) => {
+    if (!acc[t.category]) acc[t.category] = []
+    acc[t.category].push(t)
+    return acc
+  }, {})
+
+  const openCreate = () => {
+    setForm(EMPTY_TEAM_DESIGN)
+    setFormOpen(true)
+  }
+
+  const openEdit = (t: DesignTemplate) => {
+    setForm({
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      canva_url: t.canva_url || '',
+      thumbnail_url: t.thumbnail_url || '',
+    })
+    setFormOpen(true)
+  }
+
+  const handleThumbUpload = async (file: File) => {
+    setThumbUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/marketing/design-templates/upload-thumbnail', {
+        method: 'POST',
+        body: fd,
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      const { url } = await res.json()
+      setForm((p) => ({ ...p, thumbnail_url: url }))
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao carregar imagem')
+    } finally {
+      setThumbUploading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error('Nome é obrigatório')
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = {
+        name: form.name.trim(),
+        category: form.category,
+        canva_url: form.canva_url.trim() || null,
+        thumbnail_url: form.thumbnail_url || null,
+        is_team_design: true,
+      }
+      const url = form.id
+        ? `/api/marketing/design-templates/${form.id}`
+        : '/api/marketing/design-templates'
+      const method = form.id ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast.success(form.id ? 'Design actualizado' : 'Design criado')
+      setFormOpen(false)
+      fetchTemplates()
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao guardar design')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteDesign) return
+    try {
+      const res = await fetch(`/api/marketing/design-templates/${deleteDesign.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Design eliminado')
+      setDeleteDesign(null)
+      fetchTemplates()
+    } catch {
+      toast.error('Erro ao eliminar design')
+    }
+  }
+
+  return (
+    <>
+      {/* Filters + Add */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar template..."
+            placeholder="Pesquisar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 rounded-full"
           />
         </div>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[200px] rounded-full">
+          <SelectTrigger
+            className={cn(
+              'rounded-full shrink-0 w-9 h-9 px-0 justify-center sm:w-[200px] sm:h-auto sm:px-3 sm:justify-between',
+              '[&>svg:last-child]:hidden sm:[&>svg:last-child]:block',
+              '[&>span[data-slot=select-value]]:hidden sm:[&>span[data-slot=select-value]]:flex'
+            )}
+          >
+            <Filter className="h-4 w-4 sm:hidden" />
             <SelectValue placeholder="Categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -623,12 +760,19 @@ function MarketingTemplatesTab() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
+          onClick={openCreate}
+        >
+          <Upload className="h-4 w-4" />
+          <span className="hidden sm:inline">Adicionar</span>
+        </Button>
       </div>
 
       {/* Content */}
       {loading ? (
         <div className="space-y-6">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-4 w-24" />
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -642,34 +786,11 @@ function MarketingTemplatesTab() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FileImage}
-          title="Nenhum template encontrado"
-          description={search ? 'Tente ajustar a pesquisa.' : 'Ainda não foram adicionados templates de marketing.'}
+          title="Nenhum design encontrado"
+          description={search ? 'Tente ajustar a pesquisa.' : 'Adicione o primeiro design da equipa.'}
+          action={{ label: 'Adicionar', onClick: openCreate }}
         />
-      ) : subTab === 'personal' ? (
-        /* Personal: grid of category cards (like old app) */
-        <div className="space-y-8">
-          {Object.entries(grouped).map(([cat, items]) => (
-            <div key={cat} className="space-y-3">
-              <h3 className="text-sm font-semibold text-center">{DESIGN_CATEGORIES[cat] || cat}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-2xl mx-auto">
-                {items.map((t) => (
-                  <a
-                    key={t.id}
-                    href={t.canva_url || '#'}
-                    target={t.canva_url ? '_blank' : undefined}
-                    rel="noopener noreferrer"
-                    className="flex flex-col items-center justify-center gap-2 rounded-xl bg-muted/40 border border-transparent hover:border-border hover:bg-muted/60 p-5 transition-all cursor-pointer"
-                  >
-                    <span className="text-2xl">{DESIGN_CATEGORY_ICONS[t.category] || '📁'}</span>
-                    <span className="text-xs font-medium text-center">{t.name}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
       ) : (
-        /* Team: thumbnail grid (like old app's "Designs da Equipa") */
         <div className="space-y-6">
           {Object.entries(grouped).map(([cat, items]) => (
             <div key={cat} className="space-y-3">
@@ -678,36 +799,168 @@ function MarketingTemplatesTab() {
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {items.map((t) => (
-                  <a
+                  <div
                     key={t.id}
-                    href={t.canva_url || '#'}
-                    target={t.canva_url ? '_blank' : undefined}
-                    rel="noopener noreferrer"
-                    className="group rounded-xl border overflow-hidden hover:shadow-md transition-all"
-                  >
-                    {t.thumbnail_url ? (
-                      <div className="aspect-[4/3] bg-muted overflow-hidden">
-                        <img
-                          src={t.thumbnail_url}
-                          alt={t.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-[4/3] bg-muted/40 flex items-center justify-center">
-                        <span className="text-3xl">{DESIGN_CATEGORY_ICONS[t.category] || '📁'}</span>
-                      </div>
+                    className={cn(
+                      'group relative rounded-xl border overflow-hidden hover:shadow-md transition-all',
+                      t.canva_url ? 'cursor-pointer' : 'cursor-default'
                     )}
-                    <div className="p-2.5">
-                      <p className="text-xs font-medium truncate uppercase">{t.name}</p>
+                    onClick={() => {
+                      if (t.canva_url) window.open(t.canva_url, '_blank', 'noopener,noreferrer')
+                    }}
+                  >
+                    <div className="block">
+                      {t.thumbnail_url ? (
+                        <div className="aspect-[4/3] bg-muted overflow-hidden">
+                          <img
+                            src={t.thumbnail_url}
+                            alt={t.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-[4/3] bg-muted/40 flex items-center justify-center">
+                          <span className="text-3xl">{DESIGN_CATEGORY_ICONS[t.category] || '📁'}</span>
+                        </div>
+                      )}
+                      <div className="p-2.5">
+                        <p className="text-xs font-medium truncate uppercase">{t.name}</p>
+                      </div>
                     </div>
-                  </a>
+                    <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEdit(t) }}
+                        title="Editar"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white text-destructive"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteDesign(t) }}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Form Dialog */}
+      <Dialog open={formOpen} onOpenChange={(open) => { if (!open) setFormOpen(false) }}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{form.id ? 'Editar Design' : 'Adicionar Design'}</DialogTitle>
+            <DialogDescription>
+              Adicione o link Canva e a imagem de capa do design.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nome</label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="Ex: Placa de Venda Standard"
+                className="rounded-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria</label>
+              <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
+                <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DESIGN_CATEGORIES).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Link Canva</label>
+              <Input
+                value={form.canva_url}
+                onChange={(e) => setForm((p) => ({ ...p, canva_url: e.target.value }))}
+                placeholder="https://www.canva.com/design/..."
+                className="rounded-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Imagem de capa</label>
+              <input
+                ref={thumbInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleThumbUpload(file)
+                  e.target.value = ''
+                }}
+              />
+              {form.thumbnail_url ? (
+                <div className="relative rounded-xl overflow-hidden border aspect-[4/3] bg-muted">
+                  <img src={form.thumbnail_url} alt="Capa" className="w-full h-full object-cover" />
+                  <button
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white"
+                    onClick={() => thumbInputRef.current?.click()}
+                    title="Alterar imagem"
+                    type="button"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="w-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => thumbInputRef.current?.click()}
+                  disabled={thumbUploading}
+                >
+                  {thumbUploading ? (
+                    <Loader2 className="h-6 w-6 text-muted-foreground/40 animate-spin" />
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6 text-muted-foreground/40 mb-2" />
+                      <p className="text-xs font-medium">Carregar imagem</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">PNG, JPEG ou WebP · Máx 5MB</p>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            <Button className="w-full rounded-full" disabled={saving || thumbUploading} onClick={handleSave}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : (form.id ? 'Guardar' : 'Adicionar')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteDesign} onOpenChange={(open) => !open && setDeleteDesign(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar design</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar &quot;{deleteDesign?.name}&quot;? Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
@@ -754,7 +1007,11 @@ function KitConsultorTab() {
     try {
       const res = await fetch(`/api/consultants/${userId}/materials`)
       const data = await res.json()
-      setItems(Array.isArray(data) ? data : [])
+      const HIDDEN_CATEGORIES = ['relatorio_imovel', 'estudo_mercado']
+      const filtered = Array.isArray(data)
+        ? data.filter((item: AgentMaterial) => !HIDDEN_CATEGORIES.includes(item.template.category))
+        : []
+      setItems(filtered)
     } catch {
       setItems([])
     } finally {
@@ -786,19 +1043,11 @@ function KitConsultorTab() {
   const previewPage = previewItem?.pages[previewPageIdx] || null
   const previewTotalPages = previewItem?.pages.length || 0
 
-  // Group by category
-  const grouped = items.reduce<Record<string, AgentMaterial[]>>((acc, item) => {
-    const cat = item.template.category
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(item)
-    return acc
-  }, {})
-
   if (loading || !userId) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-16 rounded-2xl" />
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-36 rounded-lg" />
           ))}
@@ -843,57 +1092,50 @@ function KitConsultorTab() {
         </div>
       </div>
 
-      {/* Materials by Category */}
-      {Object.entries(grouped).map(([cat, catItems]) => (
-        <div key={cat} className="space-y-3">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {KIT_CATEGORY_LABELS[cat] || cat}
-          </h4>
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-            {catItems.map(({ template, pages }) => {
-              const hasPages = pages.length > 0
-              const cover = pages[0]
+      {/* Materials — continuous grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+        {items.map(({ template, pages }) => {
+          const hasPages = pages.length > 0
+          const cover = pages[0]
 
-              return (
-                <div
-                  key={template.id}
-                  className={cn(
-                    'rounded-lg border p-2 space-y-1.5 transition-all',
-                    hasPages ? 'bg-card/50 border-border cursor-pointer hover:shadow-sm' : 'bg-muted/10 border-dashed opacity-60'
-                  )}
-                  onClick={() => hasPages && (() => { setPreviewItem({ template, pages }); setPreviewPageIdx(0) })()}
-                >
-                  {hasPages && cover ? (
-                    <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-muted">
-                      <img src={cover.thumbnail_url || cover.file_url || ''} alt={template.name} className="w-full h-full object-cover" />
-                      {pages.length > 1 && (
-                        <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">{pages.length} pág.</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="aspect-[4/3] rounded-md bg-muted/30 flex items-center justify-center">
-                      <FileImage className="h-6 w-6 text-muted-foreground/20" />
-                    </div>
-                  )}
-                  <p className="text-[10px] font-medium truncate">{template.name}</p>
-                  {hasPages ? (
-                    <Button
-                      variant="outline" size="sm" className="w-full rounded-full text-[10px] h-6 gap-1"
-                      onClick={(e) => { e.stopPropagation(); handleDownloadTemplate(pages, template.name) }}
-                    >
-                      <Download className="h-2.5 w-2.5" />Descarregar{pages.length > 1 ? ` (${pages.length})` : ''}
-                    </Button>
-                  ) : (
-                    <div className="h-6 flex items-center justify-center">
-                      <span className="text-[9px] text-muted-foreground italic">Pendente</span>
-                    </div>
+          return (
+            <div
+              key={template.id}
+              className={cn(
+                'rounded-lg border p-2 space-y-1.5 transition-all',
+                hasPages ? 'bg-card/50 border-border cursor-pointer hover:shadow-sm' : 'bg-muted/10 border-dashed opacity-60'
+              )}
+              onClick={() => { if (hasPages) { setPreviewItem({ template, pages }); setPreviewPageIdx(0) } }}
+            >
+              {hasPages && cover ? (
+                <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-muted">
+                  <img src={cover.thumbnail_url || cover.file_url || ''} alt={template.name} className="w-full h-full object-cover" />
+                  {pages.length > 1 && (
+                    <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">{pages.length} pág.</span>
                   )}
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+              ) : (
+                <div className="aspect-[4/3] rounded-md bg-muted/30 flex items-center justify-center">
+                  <FileImage className="h-6 w-6 text-muted-foreground/20" />
+                </div>
+              )}
+              <p className="text-[10px] font-medium truncate">{template.name}</p>
+              {hasPages ? (
+                <Button
+                  variant="outline" size="sm" className="w-full rounded-full text-[10px] h-6 gap-1"
+                  onClick={(e) => { e.stopPropagation(); handleDownloadTemplate(pages, template.name) }}
+                >
+                  <Download className="h-2.5 w-2.5" />Descarregar{pages.length > 1 ? ` (${pages.length})` : ''}
+                </Button>
+              ) : (
+                <div className="h-6 flex items-center justify-center">
+                  <span className="text-[9px] text-muted-foreground italic">Pendente</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>

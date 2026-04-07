@@ -49,7 +49,7 @@ export const meuEspacoItems = [
 export const comunicacaoItems = [
   { title: 'WhatsApp', icon: MessageCircle, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
-  { title: 'Fluxos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
+  { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
 ]
 
 export const soloItems: { title: string; icon: any; href: string; permission: string }[] = []
@@ -114,7 +114,6 @@ export const lojaItems = [
 ]
 
 export const digitalItems = [
-  { title: 'Kit Consultor', icon: Blocks, href: '/dashboard/marketing/kit-consultor' },
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },

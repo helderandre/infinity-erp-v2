@@ -17,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
+    const thumbnail = formData.get('thumbnail') as File | null
     const templateId = formData.get('template_id') as string | null
     const pageIndex = parseInt(formData.get('page_index') as string || '1', 10)
 
@@ -66,8 +67,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
       return NextResponse.json({ error: 'Erro ao carregar ficheiro: ' + uploadError.message }, { status: 500 })
     }
 
-    // Generate thumbnail path (same file for now, could generate a smaller version later)
-    const thumbnailPath = filePath
+    // Thumbnail path: separate image if provided (e.g. PDF first page), else same file
+    let thumbnailPath = filePath
+    if (thumbnail) {
+      const thumbExt = (thumbnail.name.split('.').pop() || 'png').toLowerCase()
+      const thumbPathCandidate = `${agentId}/${template.category}/${timestamp}-${template.name.replace(/[^a-zA-Z0-9]/g, '_')}-p${pageIndex}-thumb.${thumbExt}`
+      const thumbBuffer = new Uint8Array(await thumbnail.arrayBuffer())
+      const { error: thumbError } = await admin.storage
+        .from('marketing-kit')
+        .upload(thumbPathCandidate, thumbBuffer, {
+          contentType: thumbnail.type || 'image/png',
+          upsert: false,
+        })
+      if (thumbError) {
+        console.error('Thumbnail upload error:', thumbError)
+      } else {
+        thumbnailPath = thumbPathCandidate
+      }
+    }
 
     // Upsert agent_materials record (unique per agent+template+page)
     const { data: material, error: matError } = await admin

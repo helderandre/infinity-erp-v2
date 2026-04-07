@@ -121,10 +121,10 @@ function ExecucoesContent() {
           </Select>
           <Select value={flowFilter} onValueChange={setFlowFilter}>
             <SelectTrigger className="h-8 w-44 text-xs">
-              <SelectValue placeholder="Fluxo" />
+              <SelectValue placeholder="Automatismo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os fluxos</SelectItem>
+              <SelectItem value="all">Todos os automatismos</SelectItem>
               {flows.map((f) => (
                 <SelectItem key={f.id} value={f.id}>
                   {f.name}
@@ -224,7 +224,7 @@ function ExecutionCard({
 }) {
   const config = STATUS_CONFIG[execution.status] || STATUS_CONFIG.pending
   const Icon = config.icon
-  const flowName = execution.auto_flows?.name || "Fluxo"
+  const flowName = execution.auto_flows?.name || "Automatismo"
   const timeAgo = execution.created_at
     ? formatDistanceToNow(new Date(execution.created_at), { locale: pt, addSuffix: true })
     : ""

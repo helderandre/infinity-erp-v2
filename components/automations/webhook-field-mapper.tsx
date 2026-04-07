@@ -250,7 +250,7 @@ export function WebhookFieldMapper({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">
-          Que dados queres usar neste fluxo?
+          Que dados queres usar neste automatismo?
         </p>
         {selectedCount > 0 && (
           <Badge variant="secondary" className="text-xs">

@@ -25,6 +25,8 @@ export type TaskEntityType = 'property' | 'lead' | 'process' | 'owner' | 'negoci
 
 export type TaskPriority = 1 | 2 | 3 | 4
 
+export type TaskSource = 'task' | 'proc_task' | 'proc_subtask'
+
 // ─── Task with Relations ─────────────────────────────────────
 
 export interface TaskWithRelations extends Task {
@@ -34,6 +36,14 @@ export interface TaskWithRelations extends Task {
   _comment_count?: number
   _attachment_count?: number
   _entity_label?: string
+  // ─── Source discriminator (defaults to 'task' on the general tasks table) ───
+  source?: TaskSource
+  // ─── Populated when source !== 'task' ───
+  process_id?: string | null
+  process_ref?: string | null
+  stage_name?: string | null
+  property_id?: string | null
+  property_title?: string | null
 }
 
 // ─── Task Comment ────────────────────────────────────────────

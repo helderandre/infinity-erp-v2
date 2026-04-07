@@ -88,7 +88,7 @@ export function StatsCards() {
 
   const cards = [
     {
-      title: "Fluxos",
+      title: "Automatismos",
       icon: Workflow,
       value: overview.totalFlows,
       subtitle: `${overview.activeFlows} activos`,

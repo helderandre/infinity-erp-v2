@@ -681,7 +681,7 @@ function StepVariables({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-medium">Variaveis disponiveis neste fluxo</p>
+        <p className="text-sm font-medium">Variaveis disponiveis neste automatismo</p>
         <p className="text-xs text-muted-foreground mt-1">
           Estas variaveis podem ser usadas nos passos seguintes (WhatsApp, Email, Condicoes, etc.)
         </p>

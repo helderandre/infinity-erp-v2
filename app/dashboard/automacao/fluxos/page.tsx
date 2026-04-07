@@ -35,10 +35,10 @@ export default function FluxosPage() {
     const flow = await createFlow()
     setCreating(false)
     if (flow) {
-      toast.success("Fluxo criado com sucesso")
+      toast.success("Automatismo criado com sucesso")
       router.push(`/dashboard/automacao/fluxos/editor?id=${flow.id}`)
     } else {
-      toast.error("Erro ao criar fluxo")
+      toast.error("Erro ao criar automatismo")
     }
   }
 
@@ -50,10 +50,10 @@ export default function FluxosPage() {
     if (!deleteTarget) return
     const ok = await deleteFlow(deleteTarget.id)
     if (ok) {
-      toast.success("Fluxo eliminado")
+      toast.success("Automatismo eliminado")
       fetchFlows()
     } else {
-      toast.error("Erro ao eliminar fluxo")
+      toast.error("Erro ao eliminar automatismo")
     }
     setDeleteTarget(null)
   }
@@ -61,10 +61,10 @@ export default function FluxosPage() {
   const handleToggleActive = async (flow: AutoFlow) => {
     const result = await activateFlow(flow.id, !flow.is_active)
     if (result?.ok) {
-      toast.success(flow.is_active ? "Fluxo desactivado" : "Fluxo activado")
+      toast.success(flow.is_active ? "Automatismo desactivado" : "Automatismo activado")
       fetchFlows()
     } else {
-      toast.error(result?.error || "Erro ao actualizar fluxo")
+      toast.error(result?.error || "Erro ao actualizar automatismo")
     }
   }
 
@@ -76,10 +76,10 @@ export default function FluxosPage() {
         draft_definition: flow.draft_definition,
         wpp_instance_id: flow.wpp_instance_id,
       })
-      toast.success("Fluxo duplicado")
+      toast.success("Automatismo duplicado")
       fetchFlows()
     } else {
-      toast.error("Erro ao duplicar fluxo")
+      toast.error("Erro ao duplicar automatismo")
     }
   }
 
@@ -88,14 +88,14 @@ export default function FluxosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Fluxos de Automação</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Automatismos</h1>
           <p className="text-sm text-muted-foreground">
-            Crie e gerencie fluxos automatizados
+            Crie e gerencie automatismos
           </p>
         </div>
         <Button onClick={handleCreate} disabled={creating}>
           <Plus className="mr-2 h-4 w-4" />
-          {creating ? "A criar..." : "Novo Fluxo"}
+          {creating ? "A criar..." : "Novo Automatismo"}
         </Button>
       </div>
 
@@ -103,7 +103,7 @@ export default function FluxosPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Pesquisar fluxos..."
+          placeholder="Pesquisar automatismos..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -120,16 +120,16 @@ export default function FluxosPage() {
       ) : flows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Workflow className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-semibold">Nenhum fluxo encontrado</h3>
+          <h3 className="text-lg font-semibold">Nenhum automatismo encontrado</h3>
           <p className="text-sm text-muted-foreground mt-1 mb-4">
             {search
               ? "Tente outra pesquisa"
-              : "Comece por criar o seu primeiro fluxo de automação"}
+              : "Comece por criar o seu primeiro automatismo"}
           </p>
           {!search && (
             <Button onClick={handleCreate} disabled={creating}>
               <Plus className="mr-2 h-4 w-4" />
-              Criar Primeiro Fluxo
+              Criar Primeiro Automatismo
             </Button>
           )}
         </div>
@@ -155,9 +155,9 @@ export default function FluxosPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar fluxo</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar automatismo</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza de que pretende eliminar o fluxo &quot;{deleteTarget?.name}&quot;?
+              Tem a certeza de que pretende eliminar o automatismo &quot;{deleteTarget?.name}&quot;?
               Esta acção é irreversível e irá remover todos os triggers e execuções associadas.
             </AlertDialogDescription>
           </AlertDialogHeader>

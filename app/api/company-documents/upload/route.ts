@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const category = formData.get('category') as string
     const files = formData.getAll('files') as File[]
+    const names = formData.getAll('names') as string[]
 
     if (!category) {
       return NextResponse.json({ error: 'Categoria é obrigatória' }, { status: 400 })
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
     const s3 = getR2Client()
     const results = []
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       const sanitized = sanitizeFileName(file.name)
       const ext = file.name.split('.').pop()?.toLowerCase() || ''
       const timestamp = Date.now()
@@ -48,8 +50,9 @@ export async function POST(request: Request) {
 
       const url = R2_PUBLIC_DOMAIN ? `${R2_PUBLIC_DOMAIN}/${key}` : key
 
-      // Derive display name from filename (remove extension, replace underscores/dashes)
-      const displayName = file.name
+      // Use custom name if provided, otherwise derive from filename
+      const customName = names[i]?.trim()
+      const displayName = customName || file.name
         .replace(/\.\w+$/, '')
         .replace(/[_-]/g, ' ')
         .replace(/^\d+\s*/, '') // remove leading numbers

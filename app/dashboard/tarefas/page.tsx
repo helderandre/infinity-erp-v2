@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, CheckSquare, AlertTriangle, Clock, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,6 +17,7 @@ import { useUser } from '@/hooks/use-user'
 import type { TaskWithRelations } from '@/types/task'
 
 export default function TarefasPage() {
+  const router = useRouter()
   const { user } = useUser()
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
   const [showForm, setShowForm] = useState(false)
@@ -48,6 +50,11 @@ export default function TarefasPage() {
   }, [])
 
   const handleToggleComplete = async (id: string, isCompleted: boolean) => {
+    // Process-sourced tasks (proc_task:xxx, proc_subtask:xxx) cannot be toggled here.
+    if (id.startsWith('proc_task:') || id.startsWith('proc_subtask:')) {
+      toast.info('Conclui esta tarefa no detalhe do processo.')
+      return
+    }
     try {
       await toggleComplete(id, isCompleted)
       toast.success(isCompleted ? 'Tarefa reaberta' : 'Tarefa concluída')
@@ -59,6 +66,11 @@ export default function TarefasPage() {
   }
 
   const handleSelectTask = (task: TaskWithRelations) => {
+    // Process tasks/subtasks live in the proc_tasks table — open the process page instead.
+    if ((task.source === 'proc_task' || task.source === 'proc_subtask') && task.process_id) {
+      router.push(`/dashboard/processos/${task.process_id}`)
+      return
+    }
     setSelectedTaskId(task.id)
     setShowDetail(true)
   }

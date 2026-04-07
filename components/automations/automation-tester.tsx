@@ -284,9 +284,9 @@ export function AutomationTester({ flowId, flowDefinition, open, onOpenChange }:
       <SheetContent className="w-full sm:max-w-[600px] p-0 flex flex-col" side="right">
         {/* HEADER FIXO */}
         <SheetHeader className="px-6 py-4 border-b shrink-0">
-          <SheetTitle className="text-base">Testar Fluxo</SheetTitle>
+          <SheetTitle className="text-base">Testar Automatismo</SheetTitle>
           <SheetDescription className="text-sm">
-            Escolhe dados de teste para simular a execucao deste fluxo.
+            Escolhe dados de teste para simular a execucao deste automatismo.
           </SheetDescription>
         </SheetHeader>
 

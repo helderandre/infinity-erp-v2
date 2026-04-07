@@ -193,7 +193,7 @@ function WhatsAppConfigSheet({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="template">Template da biblioteca</SelectItem>
-                <SelectItem value="inline">Criar neste fluxo</SelectItem>
+                <SelectItem value="inline">Criar neste automatismo</SelectItem>
               </SelectContent>
             </Select>
           </div>

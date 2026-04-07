@@ -100,7 +100,7 @@ function FlowEditorContent() {
         setHasUnpublishedChanges(result.flow.has_unpublished_changes)
         setPublishedAt(result.flow.published_at)
       } else {
-        toast.error("Fluxo não encontrado")
+        toast.error("Automatismo não encontrado")
         router.push("/dashboard/automacao/fluxos")
       }
       setLoadingFlow(false)
@@ -276,7 +276,7 @@ function FlowEditorContent() {
     setPublishing(false)
 
     if (!result) {
-      toast.error("Erro ao publicar fluxo")
+      toast.error("Erro ao publicar automatismo")
       return
     }
 
@@ -289,7 +289,7 @@ function FlowEditorContent() {
       return
     }
 
-    toast.success("Fluxo publicado!", {
+    toast.success("Automatismo publicado!", {
       description: `${result.triggers_count} gatilho(s) sincronizado(s)`,
     })
     setHasUnpublishedChanges(false)
@@ -336,7 +336,7 @@ function FlowEditorContent() {
   if (!flowId) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Nenhum fluxo seleccionado.</p>
+        <p className="text-muted-foreground">Nenhum automatismo seleccionado.</p>
       </div>
     )
   }
@@ -365,7 +365,7 @@ function FlowEditorContent() {
               handleMetaChange()
             }}
             className="h-7 text-sm font-semibold border-transparent hover:border-input focus:border-input px-1.5 w-64"
-            placeholder="Nome do fluxo"
+            placeholder="Nome do automatismo"
           />
           <Input
             value={description}
@@ -401,7 +401,7 @@ function FlowEditorContent() {
                 : "text-muted-foreground hover:text-foreground",
               isNeverPublished && "opacity-50 cursor-not-allowed"
             )}
-            title={isNeverPublished ? "Publica o fluxo primeiro" : undefined}
+            title={isNeverPublished ? "Publica o automatismo primeiro" : undefined}
           >
             Produção
           </button>

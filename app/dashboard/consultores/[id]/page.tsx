@@ -993,7 +993,17 @@ export default function ConsultorDetalhePage() {
           {activeTab === 'marketing' && (
             <div className="space-y-5">
               {/* Kit Marketing */}
-              <KitMarketingTab consultantId={id} />
+              <KitMarketingTab
+                consultantId={id}
+                consultant={consultant ? {
+                  commercial_name: consultant.commercial_name,
+                  professional_email: consultant.professional_email,
+                  phone_commercial: consultant.dev_consultant_profiles?.phone_commercial,
+                  instagram_handle: consultant.dev_consultant_profiles?.instagram_handle,
+                  profile_photo_url: consultant.dev_consultant_profiles?.profile_photo_url,
+                  profile_photo_nobg_url: (consultant.dev_consultant_profiles as any)?.profile_photo_nobg_url,
+                } : null}
+              />
 
               {/* Fotos do Consultor */}
               <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-4">

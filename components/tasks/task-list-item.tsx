@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
-  CalendarDays, ChevronRight, MessageSquare, Paperclip, RotateCcw, User,
+  CalendarDays, ChevronRight, MessageSquare, Paperclip, RotateCcw, User, Workflow,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ export function TaskListItem({ task, onToggleComplete, onSelect }: TaskListItemP
   const subTasksDone = (task.sub_tasks || []).filter((st) => st.is_completed).length
   const commentCount = (task as any).task_comments?.[0]?.count || 0
   const attachmentCount = (task as any).task_attachments?.[0]?.count || 0
+  const isProcessTask = task.source === 'proc_task' || task.source === 'proc_subtask'
 
   return (
     <div
@@ -34,12 +36,14 @@ export function TaskListItem({ task, onToggleComplete, onSelect }: TaskListItemP
       )}
       onClick={() => onSelect(task)}
     >
-      {/* Checkbox */}
+      {/* Checkbox — disabled for process-sourced tasks (managed in process page) */}
       <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={task.is_completed}
-          onCheckedChange={() => onToggleComplete(task.id, task.is_completed)}
-          className={cn('mt-0.5', priority.color)}
+          onCheckedChange={() => !isProcessTask && onToggleComplete(task.id, task.is_completed)}
+          disabled={isProcessTask}
+          className={cn('mt-0.5', priority.color, isProcessTask && 'cursor-not-allowed opacity-60')}
+          title={isProcessTask ? 'Concluir no detalhe do processo' : undefined}
         />
       </div>
 
@@ -85,12 +89,27 @@ export function TaskListItem({ task, onToggleComplete, onSelect }: TaskListItemP
             </span>
           )}
 
-          {/* Entity link */}
-          {task.entity_type && (
+          {/* Entity link — clickable when we have a target */}
+          {isProcessTask && task.process_id ? (
+            <Link
+              href={`/dashboard/processos/${task.process_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex"
+            >
+              <Badge
+                variant="outline"
+                className="text-[0.65rem] h-4 px-1.5 gap-1 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
+              >
+                <Workflow className="h-2.5 w-2.5" />
+                {task.process_ref || 'Processo'}
+                {task.stage_name && <span className="opacity-70">· {task.stage_name}</span>}
+              </Badge>
+            </Link>
+          ) : task.entity_type ? (
             <Badge variant="outline" className="text-[0.65rem] h-4 px-1.5">
               {TASK_ENTITY_LABELS[task.entity_type as TaskEntityType]}
             </Badge>
-          )}
+          ) : null}
 
           {/* Sub-tasks */}
           {subTaskCount > 0 && (

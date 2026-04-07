@@ -174,7 +174,7 @@ export function FlowCard({
                     Ativar
                   </DropdownMenuItem>
                 </TooltipTrigger>
-                <TooltipContent>Publica o fluxo primeiro</TooltipContent>
+                <TooltipContent>Publica o automatismo primeiro</TooltipContent>
               </Tooltip>
             )}
             <DropdownMenuSeparator />

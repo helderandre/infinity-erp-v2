@@ -260,10 +260,10 @@ export function InstanceCard({
             </span>
           </div>
 
-          {/* Fluxos */}
+          {/* Automatismos */}
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Workflow className="h-3 w-3 shrink-0" />
-            <span>{instance.flow_count ?? 0} fluxo{(instance.flow_count ?? 0) !== 1 ? "s" : ""}</span>
+            <span>{instance.flow_count ?? 0} automatismo{(instance.flow_count ?? 0) !== 1 ? "s" : ""}</span>
           </div>
 
           {/* Utilizador atribuído */}

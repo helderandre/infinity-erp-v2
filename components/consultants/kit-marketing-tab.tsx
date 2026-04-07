@@ -1,40 +1,52 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Download, Check, FileImage, Package, X, ChevronLeft, ChevronRight,
+  Copy, Upload, Download, Loader2, FileImage, Trash2, Package,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { generatePdfThumbnail } from '@/lib/pdf/generate-thumbnail'
 
 interface KitTemplate {
   id: string
   name: string
   category: string
-  description: string | null
+  placeholders?: string[]
+  canva_design_id?: string | null
 }
 
 interface MaterialPage {
   id: string
+  file_path?: string
+  file_name: string
   file_url: string | null
   thumbnail_url: string | null
-  file_name: string
   page_index: number
+  uploaded_by_user?: { commercial_name: string } | null
   created_at: string
-  uploaded_by_user: { commercial_name: string } | null
 }
 
 interface AgentMaterial {
   template: KitTemplate
   pages: MaterialPage[]
+}
+
+interface ConsultantInfo {
+  commercial_name?: string | null
+  professional_email?: string | null
+  phone_commercial?: string | null
+  instagram_handle?: string | null
+  profile_photo_url?: string | null
+  profile_photo_nobg_url?: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -51,6 +63,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 interface KitMarketingTabProps {
   consultantId: string
+  consultant?: ConsultantInfo | null
 }
 
 async function downloadFile(url: string, filename: string) {
@@ -66,46 +79,131 @@ async function downloadFile(url: string, filename: string) {
     document.body.removeChild(a)
     URL.revokeObjectURL(blobUrl)
   } catch {
-    // Fallback: open in new tab
     window.open(url, '_blank')
   }
 }
 
-export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
-  const [items, setItems] = useState<AgentMaterial[]>([])
+export function KitMarketingTab({ consultantId, consultant }: KitMarketingTabProps) {
+  const [materials, setMaterials] = useState<AgentMaterial[]>([])
+  const [templates, setTemplates] = useState<KitTemplate[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploadDialog, setUploadDialog] = useState<{ templateId: string; templateName: string; pageIndex: number } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewItem, setPreviewItem] = useState<AgentMaterial | null>(null)
   const [previewPageIdx, setPreviewPageIdx] = useState(0)
 
-  const fetchMaterials = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/consultants/${consultantId}/materials`)
-      const data = await res.json()
-      setItems(Array.isArray(data) ? data : [])
+      const [materialsRes, templatesRes] = await Promise.all([
+        fetch(`/api/consultants/${consultantId}/materials`),
+        fetch('/api/marketing/kit-templates'),
+      ])
+      const matData = await materialsRes.json()
+      setMaterials(Array.isArray(matData) ? matData : [])
+      const tplData = await templatesRes.json()
+      setTemplates(Array.isArray(tplData) ? tplData : [])
     } catch {
-      setItems([])
+      setMaterials([])
     } finally {
       setLoading(false)
     }
   }, [consultantId])
 
-  useEffect(() => { fetchMaterials() }, [fetchMaterials])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const readyCount = items.filter(i => i.pages.length > 0).length
-  const totalCount = items.length
+  const readyCount = materials.filter(m => m.pages.length > 0).length
+  const totalCount = materials.length
   const progressPct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0
 
-  const handleDownloadAll = () => {
-    const allPages = items.flatMap(i => i.pages.filter(p => p.file_url))
-    if (allPages.length === 0) {
-      toast.error('Nenhum material disponível para descarregar')
+  const generatePrompt = () => {
+    if (!consultant) {
+      toast.error('Dados do consultor não disponíveis')
       return
     }
-    for (const page of allPages) {
-      if (page.file_url) downloadFile(page.file_url, page.file_name)
+    const designId = templates.find(t => t.canva_design_id)?.canva_design_id
+
+    const photoLine = consultant.profile_photo_url
+      ? `Foto original (com fundo): ${consultant.profile_photo_url}`
+      : 'Foto: [NÃO TEM FOTO - pedir ao consultor]'
+
+    const nobgLine = consultant.profile_photo_nobg_url
+      ? `Foto sem fundo (PNG transparente): ${consultant.profile_photo_nobg_url}`
+      : ''
+
+    const designLine = designId || '[inserir Design ID ou link do Canva]'
+
+    const prompt = `Preciso de personalizar o kit de marketing Convictus para um novo consultor.
+Design a editar: ${designLine}
+Dados do consultor:
+
+Nome: ${consultant.commercial_name || ''}
+Email: ${consultant.professional_email || ''}
+Telefone: ${consultant.phone_commercial || '[sem telefone]'}
+${consultant.instagram_handle ? `Instagram: ${consultant.instagram_handle}` : ''}
+Website: www.infinitygroup.pt
+${photoLine}${nobgLine ? `\n${nobgLine}` : ''}
+
+Segue o skill convictus-marketing-kit para personalizar.`
+
+    navigator.clipboard.writeText(prompt)
+    toast.success('Prompt copiado para a área de transferência')
+  }
+
+  const handleUpload = async (files: File[]) => {
+    if (!uploadDialog || files.length === 0) return
+    setUploading(true)
+    try {
+      const startPage = uploadDialog.pageIndex
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData()
+        formData.append('file', files[i])
+        formData.append('template_id', uploadDialog.templateId)
+        formData.append('page_index', String(startPage + i))
+
+        // For PDFs, generate a PNG thumbnail of the first page
+        const isPdf = files[i].type === 'application/pdf' || files[i].name.toLowerCase().endsWith('.pdf')
+        if (isPdf) {
+          const thumbBlob = await generatePdfThumbnail(files[i])
+          if (thumbBlob) {
+            formData.append('thumbnail', new File([thumbBlob], 'thumbnail.png', { type: 'image/png' }))
+          }
+        }
+
+        const res = await fetch(`/api/marketing/kit-queue/${consultantId}/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || `Erro ao carregar página ${startPage + i}`)
+        }
+      }
+
+      toast.success(files.length > 1
+        ? `${files.length} páginas carregadas com sucesso`
+        : 'Material carregado com sucesso'
+      )
+      setUploadDialog(null)
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao carregar ficheiro')
+    } finally {
+      setUploading(false)
     }
-    toast.success(`A descarregar ${allPages.length} ficheiro${allPages.length !== 1 ? 's' : ''}`)
+  }
+
+  const handleDeleteMaterial = async (materialId: string) => {
+    try {
+      const res = await fetch(`/api/consultants/${consultantId}/materials/${materialId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erro ao eliminar')
+      toast.success('Material eliminado')
+      fetchData()
+    } catch {
+      toast.error('Erro ao eliminar material')
+    }
   }
 
   const handleDownloadTemplate = async (pages: MaterialPage[], templateName: string) => {
@@ -121,160 +219,189 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
     }
   }
 
-  const openPreview = (item: AgentMaterial) => {
-    if (item.pages.length === 0) return
-    setPreviewItem(item)
-    setPreviewPageIdx(0)
-  }
-
   const previewPage = previewItem?.pages[previewPageIdx] || null
   const previewTotalPages = previewItem?.pages.length || 0
 
-  // Group by category
-  const grouped = items.reduce<Record<string, AgentMaterial[]>>((acc, item) => {
-    const cat = item.template.category
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(item)
-    return acc
-  }, {})
-
   if (loading) {
     return (
-      <div className="space-y-5">
-        <Skeleton className="h-16 rounded-2xl" />
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
+      <div className="space-y-4">
+        <Skeleton className="h-24 rounded-2xl" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 rounded-xl" />
           ))}
         </div>
       </div>
     )
   }
 
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={Package}
-        title="Sem templates configurados"
-        description="Ainda não foram configurados templates de kit marketing."
-      />
-    )
-  }
-
   return (
-    <div className="space-y-5">
-      {/* Progress Card */}
+    <div className="space-y-4">
+      {/* Progress */}
       <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="min-w-0">
             <h3 className="font-semibold text-sm">Kit Marketing</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {readyCount} de {totalCount} materiais prontos
             </p>
           </div>
-          {readyCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full gap-2 text-xs"
-              onClick={handleDownloadAll}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Descarregar Todos
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            className="rounded-full gap-2 text-xs shrink-0"
+            onClick={generatePrompt}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Copiar Prompt</span>
+          </Button>
         </div>
         <Progress value={progressPct} className="h-2" />
         <div className="flex items-center justify-between mt-2">
           <span className="text-[10px] text-muted-foreground">{progressPct}% completo</span>
-          {readyCount === totalCount && totalCount > 0 && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">
-              <Check className="h-3 w-3 mr-1" />Kit Completo
-            </Badge>
-          )}
         </div>
       </div>
 
-      {/* Materials by Category */}
-      {Object.entries(grouped).map(([category, categoryItems]) => (
-        <div key={category} className="space-y-3">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {CATEGORY_LABELS[category] || category}
-          </h4>
+      {/* Materials */}
+      {materials.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="Sem templates configurados"
+          description="Ainda não foram configurados templates de kit marketing."
+        />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {materials.map(({ template, pages }) => {
+            const hasPages = pages.length > 0
+            const coverPage = pages[0]
+            const nextPage = pages.length + 1
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-            {categoryItems.map(({ template, pages }) => {
-              const hasPages = pages.length > 0
-              const coverPage = pages[0]
-
-              return (
-                <div
-                  key={template.id}
-                  className={cn(
-                    'rounded-lg border p-2 space-y-1.5 transition-all',
-                    hasPages
-                      ? 'bg-card/50 border-border hover:shadow-sm cursor-pointer'
-                      : 'bg-muted/10 border-dashed opacity-60'
-                  )}
-                  onClick={() => hasPages && openPreview({ template, pages })}
-                >
-                  {/* Cover thumbnail (first page) */}
-                  {hasPages && coverPage ? (
-                    <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted">
-                      <img
-                        src={coverPage.thumbnail_url || coverPage.file_url || ''}
-                        alt={template.name}
-                        className="w-full h-full object-cover"
-                      />
-                      {pages.length > 1 && (
-                        <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
-                          {pages.length} pág.
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="aspect-[4/3] rounded-lg bg-muted/30 flex items-center justify-center">
-                      <FileImage className="h-8 w-8 text-muted-foreground/20" />
-                    </div>
-                  )}
-
-                  {/* Info */}
-                  <div>
-                    <p className="text-xs font-medium truncate">{template.name}</p>
-                    {hasPages ? (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {new Date(coverPage.created_at).toLocaleDateString('pt-PT')}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">A aguardar...</p>
+            return (
+              <div
+                key={template.id}
+                className={cn(
+                  'rounded-xl border p-3 space-y-2 transition-all',
+                  hasPages ? 'bg-card/50 border-border' : 'bg-muted/10 border-dashed'
+                )}
+              >
+                {hasPages && coverPage ? (
+                  <div
+                    className="group relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                    onClick={() => { setPreviewItem({ template, pages }); setPreviewPageIdx(0) }}
+                  >
+                    <img
+                      src={coverPage.thumbnail_url || coverPage.file_url || ''}
+                      alt={template.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {pages.length > 1 && (
+                      <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
+                        {pages.length} pág.
+                      </span>
                     )}
+                    <button
+                      className="absolute top-1 right-1 p-1.5 rounded-full bg-red-500/90 text-white hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`Eliminar ${pages.length > 1 ? `todas as ${pages.length} páginas` : 'este material'}?`)) {
+                          Promise.all(pages.map(p => handleDeleteMaterial(p.id)))
+                        }
+                      }}
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
+                ) : (
+                  <div className="aspect-[4/3] rounded-lg bg-muted/40 flex items-center justify-center">
+                    <FileImage className="h-8 w-8 text-muted-foreground/30" />
+                  </div>
+                )}
 
-                  {/* Download button */}
-                  {hasPages ? (
+                <div>
+                  <p className="text-xs font-medium truncate">{template.name}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {CATEGORY_LABELS[template.category] || template.category}
+                    {hasPages && pages.length > 1 && ` · ${pages.length} pág.`}
+                  </p>
+                </div>
+
+                <div className="flex gap-1">
+                  <Button
+                    variant={hasPages ? 'ghost' : 'outline'}
+                    size="sm"
+                    className="flex-1 rounded-full text-[10px] h-7 gap-1"
+                    onClick={() => setUploadDialog({
+                      templateId: template.id,
+                      templateName: template.name,
+                      pageIndex: nextPage,
+                    })}
+                  >
+                    <Upload className="h-3 w-3" />
+                    {hasPages ? 'Página' : 'Carregar'}
+                  </Button>
+                  {hasPages && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full rounded-full text-[10px] h-7 gap-1"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDownloadTemplate(pages, template.name)
-                      }}
+                      className="rounded-full text-[10px] h-7 gap-1"
+                      onClick={() => handleDownloadTemplate(pages, template.name)}
                     >
                       <Download className="h-3 w-3" />
-                      Descarregar{pages.length > 1 ? ` (${pages.length})` : ''}
                     </Button>
-                  ) : (
-                    <div className="h-7 flex items-center justify-center">
-                      <span className="text-[10px] text-muted-foreground italic">Pendente</span>
-                    </div>
                   )}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
-      ))}
+      )}
+
+      {/* Upload Dialog */}
+      <Dialog open={!!uploadDialog} onOpenChange={(open) => !open && setUploadDialog(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Carregar Material</DialogTitle>
+            <DialogDescription>{uploadDialog?.templateName}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files
+                if (files && files.length > 0) {
+                  const fileArray = Array.from(files)
+                  e.target.value = ''
+                  handleUpload(fileArray)
+                }
+              }}
+            />
+
+            <button
+              className="w-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mb-2" />
+                  <p className="text-sm font-medium">A carregar...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm font-medium">Clique para seleccionar ficheiros</p>
+                  <p className="text-xs text-muted-foreground mt-1">PNG, JPEG, WebP ou PDF · Pode seleccionar vários</p>
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>
@@ -282,7 +409,6 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
           <DialogTitle className="sr-only">{previewItem?.template.name || 'Pré-visualização'}</DialogTitle>
           {previewItem && previewPage && (
             <>
-              {/* Content — PDF or Image */}
               <div className="relative bg-muted/30">
                 {previewPage.file_name?.toLowerCase().endsWith('.pdf') ? (
                   <iframe
@@ -298,7 +424,6 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
                   />
                 )}
 
-                {/* Page navigation arrows */}
                 {previewTotalPages > 1 && (
                   <>
                     <button
@@ -323,7 +448,6 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
                 )}
               </div>
 
-              {/* Footer */}
               <div className="p-4 border-t flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">{previewItem.template.name}</p>
@@ -333,7 +457,6 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Page dots */}
                   {previewTotalPages > 1 && (
                     <div className="flex items-center gap-1 mr-2">
                       {previewItem.pages.map((_, i) => (
@@ -348,6 +471,22 @@ export function KitMarketingTab({ consultantId }: KitMarketingTabProps) {
                       ))}
                     </div>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full gap-2 text-xs text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      await handleDeleteMaterial(previewPage.id)
+                      if (previewTotalPages <= 1) {
+                        setPreviewItem(null)
+                      } else {
+                        setPreviewPageIdx((i) => Math.min(i, previewTotalPages - 2))
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Eliminar{previewTotalPages > 1 ? ' página' : ''}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

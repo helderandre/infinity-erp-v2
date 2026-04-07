@@ -326,7 +326,7 @@ function InstanciasContent() {
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.flows}</p>
-              <p className="text-xs text-muted-foreground">Fluxos vinculados</p>
+              <p className="text-xs text-muted-foreground">Automatismos vinculados</p>
             </div>
           </CardContent>
         </Card>

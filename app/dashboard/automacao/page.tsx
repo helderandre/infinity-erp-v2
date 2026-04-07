@@ -67,7 +67,7 @@ export default function AutomacaoDashboardPage() {
             </div>
           ) : executions.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              Nenhuma execução registada. Teste um fluxo para começar.
+              Nenhuma execução registada. Teste um automatismo para começar.
             </div>
           ) : (
             <div className="space-y-1">
@@ -85,7 +85,7 @@ export default function AutomacaoDashboardPage() {
 function RecentExecutionRow({ execution }: { execution: ExecutionRun }) {
   const config = STATUS_CONFIG[execution.status] || STATUS_CONFIG.pending
   const Icon = config.icon
-  const flowName = execution.auto_flows?.name || "Fluxo"
+  const flowName = execution.auto_flows?.name || "Automatismo"
   const timeAgo = execution.created_at
     ? formatDistanceToNow(new Date(execution.created_at), { locale: pt, addSuffix: true })
     : ""

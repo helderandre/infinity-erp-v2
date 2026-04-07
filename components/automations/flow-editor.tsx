@@ -268,7 +268,7 @@ const FlowEditorInner = forwardRef<FlowEditorHandle, FlowEditorInnerProps>(funct
       if (isTriggerType(type)) {
         const existingTrigger = nodes.find((n) => isTriggerType(n.type || ""))
         if (existingTrigger) {
-          toast.error("Apenas um gatilho por fluxo")
+          toast.error("Apenas um gatilho por automatismo")
           return
         }
       }
@@ -297,7 +297,7 @@ const FlowEditorInner = forwardRef<FlowEditorHandle, FlowEditorInnerProps>(funct
 
     const triggers = flowNodes.filter((n) => isTriggerType(n.type || ""))
     if (triggers.length === 0) {
-      errors.push("O fluxo precisa de pelo menos um gatilho")
+      errors.push("O automatismo precisa de pelo menos um gatilho")
     }
 
     for (const t of triggers) {

@@ -178,7 +178,7 @@ export default function TemplatesWppPage() {
             <AlertDialogTitle>Eliminar template</AlertDialogTitle>
             <AlertDialogDescription>
               Tem a certeza de que pretende eliminar este template? O template
-              será desactivado e deixará de estar disponível para novos fluxos.
+              será desactivado e deixará de estar disponível para novos automatismos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
