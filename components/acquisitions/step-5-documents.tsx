@@ -457,10 +457,10 @@ export function StepDocuments({ form }: StepDocumentsProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold">Documentos</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Upload opcional nesta fase. Use a IA para classificar múltiplos ficheiros automaticamente.
+            Carregue todos os documentos de uma vez — a IA classifica e extrai os dados automaticamente.
           </p>
         </div>
 
@@ -475,18 +475,22 @@ export function StepDocuments({ form }: StepDocumentsProps) {
           />
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full gap-1.5"
+            size="lg"
+            className="rounded-full gap-2 shadow-md bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white h-11 px-5 font-semibold"
             disabled={isClassifying}
             onClick={() => bulkInputRef.current?.click()}
           >
             {isClassifying ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                A classificar...
+              </>
             ) : (
-              <><Sparkles className="h-3.5 w-3.5" /><Upload className="h-3.5 w-3.5" /></>
+              <>
+                <Sparkles className="h-4 w-4" />
+                Carregar com IA
+              </>
             )}
-            {isClassifying ? 'A classificar...' : 'Upload com IA'}
           </Button>
         </div>
       </div>

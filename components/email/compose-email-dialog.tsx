@@ -86,6 +86,14 @@ interface ComposeEmailDialogProps {
   processId?: string
   processType?: string
   onSent?: () => void
+  /** Pre-fill subject when opening */
+  initialSubject?: string
+  /** Pre-fill recipients (comma-separated) */
+  initialTo?: string
+  /** Initial AI instruction to auto-generate the body when the dialog opens */
+  initialAiInstruction?: string
+  /** External attachments to include (URL-based, fetched server-side on send) */
+  initialPathAttachments?: { filename: string; url: string }[]
 }
 
 // ─── Right sidebar (Properties + Layers) ────────────────────────────────────
@@ -282,6 +290,10 @@ export function ComposeEmailDialog({
   processId,
   processType,
   onSent,
+  initialSubject,
+  initialTo,
+  initialAiInstruction,
+  initialPathAttachments,
 }: ComposeEmailDialogProps) {
   const [isSending, setIsSending] = useState(false)
   const [showCcBcc, setShowCcBcc] = useState(false)
@@ -467,15 +479,74 @@ export function ComposeEmailDialog({
           : `Fwd: ${forwardMessage.subject}`
       )
     } else {
-      setTo('')
+      setTo(initialTo || '')
       setCc('')
       setBcc('')
-      setSubject('')
+      setSubject(initialSubject || '')
     }
 
     // Force re-mount editor
     setEditorKey((k) => k + 1)
-  }, [open, replyTo, forwardMessage, senderEmail])
+  }, [open, replyTo, forwardMessage, senderEmail, initialTo, initialSubject])
+
+  // Auto-generate body via AI when initialAiInstruction is provided
+  const aiDraftRunRef = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      aiDraftRunRef.current = false
+      return
+    }
+    if (!initialAiInstruction || aiDraftRunRef.current) return
+    aiDraftRunRef.current = true
+
+    ;(async () => {
+      try {
+        const res = await fetch('/api/email/ai-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: initialSubject || 'Documentos do imóvel',
+            instruction: initialAiInstruction,
+            tone: 'professional',
+          }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const html = data?.body_html || data?.html || data?.body
+        if (html && typeof html === 'string') {
+          // Wrap raw HTML inside a Craft.js EmailText node
+          const wrappedState = JSON.stringify({
+            ROOT: {
+              type: { resolvedName: 'EmailContainer' },
+              isCanvas: true,
+              props: { padding: 24, background: '#ffffff', width: '100%', direction: 'column', align: 'stretch', justify: 'flex-start', gap: 8 },
+              displayName: 'EmailContainer',
+              custom: {},
+              parent: null,
+              hidden: false,
+              nodes: ['ai-text'],
+              linkedNodes: {},
+            },
+            'ai-text': {
+              type: { resolvedName: 'EmailText' },
+              isCanvas: false,
+              props: { html },
+              displayName: 'EmailText',
+              custom: {},
+              parent: 'ROOT',
+              hidden: false,
+              nodes: [],
+              linkedNodes: {},
+            },
+          })
+          setEditorState(wrappedState)
+          setEditorKey((k) => k + 1)
+        }
+      } catch {
+        // ignore — user can write manually
+      }
+    })()
+  }, [open, initialAiInstruction, initialSubject])
 
   // Load template when selected
   const handleTemplateChange = useCallback(async (templateId: string) => {
@@ -553,7 +624,14 @@ export function ComposeEmailDialog({
         path: a.path,
       }))
 
-      const allAttachments = [...fileAttachments, ...editorAttachments]
+      // 3. External pre-supplied attachments (e.g. property documents)
+      const externalAttachments = (initialPathAttachments || []).map((a) => ({
+        filename: a.filename,
+        content_type: 'application/octet-stream',
+        path: a.url,
+      }))
+
+      const allAttachments = [...fileAttachments, ...editorAttachments, ...externalAttachments]
 
       const payload = {
         to: toAddrs,

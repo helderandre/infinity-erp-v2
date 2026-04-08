@@ -11,9 +11,11 @@ export async function GET(
     if (!auth.authorized) return auth.response
 
     const { id: ownerId } = await params
+    const { searchParams } = new URL(request.url)
+    const propertyId = searchParams.get('property_id')
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('doc_registry')
       .select(`
         *,
@@ -23,6 +25,14 @@ export async function GET(
       .eq('owner_id', ownerId)
       .neq('status', 'archived')
       .order('created_at', { ascending: false })
+
+    // When property_id is supplied, return only docs linked to BOTH this owner
+    // AND this specific property (strict scope).
+    if (propertyId) {
+      query = query.eq('property_id', propertyId)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
