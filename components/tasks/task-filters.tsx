@@ -15,6 +15,9 @@ interface TaskFiltersProps {
     is_completed?: 'true' | 'false'
     overdue?: 'true' | 'false'
     search?: string
+    // source_filter NÃO é editável pelo user, mas tem de ser preservado
+    // entre updates dos outros filtros (caso contrário o split em tabs perde-se)
+    source_filter?: 'personal' | 'process'
   }
   onFiltersChange: (filters: any) => void
   onNewTask: () => void
@@ -33,7 +36,11 @@ export function TaskFilters({ filters, onFiltersChange, onNewTask, consultants, 
   ].filter(Boolean).length
 
   const clearFilters = () => {
-    onFiltersChange({ search: filters.search })
+    // Preserva source_filter (controlado pelo tab) e search (não está nos badges)
+    onFiltersChange({
+      search: filters.search,
+      source_filter: filters.source_filter,
+    })
   }
 
   return (

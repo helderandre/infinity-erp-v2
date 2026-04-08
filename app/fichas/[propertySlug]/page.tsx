@@ -2,14 +2,30 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { RATING_FIELDS, DISCOVERY_OPTIONS } from '@/types/visit-ficha'
-import { Star, CheckCircle2, Loader2, Building2, Send } from 'lucide-react'
+import { Star, CheckCircle2, Loader2, Building2, Send, X, ArrowLeft } from 'lucide-react'
 
 export default function PublicFichaPage() {
   const { propertySlug } = useParams<{ propertySlug: string }>()
   const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // Botão de saída — quando a ficha é aberta a partir do dashboard interno
+  // (ex: agente clica numa push notification), o utilizador fica preso porque
+  // a página é standalone sem chrome da app. Esta função tenta primeiro voltar
+  // ao histórico do browser; se não houver, manda para o calendário do dashboard.
+  // Em utilizadores externos não autenticados, o calendário redirecciona para
+  // o login — aceitável porque ninguém os obriga a clicar no botão.
+  const handleClose = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/dashboard/calendario')
+    }
+  }, [router])
   // Quando a ficha é aberta a partir de uma visita específica (link partilhado
   // pelo buyer agent depois de a visita ser marcada como completed), o ?visit=<uuid>
   // associa a resposta à linha em `visits` para fechar o ciclo no histórico.
@@ -161,6 +177,13 @@ export default function PublicFichaPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-50 px-4">
         <Building2 className="h-12 w-12 text-neutral-300 mb-4" />
         <h1 className="text-xl font-semibold text-neutral-700">{error}</h1>
+        <button
+          onClick={handleClose}
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-neutral-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-neutral-800 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </button>
       </div>
     )
   }
@@ -173,17 +196,32 @@ export default function PublicFichaPage() {
         </div>
         <h1 className="text-2xl font-bold text-neutral-800">Obrigado!</h1>
         <p className="text-neutral-500 mt-2 max-w-sm">
-          A sua ficha de visita foi enviada com sucesso. Agradecemos o seu feedback sobre o imóvel.
+          A ficha de visita foi enviada com sucesso. Obrigado pelo feedback sobre o imóvel.
         </p>
+        <button
+          onClick={handleClose}
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-neutral-900 text-white px-6 py-3 text-sm font-semibold hover:bg-neutral-800 transition-colors active:scale-[0.98]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar à app
+        </button>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* Header */}
-      <div className="bg-neutral-900 text-white px-4 py-8 sm:py-12">
-        <div className="max-w-lg mx-auto text-center">
+      {/* Header — botão X fixo no canto superior esquerdo para sair da página */}
+      <div className="relative bg-neutral-900 text-white px-4 py-8 sm:py-12">
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Fechar"
+          className="absolute top-3 left-3 sm:top-4 sm:left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 active:bg-white/25 transition-colors z-10"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div className="max-w-lg mx-auto text-center pt-2">
           <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">Relatório de Visita</p>
           <h1 className="text-xl sm:text-2xl font-bold mt-2">{property?.title}</h1>
           <p className="text-sm text-neutral-400 mt-1">
@@ -203,30 +241,30 @@ export default function PublicFichaPage() {
           <div className="space-y-3">
             <div>
               <label className="text-xs font-medium text-neutral-600 mb-1 block">Nome *</label>
-              <input required value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="Nome completo" />
+              <input required value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="Nome completo" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">Telemóvel</label>
-                <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="+351 9XX XXX XXX" />
+                <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="+351 9XX XXX XXX" />
               </div>
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">Email</label>
-                <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="email@exemplo.pt" />
+                <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="email@exemplo.pt" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">BI/CC</label>
-                <input value={clientIdNumber} onChange={(e) => setClientIdNumber(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
+                <input value={clientIdNumber} onChange={(e) => setClientIdNumber(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
               </div>
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">Data *</label>
-                <input required type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
+                <input required type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
               </div>
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">Hora</label>
-                <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
+                <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
               </div>
             </div>
           </div>
@@ -263,11 +301,11 @@ export default function PublicFichaPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">Impressões</h2>
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block">O que mais gostou?</label>
-            <textarea value={likedMost} onChange={(e) => setLikedMost(e.target.value)} rows={3} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow resize-none" />
+            <textarea value={likedMost} onChange={(e) => setLikedMost(e.target.value)} rows={3} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow resize-none" />
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block">O que menos gostou?</label>
-            <textarea value={likedLeast} onChange={(e) => setLikedLeast(e.target.value)} rows={3} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow resize-none" />
+            <textarea value={likedLeast} onChange={(e) => setLikedLeast(e.target.value)} rows={3} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow resize-none" />
           </div>
 
           {/* Would buy */}
@@ -280,7 +318,7 @@ export default function PublicFichaPage() {
             {wouldBuy !== null && (
               <div>
                 <label className="text-xs font-medium text-neutral-600 mb-1 block">Porquê?</label>
-                <input value={wouldBuyReason} onChange={(e) => setWouldBuyReason(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
+                <input value={wouldBuyReason} onChange={(e) => setWouldBuyReason(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" />
               </div>
             )}
           </div>
@@ -288,7 +326,7 @@ export default function PublicFichaPage() {
           {/* Perceived value */}
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block">Quanto vale para si este imóvel? (€)</label>
-            <input type="number" value={perceivedValue} onChange={(e) => setPerceivedValue(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="250000" />
+            <input type="number" value={perceivedValue} onChange={(e) => setPerceivedValue(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow" placeholder="250000" />
           </div>
 
           {/* Has property to sell */}
@@ -370,15 +408,18 @@ export default function PublicFichaPage() {
         <button
           type="submit"
           disabled={isSubmitting || !clientName.trim()}
-          className="w-full bg-neutral-900 text-white py-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-neutral-900 text-white py-4 rounded-xl text-base font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 active:scale-[0.99]"
         >
-          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           {isSubmitting ? 'A enviar...' : 'Enviar Ficha de Visita'}
         </button>
 
         <p className="text-[10px] text-neutral-400 text-center leading-relaxed">
           Infinity Group — Real Estate Signature by Filipe Pereira
         </p>
+
+        {/* Safe area no fundo para evitar que o botão fique escondido pela home bar do iPhone */}
+        <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
       </form>
     </div>
   )
