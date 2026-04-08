@@ -43,17 +43,7 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Update calendar event title to indicate cancellation
-    if (data?.calendar_event_id) {
-      await admin
-        .from('temp_calendar_events')
-        .update({
-          title: `[CANCELADA] ${data.notes || 'Visita cancelada'}`,
-          color: '#ef4444',
-        })
-        .eq('id', data.calendar_event_id)
-    }
-
+    // Note: visitas canceladas são automaticamente excluídas pelo aggregator do calendário.
     return NextResponse.json({ data })
   } catch (err) {
     console.error('[visits/[id]/cancel POST]', err)

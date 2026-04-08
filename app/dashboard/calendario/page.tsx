@@ -271,6 +271,7 @@ export default function CalendarioPage() {
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
         onRsvp={handleRsvp}
+        onRefresh={refetch}
       />
 
       {/* Event create/edit form dialog */}

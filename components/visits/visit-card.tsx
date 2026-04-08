@@ -34,7 +34,6 @@ import {
 
 interface VisitCardProps {
   visit: VisitWithRelations
-  onConfirm?: (id: string) => void
   onComplete?: (id: string) => void
   onCancel?: (id: string) => void
   onFeedback?: (id: string) => void
@@ -44,7 +43,6 @@ interface VisitCardProps {
 
 export function VisitCard({
   visit,
-  onConfirm,
   onComplete,
   onCancel,
   onFeedback,
@@ -56,8 +54,9 @@ export function VisitCard({
   const clientPhone = visit.lead?.telemovel || visit.client_phone
 
   const visitDateTime = new Date(`${visit.visit_date}T${visit.visit_time}`)
-  const isUpcoming = visitDateTime > new Date() && ['scheduled', 'confirmed'].includes(visit.status)
-  const canGiveFeedback = visit.status === 'confirmed' || visit.status === 'completed'
+  const isUpcoming = visitDateTime > new Date() && visit.status === 'scheduled'
+  const isProposal = visit.status === 'proposal'
+  const canRegisterOutcome = visit.status === 'scheduled'
   const hasFeedback = !!visit.feedback_submitted_at
 
   const interestLabel = visit.feedback_interest
@@ -183,25 +182,35 @@ export function VisitCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {visit.status === 'scheduled' && onConfirm && (
-              <DropdownMenuItem onClick={() => onConfirm(visit.id)}>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Confirmar
+            {/* Propostas: a confirmação/rejeição é feita pelo seller agent
+                via endpoint dedicado. Para manter este card simples,
+                redireccionamos para o detalhe (calendário ou tarefas).
+                As acções inline ficam noutros sítios mais apropriados. */}
+            {isProposal && (
+              <DropdownMenuItem disabled>
+                <Clock className="mr-2 h-4 w-4" />
+                Aguardando confirmação
               </DropdownMenuItem>
             )}
-            {(visit.status === 'confirmed') && !hasFeedback && onFeedback && (
+            {canRegisterOutcome && onComplete && (
+              <DropdownMenuItem onClick={() => onComplete(visit.id)}>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Marcar como realizada
+              </DropdownMenuItem>
+            )}
+            {canRegisterOutcome && onNoShow && (
+              <DropdownMenuItem onClick={() => onNoShow(visit.id)}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Cliente não compareceu
+              </DropdownMenuItem>
+            )}
+            {visit.status === 'completed' && !hasFeedback && onFeedback && (
               <DropdownMenuItem onClick={() => onFeedback(visit.id)}>
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Registar Feedback
               </DropdownMenuItem>
             )}
-            {['scheduled', 'confirmed'].includes(visit.status) && onNoShow && (
-              <DropdownMenuItem onClick={() => onNoShow(visit.id)}>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Não Compareceu
-              </DropdownMenuItem>
-            )}
-            {['scheduled', 'confirmed'].includes(visit.status) && onCancel && (
+            {canRegisterOutcome && onCancel && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

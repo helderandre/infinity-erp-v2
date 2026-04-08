@@ -13,6 +13,7 @@ export type CalendarCategory =
   | 'company_event'
   | 'marketing_event'
   | 'meeting'
+  | 'visit'
   | 'reminder'
   | 'custom'
 
@@ -70,6 +71,16 @@ export interface CalendarEvent {
   // Origem WhatsApp (evento guardado a partir do chat)
   wpp_message_id?: string
   wpp_chat_id?: string
+
+  // Visitas (eventos derivados da tabela `visits`)
+  // Uma visita = um evento; ambos os consultores (comprador + vendedor) são
+  // listados como participantes. O filtro "Os meus eventos" passa quando o
+  // utilizador é qualquer um dos dois.
+  visit_id?: string
+  visit_buyer_agent_id?: string
+  visit_buyer_agent_name?: string
+  visit_seller_agent_id?: string
+  visit_seller_agent_name?: string
 }
 
 export interface CalendarFilters {
@@ -99,12 +110,12 @@ export const ALL_CATEGORIES: CalendarCategory[] = [
   'contract_expiry', 'lead_expiry', 'lead_followup',
   'process_task', 'process_subtask', 'process_event',
   'birthday', 'vacation', 'company_event',
-  'marketing_event', 'meeting', 'reminder', 'custom',
+  'marketing_event', 'meeting', 'visit', 'reminder', 'custom',
 ]
 
 export const MANUAL_CATEGORIES = [
   'birthday', 'vacation', 'company_event',
-  'marketing_event', 'meeting', 'reminder', 'custom',
+  'marketing_event', 'meeting', 'visit', 'reminder', 'custom',
 ] as const
 
 export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
@@ -119,6 +130,7 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
   company_event: 'Eventos Empresa',
   marketing_event: 'Marketing',
   meeting: 'Reuniões',
+  visit: 'Visitas',
   reminder: 'Lembretes',
   custom: 'Outros',
 }
@@ -135,6 +147,7 @@ export const CALENDAR_CATEGORY_COLORS: Record<CalendarCategory, { bg: string; te
   company_event:     { bg: 'bg-emerald-500/15',  text: 'text-emerald-600',  dot: 'bg-emerald-500' },
   marketing_event:   { bg: 'bg-orange-500/15',   text: 'text-orange-600',   dot: 'bg-orange-500' },
   meeting:           { bg: 'bg-indigo-500/15',   text: 'text-indigo-600',   dot: 'bg-indigo-500' },
+  visit:             { bg: 'bg-rose-500/15',     text: 'text-rose-600',     dot: 'bg-rose-500' },
   reminder:          { bg: 'bg-sky-500/15',      text: 'text-sky-600',      dot: 'bg-sky-500' },
   custom:            { bg: 'bg-stone-500/15',    text: 'text-stone-600',    dot: 'bg-stone-500' },
 }
@@ -145,19 +158,19 @@ export const CALENDAR_ROLE_PRESETS: Record<string, { categories: CalendarCategor
   'admin': { categories: ALL_CATEGORIES, filterSelf: false },
   'Office Manager': { categories: ALL_CATEGORIES, filterSelf: false },
   'Consultor': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
     filterSelf: true,
   },
   'Consultora Executiva': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
     filterSelf: true,
   },
   'Team Leader': {
-    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting'],
+    categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
     filterSelf: false,
   },
   'Gestora Processual': {
-    categories: ['contract_expiry', 'lead_expiry', 'process_task', 'process_subtask', 'process_event', 'meeting', 'reminder'],
+    categories: ['contract_expiry', 'lead_expiry', 'process_task', 'process_subtask', 'process_event', 'meeting', 'visit', 'reminder'],
     filterSelf: false,
   },
   'Marketing': {

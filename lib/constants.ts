@@ -1485,19 +1485,21 @@ export const PARTNER_PAYMENT_OPTIONS = [
 // === VISITAS ===
 
 export const VISIT_STATUS_COLORS = {
+  proposal:   { bg: 'bg-amber-500/15',   text: 'text-amber-600',   dot: 'bg-amber-500',   label: 'Proposta' },
+  rejected:   { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Rejeitada' },
   scheduled:  { bg: 'bg-blue-500/15',    text: 'text-blue-600',    dot: 'bg-blue-500',    label: 'Agendada' },
-  confirmed:  { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Confirmada' },
-  completed:  { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-500',   label: 'Realizada' },
-  cancelled:  { bg: 'bg-red-500/15',     text: 'text-red-600',     dot: 'bg-red-500',     label: 'Cancelada' },
+  completed:  { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Realizada' },
   no_show:    { bg: 'bg-orange-500/15',  text: 'text-orange-600',  dot: 'bg-orange-500',  label: 'Não Compareceu' },
+  cancelled:  { bg: 'bg-slate-500/15',   text: 'text-slate-600',   dot: 'bg-slate-500',   label: 'Cancelada' },
 } as const
 
 export const VISIT_STATUS_OPTIONS = [
+  { value: 'proposal' as const, label: 'Proposta' },
   { value: 'scheduled' as const, label: 'Agendada' },
-  { value: 'confirmed' as const, label: 'Confirmada' },
   { value: 'completed' as const, label: 'Realizada' },
-  { value: 'cancelled' as const, label: 'Cancelada' },
   { value: 'no_show' as const, label: 'Não Compareceu' },
+  { value: 'cancelled' as const, label: 'Cancelada' },
+  { value: 'rejected' as const, label: 'Rejeitada' },
 ] as const
 
 export const VISIT_FEEDBACK_INTEREST_OPTIONS = [

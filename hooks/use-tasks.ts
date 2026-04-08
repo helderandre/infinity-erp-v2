@@ -13,6 +13,7 @@ interface TaskFilters {
   entity_type?: string
   entity_id?: string
   search?: string
+  source_filter?: 'personal' | 'process'
 }
 
 interface UseTasksReturn {
@@ -51,6 +52,7 @@ export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksR
       if (filters.overdue) params.set('overdue', filters.overdue)
       if (filters.entity_type) params.set('entity_type', filters.entity_type)
       if (filters.entity_id) params.set('entity_id', filters.entity_id)
+      if (filters.source_filter) params.set('source_filter', filters.source_filter)
       if (debouncedSearch) params.set('search', debouncedSearch)
       params.set('limit', String(pageSize))
       params.set('offset', String((page - 1) * pageSize))
@@ -66,7 +68,7 @@ export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksR
     } finally {
       setIsLoading(false)
     }
-  }, [filters.assigned_to, filters.created_by, filters.priority, filters.is_completed, filters.overdue, filters.entity_type, filters.entity_id, debouncedSearch, page, pageSize])
+  }, [filters.assigned_to, filters.created_by, filters.priority, filters.is_completed, filters.overdue, filters.entity_type, filters.entity_id, filters.source_filter, debouncedSearch, page, pageSize])
 
   useEffect(() => {
     fetchTasks()

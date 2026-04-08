@@ -39,6 +39,7 @@ export async function GET(request: Request) {
     const {
       assigned_to, created_by, priority, is_completed, overdue,
       entity_type, entity_id, parent_task_id, search,
+      source_filter,
       limit, offset,
     } = params.data
 
@@ -66,6 +67,14 @@ export async function GET(request: Request) {
 
     const now = new Date().toISOString()
 
+    // Source flags consoante o filter:
+    // - 'personal' = tasks (todoist-style) + visit_proposal,  SEM proc tasks
+    // - 'process'  = só proc_task + proc_subtask, SEM tasks gerais nem visit proposals
+    // - undefined  = tudo (back-compat)
+    const includeGeneralTasks = source_filter !== 'process'
+    const includeProcSourcesByFilter = source_filter !== 'personal'
+    const includeVisitProposals = source_filter !== 'process'
+
     // ─── 1. General tasks query ───
     let tasksQuery = supabase
       .from('tasks')
@@ -89,9 +98,10 @@ export async function GET(request: Request) {
     if (entity_id) tasksQuery = tasksQuery.eq('entity_id', entity_id)
     if (search) tasksQuery = tasksQuery.ilike('title', `%${search}%`)
 
-    // ─── Decide if proc sources are eligible (entity_type filter) ───
+    // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───
     // Proc tasks/subtasks are intrinsically tied to a 'process' entity.
-    const includeProcSources = !entity_type || entity_type === 'process'
+    const includeProcSources =
+      includeProcSourcesByFilter && (!entity_type || entity_type === 'process')
 
     // ─── 2. Process tasks query ───
     let procTasksPromise: Promise<{ data: any[] | null }> = Promise.resolve({ data: [] })
@@ -161,10 +171,49 @@ export async function GET(request: Request) {
       procSubtasksPromise = q as any
     }
 
-    const [tasksRes, procTasksRes, procSubtasksRes] = await Promise.all([
+    // ─── 4. Visit proposals (cross-agent visits requiring seller agent action) ───
+    // Aparecem como tasks no inbox do seller agent (current user é o seller).
+    //
+    // - is_completed='false' (default): só propostas PENDENTES (status='proposal')
+    //   → renderizadas como cards de acção com botões Confirmar/Rejeitar
+    // - is_completed='true': propostas RESPONDIDAS (proposal_responded_at IS NOT NULL,
+    //   status agora é 'scheduled' ou 'rejected')
+    //   → renderizadas como linhas normais de task concluída, com a decisão visível
+    //
+    // Visitas que ficaram em 'cancelled'/'no_show' depois de terem sido confirmadas
+    // continuam a aparecer aqui — a acção de responder à proposta continua válida.
+    let visitProposalsPromise: Promise<{ data: any[] | null }> = Promise.resolve({ data: [] })
+    if (includeVisitProposals) {
+      let q = supabase
+        .from('visits')
+        .select(`
+          id, visit_date, visit_time, duration_minutes, status, notes,
+          consultant_id, seller_consultant_id, lead_id, property_id, client_name,
+          created_at,
+          proposal_responded_at, rejected_reason,
+          buyer_agent:dev_users!visits_consultant_id_fkey(id, commercial_name),
+          lead:leads!visits_lead_id_fkey(id, nome),
+          property:dev_properties!visits_property_id_fkey(id, title)
+        `)
+        .eq('seller_consultant_id', auth.user.id)
+
+      if (is_completed === 'true') {
+        // Histórico de propostas respondidas
+        q = q.not('proposal_responded_at', 'is', null)
+      } else {
+        // Pendentes (default)
+        q = q.eq('status', 'proposal')
+      }
+
+      if (search) q = q.ilike('client_name', `%${search}%`)
+      visitProposalsPromise = q as any
+    }
+
+    const [tasksRes, procTasksRes, procSubtasksRes, visitProposalsRes] = await Promise.all([
       tasksQuery,
       procTasksPromise,
       procSubtasksPromise,
+      visitProposalsPromise,
     ])
 
     if ((tasksRes as any).error) {
@@ -173,7 +222,9 @@ export async function GET(request: Request) {
     }
 
     // ─── Normalize ───
-    const tasks: any[] = (tasksRes.data || []).map((t: any) => ({ ...t, source: 'task' }))
+    const tasks: any[] = includeGeneralTasks
+      ? (tasksRes.data || []).map((t: any) => ({ ...t, source: 'task' }))
+      : []
 
     const procTasks: any[] = (procTasksRes.data || []).map((pt: any) => {
       const proc = pt.proc_instances
@@ -245,8 +296,74 @@ export async function GET(request: Request) {
       }
     })
 
+    // ─── Visit proposals → task-like shape ───
+    const visitProposals: any[] = (visitProposalsRes.data || []).map((v: any) => {
+      const property = v.property
+      const buyerAgent = v.buyer_agent
+      const lead = v.lead
+      const clientName = lead?.nome ?? v.client_name ?? 'Cliente'
+      const propertyTitle = property?.title ?? 'Imóvel'
+      const startISO = `${v.visit_date}T${v.visit_time}`
+
+      // Status do "task" — confirmar/rejeitar é o trabalho. Quando há
+      // proposal_responded_at, o trabalho está feito; o status final da visita
+      // diz se foi confirmado ou rejeitado.
+      const isResponded = !!v.proposal_responded_at
+      const wasRejected = v.status === 'rejected'
+
+      let title: string
+      if (!isResponded) {
+        title = `Confirmar visita: ${propertyTitle}`
+      } else if (wasRejected) {
+        title = `Proposta rejeitada: ${propertyTitle}`
+      } else {
+        title = `Visita confirmada: ${propertyTitle}`
+      }
+
+      let description: string | null
+      if (!isResponded) {
+        description = `${clientName}${buyerAgent ? ` · proposta por ${buyerAgent.commercial_name}` : ''}`
+      } else if (wasRejected && v.rejected_reason) {
+        description = `${clientName} · Motivo: ${v.rejected_reason}`
+      } else {
+        description = `${clientName}${buyerAgent ? ` · proposta por ${buyerAgent.commercial_name}` : ''}`
+      }
+
+      return {
+        id: `visit_proposal:${v.id}`,
+        title,
+        description,
+        parent_task_id: null,
+        assigned_to: v.seller_consultant_id,
+        created_by: v.consultant_id,
+        // Visitas propostas têm prioridade alta — são bloqueantes para o outro agente
+        priority: 2,
+        due_date: startISO,
+        is_recurring: false,
+        recurrence_rule: null,
+        is_completed: isResponded,
+        completed_at: v.proposal_responded_at,
+        completed_by: null,
+        entity_type: 'property' as const,
+        entity_id: v.property_id,
+        order_index: 0,
+        created_at: v.created_at,
+        updated_at: v.proposal_responded_at || v.created_at,
+        assignee: null,
+        creator: buyerAgent || null,
+        sub_tasks: [],
+        source: 'visit_proposal',
+        property_id: property?.id || null,
+        property_title: propertyTitle,
+        // Campos específicos da visita
+        visit_id: v.id,
+        visit_buyer_agent_name: buyerAgent?.commercial_name ?? null,
+        visit_client_name: clientName,
+      }
+    })
+
     // ─── Merge + sort + paginate ───
-    const merged = [...tasks, ...procTasks, ...procSubtasks]
+    const merged = [...tasks, ...visitProposals, ...procTasks, ...procSubtasks]
     merged.sort((a, b) => {
       if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1
       if (a.priority !== b.priority) return (a.priority || 99) - (b.priority || 99)

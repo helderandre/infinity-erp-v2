@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createVisitSchema } from '@/lib/validations/visit'
+import { notifyProposalCreated } from '@/lib/visits/notifications'
 
 const VISIT_SELECT = `
   *,
@@ -101,60 +102,36 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient() as any
+
+    // Determinar o estado inicial da visita:
+    // - Se o consultor da angariação é o mesmo do comprador → 'scheduled' directo
+    //   (não faz sentido pedir confirmação a si próprio)
+    // - Caso contrário → 'proposal', aguarda resposta do seller agent
+    //
+    // O `seller_consultant_id` é populado automaticamente pelo trigger
+    // `trg_visits_snapshot_seller_consultant` no momento do INSERT, mas
+    // precisamos do valor *agora* para decidir o status. Por isso fazemos
+    // um lookup explícito antes do insert.
+    const { data: property } = await admin
+      .from('dev_properties')
+      .select('consultant_id')
+      .eq('id', parsed.data.property_id)
+      .single()
+
+    const sellerConsultantId = property?.consultant_id ?? null
+    const isSameAgent = sellerConsultantId && sellerConsultantId === parsed.data.consultant_id
+    const initialStatus: 'proposal' | 'scheduled' = isSameAgent ? 'scheduled' : 'proposal'
+
     const visitData = {
       ...parsed.data,
+      status: initialStatus,
       client_email: parsed.data.client_email || null,
       created_by: user.id,
     }
 
-    // Create calendar event for the visit
-    const startDate = `${parsed.data.visit_date}T${parsed.data.visit_time}`
-    const endMinutes = parsed.data.duration_minutes || 30
-    const endDate = new Date(new Date(startDate).getTime() + endMinutes * 60000).toISOString()
-
-    // Get property title for calendar event title
-    const { data: property } = await admin
-      .from('dev_properties')
-      .select('title, external_ref')
-      .eq('id', parsed.data.property_id)
-      .single()
-
-    // Get client name (from lead or manual input)
-    let clientName = parsed.data.client_name
-    if (parsed.data.lead_id && !clientName) {
-      const { data: lead } = await admin
-        .from('leads')
-        .select('nome, full_name')
-        .eq('id', parsed.data.lead_id)
-        .single()
-      clientName = lead?.full_name || lead?.nome
-    }
-
-    const calendarTitle = `Visita: ${property?.title || 'Imóvel'} — ${clientName || 'Cliente'}`
-
-    const { data: calendarEvent } = await admin
-      .from('temp_calendar_events')
-      .insert({
-        title: calendarTitle,
-        description: parsed.data.notes || null,
-        category: 'meeting',
-        start_date: startDate,
-        end_date: endDate,
-        all_day: false,
-        user_id: parsed.data.consultant_id,
-        property_id: parsed.data.property_id,
-        lead_id: parsed.data.lead_id || null,
-        created_by: user.id,
-        visibility: 'all',
-        color: '#6366f1',
-      })
-      .select('id')
-      .single()
-
-    if (calendarEvent) {
-      (visitData as any).calendar_event_id = calendarEvent.id
-    }
-
+    // Note: o calendário lê directamente da tabela `visits` em /api/calendar/events
+    // (projecta uma visita = um evento), por isso não há nada a inserir em
+    // `calendar_events` aqui.
     const { data, error } = await admin
       .from('visits')
       .insert(visitData)
@@ -164,6 +141,18 @@ export async function POST(request: Request) {
     if (error) {
       console.error('[visits POST]', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Push: se ficou em estado proposal, notificar o seller agent.
+    // Não bloqueamos a resposta nem fazemos rollback se a notificação falhar.
+    if (initialStatus === 'proposal' && sellerConsultantId) {
+      void notifyProposalCreated(admin, sellerConsultantId, {
+        id: data.id,
+        property_title: data.property?.title ?? null,
+        client_name: data.lead?.full_name ?? data.client_name ?? null,
+        visit_date: data.visit_date,
+        visit_time: data.visit_time,
+      })
     }
 
     return NextResponse.json({ data }, { status: 201 })

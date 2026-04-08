@@ -6,7 +6,7 @@ import { digitalFichaSchema } from '@/lib/validations/visit-ficha'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { property_id, signature_data, ...formData } = body
+    const { property_id, visit_id, signature_data, ...formData } = body
 
     if (!property_id) {
       return NextResponse.json({ error: 'property_id é obrigatório.' }, { status: 400 })
@@ -30,6 +30,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Imóvel não encontrado.' }, { status: 404 })
     }
 
+    // Se foi passado um visit_id (link partilhado a partir de uma visita
+    // específica), validar que existe e que pertence a esta propriedade.
+    let validatedVisitId: string | null = null
+    if (visit_id) {
+      const { data: visit } = await admin
+        .from('visits')
+        .select('id, property_id')
+        .eq('id', visit_id)
+        .single()
+      if (visit && visit.property_id === property_id) {
+        validatedVisitId = visit.id
+      }
+      // Se não bater certo (visita inexistente ou de outra propriedade),
+      // ignora-se o visit_id silenciosamente em vez de bloquear o submit —
+      // a ficha vale por si só, a ligação à visita é bonus.
+    }
+
     // Upload signature if provided (base64 data URL)
     let signature_url: string | null = null
     if (signature_data && typeof signature_data === 'string' && signature_data.startsWith('data:')) {
@@ -49,6 +66,7 @@ export async function POST(request: Request) {
       .from('visit_fichas')
       .insert({
         property_id,
+        visit_id: validatedVisitId,
         source: 'digital',
         ...parsed.data,
         client_email: parsed.data.client_email || null,

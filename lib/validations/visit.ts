@@ -25,7 +25,7 @@ export const updateVisitSchema = z.object({
   visit_date: z.string().optional(),
   visit_time: z.string().optional(),
   duration_minutes: z.number().int().min(15).max(480).optional(),
-  status: z.enum(['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show']).optional(),
+  status: z.enum(['proposal', 'rejected', 'scheduled', 'completed', 'no_show', 'cancelled']).optional(),
   confirmed_by: z.string().optional().nullable(),
   confirmation_method: z.enum(['whatsapp', 'phone', 'email', 'sms']).optional().nullable(),
   client_name: z.string().max(200).optional().nullable(),
@@ -49,7 +49,31 @@ export const cancelVisitSchema = z.object({
   cancelled_reason: z.string().min(1, 'Motivo de cancelamento é obrigatório').max(500),
 })
 
+// Resposta do seller agent à proposta — confirma ou rejeita.
+export const respondVisitProposalSchema = z.discriminatedUnion('decision', [
+  z.object({
+    decision: z.literal('confirm'),
+  }),
+  z.object({
+    decision: z.literal('reject'),
+    reason: z.string().min(1, 'Motivo da rejeição é obrigatório').max(500),
+  }),
+])
+
+// Outcome registado depois da hora marcada — pelo seller agent (preferencialmente)
+// ou pelo buyer agent (fallback).
+export const visitOutcomeSchema = z.discriminatedUnion('outcome', [
+  z.object({ outcome: z.literal('completed') }),
+  z.object({ outcome: z.literal('no_show') }),
+  z.object({
+    outcome: z.literal('cancelled'),
+    reason: z.string().min(1, 'Motivo do cancelamento é obrigatório').max(500),
+  }),
+])
+
 export type CreateVisitInput = z.infer<typeof createVisitSchema>
 export type UpdateVisitInput = z.infer<typeof updateVisitSchema>
 export type VisitFeedbackFormData = z.infer<typeof visitFeedbackSchema>
 export type CancelVisitInput = z.infer<typeof cancelVisitSchema>
+export type RespondVisitProposalInput = z.infer<typeof respondVisitProposalSchema>
+export type VisitOutcomeInput = z.infer<typeof visitOutcomeSchema>

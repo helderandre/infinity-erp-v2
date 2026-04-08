@@ -19,6 +19,7 @@ const CATEGORY_COLORS: Record<CalendarCategory, string> = {
   company_event: 'emerald-500',
   marketing_event: 'orange-500',
   meeting: 'indigo-500',
+  visit: 'rose-500',
   reminder: 'sky-500',
   custom: 'stone-500',
 }
@@ -73,6 +74,10 @@ export async function GET(request: Request) {
       currentUserRole = (ud?.user_roles as any)?.[0]?.role?.name ?? ''
     }
 
+    // visits.visit_date is a DATE column (not timestamp); compare on the date part only
+    const startDateOnly = start.slice(0, 10)
+    const endDateOnly = end.slice(0, 10)
+
     // Run all queries in parallel
     const [
       manualRes,
@@ -80,6 +85,7 @@ export async function GET(request: Request) {
       leadExpiryRes,
       procTasksRes,
       procSubtasksRes,
+      visitsRes,
     ] = await Promise.all([
       // 1. Manual events from calendar_events
       admin
@@ -143,6 +149,29 @@ export async function GET(request: Request) {
         .in('proc_tasks.proc_instances.current_status', ['active', 'on_hold'])
         .gte('due_date', start)
         .lte('due_date', end),
+
+      // 5. Visits in range — projected as virtual calendar events. Both the
+      //    buyer agent (visits.consultant_id) and the seller agent
+      //    (visits.seller_consultant_id, snapshotted at creation time) are
+      //    exposed as participants.
+      //
+      //    Status filter:
+      //    - 'rejected' e 'cancelled' são terminais e ficam fora do calendário
+      //    - 'proposal' é incluído (ambos os agentes precisam de ver)
+      //    - 'scheduled', 'completed', 'no_show' são incluídos (visíveis)
+      admin
+        .from('visits')
+        .select(`
+          id, visit_date, visit_time, duration_minutes, status, notes,
+          consultant_id, seller_consultant_id, lead_id, property_id, client_name,
+          buyer_agent:dev_users!visits_consultant_id_fkey(id, commercial_name),
+          seller_agent:dev_users!visits_seller_consultant_id_fkey(id, commercial_name),
+          lead:leads!visits_lead_id_fkey(id, nome),
+          property:dev_properties!visits_property_id_fkey(id, title)
+        `)
+        .not('status', 'in', '("rejected","cancelled")')
+        .gte('visit_date', startDateOnly)
+        .lte('visit_date', endDateOnly),
     ])
 
     const events: CalendarEvent[] = []
@@ -363,6 +392,57 @@ export async function GET(request: Request) {
       }
     }
 
+    // ------ 5. Visits ------
+    // Uma visita = um evento. Ambos os consultores (comprador + vendedor) são
+    // expostos como participantes. O filtro por utilizador (mais abaixo) considera
+    // qualquer um dos dois como dono do evento.
+    if (visitsRes.data) {
+      for (const v of visitsRes.data) {
+        const property = v.property as { id: string; title: string } | null
+        const buyerAgent = v.buyer_agent as { id: string; commercial_name: string } | null
+        const sellerAgent = v.seller_agent as { id: string; commercial_name: string } | null
+        const lead = v.lead as { id: string; nome: string } | null
+        const clientName = lead?.nome ?? v.client_name ?? 'Cliente'
+        const propertyTitle = property?.title ?? 'Imóvel'
+
+        const startISOLocal = `${v.visit_date}T${v.visit_time}`
+        const startMs = new Date(startISOLocal).getTime()
+        const endISOLocal = new Date(startMs + (v.duration_minutes ?? 30) * 60_000).toISOString()
+        const isOverdue = startMs < Date.now() && v.status !== 'completed'
+
+        // Prefixar título com [Proposta] quando ainda não foi confirmada
+        const titlePrefix = v.status === 'proposal' ? '[Proposta] ' : ''
+
+        events.push({
+          id: `visit:${v.id}`,
+          title: `${titlePrefix}Visita: ${propertyTitle} — ${clientName}`,
+          description: v.notes || undefined,
+          category: 'visit',
+          start_date: startISOLocal,
+          end_date: endISOLocal,
+          all_day: false,
+          color: CATEGORY_COLORS.visit,
+          source: 'auto',
+          is_recurring: false,
+          is_overdue: isOverdue,
+          status: v.status,
+          // user_id é o consultor do comprador por convenção (o que conduz a visita).
+          // O filtro por utilizador, mais abaixo, expande para incluir o seller agent.
+          user_id: buyerAgent?.id ?? sellerAgent?.id ?? undefined,
+          user_name: buyerAgent?.commercial_name ?? sellerAgent?.commercial_name ?? undefined,
+          property_id: property?.id ?? undefined,
+          property_title: propertyTitle,
+          lead_id: v.lead_id ?? undefined,
+          lead_name: lead?.nome ?? undefined,
+          visit_id: v.id,
+          visit_buyer_agent_id: buyerAgent?.id ?? undefined,
+          visit_buyer_agent_name: buyerAgent?.commercial_name ?? undefined,
+          visit_seller_agent_id: sellerAgent?.id ?? undefined,
+          visit_seller_agent_name: sellerAgent?.commercial_name ?? undefined,
+        })
+      }
+    }
+
     // ------ 4b. Process subtasks ------
     if (procSubtasksRes.data) {
       for (const sub of procSubtasksRes.data) {
@@ -405,8 +485,14 @@ export async function GET(request: Request) {
     }
 
     // ------ Filter by user_id ------
+    // Para eventos de visita, considera-se "dono" qualquer um dos dois consultores
+    // envolvidos (comprador ou vendedor) — assim ambos vêem o evento no "Os meus eventos".
     if (userId) {
-      filtered = filtered.filter((ev) => ev.user_id === userId)
+      filtered = filtered.filter((ev) => {
+        if (ev.user_id === userId) return true
+        if (ev.visit_id && (ev.visit_buyer_agent_id === userId || ev.visit_seller_agent_id === userId)) return true
+        return false
+      })
     }
 
     // ------ Resolve WhatsApp chat_id for events from WhatsApp ------

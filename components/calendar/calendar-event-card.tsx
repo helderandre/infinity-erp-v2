@@ -18,6 +18,7 @@ const EVENT_COLORS: Record<CalendarCategory, { bg: string; text: string; dot: st
   marketing_event:   { bg: 'bg-orange-500/15 dark:bg-orange-500/25',   text: 'text-orange-700 dark:text-orange-300',   dot: 'bg-orange-500' },
   process_event:     { bg: 'bg-cyan-500/15 dark:bg-cyan-500/25',       text: 'text-cyan-700 dark:text-cyan-300',       dot: 'bg-cyan-500' },
   meeting:           { bg: 'bg-indigo-500/15 dark:bg-indigo-500/25',   text: 'text-indigo-700 dark:text-indigo-300',   dot: 'bg-indigo-500' },
+  visit:             { bg: 'bg-rose-500/15 dark:bg-rose-500/25',       text: 'text-rose-700 dark:text-rose-300',       dot: 'bg-rose-500' },
   reminder:          { bg: 'bg-sky-500/15 dark:bg-sky-500/25',         text: 'text-sky-700 dark:text-sky-300',         dot: 'bg-sky-500' },
   custom:            { bg: 'bg-stone-500/15 dark:bg-stone-500/25',     text: 'text-stone-700 dark:text-stone-300',     dot: 'bg-stone-500' },
 }
@@ -29,6 +30,10 @@ interface CalendarEventCardProps {
 
 export function CalendarEventCard({ event, compact = false }: CalendarEventCardProps) {
   const colors = EVENT_COLORS[event.category] ?? EVENT_COLORS.custom
+  // Visitas em estado `proposal` ainda estão à espera de confirmação do
+  // seller agent. No calendário, mostramo-las com opacidade reduzida e
+  // contorno tracejado para sinalizar visualmente que ainda não estão fixas.
+  const isPendingVisit = event.category === 'visit' && event.status === 'proposal'
 
   return (
     <div
@@ -36,7 +41,8 @@ export function CalendarEventCard({ event, compact = false }: CalendarEventCardP
         'flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-tight cursor-pointer transition-colors truncate',
         colors.bg,
         colors.text,
-        'hover:opacity-80'
+        'hover:opacity-80',
+        isPendingVisit && 'opacity-60 border border-dashed border-current/40',
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', colors.dot)} />

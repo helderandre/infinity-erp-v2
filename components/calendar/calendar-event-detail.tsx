@@ -59,6 +59,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
+import { VisitActionsSection } from './visit-actions-section'
 
 interface RsvpEntry {
   id: string
@@ -78,6 +79,12 @@ interface CalendarEventDetailProps {
   onEdit?: (event: CalendarEvent) => void
   onDelete?: (id: string) => void
   onRsvp?: (eventId: string, status: 'going' | 'not_going', reason?: string) => void
+  /**
+   * Callback opcional disparado quando uma acção interna ao detalhe muda o
+   * estado da fonte (ex: confirmar/rejeitar proposta de visita, marcar
+   * outcome). Permite à página externa fazer refetch dos eventos.
+   */
+  onRefresh?: () => void
 }
 
 // Dark-mode-safe colors (same as event-card)
@@ -93,6 +100,7 @@ const DETAIL_COLORS: Record<string, { bg: string; text: string; dot: string; bor
   company_event:     { bg: 'bg-emerald-500/10',  text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', border: 'border-emerald-500/20' },
   marketing_event:   { bg: 'bg-orange-500/10',   text: 'text-orange-700 dark:text-orange-300',   dot: 'bg-orange-500',  border: 'border-orange-500/20' },
   meeting:           { bg: 'bg-indigo-500/10',   text: 'text-indigo-700 dark:text-indigo-300',   dot: 'bg-indigo-500',  border: 'border-indigo-500/20' },
+  visit:             { bg: 'bg-rose-500/10',     text: 'text-rose-700 dark:text-rose-300',       dot: 'bg-rose-500',    border: 'border-rose-500/20' },
   reminder:          { bg: 'bg-sky-500/10',      text: 'text-sky-700 dark:text-sky-300',         dot: 'bg-sky-500',     border: 'border-sky-500/20' },
   custom:            { bg: 'bg-stone-500/10',    text: 'text-stone-700 dark:text-stone-300',     dot: 'bg-stone-500',   border: 'border-stone-500/20' },
 }
@@ -112,6 +120,7 @@ export function CalendarEventDetail({
   onEdit,
   onDelete,
   onRsvp,
+  onRefresh,
 }: CalendarEventDetailProps) {
   const isMobile = useIsMobile()
   const { user: currentUser } = useUser()
@@ -566,8 +575,8 @@ export function CalendarEventDetail({
                 </div>
               )}
 
-              {/* Assigned user */}
-              {event.user_name && (
+              {/* Assigned user — escondido para visitas (têm secção própria de Participantes) */}
+              {event.user_name && !event.visit_id && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     <User className="h-3.5 w-3.5" />
@@ -578,6 +587,77 @@ export function CalendarEventDetail({
               )}
 
             </div>
+
+            {/* Participantes — apenas para visitas */}
+            {event.visit_id && (event.visit_buyer_agent_name || event.visit_seller_agent_name || event.lead_name) && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <Users className="h-3.5 w-3.5" />
+                    Participantes
+                  </div>
+                  <div className="space-y-2">
+                    {event.visit_buyer_agent_name && (
+                      <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-medium text-blue-700 dark:text-blue-300 border-blue-500/30 bg-blue-500/10 shrink-0"
+                          >
+                            Comprador
+                          </Badge>
+                          <span className="text-sm font-medium truncate">{event.visit_buyer_agent_name}</span>
+                        </div>
+                      </div>
+                    )}
+                    {event.visit_seller_agent_name && (
+                      <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 shrink-0"
+                          >
+                            Vendedor
+                          </Badge>
+                          <span className="text-sm font-medium truncate">{event.visit_seller_agent_name}</span>
+                          {event.visit_buyer_agent_id &&
+                            event.visit_seller_agent_id === event.visit_buyer_agent_id && (
+                              <span className="text-[10px] text-muted-foreground">(mesmo consultor)</span>
+                            )}
+                        </div>
+                      </div>
+                    )}
+                    {event.lead_name && (
+                      <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-medium text-rose-700 dark:text-rose-300 border-rose-500/30 bg-rose-500/10 shrink-0"
+                          >
+                            Lead
+                          </Badge>
+                          <span className="text-sm font-medium truncate">{event.lead_name}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Acções de visita: confirmar/rejeitar proposta, registar outcome,
+                preencher ficha. Renderiza nada se o user não estiver envolvido. */}
+            {event.visit_id && (
+              <VisitActionsSection
+                event={event}
+                currentUserId={currentUser?.id}
+                onChanged={() => {
+                  onRefresh?.()
+                  onClose()
+                }}
+              />
+            )}
 
             {/* Process info */}
             {isProcessEvent && event.process_id && (

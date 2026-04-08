@@ -85,20 +85,7 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Sync calendar event dates if date/time changed
-    if ((parsed.data.visit_date || parsed.data.visit_time) && data?.calendar_event_id) {
-      const visitDate = parsed.data.visit_date || data.visit_date
-      const visitTime = parsed.data.visit_time || data.visit_time
-      const duration = parsed.data.duration_minutes || data.duration_minutes || 30
-      const startDate = `${visitDate}T${visitTime}`
-      const endDate = new Date(new Date(startDate).getTime() + duration * 60000).toISOString()
-
-      await admin
-        .from('temp_calendar_events')
-        .update({ start_date: startDate, end_date: endDate })
-        .eq('id', data.calendar_event_id)
-    }
-
+    // Note: o calendário projecta a partir de `visits` em runtime, não há nada a sincronizar.
     return NextResponse.json({ data })
   } catch (err) {
     console.error('[visits/[id] PUT]', err)
@@ -120,21 +107,19 @@ export async function DELETE(
 
     const admin = createAdminClient() as any
 
-    // Get visit to check calendar event
-    const { data: visit } = await admin
-      .from('visits')
-      .select('calendar_event_id')
-      .eq('id', id)
-      .single()
+    // Limpa entradas auto-geradas no `temp_goal_activity_log` que ficaram
+    // ligadas a esta visita (criadas quando a visita foi marcada como
+    // completed). Apaga ANTES da visita para evitar orfãos caso a delete da
+    // visita falhe a meio. Só apaga linhas com `origin_type='system'` —
+    // declarações manuais (origin_type='declared') nunca tocam neste fluxo.
+    await admin
+      .from('temp_goal_activity_log')
+      .delete()
+      .eq('reference_id', id)
+      .eq('reference_type', 'visit')
+      .eq('origin_type', 'system')
 
-    // Delete calendar event if exists
-    if (visit?.calendar_event_id) {
-      await admin
-        .from('temp_calendar_events')
-        .delete()
-        .eq('id', visit.calendar_event_id)
-    }
-
+    // Note: o calendário projecta a partir de `visits` em runtime, não há nada a limpar.
     const { error } = await admin
       .from('visits')
       .delete()

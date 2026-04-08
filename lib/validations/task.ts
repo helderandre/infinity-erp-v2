@@ -45,6 +45,11 @@ export const taskQuerySchema = z.object({
   entity_id: z.string().uuid().optional(),
   parent_task_id: z.string().uuid().optional(),
   search: z.string().optional(),
+  // Source filter para o split em tabs:
+  // - 'personal' = tasks (todoist-style) + visit_proposal (não inclui processos)
+  // - 'process'  = só proc_task + proc_subtask
+  // - undefined  = todas (back-compat)
+  source_filter: z.enum(['personal', 'process']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })

@@ -29,7 +29,7 @@ const PROCESS_CATEGORIES: CalendarCategory[] = [
 ]
 const MANUAL_CATEGORIES: CalendarCategory[] = [
   'birthday', 'vacation', 'company_event',
-  'marketing_event', 'meeting', 'reminder', 'custom',
+  'marketing_event', 'meeting', 'visit', 'reminder', 'custom',
 ]
 
 interface CalendarFiltersProps {

@@ -25,7 +25,7 @@ export type TaskEntityType = 'property' | 'lead' | 'process' | 'owner' | 'negoci
 
 export type TaskPriority = 1 | 2 | 3 | 4
 
-export type TaskSource = 'task' | 'proc_task' | 'proc_subtask'
+export type TaskSource = 'task' | 'proc_task' | 'proc_subtask' | 'visit_proposal'
 
 // ─── Task with Relations ─────────────────────────────────────
 
@@ -44,6 +44,10 @@ export interface TaskWithRelations extends Task {
   stage_name?: string | null
   property_id?: string | null
   property_title?: string | null
+  // ─── Populated when source === 'visit_proposal' ───
+  visit_id?: string | null
+  visit_buyer_agent_name?: string | null
+  visit_client_name?: string | null
 }
 
 // ─── Task Comment ────────────────────────────────────────────

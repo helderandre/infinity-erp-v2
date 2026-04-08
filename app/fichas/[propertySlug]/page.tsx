@@ -2,13 +2,18 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { RATING_FIELDS, DISCOVERY_OPTIONS } from '@/types/visit-ficha'
 import { Star, CheckCircle2, Loader2, Building2, Send } from 'lucide-react'
 
 export default function PublicFichaPage() {
   const { propertySlug } = useParams<{ propertySlug: string }>()
+  const searchParams = useSearchParams()
+  // Quando a ficha é aberta a partir de uma visita específica (link partilhado
+  // pelo buyer agent depois de a visita ser marcada como completed), o ?visit=<uuid>
+  // associa a resposta à linha em `visits` para fechar o ciclo no histórico.
+  const visitId = searchParams.get('visit')
   const [property, setProperty] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -114,6 +119,7 @@ export default function PublicFichaPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           property_id: property.id,
+          visit_id: visitId || null,
           client_name: clientName.trim(),
           client_phone: clientPhone.trim() || null,
           client_email: clientEmail.trim() || null,
