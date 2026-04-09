@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+
+// Campos legais que vão para dev_property_legal_data
+const LEGAL_DATA_FIELDS = [
+  'artigo_matricial',
+  'artigo_matricial_tipo',
+  'freguesia_fiscal',
+  'distrito',
+  'concelho',
+  'codigo_ine_freguesia',
+  'fracao_autonoma',
+  'descricao_ficha',
+  'descricao_ficha_ano',
+  'conservatoria_crp',
+  'freguesia',
+  'quota_parte',
+] as const
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -68,6 +85,20 @@ const EXTRACTION_SCHEMA = `{
     "commission_type": "string — 'percentage' ou 'fixed'",
     "contract_term": "string — prazo do contrato (ex: '6 meses')",
     "contract_expiry": "string — data de expiração YYYY-MM-DD"
+  },
+  "legal_data": {
+    "artigo_matricial": "string — Nº do artigo matricial da Caderneta Predial (ex: '4567')",
+    "artigo_matricial_tipo": "string — 'urbano' | 'rustico' | 'misto'",
+    "freguesia_fiscal": "string — Freguesia para efeitos fiscais (Caderneta)",
+    "distrito": "string — Distrito (ex: 'Lisboa')",
+    "concelho": "string — Concelho (ex: 'Cascais')",
+    "codigo_ine_freguesia": "string — Código INE da freguesia (6 dígitos), se visível na Caderneta",
+    "fracao_autonoma": "string — Letra da fracção autónoma (ex: 'C', 'AB'), só se propriedade horizontal",
+    "descricao_ficha": "string — Número da descrição na Certidão Permanente CRP (ex: '12345')",
+    "descricao_ficha_ano": "number — Ano da descrição se vier no formato 'NUMERO/ANO' (ex: 2015)",
+    "conservatoria_crp": "string — Nome da conservatória (ex: 'Conservatória do Registo Predial de Lisboa')",
+    "freguesia": "string — Freguesia da descrição na CRP (pode diferir da freguesia fiscal)",
+    "quota_parte": "string — Quota-parte de comproprietários (ex: '1/2', '3/4'), só se houver"
   }
 }`
 
@@ -80,7 +111,9 @@ ${EXTRACTION_SCHEMA}
 
 Regras importantes:
 - Caderneta Predial (CPU): morada do imóvel, áreas (bruta/útil), ano de construção, tipo prédio, titular(es) com NIF, Valor Patrimonial Tributário (VPT → imi_value)
+  → também: artigo matricial e o seu tipo (urbano/rústico/misto), freguesia fiscal, distrito, concelho, código INE da freguesia (se visível), letra da fracção autónoma (se PH)
 - Certidão Permanente (CRP): proprietários com NIF, estado civil, regime de bens, descrição do prédio, morada, freguesia, concelho
+  → também: número da descrição (descricao_ficha), ano da descrição se vier "NUMERO/ANO" (descricao_ficha_ano), nome da conservatória, freguesia da descrição, quota-parte de comproprietários, fracção autónoma
 - Certificado Energético (CE/SCE): classe energética, área útil, tipologia, morada, código postal, coordenadas GPS (latitude/longitude)
 - Contrato de Mediação (CMI): preço do imóvel (listing_price), tipo de negócio, comissão acordada (valor + tipo % ou fixo), regime contratual, prazo, data expiração, morada, proprietário com NIF
 - Cartão de Cidadão (CC): contém nome, NIF, data nascimento, número do doc, validade, nacionalidade
@@ -104,10 +137,17 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     const docTypes = formData.get('doc_types') as string | null
+    const propertyId = (formData.get('property_id') as string | null) || null
+    const docRegistryIdsRaw = (formData.get('doc_registry_ids') as string | null) || null
 
     if (!files.length) {
       return NextResponse.json({ error: 'Nenhum ficheiro enviado' }, { status: 400 })
     }
+
+    let docRegistryIds: (string | null)[] = []
+    try {
+      docRegistryIds = docRegistryIdsRaw ? JSON.parse(docRegistryIdsRaw) : []
+    } catch { /* ignore */ }
 
     let parsedDocTypes: { name: string; category: string }[] = []
     try { parsedDocTypes = docTypes ? JSON.parse(docTypes) : [] } catch { /* ignore */ }
@@ -210,7 +250,71 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Erro ao processar resposta da IA' }, { status: 500 })
     }
 
-    return NextResponse.json({ data: extracted })
+    // ── Persistência de legal_data em dev_property_legal_data ──
+    let legalDataSaved = false
+    let legalDataFieldsSet = 0
+    if (propertyId && extracted?.legal_data && typeof extracted.legal_data === 'object') {
+      try {
+        const cleaned: Record<string, any> = {}
+        for (const key of LEGAL_DATA_FIELDS) {
+          const v = extracted.legal_data[key]
+          if (v == null || v === '' || (typeof v === 'string' && v.trim() === '')) continue
+          if (key === 'descricao_ficha_ano') {
+            const n = typeof v === 'number' ? v : parseInt(String(v), 10)
+            if (!Number.isFinite(n) || n <= 0) continue
+            cleaned[key] = n
+          } else {
+            cleaned[key] = String(v).trim()
+          }
+        }
+
+        if (Object.keys(cleaned).length > 0) {
+          const supabase = await createClient() as any
+          // Buscar registo existente para fazer merge (não sobrescrever campos com null)
+          const { data: existing } = await supabase
+            .from('dev_property_legal_data')
+            .select('*')
+            .eq('property_id', propertyId)
+            .maybeSingle()
+
+          // Identificar primeiro doc_registry_id correspondente (se houver)
+          let extractedFromDocId: string | null = null
+          if (docRegistryIds.length > 0) {
+            extractedFromDocId = docRegistryIds.find((id) => !!id) || null
+          }
+
+          const now = new Date().toISOString()
+          const payload: Record<string, any> = {
+            property_id: propertyId,
+            ...(existing || {}),
+            ...cleaned,
+            extracted_at: now,
+            extracted_by: auth.user.id,
+            updated_at: now,
+          }
+          if (extractedFromDocId) payload.extracted_from_document_id = extractedFromDocId
+
+          const { error: upsertError } = await supabase
+            .from('dev_property_legal_data')
+            .upsert(payload, { onConflict: 'property_id' })
+
+          if (upsertError) {
+            console.error('[extract] Erro ao gravar dev_property_legal_data:', upsertError)
+          } else {
+            legalDataSaved = true
+            legalDataFieldsSet = Object.keys(cleaned).length
+          }
+        }
+      } catch (legalErr) {
+        console.error('[extract] Erro a processar legal_data:', legalErr)
+      }
+    }
+
+    return NextResponse.json({
+      data: extracted,
+      legal_data_saved: legalDataSaved,
+      legal_data_fields_set: legalDataFieldsSet,
+    })
   } catch (error) {
     console.error('Erro ao extrair dados:', error)
     return NextResponse.json(

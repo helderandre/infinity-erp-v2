@@ -120,6 +120,7 @@ export function BatchDocumentUpload({
 
     setIsUploading(true)
     let successCount = 0
+    const uploadedLegalDocs: { file: File; docTypeName: string; docId: string }[] = []
 
     for (const cf of accepted) {
       try {
@@ -141,6 +142,20 @@ export function BatchDocumentUpload({
 
         const { id: docRegistryId } = await uploadRes.json()
 
+        // Track caderneta/certidão for legal extraction
+        const lowerName = (cf.doc_type_name || '').toLowerCase()
+        if (
+          lowerName.includes('caderneta') ||
+          lowerName.includes('certidão') ||
+          lowerName.includes('certidao')
+        ) {
+          uploadedLegalDocs.push({
+            file: cf.file,
+            docTypeName: cf.doc_type_name || '',
+            docId: docRegistryId,
+          })
+        }
+
         // 2. Complete the matched subtask
         const completeRes = await fetch(
           `/api/processes/${processId}/tasks/${taskId}/subtasks/${cf.matched_subtask_id}`,
@@ -159,6 +174,38 @@ export function BatchDocumentUpload({
         }
       } catch {
         toast.error(`Erro ao processar "${cf.file.name}"`)
+      }
+    }
+
+    // Extract legal_data (Caderneta/CRP) → dev_property_legal_data (background)
+    if (uploadedLegalDocs.length > 0) {
+      const legalToastId = toast.loading('A extrair dados legais (Caderneta/CRP)...')
+      try {
+        const legalForm = new FormData()
+        const docTypesArr: { name: string; category: string }[] = []
+        const docIdsArr: string[] = []
+        for (const d of uploadedLegalDocs) {
+          legalForm.append('files', d.file)
+          docTypesArr.push({ name: d.docTypeName, category: '' })
+          docIdsArr.push(d.docId)
+        }
+        legalForm.append('doc_types', JSON.stringify(docTypesArr))
+        legalForm.append('property_id', propertyId)
+        legalForm.append('doc_registry_ids', JSON.stringify(docIdsArr))
+
+        const legalRes = await fetch('/api/documents/extract', {
+          method: 'POST',
+          body: legalForm,
+        })
+        toast.dismiss(legalToastId)
+        if (legalRes.ok) {
+          const j = await legalRes.json()
+          if (j.legal_data_saved) {
+            toast.success(`${j.legal_data_fields_set} campo(s) legal(is) extraído(s)`)
+          }
+        }
+      } catch {
+        toast.dismiss(legalToastId)
       }
     }
 

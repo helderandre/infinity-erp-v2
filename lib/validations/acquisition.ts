@@ -132,6 +132,25 @@ export const acquisitionSchema = z.object({
     )
     .optional(),
 
+  // Dados legais extraídos por IA (Caderneta Predial + Certidão Permanente CRP)
+  // Gravados em dev_property_legal_data (1:1 com dev_properties)
+  legal_data: z
+    .object({
+      artigo_matricial: z.string().optional(),
+      artigo_matricial_tipo: z.string().optional(),
+      freguesia_fiscal: z.string().optional(),
+      distrito: z.string().optional(),
+      concelho: z.string().optional(),
+      codigo_ine_freguesia: z.string().optional(),
+      fracao_autonoma: z.string().optional(),
+      descricao_ficha: z.string().optional(),
+      descricao_ficha_ano: z.number().int().nullable().optional(),
+      conservatoria_crp: z.string().optional(),
+      freguesia: z.string().optional(),
+      quota_parte: z.string().optional(),
+    })
+    .optional(),
+
   // Campos internos (preenchidos automaticamente)
   consultant_id: z.string().uuid().optional(), // Auth user
   status: z.string().default('pending_approval'),

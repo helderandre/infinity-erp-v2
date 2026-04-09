@@ -361,6 +361,7 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
       toast.dismiss(tId)
       const uploadId = toast.loading(`A carregar ${files.length} ficheiro(s)...`)
       const uploadedIds: string[] = []
+      const uploadedForLegalExtract: { file: File; docTypeName: string; docTypeCategory: string; docId: string }[] = []
       let skipped = 0
 
       for (let i = 0; i < files.length; i++) {
@@ -380,7 +381,15 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
         const uploadRes = await fetch('/api/documents/upload', { method: 'POST', body: fd })
         if (uploadRes.ok) {
           const { id } = await uploadRes.json()
-          if (id) uploadedIds.push(id)
+          if (id) {
+            uploadedIds.push(id)
+            uploadedForLegalExtract.push({
+              file,
+              docTypeName: match?.doc_type_name || '',
+              docTypeCategory: match?.doc_type_category || '',
+              docId: id,
+            })
+          }
         } else {
           skipped++
         }
@@ -410,6 +419,53 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
         }
       } catch {
         toast.dismiss(extractId)
+      }
+
+      // 4. Extract legal_data (Caderneta Predial + Certidão CRP) → dev_property_legal_data
+      // Filtra para os documentos legais relevantes
+      const legalDocs = uploadedForLegalExtract.filter((d) => {
+        const name = (d.docTypeName || '').toLowerCase()
+        const cat = (d.docTypeCategory || '').toLowerCase()
+        return (
+          name.includes('caderneta') ||
+          name.includes('certidão') ||
+          name.includes('certidao') ||
+          cat.includes('jurídico') ||
+          cat.includes('juridico') ||
+          cat.includes('imóvel') ||
+          cat.includes('imovel')
+        )
+      })
+
+      if (legalDocs.length > 0) {
+        const legalId = toast.loading('A extrair dados legais (Caderneta/CRP)...')
+        try {
+          const legalForm = new FormData()
+          const docTypesArr: { name: string; category: string }[] = []
+          const docIdsArr: string[] = []
+          for (const d of legalDocs) {
+            legalForm.append('files', d.file)
+            docTypesArr.push({ name: d.docTypeName, category: d.docTypeCategory })
+            docIdsArr.push(d.docId)
+          }
+          legalForm.append('doc_types', JSON.stringify(docTypesArr))
+          legalForm.append('property_id', propertyId)
+          legalForm.append('doc_registry_ids', JSON.stringify(docIdsArr))
+
+          const legalRes = await fetch('/api/documents/extract', {
+            method: 'POST',
+            body: legalForm,
+          })
+          toast.dismiss(legalId)
+          if (legalRes.ok) {
+            const j = await legalRes.json()
+            if (j.legal_data_saved) {
+              toast.success(`${j.legal_data_fields_set} campo(s) legal(is) extraído(s)`)
+            }
+          }
+        } catch {
+          toast.dismiss(legalId)
+        }
       }
 
       fetchDocs()

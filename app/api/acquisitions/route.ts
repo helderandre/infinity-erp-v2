@@ -219,6 +219,37 @@ export async function POST(request: Request) {
       }
     }
 
+    // 4.5. Gravar legal_data (Caderneta + CRP) extraída por IA
+    if (data.legal_data && typeof data.legal_data === 'object') {
+      const legal = data.legal_data as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(legal)) {
+        if (v == null || v === '') continue
+        if (typeof v === 'string' && v.trim() === '') continue
+        cleaned[k] = typeof v === 'string' ? v.trim() : v
+      }
+
+      if (Object.keys(cleaned).length > 0) {
+        const now = new Date().toISOString()
+        const { error: legalError } = await (supabase as any)
+          .from('dev_property_legal_data')
+          .upsert(
+            {
+              property_id: property.id,
+              ...cleaned,
+              extracted_at: now,
+              extracted_by: auth.user.id,
+              updated_at: now,
+            },
+            { onConflict: 'property_id' }
+          )
+
+        if (legalError) {
+          console.error('Erro ao gravar legal_data:', legalError)
+        }
+      }
+    }
+
     // 5. Upload de documentos (se fornecidos)
     if (data.documents && data.documents.length > 0) {
       const docInserts = data.documents

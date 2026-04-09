@@ -273,6 +273,25 @@ export function StepDocuments({ form }: StepDocumentsProps) {
       }
     }
 
+    // Legal data (dev_property_legal_data) — só fica em form state, gravado no submit (POST /api/acquisitions)
+    if (data.legal_data && typeof data.legal_data === 'object') {
+      const currentLegal = (form.getValues('legal_data') || {}) as Record<string, any>
+      const merged: Record<string, any> = { ...currentLegal }
+      let legalChanged = false
+      for (const [k, v] of Object.entries(data.legal_data)) {
+        if (v == null || v === '') continue
+        if (typeof v === 'string' && v.trim() === '') continue
+        if (currentLegal[k]) continue // não sobrescrever campos já preenchidos
+        merged[k] = v
+        legalChanged = true
+        fieldsSet++
+      }
+      if (legalChanged) {
+        form.setValue('legal_data', merged as any, { shouldValidate: false })
+        filled.add('legal_data')
+      }
+    }
+
     // Contract fields (Step 4)
     if (data.contract) {
       const c = data.contract
