@@ -103,24 +103,25 @@ function SummaryBar({ pipelineType, inHero = false }: { pipelineType: PipelineTy
   ]
 
   if (inHero) {
-    // Compact, dark-on-dark variant for inside the black hero card
+    // Compact, dark-on-dark variant for inside the black hero card.
+    // Stacked: small uppercase label on top, value on the bottom.
     return (
-      <div className="inline-flex items-stretch gap-px rounded-full bg-white/5 backdrop-blur-sm border border-white/10 p-0.5 overflow-hidden">
+      <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
         {stats.map(({ label, mobileLabel, value }, idx) => (
           <div
             key={label}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1',
+              'flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[78px]',
               idx > 0 && 'border-l border-white/10',
             )}
           >
-            <span className="text-[9px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap">
+            <span className="text-[8px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
               {mobileLabel}
             </span>
             {loading ? (
-              <Skeleton className="h-3 w-8 bg-white/10" />
+              <Skeleton className="h-3.5 w-10 bg-white/10 mt-1" />
             ) : (
-              <span className="text-xs font-bold text-white tabular-nums whitespace-nowrap">{value}</span>
+              <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{value}</span>
             )}
           </div>
         ))}
