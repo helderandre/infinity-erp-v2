@@ -50,7 +50,15 @@ export async function GET(request: Request) {
 
     const contact_id = searchParams.get('contact_id')
 
-    if (status) query = query.eq('status', status)
+    if (status) {
+      // Allow comma-separated values: ?status=new,seen,processing
+      const statusList = status.split(',').map((s) => s.trim()).filter(Boolean)
+      if (statusList.length === 1) {
+        query = query.eq('status', statusList[0])
+      } else if (statusList.length > 1) {
+        query = query.in('status', statusList)
+      }
+    }
     if (source) query = query.eq('source', source)
     if (consultant_id) query = query.eq('assigned_consultant_id', consultant_id)
     if (contact_id) query = query.eq('contact_id', contact_id)

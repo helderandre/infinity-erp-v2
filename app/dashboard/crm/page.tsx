@@ -30,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { SlidersHorizontal } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -40,11 +42,21 @@ import {
 import type { PipelineType } from '@/types/leads-crm'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
+import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
+import { useUser } from '@/hooks/use-user'
+import { Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 
 const PIPELINE_TYPES: PipelineType[] = ['comprador', 'vendedor', 'arrendatario', 'arrendador']
+
+const PIPELINE_TYPE_LABELS_PLURAL: Record<PipelineType, string> = {
+  comprador: 'Compradores',
+  vendedor: 'Vendedores',
+  arrendatario: 'Arrendatários',
+  arrendador: 'Senhorios',
+}
 
 const PIPELINE_ICONS: Record<PipelineType, React.ElementType> = {
   comprador: ShoppingCart,
@@ -64,10 +76,8 @@ const formatEUR = (value: number) =>
 
 interface SummaryData {
   negocios: number
-  expected_value: number
-  weighted_value: number
-  expected_commission: number
-  weighted_commission: number
+  possible_commission: number
+  forecast_commission: number
 }
 
 function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
@@ -87,19 +97,22 @@ function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
   }, [pipelineType])
 
   const stats = [
-    { icon: Briefcase, label: 'Negócios activos', value: loading ? null : String(data?.negocios ?? 0) },
-    { icon: Euro, label: 'Comissão prevista', value: loading ? null : formatEUR(data?.expected_commission ?? 0) },
-    { icon: TrendingUp, label: 'Comissão ponderada', value: loading ? null : formatEUR(data?.weighted_commission ?? 0) },
+    { icon: Briefcase, label: 'Negócios activos', mobileLabel: 'Negócios', value: loading ? null : String(data?.negocios ?? 0) },
+    { icon: Euro, label: 'Comissão possível', mobileLabel: 'Possível', value: loading ? null : formatEUR(data?.possible_commission ?? 0) },
+    { icon: TrendingUp, label: 'Comissão prevista', mobileLabel: 'Previsão', value: loading ? null : formatEUR(data?.forecast_commission ?? 0) },
   ]
 
   return (
     <div className="flex items-center gap-2">
-      {stats.map(({ icon: Icon, label, value }) => (
+      {stats.map(({ icon: Icon, label, mobileLabel, value }) => (
         <div key={label} className="flex items-center gap-2 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm px-3.5 py-1.5">
-          <div className="p-1 rounded-full bg-muted/60">
+          <div className="hidden md:flex p-1 rounded-full bg-muted/60">
             <Icon className="h-3 w-3 text-muted-foreground" />
           </div>
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{label}</span>
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+            <span className="md:hidden">{mobileLabel}</span>
+            <span className="hidden md:inline">{label}</span>
+          </span>
           {loading ? (
             <Skeleton className="h-4 w-12" />
           ) : (
@@ -241,83 +254,160 @@ function NegociosListView({
           <p className="text-sm text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
         </div>
       ) : (
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Temperatura</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Procura</TableHead>
-                <TableHead>Orçamento</TableHead>
-                <TableHead>Localização</TableHead>
-                <TableHead>Consultor</TableHead>
-                <TableHead className="text-center">Obs.</TableHead>
-                <TableHead>Data</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {negocios.map((n) => {
-                const clientName = n.lead?.nome || n.lead?.full_name || '—'
-                const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
-                const tempEmoji = temperaturaEmoji(n.temperatura)
-                const stage = n.leads_pipeline_stages
-                const stageName = stage?.name || n.estado || '—'
-                const stageColor = stage?.color || '#64748b'
-                const budget = n.orcamento
-                  ? `${(n.orcamento / 1000).toFixed(0)}k€`
-                  : n.preco_venda
-                    ? `${(n.preco_venda / 1000).toFixed(0)}k€`
-                    : '—'
-                return (
-                  <TableRow
-                    key={n.id}
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => navigateToNegocio(n)}
-                  >
-                    <TableCell className="font-medium">{clientName}</TableCell>
-                    <TableCell>
-                      {tempBadge ? (
+        <>
+          {/* ── Desktop: full table ── */}
+          <div className="hidden md:block rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Temperatura</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Procura</TableHead>
+                  <TableHead>Orçamento</TableHead>
+                  <TableHead>Localização</TableHead>
+                  <TableHead>Consultor</TableHead>
+                  <TableHead className="text-center">Obs.</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {negocios.map((n) => {
+                  const clientName = n.lead?.nome || n.lead?.full_name || '—'
+                  const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
+                  const tempEmoji = temperaturaEmoji(n.temperatura)
+                  const stage = n.leads_pipeline_stages
+                  const stageName = stage?.name || n.estado || '—'
+                  const stageColor = stage?.color || '#64748b'
+                  const budget = n.orcamento
+                    ? `${(n.orcamento / 1000).toFixed(0)}k€`
+                    : n.preco_venda
+                      ? `${(n.preco_venda / 1000).toFixed(0)}k€`
+                      : '—'
+                  return (
+                    <TableRow
+                      key={n.id}
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => navigateToNegocio(n)}
+                    >
+                      <TableCell className="font-medium">{clientName}</TableCell>
+                      <TableCell>
+                        {tempBadge ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={{ backgroundColor: `${tempBadge.color}26`, color: tempBadge.color }}
+                          >
+                            {tempEmoji && <span aria-hidden>{tempEmoji}</span>}
+                            {tempBadge.label}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <span
                           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                          style={{ backgroundColor: `${tempBadge.color}26`, color: tempBadge.color }}
+                          style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
                         >
-                          {tempEmoji && <span aria-hidden>{tempEmoji}</span>}
-                          {tempBadge.label}
+                          <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
+                          {stageName}
                         </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
+                      </TableCell>
+                      <TableCell className="text-sm">{[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{budget}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{n.lead?.agent?.commercial_name || '—'}</TableCell>
+                      <TableCell
+                        className="text-center"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
-                        {stageName}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">{[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}</TableCell>
-                    <TableCell className="text-sm tabular-nums">{budget}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{n.lead?.agent?.commercial_name || '—'}</TableCell>
-                    <TableCell
-                      className="text-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                        <ObservationsCell
+                          observacoes={n.observacoes}
+                          onSave={(next) => handleSaveObservations(n.id, next)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* ── Mobile: card list ── */}
+          <div className="md:hidden space-y-2">
+            {negocios.map((n) => {
+              const clientName = n.lead?.nome || n.lead?.full_name || '—'
+              const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
+              const tempEmoji = temperaturaEmoji(n.temperatura)
+              const stage = n.leads_pipeline_stages
+              const stageName = stage?.name || n.estado || '—'
+              const stageColor = stage?.color || '#64748b'
+              const budget = n.orcamento
+                ? `${(n.orcamento / 1000).toFixed(0)}k€`
+                : n.preco_venda
+                  ? `${(n.preco_venda / 1000).toFixed(0)}k€`
+                  : null
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => navigateToNegocio(n)}
+                  className="rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm shadow-sm p-3 cursor-pointer transition-all hover:shadow-md hover:bg-card"
+                >
+                  {/* Top: name + obs */}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold truncate flex-1 min-w-0 flex items-center gap-1">
+                      {clientName}
+                      {tempEmoji && <span aria-hidden className="text-sm">{tempEmoji}</span>}
+                    </p>
+                    <div onClick={(e) => e.stopPropagation()}>
                       <ObservationsCell
                         observacoes={n.observacoes}
                         onSave={(next) => handleSaveObservations(n.id, next)}
                       />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                  </div>
+
+                  {/* Tags row */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
+                    >
+                      <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
+                      {stageName}
+                    </span>
+                    {tempBadge && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{ backgroundColor: `${tempBadge.color}26`, color: tempBadge.color }}
+                      >
+                        {tempBadge.label}
+                      </span>
+                    )}
+                    {budget && (
+                      <span className="inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
+                        {budget}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Footer: search criteria · location · consultant · date */}
+                  <div className="mt-2 pt-2 border-t border-border/30 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+                    <span className="truncate min-w-0">
+                      {[
+                        [n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · '),
+                        n.localizacao,
+                        n.lead?.agent?.commercial_name,
+                      ].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                    <span className="shrink-0">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* Pagination */}
@@ -367,9 +457,56 @@ function ObservationsCellInner({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CRMPage() {
+  const { user } = useUser()
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
+  const [myLeadsOpen, setMyLeadsOpen] = useState(false)
+  const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null)
+  const [pipelineCounts, setPipelineCounts] = useState<Record<PipelineType, number | null>>({
+    comprador: null,
+    vendedor: null,
+    arrendatario: null,
+    arrendador: null,
+  })
+
+  // Fetch the total count of negocios per pipeline (for tab badges)
+  useEffect(() => {
+    let cancelled = false
+    Promise.all(
+      PIPELINE_TYPES.map((pt) =>
+        fetch(`/api/crm/negocios?pipeline_type=${pt}&per_page=1&page=1`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => [pt, typeof json?.total === 'number' ? json.total : 0] as const)
+          .catch(() => [pt, 0] as const)
+      )
+    ).then((entries) => {
+      if (cancelled) return
+      const next: Record<PipelineType, number | null> = {
+        comprador: 0, vendedor: 0, arrendatario: 0, arrendador: 0,
+      }
+      for (const [pt, count] of entries) next[pt] = count
+      setPipelineCounts(next)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  // Fetch the count of pending lead-entries (status=new — need to be contacted)
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams({ status: 'new', limit: '1' })
+    fetch(`/api/lead-entries?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled) return
+        const count = typeof json?.total === 'number'
+          ? json.total
+          : (json?.data?.length ?? 0)
+        setMyLeadsCount(count)
+      })
+      .catch(() => !cancelled && setMyLeadsCount(0))
+    return () => { cancelled = true }
+  }, [myLeadsOpen])
 
   // Shared filters across kanban + list
   const [filters, setFilters] = useState<CrmFilters>({
@@ -425,26 +562,63 @@ export default function CRMPage() {
             <KanbanIcon className="h-5 w-5 text-neutral-400" />
             <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">CRM</p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
+            {myLeadsCount !== null && (
+              <button
+                type="button"
+                onClick={() => setMyLeadsOpen(true)}
+                className="relative inline-flex items-center gap-1.5 rounded-full bg-white text-neutral-900 px-3.5 py-1.5 text-xs font-semibold shadow-md ring-1 ring-black/5 hover:bg-white/90 transition-colors"
+              >
+                <Inbox className="h-3.5 w-3.5" />
+                Tens {myLeadsCount} lead{myLeadsCount === 1 ? '' : 's'}
+                {myLeadsCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-neutral-900 animate-pulse"
+                    aria-label={`${myLeadsCount} leads para qualificar`}
+                  />
+                )}
+              </button>
+            )}
+          </div>
 
-          {/* Pipeline type tabs (inside the hero) */}
-          <div className="mt-5 inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15">
+          {/* Pipeline type tabs (inside the hero) — pluralised, with count badges.
+              Mobile: centred, compact; every tab shows icon + count; only the active tab shows the label. */}
+          <div className="mt-4 flex sm:inline-flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto sm:mx-0">
             {PIPELINE_TYPES.map((type) => {
               const Icon = PIPELINE_ICONS[type]
               const isActive = activeTab === type
+              const count = pipelineCounts[type]
+              const label = PIPELINE_TYPE_LABELS_PLURAL[type]
               return (
                 <button
                   key={type}
                   onClick={() => setActiveTab(type)}
+                  title={label}
                   className={cn(
-                    'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
+                    'inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[11px] font-medium transition-colors duration-300',
                     isActive
                       ? 'bg-white text-neutral-900 shadow-sm'
                       : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {PIPELINE_TYPE_LABELS[type]}
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {/* Label: hidden on mobile for inactive tabs */}
+                  <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>
+                    {label}
+                  </span>
+                  {count !== null && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                        isActive
+                          ? 'bg-neutral-900/10 text-neutral-900'
+                          : 'bg-white/15 text-white/80'
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -464,13 +638,14 @@ export default function CRMPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <SummaryBar pipelineType={activeTab} />
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* ── Desktop filters: search + filter popover button + view toggle ── */}
+        <div className="hidden md:flex items-center gap-2">
           {/* Search */}
-          <div className="relative w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative w-[330px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Pesquisar por nome..."
-              className="pl-9 rounded-full h-9"
+              className="pl-9 pr-8 rounded-full h-9 text-xs bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
               value={filters.search}
               onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             />
@@ -481,73 +656,93 @@ export default function CRMPage() {
             )}
           </div>
 
-          {/* Estado / pipeline stage */}
-          <Select
-            value={filters.pipelineStageId || 'all'}
-            onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
-          >
-            <SelectTrigger className="h-9 w-auto min-w-[150px] rounded-full text-xs">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os estados</SelectItem>
-              {stages.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
-                    {s.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Filters button (popover with all filters) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="relative shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
+                aria-label="Filtros"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                Filtros
+                {hasActiveFilters && (
+                  <span className="h-2 w-2 rounded-full bg-sky-400" />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-3 space-y-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
+                <Select
+                  value={filters.pipelineStageId || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os estados</SelectItem>
+                    {stages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Temperatura</p>
+                <Select
+                  value={filters.temperatura || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Temperatura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Qualquer temperatura</SelectItem>
+                    <SelectItem value="Frio">❄️ Frio</SelectItem>
+                    <SelectItem value="Morno">🌤️ Morno</SelectItem>
+                    <SelectItem value="Quente">🔥 Quente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+                <Select
+                  value={filters.consultantId || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Consultor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os consultores</SelectItem>
+                    {consultants.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Limpar filtros
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
 
-          {/* Temperatura */}
-          <Select
-            value={filters.temperatura || 'all'}
-            onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
-          >
-            <SelectTrigger className="h-9 w-auto min-w-[140px] rounded-full text-xs">
-              <SelectValue placeholder="Temperatura" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Qualquer temperatura</SelectItem>
-              <SelectItem value="Frio">❄️ Frio</SelectItem>
-              <SelectItem value="Morno">🌤️ Morno</SelectItem>
-              <SelectItem value="Quente">🔥 Quente</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Consultor */}
-          <Select
-            value={filters.consultantId || 'all'}
-            onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
-          >
-            <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-full text-xs">
-              <SelectValue placeholder="Consultor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os consultores</SelectItem>
-              {consultants.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="rounded-full text-xs h-9 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5 mr-1" />
-              Limpar
-            </Button>
-          )}
-
-          {/* View mode toggle */}
-          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm ml-1">
+          {/* View mode toggle (desktop) */}
+          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm">
             <button
               onClick={() => setViewMode('kanban')}
               className={cn(
@@ -574,6 +769,136 @@ export default function CRMPage() {
             </button>
           </div>
         </div>
+
+        {/* ── Mobile filters: search + filter button + icon-only view toggle on one line ── */}
+        <div className="flex md:hidden items-center gap-2 w-full">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar..."
+              className="pl-9 pr-8 rounded-full h-9 text-xs bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
+              value={filters.search}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+            />
+            {filters.search && (
+              <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filters button (popover with all filters) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="relative shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                aria-label="Filtros"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {hasActiveFilters && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background" />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-3 space-y-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
+                <Select
+                  value={filters.pipelineStageId || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os estados</SelectItem>
+                    {stages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Temperatura</p>
+                <Select
+                  value={filters.temperatura || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Temperatura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Qualquer temperatura</SelectItem>
+                    <SelectItem value="Frio">❄️ Frio</SelectItem>
+                    <SelectItem value="Morno">🌤️ Morno</SelectItem>
+                    <SelectItem value="Quente">🔥 Quente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+                <Select
+                  value={filters.consultantId || 'all'}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Consultor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os consultores</SelectItem>
+                    {consultants.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Limpar filtros
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+
+          {/* View mode toggle (mobile, icon-only) */}
+          <div className="inline-flex shrink-0 items-center gap-1 px-1 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+            <button
+              onClick={() => setViewMode('kanban')}
+              aria-label="Kanban"
+              className={cn(
+                'inline-flex items-center justify-center h-7 w-7 rounded-full transition-colors duration-300',
+                viewMode === 'kanban'
+                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                  : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              <KanbanIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              aria-label="Lista"
+              className={cn(
+                'inline-flex items-center justify-center h-7 w-7 rounded-full transition-colors duration-300',
+                viewMode === 'list'
+                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                  : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Content */}
@@ -588,6 +913,12 @@ export default function CRMPage() {
         onOpenChange={setExportOpen}
         endpoint="/api/export/negocios"
         title="Negócios"
+      />
+
+      <MyLeadsSheet
+        open={myLeadsOpen}
+        onOpenChange={setMyLeadsOpen}
+        consultantId={user?.id ?? null}
       />
     </div>
   )

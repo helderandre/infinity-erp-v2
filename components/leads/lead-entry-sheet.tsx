@@ -4,8 +4,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Sheet, SheetContent,
+  Sheet, SheetContent, SheetTitle,
 } from '@/components/ui/sheet'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip'
@@ -60,6 +61,35 @@ interface LeadEntrySheetProps {
 }
 
 export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatusChange }: LeadEntrySheetProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-hidden">
+        <VisuallyHidden>
+          <SheetTitle>Detalhe do Lead</SheetTitle>
+        </VisuallyHidden>
+        <LeadEntryDetailView
+          entryId={entryId}
+          isOpen={open}
+          onClose={() => onOpenChange(false)}
+          onQualify={onQualify}
+          onStatusChange={onStatusChange}
+        />
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+interface LeadEntryDetailViewProps {
+  entryId: string | null
+  isOpen: boolean
+  onClose: () => void
+  onQualify: (entry: LeadEntry) => void
+  onStatusChange: () => void
+  /** Optional back button rendered above the dark header (for embedded usage) */
+  onBack?: () => void
+}
+
+export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onStatusChange, onBack }: LeadEntryDetailViewProps) {
   const [entry, setEntry] = useState<LeadEntry | null>(null)
   const [loading, setLoading] = useState(false)
   const [contactHistory, setContactHistory] = useState<any[] | null>(null)
@@ -90,9 +120,9 @@ export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatu
   }, [entryId])
 
   useEffect(() => {
-    if (open && entryId) loadEntry()
-    if (!open) { setEntry(null); setContactHistory(null) }
-  }, [open, entryId, loadEntry])
+    if (isOpen && entryId) loadEntry()
+    if (!isOpen) { setEntry(null); setContactHistory(null) }
+  }, [isOpen, entryId, loadEntry])
 
   const updateStatus = async (status: string) => {
     if (!entryId) return
@@ -105,7 +135,7 @@ export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatu
       if (!res.ok) throw new Error()
       toast.success(`Lead marcado como ${STATUS_CONFIG[status]?.label || status}`)
       onStatusChange()
-      if (status === 'discarded') onOpenChange(false)
+      if (status === 'discarded') onClose()
       else loadEntry()
     } catch { toast.error('Erro ao actualizar lead') }
   }
@@ -128,23 +158,30 @@ export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatu
   const sectorInfo = entry?.sector ? SECTOR_LABELS[entry.sector] : null
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-hidden">
-        {loading ? (
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-28 w-full rounded-2xl" />
-            <Skeleton className="h-16 w-full rounded-2xl" />
-            <Skeleton className="h-32 w-full rounded-2xl" />
-            <Skeleton className="h-24 w-full rounded-2xl" />
-          </div>
-        ) : !entry ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-            Lead não encontrado
-          </div>
-        ) : (
-          <>
-            {/* ─── Dark header ─── */}
-            <div className="bg-neutral-900 px-6 pt-6 pb-5">
+    <>
+      {loading ? (
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+        </div>
+      ) : !entry ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          Lead não encontrado
+        </div>
+      ) : (
+        <>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-1 text-[11px] font-medium hover:bg-white/25 transition-colors"
+            >
+              ← Voltar
+            </button>
+          )}
+          <div className="bg-neutral-900 px-6 pt-6 pb-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase">Lead</p>
@@ -433,7 +470,7 @@ export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatu
                 </button>
                 <div className="flex-1" />
                 <button
-                  onClick={() => { onQualify(entry); onOpenChange(false) }}
+                  onClick={() => { onQualify(entry); onClose() }}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200"
                 >
                   Qualificar
@@ -441,9 +478,8 @@ export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatu
                 </button>
               </div>
             )}
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+        </>
+      )}
+    </>
   )
 }

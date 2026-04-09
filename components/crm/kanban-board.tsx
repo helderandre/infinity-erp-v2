@@ -22,7 +22,8 @@ interface KanbanColumn {
   negocios: any[]
   count: number
   total_value: number
-  weighted_value: number
+  weighted_value?: number
+  total_commission?: number
 }
 
 interface KanbanBoardProps {
@@ -48,7 +49,7 @@ function BoardSkeleton() {
   return (
     <div className="flex gap-3 overflow-x-auto pb-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="min-w-[280px] w-[280px] flex-shrink-0 space-y-3">
+        <div key={i} className="min-w-[230px] w-[230px] flex-shrink-0 space-y-3">
           <Skeleton className="h-10 w-full rounded-2xl" />
           {Array.from({ length: 3 }).map((_, j) => (
             <Skeleton key={j} className="h-[100px] w-full rounded-2xl" />
@@ -78,11 +79,11 @@ function KanbanColumnView({
   onDrop,
   onCardDragStart,
 }: ColumnProps) {
-  const { stage, negocios, count, total_value } = column
+  const { stage, negocios, count, total_commission } = column
 
   return (
     <div
-      className="min-w-[280px] w-[280px] flex-shrink-0 flex flex-col"
+      className="min-w-[230px] w-[230px] flex-shrink-0 flex flex-col"
       onDragOver={(e) => onDragOver(e, stage.id)}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, stage)}
@@ -90,14 +91,14 @@ function KanbanColumnView({
       {/* Column header */}
       <div
         className={cn(
-          'flex items-center justify-between gap-2 px-3 py-2.5 rounded-t-2xl border border-b-0 border-border/30',
+          'flex items-center justify-between gap-2 px-2.5 py-2 rounded-t-2xl border border-b-0 border-border/30',
           'bg-card/60 backdrop-blur-sm',
           isDragOver && 'ring-2 ring-primary ring-offset-0'
         )}
       >
         {/* Pill: stage name */}
-        <div className="inline-flex items-center gap-1.5 min-w-0 px-4 py-1.5 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 dark:bg-neutral-100">
-          <span className="text-sm font-semibold truncate">{stage.name}</span>
+        <div className="inline-flex items-center gap-1.5 min-w-0 px-3 py-1 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 dark:bg-neutral-100">
+          <span className="text-xs font-semibold truncate">{stage.name}</span>
           {stage.is_terminal && stage.terminal_type && (
             <span
               className={cn(
@@ -110,22 +111,21 @@ function KanbanColumnView({
           )}
         </div>
         {/* Count — bubble on the far right */}
-        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white text-neutral-900 text-xs font-bold tabular-nums shadow-md ring-1 ring-black/5 dark:bg-neutral-100 shrink-0">
+        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-white text-neutral-900 text-[11px] font-bold tabular-nums shadow-md ring-1 ring-black/5 dark:bg-neutral-100 shrink-0">
           {count}
         </span>
       </div>
 
-      {/* Column value (hidden for the first/contactado stage) */}
-      {total_value > 0 && stage.order_index !== 0 && stage.name !== 'Contactado' && (
-        <div className="px-3 py-1 bg-muted/30 backdrop-blur-sm border border-y-0 border-border/30">
-          <span className="text-[11px] text-muted-foreground">{formatEUR(total_value)}</span>
-        </div>
-      )}
+      {/* Column commission row — always visible, formatted clearly */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 backdrop-blur-sm border border-y-0 border-border/30">
+        <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Comissão</span>
+        <span className="text-[11px] font-semibold tabular-nums">{formatEUR(total_commission ?? 0)}</span>
+      </div>
 
       {/* Cards area */}
       <div
         className={cn(
-          'flex-1 rounded-b-2xl border border-t-0 border-border/30 bg-muted/10 p-2 space-y-2',
+          'flex-1 rounded-b-2xl border border-t-0 border-border/30 bg-muted/20 p-2 space-y-2 shadow-lg',
           'min-h-[120px] transition-colors duration-200',
           isDragOver && 'bg-primary/5 border-primary/30'
         )}

@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('negocios')
       .select(
-        `*, leads_pipeline_stages!pipeline_stage_id(*), leads!lead_id!inner(id, nome, email, telemovel, tags), dev_users!assigned_consultant_id(id, commercial_name), dev_properties!property_id(id, title, external_ref, city, listing_price)`,
+        `*, leads_pipeline_stages!pipeline_stage_id(*), lead:leads!lead_id!inner(id, nome, full_name, email, telemovel, tags, agent:dev_users!agent_id(id, commercial_name)), dev_users!assigned_consultant_id(id, commercial_name), dev_properties!property_id(id, title, external_ref, city, listing_price)`,
         { count: 'exact' }
       )
       .order('created_at', { ascending: false })

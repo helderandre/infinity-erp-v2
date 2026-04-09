@@ -127,10 +127,13 @@ export async function GET(
       return Number(n.preco_venda) || Number(n.orcamento_max) || Number(n.orcamento) || 0
     }
 
-    let totalExpectedValue = 0
-    let totalWeightedValue = 0
-    let totalExpectedCommission = 0
-    let totalWeightedCommission = 0
+    // "Comissão possível" — sum across all non-terminal stages (everything still
+    //   in the pipeline, regardless of how early it is).
+    // "Comissão prevista" — sum across non-terminal stages from order_index >= 4
+    //   onwards, i.e. negotiations that are far enough along to actually count
+    //   as a forecast (excludes Fecho / Perdido which are terminal).
+    let totalPossibleCommission = 0
+    let totalForecastCommission = 0
 
     const columns = (stages ?? []).map((stage) => {
       const items = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
@@ -142,13 +145,12 @@ export async function GET(
       )
 
       const total_commission = total_value * commissionFactor
-      const weighted_commission = weighted_value * commissionFactor
 
       if (!stage.is_terminal) {
-        totalExpectedValue += total_value
-        totalWeightedValue += weighted_value
-        totalExpectedCommission += total_commission
-        totalWeightedCommission += weighted_commission
+        totalPossibleCommission += total_commission
+        if (stage.order_index >= 4) {
+          totalForecastCommission += total_commission
+        }
       }
 
       return {
@@ -158,7 +160,6 @@ export async function GET(
         total_value,
         weighted_value,
         total_commission,
-        weighted_commission,
       }
     })
 
@@ -167,10 +168,8 @@ export async function GET(
       columns,
       totals: {
         negocios: filteredNegocios.length,
-        expected_value: totalExpectedValue,
-        weighted_value: totalWeightedValue,
-        expected_commission: totalExpectedCommission,
-        weighted_commission: totalWeightedCommission,
+        possible_commission: totalPossibleCommission,
+        forecast_commission: totalForecastCommission,
       },
     })
   } catch (err) {

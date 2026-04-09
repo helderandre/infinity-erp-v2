@@ -83,16 +83,15 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'bg-card rounded-2xl border border-border/20 p-3 shadow-sm cursor-grab active:cursor-grabbing',
-        'hover:shadow-lg hover:bg-card transition-all duration-200 select-none',
-        slaOverdue && 'border-l-2 border-l-red-400'
+        'bg-card rounded-xl border border-border/20 p-2.5 shadow-sm cursor-grab active:cursor-grabbing',
+        'hover:shadow-lg hover:bg-card transition-all duration-200 select-none'
       )}
     >
       {/* Top row: name + temperatura emoji + observations indicator */}
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm text-foreground leading-snug truncate flex items-center gap-1">
+        <p className="font-semibold text-[12px] text-foreground leading-snug truncate flex items-center gap-1">
           {contact?.full_name || contact?.nome || 'Sem nome'}
-          {tempEmoji && <span aria-hidden className="text-sm">{tempEmoji}</span>}
+          {tempEmoji && <span aria-hidden className="text-xs">{tempEmoji}</span>}
         </p>
         <div className="flex items-center gap-1 shrink-0">
           {negocio.origem && (
@@ -114,14 +113,14 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
 
       {/* Typology + Location pills */}
       {(typology || localizacao) && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
+        <div className="flex flex-wrap gap-1 mt-1">
           {typology && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-1.5 py-0 h-4 rounded-full">
               <Home className="h-2.5 w-2.5" />{typology}
             </span>
           )}
           {localizacao && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2 py-0.5 rounded-full truncate max-w-[140px]">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-1.5 py-0 h-4 rounded-full truncate max-w-[120px]">
               <MapPin className="h-2.5 w-2.5 shrink-0" />{localizacao}
             </span>
           )}
@@ -130,7 +129,7 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
 
       {/* Referral badge */}
       {hasReferral && (
-        <div className="mt-1.5">
+        <div className="mt-1">
           <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5">
             <Sparkles className="h-2.5 w-2.5" />
             Ref.{negocio.referral_side === 'angariacao' ? ' Ang.' : negocio.referral_side === 'comprador' ? ' Comp.' : ''}
@@ -141,24 +140,24 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
 
       {/* Value */}
       {hasValue && (
-        <div className="flex items-center gap-1 mt-2">
+        <div className="flex items-center gap-1 mt-1.5">
           <Euro className="h-3 w-3 text-muted-foreground" />
           {valueLabel && <span className="text-[10px] text-muted-foreground">{valueLabel}</span>}
-          <span className="text-sm font-semibold">{formatEUR(displayValue!)}</span>
+          <span className="text-[12px] font-semibold">{formatEUR(displayValue!)}</span>
         </div>
       )}
 
       {/* Footer: consultant + days in stage */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/20 gap-2">
+      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/20 gap-2">
         {consultant?.commercial_name ? (
           <div className="flex items-center gap-1 min-w-0">
             <User className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-[11px] text-muted-foreground truncate">
+            <span className="text-[10px] text-muted-foreground truncate">
               {consultant.commercial_name}
             </span>
           </div>
         ) : (
-          <span className="text-[11px] text-muted-foreground/50 italic">Sem consultor</span>
+          <span className="text-[10px] text-muted-foreground/50 italic">Sem consultor</span>
         )}
 
         <div className="flex items-center gap-1 shrink-0">
