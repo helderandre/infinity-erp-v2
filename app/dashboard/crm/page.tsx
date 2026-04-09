@@ -44,6 +44,7 @@ import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
 import { useUser } from '@/hooks/use-user'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Inbox, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -103,23 +104,28 @@ function SummaryBar({ pipelineType, inHero = false }: { pipelineType: PipelineTy
   ]
 
   if (inHero) {
-    // Compact, dark-on-dark variant for inside the black hero card.
-    // Stacked: small uppercase label on top, value on the bottom.
+    // Dark-on-dark variant for inside the black hero card.
+    // Mobile: stacked label-on-top / value-on-bottom (no icon).
+    // Desktop: icon + label on the left, value on the right, single row.
     return (
       <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
-        {stats.map(({ label, mobileLabel, value }, idx) => (
+        {stats.map(({ icon: Icon, label, mobileLabel, value }, idx) => (
           <div
             key={label}
             className={cn(
-              'flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[78px]',
+              'flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0',
               idx > 0 && 'border-l border-white/10',
             )}
           >
-            <span className="text-[8px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
-              {mobileLabel}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <Icon className="hidden md:block h-3 w-3 text-white/50" />
+              <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
+                <span className="md:hidden">{mobileLabel}</span>
+                <span className="hidden md:inline">{label}</span>
+              </span>
+            </div>
             {loading ? (
-              <Skeleton className="h-3.5 w-10 bg-white/10 mt-1" />
+              <Skeleton className="h-3.5 w-10 bg-white/10" />
             ) : (
               <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{value}</span>
             )}
@@ -485,6 +491,7 @@ function ObservationsCellInner({
 
 export default function CRMPage() {
   const { user } = useUser()
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
@@ -579,12 +586,149 @@ export default function CRMPage() {
   const hasActiveFilters = !!(filters.search || filters.pipelineStageId || filters.temperatura || filters.consultantId)
   const clearFilters = () => setFilters({ search: '', pipelineStageId: '', temperatura: '', consultantId: '' })
 
+  // Filter row JSX — extracted so we can render it once, in different positions
+  // depending on viewport (inside the hero on desktop, below on mobile).
+  const filterRow = (
+    <div className="flex items-center gap-2 w-full md:w-auto">
+      {/* Search */}
+      <div className="relative flex-1 min-w-0 md:flex-initial md:w-[280px]">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Pesquisar por nome..."
+          className="pl-9 pr-8 rounded-full h-9 text-xs bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
+          value={filters.search}
+          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+        />
+        {filters.search && (
+          <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Filters popover */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className="relative shrink-0 inline-flex items-center justify-center md:gap-1.5 h-9 w-9 md:w-auto md:px-3.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
+            aria-label="Filtros"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="hidden md:inline">Filtros</span>
+            {hasActiveFilters && (
+              <span className="absolute md:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background md:ring-0" />
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-72 p-3 space-y-3">
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
+            <Select
+              value={filters.pipelineStageId || 'all'}
+              onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
+            >
+              <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                      {s.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Temperatura</p>
+            <Select
+              value={filters.temperatura || 'all'}
+              onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
+            >
+              <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                <SelectValue placeholder="Temperatura" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer temperatura</SelectItem>
+                <SelectItem value="Frio">❄️ Frio</SelectItem>
+                <SelectItem value="Morno">🌤️ Morno</SelectItem>
+                <SelectItem value="Quente">🔥 Quente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+            <Select
+              value={filters.consultantId || 'all'}
+              onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
+            >
+              <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                <SelectValue placeholder="Consultor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os consultores</SelectItem>
+                {consultants.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Limpar filtros
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      {/* View mode toggle */}
+      <div className="inline-flex shrink-0 items-center gap-1 px-1 md:px-1.5 py-1 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm">
+        <button
+          onClick={() => setViewMode('kanban')}
+          aria-label="Kanban"
+          className={cn(
+            'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
+            viewMode === 'kanban'
+              ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+              : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+        >
+          <KanbanIcon className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Kanban</span>
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          aria-label="Lista"
+          className={cn(
+            'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
+            viewMode === 'list'
+              ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+              : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+        >
+          <List className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Lista</span>
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {/* Hero — title + pipeline tabs inside */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-8 sm:px-10 sm:py-10">
+        <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
           <div className="flex items-center gap-2 mb-2">
             <KanbanIcon className="h-5 w-5 text-neutral-400" />
             <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">CRM</p>
@@ -658,9 +802,15 @@ export default function CRMPage() {
             })}
           </div>
 
-          {/* Mobile-only: data points centred inside the black card */}
-          <div className="mt-4 flex md:hidden justify-center">
-            <SummaryBar pipelineType={activeTab} inHero />
+          {/* Data points + (desktop only) filter row inside the black card. */}
+          <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {/* Data points */}
+            <div className="flex justify-center md:justify-start">
+              <SummaryBar pipelineType={activeTab} inHero />
+            </div>
+
+            {/* Desktop: filter row inside the hero, on the right */}
+            {!isMobile && filterRow}
           </div>
         </div>
         <Button
@@ -673,147 +823,8 @@ export default function CRMPage() {
         </Button>
       </div>
 
-      {/* Below the card: predicted commissions (left, desktop only) + filters/view-toggle (right).
-          Single unified filter row to avoid duplicate Radix Popover ids causing hydration mismatch. */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="hidden md:block">
-          <SummaryBar pipelineType={activeTab} />
-        </div>
-
-        {/* Filter row — one set of children, responsive layout */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {/* Search */}
-          <div className="relative flex-1 min-w-0 md:flex-initial md:w-[330px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar por nome..."
-              className="pl-9 pr-8 rounded-full h-9 text-xs bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
-              value={filters.search}
-              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            />
-            {filters.search && (
-              <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Filters popover — single instance, responsive trigger */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className="relative shrink-0 inline-flex items-center justify-center md:gap-1.5 h-9 w-9 md:w-auto md:px-3.5 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
-                aria-label="Filtros"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="hidden md:inline">Filtros</span>
-                {hasActiveFilters && (
-                  <span className="absolute md:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background md:ring-0" />
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-3 space-y-3">
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
-                <Select
-                  value={filters.pipelineStageId || 'all'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
-                >
-                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os estados</SelectItem>
-                    {stages.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
-                          {s.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Temperatura</p>
-                <Select
-                  value={filters.temperatura || 'all'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
-                >
-                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
-                    <SelectValue placeholder="Temperatura" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Qualquer temperatura</SelectItem>
-                    <SelectItem value="Frio">❄️ Frio</SelectItem>
-                    <SelectItem value="Morno">🌤️ Morno</SelectItem>
-                    <SelectItem value="Quente">🔥 Quente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
-                <Select
-                  value={filters.consultantId || 'all'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
-                >
-                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
-                    <SelectValue placeholder="Consultor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os consultores</SelectItem>
-                    {consultants.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  Limpar filtros
-                </Button>
-              )}
-            </PopoverContent>
-          </Popover>
-
-          {/* View mode toggle — responsive: icon-only on mobile, label on desktop */}
-          <div className="inline-flex shrink-0 items-center gap-1 px-1 md:px-1.5 py-1 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm">
-            <button
-              onClick={() => setViewMode('kanban')}
-              aria-label="Kanban"
-              className={cn(
-                'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
-                viewMode === 'kanban'
-                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                  : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <KanbanIcon className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Kanban</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              aria-label="Lista"
-              className={cn(
-                'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
-                viewMode === 'list'
-                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                  : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Lista</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Mobile: filter row outside (below) the hero */}
+      {isMobile && filterRow}
 
       {/* Content */}
       {viewMode === 'kanban' ? (
