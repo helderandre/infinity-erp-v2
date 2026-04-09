@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('negocios')
-      .select('*, lead:leads(id, nome, full_name, telemovel, email, agent_id, agent:dev_users(id, commercial_name))', { count: 'exact' })
+      .select('*, leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type), lead:leads(id, nome, full_name, telemovel, email, agent_id, agent:dev_users(id, commercial_name))', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

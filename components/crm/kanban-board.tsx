@@ -1,16 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KanbanCard } from '@/components/crm/kanban-card'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
@@ -35,6 +27,12 @@ interface KanbanColumn {
 
 interface KanbanBoardProps {
   pipelineType: PipelineType
+  filters?: {
+    search?: string
+    pipelineStageId?: string
+    temperatura?: string
+    consultantId?: string
+  }
 }
 
 const formatEUR = (value: number) =>
@@ -43,11 +41,6 @@ const formatEUR = (value: number) =>
     currency: 'EUR',
     minimumFractionDigits: 0,
   }).format(value)
-
-interface Consultant {
-  id: string
-  commercial_name: string | null
-}
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -97,33 +90,33 @@ function KanbanColumnView({
       {/* Column header */}
       <div
         className={cn(
-          'flex items-center justify-between px-3 py-2.5 rounded-t-2xl border border-b-0 border-border/30',
+          'flex items-center justify-between gap-2 px-3 py-2.5 rounded-t-2xl border border-b-0 border-border/30',
           'bg-card/60 backdrop-blur-sm',
           isDragOver && 'ring-2 ring-primary ring-offset-0'
         )}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: stage.color || '#94a3b8' }}
-          />
-          <span className="text-sm font-medium text-foreground truncate">{stage.name}</span>
+        {/* Pill: stage name */}
+        <div className="inline-flex items-center gap-1.5 min-w-0 px-4 py-1.5 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 dark:bg-neutral-100">
+          <span className="text-sm font-semibold truncate">{stage.name}</span>
           {stage.is_terminal && stage.terminal_type && (
-            <Badge
-              variant={stage.terminal_type === 'won' ? 'default' : 'destructive'}
-              className="text-[9px] h-4 px-1.5 py-0 font-medium rounded-full"
+            <span
+              className={cn(
+                'inline-flex items-center text-[9px] h-4 px-1.5 font-medium rounded-full',
+                stage.terminal_type === 'won' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+              )}
             >
               {stage.terminal_type === 'won' ? 'Ganho' : 'Perdido'}
-            </Badge>
+            </span>
           )}
         </div>
-        <Badge variant="secondary" className="ml-2 shrink-0 text-xs h-5 rounded-full">
+        {/* Count — bubble on the far right */}
+        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white text-neutral-900 text-xs font-bold tabular-nums shadow-md ring-1 ring-black/5 dark:bg-neutral-100 shrink-0">
           {count}
-        </Badge>
+        </span>
       </div>
 
-      {/* Column value */}
-      {total_value > 0 && (
+      {/* Column value (hidden for the first/contactado stage) */}
+      {total_value > 0 && stage.order_index !== 0 && stage.name !== 'Contactado' && (
         <div className="px-3 py-1 bg-muted/30 backdrop-blur-sm border border-y-0 border-border/30">
           <span className="text-[11px] text-muted-foreground">{formatEUR(total_value)}</span>
         </div>
@@ -157,7 +150,7 @@ function KanbanColumnView({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
+export function KanbanBoard({ pipelineType, filters }: KanbanBoardProps) {
   const [board, setBoard] = useState<KanbanBoardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -173,47 +166,35 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
     targetStage: LeadsPipelineStage
   } | null>(null)
 
-  // Consultant filter
-  const [consultants, setConsultants] = useState<Consultant[]>([])
-  const [selectedConsultant, setSelectedConsultant] = useState<string>('all')
-
   const dragLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Fetch board data ──────────────────────────────────────────────────────
+
+  const filterSearch = filters?.search ?? ''
+  const filterStage = filters?.pipelineStageId ?? ''
+  const filterTemp = filters?.temperatura ?? ''
+  const filterConsultant = filters?.consultantId ?? ''
 
   const fetchBoard = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-      if (selectedConsultant !== 'all') {
-        params.set('agent_id', selectedConsultant)
-      }
+      if (filterConsultant) params.set('assigned_consultant_id', filterConsultant)
+      if (filterStage) params.set('pipeline_stage_id', filterStage)
+      if (filterTemp) params.set('temperatura', filterTemp)
+      if (filterSearch) params.set('search', filterSearch)
       const url = `/api/crm/kanban/${pipelineType}${params.size > 0 ? `?${params}` : ''}`
       const res = await fetch(url)
       if (!res.ok) throw new Error('Erro ao carregar o quadro')
       const data = await res.json()
       setBoard(data)
-
-      // Extract unique consultants from negocios for filter
-      const seen = new Set<string>()
-      const found: Consultant[] = []
-      for (const col of data.columns ?? []) {
-        for (const neg of col.negocios ?? []) {
-          const c = neg.consultant ?? neg.dev_users
-          if (c && !seen.has(c.id)) {
-            seen.add(c.id)
-            found.push({ id: c.id, commercial_name: c.commercial_name })
-          }
-        }
-      }
-      setConsultants(found)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setLoading(false)
     }
-  }, [pipelineType, selectedConsultant])
+  }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant])
 
   useEffect(() => {
     fetchBoard()
@@ -334,27 +315,6 @@ export function KanbanBoard({ pipelineType }: KanbanBoardProps) {
 
   return (
     <div className="space-y-4">
-      {/* Consultant filter */}
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-        <Select
-          value={selectedConsultant}
-          onValueChange={(val) => setSelectedConsultant(val)}
-        >
-          <SelectTrigger className="h-8 w-[220px] text-sm rounded-full">
-            <SelectValue placeholder="Filtrar por consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.commercial_name ?? 'Sem nome'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Board */}
       {loading ? (
         <BoardSkeleton />

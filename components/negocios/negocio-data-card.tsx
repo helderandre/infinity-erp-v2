@@ -1,13 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Check, Landmark } from 'lucide-react'
+import { Pencil, Check, Landmark, Sparkles, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -251,6 +250,7 @@ interface NegocioDataCardProps {
   isSaving: boolean
   refreshKey?: number
   extraTabs?: ExtraTab[]
+  onAiFillClick?: () => void
 }
 
 export function NegocioDataCard({
@@ -262,10 +262,11 @@ export function NegocioDataCard({
   isSaving,
   refreshKey,
   extraTabs = [],
+  onAiFillClick,
 }: NegocioDataCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState('dados')
-  const showEditButton = activeTab === 'dados' || activeTab === 'financiamento'
+  const showEditButton = activeTab === 'dados'
 
   const val = (field: string) => (form[field] as string) ?? ''
   const numVal = (field: string) => form[field] as number | null
@@ -345,6 +346,39 @@ export function NegocioDataCard({
           <DisplayField label="Prazo para comprar" value={val('prazo_compra')} />
         </>
       )}
+
+      {/* Financiamento — merged from former separate tab */}
+      <SectionHeader title="Financiamento" />
+      <ToggleRow label="Necessita financiamento" checked={boolVal('financiamento_necessario')} onChange={(v) => onFieldChange('financiamento_necessario', v)} isEditing={isEditing} />
+      {boolVal('financiamento_necessario') && (
+        <>
+          {isEditing ? (
+            <>
+              <EditField label="Capital próprio disponível" value={numVal('capital_proprio')} type="number" suffix="€" onChange={(v) => onFieldChange('capital_proprio', v ? Number(v) : null)} />
+              <div className="rounded-xl border px-4 py-3">
+                <p className="text-xs text-muted-foreground mb-1">Crédito pré-aprovado</p>
+                <Switch checked={boolVal('credito_pre_aprovado')} onCheckedChange={(v) => onFieldChange('credito_pre_aprovado', v)} />
+              </div>
+              <EditField label="Valor do crédito aprovado" value={numVal('valor_credito')} type="number" suffix="€" fullWidth onChange={(v) => onFieldChange('valor_credito', v ? Number(v) : null)} />
+            </>
+          ) : (
+            <>
+              <DisplayField label="Capital próprio disponível" value={formatCurrency(numVal('capital_proprio'))} />
+              <DisplayField label="Crédito pré-aprovado" value={boolVal('credito_pre_aprovado') ? 'Sim' : 'Não'} />
+              <DisplayField label="Valor do crédito aprovado" value={formatCurrency(numVal('valor_credito'))} fullWidth />
+            </>
+          )}
+          <div className="col-span-full mt-2">
+            <Link
+              href={`/dashboard/credito/novo?lead_id=${val('lead_id')}&negocio_id=${negocioId}`}
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <Landmark className="h-4 w-4" />
+              Iniciar Pedido de Crédito
+            </Link>
+          </div>
+        </>
+      )}
     </>
   )
 
@@ -404,59 +438,66 @@ export function NegocioDataCard({
     </>
   )
 
-  /* ─── Observações block (shared) ─── */
-  const renderObservacoes = () => (
-    <>
-      <SectionHeader title="Observações" />
-      {isEditing ? (
-        <div className="col-span-full rounded-xl border px-4 py-3">
-          <Textarea
-            value={val('observacoes')}
-            onChange={(e) => onFieldChange('observacoes', e.target.value)}
-            placeholder="Sem observações..."
-            rows={3}
-            className="border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium resize-y"
-          />
+  /* Observações now lives in the page-level popup, not inline. */
+
+  /* ─── AI fill banner row ─── */
+  const renderAiFillRow = () => {
+    if (!onAiFillClick) return null
+    return (
+      <button
+        type="button"
+        onClick={onAiFillClick}
+        className="group relative col-span-full overflow-hidden rounded-2xl border border-violet-200/60 dark:border-violet-500/30 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-sky-50 dark:from-violet-950/40 dark:via-fuchsia-950/30 dark:to-sky-950/40 px-5 py-3.5 mb-3 flex items-center justify-between transition-all hover:shadow-md hover:border-violet-300 dark:hover:border-violet-400/50"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-sm shrink-0">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold text-foreground leading-tight">Preencher com IA</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">Cole texto ou grave uma nota de voz para preencher automaticamente</p>
+          </div>
         </div>
-      ) : (
-        <DisplayField label="Observações" value={val('observacoes')} fullWidth />
-      )}
-    </>
-  )
+        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+      </button>
+    )
+  }
 
   /* ─── Dados do negócio tab content ─── */
   const renderDadosTab = () => {
     /* Compra e Venda → subtabs for Compra / Venda */
     if (isCompraEVenda) {
       return (
-        <Tabs defaultValue="subtab-compra">
-          <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 mb-4">
-            <TabsTrigger value="subtab-compra" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              O que procura
-            </TabsTrigger>
-            <TabsTrigger value="subtab-venda" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              O que vende
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="subtab-compra" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
-              {renderCompraFields()}
-              {renderObservacoes()}
-            </div>
-          </TabsContent>
-          <TabsContent value="subtab-venda" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
-              {renderVendaFields()}
-              {renderObservacoes()}
-            </div>
-          </TabsContent>
-        </Tabs>
+        <>
+          {renderAiFillRow()}
+          <Tabs defaultValue="subtab-compra">
+            <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 mb-4">
+              <TabsTrigger value="subtab-compra" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                O que procura
+              </TabsTrigger>
+              <TabsTrigger value="subtab-venda" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                O que vende
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="subtab-compra" className="mt-0">
+              <div className="grid grid-cols-2 gap-3">
+                {renderCompraFields()}
+              </div>
+            </TabsContent>
+            <TabsContent value="subtab-venda" className="mt-0">
+              <div className="grid grid-cols-2 gap-3">
+                {renderVendaFields()}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
       )
     }
 
     /* Single-type negócios */
     return (
       <div className="grid grid-cols-2 gap-3">
+        {renderAiFillRow()}
         {isCompra && renderCompraFields()}
         {isVenda && renderVendaFields()}
 
@@ -527,53 +568,26 @@ export function NegocioDataCard({
             <AmenityGrid form={form} isEditing={isEditing} onToggle={(f, v) => onFieldChange(f, v)} />
           </>
         )}
-
-        {renderObservacoes()}
       </div>
     )
   }
 
-  /* ─── Financiamento tab content (Compra only) ─── */
-  const renderFinanciamentoTab = () => (
-    <div className="grid grid-cols-2 gap-3">
-      <ToggleRow label="Necessita financiamento" checked={boolVal('financiamento_necessario')} onChange={(v) => onFieldChange('financiamento_necessario', v)} isEditing={isEditing} />
-      {boolVal('financiamento_necessario') && (
-        <>
-          {isEditing ? (
-            <>
-              <EditField label="Capital próprio disponível" value={numVal('capital_proprio')} type="number" suffix="€" onChange={(v) => onFieldChange('capital_proprio', v ? Number(v) : null)} />
-              <div className="rounded-xl border px-4 py-3">
-                <p className="text-xs text-muted-foreground mb-1">Crédito pré-aprovado</p>
-                <Switch checked={boolVal('credito_pre_aprovado')} onCheckedChange={(v) => onFieldChange('credito_pre_aprovado', v)} />
-              </div>
-              <EditField label="Valor do crédito aprovado" value={numVal('valor_credito')} type="number" suffix="€" fullWidth onChange={(v) => onFieldChange('valor_credito', v ? Number(v) : null)} />
-            </>
-          ) : (
-            <>
-              <DisplayField label="Capital próprio disponível" value={formatCurrency(numVal('capital_proprio'))} />
-              <DisplayField label="Crédito pré-aprovado" value={boolVal('credito_pre_aprovado') ? 'Sim' : 'Não'} />
-              <DisplayField label="Valor do crédito aprovado" value={formatCurrency(numVal('valor_credito'))} fullWidth />
-            </>
-          )}
-          <div className="col-span-2 mt-2">
-            <Link
-              href={`/dashboard/credito/novo?lead_id=${val('lead_id')}&negocio_id=${negocioId}`}
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <Landmark className="h-4 w-4" />
-              Iniciar Pedido de Crédito
-            </Link>
-          </div>
-        </>
-      )}
-    </div>
-  )
-
   /* ─── Build tabs ─── */
+  const dadosLabel = isCompraEVenda
+    ? 'Dados do negócio'
+    : isCompra
+      ? 'Dados da Compra'
+      : isVenda
+        ? 'Dados da Venda'
+        : isArrendatario
+          ? 'Dados do Arrendamento'
+          : isArrendador
+            ? 'Dados do Arrendamento'
+            : 'Dados do negócio'
+
   const tabs: { value: string; label: string; onActivate?: () => void }[] = [
-    { value: 'dados', label: 'Dados do negócio' },
+    { value: 'dados', label: dadosLabel },
   ]
-  if (isCompra) tabs.push({ value: 'financiamento', label: 'Financiamento' })
   for (const et of extraTabs) {
     tabs.push({ value: et.value, label: et.label, onActivate: et.onActivate })
   }
@@ -618,12 +632,6 @@ export function NegocioDataCard({
           <TabsContent value="dados" className="mt-0">
             {renderDadosTab()}
           </TabsContent>
-
-          {isCompra && (
-            <TabsContent value="financiamento" className="mt-0">
-              {renderFinanciamentoTab()}
-            </TabsContent>
-          )}
 
           {extraTabs.map((et) => (
             <TabsContent key={et.value} value={et.value} className="mt-0">

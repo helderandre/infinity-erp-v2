@@ -49,6 +49,9 @@ export async function PUT(
     const updatePayload: Record<string, unknown> = {
       pipeline_stage_id,
       stage_entered_at: new Date().toISOString(),
+      // Mirror stage name into the legacy `estado` column so the negocio detail
+      // page (which still reads `estado`) stays in sync with the kanban move.
+      estado: targetStage.name,
     }
 
     if (targetStage.is_terminal) {

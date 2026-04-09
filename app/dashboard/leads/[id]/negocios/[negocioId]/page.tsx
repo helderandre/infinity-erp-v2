@@ -13,11 +13,14 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useUser } from '@/hooks/use-user'
-import { NegocioSidebar } from '@/components/negocios/negocio-sidebar'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { mapNegocioToAcquisition } from '@/lib/utils/negocio-to-acquisition'
 import { VisitForm } from '@/components/visits/visit-form'
+import { ObservationsButton } from '@/components/crm/observations-dialog'
+import { TemperaturaSelector, type Temperatura } from '@/components/negocios/temperatura-selector'
+import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
+import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import {
   NEGOCIO_ESTADO_COLORS,
   NEGOCIO_ESTADO_OPTIONS,
@@ -261,6 +264,7 @@ export default function NegocioDetailPage() {
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [acquisitionDialogOpen, setAcquisitionDialogOpen] = useState(false)
+  const [aiFillOpen, setAiFillOpen] = useState(false)
 
   // Property tracking
   const [properties, setProperties] = useState<NegocioProperty[]>([])
@@ -464,13 +468,53 @@ export default function NegocioDetailPage() {
     finally { setIsSaving(false) }
   }
 
-  const saveSidebarField = async (field: string, value: string) => {
+  const saveSidebarField = async (field: string, value: unknown) => {
     updateField(field, value)
     try {
       const res = await fetch(`/api/negocios/${negocioId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: value }) })
       if (!res.ok) throw new Error('Erro ao guardar')
       toast.success('Actualizado')
     } catch { toast.error('Erro ao guardar') }
+  }
+
+  const handleSaveObservations = async (next: string | null) => {
+    const res = await fetch(`/api/negocios/${negocioId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ observacoes: next }),
+    })
+    if (!res.ok) throw new Error('Failed to save')
+    setForm((prev) => ({ ...prev, observacoes: next }))
+  }
+
+  const handleTemperaturaChange = async (next: Temperatura) => {
+    updateField('temperatura', next)
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ temperatura: next }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      toast.error('Erro ao guardar temperatura')
+    }
+  }
+
+  const handlePipelineStageChange = async (stage: { id: string; name: string }) => {
+    updateField('pipeline_stage_id', stage.id)
+    updateField('estado', stage.name)
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pipeline_stage_id: stage.id }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Fase actualizada')
+    } catch {
+      toast.error('Erro ao actualizar fase')
+    }
   }
 
   const handleQuickFillApply = async (fields: Record<string, unknown>) => {
@@ -538,23 +582,135 @@ export default function NegocioDetailPage() {
   const buildMatchingTabs = () => {
     const tabs: { value: string; label: string; content: React.ReactNode; onActivate?: () => void }[] = []
 
-    // Buyer → Imóveis tab
+    // Buyer → Matching tab (suggestions only)
     if (isBuyerType) {
+      tabs.push({
+        value: 'matching',
+        label: 'Matching',
+        onActivate: () => { if (matches.length === 0 && !isLoadingMatches) fetchMatches() },
+        content: (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">{matches.length > 0 ? `${matches.length} imóveis compatíveis` : 'Baseado no orçamento, localização e tipo'}</p>
+              <div className="flex items-center gap-1.5">
+                {matches.length > 0 && (
+                  <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches(true)} disabled={isLoadingMatches}>
+                    {isLoadingMatches ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches()}>
+                  <Sparkles className="mr-1 h-3 w-3" />Actualizar
+                </Button>
+              </div>
+            </div>
+            {isLoadingMatches ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (<div key={i} className="rounded-xl border overflow-hidden flex"><Skeleton className="w-28 h-24" /><div className="flex-1 p-3.5 space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-20" /></div></div>))}
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+                <Building2 className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum imóvel compatível encontrado</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Ajuste o perfil de procura para ampliar os resultados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {matches.map((p, idx) => {
+                  const cover = p.dev_property_media?.find((m: any) => m.is_cover)?.url || p.dev_property_media?.[0]?.url
+                  const specs = p.dev_property_specifications
+                  const isAdding = addingPropertyId === p.id
+                  const score = p.match_score as number | null
+                  const scoreColor = score != null
+                    ? score >= 80 ? 'bg-emerald-500 text-white'
+                    : score >= 60 ? 'bg-amber-500 text-white'
+                    : score >= 40 ? 'bg-orange-500 text-white'
+                    : 'bg-red-500 text-white'
+                    : ''
+                  return (
+                    <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
+                      p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
+                      p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
+                      p.price_flag === 'red' && 'ring-2 ring-red-400/60'
+                    )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
+                      <div className="flex">
+                        <div className="w-28 shrink-0 relative bg-muted">
+                          {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
+                          {p.listing_price && (
+                            <div className="absolute bottom-2 left-2">
+                              <span className={cn('inline-flex items-center backdrop-blur-sm text-[11px] font-bold px-2 py-0.5 rounded-full',
+                                p.price_flag === 'green' ? 'bg-emerald-900/80 text-emerald-100' :
+                                p.price_flag === 'yellow' ? 'bg-amber-900/80 text-amber-100' :
+                                p.price_flag === 'orange' ? 'bg-orange-900/80 text-orange-100' :
+                                'bg-red-900/80 text-red-100'
+                              )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
+                            </div>
+                          )}
+                          {score != null && (
+                            <div className="absolute top-2 right-2">
+                              <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 p-3.5 min-w-0 flex flex-col">
+                          <p className="text-sm font-semibold truncate leading-tight">{p.title}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{[p.external_ref, p.city, p.zone].filter(Boolean).join(' · ')}</p>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                            {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
+                            {specs?.area_util && <span>{specs.area_util} m²</span>}
+                          </div>
+                          {p.match_reason && (
+                            <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{p.match_reason}</p>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-auto pt-2">
+                            <Button variant="outline" size="sm" className="h-7 rounded-full text-xs flex-1" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
+                              {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar ao dossier
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}>
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ),
+      })
+
+      // Buyer → Imóveis tab (added/follow-up properties)
       tabs.push({
         value: 'imoveis',
         label: `Imóveis${properties.length > 0 ? ` (${properties.length})` : ''}`,
-        onActivate: () => { if (matches.length === 0 && !isLoadingMatches) fetchMatches() },
         content: (
           <div className="space-y-5">
-            {/* ── Added properties ── */}
-            {properties.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Adicionados ao dossier</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {properties.length > 0
+                  ? `${properties.length} imóv${properties.length === 1 ? 'el' : 'eis'} adicionado${properties.length === 1 ? '' : 's'} ao dossier`
+                  : 'Sem imóveis no dossier'}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {properties.length > 0 && (
                   <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={scoreDossierProperties} disabled={isLoadingDossierScores}>
                     {isLoadingDossierScores ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
                   </Button>
-                </div>
+                )}
+                <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => setShowExternalDialog(true)}>
+                  <Link2 className="mr-1 h-3 w-3" /> Adicionar Link
+                </Button>
+              </div>
+            </div>
+            {properties.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+                <Building2 className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum imóvel adicionado ao dossier</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Adicione imóveis a partir do tab Matching ou um link externo.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {properties.map((ap) => {
                     const isExternal = !ap.property_id && ap.external_url
@@ -609,10 +765,23 @@ export default function NegocioDetailPage() {
                             )}
                             <div className="flex items-center gap-1.5 mt-auto pt-2">
                               <Badge className={cn('rounded-full text-[9px] px-2 border-0', propStatus?.bg, propStatus?.text)}>{propStatus?.label}</Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-full ml-auto text-muted-foreground hover:text-foreground"
+                                title="Agendar visita"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setVisitPropertyId(p?.id || null)
+                                  setShowVisitDialog(true)
+                                }}
+                              >
+                                <CalendarDays className="h-3 w-3" />
+                              </Button>
                               {isExternal ? (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-auto" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
                               ) : p?.id && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-auto" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
                               )}
                               <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground/40 hover:text-destructive" onClick={() => handleRemoveProperty(ap.id)}><Trash2 className="h-3 w-3" /></Button>
                             </div>
@@ -624,105 +793,76 @@ export default function NegocioDetailPage() {
                 </div>
               </div>
             )}
-
-            {/* ── Matching suggestions ── */}
-            <div className="space-y-3">
-              {properties.length > 0 && <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Sugestões</p>}
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{matches.length > 0 ? `${matches.length} imóveis compatíveis` : 'Baseado no orçamento, localização e tipo'}</p>
-                <div className="flex items-center gap-1.5">
-                  {matches.length > 0 && (
-                    <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches(true)} disabled={isLoadingMatches}>
-                      {isLoadingMatches ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches()}>
-                    <Sparkles className="mr-1 h-3 w-3" />Actualizar
-                  </Button>
-                </div>
-              </div>
-            {isLoadingMatches ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[1, 2, 3, 4].map((i) => (<div key={i} className="rounded-xl border overflow-hidden flex"><Skeleton className="w-28 h-24" /><div className="flex-1 p-3.5 space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-20" /></div></div>))}
-              </div>
-            ) : matches.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
-                <Building2 className="h-8 w-8 text-muted-foreground/20 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum imóvel compatível encontrado</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Ajuste o perfil de procura para ampliar os resultados</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {matches.map((p, idx) => {
-                  const cover = p.dev_property_media?.find((m: any) => m.is_cover)?.url || p.dev_property_media?.[0]?.url
-                  const specs = p.dev_property_specifications
-                  const isAdding = addingPropertyId === p.id
-                  const score = p.match_score as number | null
-                  const scoreColor = score != null
-                    ? score >= 80 ? 'bg-emerald-500 text-white'
-                    : score >= 60 ? 'bg-amber-500 text-white'
-                    : score >= 40 ? 'bg-orange-500 text-white'
-                    : 'bg-red-500 text-white'
-                    : ''
-                  return (
-                    <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
-                      p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
-                      p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
-                      p.price_flag === 'red' && 'ring-2 ring-red-400/60'
-                    )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
-                      <div className="flex">
-                        <div className="w-28 shrink-0 relative bg-muted">
-                          {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
-                          {p.listing_price && (
-                            <div className="absolute bottom-2 left-2">
-                              <span className={cn('inline-flex items-center backdrop-blur-sm text-[11px] font-bold px-2 py-0.5 rounded-full',
-                                p.price_flag === 'green' ? 'bg-emerald-900/80 text-emerald-100' :
-                                p.price_flag === 'yellow' ? 'bg-amber-900/80 text-amber-100' :
-                                p.price_flag === 'orange' ? 'bg-orange-900/80 text-orange-100' :
-                                'bg-red-900/80 text-red-100'
-                              )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
-                            </div>
-                          )}
-                          {score != null && (
-                            <div className="absolute top-2 right-2">
-                              <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 p-3.5 min-w-0 flex flex-col">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate leading-tight">{p.title}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{[p.external_ref, p.city, p.zone].filter(Boolean).join(' · ')}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
-                            {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
-                            {specs?.area_util && <span>{specs.area_util} m²</span>}
-                          </div>
-                          {p.match_reason && (
-                            <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{p.match_reason}</p>
-                          )}
-                          <div className="flex items-center gap-1.5 mt-auto pt-2">
-                            <Button variant="outline" size="sm" className="h-7 rounded-full text-xs flex-1" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
-                              {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}>
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            </div>
           </div>
         ),
       })
     }
+
+    // Visitas tab (buyers + sellers)
+    tabs.push({
+      value: 'visitas',
+      label: `Visitas${visits.length > 0 ? ` (${visits.length})` : ''}`,
+      onActivate: () => { if (visits.length === 0 && !isLoadingVisits) fetchVisits() },
+      content: (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {visits.length > 0 ? `${visits.length} visita${visits.length !== 1 ? 's' : ''}` : 'Sem visitas agendadas'}
+            </p>
+            <Button variant="outline" size="sm" className="rounded-full" onClick={() => setShowVisitDialog(true)}>
+              <Plus className="mr-1 h-3 w-3" />
+              Nova Visita
+            </Button>
+          </div>
+          {isLoadingVisits ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+            </div>
+          ) : visits.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+              <CalendarDays className="h-8 w-8 text-muted-foreground/20 mb-2" />
+              <p className="text-sm text-muted-foreground">Nenhuma visita agendada</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visits.map((visit, idx) => {
+                const vStatus = VISIT_STATUS_COLORS[visit.status as keyof typeof VISIT_STATUS_COLORS]
+                const visitDate = new Date(`${visit.visit_date}T${visit.visit_time}`)
+                return (
+                  <div
+                    key={visit.id}
+                    onClick={() => router.push(`/dashboard/calendario?event=visit:${visit.id}&date=${visit.visit_date}`)}
+                    className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 flex gap-4 transition-all hover:shadow-md hover:bg-card/80 cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+                    style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                  >
+                    <div className="flex flex-col items-center justify-center w-14 shrink-0 rounded-lg bg-muted/40 p-2">
+                      <span className="text-lg font-bold tabular-nums leading-none">{format(visitDate, 'd', { locale: pt })}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase">{format(visitDate, 'MMM', { locale: pt })}</span>
+                      <span className="text-[11px] font-medium mt-0.5">{visit.visit_time?.slice(0, 5)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{visit.property?.title || 'Imóvel'}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{visit.property?.external_ref && `${visit.property.external_ref} · `}{visit.property?.city}{visit.property?.zone ? `, ${visit.property.zone}` : ''}</p>
+                        </div>
+                        {vStatus && (
+                          <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', vStatus.bg, vStatus.text)}>{vStatus.label}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" /> {visit.duration_minutes} min
+                        {visit.consultant?.commercial_name && (<><span className="text-muted-foreground/30">·</span>{visit.consultant.commercial_name}</>)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ),
+    })
 
     // Seller → Compradores tab
     if (isSellerType) {
@@ -919,75 +1059,156 @@ export default function NegocioDetailPage() {
   const interestedCount = properties.filter(p => p.status === 'interested').length
   const statusStyle = NEGOCIO_ESTADO_COLORS[estado as keyof typeof NEGOCIO_ESTADO_COLORS] || NEGOCIO_ESTADO_COLORS['Aberto']
 
-  // ──── STANDARD VIEW (non-acompanhamento) ────
-  if (!isInAcompanhamento) {
-    return (
-      <div className="space-y-6">
-        {/* Back button */}
-        <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
-          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-        </button>
+  // ──── CONVERGED VIEW ────
+  return (
+    <div className="space-y-6">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
+        <div className="relative z-10">
+          {/* Back */}
+          <button
+            onClick={() => router.push(`/dashboard/leads/${leadId}`)}
+            className="mb-4 -ml-1 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar
+          </button>
 
-        {/* Hero header */}
-        <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
-          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-          <div className="relative z-10">
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <Select value={estado} onValueChange={(v) => saveSidebarField('estado', v)}>
-                    <SelectTrigger className={`${statusStyle.bg} ${statusStyle.text} border-0 rounded-full text-[10px] font-medium h-6 w-auto px-2.5 gap-1 [&>svg]:h-3 [&>svg]:w-3`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot} inline-block shrink-0`} />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NEGOCIO_ESTADO_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="text-neutral-500 text-xs">
-                    desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
-                  </span>
-                </div>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <EstadoPipelineSelector
+                  tipo={tipo}
+                  perspective={tipo === 'Compra e Venda' ? perspective : undefined}
+                  pipelineStageId={(form.pipeline_stage_id as string) || (negocio?.pipeline_stage_id as string | undefined) || null}
+                  fallbackLabel={estado}
+                  onChange={handlePipelineStageChange}
+                />
+                <TemperaturaSelector
+                  value={(form.temperatura as Temperatura) || null}
+                  onChange={handleTemperaturaChange}
+                />
+                <ObservationsButton
+                  observacoes={(form.observacoes as string | null) ?? null}
+                  onSave={handleSaveObservations}
+                />
+                <span className="text-neutral-500 text-xs">
+                  desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
+                </span>
               </div>
+            </div>
 
-              {/* Quick contact */}
-              <div className="hidden sm:flex items-center gap-2">
-                {phone && (
-                  <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                    <Phone className="h-4 w-4" />
-                  </a>
-                )}
-                {phone && (
-                  <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                    <WhatsAppIcon className="h-4 w-4" />
-                  </a>
-                )}
-                {email && (
-                  <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                    <Mail className="h-4 w-4" />
-                  </a>
-                )}
+            {/* Quick contact + AI fill */}
+            <div className="hidden sm:flex items-center gap-2">
+              {phone && (
+                <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all" title="Ligar">
+                  <Phone className="h-4 w-4" />
+                </a>
+              )}
+              {phone && (
+                <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all" title="WhatsApp">
+                  <WhatsAppIcon className="h-4 w-4" />
+                </a>
+              )}
+              {email && (
+                <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all" title="Email">
+                  <Mail className="h-4 w-4" />
+                </a>
+              )}
+              {/* Separator */}
+              <span className="h-6 w-px bg-white/15 mx-1" aria-hidden />
+              {/* AI fill — same shape as contact buttons */}
+              <button
+                type="button"
+                onClick={() => setAiFillOpen(true)}
+                className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                title="Preencher com IA"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Compra e Venda perspective toggle */}
+          {tipo === 'Compra e Venda' && (
+            <div className="mt-4">
+              <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-white/10">
+                <button onClick={() => setPerspective('compra')}
+                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
+                    perspective === 'compra' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
+                  )}
+                >Compra</button>
+                <button onClick={() => setPerspective('venda')}
+                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
+                    perspective === 'venda' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
+                  )}
+                >Venda</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <NegocioDataCard tipo={tipo} negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey}
+        extraTabs={buildMatchingTabs()}
+        onAiFillClick={() => setAiFillOpen(true)}
+      />
+
+      <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
+      <AiFillDialog open={aiFillOpen} onOpenChange={setAiFillOpen} negocioId={negocioId} onApply={handleQuickFillApply} />
+
+      {/* External Link Dialog */}
+      <Dialog open={showExternalDialog} onOpenChange={setShowExternalDialog}>
+        <DialogContent className="sm:max-w-[440px] rounded-2xl">
+          <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2.5 text-white">
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm"><Link2 className="h-4 w-4" /></div>
+                Adicionar Link Externo
+              </DialogTitle>
+              <DialogDescription className="text-neutral-400 mt-1">Imóvel de um portal externo (Idealista, Imovirtual, etc.)</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label className="text-xs font-medium">URL do Imóvel *</Label><Input className="rounded-xl" placeholder="https://www.idealista.pt/imovel/..." value={extUrl} onChange={(e) => setExtUrl(e.target.value)} /></div>
+            <div className="space-y-2"><Label className="text-xs font-medium">Título / Descrição</Label><Input className="rounded-xl" placeholder="T3 em Cascais com vista mar" value={extTitle} onChange={(e) => setExtTitle(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label className="text-xs font-medium">Preço (€)</Label><Input className="rounded-xl" type="number" placeholder="350000" value={extPrice} onChange={(e) => setExtPrice(e.target.value)} /></div>
+              <div className="space-y-2"><Label className="text-xs font-medium">Portal</Label>
+                <Select value={extSource} onValueChange={setExtSource}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="idealista">Idealista</SelectItem><SelectItem value="imovirtual">Imovirtual</SelectItem><SelectItem value="casa_sapo">Casa Sapo</SelectItem><SelectItem value="supercasa">Supercasa</SelectItem><SelectItem value="outro">Outro</SelectItem></SelectContent>
+                </Select>
               </div>
             </div>
           </div>
-        </div>
+          <DialogFooter className="gap-2 mt-2">
+            <Button variant="outline" className="rounded-full" onClick={() => setShowExternalDialog(false)}>Cancelar</Button>
+            <Button className="rounded-full px-6" disabled={!extUrl.trim() || isAddingExternal} onClick={handleAddExternalProperty}>{isAddingExternal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-          <div className="w-full">
-            <NegocioSidebar tipo={tipo} leadName={clientName} createdAt={negocio.created_at} phone={phone} email={email} estado={estado} negocioId={negocioId} onEstadoChange={(v) => saveSidebarField('estado', v)} onQuickFillApply={handleQuickFillApply} onStartAcquisition={() => setAcquisitionDialogOpen(true)} />
+      {/* Schedule Visit Dialog */}
+      <Dialog open={showVisitDialog} onOpenChange={(open) => { if (!open) { setShowVisitDialog(false); setVisitPropertyId(null) } }}>
+        <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl">
+          <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2.5 text-white">
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm"><CalendarDays className="h-4 w-4" /></div>
+                Agendar Visita
+              </DialogTitle>
+              <DialogDescription className="text-neutral-400 mt-1">Agende uma visita para {clientName}</DialogDescription>
+            </DialogHeader>
           </div>
-          <div className="flex-1 min-w-0">
-            <NegocioDataCard tipo={tipo} negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey}
-              extraTabs={buildMatchingTabs()}
-            />
-          </div>
-        </div>
-        <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
+          <VisitForm defaultPropertyId={visitPropertyId || undefined} defaultLeadId={leadId} defaultConsultantId={user?.id} onSubmit={handleCreateVisit} onCancel={() => { setShowVisitDialog(false); setVisitPropertyId(null) }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* legacy buyer detail / external dialog blocks below kept intact */}
 
         {/* Buyer Detail Sheet (own buyers) */}
         <Sheet open={!!selectedBuyer} onOpenChange={(open) => { if (!open) { setSelectedBuyer(null); setBuyerDetail(null) } }}>
@@ -1129,824 +1350,3 @@ export default function NegocioDetailPage() {
       </div>
     )
   }
-
-  // ──── ACOMPANHAMENTO VIEW ────
-  return (
-    <div className="space-y-6">
-      {/* Back button */}
-      <button onClick={() => router.push(`/dashboard/leads/${leadId}`)} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
-        <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao Contacto
-      </button>
-
-      {/* Hero header */}
-      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10">
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">{tipo}</p>
-              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">{clientName}</h1>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Select value={estado} onValueChange={(v) => saveSidebarField('estado', v)}>
-                  <SelectTrigger className={`${statusStyle.bg} ${statusStyle.text} border-0 rounded-full text-[10px] font-medium h-6 w-auto px-2.5 gap-1 [&>svg]:h-3 [&>svg]:w-3`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot} inline-block shrink-0`} />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NEGOCIO_ESTADO_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-neutral-500 text-xs">
-                  desde {format(new Date(negocio.created_at), "d MMM yyyy", { locale: pt })}
-                </span>
-              </div>
-            </div>
-
-            {/* Quick contact */}
-            <div className="hidden sm:flex items-center gap-2">
-              {phone && (
-                <a href={`tel:${phone}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                  <Phone className="h-4 w-4" />
-                </a>
-              )}
-              {phone && (
-                <a href={`https://wa.me/${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                  <WhatsAppIcon className="h-4 w-4" />
-                </a>
-              )}
-              {email && (
-                <a href={`mailto:${email}`} className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                  <Mail className="h-4 w-4" />
-                </a>
-              )}
-            </div>
-
-            {/* Stats — adapt to perspective */}
-            <div className="hidden lg:flex items-center gap-4 ml-4">
-              {(tipo !== 'Compra e Venda' || perspective === 'compra') ? (
-                <>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white tabular-nums">{properties.length}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Imóveis</p>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white/70 tabular-nums">{visitedCount}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Visitados</p>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white/70 tabular-nums">{interestedCount}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Interessados</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white tabular-nums">{vendaStats.visits}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Visitas</p>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white/70 tabular-nums">{vendaStats.interessados}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Interessados</p>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white/70 tabular-nums">{vendaStats.propostas}</p>
-                    <p className="text-[10px] text-neutral-400 uppercase tracking-wider">Propostas</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Compra / Venda perspective toggle — inside the card */}
-          {tipo === 'Compra e Venda' && (
-            <div className="mt-4">
-              <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-white/10">
-                <button onClick={() => setPerspective('compra')}
-                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
-                    perspective === 'compra' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
-                  )}
-                >Compra</button>
-                <button onClick={() => setPerspective('venda')}
-                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
-                    perspective === 'venda' ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
-                  )}
-                >Venda</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ═══ VENDA PERSPECTIVE ═══ */}
-      {tipo === 'Compra e Venda' && perspective === 'venda' && (
-        <VendaPerspective negocio={neg} negocioId={negocioId} leadId={leadId} onStartAcquisition={() => setAcquisitionDialogOpen(true)} onOpenVendaProfile={() => setShowVendaProfileSheet(true)} />
-      )}
-
-      {/* ═══ COMPRA PERSPECTIVE ═══ */}
-      {(tipo !== 'Compra e Venda' || perspective === 'compra') && (
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Perfil de Procura — compact, clickable */}
-          <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 space-y-3 transition-all duration-300 hover:shadow-md cursor-pointer group" onClick={() => setShowProfileSheet(true)}>
-            <div className="flex items-center justify-between">
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Perfil de Procura</h4>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {neg.tipo_imovel && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full">
-                  <Home className="h-2.5 w-2.5" />{neg.tipo_imovel}
-                </span>
-              )}
-              {neg.quartos_min && (
-                <span className="text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full">T{neg.quartos_min}+</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-muted-foreground">Orçamento</p>
-                <p className="text-sm font-bold tabular-nums">{budgetText}</p>
-              </div>
-              {neg.localizacao && (
-                <div className="text-right">
-                  <p className="text-[10px] text-muted-foreground">Localização</p>
-                  <p className="text-xs font-medium truncate max-w-[120px]">{neg.localizacao}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Main content */}
-        <div className="space-y-4">
-          <Tabs defaultValue="properties">
-            <div className="flex items-center justify-between gap-3">
-              <TabsList className="bg-muted/30">
-                <TabsTrigger value="properties" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <Building2 className="h-4 w-4" /> Imóveis
-                  <Badge variant="secondary" className="text-[10px] rounded-full px-1.5 ml-0.5">{properties.length}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="matches" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm" onClick={() => { if (matches.length === 0) fetchMatches() }}>
-                  <Sparkles className="h-4 w-4" /> Matching
-                </TabsTrigger>
-                <TabsTrigger value="visits" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm" onClick={() => { if (visits.length === 0) fetchVisits() }}>
-                  <CalendarDays className="h-4 w-4" /> Visitas
-                  {visits.length > 0 && <Badge variant="secondary" className="text-[10px] rounded-full px-1.5 ml-0.5">{visits.length}</Badge>}
-                </TabsTrigger>
-                {isSellerType && (
-                  <TabsTrigger value="interessados" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm" onClick={() => { if (interessados.length === 0) fetchInteressados() }}>
-                    <Users className="h-4 w-4" /> Interessados
-                    {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length > 0 && (
-                      <Badge variant="secondary" className="text-[10px] rounded-full px-1.5 ml-0.5">
-                        {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                )}
-              </TabsList>
-              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setShowExternalDialog(true)}>
-                <Link2 className="mr-1.5 h-3.5 w-3.5" /> Adicionar Link
-              </Button>
-            </div>
-
-            {/* Properties Tab */}
-            <TabsContent value="properties" className="mt-4">
-              {properties.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Building2 className="h-7 w-7 text-muted-foreground/30" /></div>
-                  <h3 className="text-base font-medium">Nenhum imóvel sugerido</h3>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">Use a tab "Matching" para encontrar imóveis compatíveis ou adicione um link externo.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {properties.map((ap, idx) => {
-                    const isExternal = !ap.property_id && ap.external_url
-                    const p = ap.property
-                    const cover = p?.dev_property_media?.find((m: any) => m.is_cover)?.url || p?.dev_property_media?.[0]?.url
-                    const specs = p?.dev_property_specifications
-                    const propStatus = NEGOCIO_PROPERTY_STATUS[ap.status as keyof typeof NEGOCIO_PROPERTY_STATUS]
-                    const price = isExternal ? ap.external_price : p?.listing_price
-
-                    const consultant = p?.consultant
-                    const consultantName = consultant?.commercial_name
-
-                    return (
-                      <div key={ap.id} className="group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2 cursor-pointer" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
-                        onClick={() => !isExternal && setSelectedProperty(ap)}
-                      >
-                        <div className="flex">
-                          <div className="w-28 shrink-0 relative bg-muted">
-                            {cover ? (
-                              <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                {isExternal ? <Globe className="h-6 w-6 text-muted-foreground/30" /> : <Building2 className="h-6 w-6 text-muted-foreground/30" />}
-                              </div>
-                            )}
-                            {price && (
-                              <div className="absolute bottom-2 left-2">
-                                <span className="inline-flex items-center bg-neutral-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-full">{(Number(price) / 1000).toFixed(0)}k €</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 p-3.5 min-w-0 flex flex-col">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold truncate leading-tight">{isExternal ? (ap.external_title || 'Link Externo') : (p?.title || 'Imóvel')}</p>
-                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                                  {isExternal ? (ap.external_source || 'Portal externo') : [p?.external_ref, p?.city, p?.zone].filter(Boolean).join(' · ')}
-                                </p>
-                              </div>
-                              <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', propStatus?.bg, propStatus?.text)}>{propStatus?.label}</Badge>
-                            </div>
-                            {!isExternal && (
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
-                                {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
-                                {specs?.area_util && <span>{specs.area_util} m²</span>}
-                                {consultantName && <span className="text-foreground/70">· {consultantName}</span>}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1.5 mt-auto">
-                              <Select value={ap.status} onValueChange={(v) => handleUpdatePropertyStatus(ap.id, v)}>
-                                <SelectTrigger className="h-6 rounded-full text-[10px] w-auto px-2 bg-muted/30 border-0"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {Object.entries(NEGOCIO_PROPERTY_STATUS).map(([k, v]) => (
-                                    <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {isExternal ? (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
-                              ) : p?.id && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
-                              )}
-                              {!isExternal && p?.id && (
-                                <Button variant="ghost" size="sm" className="h-6 rounded-full text-[10px] px-2" onClick={() => { setVisitPropertyId(p.id); setShowVisitDialog(true) }}><CalendarDays className="mr-1 h-2.5 w-2.5" />Visita</Button>
-                              )}
-                              {!isExternal && ap.status === 'interested' && p?.id && (
-                                <Button variant="ghost" size="sm" className="h-6 rounded-full text-[10px] px-2" onClick={() => handleStartFinanciamento(p.id)}><Landmark className="mr-1 h-2.5 w-2.5" />Crédito</Button>
-                              )}
-                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground/40 hover:text-destructive ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveProperty(ap.id)}><Trash2 className="h-3 w-3" /></Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Matches Tab */}
-            <TabsContent value="matches" className="mt-4">
-              {isLoadingMatches ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[1, 2, 3, 4].map((i) => (<div key={i} className="rounded-xl border overflow-hidden flex"><Skeleton className="w-28 h-24" /><div className="flex-1 p-3.5 space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-20" /></div></div>))}
-                </div>
-              ) : matches.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Sparkles className="h-7 w-7 text-muted-foreground/30" /></div>
-                  <h3 className="text-base font-medium">Nenhum imóvel compatível</h3>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">Ajuste o perfil de procura para ampliar os resultados.</p>
-                  <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={() => fetchMatches()}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Pesquisar novamente</Button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-muted-foreground">{matches.length} imóveis compatíveis</p>
-                    <div className="flex items-center gap-1.5">
-                      <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches(true)} disabled={isLoadingMatches}>
-                        {isLoadingMatches ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
-                      </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchMatches()}><Sparkles className="mr-1 h-3 w-3" />Actualizar</Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {matches.map((p, idx) => {
-                      const cover = p.dev_property_media?.find((m: any) => m.is_cover)?.url || p.dev_property_media?.[0]?.url
-                      const specs = p.dev_property_specifications
-                      const isAdding = addingPropertyId === p.id
-                      const score = p.match_score as number | null
-                      const scoreColor = score != null
-                        ? score >= 80 ? 'bg-emerald-500 text-white'
-                        : score >= 60 ? 'bg-amber-500 text-white'
-                        : score >= 40 ? 'bg-orange-500 text-white'
-                        : 'bg-red-500 text-white'
-                        : ''
-                      return (
-                        <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
-                          p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
-                          p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
-                          p.price_flag === 'red' && 'ring-2 ring-red-400/60'
-                        )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
-                          <div className="flex">
-                            <div className="w-28 shrink-0 relative bg-muted">
-                              {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
-                              {p.listing_price && (
-                                <div className="absolute bottom-2 left-2">
-                                  <span className={cn('inline-flex items-center backdrop-blur-sm text-[11px] font-bold px-2 py-0.5 rounded-full',
-                                    p.price_flag === 'green' ? 'bg-emerald-900/80 text-emerald-100' :
-                                    p.price_flag === 'yellow' ? 'bg-amber-900/80 text-amber-100' :
-                                    p.price_flag === 'orange' ? 'bg-orange-900/80 text-orange-100' :
-                                    'bg-red-900/80 text-red-100'
-                                  )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
-                                </div>
-                              )}
-                              {score != null && (
-                                <div className="absolute top-2 right-2">
-                                  <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 p-3.5 min-w-0 flex flex-col">
-                              <p className="text-sm font-semibold truncate leading-tight">{p.title}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{[p.external_ref, p.city, p.zone].filter(Boolean).join(' · ')}</p>
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
-                                {specs?.bedrooms && <span>{specs.bedrooms} quartos</span>}
-                                {specs?.area_util && <span>{specs.area_util} m²</span>}
-                              </div>
-                              {p.match_reason && (
-                                <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{p.match_reason}</p>
-                              )}
-                              <div className="mt-auto pt-2">
-                                <Button variant="outline" size="sm" className="h-7 rounded-full text-xs w-full" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
-                                  {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar ao dossier
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </TabsContent>
-
-            {/* Visits Tab */}
-            <TabsContent value="visits" className="mt-4">
-              {isLoadingVisits ? (
-                <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">{selectedVisitDate ? format(selectedVisitDate, "d 'de' MMMM yyyy", { locale: pt }) : `${visits.length} visita${visits.length !== 1 ? 's' : ''}`}</p>
-                    <div className="flex items-center gap-2">
-                      {selectedVisitDate && <button onClick={() => setSelectedVisitDate(undefined)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline">Ver todas</button>}
-                      <Button variant="outline" size="sm" className="rounded-full" onClick={() => setShowVisitDialog(true)}><Plus className="mr-1 h-3 w-3" />Nova Visita</Button>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 flex justify-center">
-                    <Calendar mode="single" selected={selectedVisitDate} onSelect={(d) => setSelectedVisitDate(d || undefined)} locale={pt}
-                      modifiers={{ hasVisit: visits.map(v => new Date(v.visit_date + 'T00:00:00')) }}
-                      modifiersClassNames={{ hasVisit: 'relative after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-blue-500' }}
-                    />
-                  </div>
-                  {(() => {
-                    const filtered = selectedVisitDate ? visits.filter(v => v.visit_date === format(selectedVisitDate, 'yyyy-MM-dd')) : visits
-                    return filtered.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-10 text-center">
-                        <CalendarDays className="h-6 w-6 text-muted-foreground/30 mb-2" />
-                        <p className="text-sm text-muted-foreground">{selectedVisitDate ? 'Sem visitas neste dia' : 'Nenhuma visita agendada'}</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {filtered.map((visit, idx) => {
-                          const vStatus = VISIT_STATUS_COLORS[visit.status as keyof typeof VISIT_STATUS_COLORS]
-                          const visitDate = new Date(`${visit.visit_date}T${visit.visit_time}`)
-                          return (
-                            <div key={visit.id} className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 flex gap-4 transition-all hover:shadow-sm animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
-                              <div className="flex flex-col items-center justify-center w-14 shrink-0 rounded-lg bg-muted/40 p-2">
-                                <span className="text-lg font-bold tabular-nums leading-none">{format(visitDate, 'd', { locale: pt })}</span>
-                                <span className="text-[10px] text-muted-foreground uppercase">{format(visitDate, 'MMM', { locale: pt })}</span>
-                                <span className="text-[11px] font-medium mt-0.5">{visit.visit_time?.slice(0, 5)}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div>
-                                    <p className="text-sm font-semibold truncate">{visit.property?.title || 'Imóvel'}</p>
-                                    <p className="text-[11px] text-muted-foreground">{visit.property?.external_ref && `${visit.property.external_ref} · `}{visit.property?.city}{visit.property?.zone ? `, ${visit.property.zone}` : ''}</p>
-                                  </div>
-                                  <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', vStatus?.bg, vStatus?.text)}>{vStatus?.label}</Badge>
-                                </div>
-                                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" /> {visit.duration_minutes} min
-                                  {visit.consultant?.commercial_name && (<><span className="text-muted-foreground/30">·</span>{visit.consultant.commercial_name}</>)}
-                                </div>
-                                {visit.feedback_rating && (
-                                  <div className="flex items-center gap-1 mt-1.5">
-                                    {[1, 2, 3, 4, 5].map((s) => (<Star key={s} className={`h-3 w-3 ${s <= visit.feedback_rating! ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/20'}`} />))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Interessados Tab */}
-            {isSellerType && (
-            <TabsContent value="interessados" className="mt-4">
-              {isLoadingInteressados ? (
-                <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
-              ) : interessados.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Users className="h-7 w-7 text-muted-foreground/30" /></div>
-                  <h3 className="text-base font-medium">Nenhum interessado encontrado</h3>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">Não existem compradores potenciais registados no sistema.</p>
-                  <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={fetchInteressados}><Users className="mr-1.5 h-3.5 w-3.5" />Pesquisar novamente</Button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-muted-foreground">
-                      {interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length} interessado{interessados.filter(i => !hiddenInteressados.has(i.negocioId)).length !== 1 ? 's' : ''}
-                      {hiddenInteressados.size > 0 && ` · ${hiddenInteressados.size} oculto${hiddenInteressados.size !== 1 ? 's' : ''}`}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {hiddenInteressados.size > 0 && (
-                        <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => setShowHidden(!showHidden)}>
-                          {showHidden ? <EyeOff className="mr-1 h-3 w-3" /> : <Eye className="mr-1 h-3 w-3" />}
-                          {showHidden ? 'Ocultar escondidos' : 'Ver ocultos'}
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados(true)} disabled={isLoadingInteressados}>
-                        {isLoadingInteressados ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Classificar IA
-                      </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => fetchInteressados()}><Users className="mr-1 h-3 w-3" />Actualizar</Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {interessados
-                      .filter(int => showHidden || !hiddenInteressados.has(int.negocioId))
-                      .map((int, idx) => {
-                        const isHidden = hiddenInteressados.has(int.negocioId)
-                        const score = int.match_score as number | null
-                        const scoreColor = score != null
-                          ? score >= 80 ? 'bg-emerald-500 text-white'
-                          : score >= 60 ? 'bg-amber-500 text-white'
-                          : score >= 40 ? 'bg-orange-500 text-white'
-                          : 'bg-red-500 text-white'
-                          : ''
-                        return (
-                          <div
-                            key={int.negocioId}
-                            className={cn(
-                              'rounded-xl border bg-card/50 backdrop-blur-sm px-4 py-3 flex items-center justify-between transition-all duration-300 animate-in fade-in slide-in-from-bottom-2',
-                              isHidden && 'opacity-50'
-                            )}
-                            style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-sm">{int.firstName}</p>
-                                {score != null && (
-                                  <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
-                            <span>Colega: {int.colleague}</span>
-                            {int.stageName && (
-                              <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-muted/60" style={int.stageColor ? { backgroundColor: `${int.stageColor}20`, color: int.stageColor } : undefined}>{int.stageName}</span>
-                            )}
-                          </div>
-                              {int.match_reason && (
-                                <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic truncate">{int.match_reason}</p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {int.phone && (
-                                <a href={`tel:${int.phone}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="Ligar">
-                                  <Phone className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {int.phone && (
-                                <a href={`https://wa.me/351${int.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="WhatsApp">
-                                  <WhatsAppIcon className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {int.email && (
-                                <a href={`mailto:${int.email}`} className="h-8 w-8 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all" title="Email">
-                                  <Mail className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setHiddenInteressados(prev => {
-                                    const next = new Set(prev)
-                                    if (next.has(int.negocioId)) next.delete(int.negocioId)
-                                    else next.add(int.negocioId)
-                                    return next
-                                  })
-                                }}
-                                className={cn(
-                                  'h-8 w-8 rounded-full border border-border/50 flex items-center justify-center transition-all',
-                                  isHidden
-                                    ? 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
-                                    : 'bg-muted/40 text-muted-foreground hover:text-red-500 hover:bg-red-50 hover:border-red-200'
-                                )}
-                                title={isHidden ? 'Mostrar' : 'Ocultar'}
-                              >
-                                {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </>
-              )}
-            </TabsContent>
-            )}
-
-            {/* Form/Data Tab */}
-          </Tabs>
-        </div>
-      </div>
-      )}
-
-      {/* Acquisition Dialog (shared between standard + venda perspective) */}
-      <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
-
-      {/* External Link Dialog */}
-      <Dialog open={showExternalDialog} onOpenChange={setShowExternalDialog}>
-        <DialogContent className="sm:max-w-[440px] rounded-2xl">
-          <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2.5 text-white">
-                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm"><Link2 className="h-4 w-4" /></div>
-                Adicionar Link Externo
-              </DialogTitle>
-              <DialogDescription className="text-neutral-400 mt-1">Imóvel de um portal externo (Idealista, Imovirtual, etc.)</DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2"><Label className="text-xs font-medium">URL do Imóvel *</Label><Input className="rounded-xl" placeholder="https://www.idealista.pt/imovel/..." value={extUrl} onChange={(e) => setExtUrl(e.target.value)} /></div>
-            <div className="space-y-2"><Label className="text-xs font-medium">Título / Descrição</Label><Input className="rounded-xl" placeholder="T3 em Cascais com vista mar" value={extTitle} onChange={(e) => setExtTitle(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label className="text-xs font-medium">Preço (€)</Label><Input className="rounded-xl" type="number" placeholder="350000" value={extPrice} onChange={(e) => setExtPrice(e.target.value)} /></div>
-              <div className="space-y-2"><Label className="text-xs font-medium">Portal</Label>
-                <Select value={extSource} onValueChange={setExtSource}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                  <SelectContent><SelectItem value="idealista">Idealista</SelectItem><SelectItem value="imovirtual">Imovirtual</SelectItem><SelectItem value="casa_sapo">Casa Sapo</SelectItem><SelectItem value="supercasa">Supercasa</SelectItem><SelectItem value="outro">Outro</SelectItem></SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 mt-2">
-            <Button variant="outline" className="rounded-full" onClick={() => setShowExternalDialog(false)}>Cancelar</Button>
-            <Button className="rounded-full px-6" disabled={!extUrl.trim() || isAddingExternal} onClick={handleAddExternalProperty}>{isAddingExternal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Adicionar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Schedule Visit Dialog */}
-      <Dialog open={showVisitDialog} onOpenChange={(open) => { if (!open) { setShowVisitDialog(false); setVisitPropertyId(null) } }}>
-        <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl">
-          <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 rounded-t-2xl px-6 py-5">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2.5 text-white">
-                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm"><CalendarDays className="h-4 w-4" /></div>
-                Agendar Visita
-              </DialogTitle>
-              <DialogDescription className="text-neutral-400 mt-1">Agende uma visita para {clientName}</DialogDescription>
-            </DialogHeader>
-          </div>
-          <VisitForm defaultPropertyId={visitPropertyId || undefined} defaultLeadId={leadId} defaultConsultantId={user?.id} onSubmit={handleCreateVisit} onCancel={() => { setShowVisitDialog(false); setVisitPropertyId(null) }} />
-        </DialogContent>
-      </Dialog>
-
-      {/* Perfil de Procura Sheet — full editable form */}
-      <Sheet open={showProfileSheet} onOpenChange={setShowProfileSheet}>
-        <SheetContent className="!sm:max-w-4xl w-full p-0 flex flex-col gap-0 overflow-hidden">
-          <div className="shrink-0 bg-neutral-900 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center"><Home className="h-5 w-5 text-white" /></div>
-              <div>
-                <SheetHeader className="space-y-0"><SheetTitle className="text-white text-base">Perfil de Procura</SheetTitle></SheetHeader>
-                <p className="text-neutral-400 text-xs mt-0.5">{clientName}</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0 p-5">
-            <NegocioDataCard tipo="Compra" negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Perfil de Venda Sheet — full editable form */}
-      <Sheet open={showVendaProfileSheet} onOpenChange={setShowVendaProfileSheet}>
-        <SheetContent className="!sm:max-w-4xl w-full p-0 flex flex-col gap-0 overflow-hidden">
-          <div className="shrink-0 bg-neutral-900 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center"><Building2 className="h-5 w-5 text-white" /></div>
-              <div>
-                <SheetHeader className="space-y-0"><SheetTitle className="text-white text-base">Perfil de Venda</SheetTitle></SheetHeader>
-                <p className="text-neutral-400 text-xs mt-0.5">{clientName}</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0 p-5">
-            <NegocioDataCard tipo="Venda" negocioId={negocioId} form={form} onFieldChange={updateField} onSave={handleSave} isSaving={isSaving} refreshKey={refreshKey} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* ═══ Property Detail Sheet ═══ */}
-      <Sheet open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
-        <SheetContent className="sm:max-w-lg p-0 flex flex-col gap-0 overflow-y-auto">
-          {selectedProperty?.property && (() => {
-            const sp = selectedProperty.property!
-            const consultant = sp.consultant
-            const profile = consultant?.dev_consultant_profiles
-            const photos = (sp.dev_property_media || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-            const cover = photos.find(m => m.is_cover)?.url || photos[0]?.url
-            const specs = sp.dev_property_specifications
-
-            return (
-              <>
-                {/* Cover image */}
-                <div className="relative h-52 shrink-0 bg-muted">
-                  {cover ? (
-                    <img src={cover} alt={sp.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center"><Building2 className="h-12 w-12 text-muted-foreground/20" /></div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 to-transparent" />
-                  <div className="absolute bottom-4 left-5 right-5">
-                    <SheetHeader className="space-y-0">
-                      <SheetTitle className="text-white text-lg leading-tight">{sp.title}</SheetTitle>
-                    </SheetHeader>
-                    {sp.external_ref && <p className="text-white/60 text-xs mt-0.5">{sp.external_ref}</p>}
-                    <div className="flex items-center gap-2 mt-1.5 text-white/70 text-xs">
-                      {sp.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{[sp.city, sp.zone].filter(Boolean).join(', ')}</span>}
-                    </div>
-                  </div>
-                  {sp.listing_price && (
-                    <div className="absolute top-4 right-4">
-                      <span className="inline-flex items-center bg-white/90 backdrop-blur-sm text-neutral-900 text-sm font-bold px-3 py-1 rounded-full shadow-lg">
-                        {formatCurrency(Number(sp.listing_price))}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-5 space-y-5">
-                  {/* External links */}
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: 'Infinity', url: `https://infinitygroup.pt/property/${sp.id}`, bg: 'bg-neutral-900 dark:bg-white', text: 'text-white dark:text-neutral-900' },
-                      { label: 'RE/MAX', url: sp.external_ref ? `https://www.remax.pt/imoveis/${sp.external_ref}` : null, bg: 'bg-blue-700', text: 'text-white' },
-                    ].filter(l => l.url).map(link => (
-                      <a key={link.label} href={link.url!} target="_blank" rel="noopener noreferrer"
-                        className={cn('inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-all hover:opacity-90 hover:shadow-md', link.bg, link.text)}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {link.label}
-                      </a>
-                    ))}
-                  </div>
-
-                  {/* Specs grid */}
-                  {specs && (
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { label: 'Quartos', value: specs.typology || (specs.bedrooms ? `T${specs.bedrooms}` : null) },
-                        { label: 'WC', value: specs.bathrooms },
-                        { label: 'Área útil', value: specs.area_util ? `${specs.area_util} m²` : null },
-                        { label: 'Área bruta', value: specs.area_gross ? `${specs.area_gross} m²` : null },
-                        { label: 'Estacion.', value: specs.parking_spaces },
-                      ].filter(s => s.value != null).map(s => (
-                        <div key={s.label} className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-3 text-center">
-                          <p className="text-base font-bold">{s.value}</p>
-                          <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Property info */}
-                  <div className="space-y-2.5">
-                    {sp.property_type && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Tipo</span>
-                        <span className="font-medium">{sp.property_type}</span>
-                      </div>
-                    )}
-                    {sp.business_type && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Negócio</span>
-                        <span className="font-medium">{sp.business_type}</span>
-                      </div>
-                    )}
-                    {sp.address_street && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Morada</span>
-                        <span className="font-medium text-right max-w-[60%] truncate">{sp.address_street}</span>
-                      </div>
-                    )}
-                    {sp.postal_code && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Código Postal</span>
-                        <span className="font-medium">{sp.postal_code}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  {sp.description && (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Descrição</p>
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-6">{sp.description}</p>
-                    </div>
-                  )}
-
-                  {/* Features */}
-                  {specs?.features && specs.features.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Características</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {specs.features.map((f, i) => (
-                          <span key={i} className="text-[11px] bg-neutral-100 dark:bg-white/10 rounded-full px-2.5 py-1">{f}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Consultant */}
-                  {consultant && (
-                    <div className="rounded-xl border p-4">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Consultor</p>
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-white/10 overflow-hidden shrink-0">
-                          {profile?.profile_photo_url ? (
-                            <img src={profile.profile_photo_url} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center text-lg font-bold text-muted-foreground">
-                              {(consultant.commercial_name || '?')[0].toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">{consultant.commercial_name}</p>
-                          {consultant.professional_email && <p className="text-xs text-muted-foreground truncate">{consultant.professional_email}</p>}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {profile?.phone_commercial && (
-                            <a href={`tel:${profile.phone_commercial}`} className="h-9 w-9 rounded-full bg-neutral-100 dark:bg-white/10 flex items-center justify-center hover:bg-neutral-200 transition-colors" title="Ligar">
-                              <Phone className="h-4 w-4" />
-                            </a>
-                          )}
-                          {profile?.phone_commercial && (
-                            <a href={`https://wa.me/${profile.phone_commercial.replace(/\D/g, '')}`} target="_blank" className="h-9 w-9 rounded-full bg-emerald-500/15 flex items-center justify-center hover:bg-emerald-500/25 transition-colors text-emerald-700" title="WhatsApp">
-                              <WhatsAppIcon className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Gallery thumbnails */}
-                  {photos.length > 1 && (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fotos ({photos.length})</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {photos.slice(0, 8).map((m, i) => (
-                          <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
-                            <img src={m.url} alt="" className="h-full w-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <Button className="flex-1 rounded-full" onClick={() => { setSelectedProperty(null); router.push(`/dashboard/imoveis/${sp.slug || sp.id}`) }}>
-                      Ver no CRM
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )
-          })()}
-        </SheetContent>
-      </Sheet>
-    </div>
-  )
-}

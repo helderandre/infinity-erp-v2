@@ -2,8 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles } from 'lucide-react'
+import { Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
+import { parseObservations } from '@/components/crm/observations-dialog'
 
 interface KanbanCardProps {
   negocio: any
@@ -41,7 +43,9 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
   const slaOverdue = negocio.sla_overdue ?? false
 
   const tipo = negocio.tipo as string | undefined
-  const isCompraVenda = tipo === 'Compra e Venda'
+  const temperatura = negocio.temperatura as Temperatura | undefined
+  const tempEmoji = temperaturaEmoji(temperatura)
+  const observationsCount = parseObservations(negocio.observacoes as string | null).length
   const tipoImovel = negocio.tipo_imovel as string | null
   const quartosMin = negocio.quartos_min as number | null
   const localizacao = negocio.localizacao as string | null
@@ -84,22 +88,26 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
         slaOverdue && 'border-l-2 border-l-red-400'
       )}
     >
-      {/* Top row: name + tipo tags */}
+      {/* Top row: name + temperatura emoji + observations indicator */}
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm text-foreground leading-snug truncate">
+        <p className="font-semibold text-sm text-foreground leading-snug truncate flex items-center gap-1">
           {contact?.full_name || contact?.nome || 'Sem nome'}
+          {tempEmoji && <span aria-hidden className="text-sm">{tempEmoji}</span>}
         </p>
-        <div className="flex gap-1 shrink-0">
-          {isCompraVenda && (
-            <>
-              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-blue-500/15 text-blue-600">C</span>
-              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-500/15 text-emerald-600">V</span>
-            </>
-          )}
+        <div className="flex items-center gap-1 shrink-0">
           {negocio.origem && (
             <Badge variant="outline" className="text-[9px] h-4 px-1.5 py-0 font-medium rounded-full">
               {SOURCE_LABELS[negocio.origem] || negocio.origem}
             </Badge>
+          )}
+          {observationsCount > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 h-4 text-[9px] font-semibold bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+              title={`${observationsCount} observação${observationsCount === 1 ? '' : 'ões'}`}
+            >
+              <MessageCircle className="h-2.5 w-2.5" />
+              {observationsCount}
+            </span>
           )}
         </div>
       </div>

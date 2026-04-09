@@ -34,6 +34,8 @@ import { ActivityTimeline } from '@/components/crm/activity-timeline'
 import { ContactNegociosList } from '@/components/crm/contact-negocios-list'
 import { AddActivityDialog } from '@/components/crm/add-activity-dialog'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
+import { ObservationsButton } from '@/components/crm/observations-dialog'
+import { TemperaturaSelector, type Temperatura } from '@/components/negocios/temperatura-selector'
 import type { LeadsContactWithRelations, LeadsEntryWithRelations } from '@/types/leads-crm'
 
 // ─────────────────────────────────────────────
@@ -215,6 +217,31 @@ export default function ContactDetailPage() {
     window.location.href = `mailto:${contact.email}`
   }
 
+  // ── Save observações ──────────────────────
+  async function handleSaveObservations(next: string | null) {
+    const res = await fetch(`/api/crm/contacts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ observacoes: next }),
+    })
+    if (!res.ok) throw new Error('Failed to save observations')
+    setContact((prev) => (prev ? { ...prev, observacoes: next, notes: next } : prev))
+  }
+
+  async function handleSaveTemperatura(next: Temperatura) {
+    try {
+      const res = await fetch(`/api/crm/contacts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ temperatura: next }),
+      })
+      if (!res.ok) throw new Error()
+      setContact((prev) => (prev ? { ...prev, temperatura: next } : prev))
+    } catch {
+      toast.error('Erro ao guardar temperatura')
+    }
+  }
+
   // ── Initials ──────────────────────────────
   function getInitials(name: string) {
     return name
@@ -284,6 +311,14 @@ export default function ContactDetailPage() {
                       {stageName}
                     </Badge>
                   )}
+                  <TemperaturaSelector
+                    value={(contact.temperatura as Temperatura) || null}
+                    onChange={handleSaveTemperatura}
+                  />
+                  <ObservationsButton
+                    observacoes={contact.observacoes ?? contact.notes ?? null}
+                    onSave={handleSaveObservations}
+                  />
                   {contact.tags?.map((tag) => (
                     <Badge key={tag} className="rounded-full text-[10px] px-2.5 bg-white/10 text-white/80 border-0">
                       {tag}
@@ -429,14 +464,6 @@ export default function ContactDetailPage() {
             </InfoCard>
           )}
 
-          {/* Notes */}
-          {(contact.observacoes ?? contact.notes) && (
-            <InfoCard title="Notas">
-              <p className="py-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                {contact.observacoes ?? contact.notes}
-              </p>
-            </InfoCard>
-          )}
         </TabsContent>
 
         {/* ── Tab: Negócios ── */}

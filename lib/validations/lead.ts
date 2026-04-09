@@ -95,6 +95,8 @@ export const createNegocioSchema = z.object({
 export const updateNegocioSchema = z.object({
   tipo: z.string().optional(),
   estado: z.string().optional(),
+  pipeline_stage_id: z.string().optional().nullable(),
+  temperatura: z.enum(['Frio', 'Morno', 'Quente']).optional().nullable(),
   observacoes: z.string().optional().nullable(),
   tipo_imovel: z.string().optional().nullable(),
   localizacao: z.string().optional().nullable(),

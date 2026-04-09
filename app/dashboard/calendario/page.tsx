@@ -82,13 +82,30 @@ export default function CalendarioPage() {
     userId: filterUserId,
   })
 
+  // Auto-jump to date from URL param (?date=YYYY-MM-DD) — runs once
+  const dateNavHandled = useRef(false)
+  useEffect(() => {
+    if (dateNavHandled.current) return
+    const dateParam = searchParams.get('date')
+    if (!dateParam) return
+    const parsed = new Date(`${dateParam}T00:00:00`)
+    if (!isNaN(parsed.getTime())) {
+      dateNavHandled.current = true
+      setCurrentDate(parsed)
+    }
+  }, [searchParams])
+
   // Auto-open event from URL param (?event=id)
   useEffect(() => {
     if (deepLinkHandled.current || !events.length) return
     const eventParam = searchParams.get('event')
     if (!eventParam) return
     const found = events.find((e) =>
-      e.id === eventParam || e.id === `manual:${eventParam}` || e.id.replace('manual:', '') === eventParam
+      e.id === eventParam ||
+      e.id === `manual:${eventParam}` ||
+      e.id === `visit:${eventParam}` ||
+      e.id.replace('manual:', '') === eventParam ||
+      e.id.replace('visit:', '') === eventParam
     )
     if (found) {
       deepLinkHandled.current = true

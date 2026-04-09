@@ -31,6 +31,7 @@ const contactBaseSchema = z.object({
   agent_id: z.string().nullable().optional(),
   origem: z.string().nullable().optional(),
   observacoes: z.string().nullable().optional(),
+  temperatura: z.enum(['Frio', 'Morno', 'Quente']).nullable().optional(),
 })
 
 export const createContactSchema = contactBaseSchema.refine(

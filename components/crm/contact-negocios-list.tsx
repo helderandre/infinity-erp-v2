@@ -22,6 +22,21 @@ import {
   derivePipelineTypeFromTipo,
 } from '@/lib/constants-leads-crm'
 import type { LeadsNegocioWithRelations, PipelineType } from '@/types/leads-crm'
+import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
+
+const TIPO_BADGE: Record<string, { bg: string; text: string; label: string }> = {
+  'Compra':         { bg: 'bg-blue-500/15',    text: 'text-blue-700',    label: 'Compra' },
+  'Venda':          { bg: 'bg-emerald-500/15', text: 'text-emerald-700', label: 'Venda' },
+  'Compra e Venda': { bg: 'bg-violet-500/15',  text: 'text-violet-700',  label: 'C+V' },
+  'Arrendatário':   { bg: 'bg-amber-500/15',   text: 'text-amber-700',   label: 'Arrend.' },
+  'Arrendador':     { bg: 'bg-orange-500/15',  text: 'text-orange-700',  label: 'Senhorio' },
+}
+
+const TEMPERATURA_BADGE: Record<string, { bg: string; text: string; label: string }> = {
+  'Frio':   { bg: 'bg-blue-500/15',  text: 'text-blue-700',  label: 'Frio' },
+  'Morno':  { bg: 'bg-amber-500/15', text: 'text-amber-700', label: 'Morno' },
+  'Quente': { bg: 'bg-red-500/15',   text: 'text-red-700',   label: 'Quente' },
+}
 
 interface ContactNegociosListProps {
   contactId: string
@@ -108,9 +123,17 @@ function NegocioCard({
     negocio.pipeline_type ?? derivePipelineTypeFromTipo(negocio.tipo)
   const colors = PIPELINE_TYPE_COLORS[resolvedPipelineType] ?? PIPELINE_TYPE_COLORS.comprador
   const label = PIPELINE_TYPE_LABELS[resolvedPipelineType] ?? resolvedPipelineType
-  const stageName = negocio.pipeline_stage?.name ?? '—'
-  const isTerminal = negocio.pipeline_stage?.is_terminal ?? false
-  const terminalType = negocio.pipeline_stage?.terminal_type
+  // Stage data may be under either `pipeline_stage` or the join alias `leads_pipeline_stages`
+  const stage = negocio.pipeline_stage ?? (negocio as any).leads_pipeline_stages
+  const stageName = stage?.name ?? '—'
+  const stageColor = stage?.color as string | undefined
+  const isTerminal = stage?.is_terminal ?? false
+  const terminalType = stage?.terminal_type
+  const tipo = negocio.tipo as string | undefined
+  const tipoBadge = tipo ? TIPO_BADGE[tipo] : null
+  const temperatura = (negocio as any).temperatura as Temperatura | undefined
+  const tempEmoji = temperaturaEmoji(temperatura)
+  const tempBadge = temperatura ? TEMPERATURA_BADGE[temperatura] : null
 
   const daysInStage = negocio.stage_entered_at
     ? differenceInDays(new Date(), parseISO(negocio.stage_entered_at))
@@ -135,16 +158,41 @@ function NegocioCard({
         {/* Left: pipeline + stage */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
-            <Badge
-              variant="secondary"
-              className={cn('text-xs font-medium', colors.bg, colors.text)}
-            >
-              {label}
-            </Badge>
+            {tipoBadge ? (
+              <Badge
+                variant="secondary"
+                className={cn('text-[10px] font-semibold rounded-full px-2', tipoBadge.bg, tipoBadge.text)}
+              >
+                {tipoBadge.label}
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className={cn('text-xs font-medium', colors.bg, colors.text)}
+              >
+                {label}
+              </Badge>
+            )}
 
-            <span className="text-sm font-semibold text-foreground truncate">
-              {stageName}
-            </span>
+            {tempBadge && (
+              <Badge
+                variant="secondary"
+                className={cn('text-[10px] font-semibold rounded-full px-2 inline-flex items-center gap-1', tempBadge.bg, tempBadge.text)}
+              >
+                {tempEmoji && <span aria-hidden>{tempEmoji}</span>}
+                {tempBadge.label}
+              </Badge>
+            )}
+
+            {stageName && stageName !== '—' && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={stageColor ? { backgroundColor: `${stageColor}22`, color: stageColor } : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
+              >
+                {stageColor && <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />}
+                {stageName}
+              </span>
+            )}
 
             {isTerminal && terminalType === 'won' && (
               <Badge className="bg-emerald-500/15 text-emerald-700 text-xs">

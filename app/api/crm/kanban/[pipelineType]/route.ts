@@ -22,6 +22,9 @@ export async function GET(
     const pipelineType = pt as PipelineType
     const { searchParams } = new URL(request.url)
     const assigned_consultant_id = searchParams.get('assigned_consultant_id')
+    const pipeline_stage_id = searchParams.get('pipeline_stage_id')
+    const temperatura = searchParams.get('temperatura')
+    const search = (searchParams.get('search') || '').trim()
 
     // ── 1. Fetch pipeline stages ──────────────────────────────────────────
 
@@ -41,14 +44,16 @@ export async function GET(
 
     // ── 2. Fetch negócios (qualified deals in the pipeline) ───────────────
 
+    const useInnerLeadJoin = !!search
     let negociosQuery = supabase
       .from('negocios')
       .select(
         `id, lead_id, entry_id, pipeline_stage_id, tipo, expected_value, probability_pct,
          stage_entered_at, won_date, lost_date, orcamento, orcamento_max, tipo_imovel,
+         preco_venda, renda_pretendida, renda_max_mensal,
          quartos_min, localizacao, has_referral, referral_pct, referral_type, referral_side,
-         origem,
-         leads!lead_id(id, nome, telemovel, email, tags),
+         temperatura, observacoes, origem,
+         leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
          dev_users!assigned_consultant_id(id, commercial_name),
          leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days)`
       )
@@ -65,6 +70,15 @@ export async function GET(
 
     if (assigned_consultant_id) {
       negociosQuery = negociosQuery.eq('assigned_consultant_id', assigned_consultant_id)
+    }
+    if (pipeline_stage_id) {
+      negociosQuery = negociosQuery.eq('pipeline_stage_id', pipeline_stage_id)
+    }
+    if (temperatura) {
+      negociosQuery = negociosQuery.eq('temperatura', temperatura)
+    }
+    if (search) {
+      negociosQuery = negociosQuery.ilike('leads.nome', `%${search}%`)
     }
 
     const { data: negocios, error: negociosError } = await negociosQuery
@@ -97,21 +111,44 @@ export async function GET(
 
     // ── 4. Build columns (negocios only) ─────────────────────────────────
 
+    // Commission formula:
+    //   sale (comprador / vendedor):       value × 0.05 × 0.5
+    //   rental (arrendatario / arrendador): value × 1.5  × 0.5
+    const isRental = pipelineType === 'arrendatario' || pipelineType === 'arrendador'
+    const commissionFactor = isRental ? 1.5 * 0.5 : 0.05 * 0.5
+
+    const negocioValue = (n: any): number => {
+      // Best-effort: use expected_value when present, otherwise fall back to
+      // the most relevant per-tipo field captured in the form.
+      if (typeof n.expected_value === 'number' && n.expected_value > 0) return n.expected_value
+      if (isRental) {
+        return Number(n.renda_pretendida) || Number(n.renda_max_mensal) || 0
+      }
+      return Number(n.preco_venda) || Number(n.orcamento_max) || Number(n.orcamento) || 0
+    }
+
     let totalExpectedValue = 0
     let totalWeightedValue = 0
+    let totalExpectedCommission = 0
+    let totalWeightedCommission = 0
 
     const columns = (stages ?? []).map((stage) => {
       const items = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
 
-      const total_value = items.reduce((sum, n) => sum + (n.expected_value ?? 0), 0)
+      const total_value = items.reduce((sum, n) => sum + negocioValue(n), 0)
       const weighted_value = items.reduce(
-        (sum, n) => sum + (n.expected_value ?? 0) * ((n.probability_pct ?? stage.probability_pct ?? 0) / 100),
+        (sum, n) => sum + negocioValue(n) * ((n.probability_pct ?? stage.probability_pct ?? 0) / 100),
         0
       )
+
+      const total_commission = total_value * commissionFactor
+      const weighted_commission = weighted_value * commissionFactor
 
       if (!stage.is_terminal) {
         totalExpectedValue += total_value
         totalWeightedValue += weighted_value
+        totalExpectedCommission += total_commission
+        totalWeightedCommission += weighted_commission
       }
 
       return {
@@ -120,6 +157,8 @@ export async function GET(
         count: items.length,
         total_value,
         weighted_value,
+        total_commission,
+        weighted_commission,
       }
     })
 
@@ -130,6 +169,8 @@ export async function GET(
         negocios: filteredNegocios.length,
         expected_value: totalExpectedValue,
         weighted_value: totalWeightedValue,
+        expected_commission: totalExpectedCommission,
+        weighted_commission: totalWeightedCommission,
       },
     })
   } catch (err) {

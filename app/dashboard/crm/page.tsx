@@ -20,26 +20,26 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
-  Clock,
-  Star,
-  UserCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
   PIPELINE_TYPE_LABELS,
-  PIPELINE_TYPE_COLORS,
 } from '@/lib/constants-leads-crm'
-import { NEGOCIO_ESTADO_COLORS, VISIT_STATUS_COLORS } from '@/lib/constants'
 import type { PipelineType } from '@/types/leads-crm'
-import type { VisitWithRelations } from '@/types/visit'
+import { ObservationsButton } from '@/components/crm/observations-dialog'
+import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -66,6 +66,8 @@ interface SummaryData {
   negocios: number
   expected_value: number
   weighted_value: number
+  expected_commission: number
+  weighted_commission: number
 }
 
 function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
@@ -85,9 +87,9 @@ function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
   }, [pipelineType])
 
   const stats = [
-    { icon: Briefcase, label: 'Negocios activos', value: loading ? null : String(data?.negocios ?? 0) },
-    { icon: Euro, label: 'Valor total', value: loading ? null : formatEUR(data?.expected_value ?? 0) },
-    { icon: TrendingUp, label: 'Valor ponderado', value: loading ? null : formatEUR(data?.weighted_value ?? 0) },
+    { icon: Briefcase, label: 'Negócios activos', value: loading ? null : String(data?.negocios ?? 0) },
+    { icon: Euro, label: 'Comissão prevista', value: loading ? null : formatEUR(data?.expected_commission ?? 0) },
+    { icon: TrendingUp, label: 'Comissão ponderada', value: loading ? null : formatEUR(data?.weighted_commission ?? 0) },
   ]
 
   return (
@@ -109,21 +111,28 @@ function SummaryBar({ pipelineType }: { pipelineType: PipelineType }) {
   )
 }
 
-// ─── Acompanhamentos List View ───────────────────────────────────────────────
+// ─── Pipeline List View ──────────────────────────────────────────────────────
 
-interface NegocioAcomp {
+interface NegocioRow {
   id: string
   lead_id: string
   tipo: string
   estado: string
+  pipeline_stage_id: string | null
+  temperatura: Temperatura | null
+  observacoes: string | null
   orcamento: number | null
   orcamento_max: number | null
+  preco_venda: number | null
   localizacao: string | null
   tipo_imovel: string | null
   quartos_min: number | null
-  credito_pre_aprovado: boolean | null
-  financiamento_necessario: boolean | null
   created_at: string
+  leads_pipeline_stages?: {
+    id: string
+    name: string
+    color: string | null
+  } | null
   lead?: {
     id: string
     nome: string
@@ -135,29 +144,62 @@ interface NegocioAcomp {
   } | null
 }
 
-function AcompanhamentosView() {
+const TEMP_BADGE_LIST: Record<string, { color: string; label: string }> = {
+  'Frio':   { color: '#3b82f6', label: 'Frio' },
+  'Morno':  { color: '#f59e0b', label: 'Morno' },
+  'Quente': { color: '#ef4444', label: 'Quente' },
+}
+
+interface PipelineStageOption {
+  id: string
+  name: string
+  color: string | null
+  order_index: number
+}
+
+interface ConsultantOption {
+  id: string
+  commercial_name: string
+}
+
+interface CrmFilters {
+  search: string
+  pipelineStageId: string
+  temperatura: string
+  consultantId: string
+}
+
+function NegociosListView({
+  pipelineType,
+  filters,
+}: {
+  pipelineType: PipelineType
+  filters: CrmFilters
+}) {
   const router = useRouter()
-  const [negocios, setNegocios] = useState<NegocioAcomp[]>([])
+  const [negocios, setNegocios] = useState<NegocioRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('Em Acompanhamento')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const limit = 20
+  const limit = 30
 
-  // Visits
-  const [visits, setVisits] = useState<VisitWithRelations[]>([])
-  const [isLoadingVisits, setIsLoadingVisits] = useState(false)
+  // Reset to first page when pipeline type or any filter changes
+  useEffect(() => { setPage(1) }, [pipelineType, filters.search, filters.pipelineStageId, filters.temperatura, filters.consultantId])
 
   const fetchNegocios = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) })
-      params.set('tipo', 'Compra')
-      if (statusFilter) params.set('estado', statusFilter)
-      if (search) params.set('search', search)
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(limit),
+        pipeline_type: pipelineType,
+      })
+      if (filters.search) params.set('search', filters.search)
+      if (filters.pipelineStageId) params.set('pipeline_stage_id', filters.pipelineStageId)
+      if (filters.temperatura) params.set('temperatura', filters.temperatura)
+      if (filters.consultantId) params.set('assigned_consultant_id', filters.consultantId)
 
-      const res = await fetch(`/api/negocios?${params.toString()}`)
+      const res = await fetch(`/api/crm/negocios?${params.toString()}`)
       if (res.ok) {
         const json = await res.json()
         setNegocios(json.data || [])
@@ -165,212 +207,162 @@ function AcompanhamentosView() {
       }
     } catch { setNegocios([]) }
     finally { setIsLoading(false) }
-  }, [page, statusFilter, search])
-
-  const fetchVisits = useCallback(async () => {
-    setIsLoadingVisits(true)
-    try {
-      const res = await fetch('/api/visits?upcoming=true&limit=50')
-      if (res.ok) { const json = await res.json(); setVisits(json.data || []) }
-    } catch { setVisits([]) }
-    finally { setIsLoadingVisits(false) }
-  }, [])
+  }, [page, pipelineType, filters.search, filters.pipelineStageId, filters.temperatura, filters.consultantId])
 
   useEffect(() => { fetchNegocios() }, [fetchNegocios])
 
   const totalPages = Math.ceil(total / limit)
-  const statusFilters = [
-    { value: 'Em Acompanhamento', label: 'Em Acompanhamento' },
-    { value: 'Proposta', label: 'Proposta' },
-    { value: 'Perdido', label: 'Perdido' },
-    { value: '', label: 'Todos' },
-  ]
 
-  const navigateToNegocio = (n: NegocioAcomp) => {
+  const navigateToNegocio = (n: NegocioRow) => {
     router.push(`/dashboard/leads/${n.lead_id}/negocios/${n.id}`)
   }
 
+  const handleSaveObservations = useCallback(async (negocioId: string, next: string | null) => {
+    const res = await fetch(`/api/negocios/${negocioId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ observacoes: next }),
+    })
+    if (!res.ok) throw new Error('Failed to save')
+    setNegocios((prev) => prev.map((n) => (n.id === negocioId ? { ...n, observacoes: next } : n)))
+  }, [])
+
   return (
     <div className="space-y-4">
-      {/* Sub-tabs: Acompanhamentos + Visitas */}
-      <Tabs defaultValue="acompanhamentos">
-        <TabsList className="bg-transparent gap-1.5 h-auto p-0 overflow-x-auto pb-1 scrollbar-none">
-          {[
-            { key: 'acompanhamentos', label: 'Acompanhamentos', icon: UserCheck },
-            { key: 'visitas', label: 'Visitas Agendadas', icon: CalendarDays },
-          ].map((tab) => {
-            const Icon = tab.icon
-            return (
-              <TabsTrigger
-                key={tab.key}
-                value={tab.key}
-                className={cn(
-                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors shrink-0',
-                  'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
-                  'bg-muted/50 text-muted-foreground hover:bg-muted'
-                )}
-                onClick={() => { if (tab.key === 'visitas' && visits.length === 0) fetchVisits() }}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </TabsTrigger>
-            )
-          })}
-        </TabsList>
-
-        {/* ─── Acompanhamentos Tab ─── */}
-        <TabsContent value="acompanhamentos" className="mt-4 space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Pesquisar por nome, zona..."
-                className="pl-9 rounded-full"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              />
-              {search && (
-                <button onClick={() => { setSearch(''); setPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Status pills */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-              {statusFilters.map((sf) => (
-                <button
-                  key={sf.value}
-                  onClick={() => { setStatusFilter(sf.value); setPage(1) }}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
-                    statusFilter === sf.value
-                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                >
-                  {sf.label}
-                </button>
-              ))}
-            </div>
-
-          </div>
-
-          {/* List */}
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
-            </div>
-          ) : negocios.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><UserCheck className="h-8 w-8 text-muted-foreground/30" /></div>
-              <h3 className="text-lg font-medium">Nenhum acompanhamento encontrado</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md">Inicie um acompanhamento a partir de um negócio de compra no detalhe do lead.</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Procura</TableHead>
-                    <TableHead>Orçamento</TableHead>
-                    <TableHead>Localização</TableHead>
-                    <TableHead>Crédito</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Data</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {negocios.map((n) => {
-                    const clientName = n.lead?.nome || n.lead?.full_name || '—'
-                    const statusStyle = NEGOCIO_ESTADO_COLORS[n.estado as keyof typeof NEGOCIO_ESTADO_COLORS]
-                    const budget = n.orcamento ? `${(n.orcamento/1000).toFixed(0)}k€` : '—'
-                    return (
-                      <TableRow key={n.id} className="cursor-pointer hover:bg-muted/30" onClick={() => navigateToNegocio(n)}>
-                        <TableCell className="font-medium">{clientName}</TableCell>
-                        <TableCell className="text-sm">{[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}</TableCell>
-                        <TableCell className="text-sm tabular-nums">{budget}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
-                        <TableCell>
-                          {n.credito_pre_aprovado ? <Badge variant="secondary" className="text-[9px] rounded-full">Aprovado</Badge> : n.financiamento_necessario ? <Badge variant="outline" className="text-[9px] rounded-full">Necessário</Badge> : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {statusStyle && <Badge className={cn('rounded-full text-[9px] px-2 border-0', statusStyle.bg, statusStyle.text)}>{statusStyle.label}</Badge>}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-4">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm text-muted-foreground">Página {page} de {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded-full"><ChevronRight className="h-4 w-4" /></Button>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ─── Visitas Tab ─── */}
-        <TabsContent value="visitas" className="mt-4">
-          {isLoadingVisits ? (
-            <div className="space-y-3">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-          ) : visits.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-              <CalendarDays className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="text-base font-medium">Sem visitas agendadas</h3>
-              <p className="text-xs text-muted-foreground mt-1">As visitas agendadas nos acompanhamentos aparecerão aqui.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {visits.map((visit, idx) => {
-                const vStatus = VISIT_STATUS_COLORS[visit.status as keyof typeof VISIT_STATUS_COLORS]
-                const visitDate = new Date(`${visit.visit_date}T${visit.visit_time}`)
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+        </div>
+      ) : negocios.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Briefcase className="h-8 w-8 text-muted-foreground/30" /></div>
+          <h3 className="text-lg font-medium">Nenhum negócio neste pipeline</h3>
+          <p className="text-sm text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Temperatura</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Procura</TableHead>
+                <TableHead>Orçamento</TableHead>
+                <TableHead>Localização</TableHead>
+                <TableHead>Consultor</TableHead>
+                <TableHead className="text-center">Obs.</TableHead>
+                <TableHead>Data</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {negocios.map((n) => {
+                const clientName = n.lead?.nome || n.lead?.full_name || '—'
+                const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
+                const tempEmoji = temperaturaEmoji(n.temperatura)
+                const stage = n.leads_pipeline_stages
+                const stageName = stage?.name || n.estado || '—'
+                const stageColor = stage?.color || '#64748b'
+                const budget = n.orcamento
+                  ? `${(n.orcamento / 1000).toFixed(0)}k€`
+                  : n.preco_venda
+                    ? `${(n.preco_venda / 1000).toFixed(0)}k€`
+                    : '—'
                 return (
-                  <div key={visit.id} className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 flex gap-4 transition-all hover:shadow-sm animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
-                    <div className="flex flex-col items-center justify-center w-14 shrink-0 rounded-lg bg-muted/40 p-2">
-                      <span className="text-lg font-bold tabular-nums leading-none">{format(visitDate, 'd', { locale: pt })}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase">{format(visitDate, 'MMM', { locale: pt })}</span>
-                      <span className="text-[11px] font-medium mt-0.5">{visit.visit_time?.slice(0, 5)}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold truncate">{visit.property?.title || 'Imóvel'}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {visit.lead?.name || visit.client_name || 'Cliente'}
-                            {visit.property?.city && ` · ${visit.property.city}`}
-                          </p>
-                        </div>
-                        <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', vStatus?.bg, vStatus?.text)}>{vStatus?.label}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" /> {visit.duration_minutes} min
-                        {visit.consultant?.commercial_name && (<><span className="text-muted-foreground/30">·</span>{visit.consultant.commercial_name}</>)}
-                      </div>
-                      {visit.feedback_rating && (
-                        <div className="flex items-center gap-1 mt-1.5">
-                          {[1, 2, 3, 4, 5].map((s) => (<Star key={s} className={`h-3 w-3 ${s <= visit.feedback_rating! ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/20'}`} />))}
-                        </div>
+                  <TableRow
+                    key={n.id}
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => navigateToNegocio(n)}
+                  >
+                    <TableCell className="font-medium">{clientName}</TableCell>
+                    <TableCell>
+                      {tempBadge ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ backgroundColor: `${tempBadge.color}26`, color: tempBadge.color }}
+                        >
+                          {tempEmoji && <span aria-hidden>{tempEmoji}</span>}
+                          {tempBadge.label}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </div>
-                  </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
+                      >
+                        <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
+                        {stageName}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">{[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}</TableCell>
+                    <TableCell className="text-sm tabular-nums">{budget}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{n.lead?.agent?.commercial_name || '—'}</TableCell>
+                    <TableCell
+                      className="text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ObservationsCell
+                        observacoes={n.observacoes}
+                        onSave={(next) => handleSaveObservations(n.id, next)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
+                  </TableRow>
                 )
               })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="text-sm text-muted-foreground">Página {page} de {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded-full"><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      )}
     </div>
   )
 }
+
+// ─── Observations cell ───────────────────────────────────────────────────────
+
+function ObservationsCell({
+  observacoes,
+  onSave,
+}: {
+  observacoes: string | null
+  onSave: (next: string | null) => Promise<void>
+}) {
+  // The ObservationsButton already shows a clickable chip with count badge.
+  // We re-use it but render only the icon variant via a thin wrapper here.
+  // If there are no observations, render a faded chat icon (still clickable to add).
+  return (
+    <div className="inline-flex items-center justify-center">
+      <ObservationsCellInner observacoes={observacoes} onSave={onSave} />
+    </div>
+  )
+}
+
+function ObservationsCellInner({
+  observacoes,
+  onSave,
+}: {
+  observacoes: string | null
+  onSave: (next: string | null) => Promise<void>
+}) {
+  // Reuse the existing ObservationsButton (white pill with count) — but in the
+  // table cell context. The count badge already conveys whether there are obs.
+  return <ObservationsButton observacoes={observacoes} onSave={onSave} />
+}
+
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -379,20 +371,84 @@ export default function CRMPage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
 
+  // Shared filters across kanban + list
+  const [filters, setFilters] = useState<CrmFilters>({
+    search: '',
+    pipelineStageId: '',
+    temperatura: '',
+    consultantId: '',
+  })
+
+  // Stage list for the active pipeline + consultants list
+  const [stages, setStages] = useState<PipelineStageOption[]>([])
+  const [consultants, setConsultants] = useState<ConsultantOption[]>([])
+
+  // Reset stage filter when pipeline tab changes (stage ids are pipeline-scoped)
+  useEffect(() => {
+    setFilters((f) => ({ ...f, pipelineStageId: '' }))
+  }, [activeTab])
+
+  // Load stages for the active pipeline
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/crm/pipeline-stages?pipeline_type=${activeTab}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PipelineStageOption[]) => {
+        if (!cancelled) setStages((data || []).sort((a, b) => a.order_index - b.order_index))
+      })
+      .catch(() => !cancelled && setStages([]))
+    return () => { cancelled = true }
+  }, [activeTab])
+
+  // Load consultants once
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/users/consultants')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: ConsultantOption[]) => {
+        if (!cancelled) setConsultants(data || [])
+      })
+      .catch(() => !cancelled && setConsultants([]))
+    return () => { cancelled = true }
+  }, [])
+
+  const hasActiveFilters = !!(filters.search || filters.pipelineStageId || filters.temperatura || filters.consultantId)
+  const clearFilters = () => setFilters({ search: '', pipelineStageId: '', temperatura: '', consultantId: '' })
+
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero — title + pipeline tabs inside */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
+        <div className="relative z-10 px-8 py-8 sm:px-10 sm:py-10">
           <div className="flex items-center gap-2 mb-2">
             <KanbanIcon className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Pipeline</p>
+            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">CRM</p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">CRM</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Gestao de negocios e pipeline de vendas, compras e arrendamentos.
-          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
+
+          {/* Pipeline type tabs (inside the hero) */}
+          <div className="mt-5 inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15">
+            {PIPELINE_TYPES.map((type) => {
+              const Icon = PIPELINE_ICONS[type]
+              const isActive = activeTab === type
+              return (
+                <button
+                  key={type}
+                  onClick={() => setActiveTab(type)}
+                  className={cn(
+                    'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
+                    isActive
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {PIPELINE_TYPE_LABELS[type]}
+                </button>
+              )
+            })}
+          </div>
         </div>
         <Button
           size="sm"
@@ -404,40 +460,98 @@ export default function CRMPage() {
         </Button>
       </div>
 
-      {/* Tabs + Summary + View Toggle */}
+      {/* Below the card: predicted commissions (left) + filters/view-toggle (right) */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Pipeline type tabs */}
-        <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
-          {PIPELINE_TYPES.map((type) => {
-            const Icon = PIPELINE_ICONS[type]
-            const isActive = activeTab === type
-            return (
-              <button
-                key={type}
-                onClick={() => setActiveTab(type)}
-                className={cn(
-                  'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
-                  isActive
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {PIPELINE_TYPE_LABELS[type]}
-              </button>
-            )
-          })}
-        </div>
+        <SummaryBar pipelineType={activeTab} />
 
-        <div className="flex items-center gap-3">
-          {viewMode === 'kanban' && <SummaryBar pipelineType={activeTab} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+          <div className="relative w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome..."
+              className="pl-9 rounded-full h-9"
+              value={filters.search}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+            />
+            {filters.search && (
+              <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Estado / pipeline stage */}
+          <Select
+            value={filters.pipelineStageId || 'all'}
+            onValueChange={(v) => setFilters((f) => ({ ...f, pipelineStageId: v === 'all' ? '' : v }))}
+          >
+            <SelectTrigger className="h-9 w-auto min-w-[150px] rounded-full text-xs">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os estados</SelectItem>
+              {stages.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                    {s.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Temperatura */}
+          <Select
+            value={filters.temperatura || 'all'}
+            onValueChange={(v) => setFilters((f) => ({ ...f, temperatura: v === 'all' ? '' : v }))}
+          >
+            <SelectTrigger className="h-9 w-auto min-w-[140px] rounded-full text-xs">
+              <SelectValue placeholder="Temperatura" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer temperatura</SelectItem>
+              <SelectItem value="Frio">❄️ Frio</SelectItem>
+              <SelectItem value="Morno">🌤️ Morno</SelectItem>
+              <SelectItem value="Quente">🔥 Quente</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Consultor */}
+          <Select
+            value={filters.consultantId || 'all'}
+            onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
+          >
+            <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-full text-xs">
+              <SelectValue placeholder="Consultor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os consultores</SelectItem>
+              {consultants.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="rounded-full text-xs h-9 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Limpar
+            </Button>
+          )}
 
           {/* View mode toggle */}
-          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm ml-1">
             <button
               onClick={() => setViewMode('kanban')}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
                 viewMode === 'kanban'
                   ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                   : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -449,7 +563,7 @@ export default function CRMPage() {
             <button
               onClick={() => setViewMode('list')}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
                 viewMode === 'list'
                   ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                   : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -464,9 +578,9 @@ export default function CRMPage() {
 
       {/* Content */}
       {viewMode === 'kanban' ? (
-        <KanbanBoard pipelineType={activeTab} />
+        <KanbanBoard pipelineType={activeTab} filters={filters} />
       ) : (
-        <AcompanhamentosView />
+        <NegociosListView pipelineType={activeTab} filters={filters} />
       )}
 
       <CsvExportDialog

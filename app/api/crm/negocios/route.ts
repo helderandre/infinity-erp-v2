@@ -9,6 +9,9 @@ export async function GET(request: Request) {
 
     const pipeline_type = searchParams.get('pipeline_type')
     const assigned_consultant_id = searchParams.get('assigned_consultant_id')
+    const pipeline_stage_id = searchParams.get('pipeline_stage_id')
+    const temperatura = searchParams.get('temperatura')
+    const search = (searchParams.get('search') || '').trim()
     const contact_id = searchParams.get('contact_id') || searchParams.get('lead_id')
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
     const per_page = Math.min(200, Math.max(1, parseInt(searchParams.get('per_page') ?? '50', 10)))
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('negocios')
       .select(
-        `*, leads_pipeline_stages!pipeline_stage_id(*), leads!lead_id(id, nome, email, telemovel, tags), dev_users!assigned_consultant_id(id, commercial_name), dev_properties!property_id(id, title, external_ref, city, listing_price)`,
+        `*, leads_pipeline_stages!pipeline_stage_id(*), leads!lead_id!inner(id, nome, email, telemovel, tags), dev_users!assigned_consultant_id(id, commercial_name), dev_properties!property_id(id, title, external_ref, city, listing_price)`,
         { count: 'exact' }
       )
       .order('created_at', { ascending: false })
@@ -37,7 +40,10 @@ export async function GET(request: Request) {
       }
     }
     if (assigned_consultant_id) query = query.eq('assigned_consultant_id', assigned_consultant_id)
+    if (pipeline_stage_id) query = query.eq('pipeline_stage_id', pipeline_stage_id)
+    if (temperatura) query = query.eq('temperatura', temperatura)
     if (contact_id) query = query.eq('lead_id', contact_id)
+    if (search) query = query.ilike('leads.nome', `%${search}%`)
 
     const { data, error, count } = await query
 

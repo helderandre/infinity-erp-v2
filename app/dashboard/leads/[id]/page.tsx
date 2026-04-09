@@ -509,110 +509,123 @@ export default function LeadDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {negocios.map((neg, idx) => {
                     const tipo = neg.tipo as string
-                    const isCompra = tipo === 'Compra' || tipo === 'Compra e Venda'
-                    const isVenda = tipo === 'Venda' || tipo === 'Compra e Venda'
-                    const isArrendatario = tipo === 'Arrendatário'
-                    const isArrendador = tipo === 'Arrendador'
 
-                    const tipoBg = isCompra && isVenda
-                      ? 'from-blue-600 to-emerald-600'
-                      : isCompra ? 'from-blue-600 to-blue-700'
-                      : isVenda ? 'from-emerald-600 to-emerald-700'
-                      : isArrendatario ? 'from-violet-600 to-violet-700'
-                      : isArrendador ? 'from-amber-600 to-amber-700'
-                      : 'from-slate-600 to-slate-700'
-
-                    const tipoLabel = tipo === 'Compra e Venda'
-                      ? 'Compra & Venda'
-                      : tipo
-
-                    const estadoColors: Record<string, { dot: string; bg: string; text: string }> = {
-                      'Aberto': { dot: 'bg-sky-400', bg: 'bg-sky-400/15', text: 'text-sky-100' },
-                      'Em Acompanhamento': { dot: 'bg-yellow-400', bg: 'bg-yellow-400/15', text: 'text-yellow-100' },
-                      'Em progresso': { dot: 'bg-blue-400', bg: 'bg-blue-400/15', text: 'text-blue-100' },
-                      'Proposta': { dot: 'bg-orange-400', bg: 'bg-orange-400/15', text: 'text-orange-100' },
-                      'Fechado': { dot: 'bg-emerald-400', bg: 'bg-emerald-400/15', text: 'text-emerald-100' },
-                      'Cancelado': { dot: 'bg-red-400', bg: 'bg-red-400/15', text: 'text-red-100' },
-                      'Perdido': { dot: 'bg-red-400', bg: 'bg-red-400/15', text: 'text-red-100' },
+                    const TIPO_TAG: Record<string, { color: string; label: string }> = {
+                      'Compra':         { color: '#3b82f6', label: 'Compra' },
+                      'Venda':          { color: '#10b981', label: 'Venda' },
+                      'Compra e Venda': { color: '#8b5cf6', label: 'C+V' },
+                      'Arrendatário':   { color: '#f59e0b', label: 'Arrendat.' },
+                      'Arrendador':     { color: '#fb923c', label: 'Senhorio' },
                     }
-                    const ec = estadoColors[(neg.estado as string) || ''] || { dot: 'bg-slate-400', bg: 'bg-white/10', text: 'text-white/70' }
+                    const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo }
+
+                    const TEMP_TAG: Record<string, { color: string; emoji: string; label: string }> = {
+                      'Frio':   { color: '#3b82f6', emoji: '❄️', label: 'Frio' },
+                      'Morno':  { color: '#f59e0b', emoji: '🌤️', label: 'Morno' },
+                      'Quente': { color: '#ef4444', emoji: '🔥', label: 'Quente' },
+                    }
+                    const tempTag = neg.temperatura ? TEMP_TAG[neg.temperatura as string] : null
+
+                    // Pipeline stage join (may come back as `leads_pipeline_stages` from the join)
+                    const stage = (neg as any).leads_pipeline_stages || (neg as any).pipeline_stage
+                    const stageName = (stage?.name as string) || (neg.estado as string) || 'Contactado'
+                    const stageColor = (stage?.color as string) || '#64748b'
 
                     return (
                       <div
                         key={neg.id as string}
                         onClick={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
                         className={cn(
-                          'group relative overflow-hidden rounded-2xl cursor-pointer',
-                          'transition-all duration-300 hover:shadow-2xl hover:scale-[1.02]',
+                          'group relative rounded-2xl border-2 border-border bg-card cursor-pointer p-5',
+                          'transition-all duration-300 hover:shadow-md hover:border-foreground/20',
                           'animate-in fade-in slide-in-from-bottom-2',
                         )}
                         style={{ animationDelay: `${idx * 50}ms`, animationFillMode: 'backwards' }}
                       >
-                        {/* Gradient background */}
-                        <div className={cn('absolute inset-0 bg-gradient-to-br opacity-90', tipoBg)} />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-
-                        <div className="relative z-10 p-5">
-                          {/* Top: tipo + estado + delete */}
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-sm text-white px-3 py-1 text-[11px] font-semibold">
-                                <Briefcase className="h-3 w-3" />
-                                {tipoLabel}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium', ec.bg, ec.text)}>
-                                <span className={cn('h-1.5 w-1.5 rounded-full', ec.dot)} />
-                                {(neg.estado as string) || 'Aberto'}
-                              </span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
-                                className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-white/20 text-white/30 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                        {/* Top: tipo + temperatura + estado + delete */}
+                        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
+                              style={{
+                                backgroundColor: `${tipoTag.color}26`,
+                                color: tipoTag.color,
+                                ['--tw-ring-color' as any]: `${tipoTag.color}55`,
+                              }}
+                            >
+                              <Briefcase className="h-3 w-3" />
+                              {tipoTag.label}
+                            </span>
+                            {tempTag && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
+                                style={{
+                                  backgroundColor: `${tempTag.color}26`,
+                                  color: tempTag.color,
+                                  ['--tw-ring-color' as any]: `${tempTag.color}55`,
+                                }}
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Middle: criteria pills */}
-                          <div className="flex flex-wrap gap-1.5 mb-4">
-                            {!!neg.tipo_imovel && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                                {neg.tipo_imovel as string}
+                                <span aria-hidden className="text-xs leading-none">{tempTag.emoji}</span>
+                                {tempTag.label}
                               </span>
                             )}
-                            {!!neg.quartos_min && (
-                              <span className="text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm">T{neg.quartos_min as number}+</span>
-                            )}
-                            {!!neg.localizacao && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-white/15 text-white/90 px-2.5 py-1 rounded-full backdrop-blur-sm truncate max-w-[160px]">
-                                {neg.localizacao as string}
-                              </span>
-                            )}
-                            {!neg.tipo_imovel && !neg.quartos_min && !neg.localizacao && (
-                              <span className="text-[11px] text-white/40 italic">Sem criterios definidos</span>
-                            )}
+                            <span
+                              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
+                              style={{
+                                backgroundColor: `${stageColor}26`,
+                                color: stageColor,
+                                ['--tw-ring-color' as any]: `${stageColor}55`,
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
+                              {stageName}
+                            </span>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
 
-                          {/* Bottom: value + date */}
-                          <div className="flex items-center justify-between pt-3 border-t border-white/15">
-                            <div className="flex items-center gap-2">
-                              {!!neg.orcamento && (
-                                <span className="text-lg font-bold text-white">{formatCurrency(neg.orcamento as number)}</span>
-                              )}
-                              {!!neg.orcamento_max && neg.orcamento_max !== neg.orcamento && (
-                                <span className="text-xs text-white/50">— {formatCurrency(neg.orcamento_max as number)}</span>
-                              )}
-                              {!!neg.preco_venda && !neg.orcamento && (
-                                <span className="text-lg font-bold text-white">{formatCurrency(neg.preco_venda as number)}</span>
-                              )}
-                              {!neg.orcamento && !neg.preco_venda && (
-                                <span className="text-xs text-white/40 italic">Sem valor</span>
-                              )}
-                            </div>
-                            <span className="text-xs text-white/40">{formatDate(neg.created_at as string)}</span>
+                        {/* Middle: criteria pills */}
+                        <div className="flex flex-wrap gap-1.5 mb-4">
+                          {!!neg.tipo_imovel && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full">
+                              {neg.tipo_imovel as string}
+                            </span>
+                          )}
+                          {!!neg.quartos_min && (
+                            <span className="text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full">T{neg.quartos_min as number}+</span>
+                          )}
+                          {!!neg.localizacao && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full truncate max-w-[160px]">
+                              {neg.localizacao as string}
+                            </span>
+                          )}
+                          {!neg.tipo_imovel && !neg.quartos_min && !neg.localizacao && (
+                            <span className="text-[11px] text-muted-foreground italic">Sem critérios definidos</span>
+                          )}
+                        </div>
+
+                        {/* Bottom: value + date */}
+                        <div className="flex items-center justify-between pt-3 border-t border-border/40">
+                          <div className="flex items-center gap-2">
+                            {!!neg.orcamento && (
+                              <span className="text-lg font-bold text-foreground">{formatCurrency(neg.orcamento as number)}</span>
+                            )}
+                            {!!neg.orcamento_max && neg.orcamento_max !== neg.orcamento && (
+                              <span className="text-xs text-muted-foreground">— {formatCurrency(neg.orcamento_max as number)}</span>
+                            )}
+                            {!!neg.preco_venda && !neg.orcamento && (
+                              <span className="text-lg font-bold text-foreground">{formatCurrency(neg.preco_venda as number)}</span>
+                            )}
+                            {!neg.orcamento && !neg.preco_venda && (
+                              <span className="text-xs text-muted-foreground italic">Sem valor</span>
+                            )}
                           </div>
+                          <span className="text-xs text-muted-foreground">{formatDate(neg.created_at as string)}</span>
                         </div>
                       </div>
                     )
