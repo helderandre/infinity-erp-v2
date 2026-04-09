@@ -5,11 +5,21 @@ import { useEffect, useState, useCallback } from 'react'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import { Inbox, ChevronRight, Megaphone } from 'lucide-react'
+import { Inbox, ChevronRight, Megaphone, Plus, SlidersHorizontal } from 'lucide-react'
 import { LeadEntryDetailView } from '@/components/leads/lead-entry-sheet'
+import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import type { LeadEntry } from '@/types/lead-entry'
 
@@ -28,6 +38,37 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'Outro',
 }
 
+const STATUS_PRIMARY: { value: string; label: string }[] = [
+  { value: 'new',  label: 'Novos' },
+  { value: 'seen', label: 'Vistos' },
+]
+
+const STATUS_SECONDARY: { value: string; label: string }[] = [
+  { value: 'processing', label: 'Em curso' },
+  { value: 'converted',  label: 'Convertidos' },
+  { value: 'discarded',  label: 'Descartados' },
+  { value: 'all',        label: 'Todos' },
+]
+
+const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  [...STATUS_PRIMARY, ...STATUS_SECONDARY].map((s) => [s.value, s.label]),
+)
+
+const SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all',          label: 'Todas as origens' },
+  { value: 'meta_ads',     label: 'Meta Ads' },
+  { value: 'google_ads',   label: 'Google Ads' },
+  { value: 'website',      label: 'Website' },
+  { value: 'landing_page', label: 'Landing Page' },
+  { value: 'partner',      label: 'Parceiro' },
+  { value: 'organic',      label: 'Orgânico' },
+  { value: 'walk_in',      label: 'Presencial' },
+  { value: 'phone_call',   label: 'Chamada' },
+  { value: 'social_media', label: 'Redes Sociais' },
+  { value: 'manual',       label: 'Manual' },
+  { value: 'other',        label: 'Outro' },
+]
+
 interface MyLeadsSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -37,28 +78,33 @@ interface MyLeadsSheetProps {
 
 export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
   const [entries, setEntries] = useState<LeadEntry[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('new')
+  const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [qualifyEntry, setQualifyEntry] = useState<LeadEntry | null>(null)
+  const [showNewDialog, setShowNewDialog] = useState(false)
 
   const fetchEntries = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        status: 'new',
-        limit: '100',
-      })
+      const params = new URLSearchParams({ limit: '100' })
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (sourceFilter !== 'all') params.set('source', sourceFilter)
       const res = await fetch(`/api/lead-entries?${params}`)
       if (res.ok) {
         const json = await res.json()
         setEntries(json.data || [])
+        setTotal(json.total || (json.data || []).length)
       }
     } catch {
       setEntries([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [statusFilter, sourceFilter])
 
   useEffect(() => {
     if (open) {
@@ -70,7 +116,7 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetContent className="sm:max-w-[520px] p-0 flex flex-col gap-0 overflow-hidden">
           <VisuallyHidden>
             <SheetTitle>Os meus leads</SheetTitle>
           </VisuallyHidden>
@@ -88,7 +134,13 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
               <ListView
                 loading={loading}
                 entries={entries}
+                total={total}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                sourceFilter={sourceFilter}
+                setSourceFilter={setSourceFilter}
                 onSelect={(id) => setSelectedEntryId(id)}
+                onCreate={() => setShowNewDialog(true)}
               />
             )}
           </div>
@@ -105,6 +157,16 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
           fetchEntries()
         }}
       />
+
+      <LeadEntryDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+        onComplete={() => {
+          setShowNewDialog(false)
+          fetchEntries()
+        }}
+        realEstateOnly
+      />
     </>
   )
 }
@@ -112,23 +174,132 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
 function ListView({
   loading,
   entries,
+  total,
+  statusFilter,
+  setStatusFilter,
+  sourceFilter,
+  setSourceFilter,
   onSelect,
+  onCreate,
 }: {
   loading: boolean
   entries: LeadEntry[]
+  total: number
+  statusFilter: string
+  setStatusFilter: (v: string) => void
+  sourceFilter: string
+  setSourceFilter: (v: string) => void
   onSelect: (id: string) => void
+  onCreate: () => void
 }) {
   return (
     <>
       {/* Dark header */}
       <div className="bg-neutral-900 px-6 pt-6 pb-5 shrink-0">
-        <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase">Leads por contactar</p>
-        <h2 className="text-white font-bold text-xl tracking-tight mt-0.5">
-          {loading ? 'A carregar...' : `${entries.length} lead${entries.length === 1 ? '' : 's'} novo${entries.length === 1 ? '' : 's'}`}
-        </h2>
-        <p className="text-white/50 text-xs mt-1">
-          Clica num lead para o contactar e adicionar ao pipeline.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase">Leads</p>
+            <h2 className="text-white font-bold text-xl tracking-tight mt-0.5">
+              {loading ? 'A carregar...' : `${total} ${statusFilter === 'new' ? 'por contactar' : 'no total'}`}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white text-neutral-900 px-3 py-1.5 text-[11px] font-semibold shadow-md ring-1 ring-black/5 hover:bg-white/90 transition-colors shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo lead
+          </button>
+        </div>
+
+        {/* Filter row: Novos / Vistos pills + filter popover (other statuses + source) */}
+        <div className="mt-4 flex items-center gap-1.5">
+          {STATUS_PRIMARY.map((tab) => {
+            const isActive = statusFilter === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setStatusFilter(tab.value)}
+                className={cn(
+                  'inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium transition-colors',
+                  isActive
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white',
+                )}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+
+          {/* Other-status / source filter popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-colors',
+                  STATUS_SECONDARY.some((s) => s.value === statusFilter) || sourceFilter !== 'all'
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white',
+                )}
+                aria-label="Filtros"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                {STATUS_SECONDARY.some((s) => s.value === statusFilter)
+                  ? STATUS_LABELS[statusFilter]
+                  : 'Filtros'}
+                {(STATUS_SECONDARY.some((s) => s.value === statusFilter) || sourceFilter !== 'all') && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-3 space-y-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Estado</p>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...STATUS_PRIMARY, ...STATUS_SECONDARY].map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_OPTIONS.map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {(sourceFilter !== 'all' || STATUS_SECONDARY.some((s) => s.value === statusFilter)) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setSourceFilter('all'); setStatusFilter('new') }}
+                  className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
+                >
+                  Limpar
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* List */}
@@ -142,8 +313,8 @@ function ListView({
         ) : entries.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
             <Inbox className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-medium">Sem leads novos</p>
-            <p className="text-xs text-muted-foreground mt-1">Quando entrarem leads novos atribuídos a ti, aparecem aqui.</p>
+            <p className="text-sm font-medium">Sem leads {statusFilter !== 'all' ? STATUS_LABELS[statusFilter]?.toLowerCase() : ''}</p>
+            <p className="text-xs text-muted-foreground mt-1">Ajusta os filtros ou cria um novo lead.</p>
           </div>
         ) : (
           entries.map((entry: any) => {

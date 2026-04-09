@@ -67,7 +67,6 @@ export const bottomItems = [
 
 export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
-  { title: 'Leads', icon: Zap, href: '/dashboard/lead-entries', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
 ]
 
@@ -323,7 +322,7 @@ export function AppSidebar() {
           items={crmItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/lead-entries', '/dashboard/acompanhamentos']}
+          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/acompanhamentos']}
         />
 
         {/* 5. Negócio */}
