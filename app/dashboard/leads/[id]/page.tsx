@@ -51,6 +51,8 @@ import { cn } from '@/lib/utils'
 import { LeadDataCard } from '@/components/leads/lead-data-card'
 import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
+import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
+import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 
 export default function LeadDetailPage() {
@@ -867,6 +869,22 @@ export default function LeadDetailPage() {
           contactName={lead.nome || ''}
           phone={lead.telemovel || ''}
           onCompleted={() => { loadLead(); loadActivities() }}
+        />
+      )}
+
+      {/* WhatsApp chat bubble */}
+      {lead?.telemovel && (
+        <WhatsAppChatBubble
+          contactPhone={lead.telemovel}
+          contactName={lead.nome || 'Contacto'}
+        />
+      )}
+
+      {/* Email chat bubble */}
+      {lead?.email && (
+        <EmailChatBubble
+          contactEmail={lead.email}
+          contactName={lead.nome || 'Contacto'}
         />
       )}
     </div>

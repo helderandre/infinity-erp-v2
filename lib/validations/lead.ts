@@ -3,14 +3,14 @@ import { z } from 'zod'
 // Schema de criacao de lead (campos minimos)
 export const createLeadSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório').trim(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
-  telefone: z.string().optional().or(z.literal('')),
-  telemovel: z.string().optional().or(z.literal('')),
-  origem: z.string().optional(),
-  agent_id: z.string().uuid().optional().or(z.literal('')),
-  estado: z.string().optional(),
-  lead_type: z.string().optional(),
-  observacoes: z.string().optional(),
+  email: z.string().email('Email inválido').optional().nullable().or(z.literal('')),
+  telefone: z.string().optional().nullable().or(z.literal('')),
+  telemovel: z.string().optional().nullable().or(z.literal('')),
+  origem: z.string().optional().nullable(),
+  agent_id: z.string().uuid().optional().nullable().or(z.literal('')),
+  estado: z.string().optional().nullable(),
+  lead_type: z.string().optional().nullable(),
+  observacoes: z.string().optional().nullable(),
 })
 
 // Schema de actualizacao de lead (todos os campos opcionais)

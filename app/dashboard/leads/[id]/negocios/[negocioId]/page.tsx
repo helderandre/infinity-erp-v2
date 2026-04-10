@@ -45,6 +45,8 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
+import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -1347,6 +1349,22 @@ export default function NegocioDetailPage() {
             )}
           </SheetContent>
         </Sheet>
+
+        {/* WhatsApp chat bubble */}
+        {phone && (
+          <WhatsAppChatBubble
+            contactPhone={phone}
+            contactName={clientName}
+          />
+        )}
+
+        {/* Email chat bubble */}
+        {email && (
+          <EmailChatBubble
+            contactEmail={email}
+            contactName={clientName}
+          />
+        )}
       </div>
     )
   }
