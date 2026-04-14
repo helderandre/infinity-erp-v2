@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -92,6 +93,20 @@ const VariableSuggestionList = forwardRef<unknown, VariableSuggestionListProps>(
     const [selectedIndex, setSelectedIndex] = useState(0)
     const containerRef = useRef<HTMLDivElement>(null)
 
+    // Flatten items in the same order they're rendered (grouped + sorted by category).
+    // Using the original `items` array order would mismatch the visual order and cause
+    // the wrong variable to be inserted on click / Enter.
+    const orderedItems = useMemo(() => {
+      const grouped: Record<string, VariableItem[]> = {}
+      for (const v of items) {
+        if (!grouped[v.category]) grouped[v.category] = []
+        grouped[v.category].push(v)
+      }
+      return Object.entries(grouped)
+        .sort(([a], [b]) => (CATEGORY_ORDER[a] ?? 99) - (CATEGORY_ORDER[b] ?? 99))
+        .flatMap(([, vars]) => vars)
+    }, [items])
+
     useEffect(() => {
       setSelectedIndex(0)
     }, [items])
@@ -107,22 +122,24 @@ const VariableSuggestionList = forwardRef<unknown, VariableSuggestionListProps>(
 
     const selectItem = useCallback(
       (index: number) => {
-        const item = items[index]
+        const item = orderedItems[index]
         if (item) command(item)
       },
-      [command, items]
+      [command, orderedItems]
     )
 
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }: { event: KeyboardEvent }) => {
         if (event.key === 'ArrowUp') {
           event.preventDefault()
-          setSelectedIndex((prev) => (prev + items.length - 1) % items.length)
+          setSelectedIndex(
+            (prev) => (prev + orderedItems.length - 1) % orderedItems.length
+          )
           return true
         }
         if (event.key === 'ArrowDown') {
           event.preventDefault()
-          setSelectedIndex((prev) => (prev + 1) % items.length)
+          setSelectedIndex((prev) => (prev + 1) % orderedItems.length)
           return true
         }
         if (event.key === 'Enter') {
