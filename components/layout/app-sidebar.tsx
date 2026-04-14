@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Building2, Users, FileText, LayoutDashboard, Settings, Clock,
   UserCircle, Euro, Megaphone, FileStack, CalendarDays,
@@ -19,6 +19,7 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
   SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -142,6 +143,102 @@ export const menuItems = [
   ...digitalItems, ...bottomItems,
 ]
 
+// ─── Hover Group Dropdown (collapsed sidebar) ─────────────
+
+function HoverGroupDropdown({
+  label,
+  icon: Icon,
+  isSectionActive,
+  items,
+  pathname,
+}: {
+  label: string
+  icon: any
+  isSectionActive: boolean
+  items: Array<{ title: string; icon: any; href: string; permission?: string }>
+  pathname: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120)
+  }
+
+  useEffect(() => () => cancelClose(), [])
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton
+          onMouseEnter={() => {
+            cancelClose()
+            setOpen(true)
+          }}
+          onMouseLeave={scheduleClose}
+          className={cn(
+            'rounded-xl transition-colors',
+            isSectionActive
+              ? 'border border-border bg-muted/40 text-foreground/90 shadow-sm hover:bg-muted/40'
+              : 'text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground'
+          )}
+        >
+          <Icon
+            className={cn(
+              'size-3.5',
+              isSectionActive ? 'opacity-80' : 'opacity-60'
+            )}
+          />
+          <span>{label}</span>
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="min-w-52 rounded-xl border-border/40 bg-card/90 backdrop-blur-xl shadow-lg"
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
+      >
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+          {label}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-border/30" />
+        {items.map((item) => {
+          const isActive =
+            item.href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname === item.href || pathname?.startsWith(`${item.href}/`)
+          return (
+            <DropdownMenuItem
+              key={item.href}
+              asChild
+              className={cn(
+                'rounded-lg mx-1 gap-2 text-[13px]',
+                isActive
+                  ? 'bg-neutral-900 text-white shadow-sm focus:bg-neutral-900 focus:text-white dark:bg-white dark:text-neutral-900 dark:focus:bg-white dark:focus:text-neutral-900'
+                  : 'hover:bg-muted/60'
+              )}
+            >
+              <Link href={item.href}>
+                <item.icon className="size-4" />
+                <span>{item.title}</span>
+              </Link>
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 // ─── Collapsible Group ───────────────────────────────────
 
 function CollapsibleGroup({
@@ -161,6 +258,9 @@ function CollapsibleGroup({
   pathPrefixes: string[]
   defaultOpenOverride?: boolean
 }) {
+  const { state, isMobile } = useSidebar()
+  const isIconMode = state === 'collapsed' && !isMobile
+
   const visibleItems = items.filter(
     (item) => !item.permission || hasPermission(item.permission as any)
   )
@@ -171,6 +271,26 @@ function CollapsibleGroup({
     if (item.href === '/dashboard') return pathname === '/dashboard'
     return pathname === item.href || pathname?.startsWith(`${item.href}/`)
   })
+
+  if (isIconMode) {
+    return (
+      <SidebarGroup className="py-0.5">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <HoverGroupDropdown
+                label={label}
+                icon={Icon}
+                isSectionActive={!!isSectionActive}
+                items={visibleItems}
+                pathname={pathname}
+              />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    )
+  }
 
   return (
     <SidebarGroup className="py-1">
