@@ -78,6 +78,7 @@ export default function EditarTemplateEmailPage() {
       initialName={template.name}
       initialSubject={template.subject}
       initialDescription={template.description || ''}
+      initialCategory={(template as { category?: string }).category as import('@/lib/constants-template-categories').TemplateCategory | undefined}
     />
   )
 }

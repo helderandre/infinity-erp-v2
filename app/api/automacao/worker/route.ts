@@ -98,17 +98,45 @@ export async function POST(request: Request) {
           continue
         }
 
-        // Fetch flow definition
-        const { data: flow } = await (supabase as SA)
-          .from("auto_flows")
-          .select("published_definition, wpp_instance_id")
-          .eq("id", step.flow_id)
-          .single()
+        // Fetch flow definition (se step tem snapshot, saltamos)
+        const hasSnapshot = !!step.node_data_snapshot
+        let flow: { published_definition: FlowDefinition | null; wpp_instance_id: string | null } | null = null
+        let flowDef: FlowDefinition | null = null
+        let node: AutomationNode | null = null
 
-        if (!flow) {
-          await markStepFailed(supabase, step, "Fluxo nao encontrado")
-          errors.push(`step ${step.id}: flow_not_found`)
-          continue
+        if (!hasSnapshot) {
+          const { data: flowRow } = await (supabase as SA)
+            .from("auto_flows")
+            .select("published_definition, wpp_instance_id")
+            .eq("id", step.flow_id)
+            .single()
+          if (!flowRow) {
+            await markStepFailed(supabase, step, "Fluxo nao encontrado")
+            errors.push(`step ${step.id}: flow_not_found`)
+            continue
+          }
+          flow = flowRow as any
+          flowDef = flow!.published_definition as FlowDefinition
+          if (!flowDef) {
+            await markStepFailed(supabase, step, "Fluxo nao publicado")
+            errors.push(`step ${step.id}: flow_not_published`)
+            continue
+          }
+          node = flowDef.nodes.find((n: AutomationNode) => n.id === step.node_id) || null
+          if (!node) {
+            await markStepFailed(supabase, step, `Node ${step.node_id} nao encontrado`)
+            errors.push(`step ${step.id}: node_not_found`)
+            continue
+          }
+        } else {
+          // Run efémero: construir node inline a partir do snapshot
+          const snapshot = step.node_data_snapshot as Record<string, unknown>
+          node = {
+            id: step.node_id,
+            type: step.node_type,
+            data: snapshot as any,
+            position: { x: 0, y: 0 },
+          } as AutomationNode
         }
 
         // Fetch run context
@@ -118,21 +146,7 @@ export async function POST(request: Request) {
           .eq("id", step.run_id)
           .single()
 
-        const flowDef = flow.published_definition as FlowDefinition
-        if (!flowDef) {
-          await markStepFailed(supabase, step, "Fluxo nao publicado")
-          errors.push(`step ${step.id}: flow_not_published`)
-          continue
-        }
-
-        const node = flowDef.nodes.find((n: AutomationNode) => n.id === step.node_id)
-        if (!node) {
-          await markStepFailed(supabase, step, `Node ${step.node_id} nao encontrado`)
-          errors.push(`step ${step.id}: node_not_found`)
-          continue
-        }
-
-        const nodeType = (node.data as { type: string }).type
+        const nodeType = (node.data as { type: string }).type || step.node_type
         const processor = getNodeProcessor(nodeType)
         if (!processor) {
           await markStepFailed(supabase, step, `Processador nao encontrado: ${nodeType}`)
@@ -149,10 +163,13 @@ export async function POST(request: Request) {
         if (!context.variables) context.variables = {}
 
         // Process node
+        const wppInstanceId = hasSnapshot
+          ? ((node.data as any)?.wppInstanceId ?? null)
+          : (flow?.wpp_instance_id ?? null)
         const result = await processor(supabase, node, context, {
           flowId: step.flow_id,
           runId: step.run_id,
-          wppInstanceId: flow.wpp_instance_id,
+          wppInstanceId,
         })
 
         // Mark step as completed
@@ -194,13 +211,15 @@ export async function POST(request: Request) {
           continue
         }
 
-        // Find and enqueue next node(s)
-        const nextEdges = flowDef.edges.filter(e => {
-          if (e.source !== step.node_id) return false
-          if (result.nextHandle && e.sourceHandle) return e.sourceHandle === result.nextHandle
-          if (result.nextHandle && !e.sourceHandle) return false
-          return true
-        })
+        // Find and enqueue next node(s) — runs efémeros (snapshot) não têm edges
+        const nextEdges = hasSnapshot
+          ? []
+          : (flowDef!.edges.filter(e => {
+              if (e.source !== step.node_id) return false
+              if (result.nextHandle && e.sourceHandle) return e.sourceHandle === result.nextHandle
+              if (result.nextHandle && !e.sourceHandle) return false
+              return true
+            }))
 
         for (const edge of nextEdges) {
           // Dedup: skip if step already exists for this run + node
@@ -217,7 +236,7 @@ export async function POST(request: Request) {
             continue
           }
 
-          const nextNode = flowDef.nodes.find(n => n.id === edge.target)
+          const nextNode = flowDef!.nodes.find(n => n.id === edge.target)
           const nextData = nextNode?.data as { type?: string; label?: string } | undefined
           await (supabase as SA).from("auto_step_runs").insert({
             run_id: step.run_id,

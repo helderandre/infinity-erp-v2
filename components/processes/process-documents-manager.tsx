@@ -7,6 +7,7 @@ import {
   BatchActionBar,
   DocumentViewerModal,
   DocumentsGrid,
+  SendDocumentsDialog,
   useBatchDownload,
   type DocumentFile,
   type DocumentFolder,
@@ -36,6 +37,7 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
   const [viewerFiles, setViewerFiles] = useState<DocumentFile[]>([])
   const [initialFileId, setInitialFileId] = useState<string | undefined>(undefined)
   const [mediaFolder, setMediaFolder] = useState<DocumentFolder | null>(null)
+  const [sendOpen, setSendOpen] = useState(false)
   const { isDownloading, downloadFromFolders } = useBatchDownload()
 
   const { folders: rawFolders, stats, isLoading, refetch } = useProcessDocuments({
@@ -116,7 +118,20 @@ export function ProcessDocumentsManager({ processId }: ProcessDocumentsManagerPr
         totalFiles={totalSelectedFiles}
         isBusy={isDownloading}
         onDownload={handleBatchDownload}
+        onSend={() => setSendOpen(true)}
         onCancel={() => setSelectedIds(new Set())}
+      />
+
+      <SendDocumentsDialog
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        domain="processes"
+        entityId={processId}
+        folders={selectedFolders}
+        onSuccess={() => {
+          setSelectedIds(new Set())
+          setSendOpen(false)
+        }}
       />
 
       <DocumentViewerModal

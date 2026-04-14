@@ -2,7 +2,21 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-02-24
+**Última actualização:** 2026-04-14
+
+### ✅ Contact Automations (ENTREGUE via `add-contact-automations`)
+- Tab "Automatismos" em `app/dashboard/leads/[id]/page.tsx` com wizard de 6 passos (FK em `leads(id)`)
+- Novas tabelas `contact_automations`, `contact_automation_runs`, `auto_scheduler_log`
+- Novo endpoint cron `POST /api/automacao/scheduler/spawn-runs` (Vercel Cron a cada minuto)
+- Flow sentinela `00000000-0000-0000-0000-00000c0a0a17` em `auto_flows` reservado para runs efémeros (satisfaz FK `flow_id NOT NULL`)
+- Coluna `auto_step_runs.node_data_snapshot` (JSONB) permite runs sem `published_definition`
+- Worker em [app/api/automacao/worker/route.ts](app/api/automacao/worker/route.ts) detecta snapshot e constrói node inline
+- Processor email ([lib/node-processors/email.ts](lib/node-processors/email.ts)) suporta `smtpAccountId` → envia via `smtp-send` Edge Function com credenciais de `consultant_email_accounts`
+- Categorias canónicas de templates: `aniversario_contacto | aniversario_fecho | natal | ano_novo | festividade | custom | geral`
+
+**📄 Especificação:** [SPEC-CONTACT-AUTOMATIONS.md](docs/M10-AUTOMACOES/SPEC-CONTACT-AUTOMATIONS.md)
+
+
 
 ### ✅ FASE 1 — Fundação (CONCLUÍDA)
 - ✅ Estrutura de pastas completa
@@ -1284,6 +1298,23 @@ type DocumentFolder = {
 | Processos | `process-documents-manager.tsx` | ✅ Flat grid. Pastas `property-media` abrem `<PropertyMediaGallery>` em Dialog. |
 | Leads (Anexos) | `lead-documents-folders-view.tsx` | ✅ Substitui lista plana. Upload multipart → R2. |
 | Negócios (Documentos) | `negocio-documents-folders-view.tsx` | ✅ Tab nova. |
+
+## Envio de Imóveis do Dossier (Negócio)
+
+A partir das tabs **Imóveis** e **Matching** em `/dashboard/leads/[id]/negocios/[negocioId]`, o consultor pode seleccionar múltiplos imóveis (checkbox por card + "Seleccionar todos") e clicar "Enviar selecionados" (barra flutuante) para abrir um diálogo análogo ao de documentos, com canais Email e WhatsApp independentes.
+
+- **Selecção no tab Matching** auto-adiciona o imóvel ao dossier (`POST /api/negocios/[id]/properties`) antes de entrar no Set de seleção — mantém estado consistente e `sent_at` persistido.
+- **Email**: o corpo é `[intro editável pelo consultor] + renderPropertyGrid(cards)` embrulhado em `wrapEmailHtml`. Despacho via `smtp-send` edge com `pLimit(3)` usando `consultant_email_accounts` resolvida por `resolveEmailAccount`.
+- **WhatsApp**: uma mensagem de texto por destinatário (`action: 'send_text'`) com lista enumerada de `título — preço` + URL — sem anexos binários; o WhatsApp gera preview OG via `infinitygroup.pt`. `pLimit(2)`.
+- **Link público**: `property_id` → `buildPublicPropertyUrl(slug)` = `${PUBLIC_WEBSITE_URL}/property/{slug}` (env `NEXT_PUBLIC_WEBSITE_URL`). Item externo → `external_url` directo.
+
+**Ficheiros-chave:**
+- `lib/email/property-card-html.ts` — `renderPropertyGrid(PropertyCardInput[], options)` (Outlook-safe tables + media query mobile → 1 coluna).
+- `components/email-editor/user/email-property-grid.tsx` — bloco Craft.js "Grelha Imóveis" (resolver + toolbox já registados); serializa via o mesmo `renderPropertyGrid`.
+- `components/negocios/send-properties-dialog.tsx` + `hooks/use-send-properties.ts`.
+- `app/api/negocios/[id]/properties/send/route.ts` — endpoint com Zod + limites (`MAX_PROPERTY_IDS_PER_SEND=20`, `MAX_RECIPIENTS_PER_CHANNEL=20`).
+- `app/api/negocios/[id]/properties/send/recipients/route.ts` — defaults para o diálogo (lead como destinatário principal, consultor atribuído).
+- Auditoria: uma linha em `log_audit` por request com `entity_type='negocio_properties'`, `action='negocio_properties.send'`.
 
 **APIs de suporte:**
 - `GET /api/libraries/doc-types?applies_to=<domain>` — catálogo filtrado. Permissão: auth-only.

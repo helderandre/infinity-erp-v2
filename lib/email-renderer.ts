@@ -8,6 +8,8 @@
  * is rendered as <table> elements with inline styles.
  */
 
+import { renderPropertyGrid as renderPropertyGridHtml } from './email/property-card-html'
+
 const PROPERTY_PORTALS: Record<string, { name: string; color: string; icon: string }> = {
   idealista: { name: 'Idealista', color: '#1DBF73', icon: '🏠' },
   imovirtual: { name: 'Imovirtual', color: '#FF6600', icon: '🏡' },
@@ -741,11 +743,38 @@ function renderNode(nodeId: string, state: EditorState, variables: VariablesMap)
           return renderSignature(props, variables)
         case 'EmailFooter':
           return renderFooter(props)
+        case 'EmailPropertyGrid':
+          return renderPropertyGridBlock(props)
         default:
           return allChildren
       }
     }
   }
+}
+
+function renderPropertyGridBlock(props: Record<string, unknown>): string {
+  const list = Array.isArray(props.properties)
+    ? (props.properties as Array<Record<string, unknown>>)
+    : []
+  const safe = list
+    .filter((p) => p && typeof p === 'object')
+    .map((p) => ({
+      title: String(p.title ?? ''),
+      priceLabel: String(p.priceLabel ?? ''),
+      location: String(p.location ?? ''),
+      specs: String(p.specs ?? ''),
+      imageUrl:
+        typeof p.imageUrl === 'string' && p.imageUrl ? String(p.imageUrl) : null,
+      href: String(p.href ?? '#'),
+      reference:
+        typeof p.reference === 'string' && p.reference
+          ? String(p.reference)
+          : null,
+    }))
+  return renderPropertyGridHtml(safe, {
+    ctaLabel: typeof props.ctaLabel === 'string' ? (props.ctaLabel as string) : undefined,
+    columns: typeof props.columns === 'number' ? (props.columns as number) : undefined,
+  })
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

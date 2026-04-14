@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import {
+  TEMPLATE_CATEGORY_VALUES,
+  normalizeCategory,
+} from "@/lib/constants-template-categories"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
@@ -41,7 +45,30 @@ export async function GET(request: Request) {
     }
 
     if (category && category !== "all") {
-      query = query.eq("category", category)
+      if (category === "geral") {
+        query = query.or("category.is.null,category.eq.geral")
+      } else {
+        query = query.eq("category", category)
+      }
+    }
+    const categoriesCsv = searchParams.get("categories")
+    if (categoriesCsv) {
+      const list = categoriesCsv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (list.includes("geral")) {
+        const others = list.filter((c) => c !== "geral")
+        if (others.length > 0) {
+          query = query.or(
+            `category.is.null,category.in.(${[...others, "geral"].join(",")})`,
+          )
+        } else {
+          query = query.or("category.is.null,category.eq.geral")
+        }
+      } else if (list.length > 0) {
+        query = query.in("category", list)
+      }
     }
 
     if (search) {
@@ -89,13 +116,20 @@ export async function POST(request: Request) {
       )
     }
 
+    if (category && !(TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(category)) {
+      return NextResponse.json(
+        { error: `Categoria inválida. Permitidas: ${TEMPLATE_CATEGORY_VALUES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = (await (supabase as SupabaseAny)
       .from("auto_wpp_templates")
       .insert({
         name: name.trim(),
         description: description?.trim() || null,
         messages,
-        category: category || "outro",
+        category: normalizeCategory(category),
         tags: tags || [],
         is_active: true,
       })

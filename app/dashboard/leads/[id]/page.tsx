@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils'
 import { LeadDataCard } from '@/components/leads/lead-data-card'
 import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-folders-view'
 import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
+import { ContactAutomationsList } from '@/components/crm/contact-automations-list'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
@@ -418,6 +419,7 @@ export default function LeadDetailPage() {
             onValueChange={(tab) => {
               if (tab === 'leads') loadEntries()
               if (tab === 'negocios') loadNegocios()
+              if (tab === 'automatismos') loadNegocios()
               if (tab === 'historico') { loadAttachments(); loadActivities(); loadEntries() }
             }}
           >
@@ -427,6 +429,7 @@ export default function LeadDetailPage() {
                 { key: 'leads', label: 'Leads', count: pendingLeads.length || undefined },
                 { key: 'negocios', label: 'Negócios' },
                 { key: 'dados', label: 'Dados' },
+                { key: 'automatismos', label: 'Automatismos' },
                 { key: 'historico', label: 'Histórico' },
               ].map((tab) => (
                 <TabsTrigger
@@ -675,6 +678,15 @@ export default function LeadDetailPage() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            </TabsContent>
+
+            {/* Automatismos Tab */}
+            <TabsContent value="automatismos" className="mt-0">
+              <ContactAutomationsList
+                contactId={id}
+                contactBirthday={(lead?.data_nascimento as string | null | undefined) ?? null}
+                hasDeals={negocios.length > 0}
+              />
             </TabsContent>
 
             {/* Historico Tab */}

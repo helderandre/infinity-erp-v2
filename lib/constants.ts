@@ -1942,3 +1942,12 @@ export const PAYMENT_METHODS: Record<string, string> = {
   conta_corrente: 'Conta Corrente',
   invoice: 'Fatura',
 }
+
+// ─── Public website ────────────────────────────────
+
+export const PUBLIC_WEBSITE_URL =
+  process.env.NEXT_PUBLIC_WEBSITE_URL?.replace(/\/+$/, '') || 'https://infinitygroup.pt'
+
+export function buildPublicPropertyUrl(slug: string): string {
+  return `${PUBLIC_WEBSITE_URL}/property/${slug}`
+}

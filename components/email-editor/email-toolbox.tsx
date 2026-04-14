@@ -18,6 +18,7 @@ import {
   PanelTop,
   PanelBottom,
   Pen,
+  Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -34,6 +35,7 @@ import { EmailPortalLinks } from './user/email-portal-links'
 import { EmailHeader } from './user/email-header'
 import { EmailFooter } from './user/email-footer'
 import { EmailSignature } from './user/email-signature'
+import { EmailPropertyGrid } from './user/email-property-grid'
 
 interface ToolboxItem {
   label: string
@@ -55,6 +57,11 @@ export const categories: ToolboxCategory[] = [
       { label: 'Botão', icon: MousePointer, element: <EmailButton /> },
       { label: 'Anexo', icon: Paperclip, element: <EmailAttachment /> },
       { label: 'Links Portais', icon: ExternalLink, element: <EmailPortalLinks /> },
+      {
+        label: 'Grelha Imóveis',
+        icon: Building2,
+        element: <EmailPropertyGrid />,
+      },
     ],
   },
   {

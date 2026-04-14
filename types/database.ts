@@ -380,6 +380,42 @@ export type Database = {
           },
         ]
       }
+      auto_scheduler_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_count: number
+          error_detail: string | null
+          evaluated_count: number
+          id: string
+          skipped_count: number
+          spawned_count: number
+          tick_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_count?: number
+          error_detail?: string | null
+          evaluated_count?: number
+          id?: string
+          skipped_count?: number
+          spawned_count?: number
+          tick_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_count?: number
+          error_detail?: string | null
+          evaluated_count?: number
+          id?: string
+          skipped_count?: number
+          spawned_count?: number
+          tick_at?: string
+        }
+        Relationships: []
+      }
       auto_step_runs: {
         Row: {
           completed_at: string | null
@@ -390,6 +426,7 @@ export type Database = {
           id: string
           input_data: Json | null
           max_retries: number | null
+          node_data_snapshot: Json | null
           node_id: string
           node_label: string | null
           node_type: string
@@ -410,6 +447,7 @@ export type Database = {
           id?: string
           input_data?: Json | null
           max_retries?: number | null
+          node_data_snapshot?: Json | null
           node_id: string
           node_label?: string | null
           node_type: string
@@ -430,6 +468,7 @@ export type Database = {
           id?: string
           input_data?: Json | null
           max_retries?: number | null
+          node_data_snapshot?: Json | null
           node_id?: string
           node_label?: string | null
           node_type?: string
@@ -1589,6 +1628,176 @@ export type Database = {
             columns: ["payout_id"]
             isOneToOne: false
             referencedRelation: "consultant_payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_automation_runs: {
+        Row: {
+          auto_run_id: string | null
+          contact_automation_id: string
+          created_at: string
+          delivery_log_ids: string[]
+          error: string | null
+          id: string
+          scheduled_for: string
+          sent_at: string | null
+          skip_reason: string | null
+          status: string
+        }
+        Insert: {
+          auto_run_id?: string | null
+          contact_automation_id: string
+          created_at?: string
+          delivery_log_ids?: string[]
+          error?: string | null
+          id?: string
+          scheduled_for: string
+          sent_at?: string | null
+          skip_reason?: string | null
+          status?: string
+        }
+        Update: {
+          auto_run_id?: string | null
+          contact_automation_id?: string
+          created_at?: string
+          delivery_log_ids?: string[]
+          error?: string | null
+          id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          skip_reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_automation_runs_auto_run_id_fkey"
+            columns: ["auto_run_id"]
+            isOneToOne: false
+            referencedRelation: "auto_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_runs_contact_automation_id_fkey"
+            columns: ["contact_automation_id"]
+            isOneToOne: false
+            referencedRelation: "contact_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_automations: {
+        Row: {
+          channels: string[]
+          contact_id: string
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          email_template_id: string | null
+          event_config: Json
+          event_type: string
+          id: string
+          recurrence: string
+          send_hour: number
+          smtp_account_id: string | null
+          status: string
+          template_overrides: Json
+          timezone: string
+          trigger_at: string
+          updated_at: string
+          wpp_instance_id: string | null
+          wpp_template_id: string | null
+        }
+        Insert: {
+          channels: string[]
+          contact_id: string
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          email_template_id?: string | null
+          event_config?: Json
+          event_type: string
+          id?: string
+          recurrence: string
+          send_hour?: number
+          smtp_account_id?: string | null
+          status?: string
+          template_overrides?: Json
+          timezone?: string
+          trigger_at: string
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Update: {
+          channels?: string[]
+          contact_id?: string
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          email_template_id?: string | null
+          event_config?: Json
+          event_type?: string
+          id?: string
+          recurrence?: string
+          send_hour?: number
+          smtp_account_id?: string | null
+          status?: string
+          template_overrides?: Json
+          timezone?: string
+          trigger_at?: string
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_automations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_email_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_smtp_account_id_fkey"
+            columns: ["smtp_account_id"]
+            isOneToOne: false
+            referencedRelation: "consultant_email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_wpp_instance_id_fkey"
+            columns: ["wpp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automations_wpp_template_id_fkey"
+            columns: ["wpp_template_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -14495,6 +14704,7 @@ export type Database = {
           id: string
           input_data: Json | null
           max_retries: number | null
+          node_data_snapshot: Json | null
           node_id: string
           node_label: string | null
           node_type: string

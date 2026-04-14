@@ -1,8 +1,14 @@
 'use client'
 
-import { Download, Upload, X } from 'lucide-react'
+import { Download, Send, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { DOCUMENT_LABELS } from '@/lib/documents/labels'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +17,7 @@ type BatchActionBarProps = {
   totalFiles: number
   isBusy?: boolean
   onDownload: () => void
-  onUpload?: () => void
+  onSend?: () => void
   onCancel: () => void
 }
 
@@ -20,14 +26,15 @@ export function BatchActionBar({
   totalFiles,
   isBusy,
   onDownload,
-  onUpload,
+  onSend,
   onCancel,
 }: BatchActionBarProps) {
   const visible = selectedCount > 0
+  const sendDisabled = totalFiles === 0 || isBusy
   return (
     <div
       role="toolbar"
-      aria-hidden={!visible}
+      aria-hidden={visible ? 'false' : 'true'}
       className={cn(
         'pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4 transition-all duration-200',
         visible
@@ -56,17 +63,40 @@ export function BatchActionBar({
           <Download className="mr-1 h-4 w-4" />
           {DOCUMENT_LABELS.actions.download}
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onUpload}
-          disabled
-          title="Em breve"
-        >
-          <Upload className="mr-1 h-4 w-4" />
-          {DOCUMENT_LABELS.actions.upload}
-        </Button>
+        {onSend ? (
+          sendDisabled ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled
+                    >
+                      <Send className="mr-1 h-4 w-4" />
+                      {DOCUMENT_LABELS.actions.send}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {DOCUMENT_LABELS.send.noFiles}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onSend}
+            >
+              <Send className="mr-1 h-4 w-4" />
+              {DOCUMENT_LABELS.actions.send}
+            </Button>
+          )
+        ) : null}
         <Button
           type="button"
           size="sm"

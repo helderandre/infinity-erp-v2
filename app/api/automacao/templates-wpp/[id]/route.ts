@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { TEMPLATE_CATEGORY_VALUES } from "@/lib/constants-template-categories"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
@@ -66,7 +67,15 @@ export async function PUT(
     if (body.description !== undefined)
       updates.description = body.description?.trim() || null
     if (body.messages !== undefined) updates.messages = body.messages
-    if (body.category !== undefined) updates.category = body.category
+    if (body.category !== undefined) {
+      if (body.category && !(TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(body.category)) {
+        return NextResponse.json(
+          { error: `Categoria inválida. Permitidas: ${TEMPLATE_CATEGORY_VALUES.join(', ')}` },
+          { status: 400 }
+        )
+      }
+      updates.category = body.category || null
+    }
     if (body.tags !== undefined) updates.tags = body.tags
     if (body.is_active !== undefined) updates.is_active = body.is_active
 

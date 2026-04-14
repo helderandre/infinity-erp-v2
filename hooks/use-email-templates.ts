@@ -14,6 +14,7 @@ export interface EmailTemplate {
   subject: string
   description: string | null
   body_html: string | null
+  category: string | null
   usage_count: number
   created_at: string | null
   updated_at: string | null
@@ -21,7 +22,7 @@ export interface EmailTemplate {
   creator: EmailTemplateCreator | null
 }
 
-export function useEmailTemplates(search: string = '') {
+export function useEmailTemplates(search: string = '', category: string | null = null) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +35,7 @@ export function useEmailTemplates(search: string = '') {
     try {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
+      if (category) params.set('category', category)
 
       const res = await fetch(`/api/libraries/emails?${params.toString()}`)
       if (!res.ok) throw new Error('Erro ao carregar templates')
@@ -46,7 +48,7 @@ export function useEmailTemplates(search: string = '') {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch])
+  }, [debouncedSearch, category])
 
   useEffect(() => {
     fetchTemplates()

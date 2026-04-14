@@ -37,14 +37,30 @@ import {
 } from 'lucide-react'
 import { useEmailTemplates, type EmailTemplate } from '@/hooks/use-email-templates'
 import { formatDate } from '@/lib/constants'
+import {
+  TEMPLATE_CATEGORY_VALUES,
+  TEMPLATE_CATEGORY_LABELS_PT,
+  normalizeCategory,
+} from '@/lib/constants-template-categories'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 
 export default function TemplatesEmailPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const { templates, isLoading, refetch } = useEmailTemplates(search)
+  const { templates, isLoading, refetch } = useEmailTemplates(
+    search,
+    categoryFilter === 'all' ? null : categoryFilter,
+  )
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -105,8 +121,8 @@ export default function TemplatesEmailPage() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search + Category filter */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -116,6 +132,19 @@ export default function TemplatesEmailPage() {
             className="pl-9"
           />
         </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as categorias</SelectItem>
+            {TEMPLATE_CATEGORY_VALUES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {TEMPLATE_CATEGORY_LABELS_PT[c]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {!isLoading && templates.length > 0 && (
           <span className="text-sm text-muted-foreground">
             {templates.length} template{templates.length !== 1 ? 's' : ''}
@@ -229,6 +258,11 @@ function TemplateCard({
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <Badge variant="outline" className="text-[10px] font-normal">
+                {TEMPLATE_CATEGORY_LABELS_PT[normalizeCategory(template.category)]}
+              </Badge>
+            </div>
             <h3 className="font-semibold text-sm truncate">{template.name}</h3>
             <p className="text-xs text-muted-foreground truncate mt-0.5">
               {template.subject}

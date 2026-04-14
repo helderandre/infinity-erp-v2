@@ -21,6 +21,7 @@ import { EmailPortalLinks } from './user/email-portal-links'
 import { EmailHeader } from './user/email-header'
 import { EmailFooter } from './user/email-footer'
 import { EmailSignature } from './user/email-signature'
+import { EmailPropertyGrid } from './user/email-property-grid'
 
 import { RenderNode, duplicateNode } from './email-render-node'
 import { EmailToolbox } from './email-toolbox'
@@ -44,6 +45,7 @@ const resolver = {
   EmailHeader,
   EmailFooter,
   EmailSignature,
+  EmailPropertyGrid,
 }
 
 interface EmailEditorProps {
@@ -52,6 +54,7 @@ interface EmailEditorProps {
   initialName: string
   initialSubject: string
   initialDescription: string
+  initialCategory?: import('@/lib/constants-template-categories').TemplateCategory
 }
 
 /**
@@ -181,11 +184,15 @@ export function EmailEditorComponent({
   initialName,
   initialSubject,
   initialDescription,
+  initialCategory,
 }: EmailEditorProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [subject, setSubject] = useState(initialSubject)
   const [description] = useState(initialDescription)
+  const [category, setCategory] = useState<
+    import('@/lib/constants-template-categories').TemplateCategory
+  >(initialCategory ?? 'geral')
   const [isSaving, setIsSaving] = useState(false)
   const [mode, setMode] = useState<EditorMode>('edit')
   const [signatureMode, setSignatureMode] = useState<SignatureMode>('process_owner')
@@ -215,6 +222,7 @@ export function EmailEditorComponent({
         body_html: renderEmailToHtml(editorState, {}),
         editor_state: JSON.parse(editorState),
         signature_mode: signatureMode,
+        category,
       }
 
       if (templateId) {
@@ -263,6 +271,8 @@ export function EmailEditorComponent({
           onNameChange={setName}
           onSubjectChange={setSubject}
           onSignatureModeChange={setSignatureMode}
+          category={category}
+          onCategoryChange={setCategory}
           onSave={handleSave}
           onModeChange={handleModeChange}
           isSaving={isSaving}

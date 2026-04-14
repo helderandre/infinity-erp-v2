@@ -40,6 +40,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -274,6 +276,11 @@ export default function NegocioDetailPage() {
   const [matches, setMatches] = useState<any[]>([])
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [addingPropertyId, setAddingPropertyId] = useState<string | null>(null)
+
+  // Selection for send-properties flow
+  const [selectedPropertyRowIds, setSelectedPropertyRowIds] = useState<Set<string>>(new Set())
+  const [addingMatchIds, setAddingMatchIds] = useState<Set<string>>(new Set())
+  const [showSendPropertiesDialog, setShowSendPropertiesDialog] = useState(false)
 
   // Dossier AI scores
   const [dossierScores, setDossierScores] = useState<Map<string, { score: number; reason: string }>>(new Map())
@@ -550,9 +557,126 @@ export default function NegocioDetailPage() {
 
   const handleRemoveProperty = async (propId: string) => {
     const res = await fetch(`/api/negocios/${negocioId}/properties/${propId}`, { method: 'DELETE' })
-    if (res.ok) { toast.success('Imóvel removido'); fetchProperties() }
+    if (res.ok) {
+      toast.success('Imóvel removido')
+      setSelectedPropertyRowIds((prev) => {
+        if (!prev.has(propId)) return prev
+        const next = new Set(prev)
+        next.delete(propId)
+        return next
+      })
+      fetchProperties()
+    }
     else toast.error('Erro ao remover')
   }
+
+  const toggleSelectPropertyRow = (rowId: string) => {
+    setSelectedPropertyRowIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowId)) next.delete(rowId)
+      else next.add(rowId)
+      return next
+    })
+  }
+
+  // Toggle select in Matching tab: if the match isn't in the dossier yet,
+  // POST to add it and then select the returned negocio_property row.
+  const toggleSelectMatch = async (match: any) => {
+    const existing = properties.find((p) => p.property_id === match.id)
+    if (existing) {
+      toggleSelectPropertyRow(existing.id)
+      return
+    }
+    if (addingMatchIds.has(match.id)) return
+    setAddingMatchIds((s) => {
+      const n = new Set(s)
+      n.add(match.id)
+      return n
+    })
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: match.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body?.data?.id) {
+        throw new Error(body?.error || 'Erro ao adicionar ao dossier')
+      }
+      const newRowId = body.data.id as string
+      setSelectedPropertyRowIds((prev) => {
+        const next = new Set(prev)
+        next.add(newRowId)
+        return next
+      })
+      setMatches((prev) => prev.filter((m) => m.id !== match.id))
+      fetchProperties()
+      toast.success('Imóvel adicionado ao dossier e seleccionado')
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao adicionar imóvel')
+    } finally {
+      setAddingMatchIds((s) => {
+        const n = new Set(s)
+        n.delete(match.id)
+        return n
+      })
+    }
+  }
+
+  const selectAllPropertyRows = (select: boolean) => {
+    setSelectedPropertyRowIds(() => {
+      if (!select) return new Set()
+      return new Set(properties.map((p) => p.id))
+    })
+  }
+
+  const clearSelection = () => setSelectedPropertyRowIds(new Set())
+
+  // Items passed to SendPropertiesDialog
+  const selectedSendItems = properties
+    .filter((p) => selectedPropertyRowIds.has(p.id))
+    .map((ap) => {
+      const isExternal = !ap.property_id && ap.external_url
+      const p: any = ap.property
+      const price = isExternal ? ap.external_price : p?.listing_price
+      const priceLabel =
+        typeof price === 'number' && !Number.isNaN(price)
+          ? `${Math.round(price / 1000)}k\u00A0€`
+          : ''
+      const title = isExternal
+        ? ap.external_title || 'Imóvel externo'
+        : p?.title || 'Imóvel'
+      const href =
+        !isExternal && p?.slug
+          ? `https://infinitygroup.pt/property/${p.slug}`
+          : ap.external_url || '#'
+      const cover = !isExternal
+        ? p?.dev_property_media?.find((m: any) => m.is_cover)?.url ||
+          p?.dev_property_media?.[0]?.url ||
+          null
+        : null
+      const specsObj: any = !isExternal
+        ? Array.isArray(p?.dev_property_specifications)
+          ? p.dev_property_specifications[0]
+          : p?.dev_property_specifications
+        : null
+      const specParts: string[] = []
+      if (specsObj?.bedrooms) specParts.push(`${specsObj.bedrooms} quartos`)
+      if (specsObj?.area_util) specParts.push(`${specsObj.area_util} m²`)
+      const location = !isExternal
+        ? [p?.city, p?.zone].filter(Boolean).join(' · ')
+        : ap.external_source || ''
+      return {
+        id: ap.id,
+        title,
+        priceLabel,
+        href,
+        location,
+        specs: specParts.join(' · '),
+        imageUrl: cover,
+        reference: !isExternal ? p?.external_ref || null : null,
+      }
+    })
 
   const handleAddExternalProperty = async () => {
     if (!extUrl.trim()) return
@@ -629,12 +753,28 @@ export default function NegocioDetailPage() {
                     : score >= 40 ? 'bg-orange-500 text-white'
                     : 'bg-red-500 text-white'
                     : ''
+                  const matchRow = properties.find((pp) => pp.property_id === p.id)
+                  const matchSelected = matchRow ? selectedPropertyRowIds.has(matchRow.id) : false
+                  const matchAdding = addingMatchIds.has(p.id)
                   return (
-                    <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2',
+                    <div key={p.id} className={cn('group rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-card/80 animate-in fade-in slide-in-from-bottom-2 relative',
                       p.price_flag === 'yellow' && 'ring-2 ring-amber-400/60',
                       p.price_flag === 'orange' && 'ring-2 ring-orange-400/60',
-                      p.price_flag === 'red' && 'ring-2 ring-red-400/60'
+                      p.price_flag === 'red' && 'ring-2 ring-red-400/60',
+                      matchSelected && 'ring-2 ring-primary/60'
                     )} style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}>
+                      <div className="absolute top-2 left-2 z-10">
+                        {matchAdding ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        ) : (
+                          <Checkbox
+                            checked={matchSelected}
+                            onCheckedChange={() => toggleSelectMatch(p)}
+                            className="bg-background/80 border-foreground/40"
+                            aria-label="Seleccionar match"
+                          />
+                        )}
+                      </div>
                       <div className="flex">
                         <div className="w-28 shrink-0 relative bg-muted">
                           {cover ? (<img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="absolute inset-0 flex items-center justify-center"><Building2 className="h-6 w-6 text-muted-foreground/30" /></div>)}
@@ -690,11 +830,28 @@ export default function NegocioDetailPage() {
         content: (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {properties.length > 0
-                  ? `${properties.length} imóv${properties.length === 1 ? 'el' : 'eis'} adicionado${properties.length === 1 ? '' : 's'} ao dossier`
-                  : 'Sem imóveis no dossier'}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {properties.length > 0
+                    ? `${properties.length} imóv${properties.length === 1 ? 'el' : 'eis'} adicionado${properties.length === 1 ? '' : 's'} ao dossier`
+                    : 'Sem imóveis no dossier'}
+                </p>
+                {properties.length > 0 && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                    <Checkbox
+                      checked={
+                        selectedPropertyRowIds.size === properties.length
+                          ? true
+                          : selectedPropertyRowIds.size === 0
+                            ? false
+                            : 'indeterminate'
+                      }
+                      onCheckedChange={(v) => selectAllPropertyRows(Boolean(v))}
+                    />
+                    Seleccionar todos
+                  </label>
+                )}
+              </div>
               <div className="flex items-center gap-1.5">
                 {properties.length > 0 && (
                   <Button variant="outline" size="sm" className="rounded-full text-xs" onClick={scoreDossierProperties} disabled={isLoadingDossierScores}>
@@ -730,8 +887,25 @@ export default function NegocioDetailPage() {
                       : 'bg-red-500 text-white'
                       : ''
 
+                    const isSelected = selectedPropertyRowIds.has(ap.id)
                     return (
-                      <div key={ap.id} className="group rounded-xl border-2 border-emerald-200 dark:border-emerald-800/50 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
+                      <div
+                        key={ap.id}
+                        className={cn(
+                          'group rounded-xl border-2 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:shadow-lg relative',
+                          isSelected
+                            ? 'border-primary ring-2 ring-primary/40'
+                            : 'border-emerald-200 dark:border-emerald-800/50'
+                        )}
+                      >
+                        <div className="absolute top-2 left-2 z-10">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelectPropertyRow(ap.id)}
+                            className="bg-background/80 border-foreground/40"
+                            aria-label="Seleccionar imóvel"
+                          />
+                        </div>
                         <div className="flex">
                           <div className="w-28 shrink-0 relative bg-muted">
                             {cover ? (
@@ -765,6 +939,11 @@ export default function NegocioDetailPage() {
                             )}
                             {dScore?.reason && (
                               <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">{dScore.reason}</p>
+                            )}
+                            {ap.sent_at && (
+                              <p className="text-[10px] text-emerald-600 mt-1">
+                                Enviado a {format(new Date(ap.sent_at), "dd 'de' MMM, HH:mm", { locale: pt })}
+                              </p>
                             )}
                             <div className="flex items-center gap-1.5 mt-auto pt-2">
                               <Badge className={cn('rounded-full text-[9px] px-2 border-0', propStatus?.bg, propStatus?.text)}>{propStatus?.label}</Badge>
@@ -1372,6 +1551,46 @@ export default function NegocioDetailPage() {
             contactName={clientName}
           />
         )}
+
+        {/* Floating action bar: send selected properties */}
+        {selectedPropertyRowIds.size > 0 && (
+          <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border bg-card/95 px-4 py-2 shadow-lg backdrop-blur-sm flex items-center gap-3 animate-in slide-in-from-bottom-4">
+            <span className="text-sm">
+              <span className="font-semibold">{selectedPropertyRowIds.size}</span>{' '}
+              {selectedPropertyRowIds.size === 1
+                ? 'imóvel selecionado'
+                : 'imóveis selecionados'}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full text-xs"
+              onClick={clearSelection}
+            >
+              Limpar
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-full text-xs"
+              onClick={() => setShowSendPropertiesDialog(true)}
+            >
+              Enviar selecionados
+            </Button>
+          </div>
+        )}
+
+        {/* Send properties dialog */}
+        <SendPropertiesDialog
+          open={showSendPropertiesDialog}
+          onOpenChange={setShowSendPropertiesDialog}
+          negocioId={negocioId}
+          items={selectedSendItems}
+          onSuccess={() => {
+            setShowSendPropertiesDialog(false)
+            clearSelection()
+            fetchProperties()
+          }}
+        />
       </div>
     )
   }

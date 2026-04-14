@@ -38,6 +38,14 @@ export type WhatsAppTemplateCategory =
   | "notificacao"
   | "marketing"
   | "outro"
+  // Categorias canónicas partilhadas com contact_automations (lib/constants-template-categories.ts)
+  | "aniversario_contacto"
+  | "aniversario_fecho"
+  | "natal"
+  | "ano_novo"
+  | "festividade"
+  | "custom"
+  | "geral"
 
 export const TEMPLATE_CATEGORY_LABELS: Record<WhatsAppTemplateCategory, string> = {
   boas_vindas: "Boas-vindas",
@@ -47,6 +55,13 @@ export const TEMPLATE_CATEGORY_LABELS: Record<WhatsAppTemplateCategory, string> 
   notificacao: "Notificação",
   marketing: "Marketing",
   outro: "Outro",
+  aniversario_contacto: "Aniversário do contacto",
+  aniversario_fecho: "Aniversário de fecho",
+  natal: "Natal",
+  ano_novo: "Ano Novo",
+  festividade: "Festividade",
+  custom: "Personalizado",
+  geral: "Geral",
 }
 
 // ── Instância WhatsApp (armazenado em auto_wpp_instances) ──

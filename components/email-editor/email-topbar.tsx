@@ -8,6 +8,11 @@ import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
+import {
+  TEMPLATE_CATEGORY_VALUES,
+  TEMPLATE_CATEGORY_LABELS_PT,
+  type TemplateCategory,
+} from '@/lib/constants-template-categories'
 
 export type EditorMode = 'edit' | 'preview'
 
@@ -18,9 +23,11 @@ interface EmailTopbarProps {
   subject: string
   mode: EditorMode
   signatureMode?: SignatureMode
+  category?: TemplateCategory
   onNameChange: (value: string) => void
   onSubjectChange: (value: string) => void
   onSignatureModeChange?: (mode: SignatureMode) => void
+  onCategoryChange?: (value: TemplateCategory) => void
   onSave: (editorState: string) => void
   onModeChange: (mode: EditorMode, editorState: string) => void
   isSaving: boolean
@@ -31,9 +38,11 @@ export function EmailTopbar({
   subject,
   mode,
   signatureMode = 'process_owner',
+  category = 'geral',
   onNameChange,
   onSubjectChange,
   onSignatureModeChange,
+  onCategoryChange,
   onSave,
   onModeChange,
   isSaving,
@@ -80,6 +89,25 @@ export function EmailTopbar({
         placeholder="Assunto do email..."
         className="flex-1 border-none shadow-none focus-visible:ring-0 text-sm text-muted-foreground"
       />
+
+      {/* Categoria */}
+      {onCategoryChange && (
+        <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Categoria</span>
+          <Select value={category} onValueChange={(v) => onCategoryChange(v as TemplateCategory)}>
+            <SelectTrigger className="h-7 w-[140px] text-xs font-medium border-none shadow-none bg-transparent p-0 gap-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              {TEMPLATE_CATEGORY_VALUES.map((c) => (
+                <SelectItem key={c} value={c} className="text-xs">
+                  {TEMPLATE_CATEGORY_LABELS_PT[c]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Signature mode */}
       {onSignatureModeChange && (

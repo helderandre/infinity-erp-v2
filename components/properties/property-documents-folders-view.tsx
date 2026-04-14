@@ -10,6 +10,7 @@ import {
   DocumentUploadDialog,
   DocumentViewerModal,
   DocumentsGrid,
+  SendDocumentsDialog,
   useBatchDownload,
   type DocumentFile,
   type DocumentFolder,
@@ -36,6 +37,7 @@ export function PropertyDocumentsFoldersView({ propertyId }: PropertyDocumentsFo
   const [docTypes, setDocTypes] = useState<DocTypeOption[]>([])
   const [customOpen, setCustomOpen] = useState(false)
   const [extractingAll, setExtractingAll] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const { isDownloading, downloadFromFolders } = useBatchDownload()
 
   const selectedFolders = useMemo(
@@ -167,7 +169,20 @@ export function PropertyDocumentsFoldersView({ propertyId }: PropertyDocumentsFo
         totalFiles={totalSelectedFiles}
         isBusy={isDownloading}
         onDownload={handleBatchDownload}
+        onSend={() => setSendOpen(true)}
         onCancel={() => setSelectedIds(new Set())}
+      />
+
+      <SendDocumentsDialog
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        domain="properties"
+        entityId={propertyId}
+        folders={selectedFolders}
+        onSuccess={() => {
+          setSelectedIds(new Set())
+          setSendOpen(false)
+        }}
       />
 
       <DocumentViewerModal

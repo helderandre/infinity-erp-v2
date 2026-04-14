@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { MaskInput, type MaskPattern } from '@/components/ui/mask-input'
 import { Textarea } from '@/components/ui/textarea'
-import { phonePTMask, nifMask } from '@/lib/masks'
+import { nifMask } from '@/lib/masks'
+import { normalizeToE164 } from '@/lib/documents/phone'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import {
@@ -97,6 +98,54 @@ function EditField({
           className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
         />
       )}
+    </div>
+  )
+}
+
+/* ─── Phone Edit Field (aceita qualquer DDI) ─── */
+function PhoneEditField({
+  label,
+  value,
+  icon,
+  fullWidth,
+  placeholder,
+  onChange,
+}: {
+  label: string
+  value?: string | null
+  icon?: string
+  fullWidth?: boolean
+  placeholder?: string
+  onChange: (v: string) => void
+}) {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const raw = e.target.value
+    if (!raw.trim()) {
+      onChange('')
+      return
+    }
+    const normalized = normalizeToE164(raw, 'PT')
+    if (normalized && normalized !== raw) onChange(normalized)
+  }
+
+  return (
+    <div
+      className={`rounded-lg border px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
+    >
+      <p className="text-xs text-muted-foreground mb-1">
+        {icon && <span className="mr-1">{icon}</span>}
+        {label}
+      </p>
+      <Input
+        type="tel"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={handleBlur}
+        placeholder={placeholder || '+351 912 345 678'}
+        inputMode="tel"
+        autoComplete="off"
+        className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+      />
     </div>
   )
 }
@@ -302,8 +351,8 @@ export function LeadDataCard({
             <div className="grid grid-cols-2 gap-3">
               {isEditing ? (
                 <>
-                  <EditField icon="📱" label="Telemóvel" value={val('telemovel')} onChange={(v) => onFieldChange('telemovel', v)} mask={phonePTMask} />
-                  <EditField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} onChange={(v) => onFieldChange('telefone_fixo', v)} mask={phonePTMask} />
+                  <PhoneEditField icon="📱" label="Telemóvel" value={val('telemovel')} onChange={(v) => onFieldChange('telemovel', v)} />
+                  <PhoneEditField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} onChange={(v) => onFieldChange('telefone_fixo', v)} />
                   <EditField icon="✉️" label="Email" value={val('email')} type="email" onChange={(v) => onFieldChange('email', v)} />
                   <SelectField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} options={LEAD_MEIOS_CONTACTO} onChange={(v) => onFieldChange('meio_contacto_preferencial', v)} isEditing />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={(v) => onFieldChange('consentimento_contacto', v)} isEditing />
@@ -491,7 +540,7 @@ export function LeadDataCard({
                       </div>
                       <EditField icon="🏢" label="Nome da Empresa" value={val('empresa')} onChange={(v) => onFieldChange('empresa', v)} />
                       <EditField icon="📍" label="Morada da Empresa" value={val('morada_empresa')} fullWidth onChange={(v) => onFieldChange('morada_empresa', v)} />
-                      <EditField icon="📞" label="Telefone" value={val('telefone_empresa')} onChange={(v) => onFieldChange('telefone_empresa', v)} mask={phonePTMask} />
+                      <PhoneEditField icon="📞" label="Telefone" value={val('telefone_empresa')} onChange={(v) => onFieldChange('telefone_empresa', v)} />
                       <EditField icon="✉️" label="Email" value={val('email_empresa')} type="email" onChange={(v) => onFieldChange('email_empresa', v)} />
                       <EditField icon="🌐" label="Website" value={val('website_empresa')} placeholder="https://" onChange={(v) => onFieldChange('website_empresa', v)} />
                     </>

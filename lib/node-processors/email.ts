@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { AutomationNode, EmailNodeData } from "@/lib/types/automation-flow"
 import type { NodeProcessResult, ExecutionContext, DeliveryEntry } from "./index"
 import { resolveVariablesInString } from "./index"
+import { resolveEmailAccountById } from "@/lib/email/resolve-account-admin"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SA = any
@@ -34,14 +35,38 @@ export const processEmail: (
   flowMeta: { flowId: string; runId: string }
 ) => Promise<NodeProcessResult> = async (supabase, node, context, flowMeta) => {
   const start = Date.now()
-  const d = node.data as EmailNodeData
+  const d = node.data as EmailNodeData & {
+    smtpAccountId?: string | null
+    overrideSubject?: string
+    overrideBodyHtml?: string
+  }
   const vars = context.variables
 
   // --- Sender config ---
-  const senderName = d.senderName || "Infinity Group"
-  const senderEmail = d.senderEmail || "info@infinitygroup.pt"
+  // Contact automations passam smtpAccountId — resolvemos a conta do consultor
+  // e enviamos via Edge Function smtp-send. Caso contrário, fallback legacy.
+  const useConsultantSmtp = !!d.smtpAccountId
+  let senderName = d.senderName || "Infinity Group"
+  let senderEmail = d.senderEmail || "info@infinitygroup.pt"
+  let smtpCreds:
+    | { host: string; port: number; secure: boolean; user: string; pass: string }
+    | null = null
 
-  if (!senderEmail.endsWith("@infinitygroup.pt")) {
+  if (useConsultantSmtp) {
+    const resolved = await resolveEmailAccountById(supabase, d.smtpAccountId as string)
+    if (!resolved.ok) {
+      throw new Error(`SMTP: ${resolved.error}`)
+    }
+    senderName = resolved.data.account.display_name
+    senderEmail = resolved.data.account.email_address
+    smtpCreds = {
+      host: resolved.data.account.smtp_host,
+      port: resolved.data.account.smtp_port,
+      secure: resolved.data.account.smtp_secure,
+      user: resolved.data.account.email_address,
+      pass: resolved.data.password,
+    }
+  } else if (!senderEmail.endsWith("@infinitygroup.pt")) {
     throw new Error(`Email do remetente invalido: "${senderEmail}". Deve usar @infinitygroup.pt`)
   }
 
@@ -83,6 +108,10 @@ export const processEmail: (
     }
   }
 
+  // Overrides per-instância (contact_automations.template_overrides)
+  if (d.overrideSubject) subject = d.overrideSubject
+  if (d.overrideBodyHtml) bodyHtml = d.overrideBodyHtml
+
   subject = resolveVariablesInString(subject, vars)
   bodyHtml = resolveVariablesInString(bodyHtml, vars)
 
@@ -105,26 +134,51 @@ export const processEmail: (
   }
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        senderName,
-        senderEmail,
-        recipientEmail,
-        subject,
-        body: wrappedHtml,
-      }),
-    })
-
-    const resData = await response.json().catch(() => ({}))
-    delivery.externalMessageId = resData?.id
-    if (!response.ok || !resData?.success) {
-      delivery.status = "failed"
-      delivery.errorMessage = resData?.error || resData?.message || `HTTP ${response.status}`
+    if (smtpCreds) {
+      // Envio via SMTP do consultor (Edge Function smtp-send)
+      const edgeSecret = process.env.EDGE_SMTP_SECRET || ""
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/smtp-send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(edgeSecret ? { "x-edge-secret": edgeSecret } : {}),
+        },
+        body: JSON.stringify({
+          smtp: smtpCreds,
+          from: { name: senderName, address: senderEmail },
+          to: [recipientEmail],
+          subject,
+          html: wrappedHtml,
+        }),
+      })
+      const resData = await response.json().catch(() => ({}))
+      delivery.externalMessageId = resData?.messageId || resData?.id
+      if (!response.ok || resData?.success === false) {
+        delivery.status = "failed"
+        delivery.errorMessage = resData?.error || resData?.message || `HTTP ${response.status}`
+      }
+    } else {
+      // Envio via send-email (Resend, sender @infinitygroup.pt)
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          senderName,
+          senderEmail,
+          recipientEmail,
+          subject,
+          body: wrappedHtml,
+        }),
+      })
+      const resData = await response.json().catch(() => ({}))
+      delivery.externalMessageId = resData?.id
+      if (!response.ok || !resData?.success) {
+        delivery.status = "failed"
+        delivery.errorMessage = resData?.error || resData?.message || `HTTP ${response.status}`
+      }
     }
   } catch (err) {
     delivery.status = "failed"
