@@ -49,6 +49,7 @@ import { toast } from 'sonner'
 import { formatDate, formatCurrency, NEGOCIO_TIPOS, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { LeadDataCard } from '@/components/leads/lead-data-card'
+import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-folders-view'
 import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
@@ -73,8 +74,6 @@ export default function LeadDetailPage() {
   const [newNegocioTipo, setNewNegocioTipo] = useState('')
   const [creatingNegocio, setCreatingNegocio] = useState(false)
   const [attachments, setAttachments] = useState<LeadAttachment[]>([])
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false)
-  const [deleteAttachmentId, setDeleteAttachmentId] = useState<string | null>(null)
   const [cpLoading, setCpLoading] = useState(false)
   const [nipcLoading, setNipcLoading] = useState(false)
   const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
@@ -146,11 +145,17 @@ export default function LeadDetailPage() {
   }, [id])
 
   const loadAttachments = useCallback(async () => {
-    setAttachmentsLoading(true)
     try {
       const res = await fetch(`/api/leads/${id}/attachments`)
-      if (res.ok) { const data = await res.json(); setAttachments(data || []) }
-    } catch {} finally { setAttachmentsLoading(false) }
+      if (res.ok) {
+        const data = await res.json()
+        // New shape: { folders: [{ files: [...] }] }. Flatten so the pill
+        // counter keeps showing the total file count.
+        const folders = Array.isArray(data?.folders) ? data.folders : []
+        const flat = folders.flatMap((f: { files: LeadAttachment[] }) => f.files ?? [])
+        setAttachments(flat)
+      }
+    } catch {}
   }, [id])
 
   useEffect(() => { loadLead(); loadPendingLeads(); loadEntries() }, [loadLead, loadPendingLeads, loadEntries])
@@ -251,17 +256,6 @@ export default function LeadDetailPage() {
       loadNegocios()
     } catch { toast.error('Erro ao eliminar negocio') }
     finally { setDeletingNegocio(false) }
-  }
-
-  const handleDeleteAttachment = async () => {
-    if (!deleteAttachmentId) return
-    try {
-      const res = await fetch(`/api/leads/attachments/${deleteAttachmentId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
-      toast.success('Anexo eliminado')
-      loadAttachments()
-    } catch { toast.error('Erro ao eliminar anexo') }
-    finally { setDeleteAttachmentId(null) }
   }
 
   if (isLoading) {
@@ -808,54 +802,11 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
-              {/* Anexos subtab */}
+              {/* Anexos subtab — folder-based UI */}
               {historicoSubtab === 'anexos' && (
-                <div className="space-y-2">
-                  {attachmentsLoading ? (
-                    <div className="space-y-3">
-                      {[1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
-                    </div>
-                  ) : attachments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-12 text-center">
-                      <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                        <FileText className="h-7 w-7 text-muted-foreground/30" />
-                      </div>
-                      <p className="text-muted-foreground text-sm">Nenhum anexo encontrado</p>
-                    </div>
-                  ) : (
-                    attachments.map((att) => (
-                      <div key={att.id} className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm px-4 py-3 flex items-center justify-between transition-all hover:bg-card/80">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
-                            {att.name || 'Ficheiro'}
-                          </a>
-                          <span className="text-xs text-muted-foreground">{formatDate(att.created_at)}</span>
-                        </div>
-                        <button
-                          onClick={() => setDeleteAttachmentId(att.id)}
-                          className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <LeadDocumentsFoldersView leadId={id} />
               )}
 
-              <AlertDialog open={!!deleteAttachmentId} onOpenChange={() => setDeleteAttachmentId(null)}>
-                <AlertDialogContent className="rounded-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Eliminar anexo</AlertDialogTitle>
-                    <AlertDialogDescription>Tem a certeza de que pretende eliminar este anexo?</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteAttachment} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </TabsContent>
           </Tabs>
       </div>

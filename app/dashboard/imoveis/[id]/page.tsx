@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { toast } from 'sonner'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
-import { PropertyDocumentsTab } from '@/components/properties/property-documents-tab'
+import { PropertyDocumentsRoot } from '@/components/properties/property-documents-root'
 import { PropertyPlantasSection } from '@/components/properties/property-plantas-section'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
@@ -1175,7 +1175,7 @@ export default function ImovelDetalhePage() {
       {/* ─── Documentos ─── */}
       {activeTab === 'documentos' && (
         <div className="animate-in fade-in duration-300">
-          <PropertyDocumentsTab propertyId={property.id} />
+          <PropertyDocumentsRoot propertyId={property.id} />
         </div>
       )}
 

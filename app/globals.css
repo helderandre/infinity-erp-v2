@@ -364,3 +364,43 @@
 [data-radix-popover-content] [role="menuitem"] {
   white-space: nowrap;
 }
+
+/* Documents library — viselect rectangular selection */
+.selection-area-rect {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  border: 1.5px solid color-mix(in oklch, var(--primary) 40%, transparent);
+  border-radius: 6px;
+}
+
+.selectable-folder {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Disable text selection inside the grid so drag-to-select doesn't conflict
+   with the browser's native text selection. Re-enable within explicit inputs. */
+.documents-grid-root,
+.documents-grid-root * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.documents-grid-root input,
+.documents-grid-root textarea,
+.documents-grid-root [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* While viselect is actively drawing, prevent text selection on the whole page
+   to avoid the browser painting a native text selection at the same time. */
+body[data-document-selection-active='true'] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (pointer: coarse) {
+  .selection-area-rect {
+    display: none;
+  }
+}

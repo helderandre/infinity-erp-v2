@@ -1239,6 +1239,72 @@ npx supabase gen types typescript --project-id umlndumjfamfsswwjgoo > src/types/
 11. **Tabelas de leads usam nomes PT** — `leads` (nome, telemovel, estado, temperatura, origem), `negocios` (tipo, estado, localizacao, orcamento, preco_venda), `lead_attachments`
 12. **APIs de IA requerem chaves** — `OPENAI_API_KEY` para chat/fill-from-text/transcribe/summary/analyze-document, `NIF_PT_API_KEY` para lookup de NIPC
 13. **Negócios têm formulário dinâmico** — Os campos mudam conforme o tipo (Compra, Venda, Arrendatário, Arrendador, Compra e Venda). Tipo "Compra e Venda" mostra campos duplicados com sufixo `_venda`
+14. **Biblioteca de documentos partilhada** — Grelha de pastas 3D + selecção múltipla + batch ZIP + viewer inline vive em `components/documents/` (ver secção abaixo). Usa `@viselect/react`, `jszip`, `file-saver`, `react-dropzone`.
+
+---
+
+## Documentos — Biblioteca Partilhada (`components/documents/`)
+
+Componentes domain-agnostic que qualquer módulo pode usar para listar/gerir documentos de uma entidade. Cada domínio tem a sua config em `domain-configs.ts` (properties, leads, negocios, processes) com categorias PT-PT e ícones.
+
+**Componentes principais:**
+- `<DocumentsGrid>` — grelha de pastas 3D, agrupadas por `Collapsible` de categoria, com selecção rectangular via `@viselect/react`. Desactiva drag em `pointer: coarse` (touch).
+- `<FolderCard>` — pasta individual com thumbnail (primeira imagem), badge de contagem, context-menu PT-PT (Seleccionar/Abrir/Enviar/Descarregar pasta) e double-click (abre viewer ou upload se vazia).
+- `<BatchActionBar>` — barra flutuante no rodapé com contador + "Descarregar" + "Cancelar" (slide-up).
+- `<DocumentViewerModal>` — PDF em iframe, imagem com `object-contain`, DOCX via Office Online, fallback com `<DocIcon>` + download. Navegação por teclado (Esc, ←/→). Sidebar direita com `<DocIcon>` (nunca ícones Lucide para ficheiros).
+- `<DocumentUploadDialog>` — `react-dropzone` multi-ficheiro, validação de extensão via `doc_type.allowed_extensions`, label opcional por ficheiro, data de validade condicional.
+- `<CustomDocTypeDialog>` — criação rápida de `doc_type` ad-hoc com scope `applies_to`.
+- `useBatchDownload()` — hook que faz single-file `saveAs` ou ZIP via `jszip`. **Sempre** passa por `/api/documents/proxy?url=...` (CORS R2).
+
+**Contrato (`components/documents/types.ts`):**
+```ts
+type DocumentFolder = {
+  id: string
+  docTypeId: string | null
+  name: string
+  category: string         // mapa a DOMAIN_CONFIGS[domain].categories
+  files: DocumentFile[]
+  hasExpiry: boolean
+  expiresAt?: string | null
+  source?: DocumentFolderSource  // discriminated union: doc-type | property-media | ...
+  ...
+}
+```
+
+**Padrão de integração por domínio:**
+1. Adapter em `lib/documents/adapters/{domain}.ts` converte a resposta da API em `DocumentFolder[]`.
+2. Hook `hooks/use-{domain}-documents.ts` faz fetch + refetch.
+3. View component em `components/{domain}/{domain}-documents-folders-view.tsx` compõe `DocumentsGrid` + dialogs + `useBatchDownload`.
+4. Cada domínio envia multipart para `POST /api/{domain}/[id]/documents` (ou equivalente) que faz upload R2 + insert DB.
+
+**Superfícies activas:**
+| Domínio | Ficheiro | Estado |
+|---|---|---|
+| Imóveis | `property-documents-root.tsx` (toggle Lista/Pastas) | ✅ Pastas opcional; fluxos AI na vista Lista. |
+| Processos | `process-documents-manager.tsx` | ✅ Flat grid. Pastas `property-media` abrem `<PropertyMediaGallery>` em Dialog. |
+| Leads (Anexos) | `lead-documents-folders-view.tsx` | ✅ Substitui lista plana. Upload multipart → R2. |
+| Negócios (Documentos) | `negocio-documents-folders-view.tsx` | ✅ Tab nova. |
+
+**APIs de suporte:**
+- `GET /api/libraries/doc-types?applies_to=<domain>` — catálogo filtrado. Permissão: auth-only.
+- `POST /api/libraries/doc-types/custom` — criação ad-hoc de tipo com auditoria.
+- `GET /api/documents/proxy?url=<r2-url>` — proxy server-side para contornar CORS do R2 público (usado pelo `useBatchDownload`).
+
+**Schema DB relevante (aplicado em 2026-04-14):**
+- `doc_types.applies_to text[]` — scopes dos tipos (`properties`, `leads`, `negocios`, `processes`). Vazio = global.
+- `lead_attachments.{doc_type_id, file_size, mime_type, valid_until, notes}` — colunas aditivas NULL-safe para suportar folders e upload real a R2.
+- `negocio_documents` — tabela nova per-deal com FK `ON DELETE CASCADE` para `negocios`, join para `doc_types` e `dev_users`, trigger `updated_at`.
+
+**R2 paths:**
+- `leads/{leadId}/{docTypeSlug?}/{timestamp}-{name}`
+- `negocios/{negocioId}/{docTypeSlug?}/{timestamp}-{name}`
+- (já existentes: `imoveis-documentos/...`, `imoveis/{propertyId}/...`)
+
+**CSS:**
+- `.selection-area-rect` em `globals.css` — estilo do rectângulo de selecção (usa `color-mix` com `var(--primary)`).
+- `.documents-grid-root *` — `user-select: none` para evitar conflito de selecção de texto durante drag. Input/textarea re-habilitam selecção.
+
+**Bug conhecido do `@viselect/react` v3.9 e fix aplicado:** o wrapper regista handlers num `useEffect(..., [])` com deps vazias, capturando closures da primeira render. Solução: todos os callbacks em `DocumentsGrid` são estáveis (`useCallback(..., [])`) e leem estado via refs sincronizados.
 
 ---
 

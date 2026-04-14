@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useUser } from '@/hooks/use-user'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
+import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { mapNegocioToAcquisition } from '@/lib/utils/negocio-to-acquisition'
 import { VisitForm } from '@/components/visits/visit-form'
@@ -1027,6 +1028,12 @@ export default function NegocioDetailPage() {
         ),
       })
     }
+
+    tabs.push({
+      value: 'documentos',
+      label: 'Documentos',
+      content: <NegocioDocumentsFoldersView negocioId={negocioId} />,
+    })
 
     return tabs
   }

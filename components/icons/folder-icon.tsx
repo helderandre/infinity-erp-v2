@@ -10,6 +10,12 @@ interface FolderIconProps {
   hovered?: boolean
   /** Optional Lucide icon component rendered centered on the folder body */
   icon?: React.ComponentType<{ className?: string }>
+  /** Semantic state. Overrides `variant` when set: 'empty' → open folder. 'selected' adds no extra chrome here (wrapper applies ring). */
+  state?: 'empty' | 'filled' | 'selected'
+  /** Optional thumbnail image rendered "peeking" out of the folder (good for image-heavy folders). */
+  thumbnailUrl?: string
+  /** Optional count badge shown on the top-right corner. */
+  badgeCount?: number
 }
 
 // Shared defs used by both layers — extracted to avoid duplication.
@@ -141,9 +147,25 @@ function BodySvg() {
  * Tab and body are separate HTML layers so that CSS 3D perspective
  * can be applied to the front panel on hover.
  */
-export function FolderIcon({ className, variant = 'filled', hovered = false, icon: Icon }: FolderIconProps) {
-  if (variant === 'open') {
-    return <FolderOpenIcon className={className} />
+export function FolderIcon({
+  className,
+  variant = 'filled',
+  hovered = false,
+  icon: Icon,
+  state,
+  thumbnailUrl,
+  badgeCount,
+}: FolderIconProps) {
+  const effectiveVariant: 'filled' | 'open' =
+    state === 'empty' ? 'open' : state === 'filled' || state === 'selected' ? 'filled' : variant
+
+  if (effectiveVariant === 'open') {
+    return (
+      <div className={cn('relative', className)}>
+        <FolderOpenIcon className="h-full w-full" />
+        {badgeCount != null && badgeCount > 0 && <FolderBadge count={badgeCount} />}
+      </div>
+    )
   }
 
   return (
@@ -153,6 +175,19 @@ export function FolderIcon({ className, variant = 'filled', hovered = false, ico
     >
       {/* Back layer: tab — stays static */}
       <TabSvg />
+
+      {/* Thumbnail image peeking between tab and body, if provided */}
+      {thumbnailUrl && (
+        <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
+          <div
+            className="mt-[14%] h-[54%] w-[72%] overflow-hidden rounded-md border border-white/40 bg-white shadow-sm"
+            aria-hidden="true"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+          </div>
+        </div>
+      )}
 
       {/* Front layer: body — tilts on hover from bottom-center */}
       <div
@@ -165,13 +200,26 @@ export function FolderIcon({ className, variant = 'filled', hovered = false, ico
         <BodySvg />
 
         {/* Optional icon overlay centered on the body panel */}
-        {Icon && (
+        {Icon && !thumbnailUrl && (
           <div className="absolute inset-0 flex items-center justify-center" style={{ top: '10%' }}>
             <Icon className="w-[20%] h-[20%] text-neutral-50" />
           </div>
         )}
       </div>
+
+      {badgeCount != null && badgeCount > 0 && <FolderBadge count={badgeCount} />}
     </div>
+  )
+}
+
+function FolderBadge({ count }: { count: number }) {
+  return (
+    <span
+      className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[0.65rem] font-semibold leading-none text-primary-foreground shadow-sm"
+      aria-label={`${count} ficheiros`}
+    >
+      {count > 99 ? '99+' : count}
+    </span>
   )
 }
 
