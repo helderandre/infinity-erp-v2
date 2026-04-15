@@ -12,7 +12,7 @@ export const processWhatsApp: (
   supabase: SupabaseClient,
   node: AutomationNode,
   context: ExecutionContext,
-  flowMeta: { flowId: string; runId: string; wppInstanceId?: string | null }
+  flowMeta: { flowId: string; runId: string; stepRunId?: string; wppInstanceId?: string | null }
 ) => Promise<NodeProcessResult> = async (supabase, node, context, flowMeta) => {
   const start = Date.now()
   const d = node.data as WhatsAppNodeData
@@ -185,7 +185,7 @@ export const processWhatsApp: (
   // Log deliveries
   for (const del of deliveries) {
     await (supabase as SA).from("auto_delivery_log").insert({
-      step_run_id: null, // Will be set by the worker
+      step_run_id: flowMeta.stepRunId,
       run_id: flowMeta.runId,
       flow_id: flowMeta.flowId,
       channel: "whatsapp",

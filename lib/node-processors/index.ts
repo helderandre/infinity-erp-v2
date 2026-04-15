@@ -42,7 +42,12 @@ export type NodeProcessor = (
   supabase: SupabaseClient,
   node: AutomationNode,
   context: ExecutionContext,
-  flowMeta: { flowId: string; runId: string; wppInstanceId?: string | null }
+  flowMeta: {
+    flowId: string
+    runId: string
+    stepRunId?: string
+    wppInstanceId?: string | null
+  }
 ) => Promise<NodeProcessResult>
 
 // ── Registry ──

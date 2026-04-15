@@ -32,7 +32,7 @@ export const processEmail: (
   supabase: SupabaseClient,
   node: AutomationNode,
   context: ExecutionContext,
-  flowMeta: { flowId: string; runId: string }
+  flowMeta: { flowId: string; runId: string; stepRunId?: string }
 ) => Promise<NodeProcessResult> = async (supabase, node, context, flowMeta) => {
   const start = Date.now()
   const d = node.data as EmailNodeData & {
@@ -188,6 +188,7 @@ export const processEmail: (
   // Log in auto_delivery_log (non-critical — must not fail the step)
   try {
     const { error: deliveryLogErr } = await (supabase as SA).from("auto_delivery_log").insert({
+      step_run_id: flowMeta.stepRunId,
       run_id: flowMeta.runId,
       flow_id: flowMeta.flowId,
       channel: "email",

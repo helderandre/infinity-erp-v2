@@ -169,6 +169,7 @@ export async function POST(request: Request) {
         const result = await processor(supabase, node, context, {
           flowId: step.flow_id,
           runId: step.run_id,
+          stepRunId: step.id,
           wppInstanceId,
         })
 
