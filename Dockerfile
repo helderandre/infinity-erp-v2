@@ -24,6 +24,13 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 
+# Cap V8 heap para evitar OOM kill em VPS com RAM limitada.
+# Ajustar para ~75% da RAM disponível do container de build.
+ENV NODE_OPTIONS="--max-old-space-size=3072"
+
+# Desabilita telemetria (menos I/O durante o build)
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 # ---- Runner ----
