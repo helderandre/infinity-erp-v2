@@ -1,4 +1,5 @@
 {
+  "_comment": "Deploy do projecto corre em Coolify/Hetzner — este ficheiro fica apenas para quando/se houver deploy paralelo na Vercel. O cron real é configurado como Scheduled Task no Coolify (ver docs/M10-AUTOMACOES/SPEC-CONTACT-AUTOMATIONS.md).",
   "crons": [
     {
       "path": "/api/automacao/scheduler/spawn-runs",

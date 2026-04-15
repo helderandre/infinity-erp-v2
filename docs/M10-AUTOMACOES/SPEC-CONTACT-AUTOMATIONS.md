@@ -82,15 +82,41 @@ Canónicas (em [lib/constants-template-categories.ts](../../lib/constants-templa
 - Email: validação Zod + dropdown no editor ([email-topbar.tsx](../../components/email-editor/email-topbar.tsx)) + filtro na listagem.
 - WhatsApp: enum `WhatsAppTemplateCategory` estendido com os mesmos valores (mantendo retrocompatibilidade com `boas_vindas`, `follow_up`, etc).
 
-## Vercel Cron
+## Agendamento do Spawner
 
-```json
-{
-  "crons": [
-    { "path": "/api/automacao/scheduler/spawn-runs", "schedule": "* * * * *" }
-  ]
-}
+### Produção — Coolify Scheduled Tasks (ambiente actual)
+
+O projecto está deployado em Coolify + Hetzner, **não** em Vercel. A forma canónica de invocar o spawner é via **Scheduled Tasks** da aplicação no Coolify:
+
+1. Abrir a aplicação no Coolify → **Scheduled Tasks** → **Add New Task**
+2. **Name**: `contact-automations-spawner`
+3. **Command**:
+   ```bash
+   curl -fsS -X POST -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/automacao/scheduler/spawn-runs
+   ```
+   (usar `http://localhost:3000` porque a task corre dentro do mesmo container da app)
+4. **Frequency**: `* * * * *` (a cada minuto)
+5. **Container**: seleccionar o container da app Next.js
+6. Garantir que `CRON_SECRET` está definido nas variáveis de ambiente da aplicação em Coolify
+
+Como diagnosticar:
+- Logs da Scheduled Task visíveis no painel de Coolify
+- `SELECT * FROM auto_scheduler_log ORDER BY tick_at DESC LIMIT 20;` mostra os ticks que chegaram ao endpoint
+- Se `curl` devolve 401 → `CRON_SECRET` não está a ser lido pela aplicação (verificar variáveis)
+
+### Disparar manualmente (catch-up ou debug)
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://<seu-dominio>/api/automacao/scheduler/spawn-runs
 ```
+
+Devolve `{ evaluated, spawned, skipped, errors, duration_ms }`.
+
+### Vercel (não usado neste projecto)
+
+O ficheiro `vercel.json` existente tem uma entrada `crons` equivalente — fica preparada caso surja um deploy paralelo em Vercel, mas não é o mecanismo activo.
 
 ## Variáveis de ambiente
 
