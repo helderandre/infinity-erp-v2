@@ -42,6 +42,10 @@ const AiAgentChat = dynamic(
   () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
   { ssr: false }
 )
+const AiBatchNotification = dynamic(
+  () => import('@/components/shared/ai-batch-notification').then((m) => m.AiBatchNotification),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
@@ -127,6 +131,7 @@ export default function DashboardLayout({
         </SidebarInset>
         <GoalDailyPopup />
         <MobileBottomNav />
+        <AiBatchNotification />
       </SidebarProvider>
     </BreadcrumbOverrideProvider>
   )

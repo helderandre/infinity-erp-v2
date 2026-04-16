@@ -29,6 +29,14 @@ export interface PropertyDetail extends PropertyRow {
 }
 
 // Re-exports para conveniência
-export type PropertyMedia = PropertyMediaRow
+// Extend with AI classification fields (added via migration, not yet in auto-generated types)
+export type PropertyMedia = PropertyMediaRow & {
+  ai_room_label?: string | null
+  ai_room_confidence?: number | null
+  ai_classified_at?: string | null
+  ai_enhanced_url?: string | null
+  ai_staged_url?: string | null
+  ai_staged_style?: string | null
+}
 export type PropertySpecs = PropertySpecsRow
 export type PropertyInternal = PropertyInternalRow
