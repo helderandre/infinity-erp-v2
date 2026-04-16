@@ -40,6 +40,7 @@ import { usePropertyMedia } from '@/hooks/use-property-media'
 import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, Square, X, Sparkles, Loader2, Brain, Wand2, Sun, Sofa, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
+import { BorderBeam } from 'border-beam'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAiBatchStore } from '@/stores/ai-batch-store'
@@ -102,8 +103,10 @@ function RoomLabelBadge({
   const [customValue, setCustomValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const pct = Math.round(confidence * 100)
-  const color =
-    pct >= 80 ? 'bg-emerald-600/85' : pct >= 60 ? 'bg-amber-600/85' : 'bg-slate-600/85'
+  const isPlanta = label === 'planta'
+  const color = isPlanta
+    ? 'bg-blue-600/85'
+    : pct >= 80 ? 'bg-emerald-600/85' : pct >= 60 ? 'bg-amber-600/85' : 'bg-slate-600/85'
 
   const handleOutroClick = () => {
     setCustomMode(true)
@@ -536,7 +539,14 @@ export function PropertyMediaGallery({
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
-  const allMedia = media.length > 0 ? media : initialMedia
+  const rawMedia = media.length > 0 ? media : initialMedia
+  // Sort plantas first, then by original order_index
+  const allMedia = [...rawMedia].sort((a, b) => {
+    const aPlanta = a.ai_room_label === 'planta' ? 0 : 1
+    const bPlanta = b.ai_room_label === 'planta' ? 0 : 1
+    if (aPlanta !== bPlanta) return aPlanta - bPlanta
+    return (a.order_index ?? 0) - (b.order_index ?? 0)
+  })
   const currentMedia = displayMode === 'original'
     ? allMedia
     : displayMode === 'enhanced'
@@ -545,7 +555,7 @@ export function PropertyMediaGallery({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { distance: selectMode ? Infinity : 5 },
     })
   )
 
@@ -1057,11 +1067,13 @@ export function PropertyMediaGallery({
 
                 {/* Batch processing indicator */}
                 {batchProcessing && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    {batchProgress.done}/{batchProgress.total}
-                    {batchProcessing === 'stage' ? ' decoradas' : ' melhoradas'}
-                  </span>
+                  <BorderBeam active colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground rounded-full border px-3 py-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {batchProgress.done}/{batchProgress.total}
+                      {batchProcessing === 'stage' ? ' decoradas' : ' melhoradas'}
+                    </span>
+                  </BorderBeam>
                 )}
 
                 {displayMode !== 'original' ? (
@@ -1186,7 +1198,7 @@ export function PropertyMediaGallery({
 
       {currentMedia.length > 0 && (
         <DndContext
-          sensors={selectMode ? undefined : sensors}
+          sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
@@ -1329,6 +1341,7 @@ export function PropertyMediaGallery({
           {aiDialogMedia && (
             <div className="space-y-4">
               {/* Compare slider or original image */}
+              <BorderBeam active={!!aiProcessing} colorVariant="colorful" size="md" strength={1} brightness={1.8}>
               {compareView ? (
                 <ImageCompareSlider
                   originalUrl={compareView.original}
@@ -1347,6 +1360,7 @@ export function PropertyMediaGallery({
                   />
                 </div>
               )}
+              </BorderBeam>
 
               {/* View toggle + existing AI versions */}
               <div className="flex gap-2 flex-wrap">
@@ -1413,61 +1427,66 @@ export function PropertyMediaGallery({
               </div>
 
               {/* Custom prompt for staging */}
-              <div>
+              <BorderBeam active={!!customPrompt.trim()} colorVariant="ocean" size="sm" strength={0.8} brightness={1.6}>
                 <input
                   type="text"
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder="Instruções extra para decoração (opcional): ex. sofá azul, tapete grande…"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-ring"
                   disabled={!!aiProcessing}
                 />
-              </div>
+              </BorderBeam>
 
               {/* Generate actions */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Enhance resolution */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-3 flex flex-col items-center gap-1.5"
-                  disabled={!!aiProcessing}
-                  onClick={() => handleEnhance(aiDialogMedia)}
-                >
-                  {aiProcessing === 'enhance' ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-5 w-5" />
-                  )}
-                  <span className="text-xs font-medium">
-                    {aiProcessing === 'enhance' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Resolução' : 'Melhorar Resolução'}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">Real-ESRGAN 4x</span>
-                </Button>
+                <BorderBeam active={aiProcessing === 'enhance'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
+                  <Button
+                    variant="outline"
+                    className="h-auto w-full py-3 flex flex-col items-center gap-1.5 rounded-2xl"
+                    disabled={!!aiProcessing}
+                    onClick={() => handleEnhance(aiDialogMedia)}
+                  >
+                    {aiProcessing === 'enhance' ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-5 w-5" />
+                    )}
+                    <span className="text-xs font-medium">
+                      {aiProcessing === 'enhance' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Resolução' : 'Melhorar Resolução'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Real-ESRGAN 4x</span>
+                  </Button>
+                </BorderBeam>
 
                 {/* Improve lighting */}
-                <Button
-                  variant="outline"
-                  className="h-auto py-3 flex flex-col items-center gap-1.5"
-                  disabled={!!aiProcessing}
-                  onClick={() => handleImproveLighting(aiDialogMedia)}
-                >
-                  {aiProcessing === 'lighting' ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Sun className="h-5 w-5" />
-                  )}
-                  <span className="text-xs font-medium">
-                    {aiProcessing === 'lighting' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Iluminação' : 'Melhorar Iluminação'}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">OpenAI GPT Image</span>
-                </Button>
+                <BorderBeam active={aiProcessing === 'lighting'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
+                  <Button
+                    variant="outline"
+                    className="h-auto w-full py-3 flex flex-col items-center gap-1.5 rounded-2xl"
+                    disabled={!!aiProcessing}
+                    onClick={() => handleImproveLighting(aiDialogMedia)}
+                  >
+                    {aiProcessing === 'lighting' ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Sun className="h-5 w-5" />
+                    )}
+                    <span className="text-xs font-medium">
+                      {aiProcessing === 'lighting' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Iluminação' : 'Melhorar Iluminação'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">OpenAI GPT Image</span>
+                  </Button>
+                </BorderBeam>
 
                 {/* Virtual staging dropdown */}
+                <BorderBeam active={aiProcessing === 'stage'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-auto py-3 flex flex-col items-center gap-1.5"
+                      className="h-auto w-full py-3 flex flex-col items-center gap-1.5 rounded-2xl"
                       disabled={!!aiProcessing}
                     >
                       {aiProcessing === 'stage' ? (
@@ -1492,32 +1511,35 @@ export function PropertyMediaGallery({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                </BorderBeam>
               </div>
 
               {/* Refine existing AI image */}
               {(aiDialogMedia.ai_enhanced_url || aiDialogMedia.ai_staged_url) && !aiProcessing && (
                 <div>
                   <p className="text-xs font-medium mb-1.5 text-muted-foreground">Refinar imagem IA</p>
-                  <form
-                    onSubmit={(e) => { e.preventDefault(); handleRefine(aiDialogMedia) }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={refineInput}
-                      onChange={(e) => setRefineInput(e.target.value)}
-                      placeholder="Ex: remove a planta, muda o sofá para cinzento, adiciona um espelho…"
-                      className="flex-1 rounded-md border bg-background px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      className="h-8 text-xs px-3"
-                      disabled={!refineInput.trim()}
+                  <BorderBeam active={!!refineInput.trim()} colorVariant="ocean" size="sm" strength={0.8} brightness={1.6}>
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); handleRefine(aiDialogMedia) }}
+                      className="flex gap-2"
                     >
-                      Refinar
-                    </Button>
-                  </form>
+                      <input
+                        type="text"
+                        value={refineInput}
+                        onChange={(e) => setRefineInput(e.target.value)}
+                        placeholder="Ex: remove a planta, muda o sofá para cinzento, adiciona um espelho…"
+                        className="flex-1 rounded-xl border bg-background px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="h-8 text-xs px-3"
+                        disabled={!refineInput.trim()}
+                      >
+                        Refinar
+                      </Button>
+                    </form>
+                  </BorderBeam>
                 </div>
               )}
 
@@ -1573,7 +1595,12 @@ export function PropertyMediaGallery({
                     {/* Left: room label + AI badge */}
                     <div className="flex items-center gap-2 pointer-events-auto">
                       {currentItem.ai_room_label && (
-                        <span className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 px-3.5 py-1.5 text-sm font-medium text-white capitalize shadow-lg">
+                        <span className={cn(
+                          'rounded-full backdrop-blur-xl border px-3.5 py-1.5 text-sm font-medium text-white capitalize shadow-lg',
+                          currentItem.ai_room_label === 'planta'
+                            ? 'bg-blue-500/30 border-blue-400/40'
+                            : 'bg-white/10 border-white/20'
+                        )}>
                           {currentItem.ai_room_label}
                         </span>
                       )}

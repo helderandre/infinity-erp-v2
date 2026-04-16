@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAiBatchStore } from '@/stores/ai-batch-store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { BorderBeam } from 'border-beam'
 import { CheckSquare, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,9 +30,10 @@ export function AiBatchNotification() {
     <>
       {/* Floating notification card — fixed to viewport */}
       <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+        <BorderBeam active={!job.finished} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
         <div
           className={cn(
-            'w-80 rounded-lg border shadow-lg p-4 cursor-pointer transition-colors',
+            'w-80 rounded-2xl border shadow-lg p-4 cursor-pointer transition-colors',
             job.finished
               ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:border-emerald-800'
               : 'bg-card border-border hover:bg-accent/50'
@@ -89,6 +91,7 @@ export function AiBatchNotification() {
             </div>
           )}
         </div>
+        </BorderBeam>
       </div>
 
       {/* Preview dialog */}

@@ -49,6 +49,7 @@
     "@types/react-mentions": "^4.4.1",
     "@viselect/react": "^3.9.0",
     "@xyflow/react": "^12.10.1",
+    "border-beam": "^1.0.1",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
