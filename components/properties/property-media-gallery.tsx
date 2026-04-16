@@ -103,10 +103,13 @@ function RoomLabelBadge({
   const [customValue, setCustomValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const pct = Math.round(confidence * 100)
+  const isEmpty = !label
   const isPlanta = label === 'planta'
-  const color = isPlanta
-    ? 'bg-blue-600/85'
-    : pct >= 80 ? 'bg-emerald-600/85' : pct >= 60 ? 'bg-amber-600/85' : 'bg-slate-600/85'
+  const color = isEmpty
+    ? 'bg-slate-500/70'
+    : isPlanta
+      ? 'bg-blue-600/85'
+      : pct >= 80 ? 'bg-emerald-600/85' : pct >= 60 ? 'bg-amber-600/85' : 'bg-slate-600/85'
 
   const handleOutroClick = () => {
     setCustomMode(true)
@@ -132,8 +135,14 @@ function RoomLabelBadge({
           onClick={(e) => e.stopPropagation()}
         >
           <Brain className="h-3 w-3" />
-          <span className="capitalize">{label}</span>
-          <span className="opacity-75">{pct}%</span>
+          {isEmpty ? (
+            <span>Classificar</span>
+          ) : (
+            <>
+              <span className="capitalize">{label}</span>
+              <span className="opacity-75">{pct}%</span>
+            </>
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -143,7 +152,7 @@ function RoomLabelBadge({
       >
         <DropdownMenuItem onClick={() => onClassify(mediaId)}>
           <Sparkles className="h-3.5 w-3.5 mr-2 text-violet-500" />
-          Reclassificar com IA
+          {isEmpty ? 'Classificar com IA' : 'Reclassificar com IA'}
         </DropdownMenuItem>
         <div className="h-px bg-border my-1" />
         {ROOM_TYPES.filter((t) => t !== 'outro').map((type) => (
@@ -275,6 +284,15 @@ function SortableGridItem({
           <RoomLabelBadge
             label={item.ai_room_label!}
             confidence={item.ai_room_confidence ?? 0}
+            mediaId={item.id}
+            onSetLabel={onSetLabel}
+            onClassify={onClassify}
+          />
+        )}
+        {!item.ai_room_label && !isClassifyingThis && (
+          <RoomLabelBadge
+            label=""
+            confidence={0}
             mediaId={item.id}
             onSetLabel={onSetLabel}
             onClassify={onClassify}
@@ -441,6 +459,15 @@ function SortableListItem({
             <RoomLabelBadge
               label={item.ai_room_label!}
               confidence={item.ai_room_confidence ?? 0}
+              mediaId={item.id}
+              onSetLabel={onSetLabel}
+              onClassify={onClassify}
+            />
+          )}
+          {!item.ai_room_label && !isClassifyingThis && (
+            <RoomLabelBadge
+              label=""
+              confidence={0}
               mediaId={item.id}
               onSetLabel={onSetLabel}
               onClassify={onClassify}
