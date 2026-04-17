@@ -9,6 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { EventsCardsGrid } from "./custom-events/events-cards-grid"
+import { CustomEventWizard } from "./custom-events/custom-event-wizard"
+import { CustomEventDetailDialog } from "./custom-events/custom-event-detail-dialog"
+import { useCustomEvents } from "@/hooks/use-custom-events"
 
 interface Props {
   userId: string
@@ -37,6 +41,10 @@ export function ScheduledTab({ userId, canSeeAll }: Props) {
   const [state, setState] = useState<string>("all")
   const [consultantFilter, setConsultantFilter] = useState<string>(canSeeAll ? "all" : userId)
   const [consultants, setConsultants] = useState<Consultant[]>([])
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [detailEventId, setDetailEventId] = useState<string | null>(null)
+  const [detailIsFixed, setDetailIsFixed] = useState(false)
+  const { events: customEvents } = useCustomEvents()
 
   const loadConsultants = useCallback(async () => {
     if (!canSeeAll) return
@@ -67,7 +75,31 @@ export function ScheduledTab({ userId, canSeeAll }: Props) {
   const showConsultantColumn = canSeeAll && consultantFilter === "all"
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      {/* ═══ Events Cards Grid ═══ */}
+      <EventsCardsGrid
+        onEventClick={(id, isFixed) => {
+          setDetailEventId(id)
+          setDetailIsFixed(isFixed)
+        }}
+        onCreateClick={() => setWizardOpen(true)}
+      />
+
+      {/* ═══ Wizard dialog ═══ */}
+      <CustomEventWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+      />
+
+      {/* ═══ Detail dialog ═══ */}
+      <CustomEventDetailDialog
+        eventId={detailEventId}
+        isFixed={detailIsFixed}
+        open={!!detailEventId}
+        onOpenChange={(open) => !open && setDetailEventId(null)}
+      />
+
+      {/* ═══ Scheduled table (existing) ═══ */}
       <div className="flex flex-wrap items-center gap-3">
         {canSeeAll && (
           <Select value={consultantFilter} onValueChange={setConsultantFilter}>
@@ -97,6 +129,13 @@ export function ScheduledTab({ userId, canSeeAll }: Props) {
             <SelectItem value="aniversario_contacto">Aniversário</SelectItem>
             <SelectItem value="natal">Natal</SelectItem>
             <SelectItem value="ano_novo">Ano Novo</SelectItem>
+            {customEvents
+              .filter((e) => e.status === "active")
+              .map((e) => (
+                <SelectItem key={e.id} value={e.name}>
+                  {e.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
@@ -187,8 +226,8 @@ export function ScheduledTab({ userId, canSeeAll }: Props) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={r.source === "virtual" ? "outline" : "default"}>
-                        {r.source}
+                      <Badge variant={r.source === "virtual" ? "outline" : r.source === "custom_event" ? "secondary" : "default"}>
+                        {r.source === "custom_event" ? "personalizado" : r.source}
                       </Badge>
                     </TableCell>
                   </TableRow>

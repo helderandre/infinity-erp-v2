@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 export interface ScheduledRow {
-  source: "virtual" | "manual"
+  source: "virtual" | "manual" | "custom_event"
   lead_id: string
   lead_name: string | null
   agent_id: string | null

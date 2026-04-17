@@ -10,7 +10,7 @@ type Channel = "email" | "whatsapp"
 type State = "active" | "muted" | "skipped_no_channel"
 
 interface ScheduledRow {
-  source: "virtual" | "manual"
+  source: "virtual" | "manual" | "custom_event"
   lead_id: string
   lead_name: string | null
   agent_id: string | null
@@ -21,6 +21,35 @@ interface ScheduledRow {
   channels_muted: Channel[]
   state: State
   manual_automation_id?: string
+  custom_event_id?: string
+}
+
+/**
+ * Compute next occurrence for a custom event based on its month/day.
+ * If recurring and this year's date has passed, returns next year.
+ * If non-recurring and already triggered this year, returns null.
+ */
+function computeNextCustomOccurrence(
+  eventDate: string,
+  sendHour: number,
+  isRecurring: boolean,
+  lastTriggeredYear: number | null,
+  now: Date,
+): Date | null {
+  const d = new Date(eventDate + "T00:00:00Z")
+  const month = d.getUTCMonth()
+  const day = d.getUTCDate()
+  const currentYear = now.getFullYear()
+
+  // Non-recurring and already triggered → no next occurrence
+  if (!isRecurring && lastTriggeredYear !== null && lastTriggeredYear >= currentYear) return null
+
+  const candidate = new Date(currentYear, month, day, sendHour, 0, 0, 0)
+  if (candidate > now) return candidate
+
+  // This year's date has passed
+  if (!isRecurring) return null
+  return new Date(currentYear + 1, month, day, sendHour, 0, 0, 0)
 }
 
 interface MuteRow {
@@ -232,6 +261,108 @@ export async function GET(request: Request) {
         channels_muted: mutedChannels,
         state,
       })
+    }
+  }
+
+  // ═══ Phase: Custom Commemorative Events ═══
+  // Fetch active custom events (scoped by consultant if needed)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let customEventsQuery: any = (supabase as any)
+    .from("custom_commemorative_events")
+    .select("id, name, event_date, send_hour, is_recurring, channels, last_triggered_year, consultant_id, status")
+    .eq("status", "active")
+
+  if (scopedAgentId) customEventsQuery = customEventsQuery.eq("consultant_id", scopedAgentId)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: customEventsRaw } = await customEventsQuery
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const customEvents = (customEventsRaw as any[]) ?? []
+
+  if (customEvents.length > 0) {
+    const customEventIds = customEvents.map((e) => e.id as string)
+
+    // Fetch all lead enrollments for these events, filtered to current page leads
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: enrollmentsRaw } = await (supabase as any)
+      .from("custom_event_leads")
+      .select("event_id, lead_id")
+      .in("event_id", customEventIds)
+      .in("lead_id", leadIds)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enrollments = (enrollmentsRaw as any[]) ?? []
+
+    // Group enrollments by event_id
+    const enrollmentsByEvent = new Map<string, Set<string>>()
+    for (const e of enrollments) {
+      if (!enrollmentsByEvent.has(e.event_id)) enrollmentsByEvent.set(e.event_id, new Set())
+      enrollmentsByEvent.get(e.event_id)!.add(e.lead_id)
+    }
+
+    // Build a lookup for leads by id
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadsById = new Map<string, any>()
+    for (const l of leads) leadsById.set(l.id, l)
+
+    for (const evt of customEvents) {
+      const enrolledLeadIds = enrollmentsByEvent.get(evt.id)
+      if (!enrolledLeadIds || enrolledLeadIds.size === 0) continue
+
+      // Apply event_type filter — custom events use name as event_type
+      if (eventFilter && eventFilter !== evt.name && eventFilter !== evt.id) continue
+
+      const nextAt = computeNextCustomOccurrence(
+        evt.event_date,
+        evt.send_hour,
+        evt.is_recurring,
+        evt.last_triggered_year,
+        now,
+      )
+      if (!nextAt) continue
+
+      const evtChannels = (evt.channels ?? []) as string[]
+
+      for (const leadId of enrolledLeadIds) {
+        const lead = leadsById.get(leadId)
+        if (!lead) continue
+
+        const agentId = (lead.agent_id as string | null) ?? null
+        const hasSmtp = agentId ? smtpByAgent.has(agentId) : false
+        const hasWpp = agentId ? wppByAgent.has(agentId) : false
+
+        const activeChannels: Channel[] = []
+        const mutedChannels: Channel[] = []
+
+        if (evtChannels.includes("email") && lead.email) {
+          if (matchesMute(mutes, leadId, agentId, evt.name, "email")) mutedChannels.push("email")
+          else if (hasSmtp) activeChannels.push("email")
+        }
+        if (evtChannels.includes("whatsapp") && lead.telemovel) {
+          if (matchesMute(mutes, leadId, agentId, evt.name, "whatsapp")) mutedChannels.push("whatsapp")
+          else if (hasWpp) activeChannels.push("whatsapp")
+        }
+
+        let state: State = "active"
+        if (activeChannels.length === 0 && mutedChannels.length > 0) state = "muted"
+        else if (activeChannels.length === 0) state = "skipped_no_channel"
+
+        if (stateFilter && stateFilter !== state) continue
+
+        rows.push({
+          source: "custom_event",
+          lead_id: leadId,
+          lead_name: lead.nome || lead.full_name,
+          agent_id: agentId,
+          agent_name: lead.consultor?.commercial_name ?? null,
+          event_type: evt.name,
+          next_at: nextAt.toISOString(),
+          channels_active: activeChannels,
+          channels_muted: mutedChannels,
+          state,
+          custom_event_id: evt.id,
+        })
+      }
     }
   }
 
