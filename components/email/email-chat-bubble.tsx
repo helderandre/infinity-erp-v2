@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   X, Minus, Send, Sparkles, Loader2, ChevronDown, ChevronUp,
-  Paperclip, Reply, ExternalLink, Mail,
+  Paperclip, Reply, ExternalLink, Mail, Mic, MicOff,
 } from 'lucide-react'
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -67,6 +67,15 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
 
   // AI state
   const [aiLoading, setAiLoading] = useState(false)
+  // Voice-to-email state
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  // Web Speech API recognition (free, live — no OpenAI tokens)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
+  const speechFinalRef = useRef('')
 
   const { account } = useEmailAccount()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -133,26 +142,29 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
     setShowCompose(true)
   }, [])
 
-  // AI draft
-  const generateAiReply = useCallback(async () => {
-    if (!replyTo && !subject) {
-      toast.error('Escreva um assunto primeiro')
+  // AI draft — fills BOTH subject and body from the instruction/context
+  const generateAiDraft = useCallback(async (instructionOverride?: string) => {
+    const instruction = (instructionOverride ?? body).trim()
+
+    if (!replyTo && !instruction && !subject.trim()) {
+      toast.error('Escreva uma instrução (ou um assunto) ou grave uma nota de voz primeiro')
       return
     }
 
     setAiLoading(true)
     try {
       const payload: Record<string, string> = {
-        subject: subject || replyTo?.subject || '',
+        contact_name: contactName || '',
+        contact_email: contactEmail || '',
       }
+      if (subject.trim()) payload.subject = subject.trim()
       if (replyTo) {
+        payload.subject = replyTo.subject || payload.subject || ''
         payload.from_name = replyTo.from?.[0]?.name || ''
         payload.from_email = replyTo.from?.[0]?.address || ''
         payload.body_text = replyTo.text || (replyTo.html ? stripHtml(replyTo.html) : '')
       }
-      if (body.trim()) {
-        payload.instruction = body.trim()
-      }
+      if (instruction) payload.instruction = instruction
 
       const res = await fetch('/api/email/ai-draft', {
         method: 'POST',
@@ -161,13 +173,187 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      setBody(data.draft || '')
+
+      // Apply both subject and body — overwrite the instruction prompt that was in body
+      if (data.subject) setSubject(data.subject)
+      setBody(data.body || data.draft || '')
     } catch {
       toast.error('Erro ao gerar rascunho IA')
     } finally {
       setAiLoading(false)
     }
-  }, [replyTo, subject, body])
+  }, [replyTo, subject, body, contactName, contactEmail])
+
+  // ── Strategy 1: Web Speech API (free, live transcription) ────────────
+  // Writes text to the body in real time as the user speaks. No tokens used.
+  // Chrome / Edge / Safari desktop all support it; Firefox and iOS Safari don't.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getSpeechRecognition = () =>
+    (typeof window !== 'undefined' &&
+      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) || null
+
+  const startLiveRecognition = useCallback(() => {
+    const SR = getSpeechRecognition()
+    if (!SR) return false
+
+    try {
+      const r = new SR()
+      r.lang = 'pt-PT'
+      r.continuous = true
+      r.interimResults = true
+      speechFinalRef.current = ''
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      r.onresult = (ev: any) => {
+        let interim = ''
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript
+          if (ev.results[i].isFinal) speechFinalRef.current += t
+          else interim += t
+        }
+        setBody((speechFinalRef.current + interim).trimStart())
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      r.onerror = (ev: any) => {
+        const err = ev?.error
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          toast.error('Permissão do microfone negada', {
+            description: 'Clica no cadeado 🔒 ao lado do URL e permite o microfone.',
+            duration: 8000,
+          })
+        } else if (err === 'no-speech') {
+          // User didn't say anything — no toast, just stop quietly
+        } else if (err !== 'aborted') {
+          toast.error('Erro no reconhecimento de voz', { description: err })
+        }
+        setIsRecording(false)
+      }
+
+      r.onend = () => {
+        setIsRecording(false)
+        const finalText = speechFinalRef.current.trim()
+        speechFinalRef.current = ''
+        recognitionRef.current = null
+        if (finalText) {
+          // Feed the transcription into the AI draft (subject + body)
+          generateAiDraft(finalText)
+        }
+      }
+
+      recognitionRef.current = r
+      r.start()
+      setIsRecording(true)
+      return true
+    } catch {
+      return false
+    }
+  }, [generateAiDraft])
+
+  // ── Strategy 2: MediaRecorder → Whisper fallback (paid, non-live) ────
+  const startRecording = useCallback(async () => {
+    // Prefer the free, live Web Speech API whenever available
+    if (startLiveRecognition()) return
+
+    // Browser capability check
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      toast.error('O navegador não suporta gravação de áudio')
+      return
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      toast.error('O navegador não suporta MediaRecorder')
+      return
+    }
+
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        toast.error('Permissão do microfone negada', {
+          description: 'Clica no cadeado 🔒 ao lado do URL e permite o microfone, depois recarrega a página.',
+          duration: 8000,
+        })
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        toast.error('Nenhum microfone detectado', {
+          description: 'Verifica se o microfone está ligado e tenta de novo.',
+        })
+      } else {
+        toast.error('Não foi possível aceder ao microfone', {
+          description: name ? `Erro: ${name}` : undefined,
+        })
+      }
+      return
+    }
+
+    // Pick a supported mime type
+    const mime = (() => {
+      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+      for (const m of candidates) {
+        if (MediaRecorder.isTypeSupported?.(m)) return m
+      }
+      return ''
+    })()
+
+    let mr: MediaRecorder
+    try {
+      mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+    } catch {
+      stream.getTracks().forEach((t) => t.stop())
+      toast.error('Formato de áudio não suportado pelo navegador')
+      return
+    }
+
+    mediaRecorderRef.current = mr
+    chunksRef.current = []
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    mr.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop())
+      const blob = new Blob(chunksRef.current, { type: mime || 'audio/webm' })
+
+      if (blob.size === 0) {
+        toast.error('Gravação vazia — tenta falar mais alto ou mais tempo')
+        return
+      }
+
+      setIsTranscribing(true)
+      try {
+        const ext = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm'
+        const fd = new FormData()
+        fd.append('audio', blob, `recording.${ext}`)
+        const trRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+        if (!trRes.ok) {
+          const err = await trRes.json().catch(() => ({}))
+          throw new Error(err.error || `Transcrição falhou (${trRes.status})`)
+        }
+        const { text } = await trRes.json()
+        if (!text?.trim()) {
+          toast.error('Não consegui transcrever o áudio')
+          return
+        }
+        await generateAiDraft(text.trim())
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Erro na transcrição')
+      } finally {
+        setIsTranscribing(false)
+      }
+    }
+    mr.start()
+    setIsRecording(true)
+  }, [generateAiDraft])
+
+  const stopRecording = useCallback(() => {
+    // Stop Web Speech API if active (fires `onend` which kicks off AI draft).
+    // Don't null the ref here — let `onend` clean up after firing.
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      return
+    }
+    // Otherwise stop the MediaRecorder fallback
+    mediaRecorderRef.current?.stop()
+    setIsRecording(false)
+  }, [])
 
   // Send email
   const handleSend = useCallback(async () => {
@@ -328,32 +514,68 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-0.5">
                       <label className="text-[10px] text-muted-foreground font-medium uppercase">Mensagem</label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] gap-1 text-neutral-600 hover:text-neutral-700"
-                        onClick={generateAiReply}
-                        disabled={aiLoading}
-                      >
-                        {aiLoading ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                      <div className="flex items-center gap-1.5">
+                        {/* Voice recording */}
+                        {isRecording ? (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-6 text-[10px] gap-1 rounded-full"
+                            onClick={stopRecording}
+                          >
+                            <MicOff className="h-3 w-3" />
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                            </span>
+                            Parar
+                          </Button>
                         ) : (
-                          <Sparkles className="h-3 w-3" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] gap-1 text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+                            onClick={startRecording}
+                            disabled={aiLoading || isTranscribing}
+                            title="Falar → IA redige o email"
+                          >
+                            {isTranscribing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mic className="h-3 w-3" />
+                            )}
+                            {isTranscribing ? 'A transcrever...' : 'Falar'}
+                          </Button>
                         )}
-                        {aiLoading ? 'A gerar...' : 'IA'}
-                      </Button>
+                        {/* AI draft */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px] gap-1 text-neutral-600 hover:text-neutral-700"
+                          onClick={() => generateAiDraft()}
+                          disabled={aiLoading || isTranscribing || isRecording}
+                        >
+                          {aiLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3 w-3" />
+                          )}
+                          {aiLoading ? 'A gerar...' : 'IA'}
+                        </Button>
+                      </div>
                     </div>
                     <Textarea
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       placeholder={replyTo
-                        ? 'Escreva a resposta ou uma instrução para a IA (ex: "recusar educadamente")...'
-                        : 'Escreva o email...'
+                        ? 'Escreva a resposta, ou uma instrução para a IA (ex: "recusar educadamente"), ou clique Falar...'
+                        : 'Escreva o email, ou uma instrução para a IA (ex: "confirmar visita dia 20 às 15h"), ou clique Falar...'
                       }
                       className="text-sm min-h-[150px] resize-none"
+                      disabled={aiLoading || isTranscribing}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Dica: Escreva uma instrução e clique IA para gerar o email automaticamente.
+                      Fala ou escreve uma instrução → a IA redige assunto e corpo.
                     </p>
                   </div>
                 </div>
