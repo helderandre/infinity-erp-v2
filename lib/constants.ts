@@ -914,19 +914,33 @@ export const KYC_LABELS = {
 export const INTERNAL_CHAT_CHANNEL_ID = '00000000-0000-0000-0000-000000000001'
 
 /** Generates a deterministic channel ID for a DM between two users.
- *  Sorts UUIDs alphabetically so the result is the same regardless of order. */
+ *  Sorts UUIDs alphabetically so the result is the same regardless of order.
+ *  Uses a simple hash to produce a unique UUID-formatted string. */
 export function getDmChannelId(userA: string, userB: string): string {
   const sorted = [userA, userB].sort()
-  // Create a deterministic UUID-like string from the sorted pair
-  const combined = sorted.join('-')
-  // Simple hash → UUID format (uses only hex chars from the input UUIDs)
-  const clean = combined.replace(/-/g, '')
+  const input = `dm:${sorted[0]}:${sorted[1]}`
+  // Simple string hash → 32 hex chars → UUID format
+  let h1 = 0x811c9dc5
+  let h2 = 0x1000193
+  for (let i = 0; i < input.length; i++) {
+    h1 = Math.imul(h1 ^ input.charCodeAt(i), 0x01000193) >>> 0
+    h2 = Math.imul(h2 ^ input.charCodeAt(i), 0x00000065) >>> 0
+  }
+  // Generate enough hex from multiple hash rounds
+  const parts: string[] = []
+  for (let round = 0; round < 4; round++) {
+    h1 = Math.imul(h1 ^ (round * 0x9e3779b9), 0x01000193) >>> 0
+    h2 = Math.imul(h2 ^ (round * 0x517cc1b7), 0x01000193) >>> 0
+    parts.push(h1.toString(16).padStart(8, '0'))
+    parts.push(h2.toString(16).padStart(8, '0'))
+  }
+  const hex = parts.join('').slice(0, 32)
   return [
-    clean.slice(0, 8),
-    clean.slice(8, 12),
-    clean.slice(12, 16),
-    clean.slice(16, 20),
-    clean.slice(20, 32),
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
   ].join('-')
 }
 

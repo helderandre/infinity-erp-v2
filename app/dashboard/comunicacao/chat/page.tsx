@@ -15,10 +15,12 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { getDmChannelId } from '@/lib/constants'
+import { useChatUnread } from '@/hooks/use-chat-unread'
 
 export default function ChatPage() {
   const { user, loading: userLoading } = useUser()
   const { channels, isLoading: channelsLoading, searchChannels } = useProcessChannels()
+  const { counts: unreadCounts, refetch: refetchUnread } = useChatUnread()
   const [activeConversation, setActiveConversation] = useState<ConversationType | null>({
     type: 'internal',
   })
@@ -79,10 +81,15 @@ export default function ChatPage() {
         <ConversationList
           currentUserId={currentUser.id}
           activeConversation={activeConversation}
-          onSelect={setActiveConversation}
+          onSelect={(conv) => {
+            setActiveConversation(conv)
+            // Refetch unread after a short delay (time for markAsRead to fire)
+            setTimeout(refetchUnread, 1500)
+          }}
           processChannels={channels}
           isLoadingChannels={channelsLoading}
           onSearchChannels={searchChannels}
+          unreadCounts={unreadCounts}
         />
       </div>
 
@@ -113,6 +120,7 @@ export default function ChatPage() {
             key={dmChannelId}
             currentUser={currentUser}
             channelId={dmChannelId}
+            dmRecipientId={activeConversation.userId}
             header={
               <DmChatHeader
                 userName={activeConversation.userName}

@@ -59,10 +59,11 @@ const mentionStyle = {
 interface InternalChatPanelProps {
   currentUser: { id: string; name: string; avatarUrl?: string }
   channelId?: string
+  dmRecipientId?: string
   header?: React.ReactNode
 }
 
-export function InternalChatPanel({ currentUser, channelId, header }: InternalChatPanelProps) {
+export function InternalChatPanel({ currentUser, channelId, dmRecipientId, header }: InternalChatPanelProps) {
   const {
     messages,
     readReceipts,
@@ -73,7 +74,7 @@ export function InternalChatPanel({ currentUser, channelId, header }: InternalCh
     deleteMessage,
     toggleReaction,
     markAsRead,
-  } = useInternalChat(channelId)
+  } = useInternalChat(channelId, dmRecipientId)
 
   const { onlineUsers, typingUsers, setTyping } = useInternalChatPresence(currentUser)
 

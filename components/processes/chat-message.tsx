@@ -499,7 +499,7 @@ export function ChatMessageItem({
               {message.attachments && message.attachments.length > 0 && (
                 <div className={isVoiceMsg ? '' : 'mt-1.5 space-y-1'}>
                   {message.attachments.map((att) => (
-                    <ChatAttachment key={att.id} attachment={att} />
+                    <ChatAttachment key={att.id} attachment={att} isOwn={false} />
                   ))}
                 </div>
               )}

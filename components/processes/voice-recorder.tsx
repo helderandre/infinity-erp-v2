@@ -413,9 +413,11 @@ interface VoiceMessagePlayerProps {
   src: string
   duration?: number
   fileName?: string
+  /** 'own' = dark bg (primary), 'other' = light bg (muted) */
+  variant?: 'own' | 'other'
 }
 
-export function VoiceMessagePlayer({ src, duration }: VoiceMessagePlayerProps) {
+export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMessagePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -541,17 +543,24 @@ export function VoiceMessagePlayer({ src, duration }: VoiceMessagePlayerProps) {
   const currentDisplay = formatDuration(currentTime * 1000)
   const totalDisplay = hasDuration ? formatDuration(totalDuration * 1000) : null
 
+  const isOther = variant === 'other'
+
   return (
     <div className="flex items-center gap-2.5 w-[280px]">
       {/* Play/Pause */}
       <button
         onClick={togglePlay}
-        className="h-8 w-8 rounded-full bg-primary-foreground/20 flex items-center justify-center shrink-0 hover:bg-primary-foreground/30 transition-colors"
+        className={cn(
+          'h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors',
+          isOther
+            ? 'bg-foreground/10 hover:bg-foreground/20'
+            : 'bg-primary-foreground/20 hover:bg-primary-foreground/30'
+        )}
       >
         {isPlaying ? (
-          <Pause className="h-3.5 w-3.5 text-primary-foreground fill-current" />
+          <Pause className={cn('h-3.5 w-3.5 fill-current', isOther ? 'text-foreground' : 'text-primary-foreground')} />
         ) : (
-          <Play className="h-3.5 w-3.5 text-primary-foreground fill-current ml-0.5" />
+          <Play className={cn('h-3.5 w-3.5 fill-current ml-0.5', isOther ? 'text-foreground' : 'text-primary-foreground')} />
         )}
       </button>
 
@@ -564,16 +573,28 @@ export function VoiceMessagePlayer({ src, duration }: VoiceMessagePlayerProps) {
           step={0.5}
           onValueChange={handleSeek}
           className={cn(
-            '[&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-track]]:!bg-primary-foreground/25',
-            '[&_[data-slot=slider-range]]:!bg-primary-foreground/70',
+            '[&_[data-slot=slider-track]]:h-1',
             '[&_[data-slot=slider-thumb]]:size-2.5',
-            '[&_[data-slot=slider-thumb]]:!border-primary-foreground [&_[data-slot=slider-thumb]]:!bg-primary-foreground',
+            isOther
+              ? [
+                  '[&_[data-slot=slider-track]]:!bg-foreground/15',
+                  '[&_[data-slot=slider-range]]:!bg-foreground/50',
+                  '[&_[data-slot=slider-thumb]]:!border-foreground [&_[data-slot=slider-thumb]]:!bg-foreground',
+                ]
+              : [
+                  '[&_[data-slot=slider-track]]:!bg-primary-foreground/25',
+                  '[&_[data-slot=slider-range]]:!bg-primary-foreground/70',
+                  '[&_[data-slot=slider-thumb]]:!border-primary-foreground [&_[data-slot=slider-thumb]]:!bg-primary-foreground',
+                ]
           )}
         />
       </div>
 
       {/* Time */}
-      <span className="text-[10px] font-mono tabular-nums text-primary-foreground/70 shrink-0">
+      <span className={cn(
+        'text-[10px] font-mono tabular-nums shrink-0',
+        isOther ? 'text-muted-foreground' : 'text-primary-foreground/70'
+      )}>
         {totalDisplay ? `${currentDisplay} / ${totalDisplay}` : currentDisplay}
       </span>
     </div>

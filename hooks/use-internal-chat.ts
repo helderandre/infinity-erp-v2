@@ -7,7 +7,7 @@ import type { InternalChatMessage, InternalChatMention, InternalChatReadReceipt 
 
 const API_BASE = '/api/chat/internal'
 
-export function useInternalChat(channelId?: string) {
+export function useInternalChat(channelId?: string, dmRecipientId?: string) {
   const activeChannelId = channelId || INTERNAL_CHAT_CHANNEL_ID
   const [messages, setMessages] = useState<InternalChatMessage[]>([])
   const [readReceipts, setReadReceipts] = useState<InternalChatReadReceipt[]>([])
@@ -80,6 +80,7 @@ export function useInternalChat(channelId?: string) {
           mentions,
           parent_message_id: parentMessageId || null,
           channel_id: activeChannelId,
+          ...(dmRecipientId ? { dm_recipient_id: dmRecipientId } : {}),
         }),
       })
       if (!res.ok) throw new Error('Erro ao enviar mensagem')
@@ -91,7 +92,7 @@ export function useInternalChat(channelId?: string) {
     } finally {
       setIsSending(false)
     }
-  }, [upsertMessage, activeChannelId])
+  }, [upsertMessage, activeChannelId, dmRecipientId])
 
   const editMessage = useCallback(async (messageId: string, content: string) => {
     try {

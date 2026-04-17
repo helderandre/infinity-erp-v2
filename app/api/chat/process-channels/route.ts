@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
@@ -12,21 +13,30 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim() || ''
 
-    // Use raw SQL for the complex aggregation query
-    const db = supabase as unknown as {
-      rpc: typeof supabase.rpc
-    }
+    // Check if user has admin/manager role → sees ALL processes
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
 
-    // Get processes where user is consultant or has tasks assigned
+    const roleNames = (userRoles || [])
+      .map((ur: any) => ur.role?.name)
+      .filter(Boolean) as string[]
+
+    const isManager = roleNames.some((r) =>
+      (PROCESS_MANAGER_ROLES as readonly string[]).includes(r)
+    )
+
+    // Get processes
     const { data: processes, error: procError } = await supabase
       .from('proc_instances')
       .select(`
         id,
         external_ref,
         current_status,
-        property:dev_properties(title)
+        property:dev_properties(id, title)
       `)
-      .or(`current_status.neq.cancelled`)
+      .neq('current_status', 'cancelled')
       .is('deleted_at', null)
       .limit(100)
 
@@ -38,29 +48,33 @@ export async function GET(request: Request) {
       return NextResponse.json([])
     }
 
-    // Filter processes where user participates (consultant on property or has assigned tasks)
-    const processIds = processes.map((p: any) => p.id)
+    let userProcesses: any[]
 
-    // Get processes with assigned tasks for this user
-    const { data: assignedTasks } = await supabase
-      .from('proc_tasks')
-      .select('proc_instance_id')
-      .eq('assigned_to', user.id)
-      .in('proc_instance_id', processIds)
+    if (isManager) {
+      // Managers see all processes
+      userProcesses = processes
+    } else {
+      // Regular users: only processes they participate in
+      const processIds = processes.map((p: any) => p.id)
 
-    // Get processes where user is consultant on the property
-    const { data: consultantProps } = await supabase
-      .from('dev_properties')
-      .select('id')
-      .eq('consultant_id', user.id)
+      const { data: assignedTasks } = await supabase
+        .from('proc_tasks')
+        .select('proc_instance_id')
+        .eq('assigned_to', user.id)
+        .in('proc_instance_id', processIds)
 
-    const consultantPropIds = new Set((consultantProps || []).map((p: any) => p.id))
-    const assignedProcIds = new Set((assignedTasks || []).map((t: any) => t.proc_instance_id))
+      const { data: consultantProps } = await supabase
+        .from('dev_properties')
+        .select('id')
+        .eq('consultant_id', user.id)
 
-    // Filter to user's processes
-    const userProcesses = processes.filter((p: any) => {
-      return assignedProcIds.has(p.id) || consultantPropIds.has(p.property?.id)
-    })
+      const consultantPropIds = new Set((consultantProps || []).map((p: any) => p.id))
+      const assignedProcIds = new Set((assignedTasks || []).map((t: any) => t.proc_instance_id))
+
+      userProcesses = processes.filter((p: any) => {
+        return assignedProcIds.has(p.id) || consultantPropIds.has(p.property?.id)
+      })
+    }
 
     if (userProcesses.length === 0) {
       return NextResponse.json([])
@@ -81,7 +95,6 @@ export async function GET(request: Request) {
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
 
-    // Build last message map (first occurrence per proc_instance_id = latest)
     const lastMessageMap = new Map<string, any>()
     for (const msg of (lastMessages || [])) {
       const procId = (msg as any).proc_instance_id
@@ -119,7 +132,6 @@ export async function GET(request: Request) {
 
           unreadCount = count || 0
         } else {
-          // Never read — all messages are unread
           const { count } = await supabase
             .from('proc_chat_messages')
             .select('id', { count: 'exact', head: true })

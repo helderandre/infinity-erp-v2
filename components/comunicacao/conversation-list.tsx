@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { ConversationListItem } from './conversation-list-item'
 import { ProcessChannelList } from './process-channel-list'
+import { getDmChannelId, INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 import type { ProcessChannelPreview } from '@/types/internal-chat'
 
 export type ConversationType =
@@ -47,6 +48,7 @@ interface ConversationListProps {
   processChannels: ProcessChannelPreview[]
   isLoadingChannels: boolean
   onSearchChannels: (query: string) => void
+  unreadCounts?: Record<string, number>
 }
 
 export function ConversationList({
@@ -56,6 +58,7 @@ export function ConversationList({
   processChannels,
   isLoadingChannels,
   onSearchChannels,
+  unreadCounts = {},
 }: ConversationListProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'processos'>('chat')
   const [contacts, setContacts] = useState<DevUserContact[]>([])
@@ -123,6 +126,7 @@ export function ConversationList({
         <ConversationListItem
           icon={<Users className="h-4 w-4 text-primary" />}
           title="Grupo Geral"
+          unreadCount={unreadCounts[INTERNAL_CHAT_CHANNEL_ID] || 0}
           isActive={isInternalActive}
           onClick={() => onSelect({ type: 'internal' })}
         />
@@ -196,6 +200,8 @@ export function ConversationList({
                   const isDmActive =
                     activeConversation?.type === 'dm' &&
                     activeConversation.userId === contact.id
+                  const dmChId = getDmChannelId(currentUserId, contact.id)
+                  const dmUnread = unreadCounts[dmChId] || 0
                   const roles = (contact.user_roles || [])
                     .map((ur) => ur.role?.name)
                     .filter((n): n is string => Boolean(n))
@@ -230,7 +236,14 @@ export function ConversationList({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm truncate block">{contact.commercial_name}</span>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={cn('text-sm truncate', dmUnread > 0 && 'font-semibold')}>{contact.commercial_name}</span>
+                          {dmUnread > 0 && (
+                            <Badge className="h-5 min-w-5 px-1.5 text-[10px] font-bold rounded-full bg-primary text-primary-foreground shrink-0">
+                              {dmUnread}
+                            </Badge>
+                          )}
+                        </div>
                         {roles.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {roles.map((role) => (

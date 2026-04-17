@@ -21,12 +21,16 @@ export type NotificationType =
   | 'alert_on_unblock'
   | 'alert_on_assign'
   | 'calendar_reminder'
+  | 'internal_chat_message'
+  | 'internal_chat_mention'
+  | 'dm_message'
 
 export type NotificationEntityType =
   | 'proc_instance'
   | 'proc_task'
   | 'proc_task_comment'
   | 'proc_chat_message'
+  | 'internal_chat_message'
   | 'task'
   | 'task_comment'
 

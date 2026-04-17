@@ -8,6 +8,7 @@ import type { ChatAttachment as ChatAttachmentType } from '@/types/process'
 
 interface ChatAttachmentProps {
   attachment: ChatAttachmentType
+  isOwn?: boolean
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -25,7 +26,7 @@ function isVoiceMessage(attachment: ChatAttachmentType): boolean {
   )
 }
 
-export function ChatAttachment({ attachment }: ChatAttachmentProps) {
+export function ChatAttachment({ attachment, isOwn = true }: ChatAttachmentProps) {
   const sizeLabel = formatFileSize(attachment.file_size)
 
   if (attachment.attachment_type === 'image') {
@@ -46,6 +47,7 @@ export function ChatAttachment({ attachment }: ChatAttachmentProps) {
       return (
         <VoiceMessagePlayer
           src={attachment.file_url}
+          variant={isOwn ? 'own' : 'other'}
         />
       )
     }

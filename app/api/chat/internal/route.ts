@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { sendInternalMessageSchema } from '@/lib/validations/internal-chat'
 import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
+import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: Request) {
   try {
@@ -98,6 +101,7 @@ export async function POST(request: Request) {
     }
 
     const channelId = body.channel_id || INTERNAL_CHAT_CHANNEL_ID
+    const isDm = channelId !== INTERNAL_CHAT_CHANNEL_ID
 
     const { data: message, error: insertError } = await db.from('internal_chat_messages')
       .insert({
@@ -127,6 +131,78 @@ export async function POST(request: Request) {
         .single()
 
       responseMessage = { ...responseMessage, parent_message: parent || null }
+    }
+
+    // --- Notifications & Push ---
+    try {
+      const senderName = responseMessage.sender?.commercial_name || 'Alguém'
+      const contentPreview = validation.data.content.slice(0, 100)
+      const adminSupabase = createAdminClient()
+
+      if (isDm) {
+        // DM: notify the other user in the channel
+        // Parse the channel to find the other user — we get it from body
+        const dmRecipientId = body.dm_recipient_id
+        if (dmRecipientId && dmRecipientId !== user.id) {
+          await notificationService.create({
+            recipientId: dmRecipientId,
+            senderId: user.id,
+            notificationType: 'dm_message',
+            entityType: 'internal_chat_message',
+            entityId: responseMessage.id,
+            title: `${senderName} enviou-lhe uma mensagem`,
+            body: contentPreview,
+            actionUrl: `/dashboard/comunicacao/chat?dm=${dmRecipientId}`,
+          })
+
+          await sendPushToUser(adminSupabase, dmRecipientId, {
+            title: senderName,
+            body: contentPreview,
+            url: `/dashboard/comunicacao/chat?dm=${dmRecipientId}`,
+            tag: `dm-${channelId}`,
+          })
+        }
+      } else {
+        // Group chat: notify all active users except sender
+        const { data: activeUsers } = await adminSupabase
+          .from('dev_users')
+          .select('id')
+          .eq('is_active', true)
+          .neq('id', user.id)
+
+        const recipientIds = (activeUsers || []).map((u: any) => u.id)
+
+        // Mentions get a specific notification
+        const mentionedIds = new Set(
+          (validation.data.mentions || []).map((m: { user_id: string }) => m.user_id)
+        )
+
+        for (const recipientId of recipientIds) {
+          const isMentioned = mentionedIds.has(recipientId)
+
+          await notificationService.create({
+            recipientId,
+            senderId: user.id,
+            notificationType: isMentioned ? 'internal_chat_mention' : 'internal_chat_message',
+            entityType: 'internal_chat_message',
+            entityId: responseMessage.id,
+            title: isMentioned
+              ? `${senderName} mencionou-o no Grupo Geral`
+              : `${senderName} no Grupo Geral`,
+            body: contentPreview,
+            actionUrl: '/dashboard/comunicacao/chat',
+          })
+
+          await sendPushToUser(adminSupabase, recipientId, {
+            title: isMentioned ? `${senderName} mencionou-o` : `Grupo Geral — ${senderName}`,
+            body: contentPreview,
+            url: '/dashboard/comunicacao/chat',
+            tag: 'internal-chat',
+          })
+        }
+      }
+    } catch (notifError) {
+      console.error('[InternalChat] Erro ao enviar notificações:', notifError)
     }
 
     return NextResponse.json(responseMessage, { status: 201 })
