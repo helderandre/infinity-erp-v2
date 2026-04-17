@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { User, UserPlus, Building2, FileCheck, ShoppingCart } from 'lucide-react'
+import { User, Building2, FileCheck, Infinity as InfinityIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
@@ -131,12 +131,12 @@ export function ErpLinkTags({ contactId }: ErpLinkTagsProps) {
         </div>
       )}
 
-      {/* Lead */}
+      {/* Lead (negócios moved to CRM tab as rich cards) */}
       {lead && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600">
-            <UserPlus className="h-3.5 w-3.5" />
-            Lead
+            <InfinityIcon className="h-3.5 w-3.5" />
+            Contacto
           </div>
           <div className="flex flex-wrap gap-1">
             <Link href={`/dashboard/leads/${lead.id}`}>
@@ -146,20 +146,6 @@ export function ErpLinkTags({ contactId }: ErpLinkTagsProps) {
               </Badge>
             </Link>
           </div>
-
-          {/* Negocios */}
-          {lead.negocios.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {lead.negocios.map((neg) => (
-                <Link key={neg.id} href={`/dashboard/leads/${lead.id}/negocios/${neg.id}`}>
-                  <Badge variant="secondary" className="text-[11px] cursor-pointer hover:opacity-80">
-                    <ShoppingCart className="h-3 w-3 mr-1" />
-                    {neg.tipo || 'Negocio'} — {neg.tipo_imovel || ''}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

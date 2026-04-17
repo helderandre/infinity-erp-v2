@@ -12,7 +12,6 @@ import {
   Lightbulb,
   Library,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,14 +42,30 @@ export function QuickActions() {
       .catch(() => {})
   }, [])
 
+  // Listen for mobile toolbar events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const key = (e as CustomEvent).detail
+      if (key === 'lead') setContactOpen(true)
+      else if (key === 'acquisition') setAcquisitionOpen(true)
+      else if (key === 'deal') setFechoOpen(true)
+      else if (key === 'task') setTaskOpen(true)
+    }
+    window.addEventListener('open-quick-action', handler)
+    return () => window.removeEventListener('open-quick-action', handler)
+  }, [])
+
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Plus className="h-4 w-4" />
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="size-4" />
             <span className="sr-only">Acções rápidas</span>
-          </Button>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onClick={() => setContactOpen(true)}>

@@ -1541,6 +1541,7 @@ export default function NegocioDetailPage() {
           <WhatsAppChatBubble
             contactPhone={phone}
             contactName={clientName}
+            contactLeadId={leadId}
           />
         )}
 

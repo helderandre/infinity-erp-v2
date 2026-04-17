@@ -255,6 +255,13 @@ export function AiAgentChat() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Listen for mobile toolbar event
+  useEffect(() => {
+    const handler = () => setOpen(true)
+    window.addEventListener('open-ai-assistant', handler)
+    return () => window.removeEventListener('open-ai-assistant', handler)
+  }, [])
+
   useEffect(() => {
     const el = scrollContainerRef.current
     if (el) {

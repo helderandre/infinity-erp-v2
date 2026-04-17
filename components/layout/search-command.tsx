@@ -36,6 +36,15 @@ export function SearchCommand() {
     return () => document.removeEventListener('keydown', down)
   }, [])
 
+  // Listen for mobile toolbar event
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === 'search') setOpen(true)
+    }
+    window.addEventListener('open-quick-action', handler)
+    return () => window.removeEventListener('open-quick-action', handler)
+  }, [])
+
   const visibleMenuItems = menuItems.filter((item) =>
     'permission' in item ? hasPermission(item.permission as any) : true
   )

@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   Plus, Pencil, Trash2, Shield, ShieldCheck, Settings, Euro,
-  Save, Loader2, Users, Landmark, Layers, Plug, Bell,
+  Save, Loader2, Users, Landmark, Layers, Plug, Bell, MessageSquare,
 } from 'lucide-react'
 import { MetaIntegrationsClient } from './integracoes/meta/meta-client'
 import { toast } from 'sonner'
@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 import { RoleDialog } from '@/components/roles/role-dialog'
 import { PERMISSION_MODULES } from '@/lib/constants'
 import { NotificationRoutingTab } from '@/components/settings/notification-routing-tab'
+import { WhatsAppActivitySettings } from '@/components/leads/whatsapp-activity-settings'
 import {
   getAgencySettings, updateAgencySetting,
   getCommissionTiers, upsertCommissionTier, deleteCommissionTier,
@@ -305,6 +306,10 @@ export default function DefinicoesPage() {
             <Plug className="h-4 w-4" />
             Integrações
           </TabsTrigger>
+          <TabsTrigger value="crm" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <MessageSquare className="h-4 w-4" />
+            CRM
+          </TabsTrigger>
         </TabsList>
 
         {/* ═══ Roles Tab ═══ */}
@@ -519,6 +524,12 @@ export default function DefinicoesPage() {
               <p className="text-sm text-muted-foreground">Clique na tab para carregar as integrações</p>
             </div>
           )}
+        </TabsContent>
+
+        {/* ═══ CRM Tab ═══ */}
+        <TabsContent value="crm" className="mt-6 space-y-4">
+          <p className="text-sm text-muted-foreground">Configurações do CRM e comunicações.</p>
+          <WhatsAppActivitySettings />
         </TabsContent>
       </Tabs>
 

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ContactRound, Briefcase, Users, Euro, Landmark,
   GraduationCap, Store, Megaphone, Bot, MessageCircle, Infinity,
+  Search, Plus, Mail, Workflow, ChevronUp, ChevronDown, Zap, Handshake, CheckSquare,
 } from 'lucide-react'
 import {
   meuEspacoItems, comunicacaoItems, crmItems, negocioItems, infinityItems,
@@ -14,6 +15,7 @@ import {
   digitalItems, automationItems,
 } from '@/components/layout/app-sidebar'
 import type { LucideIcon } from 'lucide-react'
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
 
 // ─── Section definitions (mirrors sidebar groups) ───────────────────────────
 
@@ -45,6 +47,7 @@ export function MobileBottomNav() {
   const pathname = usePathname()
   const navRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
+  const [toolbarOpen, setToolbarOpen] = useState(false)
   const [bubbleStyle, setBubbleStyle] = useState({ left: 0, width: 0 })
 
   // Detect current section from pathname
@@ -108,7 +111,7 @@ export function MobileBottomNav() {
   const visibleItems = currentSection.items.slice(0, 4)
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible">
       {/* Section picker popup */}
       {sectionPopupOpen && (
         <>
@@ -143,8 +146,83 @@ export function MobileBottomNav() {
         </>
       )}
 
+      {/* Sliding toolbar — slides up from behind the navbar */}
+      <div
+        className={cn(
+          'absolute bottom-full left-0 right-0 transition-transform duration-300 ease-out z-0',
+          toolbarOpen ? 'translate-y-0' : 'translate-y-full'
+        )}
+      >
+        <div className="bg-neutral-900 dark:bg-neutral-800 px-3 py-3 flex flex-col gap-2 rounded-t-2xl">
+          {/* Row 1: AI, Communication */}
+          <div className="flex items-center justify-around">
+            <button
+              onClick={() => { window.dispatchEvent(new CustomEvent('open-ai-assistant')); setTimeout(() => setToolbarOpen(false), 150) }}
+              className="flex flex-col items-center gap-1 text-neutral-200 active:text-white transition-colors"
+            >
+              <Infinity className="h-5 w-5" />
+              <span className="text-[8px] font-medium">Assistente</span>
+            </button>
+            <Link
+              href="/dashboard/whatsapp"
+              onClick={() => setTimeout(() => setToolbarOpen(false), 150)}
+              className="flex flex-col items-center gap-1 text-neutral-200 active:text-white transition-colors"
+            >
+              <WhatsAppIcon className="h-5 w-5" />
+              <span className="text-[8px] font-medium">WhatsApp</span>
+            </Link>
+            <Link
+              href="/dashboard/email"
+              onClick={() => setTimeout(() => setToolbarOpen(false), 150)}
+              className="flex flex-col items-center gap-1 text-neutral-200 active:text-white transition-colors"
+            >
+              <Mail className="h-5 w-5" />
+              <span className="text-[8px] font-medium">Email</span>
+            </Link>
+            <Link
+              href="/dashboard/automacao/fluxos"
+              onClick={() => setTimeout(() => setToolbarOpen(false), 150)}
+              className="flex flex-col items-center gap-1 text-neutral-200 active:text-white transition-colors"
+            >
+              <Workflow className="h-5 w-5" />
+              <span className="text-[8px] font-medium">Automatismos</span>
+            </Link>
+          </div>
+          {/* Row 2: Quick actions */}
+          <div className="flex items-center justify-around border-t border-neutral-700 pt-2">
+            {[
+              { key: 'lead', icon: Users, label: 'Nova Lead' },
+              { key: 'acquisition', icon: Zap, label: 'Angariação' },
+              { key: 'deal', icon: Handshake, label: 'Fecho' },
+              { key: 'task', icon: CheckSquare, label: 'Tarefa' },
+              { key: 'search', icon: Search, label: 'Pesquisar' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => { window.dispatchEvent(new CustomEvent('open-quick-action', { detail: item.key })); setTimeout(() => setToolbarOpen(false), 150) }}
+                className="flex flex-col items-center gap-1 text-neutral-200 active:text-white transition-colors"
+              >
+                <item.icon className="h-4 w-4" />
+                <span className="text-[8px] font-medium">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Bottom bar */}
-      <div className="bg-background/90 backdrop-blur-xl border-t border-border/30 px-1 pb-[env(safe-area-inset-bottom)]">
+      <div className="relative z-10 bg-background/90 backdrop-blur-xl border-t border-border/30 px-1 pb-[env(safe-area-inset-bottom)]">
+        {/* Black tab handle — right-aligned, sticking out above the navbar */}
+        <button
+          type="button"
+          onClick={() => { setToolbarOpen(v => !v); if (sectionPopupOpen) setSectionPopupOpen(false) }}
+          className="absolute -top-7 right-4 flex items-center justify-center w-14 h-7 rounded-t-xl bg-neutral-900 dark:bg-white"
+        >
+          {toolbarOpen
+            ? <ChevronDown className="h-4 w-4 text-white dark:text-neutral-900" />
+            : <ChevronUp className="h-4 w-4 text-white dark:text-neutral-900" />
+          }
+        </button>
         <div ref={navRef} className="relative flex items-center py-1.5">
           {/* Sliding bubble indicator — white with shadow */}
           {activeItemIndex >= 0 && bubbleStyle.width > 0 && (
@@ -160,7 +238,7 @@ export function MobileBottomNav() {
 
           {/* Section switcher button (always first, on the left) */}
           <button
-            onClick={() => setSectionPopupOpen(v => !v)}
+            onClick={() => { setSectionPopupOpen(v => !v); setToolbarOpen(false) }}
             className={cn(
               'relative z-10 flex flex-col items-center gap-0.5 px-2.5 py-1.5 shrink-0',
               sectionPopupOpen ? 'text-foreground' : 'text-muted-foreground'

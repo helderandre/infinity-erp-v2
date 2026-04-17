@@ -127,6 +127,8 @@ export interface WppChat {
   image: string | null
   created_at: string
   updated_at: string
+  // Computed: has active deal linked
+  has_active_deal?: boolean
   // Nested join
   contact: WppContact | null
 }

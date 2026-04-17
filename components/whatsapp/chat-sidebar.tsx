@@ -14,6 +14,7 @@ import { InstanceSelector } from './instance-selector'
 import { InstanceManageSheet } from './instance-manage-sheet'
 import { ChatListItem } from './chat-list-item'
 import { NewChatDialog } from './new-chat-dialog'
+import { ScheduledMessagesPanel } from './scheduled-messages-panel'
 
 interface Instance {
   id: string
@@ -53,7 +54,7 @@ export function ChatSidebar({
   onCreateInstance,
 }: ChatSidebarProps) {
   const [searchInput, setSearchInput] = useState('')
-  const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all')
+  const [filter, setFilter] = useState<'all' | 'unread' | 'groups' | 'professional'>('all')
   const [isSyncing, setIsSyncing] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -95,6 +96,7 @@ export function ChatSidebar({
   const filteredChats = chats.filter((chat) => {
     if (filter === 'unread') return chat.unread_count > 0
     if (filter === 'groups') return chat.is_group
+    if (filter === 'professional') return !!chat.contact?.lead_id
     return true
   })
 
@@ -132,6 +134,7 @@ export function ChatSidebar({
             refetch()
           }}
         />
+        <ScheduledMessagesPanel />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -168,6 +171,7 @@ export function ChatSidebar({
             <TabsTrigger value="all" className="flex-1 text-xs">Todos</TabsTrigger>
             <TabsTrigger value="unread" className="flex-1 text-xs">Não lidos</TabsTrigger>
             <TabsTrigger value="groups" className="flex-1 text-xs">Grupos</TabsTrigger>
+            <TabsTrigger value="professional" className="flex-1 text-xs">Profissionais</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -197,6 +201,7 @@ export function ChatSidebar({
               chat={chat}
               isSelected={chat.id === selectedChatId}
               onClick={() => onChatSelect(chat.id)}
+              hasActiveDeal={chat.has_active_deal}
             />
           ))
         )}

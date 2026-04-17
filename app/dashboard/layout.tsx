@@ -46,6 +46,10 @@ const AiBatchNotification = dynamic(
   () => import('@/components/shared/ai-batch-notification').then((m) => m.AiBatchNotification),
   { ssr: false }
 )
+const CommunicationMenu = dynamic(
+  () => import('@/components/layout/communication-menu').then((m) => m.CommunicationMenu),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
@@ -105,6 +109,7 @@ export default function DashboardLayout({
             <Breadcrumbs />
             <div className="ml-auto flex items-center gap-2">
               <AiAgentChat />
+              <CommunicationMenu />
               <SearchCommand />
               <QuickActions />
               <NotificationPopover />

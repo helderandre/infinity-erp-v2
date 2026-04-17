@@ -1,18 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { phoneVariants } from "@/lib/phone"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
-
-function phoneVariants(phone: string): string[] {
-  const normalized = phone.replace(/\D/g, "")
-  return [
-    phone,
-    normalized,
-    `+${normalized}`,
-    normalized.startsWith("351") ? normalized.slice(3) : `351${normalized}`,
-  ]
-}
 
 export async function POST(request: Request) {
   try {
@@ -60,29 +51,7 @@ export async function POST(request: Request) {
 
       const variants = phoneVariants(contact.phone)
 
-      // Tentar match com owners
-      let matchedOwnerId: string | null = null
-      if (owners) {
-        for (const owner of owners) {
-          if (!owner.phone) continue
-          const ownerVariants = phoneVariants(owner.phone)
-          if (variants.some((v: string) => ownerVariants.includes(v))) {
-            matchedOwnerId = owner.id
-            break
-          }
-        }
-      }
-
-      if (matchedOwnerId) {
-        await supabase
-          .from("wpp_contacts")
-          .update({ owner_id: matchedOwnerId, updated_at: new Date().toISOString() })
-          .eq("id", contact.id)
-        matched++
-        continue
-      }
-
-      // Tentar match com leads (telemovel + telefone)
+      // Try leads first (higher priority — active prospects)
       let matchedLeadId: string | null = null
       if (leads) {
         for (const lead of leads) {
@@ -102,6 +71,28 @@ export async function POST(request: Request) {
         await supabase
           .from("wpp_contacts")
           .update({ lead_id: matchedLeadId, updated_at: new Date().toISOString() })
+          .eq("id", contact.id)
+        matched++
+        continue
+      }
+
+      // Fallback to owners if no lead matched
+      let matchedOwnerId: string | null = null
+      if (owners) {
+        for (const owner of owners) {
+          if (!owner.phone) continue
+          const ownerVariants = phoneVariants(owner.phone)
+          if (variants.some((v: string) => ownerVariants.includes(v))) {
+            matchedOwnerId = owner.id
+            break
+          }
+        }
+      }
+
+      if (matchedOwnerId) {
+        await supabase
+          .from("wpp_contacts")
+          .update({ owner_id: matchedOwnerId, updated_at: new Date().toISOString() })
           .eq("id", contact.id)
         matched++
       }

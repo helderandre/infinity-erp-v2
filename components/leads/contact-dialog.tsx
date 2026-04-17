@@ -153,7 +153,7 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
             <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
               <Users className="h-5 w-5 text-white" />
             </div>
-            <DialogTitle className="text-white text-lg">Nova Lead</DialogTitle>
+            <DialogTitle className="text-white text-lg">Novo Contacto</DialogTitle>
           </div>
         </div>
 
@@ -253,7 +253,7 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label className="text-xs font-medium">Tipo de Lead</Label>
+                <Label className="text-xs font-medium">Tipo</Label>
                 <Select value={watch('lead_type') || ''} onValueChange={v => setValue('lead_type', v)}>
                   <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
@@ -298,7 +298,7 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
             </Button>
             <Button type="submit" className="rounded-full w-full sm:w-auto" disabled={isSubmitting}>
               {isSubmitting && <Spinner variant="infinite" size={14} className="mr-1.5" />}
-              Criar Lead
+              Criar Contacto
             </Button>
           </DialogFooter>
         </form>

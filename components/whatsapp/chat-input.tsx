@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
-import { Send, Paperclip, X, Image, Video, FileText, BarChart3, UserRound, Camera } from 'lucide-react'
+import { Send, Paperclip, X, Image, Video, FileText, BarChart3, UserRound, Camera, Building2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -12,10 +12,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { EmojiPicker } from './emoji-picker'
+import { AiSuggestButton } from './ai-suggest-button'
 import { AudioRecorder } from './audio-recorder'
 import { PollCreator } from './poll-creator'
 import { ContactPicker } from './contact-picker'
 import { CameraCapture } from './camera-capture'
+import { PropertyPickerDialog } from './property-picker-dialog'
+import { ScheduleMessageDialog } from './schedule-message-dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface ChatInputProps {
@@ -24,10 +28,15 @@ interface ChatInputProps {
   onSendAudio?: (file: File) => void
   onSendPoll?: (question: string, options: string[], selectableCount: number) => void
   onSendContact?: (name: string, phone: string, org?: string, email?: string) => void
+  onSendPropertyCards?: (properties: { title: string; slug: string; listing_price: number | null; property_type: string | null; city: string | null; zone: string | null; typology: string | null; area_util: number | null; bedrooms: number | null; cover_url: string | null; external_ref: string | null }[]) => void
   onSendPresence: () => void
   replyTo?: WppMessage | null
   onCancelReply?: () => void
   disabled?: boolean
+  messages?: WppMessage[]
+  contactLeadId?: string | null
+  chatId?: string
+  instanceId?: string
 }
 
 export function ChatInput({
@@ -36,10 +45,15 @@ export function ChatInput({
   onSendAudio,
   onSendPoll,
   onSendContact,
+  onSendPropertyCards,
   onSendPresence,
   replyTo,
   onCancelReply,
   disabled,
+  messages,
+  contactLeadId,
+  chatId,
+  instanceId,
 }: ChatInputProps) {
   const [text, setText] = useState('')
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string } | null>(null)
@@ -47,6 +61,8 @@ export function ChatInput({
   const [pollCreatorOpen, setPollCreatorOpen] = useState(false)
   const [contactPickerOpen, setContactPickerOpen] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [propertyPickerOpen, setPropertyPickerOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const presenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -143,6 +159,14 @@ export function ChatInput({
           <>
             <EmojiPicker onSelect={handleEmojiSelect} />
 
+            <AiSuggestButton
+              messages={messages || []}
+              draft={text}
+              contactLeadId={contactLeadId}
+              onSuggestion={(suggestion) => setText(suggestion)}
+              disabled={disabled}
+            />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
@@ -175,6 +199,11 @@ export function ChatInput({
                   <Camera className="mr-2 h-4 w-4" />
                   Câmera
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setPropertyPickerOpen(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Imóvel
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -200,15 +229,33 @@ export function ChatInput({
         )}
 
         {hasContent && !isRecording ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 flex-shrink-0 text-emerald-600 hover:text-emerald-700"
-            onClick={handleSend}
-            disabled={disabled}
-          >
-            <Send className="h-4.5 w-4.5" />
-          </Button>
+          <>
+            {chatId && instanceId && text.trim() && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setScheduleOpen(true)}
+                    disabled={disabled}
+                  >
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Agendar envio</TooltipContent>
+              </Tooltip>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 flex-shrink-0 text-emerald-600 hover:text-emerald-700"
+              onClick={handleSend}
+              disabled={disabled}
+            >
+              <Send className="h-4.5 w-4.5" />
+            </Button>
+          </>
         ) : (
           <AudioRecorder
             onSend={(file) => {
@@ -247,6 +294,24 @@ export function ChatInput({
             setCameraOpen(false)
           }}
           onClose={() => setCameraOpen(false)}
+        />
+      )}
+      <PropertyPickerDialog
+        open={propertyPickerOpen}
+        onOpenChange={setPropertyPickerOpen}
+        onSendProperties={(properties) => {
+          onSendPropertyCards?.(properties)
+          setPropertyPickerOpen(false)
+        }}
+      />
+      {chatId && instanceId && (
+        <ScheduleMessageDialog
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          chatId={chatId}
+          instanceId={instanceId}
+          text={text}
+          onScheduled={() => setText('')}
         />
       )}
     </div>

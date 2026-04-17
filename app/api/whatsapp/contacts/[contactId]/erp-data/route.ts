@@ -144,15 +144,16 @@ export async function GET(
     if (contact.lead_id) {
       const { data: lead } = await supabase
         .from("leads")
-        .select("id, nome, email, telemovel, estado, temperatura, origem, forma_contacto")
+        .select("id, nome, email, telemovel, telefone, estado, temperatura, origem, forma_contacto, lead_type, observacoes, tags, localidade, concelho, distrito")
         .eq("id", contact.lead_id)
         .single()
 
       if (lead) {
         const { data: negocios } = await supabase
           .from("negocios")
-          .select("id, tipo, estado, tipo_imovel, localizacao, orcamento_max")
+          .select("id, tipo, estado, temperatura, tipo_imovel, quartos, quartos_min, localizacao, concelho, distrito, orcamento, orcamento_max, preco_venda, renda_pretendida, renda_max_mensal, expected_close_date, probability_pct, created_at, leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type)")
           .eq("lead_id", contact.lead_id)
+          .order("created_at", { ascending: false })
 
         // Mapear nomes PT para interface esperada pelo frontend
         leadData = {
@@ -160,11 +161,17 @@ export async function GET(
           name: lead.nome,
           email: lead.email,
           phone_primary: lead.telemovel,
+          telefone: lead.telefone,
           status: lead.estado,
           score: null,
           source: lead.origem,
-          lead_type: lead.forma_contacto,
+          lead_type: lead.lead_type || lead.forma_contacto,
           priority: lead.temperatura,
+          observacoes: lead.observacoes,
+          tags: lead.tags || [],
+          localidade: lead.localidade,
+          concelho: lead.concelho,
+          distrito: lead.distrito,
           negocios: negocios || [],
         }
       }

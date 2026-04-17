@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { phoneVariants, phoneJidVariants, normalizePhoneDigits } from "@/lib/phone"
 
 /**
  * Resolve a phone number to a WhatsApp chat.
@@ -9,37 +10,10 @@ import { NextResponse } from "next/server"
  * GET /api/whatsapp/resolve-chat?phone=912345678&name=Helder
  */
 
-function phoneVariants(phone: string): string[] {
-  const digits = phone.replace(/\D/g, "")
-  const variants = new Set<string>()
-
-  variants.add(digits)
-  variants.add(`+${digits}`)
-
-  // PT country code
-  if (digits.startsWith("351")) {
-    variants.add(digits.slice(3))
-  } else if (digits.length === 9) {
-    variants.add(`351${digits}`)
-  }
-
-  // WhatsApp JID formats
-  variants.add(`${digits}@s.whatsapp.net`)
-  if (!digits.startsWith("351") && digits.length === 9) {
-    variants.add(`351${digits}@s.whatsapp.net`)
-  }
-  if (digits.startsWith("351")) {
-    variants.add(`${digits.slice(3)}@s.whatsapp.net`)
-  }
-
-  return [...variants]
-}
-
-/** Build the canonical wa_chat_id for a phone number */
+/** Build the canonical wa_chat_id for a phone number (PT 9-digit → add 351). */
 function toJid(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  // PT 9-digit local → add 351
-  const full = !digits.startsWith("351") && digits.length === 9 ? `351${digits}` : digits
+  const digits = normalizePhoneDigits(phone)
+  const full = digits.length === 9 ? `351${digits}` : digits
   return `${full}@s.whatsapp.net`
 }
 
@@ -87,7 +61,8 @@ export async function GET(request: Request) {
     }
 
     const instanceIds = instances.map((i: any) => i.id)
-    const variants = phoneVariants(phone)
+    const phoneForms = phoneVariants(phone)
+    const jidForms = phoneJidVariants(phone)
 
     // 1. Try to find existing chat in DB
     const { data: chats } = await supabase
@@ -95,7 +70,7 @@ export async function GET(request: Request) {
       .select("id, instance_id, wa_chat_id, name, phone, profile_pic_url, is_group, contact_id")
       .in("instance_id", instanceIds)
       .eq("is_group", false)
-      .or(variants.map((v) => `phone.eq.${v}`).concat(variants.map((v) => `wa_chat_id.eq.${v}`)).join(","))
+      .or(phoneForms.map((v) => `phone.eq.${v}`).concat(jidForms.map((v) => `wa_chat_id.eq.${v}`)).join(","))
       .order("last_message_timestamp", { ascending: false, nullsFirst: false })
       .limit(1)
 
@@ -113,7 +88,7 @@ export async function GET(request: Request) {
       .select("id, wa_contact_id, instance_id, name, phone, profile_pic_url")
       .in("instance_id", instanceIds)
       .eq("is_group", false)
-      .or(variants.map((v) => `phone.eq.${v}`).concat(variants.map((v) => `wa_contact_id.eq.${v}`)).join(","))
+      .or(phoneForms.map((v) => `phone.eq.${v}`).concat(jidForms.map((v) => `wa_contact_id.eq.${v}`)).join(","))
       .limit(1)
 
     if (contacts?.length) {
@@ -167,7 +142,7 @@ export async function GET(request: Request) {
     // This lets the messages endpoint sync from UaZapi
     const primaryInstance = instances[0]
     const jid = toJid(phone)
-    const digits = phone.replace(/\D/g, "")
+    const digits = normalizePhoneDigits(phone)
 
     // Create a wpp_chat record so the messages endpoint can sync from UaZapi
     const { data: createdChat, error: chatErr } = await supabase

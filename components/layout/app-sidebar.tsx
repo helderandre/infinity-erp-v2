@@ -13,6 +13,7 @@ import {
   CheckSquare, Cpu, Infinity, KeyRound, Library,
 } from 'lucide-react'
 import Link from 'next/link'
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
 import { usePathname } from 'next/navigation'
 
 import {
@@ -48,7 +49,7 @@ export const meuEspacoItems = [
 ]
 
 export const comunicacaoItems = [
-  { title: 'WhatsApp', icon: MessageCircle, href: '/dashboard/whatsapp', permission: 'dashboard' },
+  { title: 'WhatsApp', icon: WhatsAppIcon, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
   { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
 ]

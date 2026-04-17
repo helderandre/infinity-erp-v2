@@ -840,6 +840,7 @@ export default function LeadDetailPage() {
         <WhatsAppChatBubble
           contactPhone={lead.telemovel}
           contactName={lead.nome || 'Contacto'}
+          contactLeadId={lead.id}
         />
       )}
 

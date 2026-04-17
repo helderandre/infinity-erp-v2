@@ -33,6 +33,22 @@ export async function POST(request: Request) {
     }
 
     const data = await res.json()
+
+    // Auto-trigger contact match after a successful chats/contacts sync so new
+    // contacts get linked to leads/owners without requiring a manual action.
+    if (action === 'sync_chats' || action === 'sync_contacts') {
+      try {
+        const origin = new URL(request.url).origin
+        await fetch(`${origin}/api/whatsapp/contacts/auto-match`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instance_id }),
+        })
+      } catch {
+        // Non-fatal — sync already succeeded
+      }
+    }
+
     return NextResponse.json(data)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro interno'

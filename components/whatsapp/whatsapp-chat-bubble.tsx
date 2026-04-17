@@ -18,6 +18,8 @@ import type { WppMessage } from '@/lib/types/whatsapp-web'
 interface WhatsAppChatBubbleProps {
   contactPhone: string | null
   contactName: string
+  /** Optional lead id for CRM-aware AI suggestions */
+  contactLeadId?: string | null
 }
 
 interface ResolvedChat {
@@ -44,7 +46,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
   )
 }
 
-export function WhatsAppChatBubble({ contactPhone, contactName }: WhatsAppChatBubbleProps) {
+export function WhatsAppChatBubble({ contactPhone, contactName, contactLeadId }: WhatsAppChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [resolved, setResolved] = useState<ResolvedChat | null>(null)
   const [resolving, setResolving] = useState(false)
@@ -314,6 +316,10 @@ export function WhatsAppChatBubble({ contactPhone, contactName }: WhatsAppChatBu
                   replyTo={replyTo}
                   onCancelReply={() => setReplyTo(null)}
                   disabled={isSending}
+                  messages={messages}
+                  contactLeadId={contactLeadId}
+                  chatId={chatId ?? undefined}
+                  instanceId={instanceId ?? undefined}
                 />
               </>
             )}

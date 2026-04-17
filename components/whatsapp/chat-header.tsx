@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Info, Search, MoreVertical, Archive, Pin, VolumeX } from 'lucide-react'
+import { ArrowLeft, User, Search, MoreVertical, Archive, Pin, VolumeX } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -56,7 +56,7 @@ export function ChatHeader({ chat, isTyping, onToggleInfo, onBack }: ChatHeaderP
           <Search className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleInfo}>
-          <Info className="h-4 w-4" />
+          <User className="h-4 w-4" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

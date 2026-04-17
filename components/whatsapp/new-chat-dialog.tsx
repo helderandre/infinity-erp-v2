@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { MessageSquarePlus, Search, Phone, User, Building2, UserRound, Loader2 } from 'lucide-react'
+import { MessageSquarePlus, Search, Phone, User, UserRound, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -26,7 +26,7 @@ interface NewChatDialogProps {
 
 interface ContactResult {
   id: string
-  type: 'whatsapp' | 'lead' | 'owner'
+  type: 'whatsapp' | 'lead'
   name: string
   phone: string
   avatar?: string | null
@@ -111,24 +111,6 @@ export function NewChatDialog({ instanceId, onChatCreated }: NewChatDialogProps)
           }
         }
 
-        const { data: owners } = await supabase
-          .from('owners')
-          .select('id, name, phone, email')
-          .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
-          .not('phone', 'is', null)
-          .limit(10)
-
-        if (owners) {
-          for (const o of owners) {
-            if (!o.phone) continue
-            contacts.push({
-              id: o.id,
-              type: 'owner',
-              name: o.name || o.email || 'Proprietário',
-              phone: o.phone,
-            })
-          }
-        }
       }
 
       setResults(contacts)
@@ -245,15 +227,13 @@ export function NewChatDialog({ instanceId, onChatCreated }: NewChatDialogProps)
     switch (type) {
       case 'whatsapp': return <Phone className="h-3 w-3" />
       case 'lead': return <UserRound className="h-3 w-3" />
-      case 'owner': return <Building2 className="h-3 w-3" />
     }
   }
 
   const typeBadge = (type: ContactResult['type']) => {
     switch (type) {
       case 'whatsapp': return null
-      case 'lead': return <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200">Lead</Badge>
-      case 'owner': return <Badge variant="outline" className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 border-blue-200">Proprietário</Badge>
+      case 'lead': return <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200">Contacto</Badge>
     }
   }
 
@@ -316,7 +296,7 @@ export function NewChatDialog({ instanceId, onChatCreated }: NewChatDialogProps)
             <TabsList className="w-full h-8">
               <TabsTrigger value="all" className="flex-1 text-xs">Todos</TabsTrigger>
               <TabsTrigger value="whatsapp" className="flex-1 text-xs">WhatsApp</TabsTrigger>
-              <TabsTrigger value="erp" className="flex-1 text-xs">Leads / Proprietários</TabsTrigger>
+              <TabsTrigger value="erp" className="flex-1 text-xs">Contactos</TabsTrigger>
             </TabsList>
           </Tabs>
 

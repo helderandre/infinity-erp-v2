@@ -26,6 +26,18 @@ interface LeadFormProps {
   consultants: { id: string; commercial_name: string }[]
   onSuccess?: (id: string) => void
   onCancel?: () => void
+  initialValues?: {
+    nome?: string
+    email?: string
+    telemovel?: string
+    observacoes?: string
+  }
+  /**
+   * Transcript fed to the AI extractor in the background when the form mounts.
+   * Extracted fields are applied silently — the AI panel is NOT opened and the
+   * user doesn't see the raw text.
+   */
+  autoExtractText?: string
 }
 
 const LEAD_ORIGENS_OPTIONS = [
@@ -45,19 +57,26 @@ const PROPERTY_TYPES = [
   'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
 ]
 
-export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
+export function LeadForm({ consultants, onSuccess, onCancel, initialValues, autoExtractText }: LeadFormProps) {
   const router = useRouter()
   const { user } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Contact fields
   const [form, setForm] = useState({
-    nome: '',
-    email: '',
-    telemovel: '',
+    nome: initialValues?.nome || '',
+    email: initialValues?.email || '',
+    telemovel: initialValues?.telemovel || '',
     origem: '',
-    observacoes: '',
+    observacoes: initialValues?.observacoes || '',
     agent_id: user?.id || '',
+  })
+
+  // Track which fields were pre-filled from the caller so AI extraction
+  // doesn't overwrite canonical data (e.g. the WhatsApp contact's phone).
+  const lockedFieldsRef = useRef({
+    telemovel: !!initialValues?.telemovel,
+    email: !!initialValues?.email,
   })
 
   useEffect(() => {
@@ -84,19 +103,27 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
   const [aiText, setAiText] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isAutoExtracting, setIsAutoExtracting] = useState(!!autoExtractText)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const autoExtractRanRef = useRef(false)
 
   // ── AI ────────────────────────────────────────────────────────
 
   const applyExtracted = (fields: Record<string, any>) => {
     setForm((p) => ({
       ...p,
+      // Name: let AI override push-name-style defaults (they're often incomplete)
       nome: fields.nome || fields.name || p.nome,
-      email: fields.email || p.email,
-      telemovel: fields.telemovel || fields.phone || p.telemovel,
+      // Email + phone: NEVER overwrite when the field was pre-filled by the caller
+      // (e.g. the WhatsApp contact's canonical phone number).
+      email: lockedFieldsRef.current.email ? p.email : (fields.email || p.email),
+      telemovel: lockedFieldsRef.current.telemovel ? p.telemovel : (fields.telemovel || fields.phone || p.telemovel),
       observacoes: fields.observacoes ? (p.observacoes ? p.observacoes + '\n' + fields.observacoes : fields.observacoes) : p.observacoes,
     }))
+    if (fields.negocio_tipo && ['Compra', 'Venda', 'Arrendatário', 'Arrendador'].includes(fields.negocio_tipo)) {
+      setNegocioTipo(fields.negocio_tipo)
+    }
     if (fields.localizacao) setNegocioFields((p) => ({ ...p, localizacao: fields.localizacao }))
     if (fields.quartos_min || fields.quartos) setNegocioFields((p) => ({ ...p, quartos_min: String(fields.quartos_min || fields.quartos) }))
     if (fields.orcamento) setNegocioFields((p) => ({ ...p, orcamento: String(fields.orcamento) }))
@@ -150,6 +177,33 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
     } catch { toast.error('Erro ao extrair dados') }
     finally { setIsProcessing(false) }
   }
+
+  // ── Auto-extract on mount from provided transcript ───────────────
+
+  useEffect(() => {
+    if (!autoExtractText?.trim() || autoExtractRanRef.current) return
+    autoExtractRanRef.current = true
+    // Show the banner as soon as we know there's a transcript to process.
+    // The transcript often arrives AFTER mount (prop updates), so we can't
+    // rely on the useState initializer.
+    setIsAutoExtracting(true)
+
+    ;(async () => {
+      try {
+        const res = await fetch('/api/leads/extract-from-text', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: autoExtractText }),
+        })
+        if (!res.ok) return
+        const { fields } = await res.json()
+        applyExtracted(fields)
+      } catch {
+        // fail silently — agent can still fill manually
+      } finally {
+        setIsAutoExtracting(false)
+      }
+    })()
+  }, [autoExtractText])
 
   // ── Submit ────────────────────────────────────────────────────
 
@@ -269,9 +323,9 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
               <button className={cn(
                 'h-8 w-8 rounded-full flex items-center justify-center transition-colors',
                 isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15',
-                isProcessing && 'bg-white/10 text-white/60'
+                (isProcessing || isAutoExtracting) && 'bg-white/10 text-white/60'
               )}>
-                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {(isProcessing || isAutoExtracting) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" sideOffset={8} className="w-72 rounded-xl p-3 space-y-3">
@@ -306,6 +360,24 @@ export function LeadForm({ consultants, onSuccess, onCancel }: LeadFormProps) {
 
       {/* ─── Form body ─── */}
       <div className="px-5 pt-4 pb-5 space-y-4 overflow-y-auto flex-1">
+
+        {/* Auto-extract loading banner */}
+        {isAutoExtracting && (
+          <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 via-violet-50/70 to-transparent px-3.5 py-2.5 animate-pulse">
+            <div className="relative flex-shrink-0">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium text-violet-900">A analisar conversa...</p>
+              <p className="text-[11px] text-violet-700/70">Os campos serão preenchidos automaticamente</p>
+            </div>
+            <Loader2 className="h-4 w-4 animate-spin text-violet-500 flex-shrink-0" />
+          </div>
+        )}
 
         {/* Tipo de negócio (required) */}
         <div>

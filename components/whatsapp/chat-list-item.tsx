@@ -2,7 +2,7 @@
 
 import { isToday, isYesterday, format } from 'date-fns'
 import {
-  Pin, VolumeX, User, Users,
+  Pin, VolumeX, User, Users, Infinity as InfinityIcon,
   Camera, Video, Mic, FileText, MapPin,
   Contact, Sticker, BarChart3, Eye,
 } from 'lucide-react'
@@ -15,6 +15,7 @@ interface ChatListItemProps {
   chat: WppChat
   isSelected: boolean
   onClick: () => void
+  hasActiveDeal?: boolean
 }
 
 function formatTimestamp(ts: number | null): string {
@@ -81,7 +82,7 @@ function getInitials(name: string | null): string {
     .slice(0, 2)
 }
 
-export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
+export function ChatListItem({ chat, isSelected, onClick, hasActiveDeal }: ChatListItemProps) {
   const displayName = chat.name || chat.phone || 'Sem nome'
   const picUrl = chat.contact?.profile_pic_url || chat.profile_pic_url || chat.image
   const hasOwner = !!chat.contact?.owner_id
@@ -96,7 +97,8 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50',
-        isSelected && 'bg-accent'
+        isSelected && 'bg-accent',
+        hasActiveDeal && 'border-l-2 border-amber-300/40'
       )}
     >
       <div className="relative flex-shrink-0">
@@ -115,14 +117,12 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-sm font-medium truncate">{displayName}</span>
-            {hasOwner && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-blue-100 dark:bg-blue-900/30 px-1 py-0.5 text-[9px] font-medium text-blue-700 dark:text-blue-300 flex-shrink-0">
-                Proprietario
-              </span>
-            )}
-            {hasLead && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 text-[9px] font-medium text-amber-700 dark:text-amber-300 flex-shrink-0">
-                Lead
+            {isLinked && (
+              <span
+                title={hasOwner ? 'Proprietário' : 'Contacto'}
+                className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-foreground text-background flex-shrink-0"
+              >
+                <InfinityIcon className="h-2.5 w-2.5" strokeWidth={2.5} />
               </span>
             )}
           </div>

@@ -319,9 +319,38 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
           onSendAudio={(file) => sendAudio(file, replyTo?.wa_message_id)}
           onSendPoll={(question, options, selectableCount) => sendPoll(question, options, selectableCount, replyTo?.wa_message_id)}
           onSendPresence={handleSendPresence}
+          onSendPropertyCards={async (properties) => {
+            for (const prop of properties) {
+              const publicUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'https://infinitygroup.pt'}/property/${prop.slug}`
+              const lines = [
+                `🏠 *${prop.title}*`,
+                prop.listing_price ? `💰 ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(prop.listing_price)}` : '',
+                [prop.typology, prop.area_util ? `${prop.area_util}m²` : '', prop.city].filter(Boolean).join(' · '),
+                '',
+                publicUrl,
+              ].filter((l) => l !== '').join('\n')
+
+              if (prop.cover_url) {
+                try {
+                  const imgRes = await fetch(prop.cover_url)
+                  const blob = await imgRes.blob()
+                  const file = new File([blob], `${prop.slug}.jpg`, { type: blob.type || 'image/jpeg' })
+                  await sendMedia(file, 'image', lines)
+                } catch {
+                  await sendText(lines)
+                }
+              } else {
+                await sendText(lines)
+              }
+            }
+          }}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           disabled={isSending}
+          messages={messages}
+          contactLeadId={chat?.contact?.lead_id}
+          chatId={chatId}
+          instanceId={instanceId}
         />
       )}
 

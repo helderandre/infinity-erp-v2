@@ -75,7 +75,40 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ chats: data ?? [], total: count ?? 0 })
+    // Enrich chats with has_active_deal flag (defensive: tolerate missing negocios table/columns)
+    const chats = data ?? []
+    const leadIds = chats
+      .map((c: any) => c.contact?.lead_id)
+      .filter(Boolean) as string[]
+
+    const activeDealsMap = new Map<string, boolean>()
+    if (leadIds.length > 0) {
+      try {
+        // Active = any negócio whose pipeline stage is not terminal (won/lost/archived)
+        const { data: activeDeals } = await supabase
+          .from("negocios")
+          .select("lead_id, leads_pipeline_stages!pipeline_stage_id(is_terminal)")
+          .in("lead_id", leadIds)
+
+        if (activeDeals) {
+          for (const d of activeDeals) {
+            const terminal = (d as any).leads_pipeline_stages?.is_terminal
+            if (!terminal) activeDealsMap.set(d.lead_id, true)
+          }
+        }
+      } catch {
+        // Ignore — feature degrades gracefully
+      }
+    }
+
+    const enrichedChats = chats.map((chat: any) => ({
+      ...chat,
+      has_active_deal: chat.contact?.lead_id
+        ? activeDealsMap.has(chat.contact.lead_id)
+        : false,
+    }))
+
+    return NextResponse.json({ chats: enrichedChats, total: count ?? 0 })
   } catch (error) {
     console.error("[whatsapp/chats] Erro:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
