@@ -10,11 +10,12 @@ import type {
 interface UseWppTemplatesOptions {
   search?: string
   category?: WhatsAppTemplateCategory | "all"
+  scope?: "all" | "global" | "consultant"
   autoFetch?: boolean
 }
 
 export function useWppTemplates(options: UseWppTemplatesOptions = {}) {
-  const { search, category, autoFetch = true } = options
+  const { search, category, scope, autoFetch = true } = options
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export function useWppTemplates(options: UseWppTemplatesOptions = {}) {
       const params = new URLSearchParams()
       if (search) params.set("search", search)
       if (category && category !== "all") params.set("category", category)
+      if (scope && scope !== "all") params.set("scope", scope)
 
       const res = await fetch(`/api/automacao/templates-wpp?${params}`)
       const json = await res.json()
@@ -39,7 +41,7 @@ export function useWppTemplates(options: UseWppTemplatesOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [search, category])
+  }, [search, category, scope])
 
   useEffect(() => {
     if (autoFetch) fetchTemplates()

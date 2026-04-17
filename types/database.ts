@@ -635,8 +635,11 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_system: boolean
           messages: Json
           name: string
+          scope: string
+          scope_id: string | null
           tags: string[] | null
           updated_at: string | null
         }
@@ -647,8 +650,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_system?: boolean
           messages?: Json
           name: string
+          scope?: string
+          scope_id?: string | null
           tags?: string[] | null
           updated_at?: string | null
         }
@@ -659,8 +665,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_system?: boolean
           messages?: Json
           name?: string
+          scope?: string
+          scope_id?: string | null
           tags?: string[] | null
           updated_at?: string | null
         }
@@ -668,6 +677,13 @@ export type Database = {
           {
             foreignKeyName: "auto_wpp_templates_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_wpp_templates_scope_id_fkey"
+            columns: ["scope_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -1632,14 +1648,145 @@ export type Database = {
           },
         ]
       }
+      contact_automation_lead_settings: {
+        Row: {
+          created_at: string
+          email_template_id: string | null
+          event_type: string
+          id: string
+          lead_id: string
+          send_hour: number | null
+          smtp_account_id: string | null
+          updated_at: string
+          wpp_instance_id: string | null
+          wpp_template_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_template_id?: string | null
+          event_type: string
+          id?: string
+          lead_id: string
+          send_hour?: number | null
+          smtp_account_id?: string | null
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_template_id?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string
+          send_hour?: number | null
+          smtp_account_id?: string | null
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_automation_lead_settings_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_email_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_lead_settings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_lead_settings_smtp_account_id_fkey"
+            columns: ["smtp_account_id"]
+            isOneToOne: false
+            referencedRelation: "consultant_email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_lead_settings_wpp_instance_id_fkey"
+            columns: ["wpp_instance_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_lead_settings_wpp_template_id_fkey"
+            columns: ["wpp_template_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_automation_mutes: {
+        Row: {
+          channel: string | null
+          consultant_id: string | null
+          event_type: string | null
+          id: string
+          lead_id: string | null
+          muted_at: string
+          muted_by: string
+        }
+        Insert: {
+          channel?: string | null
+          consultant_id?: string | null
+          event_type?: string | null
+          id?: string
+          lead_id?: string | null
+          muted_at?: string
+          muted_by: string
+        }
+        Update: {
+          channel?: string | null
+          consultant_id?: string | null
+          event_type?: string | null
+          id?: string
+          lead_id?: string | null
+          muted_at?: string
+          muted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_automation_mutes_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_mutes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_mutes_muted_by_fkey"
+            columns: ["muted_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_automation_runs: {
         Row: {
           auto_run_id: string | null
-          contact_automation_id: string
+          contact_automation_id: string | null
           created_at: string
           delivery_log_ids: string[]
           error: string | null
+          event_type: string | null
           id: string
+          kind: string
+          lead_id: string | null
+          parent_run_id: string | null
           scheduled_for: string
           sent_at: string | null
           skip_reason: string | null
@@ -1647,11 +1794,15 @@ export type Database = {
         }
         Insert: {
           auto_run_id?: string | null
-          contact_automation_id: string
+          contact_automation_id?: string | null
           created_at?: string
           delivery_log_ids?: string[]
           error?: string | null
+          event_type?: string | null
           id?: string
+          kind?: string
+          lead_id?: string | null
+          parent_run_id?: string | null
           scheduled_for: string
           sent_at?: string | null
           skip_reason?: string | null
@@ -1659,11 +1810,15 @@ export type Database = {
         }
         Update: {
           auto_run_id?: string | null
-          contact_automation_id?: string
+          contact_automation_id?: string | null
           created_at?: string
           delivery_log_ids?: string[]
           error?: string | null
+          event_type?: string | null
           id?: string
+          kind?: string
+          lead_id?: string | null
+          parent_run_id?: string | null
           scheduled_for?: string
           sent_at?: string | null
           skip_reason?: string | null
@@ -1682,6 +1837,20 @@ export type Database = {
             columns: ["contact_automation_id"]
             isOneToOne: false
             referencedRelation: "contact_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_runs_parent_run_id_fkey"
+            columns: ["parent_run_id"]
+            isOneToOne: false
+            referencedRelation: "contact_automation_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -2983,6 +3152,12 @@ export type Database = {
       }
       dev_property_media: {
         Row: {
+          ai_classified_at: string | null
+          ai_enhanced_url: string | null
+          ai_room_confidence: number | null
+          ai_room_label: string | null
+          ai_staged_style: string | null
+          ai_staged_url: string | null
           id: string
           is_cover: boolean | null
           media_type: string | null
@@ -2991,6 +3166,12 @@ export type Database = {
           url: string
         }
         Insert: {
+          ai_classified_at?: string | null
+          ai_enhanced_url?: string | null
+          ai_room_confidence?: number | null
+          ai_room_label?: string | null
+          ai_staged_style?: string | null
+          ai_staged_url?: string | null
           id?: string
           is_cover?: boolean | null
           media_type?: string | null
@@ -2999,6 +3180,12 @@ export type Database = {
           url: string
         }
         Update: {
+          ai_classified_at?: string | null
+          ai_enhanced_url?: string | null
+          ai_room_confidence?: number | null
+          ai_room_label?: string | null
+          ai_staged_style?: string | null
+          ai_staged_url?: string | null
           id?: string
           is_cover?: boolean | null
           media_type?: string | null
@@ -13153,7 +13340,11 @@ export type Database = {
           description: string | null
           editor_state: Json | null
           id: string
+          is_active: boolean
+          is_system: boolean
           name: string
+          scope: string
+          scope_id: string | null
           signature_mode: string
           slug: string | null
           subject: string
@@ -13168,7 +13359,11 @@ export type Database = {
           description?: string | null
           editor_state?: Json | null
           id?: string
+          is_active?: boolean
+          is_system?: boolean
           name: string
+          scope?: string
+          scope_id?: string | null
           signature_mode?: string
           slug?: string | null
           subject: string
@@ -13183,7 +13378,11 @@ export type Database = {
           description?: string | null
           editor_state?: Json | null
           id?: string
+          is_active?: boolean
+          is_system?: boolean
           name?: string
+          scope?: string
+          scope_id?: string | null
           signature_mode?: string
           slug?: string | null
           subject?: string
@@ -13194,6 +13393,13 @@ export type Database = {
           {
             foreignKeyName: "tpl_email_library_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tpl_email_library_scope_id_fkey"
+            columns: ["scope_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]

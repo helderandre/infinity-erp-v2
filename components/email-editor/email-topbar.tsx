@@ -4,7 +4,7 @@ import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen } from 'lucide-react'
+import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen, Sparkles, Loader2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
@@ -31,6 +31,8 @@ interface EmailTopbarProps {
   onSave: (editorState: string) => void
   onModeChange: (mode: EditorMode, editorState: string) => void
   isSaving: boolean
+  onAiGenerate?: () => void
+  isAiGenerating?: boolean
 }
 
 export function EmailTopbar({
@@ -46,6 +48,8 @@ export function EmailTopbar({
   onSave,
   onModeChange,
   isSaving,
+  onAiGenerate,
+  isAiGenerating,
 }: EmailTopbarProps) {
   const router = useRouter()
   const { actions, query, canUndo, canRedo } = useEditor((state, query) => ({
@@ -164,6 +168,22 @@ export function EmailTopbar({
         >
           <Redo2 className="h-4 w-4" />
         </Button>
+        {onAiGenerate && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAiGenerate}
+            disabled={mode === 'preview' || isAiGenerating}
+            className="gap-1.5"
+          >
+            {isAiGenerating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            )}
+            {isAiGenerating ? 'A gerar...' : 'Gerar com IA'}
+          </Button>
+        )}
         <Button onClick={handleSave} disabled={isSaving} size="sm">
           {isSaving ? (
             <Spinner variant="infinite" size={16} className="mr-2" />

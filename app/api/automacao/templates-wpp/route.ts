@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/permissions"
 import {
   TEMPLATE_CATEGORY_VALUES,
   normalizeCategory,
@@ -7,6 +8,10 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
+
+function isBroker(roles: string[]) {
+  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+}
 
 interface DbTemplate {
   id: string
@@ -25,12 +30,16 @@ interface DbTemplate {
 // GET /api/automacao/templates-wpp — Listar templates
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createAdminClient()
     const { searchParams } = new URL(request.url)
 
     const search = searchParams.get("search")
     const category = searchParams.get("category")
     const active = searchParams.get("active")
+    const scopeFilter = searchParams.get("scope")
 
     let query = (supabase as SupabaseAny)
       .from("auto_wpp_templates")
@@ -42,6 +51,21 @@ export async function GET(request: Request) {
       // mostrar todos
     } else {
       query = query.eq("is_active", true)
+    }
+
+    // Scope filter
+    if (scopeFilter === "global") {
+      query = query.eq("scope", "global")
+    } else if (scopeFilter === "consultant") {
+      if (isBroker(auth.roles)) {
+        query = query.eq("scope", "consultant")
+      } else {
+        query = query.eq("scope", "consultant").eq("scope_id", auth.user.id)
+      }
+    } else if (!isBroker(auth.roles)) {
+      query = query.or(
+        `scope.eq.global,and(scope.eq.consultant,scope_id.eq.${auth.user.id})`,
+      )
     }
 
     if (category && category !== "all") {
@@ -94,13 +118,23 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/automacao/templates-wpp — Criar template
+// POST /api/automacao/templates-wpp — Criar template (global ou consultor)
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createAdminClient()
     const body = await request.json()
 
-    const { name, description, messages, category, tags } = body
+    const { name, description, messages, category, tags, scope } = body as {
+      name?: string
+      description?: string
+      messages?: unknown[]
+      category?: string
+      tags?: string[]
+      scope?: string
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -123,6 +157,20 @@ export async function POST(request: Request) {
       )
     }
 
+    let scopeValue: "global" | "consultant" = "global"
+    let scopeId: string | null = null
+    if (scope === "consultant") {
+      scopeValue = "consultant"
+      scopeId = auth.user.id
+    } else if (scope === "global") {
+      if (!isBroker(auth.roles)) {
+        return NextResponse.json(
+          { error: "Apenas administradores podem criar templates globais" },
+          { status: 403 },
+        )
+      }
+    }
+
     const { data, error } = (await (supabase as SupabaseAny)
       .from("auto_wpp_templates")
       .insert({
@@ -132,6 +180,9 @@ export async function POST(request: Request) {
         category: normalizeCategory(category),
         tags: tags || [],
         is_active: true,
+        scope: scopeValue,
+        scope_id: scopeId,
+        created_by: auth.user.id,
       })
       .select()
       .single()) as { data: DbTemplate | null; error: SupabaseAny }

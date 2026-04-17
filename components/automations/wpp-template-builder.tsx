@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Eye, Plus, Save } from "lucide-react"
+import { ArrowLeft, Eye, Plus, Save, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +25,8 @@ import { Spinner } from "@/components/kibo-ui/spinner"
 import { WppPreview } from "@/components/automations/wpp-preview"
 import { WppMessageCard } from "@/components/automations/wpp-message-card"
 import { WppMessageEditor } from "@/components/automations/wpp-message-editor"
+import { WppAiGenerateInput } from "@/components/automations/wpp-ai-generate-input"
+import type { WppAiMeta } from '@/lib/automacao/wpp-ai-parser'
 import type {
   WhatsAppTemplateMessage,
   WhatsAppTemplateCategory,
@@ -110,6 +112,7 @@ interface WppTemplateBuilderProps {
   onSave: () => void
   saving: boolean
   isEditing?: boolean
+  scope?: 'consultant' | 'global'
 }
 
 export function WppTemplateBuilder({
@@ -126,9 +129,11 @@ export function WppTemplateBuilder({
   onSave,
   saving,
   isEditing,
+  scope,
 }: WppTemplateBuilderProps) {
   const router = useRouter()
   const [editorOpen, setEditorOpen] = useState(false)
+  const [aiInputVisible, setAiInputVisible] = useState(false)
   const [editingMessage, setEditingMessage] =
     useState<WhatsAppTemplateMessage | null>(null)
   const [tagInput, setTagInput] = useState("")
@@ -157,6 +162,19 @@ export function WppTemplateBuilder({
       }
     }
   }, [selectedLeadId, leads])
+
+  const handleAiResult = useCallback(
+    (aiMessages: WhatsAppTemplateMessage[], meta: WppAiMeta | null) => {
+      onMessagesChange(aiMessages)
+      if (meta) {
+        if (meta.name) onNameChange(meta.name)
+        if (meta.description) onDescriptionChange(meta.description)
+        if (meta.category) onCategoryChange(meta.category as WhatsAppTemplateCategory)
+      }
+      setAiInputVisible(false)
+    },
+    [onMessagesChange, onNameChange, onDescriptionChange, onCategoryChange]
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -269,20 +287,31 @@ export function WppTemplateBuilder({
               </p>
             </div>
           </div>
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Guardar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAiInputVisible(true)}
+              className="gap-1.5"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              Gerar com IA
+            </Button>
+            <Button onClick={onSave} disabled={saving}>
+              {saving ? (
+                <Spinner variant="infinite" size={16} className="mr-2" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Guardar
+            </Button>
+          </div>
         </div>
 
         {/* Split: Editor + Preview */}
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_400px]">
           {/* LEFT: Editor (scrollable) */}
-          <div className="min-h-0 overflow-y-auto border-r p-6 space-y-6">
+          <div className="min-h-0 overflow-y-auto border-r p-6 space-y-6 relative">
             {/* Row 1: Nome + Categoria + Descrição */}
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_1fr] gap-4">
               <div className="space-y-1.5">
@@ -397,7 +426,24 @@ export function WppTemplateBuilder({
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Mensagem
               </Button>
+
             </div>
+
+            {/* AI Generate Input — sticky bottom center */}
+            {(aiInputVisible || false) && (
+              <div className="sticky bottom-0 left-0 right-0 z-20 pt-4 pb-2 flex justify-center pointer-events-none">
+                <div className="w-full max-w-[540px] pointer-events-auto">
+                  <WppAiGenerateInput
+                    visible={aiInputVisible}
+                    onClose={() => setAiInputVisible(false)}
+                    onResult={handleAiResult}
+                    hasMessages={messages.length > 0}
+                    scope={scope}
+                    category={category}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RIGHT: Preview (fills height) */}

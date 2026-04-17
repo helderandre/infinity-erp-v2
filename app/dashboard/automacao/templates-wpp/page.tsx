@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Search, MessageSquareText } from "lucide-react"
 import { toast } from "sonner"
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +29,23 @@ import {
 
 import { WppTemplateCard } from "@/components/automations/wpp-template-card"
 import { useWppTemplates } from "@/hooks/use-wpp-templates"
+import { useUser } from "@/hooks/use-user"
 import { useDebounce } from "@/hooks/use-debounce"
 import type { WhatsAppTemplateCategory } from "@/lib/types/whatsapp-template"
 import { TEMPLATE_CATEGORY_LABELS } from "@/lib/types/whatsapp-template"
 
+type ScopeTab = "all" | "global" | "consultant"
+
+const SCOPE_TABS: Array<{ value: ScopeTab; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "global", label: "Globais" },
+  { value: "consultant", label: "Meus" },
+]
+
 export default function TemplatesWppPage() {
   const router = useRouter()
+  const { user } = useUser()
+  const [scope, setScope] = useState<ScopeTab>("all")
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState<WhatsAppTemplateCategory | "all">(
     "all"
@@ -45,7 +57,17 @@ export default function TemplatesWppPage() {
     useWppTemplates({
       search: debouncedSearch,
       category,
+      scope,
     })
+
+  const counts = useMemo(() => {
+    const all = templates.length
+    const global = templates.filter((t) => t.scope === "global").length
+    const consultant = templates.filter(
+      (t) => t.scope === "consultant" && (!user || t.scope_id === user.id),
+    ).length
+    return { all, global, consultant }
+  }, [templates, user])
 
   async function handleDelete() {
     if (!deleteId) return
@@ -68,29 +90,69 @@ export default function TemplatesWppPage() {
     }
   }
 
+  const total = templates.length
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Templates WhatsApp
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Biblioteca de templates de mensagens reutilizáveis
-          </p>
+    <div className="space-y-5">
+      {/* ═══ Hero header ═══ */}
+      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 sm:px-8 py-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm">
+              <MessageSquareText className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Templates WhatsApp
+              </h1>
+              <p className="text-neutral-400 text-sm">
+                {total} template{total !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/dashboard/automacao/templates-wpp/editor")
+              }
+              className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Novo Template</span>
+            </button>
+          </div>
         </div>
-        <Button
-          onClick={() =>
-            router.push("/dashboard/automacao/templates-wpp/editor")
-          }
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Template
-        </Button>
       </div>
 
-      {/* Filters */}
+      {/* ═══ Tabs (scope) ═══ */}
+      <Tabs value={scope} onValueChange={(v) => setScope(v as ScopeTab)}>
+        <TabsList>
+          {SCOPE_TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value}>
+              {t.label}
+              {t.value === "all" && counts.all > 0 && (
+                <span className="ml-1.5 text-[10px] text-muted-foreground">
+                  ({counts.all})
+                </span>
+              )}
+              {t.value === "global" && counts.global > 0 && (
+                <span className="ml-1.5 text-[10px] text-muted-foreground">
+                  ({counts.global})
+                </span>
+              )}
+              {t.value === "consultant" && counts.consultant > 0 && (
+                <span className="ml-1.5 text-[10px] text-muted-foreground">
+                  ({counts.consultant})
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {/* ═══ Filters ═══ */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -121,7 +183,7 @@ export default function TemplatesWppPage() {
         </Select>
       </div>
 
-      {/* Grid */}
+      {/* ═══ Grid ═══ */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -135,11 +197,11 @@ export default function TemplatesWppPage() {
             Nenhum template encontrado
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {search || category !== "all"
+            {search || category !== "all" || scope !== "all"
               ? "Tente ajustar os filtros de pesquisa"
               : "Crie o seu primeiro template de mensagens WhatsApp"}
           </p>
-          {!search && category === "all" && (
+          {!search && category === "all" && scope === "all" && (
             <Button
               onClick={() =>
                 router.push("/dashboard/automacao/templates-wpp/editor")

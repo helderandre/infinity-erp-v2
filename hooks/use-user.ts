@@ -14,11 +14,13 @@ type DevUserWithRoles = DevUser & {
   user_roles: Array<{
     role: Role
   }>
+  dev_consultant_profiles: { profile_photo_url: string | null } | null
 }
 
 export interface UserWithRole extends DevUser {
   role: Role | null
   auth_user: User | null
+  profile_photo_url: string | null
 }
 
 export function useUser() {
@@ -57,7 +59,8 @@ export function useUser() {
           *,
           user_roles!user_roles_user_id_fkey!inner(
             role:roles(*)
-          )
+          ),
+          dev_consultant_profiles(profile_photo_url)
         `
         )
         .eq('id', authUser.id)
@@ -115,13 +118,14 @@ export function useUser() {
           }
         : null
 
-      // Criar objeto sem user_roles para o estado
-      const { user_roles, ...userDataWithoutRoles } = userData
+      // Criar objeto sem user_roles e dev_consultant_profiles para o estado
+      const { user_roles, dev_consultant_profiles, ...userDataWithoutRoles } = userData
 
       setUser({
         ...userDataWithoutRoles,
         role: combinedRole as Role | null,
         auth_user: authUser,
+        profile_photo_url: dev_consultant_profiles?.profile_photo_url || null,
       })
     } catch (err) {
       console.error('Erro ao carregar utilizador:', err)

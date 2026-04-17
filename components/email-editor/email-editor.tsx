@@ -29,7 +29,10 @@ import { EmailSettingsPanel } from './email-settings-panel'
 import { EmailTopbar, type EditorMode, type SignatureMode } from './email-topbar'
 import { EmailLayer } from './email-layer'
 import { EmailPreviewPanel } from './email-preview-panel'
+import { AiGenerateInput } from './ai-generate-panel'
 import { renderEmailToHtml } from '@/lib/email-renderer'
+import { normalizeCategory } from '@/lib/constants-template-categories'
+import type { EmailMeta } from '@/lib/email/ai-state-injector'
 
 const resolver = {
   EmailContainer,
@@ -55,6 +58,7 @@ interface EmailEditorProps {
   initialSubject: string
   initialDescription: string
   initialCategory?: import('@/lib/constants-template-categories').TemplateCategory
+  initialScope?: 'consultant' | 'global'
 }
 
 /**
@@ -185,6 +189,7 @@ export function EmailEditorComponent({
   initialSubject,
   initialDescription,
   initialCategory,
+  initialScope,
 }: EmailEditorProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
@@ -197,6 +202,14 @@ export function EmailEditorComponent({
   const [mode, setMode] = useState<EditorMode>('edit')
   const [signatureMode, setSignatureMode] = useState<SignatureMode>('process_owner')
   const [previewEditorState, setPreviewEditorState] = useState<string | null>(null)
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [isAiGenerating, setIsAiGenerating] = useState(false)
+
+  const handleAiMeta = useCallback((meta: EmailMeta) => {
+    if (meta.name) setName(meta.name)
+    if (meta.subject) setSubject(meta.subject)
+    if (meta.category) setCategory(normalizeCategory(meta.category))
+  }, [])
 
   const sanitizedData = useMemo(
     () => (initialData ? sanitizeEditorState(initialData) : undefined),
@@ -276,12 +289,14 @@ export function EmailEditorComponent({
           onSave={handleSave}
           onModeChange={handleModeChange}
           isSaving={isSaving}
+          onAiGenerate={() => setAiPanelOpen(true)}
+          isAiGenerating={isAiGenerating}
         />
 
         {/* Edit mode — kept mounted but hidden when in preview to preserve state */}
         <div className="flex flex-1 min-h-0" style={{ display: mode === 'edit' ? 'flex' : 'none' }}>
           <EmailToolbox />
-          <div className="flex-1 overflow-auto bg-muted/30 p-8">
+          <div className="flex-1 overflow-auto bg-muted/30 p-8 relative">
             <div className="mx-auto" style={{ maxWidth: 620 }}>
               <Frame data={sanitizedData}>
                 <Element
@@ -314,6 +329,16 @@ export function EmailEditorComponent({
                 </Element>
               </Frame>
             </div>
+
+            {/* AI inline input — floats at the bottom of the canvas area */}
+            <AiGenerateInput
+              visible={aiPanelOpen || isAiGenerating}
+              onClose={() => setAiPanelOpen(false)}
+              onGeneratingChange={setIsAiGenerating}
+              onMetaGenerated={handleAiMeta}
+              scope={initialScope}
+              category={category}
+            />
           </div>
           <RightSidebar />
         </div>

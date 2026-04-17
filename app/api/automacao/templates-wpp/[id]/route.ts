@@ -1,9 +1,42 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/permissions"
 import { TEMPLATE_CATEGORY_VALUES } from "@/lib/constants-template-categories"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
+
+function isBroker(roles: string[]) {
+  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+}
+
+async function assertCanMutate(
+  supabase: SupabaseAny,
+  auth: Awaited<ReturnType<typeof requireAuth>>,
+  id: string,
+): Promise<NextResponse | null> {
+  if (!auth.authorized) return auth.response
+  const { data: existing } = await (supabase as SupabaseAny)
+    .from("auto_wpp_templates")
+    .select("id, scope, scope_id, is_system")
+    .eq("id", id)
+    .maybeSingle()
+  if (!existing) {
+    return NextResponse.json({ error: "Template não encontrado" }, { status: 404 })
+  }
+  if (existing.is_system) {
+    return NextResponse.json({ error: "Template de sistema não pode ser modificado" }, { status: 403 })
+  }
+  if (!isBroker(auth.roles)) {
+    if (existing.scope === "global") {
+      return NextResponse.json({ error: "Apenas administradores podem modificar templates globais" }, { status: 403 })
+    }
+    if (existing.scope === "consultant" && existing.scope_id !== auth.user.id) {
+      return NextResponse.json({ error: "Template não é seu" }, { status: 403 })
+    }
+  }
+  return null
+}
 
 interface DbTemplate {
   id: string
@@ -58,7 +91,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
     const supabase = createAdminClient()
+    const guard = await assertCanMutate(supabase, auth, id)
+    if (guard) return guard
     const body = await request.json()
 
     const updates: Record<string, SupabaseAny> = {}
@@ -121,7 +158,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
     const supabase = createAdminClient()
+    const guard = await assertCanMutate(supabase, auth, id)
+    if (guard) return guard
 
     const { error } = await (supabase as SupabaseAny)
       .from("auto_wpp_templates")

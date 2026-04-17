@@ -1,5 +1,7 @@
 # Contact Automations — Envios agendados por contacto
 
+> **Evoluído por `add-fixed-contact-automations`** (2026-04-16): os três eventos fixos (`aniversario_contacto`, `natal`, `ano_novo`) deixaram de ser criados pelo wizard e passaram a uma pista virtual implícita, com cascata de templates (lead → consultor → global), mutes combinatórios, hub CRM central e overrides por-lead. Ver [SPEC-FIXED-CONTACT-AUTOMATIONS.md](./SPEC-FIXED-CONTACT-AUTOMATIONS.md). Este documento cobre a pista manual legada (`aniversario_fecho` + `festividade`).
+
 Entregue em `add-contact-automations` (OpenSpec). Adiciona a tab **Automatismos** na página do lead (`/dashboard/leads/[id]`, tabela `leads`) permitindo ao consultor agendar envios automáticos de email e/ou WhatsApp em datas-chave: aniversário do contacto, aniversário de fecho de negócio, Natal, Ano Novo ou festividade personalizada. A FK `contact_automations.contact_id` aponta para `leads(id)`.
 
 Resolve também a lacuna crítica do runtime de automações: triggers agendados em `auto_triggers` existiam mas nenhum worker criava runs quando a hora batia. Este change entrega o primeiro spawner funcional, focado em `contact_automations`.

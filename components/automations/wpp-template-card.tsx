@@ -67,7 +67,7 @@ export function WppTemplateCard({
 
   return (
     <Card className="group hover:shadow-md transition-shadow cursor-pointer">
-      <CardContent className="p-4">
+      <CardContent className="px-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">

@@ -58,6 +58,7 @@ const FULL_BLEED_ROUTES = [
   '/dashboard/templates-email/',
   '/dashboard/templates-documentos/',
   '/dashboard/processos/templates/',  // novo + [id]/editar
+  '/dashboard/comunicacao/chat',
   '/dashboard/email',
   '/dashboard/whatsapp',
 ]

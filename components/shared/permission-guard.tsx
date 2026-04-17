@@ -11,13 +11,15 @@ export function PermissionGuard({
   module,
   children,
 }: {
-  module: PermissionModule
+  module: PermissionModule | PermissionModule[]
   children: React.ReactNode
 }) {
-  const { hasPermission, loading } = usePermissions()
+  const { hasPermission, hasAnyPermission, loading } = usePermissions()
   const router = useRouter()
 
-  const allowed = hasPermission(module as any)
+  const allowed = Array.isArray(module)
+    ? hasAnyPermission(module as any)
+    : hasPermission(module as any)
 
   useEffect(() => {
     if (!loading && !allowed) {

@@ -2,19 +2,22 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-04-14
+**Última actualização:** 2026-04-16
 
-### ✅ Contact Automations (ENTREGUE via `add-contact-automations`)
-- Tab "Automatismos" em `app/dashboard/leads/[id]/page.tsx` com wizard de 6 passos (FK em `leads(id)`)
-- Novas tabelas `contact_automations`, `contact_automation_runs`, `auto_scheduler_log`
-- Novo endpoint cron `POST /api/automacao/scheduler/spawn-runs` (Vercel Cron a cada minuto)
-- Flow sentinela `00000000-0000-0000-0000-00000c0a0a17` em `auto_flows` reservado para runs efémeros (satisfaz FK `flow_id NOT NULL`)
-- Coluna `auto_step_runs.node_data_snapshot` (JSONB) permite runs sem `published_definition`
-- Worker em [app/api/automacao/worker/route.ts](app/api/automacao/worker/route.ts) detecta snapshot e constrói node inline
-- Processor email ([lib/node-processors/email.ts](lib/node-processors/email.ts)) suporta `smtpAccountId` → envia via `smtp-send` Edge Function com credenciais de `consultant_email_accounts`
-- Categorias canónicas de templates: `aniversario_contacto | aniversario_fecho | natal | ano_novo | festividade | custom | geral`
+### ✅ Contact Automations (ENTREGUE via `add-contact-automations` + `add-fixed-contact-automations`)
+- Tab "Automatismos" em `app/dashboard/leads/[id]/page.tsx`: secção **Eventos fixos** (aniversário/Natal/Ano Novo — implícitos) + wizard manual para `aniversario_fecho` e `festividade`.
+- Tabelas: `contact_automations`, `contact_automation_runs`, `auto_scheduler_log`, `contact_automation_lead_settings`, `contact_automation_mutes`.
+- Endpoint cron `POST /api/automacao/scheduler/spawn-runs` corre duas fases: **A (manual)** contra `contact_automations` e **B (virtual)** contra `leads × {3 eventos fixos}` com cascata de templates e gating por canal. Feature flag `AUTOMACAO_VIRTUAL_SPAWNER_ENABLED=false` desliga só B.
+- Flow sentinela `00000000-0000-0000-0000-00000c0a0a17` em `auto_flows` reservado para runs efémeros; `auto_step_runs.node_data_snapshot` permite runs sem `published_definition`.
+- Cascata de templates em 3 camadas (lead → consultor → global) via colunas `scope`/`scope_id`/`is_system` em `tpl_email_library` e `auto_wpp_templates`. Templates `is_system=true` protegidos contra delete.
+- Mutes combinatórios `(consultant_id, lead_id, event_type, channel)` — null = "todos". Predicado null-as-wildcard em [`lib/automacao/is-muted.ts`](lib/automacao/is-muted.ts).
+- Hub CRM em `/dashboard/crm/automatismos-contactos` com 4 tabs: Agendados, Runs falhados, Os meus templates, Mutes globais.
+- APIs retry/reschedule individuais e em lote (max 100) em `/api/automacao/runs/[id]/retry|reschedule` + `/retry-batch|reschedule-batch`.
+- Biblioteca partilhada em [`lib/automacao/`](lib/automacao/): `resolve-template-for-lead`, `resolve-account-for-lead`, `is-muted`, `next-fixed-occurrence`, `spawn-retry`.
 
-**📄 Especificação:** [SPEC-CONTACT-AUTOMATIONS.md](docs/M10-AUTOMACOES/SPEC-CONTACT-AUTOMATIONS.md)
+**📄 Especificações:**
+- [SPEC-FIXED-CONTACT-AUTOMATIONS.md](docs/M10-AUTOMACOES/SPEC-FIXED-CONTACT-AUTOMATIONS.md) — pista virtual + cascata + hub CRM
+- [SPEC-CONTACT-AUTOMATIONS.md](docs/M10-AUTOMACOES/SPEC-CONTACT-AUTOMATIONS.md) — pista manual legada
 
 
 

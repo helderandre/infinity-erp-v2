@@ -909,6 +909,27 @@ export const KYC_LABELS = {
   rcbe_code: 'Codigo RCBE',
 } as const
 
+// --- INTERNAL CHAT ---
+
+export const INTERNAL_CHAT_CHANNEL_ID = '00000000-0000-0000-0000-000000000001'
+
+/** Generates a deterministic channel ID for a DM between two users.
+ *  Sorts UUIDs alphabetically so the result is the same regardless of order. */
+export function getDmChannelId(userA: string, userB: string): string {
+  const sorted = [userA, userB].sort()
+  // Create a deterministic UUID-like string from the sorted pair
+  const combined = sorted.join('-')
+  // Simple hash → UUID format (uses only hex chars from the input UUIDs)
+  const clean = combined.replace(/-/g, '')
+  return [
+    clean.slice(0, 8),
+    clean.slice(8, 12),
+    clean.slice(12, 16),
+    clean.slice(16, 20),
+    clean.slice(20, 32),
+  ].join('-')
+}
+
 // --- CHAT ---
 
 export const CHAT_LABELS = {

@@ -276,18 +276,16 @@ export function ContactAutomationWizard({
           <div className="space-y-3">
             <Label>Tipo de evento</Label>
             <RadioGroup value={eventType} onValueChange={(v) => setEventType(v as ContactAutomationEventType)}>
-              {CONTACT_AUTOMATION_EVENT_TYPES.map((t) => {
-                const disabled =
-                  (t === "aniversario_contacto" && !contactBirthday) ||
-                  (t === "aniversario_fecho" && !hasDeals)
+              {CONTACT_AUTOMATION_EVENT_TYPES
+                // Os 3 eventos fixos passam a ser implícitos (geridos no hub CRM + overrides).
+                .filter((t) => t !== "aniversario_contacto" && t !== "natal" && t !== "ano_novo")
+                .map((t) => {
+                const disabled = t === "aniversario_fecho" && !hasDeals
                 return (
                   <div key={t} className={`flex items-center gap-2 ${disabled ? "opacity-40" : ""}`}>
                     <RadioGroupItem value={t} id={t} disabled={disabled} />
                     <Label htmlFor={t} className="cursor-pointer font-normal">
                       {CONTACT_AUTOMATION_EVENT_LABELS_PT[t]}
-                      {disabled && t === "aniversario_contacto" && (
-                        <span className="ml-1 text-xs text-muted-foreground">(sem data de nascimento)</span>
-                      )}
                       {disabled && t === "aniversario_fecho" && (
                         <span className="ml-1 text-xs text-muted-foreground">(contacto sem negócios)</span>
                       )}

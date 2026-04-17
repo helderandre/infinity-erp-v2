@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('dev_users')
-      .select('id, commercial_name')
+      .select('id, commercial_name, dev_consultant_profiles(profile_photo_url), user_roles!user_roles_user_id_fkey(role:roles(name))')
       .eq('is_active', true)
       .order('commercial_name', { ascending: true })
 

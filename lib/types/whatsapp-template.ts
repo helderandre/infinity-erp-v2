@@ -26,6 +26,9 @@ export interface WhatsAppTemplate {
   created_by: string
   instance_id?: string
   is_active: boolean
+  scope?: "global" | "consultant"
+  scope_id?: string | null
+  is_system?: boolean
   created_at: string
   updated_at: string
 }

@@ -30,6 +30,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const input = parsed.data
 
+  // Os 3 eventos fixos passam a ser implícitos (spawner virtual) + overrides.
+  if (
+    input.event_type === "aniversario_contacto" ||
+    input.event_type === "natal" ||
+    input.event_type === "ano_novo"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Este evento é agora implícito — use o hub CRM ou os overrides por-lead em vez de criar manualmente.",
+        code: "use_fixed_overrides_instead",
+      },
+      { status: 400 },
+    )
+  }
+
   const contactBirthday: string | null = lead.data_nascimento || null
   let dealClosingDate: string | null = null
 

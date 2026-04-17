@@ -15,6 +15,8 @@ function TemplateEditorContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const templateId = searchParams.get("id")
+  const initialScope = searchParams.get("scope") as 'consultant' | 'global' | null
+  const initialCategory = searchParams.get("category") as WhatsAppTemplateCategory | null
 
   const { getTemplate, createTemplate, updateTemplate } = useWppTemplates({
     autoFetch: false,
@@ -24,7 +26,7 @@ function TemplateEditorContent() {
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [category, setCategory] = useState<WhatsAppTemplateCategory>("outro")
+  const [category, setCategory] = useState<WhatsAppTemplateCategory>(initialCategory || "outro")
   const [messages, setMessages] = useState<WhatsAppTemplateMessage[]>([])
   const [tags, setTags] = useState<string[]>([])
 
@@ -140,6 +142,7 @@ function TemplateEditorContent() {
       onSave={handleSave}
       saving={saving}
       isEditing={!!templateId}
+      scope={initialScope ?? undefined}
     />
   )
 }

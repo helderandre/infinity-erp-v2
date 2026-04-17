@@ -28,6 +28,7 @@ import { ContactAutomationWizard } from "./contact-automation-wizard"
 import { ContactAutomationHistoryDialog } from "./contact-automation-history-dialog"
 import { ContactAutomationEditDialog } from "./contact-automation-edit-dialog"
 import { ContactAutomationsCalendar } from "./contact-automations-calendar"
+import { FixedEventsSection } from "./fixed-events-section"
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Agendado",
@@ -82,14 +83,16 @@ export function ContactAutomationsList({ contactId, contactBirthday, hasDeals }:
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <FixedEventsSection leadId={contactId} birthday={contactBirthday} />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
-            <Bot className="h-4 w-4" /> Automatismos
+            <Bot className="h-4 w-4" /> Automatismos manuais
           </h3>
           <p className="text-xs text-muted-foreground">
-            Envios automáticos por email ou WhatsApp em datas-chave.
+            Aniversário de fecho e festividades personalizadas (os 3 eventos fixos estão agora na secção acima).
           </p>
         </div>
         <div className="flex items-center gap-2">

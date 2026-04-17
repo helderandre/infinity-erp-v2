@@ -9,8 +9,8 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, Blocks, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield,
-  CheckSquare, Cpu, Infinity, KeyRound, Library,
+  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield, MessagesSquare,
+  CheckSquare, Cpu, Infinity, KeyRound, Library, Bell,
 } from 'lucide-react'
 import Link from 'next/link'
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
@@ -26,7 +26,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible'
@@ -49,6 +49,7 @@ export const meuEspacoItems = [
 ]
 
 export const comunicacaoItems = [
+  { title: 'Chat Interno', icon: MessagesSquare, href: '/dashboard/comunicacao/chat', permission: 'dashboard' },
   { title: 'WhatsApp', icon: WhatsAppIcon, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
   { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
@@ -70,6 +71,7 @@ export const bottomItems = [
 export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Automatismos Contactos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
 ]
 
 export const gestaoLeadsItems = [
@@ -604,6 +606,7 @@ export function AppSidebar() {
                     className="rounded-xl data-[state=open]:bg-muted/60"
                   >
                     <Avatar className="h-8 w-8 rounded-xl">
+                      {user?.profile_photo_url && <AvatarImage src={user.profile_photo_url} alt={user?.commercial_name || ''} />}
                       <AvatarFallback className="rounded-xl bg-neutral-900 text-white text-xs font-bold dark:bg-white dark:text-neutral-900">
                         {userInitials}
                       </AvatarFallback>
@@ -628,6 +631,7 @@ export function AppSidebar() {
                   <DropdownMenuLabel className="p-0 font-normal">
                     <div className="flex items-center gap-3 px-3 py-3 text-left text-sm">
                       <Avatar className="h-9 w-9 rounded-xl">
+                        {user?.profile_photo_url && <AvatarImage src={user.profile_photo_url} alt={user?.commercial_name || ''} />}
                         <AvatarFallback className="rounded-xl bg-neutral-900 text-white text-xs font-bold dark:bg-white dark:text-neutral-900">
                           {userInitials}
                         </AvatarFallback>
@@ -667,6 +671,13 @@ export function AppSidebar() {
                       ))}
                     </div>
                   </div>
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  <DropdownMenuItem asChild className="rounded-xl mx-1">
+                    <Link href="/dashboard/perfil">
+                      <UserCircle className="size-4" />
+                      Meu Perfil
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem
                     onClick={handleLogout}
