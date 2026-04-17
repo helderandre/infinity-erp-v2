@@ -137,7 +137,7 @@ export function useWhatsAppMessages(chatId: string | null) {
 
   const sendText = useCallback(
     async (text: string, replyId?: string) => {
-      if (!chatId || isSending) return
+      if (!chatId) return
       setIsSending(true)
 
       // Optimistic message
@@ -188,12 +188,12 @@ export function useWhatsAppMessages(chatId: string | null) {
         setIsSending(false)
       }
     },
-    [chatId, isSending]
+    [chatId]
   )
 
   const sendMedia = useCallback(
     async (file: File, type: string, caption?: string, replyId?: string) => {
-      if (!chatId || isSending) return
+      if (!chatId) return
       setIsSending(true)
 
       try {
@@ -230,12 +230,12 @@ export function useWhatsAppMessages(chatId: string | null) {
         setIsSending(false)
       }
     },
-    [chatId, isSending]
+    [chatId]
   )
 
   const sendAudio = useCallback(
     async (file: File, replyId?: string) => {
-      if (!chatId || isSending) return
+      if (!chatId) return
       setIsSending(true)
 
       try {
@@ -268,7 +268,7 @@ export function useWhatsAppMessages(chatId: string | null) {
         setIsSending(false)
       }
     },
-    [chatId, isSending]
+    [chatId]
   )
 
   const sendPoll = useCallback(
@@ -406,7 +406,11 @@ export function useWhatsAppMessages(chatId: string | null) {
 
   const markRead = useCallback(async () => {
     if (!chatId) return
-    await fetch(`/api/whatsapp/chats/${chatId}/read`, { method: 'POST' })
+    try {
+      await fetch(`/api/whatsapp/chats/${chatId}/read`, { method: 'POST' })
+    } catch {
+      // Best-effort — dev server restarts or transient network errors shouldn't crash the chat
+    }
   }, [chatId])
 
   return {

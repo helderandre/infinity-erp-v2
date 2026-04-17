@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Clock, Loader2, X, CheckCircle2, XCircle, AlertCircle, Calendar } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -12,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -35,38 +36,92 @@ interface ScheduledMessage {
 export function ScheduledMessagesPanel() {
   const [messages, setMessages] = useState<ScheduledMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [pendingCountGlobal, setPendingCountGlobal] = useState(0)
   const [open, setOpen] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channelRef = useRef<any>(null)
+  const hasLoadedRef = useRef(false)
 
-  async function fetchMessages() {
-    setIsLoading(true)
+  const fetchMessages = useCallback(async (opts?: { showSpinner?: boolean }) => {
+    const showSpinner = opts?.showSpinner ?? !hasLoadedRef.current
+    if (showSpinner) setIsLoading(true)
     try {
       const res = await fetch('/api/whatsapp/scheduled?limit=50')
       if (!res.ok) throw new Error()
       const data = await res.json()
       setMessages(data.messages || [])
+      hasLoadedRef.current = true
     } catch {
       // silently fail
     } finally {
-      setIsLoading(false)
+      if (showSpinner) setIsLoading(false)
     }
-  }
+  }, [])
 
+  // Fetch the global pending count on mount so the badge is accurate even
+  // before the panel is opened for the first time.
   useEffect(() => {
-    if (open) fetchMessages()
-  }, [open])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/whatsapp/scheduled?status=pending&limit=100')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setPendingCountGlobal((data.messages || []).length)
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // While the panel is open, keep the list live:
+  //  - initial fetch on open
+  //  - realtime subscription on wpp_scheduled_messages (status flips from
+  //    pg_cron land here within 1-2s)
+  //  - polling fallback every 20s in case realtime drops
+  useEffect(() => {
+    if (!open) return
+
+    fetchMessages()
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel('wpp-scheduled-panel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wpp_scheduled_messages' },
+        () => { fetchMessages({ showSpinner: false }) }
+      )
+      .subscribe()
+    channelRef.current = channel
+
+    const pollId = setInterval(() => {
+      fetchMessages({ showSpinner: false })
+    }, 20_000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      channelRef.current = null
+      clearInterval(pollId)
+    }
+  }, [open, fetchMessages])
 
   async function cancelMessage(id: string) {
     try {
       const res = await fetch(`/api/whatsapp/scheduled?id=${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       toast.success('Mensagem cancelada')
-      fetchMessages()
+      fetchMessages({ showSpinner: false })
     } catch {
       toast.error('Erro ao cancelar mensagem')
     }
   }
 
-  const pendingCount = messages.filter((m) => m.status === 'pending').length
+  // Use the already-loaded list when available, otherwise fall back to the
+  // initial global count fetched on mount so the badge is accurate before
+  // the panel is opened for the first time.
+  const pendingCount = hasLoadedRef.current
+    ? messages.filter((m) => m.status === 'pending').length
+    : pendingCountGlobal
 
   const statusIcon = (status: string) => {
     switch (status) {
@@ -90,21 +145,23 @@ export function ScheduledMessagesPanel() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
-              <Calendar className="h-4 w-4" />
-              {pendingCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
-                  {pendingCount}
-                </span>
-              )}
-            </Button>
-          </SheetTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
+                <Calendar className="h-4 w-4" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
+                    {pendingCount}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <SheetContent side="right" className="w-full sm:w-96 p-0">
         <SheetHeader className="px-4 py-3 border-b">

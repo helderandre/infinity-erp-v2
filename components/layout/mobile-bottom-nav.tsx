@@ -11,7 +11,7 @@ import {
 import {
   meuEspacoItems, comunicacaoItems, crmItems, negocioItems, infinityItems,
   financeiroItems, creditoItems, recrutamentoItems, lojaItems,
-  digitalItems, automationItems,
+  marketingItems, automationItems,
 } from '@/components/layout/app-sidebar'
 import type { LucideIcon } from 'lucide-react'
 
@@ -35,7 +35,7 @@ const SECTIONS: Section[] = [
   { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: ['/dashboard/credito'] },
   { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: ['/dashboard/recrutamento'] },
   { key: 'loja', label: 'Loja', icon: Store, items: lojaItems, prefixes: ['/dashboard/marketing', '/dashboard/encomendas'] },
-  { key: 'digital', label: 'Digital', icon: Megaphone, items: digitalItems, prefixes: ['/dashboard/meta-ads', '/dashboard/instagram'] },
+  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: ['/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais'] },
   { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: ['/dashboard/automacao'] },
 ]
 
@@ -44,8 +44,30 @@ const SECTIONS: Section[] = [
 export function MobileBottomNav() {
   const pathname = usePathname()
   const navRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
   const [bubbleStyle, setBubbleStyle] = useState({ left: 0, width: 0 })
+
+  // Publish the actual rendered nav height as a CSS variable so full-bleed
+  // pages (like /dashboard/whatsapp) can reserve the exact space and sit
+  // flush against the nav with no white gap.
+  useEffect(() => {
+    if (!rootRef.current) return
+    const el = rootRef.current
+    const apply = () => {
+      const h = el.getBoundingClientRect().height
+      document.documentElement.style.setProperty('--mobile-nav-height', `${h}px`)
+    }
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    window.addEventListener('resize', apply)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', apply)
+      document.documentElement.style.removeProperty('--mobile-nav-height')
+    }
+  }, [])
 
   // Detect current section from pathname
   const currentSectionKey = useMemo(() => {
@@ -108,7 +130,10 @@ export function MobileBottomNav() {
   const visibleItems = currentSection.items.slice(0, 4)
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible">
+    <div
+      ref={rootRef}
+      className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible"
+    >
       {/* Section picker popup */}
       {sectionPopupOpen && (
         <>

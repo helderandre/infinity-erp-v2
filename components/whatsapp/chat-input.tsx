@@ -19,7 +19,7 @@ import { ContactPicker } from './contact-picker'
 import { CameraCapture } from './camera-capture'
 import { PropertyPickerDialog } from './property-picker-dialog'
 import { ScheduleMessageDialog } from './schedule-message-dialog'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface ChatInputProps {
@@ -231,20 +231,22 @@ export function ChatInput({
         {hasContent && !isRecording ? (
           <>
             {chatId && instanceId && text.trim() && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => setScheduleOpen(true)}
-                    disabled={disabled}
-                  >
-                    <Clock className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Agendar envio</TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => setScheduleOpen(true)}
+                      disabled={disabled}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Agendar envio</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             <Button
               variant="ghost"

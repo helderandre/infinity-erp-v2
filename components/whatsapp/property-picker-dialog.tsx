@@ -47,14 +47,12 @@ export function PropertyPickerDialog({ open, onOpenChange, onSendProperties, isS
   const debouncedSearch = useDebounce(search, 300)
 
   const searchProperties = useCallback(async (query: string) => {
-    if (!query || query.length < 2) {
-      setResults([])
-      return
-    }
-
     setIsLoading(true)
     try {
-      const params = new URLSearchParams({ search: query, limit: '20', status: 'active' })
+      // No minimum query length — empty search lists everything (user filters by typing)
+      const params = new URLSearchParams({ limit: '50', status: 'active' })
+      if (query?.trim()) params.set('search', query.trim())
+
       const res = await fetch(`/api/properties?${params}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -90,14 +88,15 @@ export function PropertyPickerDialog({ open, onOpenChange, onSendProperties, isS
     searchProperties(debouncedSearch)
   }, [debouncedSearch, searchProperties])
 
-  // Reset on open
+  // Reset on open + load the full active list immediately so the agent sees
+  // everything without having to type
   useEffect(() => {
     if (open) {
       setSearch('')
-      setResults([])
       setSelected(new Set())
+      searchProperties('')
     }
-  }, [open])
+  }, [open, searchProperties])
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -158,13 +157,9 @@ export function PropertyPickerDialog({ open, onOpenChange, onSendProperties, isS
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : results.length === 0 && debouncedSearch.length >= 2 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              Nenhum imóvel encontrado
-            </div>
           ) : results.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground">
-              Pesquise por referência, título ou cidade
+              {debouncedSearch.trim() ? 'Nenhum imóvel encontrado' : 'Sem imóveis activos'}
             </div>
           ) : (
             <div className="space-y-1 px-2">

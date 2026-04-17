@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, RefreshCw, Settings } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -92,6 +92,48 @@ export function ChatSidebar({
       setIsSyncing(false)
     }
   }
+
+  // Background sync — no toast, just a quiet refresh. Used on page mount +
+  // window focus so unread counts stay accurate without the agent clicking
+  // the refresh button.
+  const backgroundSyncRunningRef = useRef(false)
+  async function backgroundSync() {
+    if (!selectedInstance || backgroundSyncRunningRef.current) return
+    backgroundSyncRunningRef.current = true
+    try {
+      const res = await fetch(`/api/whatsapp/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_chats', instance_id: selectedInstance }),
+      })
+      if (res.ok) refetch()
+    } catch {
+      // silent — user can still manually click refresh
+    } finally {
+      backgroundSyncRunningRef.current = false
+    }
+  }
+
+  // Sync on mount + when the instance changes
+  useEffect(() => {
+    if (!selectedInstance) return
+    backgroundSync()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInstance])
+
+  // Sync when the window regains focus or becomes visible again
+  useEffect(() => {
+    if (!selectedInstance) return
+    const onFocus = () => backgroundSync()
+    const onVisible = () => { if (document.visibilityState === 'visible') backgroundSync() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInstance])
 
   const filteredChats = chats.filter((chat) => {
     if (filter === 'unread') return chat.unread_count > 0

@@ -131,7 +131,13 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
   // Mobile: full-screen views that switch between sidebar ↔ thread
   if (isMobile) {
     return (
-      <div className="flex h-full overflow-hidden">
+      // Shrink the container height by the actual mobile bottom-nav height
+      // (CSS var set by MobileBottomNav) so the chat input / list sits flush
+      // against the nav with no white gap and nothing is hidden behind it.
+      <div
+        className="flex overflow-hidden"
+        style={{ height: 'calc(100% - var(--mobile-nav-height, 56px))' }}
+      >
         {/* Chat list (full-screen when no chat selected) */}
         {!selectedChatId && (
           <div className="w-full flex flex-col">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Download, MapPin, User, Loader2 } from 'lucide-react'
 import { DocIcon } from '@/components/icons/doc-icon'
 import { AudioPlayer } from './audio-player'
@@ -8,7 +8,7 @@ import { MediaPreviewModal } from './media-preview-modal'
 import { PollMessage } from './poll-message'
 import { ContactCardMessage } from './contact-card-message'
 import { EventMessage } from './event-message'
-import { useMediaUrl } from '@/hooks/use-media-url'
+import { useMediaUrl, invalidateMediaCache } from '@/hooks/use-media-url'
 import type { WppMessage } from '@/lib/types/whatsapp-web'
 
 interface MessageMediaRendererProps {
@@ -138,14 +138,25 @@ function MediaLoading() {
 
 export function MessageMediaRenderer({ message, instanceId, isSent }: MessageMediaRendererProps) {
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   // Resolver media URL via UAZAPI se necessário (CDN encriptado)
   const { mediaUrl, loading: mediaLoading } = useMediaUrl(
     instanceId,
     message.wa_message_id,
     message.message_type,
-    message.media_url
+    message.media_url,
+    retryKey
   )
+
+  // UAZAPI signed links expire without warning. If an <img>/<video>/<audio>
+  // 404s, drop the cache entry for this message and bump retryKey so the hook
+  // re-resolves and we get a fresh URL.
+  const handleMediaError = useCallback(() => {
+    if (!instanceId || !message.wa_message_id) return
+    invalidateMediaCache(instanceId, message.wa_message_id)
+    setRetryKey((k) => k + 1)
+  }, [instanceId, message.wa_message_id])
 
   switch (message.message_type) {
     case 'image':
@@ -163,6 +174,7 @@ export function MessageMediaRenderer({ message, instanceId, isSent }: MessageMed
               alt={message.text || 'Imagem'}
               className="max-h-[300px] w-full rounded object-cover"
               loading="lazy"
+              onError={handleMediaError}
             />
           </button>
           {previewOpen && (
@@ -185,6 +197,7 @@ export function MessageMediaRenderer({ message, instanceId, isSent }: MessageMed
             controls
             className="max-h-[300px] w-full rounded"
             preload="metadata"
+            onError={handleMediaError}
           />
           {message.media_duration && (
             <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
@@ -249,6 +262,7 @@ export function MessageMediaRenderer({ message, instanceId, isSent }: MessageMed
           alt="Sticker"
           className="max-w-[180px] max-h-[180px] mb-1"
           loading="lazy"
+          onError={handleMediaError}
         />
       )
 

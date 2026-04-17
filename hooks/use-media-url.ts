@@ -12,10 +12,15 @@ const mediaCache = new Map<string, MediaCacheEntry>()
 // Evitar chamadas duplicadas em paralelo
 const pendingRequests = new Map<string, Promise<string | null>>()
 
-// URLs da UAZAPI já descriptografadas não precisam de resolução
-const UAZAPI_PATTERN = /uazapi\.com/i
-// TTL do cache: 1.5 dias (links da UAZAPI ficam disponíveis por 2 dias)
-const CACHE_TTL_MS = 1.5 * 24 * 60 * 60 * 1000
+// UAZAPI decrypted URLs don't stay valid as long as the API implies.
+// In practice, they often 404 within minutes / hours (session- or token-bound).
+// Keep the cache short and always re-resolve if a cached URL is missing.
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+/** Imperatively drop a cached entry (used when an <img> 404s). */
+export function invalidateMediaCache(instanceId: string, waMessageId: string) {
+  mediaCache.delete(`${instanceId}:${waMessageId}`)
+}
 
 const MEDIA_TYPES = new Set(['image', 'video', 'audio', 'document', 'sticker'])
 
@@ -44,17 +49,21 @@ async function resolveMediaUrl(
   }
 }
 
+// UAZAPI already-decrypted URLs — we use them directly. If one ever 404s, the
+// <img onError> handler in MessageMediaRenderer calls invalidateMediaCache()
+// and bumps retryKey, which forces a fresh resolution the next tick.
+const UAZAPI_PATTERN = /uazapi\.com/i
+
 function needsResolution(mediaUrl: string | undefined | null): boolean {
   if (!mediaUrl) return true
-  // Já é URL da UAZAPI ou R2/Supabase — não precisa resolver
   if (UAZAPI_PATTERN.test(mediaUrl)) return false
   if (mediaUrl.includes('supabase')) return false
   if (mediaUrl.includes('r2.dev')) return false
-  // URLs criptografadas do WhatsApp CDN
+  if (mediaUrl.includes('r2.cloudflarestorage')) return false
+  // Encrypted WhatsApp CDN URLs — always resolve via UAZAPI
   if (mediaUrl.includes('.enc')) return true
   if (mediaUrl.includes('mmg.whatsapp.net')) return true
   if (mediaUrl.includes('whatsapp.net')) return true
-  // Qualquer outra URL — tentar resolver
   return true
 }
 
@@ -62,7 +71,9 @@ export function useMediaUrl(
   instanceId: string | undefined,
   waMessageId: string | undefined,
   messageType: string,
-  originalMediaUrl: string | undefined | null
+  originalMediaUrl: string | undefined | null,
+  /** Optional bump key to force a fresh resolution (used on <img> onError). */
+  retryKey: number = 0
 ): { mediaUrl: string | null; loading: boolean } {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -111,7 +122,7 @@ export function useMediaUrl(
       setResolvedUrl(url)
       setLoading(false)
     })
-  }, [instanceId, waMessageId, messageType, shouldResolve])
+  }, [instanceId, waMessageId, messageType, shouldResolve, retryKey])
 
   // Se não precisa resolver, retorna a URL original
   if (!isMediaType) return { mediaUrl: originalMediaUrl || null, loading: false }

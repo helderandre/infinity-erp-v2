@@ -12,6 +12,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
@@ -78,21 +79,23 @@ export function AiSuggestButton({ messages, draft, contactLeadId, onSuggestion, 
 
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 flex-shrink-0 text-violet-500 hover:text-violet-600 hover:bg-violet-50"
-              disabled={disabled}
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top">Assistente IA</TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 flex-shrink-0 text-violet-500 hover:text-violet-600 hover:bg-violet-50"
+                disabled={disabled}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top">Assistente IA</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DropdownMenuContent align="start" side="top">
         <DropdownMenuItem onClick={() => handleAction('suggest')}>
           <MessageSquareText className="mr-2 h-4 w-4" />

@@ -346,7 +346,6 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
           }}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
-          disabled={isSending}
           messages={messages}
           contactLeadId={chat?.contact?.lead_id}
           chatId={chatId}

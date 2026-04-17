@@ -315,7 +315,6 @@ export function WhatsAppChatBubble({ contactPhone, contactName, contactLeadId }:
                   onSendPresence={handleSendPresence}
                   replyTo={replyTo}
                   onCancelReply={() => setReplyTo(null)}
-                  disabled={isSending}
                   messages={messages}
                   contactLeadId={contactLeadId}
                   chatId={chatId ?? undefined}

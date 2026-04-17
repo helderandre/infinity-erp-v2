@@ -104,7 +104,7 @@ export default function DashboardLayout({
       <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
         <AppSidebar />
         <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
-          <header className="flex py-2 shrink-0 items-center gap-2 border-b px-4">
+          <header className="sticky top-0 z-20 flex py-2 shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-6" />
             <Breadcrumbs />

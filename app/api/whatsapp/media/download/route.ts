@@ -52,15 +52,10 @@ export async function POST(request: Request) {
 
     const data = await res.json()
 
-    // Se temos uma URL resolvida, actualizar o media_url na mensagem
+    // Ephemeral on purpose — UAZAPI signed URLs expire, so we re-resolve every
+    // time rather than caching them in wpp_messages.media_url. No R2, no
+    // Supabase storage, no DB write here.
     const fileURL = data.fileURL || data.url || data.file || null
-    if (fileURL) {
-      await supabase
-        .from("wpp_messages")
-        .update({ media_url: fileURL })
-        .eq("instance_id", instance_id)
-        .eq("wa_message_id", wa_message_id)
-    }
 
     return NextResponse.json({ fileURL, ...data })
   } catch (err) {
