@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import {
   AlertTriangle, Users, Clock, Inbox, RefreshCw, ArrowRight,
   Loader2, UserX, Shield, Plus, Search, Filter, ChevronLeft, ChevronRight,
+  Upload, Target,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { LeadEntryForm } from '@/components/crm/lead-entry-form'
+import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
+import { AssignmentRulesManager } from '@/components/crm/assignment-rules-manager'
+import { SlaConfigsManager } from '@/components/crm/sla-configs-manager'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -110,6 +117,23 @@ function GestoraContent() {
   const [agentFilter, setAgentFilter] = useState<string>('')
   const [sectorFilter, setSectorFilter] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'distribution' | 'overdue' | 'unassigned'>('distribution')
+  const [showNewDialog, setShowNewDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [showRulesDialog, setShowRulesDialog] = useState(false)
+  const [showSlaDialog, setShowSlaDialog] = useState(false)
+  const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/users/consultants')
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setConsultants(
+        (d || []).map((c: Record<string, unknown>) => ({
+          id: c.id as string,
+          commercial_name: c.commercial_name as string,
+        }))
+      ))
+      .catch(() => {})
+  }, [])
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -195,23 +219,60 @@ function GestoraContent() {
     <div className="space-y-6">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-neutral-900/80 to-neutral-950" />
+        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white">Gestora de Leads</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Gestão de Leads</h2>
+          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
             Monitorize SLAs, reatribua leads e garanta que nenhum contacto fica sem resposta.
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchData}
-          disabled={isLoading}
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isLoading && "animate-spin")} />
-          Actualizar
-        </Button>
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setShowImportDialog(true)}
+          >
+            <Upload className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Importar</span>
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setShowNewDialog(true)}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Nova Lead
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={fetchData}
+            disabled={isLoading}
+            className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+          </Button>
+        </div>
+        <div className="absolute bottom-6 right-6 z-20 flex flex-wrap items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowRulesDialog(true)}
+            className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
+          >
+            <Target className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Regras de Atribuição</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowSlaDialog(true)}
+            className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
+          >
+            <Clock className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Config. SLA</span>
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -565,6 +626,54 @@ function GestoraContent() {
           })}
         </div>
       )}
+
+      {/* New Lead Entry Dialog */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden" showCloseButton={false}>
+          <VisuallyHidden><DialogTitle>Nova Lead</DialogTitle></VisuallyHidden>
+          <LeadEntryForm
+            consultants={consultants}
+            onSuccess={() => {
+              setShowNewDialog(false)
+              fetchData()
+            }}
+            onCancel={() => setShowNewDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Bulk Import */}
+      <BulkImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onComplete={() => fetchData()}
+      />
+
+      {/* Assignment Rules */}
+      <Dialog open={showRulesDialog} onOpenChange={setShowRulesDialog}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-4xl rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Regras de Atribuição
+            </DialogTitle>
+          </DialogHeader>
+          <AssignmentRulesManager />
+        </DialogContent>
+      </Dialog>
+
+      {/* SLA Configs */}
+      <Dialog open={showSlaDialog} onOpenChange={setShowSlaDialog}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-4xl rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Configuração de SLA
+            </DialogTitle>
+          </DialogHeader>
+          <SlaConfigsManager />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

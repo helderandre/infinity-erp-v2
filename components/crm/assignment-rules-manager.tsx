@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Target, Plus, MoreHorizontal, Pencil, Trash2, Loader2,
-  ArrowRightLeft, Users, Zap, Shield,
+  ArrowRightLeft, Users, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -51,15 +51,7 @@ const FALLBACK_ACTIONS = [
 
 interface Agent { id: string; commercial_name: string }
 
-export default function RegrasPage() {
-  return (
-    <Suspense fallback={<div className="space-y-6"><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-96 rounded-2xl" /></div>}>
-      <RegrasContent />
-    </Suspense>
-  )
-}
-
-function RegrasContent() {
+export function AssignmentRulesManager() {
   const [rules, setRules] = useState<LeadsAssignmentRule[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [campaigns, setCampaigns] = useState<LeadsCampaign[]>([])
@@ -113,21 +105,17 @@ function RegrasContent() {
   const sortedRules = [...rules].sort((a, b) => b.priority - a.priority)
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl bg-neutral-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white">Regras de Atribuição</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">
-            Configure como as leads são automaticamente atribuídas aos consultores.
-            Regras são avaliadas por prioridade (maior primeiro).
-          </p>
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Regras de Atribuição</span>
         </div>
         <Button
           size="sm"
           onClick={() => { setEditingRule(null); setDialogOpen(true) }}
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+          className="rounded-full"
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Nova Regra
@@ -162,7 +150,7 @@ function RegrasContent() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
       ) : sortedRules.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
             <ArrowRightLeft className="h-8 w-8 text-muted-foreground/30" />
           </div>
@@ -206,7 +194,6 @@ function RegrasContent() {
                       <p className="text-[11px] text-muted-foreground mt-0.5">{rule.description}</p>
                     )}
 
-                    {/* Criteria badges */}
                     <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       {rule.source_match?.map(s => (
                         <span key={s} className="inline-flex items-center text-[9px] font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
@@ -228,7 +215,6 @@ function RegrasContent() {
                       )}
                     </div>
 
-                    {/* Target */}
                     <div className="flex items-center gap-2 mt-2">
                       <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
                       {agent ? (
@@ -277,7 +263,6 @@ function RegrasContent() {
         </div>
       )}
 
-      {/* Dialog */}
       <RuleDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -289,10 +274,6 @@ function RegrasContent() {
     </div>
   )
 }
-
-// ============================================================================
-// Rule Dialog
-// ============================================================================
 
 function RuleDialog({
   open, onOpenChange, rule, agents, campaigns, onSaved,
@@ -397,7 +378,6 @@ function RuleDialog({
         </div>
 
         <div className="space-y-5">
-          {/* Basic */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 grid gap-2">
               <Label className="text-xs font-medium">Nome *</Label>
@@ -414,7 +394,6 @@ function RuleDialog({
             <Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="rounded-xl text-xs" rows={2} />
           </div>
 
-          {/* Criteria */}
           <div className="rounded-xl border p-4 space-y-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Critérios de correspondência</span>
 
@@ -471,7 +450,6 @@ function RuleDialog({
             </div>
           </div>
 
-          {/* Target */}
           <div className="rounded-xl border p-4 space-y-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atribuir a</span>
 

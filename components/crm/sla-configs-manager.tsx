@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Clock, Plus, MoreHorizontal, Pencil, Trash2, Loader2,
-  AlertTriangle, Timer, Zap,
+  Timer, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -43,15 +43,7 @@ function formatSla(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
-export default function SlaPage() {
-  return (
-    <Suspense fallback={<div className="space-y-6"><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-96 rounded-2xl" /></div>}>
-      <SlaContent />
-    </Suspense>
-  )
-}
-
-function SlaContent() {
+export function SlaConfigsManager() {
   const [configs, setConfigs] = useState<LeadsSlaConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -91,20 +83,17 @@ function SlaContent() {
   const sorted = [...configs].sort((a, b) => b.priority - a.priority)
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl bg-neutral-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white">Configuração de SLA</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm">
-            Defina prazos de resposta por origem, sector e prioridade. O sistema notifica automaticamente quando os prazos estão a expirar.
-          </p>
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Configuração de SLA</span>
         </div>
         <Button
           size="sm"
           onClick={() => { setEditing(null); setDialogOpen(true) }}
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+          className="rounded-full"
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo SLA
@@ -139,7 +128,7 @@ function SlaContent() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
             <Clock className="h-8 w-8 text-muted-foreground/30" />
           </div>
@@ -172,7 +161,6 @@ function SlaContent() {
                     </Badge>
                   </div>
 
-                  {/* Criteria */}
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     {config.source_match?.map(s => (
                       <span key={s} className="inline-flex items-center text-[9px] font-medium bg-muted/60 dark:bg-muted/30 px-2 py-0.5 rounded-full">
@@ -194,7 +182,6 @@ function SlaContent() {
                     )}
                   </div>
 
-                  {/* Thresholds */}
                   <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
@@ -239,10 +226,6 @@ function SlaContent() {
     </div>
   )
 }
-
-// ============================================================================
-// Dialog
-// ============================================================================
 
 function SlaDialog({ open, onOpenChange, config, onSaved }: {
   open: boolean; onOpenChange: (o: boolean) => void; config: LeadsSlaConfig | null; onSaved: () => void
@@ -364,7 +347,6 @@ function SlaDialog({ open, onOpenChange, config, onSaved }: {
             </div>
           </div>
 
-          {/* Criteria */}
           <div className="rounded-xl border p-4 space-y-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aplica-se a</span>
 

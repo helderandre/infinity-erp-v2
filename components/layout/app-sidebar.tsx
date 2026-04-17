@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Building2, Users, FileText, LayoutDashboard, Settings, Clock,
+  Building2, Users, FileText, LayoutDashboard, Settings,
   UserCircle, Euro, Megaphone, FileStack, CalendarDays,
   LogOut, ChevronDown, Sun, Moon, Monitor, ChevronRight,
   Zap, Mail, FileCode2, Workflow, Braces, Bot,
@@ -71,15 +71,8 @@ export const bottomItems = [
 export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
   { title: 'Automatismos Contactos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
-]
-
-export const gestaoLeadsItems = [
-  { title: 'Gestora de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
-  { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
-  { title: 'Campanhas', icon: Megaphone, href: '/dashboard/crm/campanhas', permission: 'pipeline' },
-  { title: 'Regras de Atribuição', icon: Target, href: '/dashboard/crm/regras', permission: 'pipeline' },
-  { title: 'Config. SLA', icon: Clock, href: '/dashboard/crm/sla', permission: 'pipeline' },
 ]
 
 export const negocioItems = [
@@ -116,11 +109,19 @@ export const lojaItems = [
   { title: 'Fornecedores', icon: Truck, href: '/dashboard/parceiros?tab=fornecedores' },
 ]
 
-export const digitalItems = [
+/**
+ * "Marketing" unifies the old Digital section + Campanhas + Analytics.
+ * The `digitalItems` alias is kept for backwards compatibility with any
+ * callers still importing it; new code should reference `marketingItems`.
+ */
+export const marketingItems = [
+  { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
+  { title: 'Campanhas', icon: Megaphone, href: '/dashboard/crm/campanhas', permission: 'pipeline' },
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
-  { title: 'Meta Ads', icon: BarChart3, href: '/dashboard/meta-ads' },
+  { title: 'Meta Ads', icon: Target, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
 ]
+export const digitalItems = marketingItems
 
 export const automationItems = [
   { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
@@ -516,25 +517,15 @@ export function AppSidebar() {
           />
         )}
 
-        {/* 11. Gestão de Leads */}
-        <CollapsibleGroup
-          label="Gestão de Leads"
-          icon={Shield}
-          items={gestaoLeadsItems}
-          pathname={pathname}
-          hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/crm/gestora', '/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/crm/regras', '/dashboard/crm/sla']}
-        />
-
-        {/* 12. Digital */}
+        {/* 12. Marketing (unified: Analytics + Campanhas + antigo "Digital") */}
         {hasPermission('marketing' as any) && (
           <CollapsibleGroup
-            label="Digital"
+            label="Marketing"
             icon={Megaphone}
-            items={digitalItems}
+            items={marketingItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
+            pathPrefixes={['/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
           />
         )}
 
