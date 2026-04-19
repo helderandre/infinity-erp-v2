@@ -189,47 +189,35 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
             ) : (
               <>
                 {shareUrl && (
-                  <div className="rounded-xl border bg-card p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <ExternalLink className="h-3.5 w-3.5" /> Link público (apresentação 16:9)
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">
-                        {shareUrl}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-full shrink-0"
-                        onClick={() => copy(shareUrl, 'Link')}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                      <a
-                        href={shareUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  </div>
+                  <ActionCard
+                    icon={ExternalLink}
+                    label="Link público (apresentação 16:9)"
+                    href={shareUrl}
+                    kind="share"
+                    copyLabel="Link"
+                    onCopy={copy}
+                  />
                 )}
                 {existingFicha && (
-                  <ExistingRow
+                  <ActionCard
                     icon={FileText}
-                    label="Ficha A4"
-                    entry={existingFicha}
-                    onCopy={() => copy(existingFicha.pdf_url, 'Link da ficha')}
+                    label="Ficha A4 (PDF)"
+                    href={existingFicha.pdf_url}
+                    kind="pdf"
+                    copyLabel="Link da ficha"
+                    onCopy={copy}
+                    generatedAt={existingFicha.generated_at}
                   />
                 )}
                 {existingPres && (
-                  <ExistingRow
+                  <ActionCard
                     icon={Presentation}
-                    label="Apresentação 16:9"
-                    entry={existingPres}
-                    onCopy={() => copy(existingPres.pdf_url, 'Link da apresentação')}
+                    label="Apresentação 16:9 (PDF)"
+                    href={existingPres.pdf_url}
+                    kind="pdf"
+                    copyLabel="Link da apresentação"
+                    onCopy={copy}
+                    generatedAt={existingPres.generated_at}
                   />
                 )}
                 {existing.length === 0 && (
@@ -301,46 +289,32 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
 
         {result && (
           <div className="space-y-3">
-            <div className="rounded-xl border bg-card p-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <ExternalLink className="h-3.5 w-3.5" /> Link público (apresentação 16:9)
-              </div>
-              <div className="flex items-center gap-1.5">
-                <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">
-                  {result.share_url}
-                </code>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-full shrink-0"
-                  onClick={() => copy(result.share_url, 'Link')}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-                <a
-                  href={result.share_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-            </div>
+            <ActionCard
+              icon={ExternalLink}
+              label="Link público (apresentação 16:9)"
+              href={result.share_url}
+              kind="share"
+              copyLabel="Link"
+              onCopy={copy}
+            />
             {result.ficha_url && (
-              <DownloadRow
+              <ActionCard
                 icon={FileText}
                 label="Ficha A4 (PDF)"
-                url={result.ficha_url}
-                onCopy={() => copy(result.ficha_url!, 'Link da ficha')}
+                href={result.ficha_url}
+                kind="pdf"
+                copyLabel="Link da ficha"
+                onCopy={copy}
               />
             )}
             {result.presentation_url && (
-              <DownloadRow
+              <ActionCard
                 icon={Presentation}
                 label="Apresentação 16:9 (PDF)"
-                url={result.presentation_url}
-                onCopy={() => copy(result.presentation_url!, 'Link da apresentação')}
+                href={result.presentation_url}
+                kind="pdf"
+                copyLabel="Link da apresentação"
+                onCopy={copy}
               />
             )}
           </div>
@@ -455,96 +429,77 @@ function FormatOption({
   )
 }
 
-function ExistingRow({
+function ActionCard({
   icon: Icon,
   label,
-  entry,
+  href,
+  kind,
+  copyLabel,
   onCopy,
+  generatedAt,
 }: {
   icon: React.ElementType
   label: string
-  entry: Existing
-  onCopy: () => void
+  href: string
+  kind: 'share' | 'pdf'
+  copyLabel: string
+  onCopy: (text: string, label: string) => Promise<void> | void
+  generatedAt?: string
 }) {
-  const date = new Date(entry.generated_at)
-  const formatted = new Intl.DateTimeFormat('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
-  return (
-    <div className="rounded-xl border bg-card p-3 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </div>
-        <span className="text-[10px] text-muted-foreground tracking-wider uppercase">
-          gerada {formatted}
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">
-          {entry.pdf_url}
-        </code>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-full shrink-0"
-          onClick={onCopy}
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </Button>
-        <a
-          href={entry.pdf_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          download
-          className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
-        >
-          <Download className="h-3.5 w-3.5" />
-        </a>
-      </div>
-    </div>
-  )
-}
+  const formatted = generatedAt
+    ? new Intl.DateTimeFormat('pt-PT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(generatedAt))
+    : null
 
-function DownloadRow({
-  icon: Icon,
-  label,
-  url,
-  onCopy,
-}: {
-  icon: React.ElementType
-  label: string
-  url: string
-  onCopy: () => void
-}) {
   return (
-    <div className="rounded-xl border bg-card p-3 space-y-2">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Icon className="h-3.5 w-3.5" /> {label}
+    <div className="rounded-xl border bg-card p-3 flex items-center gap-3">
+      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted shrink-0">
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="flex items-center gap-1.5">
-        <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">{url}</code>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold truncate">{label}</div>
+        {formatted && (
+          <div className="text-[10px] text-muted-foreground tracking-wider uppercase mt-0.5">
+            gerada {formatted}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors"
+          title="Abrir"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+        {kind === 'pdf' && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors"
+            title="Descarregar"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </a>
+        )}
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8 rounded-full shrink-0"
-          onClick={onCopy}
+          className="h-8 w-8 rounded-full"
+          onClick={() => onCopy(href, copyLabel)}
+          title="Copiar link"
         >
           <Copy className="h-3.5 w-3.5" />
         </Button>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          download
-          className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
-        >
-          <Download className="h-3.5 w-3.5" />
-        </a>
       </div>
     </div>
   )
