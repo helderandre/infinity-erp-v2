@@ -42,13 +42,37 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
-    // Emulate print media to trigger @media print styles
-    await page.emulateMediaType('print')
+    // Surface console errors / failed requests for debugging
+    page.on('pageerror', (err) =>
+      console.error('[pdf] pageerror:', (err as Error).message),
+    )
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') console.error('[pdf] console.error:', msg.text())
+    })
+    page.on('requestfailed', (req) =>
+      console.error('[pdf] requestfailed:', req.url(), req.failure()?.errorText),
+    )
 
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60_000 })
+    // Viewport must match the intended PDF page size so the SSR layout lines up
+    if (format === 'presentation') {
+      await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 })
+    } else {
+      // A4 @ 96dpi
+      await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 })
+    }
 
-    // Wait a tick for images/fonts to settle
-    await new Promise((r) => setTimeout(r, 500))
+    const response = await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: 60_000,
+    })
+    if (!response || !response.ok()) {
+      throw new Error(
+        `navegação falhou (${response?.status() ?? 'sem resposta'}) → ${url}`,
+      )
+    }
+
+    // Give images / webfonts a moment after network idle
+    await new Promise((r) => setTimeout(r, 800))
 
     const pdfOptions: PDFOptions =
       format === 'presentation'
@@ -57,13 +81,11 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
             height: '720px',
             landscape: true,
             printBackground: true,
-            preferCSSPageSize: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           }
         : {
             format: 'A4',
             printBackground: true,
-            preferCSSPageSize: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           }
 

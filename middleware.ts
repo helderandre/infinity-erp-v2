@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirecionar utilizadores autenticados da página de login para o dashboard
   // (excepto rotas que devem ser acessíveis mesmo autenticado: entryform, fichas)
-  const alwaysAccessiblePaths = ['/entryform', '/fichas']
+  const alwaysAccessiblePaths = ['/entryform', '/fichas', '/apresentacao']
   const isAlwaysAccessible = alwaysAccessiblePaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
