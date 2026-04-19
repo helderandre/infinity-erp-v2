@@ -79,6 +79,25 @@ export function SharePropertyChannelDialog({
     })
   }
 
+  const toggleLead = (lead: Lead) => {
+    setRecipients((prev) => {
+      const exists = prev.some((p) => p.kind === 'lead' && p.lead.id === lead.id)
+      return exists
+        ? prev.filter((p) => !(p.kind === 'lead' && p.lead.id === lead.id))
+        : [...prev, { kind: 'lead', lead }]
+    })
+  }
+
+  const selectedLeadIds = useMemo(
+    () =>
+      new Set(
+        recipients
+          .filter((r): r is Extract<Recipient, { kind: 'lead' }> => r.kind === 'lead')
+          .map((r) => r.lead.id),
+      ),
+    [recipients],
+  )
+
   const removeRecipient = (idx: number) =>
     setRecipients((prev) => prev.filter((_, i) => i !== idx))
 
@@ -148,7 +167,13 @@ export function SharePropertyChannelDialog({
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
               Destinatários
             </Label>
-            <RecipientPicker channel={channel} onAdd={addRecipient} />
+            <RecipientPicker
+              channel={channel}
+              onAddManual={addRecipient}
+              selectedLeadIds={selectedLeadIds}
+              onToggleLead={toggleLead}
+              selectedCount={recipients.length}
+            />
             {recipients.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {recipients.map((r, i) => {
@@ -254,10 +279,16 @@ export function SharePropertyChannelDialog({
 
 function RecipientPicker({
   channel,
-  onAdd,
+  onAddManual,
+  selectedLeadIds,
+  onToggleLead,
+  selectedCount,
 }: {
   channel: Channel
-  onAdd: (r: Recipient) => void
+  onAddManual: (r: Recipient) => void
+  selectedLeadIds: Set<string>
+  onToggleLead: (lead: Lead) => void
+  selectedCount: number
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -273,7 +304,7 @@ function RecipientPicker({
     const timer = setTimeout(async () => {
       setLoading(true)
       try {
-        const params = new URLSearchParams({ limit: '30' })
+        const params = new URLSearchParams({ limit: '100' })
         if (query.trim()) params.set('nome', query.trim())
         const res = await fetch(`/api/leads?${params.toString()}`, {
           signal: ctrl.signal,
@@ -315,7 +346,7 @@ function RecipientPicker({
 
   const submitManual = () => {
     if (!manualValid) return
-    onAdd({ kind: 'manual', value: manualValue.trim(), name: manualName.trim() || undefined })
+    onAddManual({ kind: 'manual', value: manualValue.trim(), name: manualName.trim() || undefined })
     setManualValue('')
     setManualName('')
     setManualOpen(false)
@@ -332,7 +363,9 @@ function RecipientPicker({
           >
             <User className="h-3.5 w-3.5" />
             <span className="text-muted-foreground text-xs">
-              Pesquisar contactos…
+              {selectedCount > 0
+                ? `${selectedCount} seleccionado${selectedCount === 1 ? '' : 's'} — adicionar mais…`
+                : 'Pesquisar contactos…'}
             </span>
           </Button>
         </PopoverTrigger>
@@ -343,7 +376,7 @@ function RecipientPicker({
               value={query}
               onValueChange={setQuery}
             />
-            <CommandList className="max-h-[260px]">
+            <CommandList className="max-h-[360px]">
               {loading ? (
                 <div className="py-4 text-center text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1" /> A
@@ -364,18 +397,27 @@ function RecipientPicker({
                         '—'
                       const sub =
                         channel === 'email' ? lead.email : lead.telemovel
+                      const isSelected = selectedLeadIds.has(lead.id)
                       return (
                         <CommandItem
                           key={lead.id}
-                          value={lead.id}
+                          value={`${lead.id} ${lead.nome ?? ''} ${lead.email ?? ''} ${lead.telemovel ?? ''}`}
                           onSelect={() => {
-                            onAdd({ kind: 'lead', lead })
-                            setOpen(false)
-                            setQuery('')
+                            onToggleLead(lead)
+                            // Keep popover open so the user can pick several
                           }}
-                          className="flex items-start gap-2"
+                          className="flex items-start gap-2 data-[selected=true]:bg-muted"
                         >
-                          <User className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                          <div
+                            className={
+                              'flex items-center justify-center h-4 w-4 rounded border shrink-0 mt-0.5 ' +
+                              (isSelected
+                                ? 'bg-primary border-primary text-primary-foreground'
+                                : 'bg-background border-border')
+                            }
+                          >
+                            {isSelected && <Check className="h-3 w-3" />}
+                          </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm truncate">{label}</div>
                             {sub && sub !== label && (
@@ -391,6 +433,21 @@ function RecipientPicker({
                 </>
               )}
             </CommandList>
+            {selectedCount > 0 && (
+              <div className="border-t px-3 py-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {selectedCount} seleccionado{selectedCount === 1 ? '' : 's'}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 rounded-full text-xs"
+                  onClick={() => setOpen(false)}
+                >
+                  Concluído
+                </Button>
+              </div>
+            )}
           </Command>
         </PopoverContent>
       </Popover>
