@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
   Loader2,
   Check,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react'
 
 type Format = 'ficha' | 'presentation' | 'both'
@@ -43,9 +44,10 @@ const PRESENTATION_SECTIONS: Array<{ key: string; label: string; hint?: string }
 const FICHA_SECTIONS: Array<{ key: string; label: string }> = [
   { key: 'cover', label: 'Imagem principal' },
   { key: 'resumo', label: 'Especificações' },
-  { key: 'descricao', label: 'Descrição' },
+  { key: 'descricao', label: 'Descrição (resumida por IA)' },
   { key: 'galeria', label: 'Galeria (até 6 fotos)' },
-  { key: 'plantas', label: 'Plantas' },
+  { key: 'plantas', label: 'Plantas (página própria, com 3D)' },
+  { key: 'staging', label: 'Virtual Staging (página própria)' },
   { key: 'localizacao', label: 'Localização + mapa' },
   { key: 'consultor', label: 'Consultor' },
 ]
@@ -54,6 +56,13 @@ interface Result {
   share_url: string
   ficha_url?: string
   presentation_url?: string
+}
+
+interface Existing {
+  format: 'ficha' | 'presentation'
+  pdf_url: string
+  share_url: string | null
+  generated_at: string
 }
 
 interface Props {
@@ -71,6 +80,26 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
   )
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
+  const [existing, setExisting] = useState<Existing[]>([])
+  const [existingLoading, setExistingLoading] = useState(false)
+  const [mode, setMode] = useState<'view' | 'generate'>('view')
+
+  useEffect(() => {
+    if (!open) return
+    setExistingLoading(true)
+    fetch(`/api/properties/${propertyId}/presentation`)
+      .then((r) => r.json())
+      .then((d) => {
+        const items = (d.items || []) as Existing[]
+        setExisting(items)
+        setMode(items.length > 0 ? 'view' : 'generate')
+      })
+      .catch(() => {
+        setExisting([])
+        setMode('generate')
+      })
+      .finally(() => setExistingLoading(false))
+  }, [open, propertyId])
 
   const toggle = (key: string) =>
     setSections((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -80,8 +109,7 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
       ? FICHA_SECTIONS
       : format === 'presentation'
         ? PRESENTATION_SECTIONS
-        : // both — show the union (presentation already includes everything ficha does)
-          PRESENTATION_SECTIONS
+        : PRESENTATION_SECTIONS
 
   const generate = async () => {
     setLoading(true)
@@ -100,6 +128,12 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
       if (!res.ok) throw new Error(data.error || 'Erro ao gerar apresentação')
       setResult(data)
       toast.success('Apresentação gerada com sucesso')
+
+      // Refresh existing list silently
+      fetch(`/api/properties/${propertyId}/presentation`)
+        .then((r) => r.json())
+        .then((d) => setExisting(d.items || []))
+        .catch(() => {})
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao gerar apresentação')
     } finally {
@@ -116,12 +150,19 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
     }
   }
 
+  const existingFicha = existing.find((e) => e.format === 'ficha')
+  const existingPres = existing.find((e) => e.format === 'presentation')
+  const shareUrl = existingPres?.share_url
+
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
-        if (!o) setResult(null)
+        if (!o) {
+          setResult(null)
+          setLoading(false)
+        }
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -129,16 +170,80 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
-            Gerar apresentação
+            Apresentação
           </DialogTitle>
           <DialogDescription>
-            Escolha o formato e as secções a incluir. A geração pode demorar alguns segundos.
+            {mode === 'view' && existing.length > 0
+              ? 'Apresentações guardadas para este imóvel. Pode regenerar para actualizar.'
+              : 'Escolha o formato e as secções a incluir. A geração pode demorar alguns segundos.'}
           </DialogDescription>
         </DialogHeader>
 
-        {!result && (
+        {/* Existing + new result share the same shape */}
+        {mode === 'view' && !result && (
+          <div className="space-y-3">
+            {existingLoading ? (
+              <div className="py-6 flex items-center justify-center text-sm text-muted-foreground gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar…
+              </div>
+            ) : (
+              <>
+                {shareUrl && (
+                  <div className="rounded-xl border bg-card p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <ExternalLink className="h-3.5 w-3.5" /> Link público (apresentação 16:9)
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">
+                        {shareUrl}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-full shrink-0"
+                        onClick={() => copy(shareUrl, 'Link')}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <a
+                        href={shareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {existingFicha && (
+                  <ExistingRow
+                    icon={FileText}
+                    label="Ficha A4"
+                    entry={existingFicha}
+                    onCopy={() => copy(existingFicha.pdf_url, 'Link da ficha')}
+                  />
+                )}
+                {existingPres && (
+                  <ExistingRow
+                    icon={Presentation}
+                    label="Apresentação 16:9"
+                    entry={existingPres}
+                    onCopy={() => copy(existingPres.pdf_url, 'Link da apresentação')}
+                  />
+                )}
+                {existing.length === 0 && (
+                  <div className="py-6 text-sm text-muted-foreground text-center">
+                    Ainda não foi gerada nenhuma apresentação para este imóvel.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {mode === 'generate' && !result && (
           <div className="space-y-5">
-            {/* Format selector */}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Formato
@@ -149,14 +254,14 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                   onClick={() => setFormat('ficha')}
                   icon={FileText}
                   title="Ficha A4"
-                  hint="2 páginas para visitas"
+                  hint="PDF para visitas"
                 />
                 <FormatOption
                   active={format === 'presentation'}
                   onClick={() => setFormat('presentation')}
                   icon={Presentation}
                   title="Apresentação 16:9"
-                  hint="Slides + link público"
+                  hint="PDF + link público"
                 />
                 <FormatOption
                   active={format === 'both'}
@@ -168,7 +273,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
               </div>
             </div>
 
-            {/* Sections */}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Secções a incluir
@@ -187,9 +291,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                       className="text-sm leading-tight cursor-pointer select-none flex-1"
                     >
                       {s.label}
-                      {(s as any).hint && (
-                        <div className="text-[11px] text-muted-foreground">{(s as any).hint}</div>
-                      )}
                     </label>
                   </div>
                 ))}
@@ -200,7 +301,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
 
         {result && (
           <div className="space-y-3">
-            {/* Share link */}
             <div className="rounded-xl border bg-card p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <ExternalLink className="h-3.5 w-3.5" /> Link público (apresentação 16:9)
@@ -227,7 +327,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                 </a>
               </div>
             </div>
-
             {result.ficha_url && (
               <DownloadRow
                 icon={FileText}
@@ -248,28 +347,68 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
         )}
 
         <DialogFooter>
-          {!result ? (
-            <Button
-              type="button"
-              className="rounded-full gap-1.5"
-              onClick={generate}
-              disabled={loading}
-            >
-              {loading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />A gerar…</>
-              ) : (
-                <><Sparkles className="h-4 w-4" />Gerar apresentação</>
+          {mode === 'view' && !result && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full gap-1.5"
+                onClick={() => setMode('generate')}
+                disabled={existingLoading}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
+              </Button>
+              <Button
+                type="button"
+                className="rounded-full"
+                onClick={() => setOpen(false)}
+              >
+                Fechar
+              </Button>
+            </>
+          )}
+          {mode === 'generate' && !result && (
+            <>
+              {existing.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-full"
+                  onClick={() => setMode('view')}
+                  disabled={loading}
+                >
+                  Voltar
+                </Button>
               )}
-            </Button>
-          ) : (
+              <Button
+                type="button"
+                className="rounded-full gap-1.5"
+                onClick={generate}
+                disabled={loading}
+              >
+                {loading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />A gerar…</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" />
+                    {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+          {result && (
             <>
               <Button
                 type="button"
                 variant="outline"
                 className="rounded-full"
-                onClick={() => setResult(null)}
+                onClick={() => {
+                  setResult(null)
+                  setMode('view')
+                }}
               >
-                Gerar outra
+                Voltar
               </Button>
               <Button type="button" className="rounded-full" onClick={() => setOpen(false)}>
                 Fechar
@@ -313,6 +452,61 @@ function FormatOption({
       <div className="text-[13px] font-medium mt-1">{title}</div>
       <div className="text-[10px] text-muted-foreground">{hint}</div>
     </button>
+  )
+}
+
+function ExistingRow({
+  icon: Icon,
+  label,
+  entry,
+  onCopy,
+}: {
+  icon: React.ElementType
+  label: string
+  entry: Existing
+  onCopy: () => void
+}) {
+  const date = new Date(entry.generated_at)
+  const formatted = new Intl.DateTimeFormat('pt-PT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+  return (
+    <div className="rounded-xl border bg-card p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Icon className="h-3.5 w-3.5" /> {label}
+        </div>
+        <span className="text-[10px] text-muted-foreground tracking-wider uppercase">
+          gerada {formatted}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <code className="flex-1 text-[11px] bg-muted px-2 py-1.5 rounded truncate">
+          {entry.pdf_url}
+        </code>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full shrink-0"
+          onClick={onCopy}
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <a
+          href={entry.pdf_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors shrink-0"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    </div>
   )
 }
 

@@ -7,7 +7,7 @@ import {
   BedDouble, Bath, Maximize, Car, MapPin, Phone, Mail, Calendar, Layers, Sparkles, Building2,
 } from 'lucide-react'
 import {
-  formatArea, PROPERTY_TYPES, BUSINESS_TYPES, ENERGY_CERTIFICATES, PROPERTY_CONDITIONS,
+  formatArea, PROPERTY_TYPES, BUSINESS_TYPES, ENERGY_CERTIFICATES,
 } from '@/lib/constants'
 
 interface FichaViewProps {
@@ -29,7 +29,25 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
     [allMedia],
   )
-  const plantas = allMedia.filter((m) => m.media_type === 'planta')
+  const plantas = useMemo(
+    () => allMedia.filter((m) => m.media_type === 'planta'),
+    [allMedia],
+  )
+  const renders3d = useMemo(
+    () => allMedia.filter((m) => m.media_type === 'planta_3d'),
+    [allMedia],
+  )
+  const rendersByPlanta = useMemo(() => {
+    const map = new Map<string, any[]>()
+    for (const r of renders3d) {
+      if (!r.source_media_id) continue
+      const list = map.get(r.source_media_id) || []
+      list.push(r)
+      map.set(r.source_media_id, list)
+    }
+    return map
+  }, [renders3d])
+  const stagedImages = useMemo(() => images.filter((m) => m.ai_staged_url), [images])
   const cover = images.find((m) => m.is_cover) ?? images[0]
 
   const has = (key: string) => sections.includes(key)
@@ -43,9 +61,11 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
       : null
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+  // Mapbox Static Images API — encode lng/lat commas/parens are fine; use a
+  // simple dark marker. Size chosen to match the printed box (~720x220 at 2x).
   const mapUrl =
     property.latitude && property.longitude && token
-      ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+111111(${property.longitude},${property.latitude})/${property.longitude},${property.latitude},14/800x400@2x?access_token=${token}`
+      ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+111111(${property.longitude},${property.latitude})/${property.longitude},${property.latitude},14/720x220@2x?access_token=${token}`
       : null
 
   return (
@@ -83,19 +103,11 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
         .serif { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; }
       `}</style>
 
-      {/* ── PAGE 1: Cover + key info ── */}
+      {/* ── PAGE 1: Cover + key info + description + consultor ── */}
+      <PageHeader externalRef={property.external_ref} />
       <section className="page flex flex-col">
-        {/* Header brand bar */}
-        <div className="px-10 pt-8 pb-4 flex items-center justify-between border-b border-neutral-200">
-          <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600">
-            Infinity Group
-          </div>
-          <div className="text-[10px] tracking-[0.2em] uppercase text-neutral-500">
-            {property.external_ref ? `Ref. ${property.external_ref}` : ''}
-          </div>
-        </div>
+        <PageBrand externalRef={property.external_ref} />
 
-        {/* Cover image */}
         {has('cover') && cover && (
           <div className="relative h-[340px] bg-neutral-200 mx-10 mt-4">
             <Image
@@ -109,7 +121,6 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           </div>
         )}
 
-        {/* Title + price block */}
         <div className="px-10 pt-5 pb-3">
           <div className="text-[9px] tracking-[0.3em] uppercase text-neutral-500 mb-1">
             {(property.business_type &&
@@ -119,7 +130,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
               ` · ${PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type}`}
           </div>
           <div className="flex items-end justify-between gap-4">
-            <h1 className="serif text-3xl leading-tight font-medium text-neutral-900 flex-1">
+            <h1 className="serif text-3xl leading-tight font-medium text-neutral-900 flex-1 line-clamp-2">
               {property.title || 'Sem título'}
             </h1>
             {price && (
@@ -139,7 +150,6 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           )}
         </div>
 
-        {/* Stats grid */}
         {has('resumo') && (
           <div className="px-10 py-3 border-t border-neutral-200">
             <div className="grid grid-cols-4 gap-3">
@@ -181,7 +191,6 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           </div>
         )}
 
-        {/* Description */}
         {has('descricao') && property.description && (
           <div className="px-10 py-4 border-t border-neutral-200 flex-1 overflow-hidden">
             <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
@@ -191,7 +200,6 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           </div>
         )}
 
-        {/* Footer: consultant */}
         {has('consultor') && consultant && (
           <div className="px-10 py-4 border-t border-neutral-200 mt-auto">
             <div className="flex items-center gap-3">
@@ -238,107 +246,211 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
         )}
       </section>
 
-      {/* ── PAGE 2: Gallery + plantas + map ── */}
-      <section className="page flex flex-col">
-        <div className="px-10 pt-8 pb-3 flex items-center justify-between border-b border-neutral-200">
-          <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600">
-            Infinity Group
-          </div>
-          <div className="text-[10px] tracking-[0.2em] uppercase text-neutral-500">
-            {property.external_ref ? `Ref. ${property.external_ref}` : ''}
-          </div>
-        </div>
+      {/* ── PAGE 2: Gallery + map ── */}
+      {(has('galeria') && images.length > 0) || (has('localizacao') && mapUrl) ? (
+        <section className="page flex flex-col">
+          <PageBrand externalRef={property.external_ref} />
 
-        {/* Gallery grid — up to 6 images */}
-        {has('galeria') && images.length > 0 && (
-          <div className="px-10 pt-5 pb-3">
-            <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
-              Galeria
+          {has('galeria') && images.length > 0 && (
+            <div className="px-10 pt-5 pb-3">
+              <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+                Galeria
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {images.slice(0, 6).map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative aspect-[4/3] bg-neutral-100 rounded-md overflow-hidden"
+                  >
+                    <Image
+                      src={img.url}
+                      alt={img.ai_room_label || ''}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      sizes="240px"
+                    />
+                    {img.ai_room_label && (
+                      <div className="absolute bottom-1 left-1 bg-neutral-900/80 text-white px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider backdrop-blur-sm">
+                        {img.ai_room_label}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {images.slice(0, 6).map((img) => (
-                <div
-                  key={img.id}
-                  className="relative aspect-[4/3] bg-neutral-100 rounded-md overflow-hidden"
-                >
-                  <Image
-                    src={img.url}
-                    alt={img.ai_room_label || ''}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                    sizes="240px"
-                  />
-                  {img.ai_room_label && (
-                    <div className="absolute bottom-1 left-1 bg-neutral-900/80 text-white px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider backdrop-blur-sm">
-                      {img.ai_room_label}
-                    </div>
-                  )}
+          )}
+
+          {has('localizacao') && mapUrl && (
+            <div className="px-10 pt-3 pb-3">
+              <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
+                Localização
+              </div>
+              {/* Plain <img> to bypass Next/Image caching and ensure it renders in puppeteer */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mapUrl}
+                alt="Mapa"
+                className="w-full h-[220px] object-cover rounded-md border"
+              />
+              {(property.address_street || property.city) && (
+                <div className="mt-2 text-[11px] text-neutral-700 flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3 text-neutral-500" />
+                  {[property.address_street, property.zone, property.city].filter(Boolean).join(', ')}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Plantas */}
-        {has('plantas') && plantas.length > 0 && (
-          <div className="px-10 pt-3 pb-3">
-            <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
-              Planta{plantas.length > 1 ? 's' : ''}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {plantas.slice(0, 2).map((planta, i) => (
-                <div
-                  key={i}
-                  className="relative aspect-[4/3] bg-neutral-50 rounded-md overflow-hidden border"
-                >
-                  {!planta.url.toLowerCase().endsWith('.pdf') && (
+          <PageFooter externalRef={property.external_ref} />
+        </section>
+      ) : null}
+
+      {/* ── Extra PAGES: one per planta (with 3D render if present) ── */}
+      {has('plantas') &&
+        plantas.map((planta: any, idx: number) => {
+          const render = rendersByPlanta.get(planta.id)?.[0]
+          const isPdf = planta.url?.toLowerCase?.().endsWith('.pdf')
+          return (
+            <section
+              key={`planta-${planta.id}`}
+              className="page flex flex-col"
+            >
+              <PageBrand externalRef={property.external_ref} />
+
+              <div className="px-10 pt-6 pb-2">
+                <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-1.5">
+                  Planta
+                </div>
+                <h2 className="serif text-2xl font-medium text-neutral-900">
+                  Planta {plantas.length > 1 ? `${idx + 1} de ${plantas.length}` : ''}
+                </h2>
+              </div>
+
+              <div className={cn(
+                'flex-1 min-h-0 px-10 pb-4 grid gap-3',
+                render ? 'grid-cols-2' : 'grid-cols-1',
+              )}>
+                <div className="relative rounded-md overflow-hidden border bg-neutral-50">
+                  {isPdf ? (
+                    <div className="absolute inset-0 flex items-center justify-center text-neutral-500 text-xs">
+                      Planta em PDF — consultar anexo
+                    </div>
+                  ) : (
                     <Image
                       src={planta.url}
                       alt="Planta"
                       fill
-                      className="object-contain p-2"
+                      className="object-contain p-3"
                       unoptimized
                       sizes="360px"
                     />
                   )}
-                  <div className="absolute top-1 left-1 bg-neutral-900/85 text-white px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">
-                    Planta {plantas.length > 1 ? i + 1 : ''}
+                  <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
+                    Planta
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Map */}
-        {has('localizacao') && mapUrl && (
-          <div className="px-10 pt-3 pb-3">
-            <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
-              Localização
-            </div>
-            <div className="relative h-[200px] bg-neutral-100 rounded-md overflow-hidden border">
-              <Image src={mapUrl} alt="Mapa" fill className="object-cover" unoptimized sizes="720px" />
-            </div>
-            {(property.address_street || property.city) && (
-              <div className="mt-2 text-[11px] text-neutral-700 flex items-center gap-1.5">
-                <MapPin className="h-3 w-3 text-neutral-500" />
-                {[property.address_street, property.zone, property.city].filter(Boolean).join(', ')}
+                {render && (
+                  <div className="relative rounded-md overflow-hidden border bg-neutral-100">
+                    <Image
+                      src={render.url}
+                      alt="Render 3D"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      sizes="360px"
+                    />
+                    <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider flex items-center gap-1">
+                      <Layers className="h-2.5 w-2.5" /> Render 3D
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Footer brand */}
-        <div className="px-10 py-3 mt-auto border-t border-neutral-200 flex items-center justify-between">
-          <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500">
-            Infinity Group · infinitygroup.pt
-          </div>
-          <div className="text-[10px] tracking-wider text-neutral-400">
-            {property.external_ref || ''}
-          </div>
-        </div>
-      </section>
+              <PageFooter externalRef={property.external_ref} />
+            </section>
+          )
+        })}
+
+      {/* ── Extra PAGES: one per staged image (before / after) ── */}
+      {has('staging') &&
+        stagedImages.map((img: any, idx: number) => (
+          <section
+            key={`staging-${img.id}`}
+            className="page flex flex-col"
+          >
+            <PageBrand externalRef={property.external_ref} />
+
+            <div className="px-10 pt-6 pb-2">
+              <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> Virtual Staging
+              </div>
+              <h2 className="serif text-2xl font-medium text-neutral-900 capitalize">
+                {img.ai_room_label || `Ambiente ${idx + 1}`}
+              </h2>
+            </div>
+
+            <div className="flex-1 min-h-0 px-10 pb-4 grid grid-cols-2 gap-3">
+              <div className="relative rounded-md overflow-hidden border bg-neutral-100">
+                <Image
+                  src={img.url}
+                  alt="Original"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  sizes="360px"
+                />
+                <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
+                  Antes
+                </div>
+              </div>
+              <div className="relative rounded-md overflow-hidden border bg-neutral-100">
+                <Image
+                  src={img.ai_staged_url}
+                  alt="Virtual Staging"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  sizes="360px"
+                />
+                <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
+                  Depois
+                </div>
+              </div>
+            </div>
+
+            <PageFooter externalRef={property.external_ref} />
+          </section>
+        ))}
+    </div>
+  )
+}
+
+function PageHeader({ externalRef }: { externalRef?: string | null }) {
+  // No-op kept for parity with other layouts; page brand is rendered per-page.
+  return null
+}
+
+function PageBrand({ externalRef }: { externalRef?: string | null }) {
+  return (
+    <div className="px-10 pt-8 pb-4 flex items-center justify-between border-b border-neutral-200">
+      <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-600">
+        Infinity Group
+      </div>
+      <div className="text-[10px] tracking-[0.2em] uppercase text-neutral-500">
+        {externalRef ? `Ref. ${externalRef}` : ''}
+      </div>
+    </div>
+  )
+}
+
+function PageFooter({ externalRef }: { externalRef?: string | null }) {
+  return (
+    <div className="px-10 py-3 mt-auto border-t border-neutral-200 flex items-center justify-between">
+      <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500">
+        Infinity Group · infinitygroup.pt
+      </div>
+      <div className="text-[10px] tracking-wider text-neutral-400">{externalRef || ''}</div>
     </div>
   )
 }

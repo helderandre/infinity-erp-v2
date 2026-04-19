@@ -77,9 +77,10 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
     const pdfOptions: PDFOptions =
       format === 'presentation'
         ? {
+            // 16:9 slide — width>height makes it landscape; omit `landscape` flag
+            // since it would swap the dimensions.
             width: '1280px',
             height: '720px',
-            landscape: true,
             printBackground: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           }
