@@ -12,7 +12,6 @@ import {
   Phone,
   Mail,
   Calendar,
-  Layers,
   Sparkles,
   Building2,
 } from 'lucide-react'
@@ -374,12 +373,6 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                     {plantas.length > 1 && ` de ${plantas.length}`}
                   </h2>
                 </div>
-                {render && (
-                  <div className="inline-flex items-center gap-1.5 text-xs text-neutral-600 uppercase tracking-wider">
-                    <Layers className="h-3.5 w-3.5" />
-                    Render 3D disponível
-                  </div>
-                )}
               </div>
 
               <div className={cn('flex-1 min-h-0 grid gap-4', render ? 'grid-cols-2' : 'grid-cols-1')}>
@@ -434,10 +427,6 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                 <h2 className="serif text-4xl font-medium text-neutral-900">
                   {img.ai_room_label ? img.ai_room_label : `Ambiente ${idx + 1}`}
                 </h2>
-              </div>
-              <div className="inline-flex items-center gap-1.5 text-xs text-neutral-600 uppercase tracking-wider">
-                <Sparkles className="h-3.5 w-3.5" />
-                Visualização IA
               </div>
             </div>
 
