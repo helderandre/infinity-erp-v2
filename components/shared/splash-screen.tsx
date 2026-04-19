@@ -1,21 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export function SplashScreen() {
+  const pathname = usePathname()
   const [visible, setVisible] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
+  // Skip the splash entirely on public presentation/ficha routes. Puppeteer
+  // snapshots the PDF within ~1s of network idle, so a 2.4s splash overlay
+  // would otherwise cover every page.
+  const skip =
+    pathname?.startsWith('/apresentacao') || pathname?.startsWith('/fichas')
+
   useEffect(() => {
+    if (skip) {
+      setVisible(false)
+      return
+    }
     const fadeTimer = setTimeout(() => setFadeOut(true), 1800)
     const removeTimer = setTimeout(() => setVisible(false), 2400)
     return () => {
       clearTimeout(fadeTimer)
       clearTimeout(removeTimer)
     }
-  }, [])
+  }, [skip])
 
-  if (!visible) return null
+  if (!visible || skip) return null
 
   return (
     <div
