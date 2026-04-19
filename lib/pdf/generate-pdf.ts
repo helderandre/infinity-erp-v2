@@ -71,6 +71,19 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
       )
     }
 
+    // next/image defaults images to loading="lazy" — in a fixed-viewport PDF
+    // render, that means anything below the fold never actually loads. Scroll
+    // the page top→bottom to force lazy-loaded images to kick off, then wait.
+    await page.evaluate(async () => {
+      const step = 400
+      const maxScroll = document.documentElement.scrollHeight
+      for (let y = 0; y <= maxScroll; y += step) {
+        window.scrollTo(0, y)
+        await new Promise((r) => setTimeout(r, 50))
+      }
+      window.scrollTo(0, 0)
+    })
+
     // Wait for every <img> to finish loading (or fail). networkidle2 is not
     // strict enough for R2-hosted remotes — dozens of images can still be in
     // flight when it returns, producing PDFs with missing/cropped photos.
@@ -85,15 +98,15 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
               img.addEventListener('load', done, { once: true })
               img.addEventListener('error', done, { once: true })
               // Safety timeout per image so one dead URL can't hang the run
-              setTimeout(done, 15_000)
+              setTimeout(done, 20_000)
             }),
         ),
       )
     })
-    // Also wait for webfonts (Cormorant Garamond etc.) to be ready
+    // Webfonts (Cormorant Garamond etc.)
     await page.evaluate(() => (document as any).fonts?.ready ?? Promise.resolve())
-    // Small settle tick
-    await new Promise((r) => setTimeout(r, 300))
+    // Settle tick
+    await new Promise((r) => setTimeout(r, 400))
 
     const pdfOptions: PDFOptions =
       format === 'presentation'
