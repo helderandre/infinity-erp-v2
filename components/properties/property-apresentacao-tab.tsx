@@ -14,6 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { GeneratePresentationDialog } from '@/components/apresentacao/generate-presentation-dialog'
+import { BookingLinkDialog } from '@/components/booking/booking-link-dialog'
 import { FileDown } from 'lucide-react'
 import {
   BedDouble,
@@ -186,6 +187,11 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
             <Share2 className="h-4 w-4" />
           </Button>
           <ViewOnlinePopover property={property} />
+          <BookingLinkDialog
+            propertyId={property.id}
+            propertySlug={property.slug ?? null}
+            consultantId={property.consultant_id ?? null}
+          />
           <GeneratePresentationDialog
             propertyId={property.id}
             trigger={
@@ -340,9 +346,7 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
               <div className="space-y-3 animate-in fade-in duration-200">
                 <h3 className="text-base font-semibold">Sobre este imóvel</h3>
                 {property.description ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {property.description}
-                  </p>
+                  <RichDescription text={property.description} />
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
                     Sem descrição disponível para este imóvel.
@@ -878,6 +882,23 @@ function SidebarCards({
         ) : null}
       </div>
     </>
+  )
+}
+
+function RichDescription({ text }: { text: string }) {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const hasHtml = /<(strong|br|p|ul|ol|li|em|b|i|h[1-6])[\s>/]/i.test(text)
+  let html = hasHtml ? text : escape(text)
+  html = html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+  return (
+    <div
+      className="text-sm text-muted-foreground leading-relaxed [&_strong]:text-foreground [&_strong]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_em]:italic [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   )
 }
 
