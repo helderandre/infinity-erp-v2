@@ -63,7 +63,7 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
 
     const response = await page.goto(url, {
       waitUntil: 'networkidle2',
-      timeout: 60_000,
+      timeout: 90_000,
     })
     if (!response || !response.ok()) {
       throw new Error(
@@ -71,8 +71,29 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
       )
     }
 
-    // Give images / webfonts a moment after network idle
-    await new Promise((r) => setTimeout(r, 800))
+    // Wait for every <img> to finish loading (or fail). networkidle2 is not
+    // strict enough for R2-hosted remotes — dozens of images can still be in
+    // flight when it returns, producing PDFs with missing/cropped photos.
+    await page.evaluate(async () => {
+      const imgs = Array.from(document.images)
+      await Promise.all(
+        imgs.map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete && img.naturalHeight !== 0) return resolve()
+              const done = () => resolve()
+              img.addEventListener('load', done, { once: true })
+              img.addEventListener('error', done, { once: true })
+              // Safety timeout per image so one dead URL can't hang the run
+              setTimeout(done, 15_000)
+            }),
+        ),
+      )
+    })
+    // Also wait for webfonts (Cormorant Garamond etc.) to be ready
+    await page.evaluate(() => (document as any).fonts?.ready ?? Promise.resolve())
+    // Small settle tick
+    await new Promise((r) => setTimeout(r, 300))
 
     const pdfOptions: PDFOptions =
       format === 'presentation'

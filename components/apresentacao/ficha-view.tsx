@@ -328,8 +328,8 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
               </div>
 
               <div className={cn(
-                'flex-1 min-h-0 px-10 pb-4 grid gap-3',
-                render ? 'grid-cols-2' : 'grid-cols-1',
+                'flex-1 min-h-0 px-10 pb-4 grid grid-cols-1 gap-3',
+                render ? 'grid-rows-2' : 'grid-rows-1',
               )}>
                 <div className="relative rounded-md overflow-hidden border bg-neutral-50">
                   {isPdf ? (
@@ -343,7 +343,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
                       fill
                       className="object-contain p-3"
                       unoptimized
-                      sizes="360px"
+                      sizes="720px"
                     />
                   )}
                   <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
@@ -358,7 +358,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
                       fill
                       className="object-cover"
                       unoptimized
-                      sizes="360px"
+                      sizes="720px"
                     />
                     <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider flex items-center gap-1">
                       <Layers className="h-2.5 w-2.5" /> Render 3D
@@ -390,7 +390,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
               </h2>
             </div>
 
-            <div className="flex-1 min-h-0 px-10 pb-4 grid grid-cols-2 gap-3">
+            <div className="flex-1 min-h-0 px-10 pb-4 grid grid-cols-1 grid-rows-2 gap-3">
               <div className="relative rounded-md overflow-hidden border bg-neutral-100">
                 <Image
                   src={img.url}
@@ -398,7 +398,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
                   fill
                   className="object-cover"
                   unoptimized
-                  sizes="360px"
+                  sizes="720px"
                 />
                 <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
                   Antes
@@ -411,7 +411,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
                   fill
                   className="object-cover"
                   unoptimized
-                  sizes="360px"
+                  sizes="720px"
                 />
                 <div className="absolute top-2 left-2 bg-neutral-900/85 text-white px-2 py-0.5 rounded text-[9px] uppercase tracking-wider">
                   Depois
