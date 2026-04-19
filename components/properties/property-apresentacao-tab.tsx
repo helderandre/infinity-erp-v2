@@ -25,7 +25,6 @@ import {
   Phone,
   Mail,
   Share2,
-  Heart,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
@@ -179,9 +178,9 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
-      {/* ── Top toolbar ── */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Apresentação</h1>
+      {/* ── Top toolbar — title hidden on mobile; actions centred on mobile ── */}
+      <div className="flex items-center justify-center lg:justify-between">
+        <h1 className="hidden lg:block text-xl sm:text-2xl font-bold tracking-tight">Apresentação</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" title="Partilhar">
             <Share2 className="h-4 w-4" />
@@ -205,9 +204,6 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
               </Button>
             }
           />
-          <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" title="Favorito">
-            <Heart className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
