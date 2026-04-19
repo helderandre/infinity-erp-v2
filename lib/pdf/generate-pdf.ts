@@ -39,10 +39,10 @@ interface GeneratePdfOptions {
 }
 
 export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<Buffer> {
+  console.log(`[pdf] start format=${format} url=${url}`)
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
-    // Surface console errors / failed requests for debugging
     page.on('pageerror', (err) =>
       console.error('[pdf] pageerror:', (err as Error).message),
     )
@@ -91,6 +91,7 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
           }
 
     const buffer = await page.pdf(pdfOptions)
+    console.log(`[pdf] done format=${format} bytes=${buffer.length}`)
     return Buffer.from(buffer)
   } finally {
     await page.close()
