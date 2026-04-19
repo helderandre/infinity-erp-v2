@@ -31,13 +31,11 @@ interface UsePropertyMediaReturn {
   reorderImages: (items: PropertyMedia[]) => Promise<void>
   classifyImage: (mediaId: string) => Promise<ClassifyResult>
   classifyAll: (force?: boolean) => Promise<BulkClassifyResult>
-  enhanceImage: (mediaId: string) => Promise<AiImageResult>
-  improveLighting: (mediaId: string) => Promise<AiImageResult>
   stageImage: (mediaId: string, style: string) => Promise<AiImageResult>
-  clearAiVersion: (mediaId: string, type: 'enhanced' | 'staged' | 'all') => Promise<void>
-  clearAllAiVersions: (type: 'enhanced' | 'staged' | 'all', mediaIds?: string[]) => Promise<void>
+  clearStagedVersion: (mediaId: string) => Promise<void>
+  clearAllStagedVersions: (mediaIds?: string[]) => Promise<void>
   stageImageWithPrompt: (mediaId: string, style: string, customPrompt: string) => Promise<AiImageResult>
-  refineImage: (mediaId: string, instructions: string, source?: 'enhanced' | 'staged' | 'auto') => Promise<AiImageResult>
+  refineImage: (mediaId: string, instructions: string) => Promise<AiImageResult>
   refetch: () => void
 }
 
@@ -126,12 +124,17 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     async (items: PropertyMedia[]) => {
       if (!propertyId) return
 
-      // Optimistic update
-      setMedia(items)
+      const updatedItems = items.map((item, index) => ({ ...item, order_index: index }))
+      const touchedIds = new Set(updatedItems.map((i) => i.id))
 
-      const reorderData = items.map((item, index) => ({
-        id: item.id,
-        order_index: index,
+      setMedia((prev) => {
+        const untouched = prev.filter((m) => !touchedIds.has(m.id))
+        return [...updatedItems, ...untouched]
+      })
+
+      const reorderData = updatedItems.map(({ id, order_index }) => ({
+        id,
+        order_index: order_index ?? 0,
       }))
 
       const res = await fetch(`/api/properties/${propertyId}/media/reorder`, {
@@ -141,7 +144,6 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
       })
 
       if (!res.ok) {
-        // Revert on failure
         await fetchMedia()
         const err = await res.json()
         throw new Error(err.error || 'Erro ao reordenar imagens')
@@ -191,40 +193,6 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     [propertyId, fetchMedia]
   )
 
-  const enhanceImage = useCallback(
-    async (mediaId: string): Promise<AiImageResult> => {
-      if (!propertyId) throw new Error('No property ID')
-      const res = await fetch(`/api/properties/${propertyId}/media/${mediaId}/enhance`, {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao melhorar imagem')
-      }
-      const data = await res.json()
-      await fetchMedia()
-      return { url: data.ai_enhanced_url }
-    },
-    [propertyId, fetchMedia]
-  )
-
-  const improveLighting = useCallback(
-    async (mediaId: string): Promise<AiImageResult> => {
-      if (!propertyId) throw new Error('No property ID')
-      const res = await fetch(`/api/properties/${propertyId}/media/${mediaId}/improve-lighting`, {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao melhorar iluminação')
-      }
-      const data = await res.json()
-      await fetchMedia()
-      return { url: data.ai_enhanced_url }
-    },
-    [propertyId, fetchMedia]
-  )
-
   const stageImage = useCallback(
     async (mediaId: string, style: string): Promise<AiImageResult> => {
       if (!propertyId) throw new Error('No property ID')
@@ -264,12 +232,12 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
   )
 
   const refineImage = useCallback(
-    async (mediaId: string, instructions: string, source: 'enhanced' | 'staged' | 'auto' = 'auto'): Promise<AiImageResult> => {
+    async (mediaId: string, instructions: string): Promise<AiImageResult> => {
       if (!propertyId) throw new Error('No property ID')
       const res = await fetch(`/api/properties/${propertyId}/media/${mediaId}/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instructions, source }),
+        body: JSON.stringify({ instructions }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -282,19 +250,13 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     [propertyId, fetchMedia]
   )
 
-  const clearAiVersion = useCallback(
-    async (mediaId: string, type: 'enhanced' | 'staged' | 'all') => {
+  const clearStagedVersion = useCallback(
+    async (mediaId: string) => {
       if (!propertyId) throw new Error('No property ID')
-      const updateData: Record<string, null> = {}
-      if (type === 'enhanced' || type === 'all') updateData.ai_enhanced_url = null
-      if (type === 'staged' || type === 'all') {
-        updateData.ai_staged_url = null
-        updateData.ai_staged_style = null
-      }
       const res = await fetch(`/api/properties/${propertyId}/media/${mediaId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({ ai_staged_url: null, ai_staged_style: null }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -305,13 +267,13 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     [propertyId, fetchMedia]
   )
 
-  const clearAllAiVersions = useCallback(
-    async (type: 'enhanced' | 'staged' | 'all', mediaIds?: string[]) => {
+  const clearAllStagedVersions = useCallback(
+    async (mediaIds?: string[]) => {
       if (!propertyId) throw new Error('No property ID')
       const res = await fetch(`/api/properties/${propertyId}/media/clear-ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, mediaIds }),
+        body: JSON.stringify({ mediaIds }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -332,13 +294,11 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     reorderImages,
     classifyImage,
     classifyAll,
-    enhanceImage,
-    improveLighting,
     stageImage,
     stageImageWithPrompt,
     refineImage,
-    clearAiVersion,
-    clearAllAiVersions,
+    clearStagedVersion,
+    clearAllStagedVersions,
     refetch: fetchMedia,
   }
 }

@@ -6,13 +6,14 @@ import { Progress } from '@/components/ui/progress'
 import { PropertyImageCropper } from './property-image-cropper'
 import { useImageCompress } from '@/hooks/use-image-compress'
 import { useBackgroundUpload } from '@/hooks/use-background-upload'
-import { ImagePlus, X, Crop, Upload } from 'lucide-react'
+import { ImagePlus, X, Crop, Upload, Plus } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 
 interface PropertyMediaUploadProps {
   propertyId: string
   onUploadComplete: () => void
+  variant?: 'default' | 'icon'
 }
 
 interface PendingImage {
@@ -25,6 +26,7 @@ interface PendingImage {
 export function PropertyMediaUpload({
   propertyId,
   onUploadComplete,
+  variant = 'default',
 }: PropertyMediaUploadProps) {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([])
   const [cropImage, setCropImage] = useState<PendingImage | null>(null)
@@ -135,21 +137,38 @@ export function PropertyMediaUpload({
   }, [pendingCount, isBusy])
 
   return (
-    <div className="space-y-4">
+    <div className={variant === 'icon' ? 'contents' : 'space-y-4'}>
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isBusy}
-        >
-          {isBusy ? (
-            <Spinner variant="infinite" size={16} className="mr-2" />
-          ) : (
-            <ImagePlus className="mr-2 h-4 w-4" />
-          )}
-          {isBusy ? 'A enviar...' : 'Adicionar Imagens'}
-        </Button>
+        {variant === 'icon' ? (
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isBusy}
+            title="Adicionar imagens"
+          >
+            {isBusy ? (
+              <Spinner variant="infinite" size={16} />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isBusy}
+          >
+            {isBusy ? (
+              <Spinner variant="infinite" size={16} className="mr-2" />
+            ) : (
+              <ImagePlus className="mr-2 h-4 w-4" />
+            )}
+            {isBusy ? 'A enviar...' : 'Adicionar Imagens'}
+          </Button>
+        )}
         <input
           ref={fileInputRef}
           type="file"

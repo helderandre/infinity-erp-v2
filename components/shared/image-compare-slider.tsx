@@ -10,6 +10,7 @@ interface ImageCompareSliderProps {
   originalLabel?: string
   modifiedLabel?: string
   className?: string
+  showLabels?: boolean
 }
 
 export function ImageCompareSlider({
@@ -18,6 +19,7 @@ export function ImageCompareSlider({
   originalLabel = 'Original',
   modifiedLabel = 'IA',
   className,
+  showLabels = true,
 }: ImageCompareSliderProps) {
   const [position, setPosition] = useState(50)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -114,16 +116,20 @@ export function ImageCompareSlider({
       </div>
 
       {/* Labels */}
-      <div className="absolute top-2 left-2 z-20">
-        <span className="rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-          {originalLabel}
-        </span>
-      </div>
-      <div className="absolute top-2 right-2 z-20">
-        <span className="rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-          {modifiedLabel}
-        </span>
-      </div>
+      {showLabels && (
+        <>
+          <div className="absolute top-2 left-2 z-20">
+            <span className="rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
+              {originalLabel}
+            </span>
+          </div>
+          <div className="absolute top-2 right-2 z-20">
+            <span className="rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
+              {modifiedLabel}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   )
 }

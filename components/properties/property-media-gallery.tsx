@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PropertyMediaUpload } from './property-media-upload'
 import { usePropertyMedia } from '@/hooks/use-property-media'
-import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, Square, X, Sparkles, Loader2, Brain, Wand2, Sun, Sofa, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, X, Sparkles, Loader2, Brain, Sofa, Presentation, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { BorderBeam } from 'border-beam'
@@ -47,13 +47,8 @@ import { useAiBatchStore } from '@/stores/ai-batch-store'
 import type { PropertyMedia } from '@/types/property'
 
 type ViewMode = 'grid' | 'list'
-type ColumnCount = '4' | '8' | '12'
 
-const COLUMN_CLASSES: Record<ColumnCount, string> = {
-  '4': 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
-  '8': 'grid-cols-3 md:grid-cols-5 lg:grid-cols-8',
-  '12': 'grid-cols-4 md:grid-cols-8 lg:grid-cols-12',
-}
+const GRID_COLUMNS = 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
 
 const ROOM_TYPES = [
   'arrecadação',
@@ -84,6 +79,7 @@ interface PropertyMediaGalleryProps {
   propertyId: string
   media: PropertyMedia[]
   onMediaChange: () => void
+  hideRoomLabels?: boolean
 }
 
 function RoomLabelBadge({
@@ -214,6 +210,7 @@ function SortableGridItem({
   selectMode,
   isSelected,
   onToggleSelect,
+  hideRoomLabels,
 }: {
   item: PropertyMedia
   displayUrl: string
@@ -226,6 +223,7 @@ function SortableGridItem({
   selectMode: boolean
   isSelected: boolean
   onToggleSelect: (id: string) => void
+  hideRoomLabels?: boolean
 }) {
   const {
     attributes,
@@ -259,8 +257,8 @@ function SortableGridItem({
         className="object-cover"
         sizes="(max-width: 768px) 50vw, 25vw"
       />
-      {/* AI version indicator: shown when viewing AI version OR when on originals tab and AI versions exist */}
-      {(displayUrl !== item.url || (displayUrl === item.url && (item.ai_enhanced_url || item.ai_staged_url))) && (
+      {/* AI version indicator: shown when viewing AI version OR when on originals tab and staged version exists */}
+      {(displayUrl !== item.url || (displayUrl === item.url && item.ai_staged_url)) && (
         <div className="absolute bottom-2 right-2 z-10">
           <span className={cn(
             'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm',
@@ -273,38 +271,40 @@ function SortableGridItem({
       )}
 
       {/* Top-left badges: cover + AI label */}
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-        {item.is_cover && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
-            <Star className="h-3 w-3 fill-current" />
-            Capa
-          </span>
-        )}
-        {item.ai_room_label && !isClassifyingThis && (
-          <RoomLabelBadge
-            label={item.ai_room_label!}
-            confidence={item.ai_room_confidence ?? 0}
-            mediaId={item.id}
-            onSetLabel={onSetLabel}
-            onClassify={onClassify}
-          />
-        )}
-        {!item.ai_room_label && !isClassifyingThis && (
-          <RoomLabelBadge
-            label=""
-            confidence={0}
-            mediaId={item.id}
-            onSetLabel={onSetLabel}
-            onClassify={onClassify}
-          />
-        )}
-        {isClassifyingThis && (
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-violet-600/85 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            A classificar…
-          </span>
-        )}
-      </div>
+      {!hideRoomLabels && (
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+          {item.is_cover && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
+              <Star className="h-3 w-3 fill-current" />
+              Capa
+            </span>
+          )}
+          {item.ai_room_label && !isClassifyingThis && (
+            <RoomLabelBadge
+              label={item.ai_room_label!}
+              confidence={item.ai_room_confidence ?? 0}
+              mediaId={item.id}
+              onSetLabel={onSetLabel}
+              onClassify={onClassify}
+            />
+          )}
+          {!item.ai_room_label && !isClassifyingThis && (
+            <RoomLabelBadge
+              label=""
+              confidence={0}
+              mediaId={item.id}
+              onSetLabel={onSetLabel}
+              onClassify={onClassify}
+            />
+          )}
+          {isClassifyingThis && (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-violet-600/85 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              A classificar…
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Select mode checkbox */}
       {selectMode && (
@@ -329,7 +329,7 @@ function SortableGridItem({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-white hover:bg-white/20"
-                onClick={() => onClassify(item.id)}
+                onClick={(e) => { e.stopPropagation(); onClassify(item.id) }}
                 title={item.ai_room_label ? 'Reclassificar com IA' : 'Classificar com IA'}
               >
                 <Sparkles className="h-4 w-4" />
@@ -340,7 +340,7 @@ function SortableGridItem({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-white hover:bg-white/20"
-                onClick={() => onSetCover(item.id)}
+                onClick={(e) => { e.stopPropagation(); onSetCover(item.id) }}
                 title="Definir como capa"
               >
                 <Star className="h-4 w-4" />
@@ -350,7 +350,7 @@ function SortableGridItem({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-white hover:bg-white/20"
-              onClick={() => onDelete(item.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
               title="Eliminar"
             >
               <Trash2 className="h-4 w-4" />
@@ -358,6 +358,7 @@ function SortableGridItem({
           </div>
           <div
             className="absolute bottom-2 left-2 cursor-grab active:cursor-grabbing text-white"
+            onClick={(e) => e.stopPropagation()}
             {...attributes}
             {...listeners}
           >
@@ -528,6 +529,7 @@ export function PropertyMediaGallery({
   propertyId,
   media: initialMedia,
   onMediaChange,
+  hideRoomLabels,
 }: PropertyMediaGalleryProps) {
   const {
     media,
@@ -536,13 +538,11 @@ export function PropertyMediaGallery({
     reorderImages,
     classifyImage,
     classifyAll,
-    enhanceImage,
-    improveLighting,
     stageImage,
     stageImageWithPrompt,
     refineImage,
-    clearAiVersion,
-    clearAllAiVersions,
+    clearStagedVersion,
+    clearAllStagedVersions,
     isClassifying,
     refetch,
   } = usePropertyMedia(propertyId)
@@ -555,30 +555,24 @@ export function PropertyMediaGallery({
   const [refineInput, setRefineInput] = useState('')
   const [presentationMode, setPresentationMode] = useState(false)
   const [presentationIndex, setPresentationIndex] = useState(0)
-  type DisplayMode = 'original' | 'enhanced' | 'staged'
+  type DisplayMode = 'original' | 'staged'
   const [displayMode, setDisplayMode] = useState<DisplayMode>('original')
-  const [showClearAiConfirm, setShowClearAiConfirm] = useState<{ type: 'enhanced' | 'staged' | 'all' } | null>(null)
+  const [showClearAiConfirm, setShowClearAiConfirm] = useState<boolean>(false)
   const [isClearingAi, setIsClearingAi] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [columns, setColumns] = useState<ColumnCount>('8')
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const rawMedia = media.length > 0 ? media : initialMedia
-  // Sort plantas first, then by original order_index
-  const allMedia = [...rawMedia].sort((a, b) => {
-    const aPlanta = a.ai_room_label === 'planta' ? 0 : 1
-    const bPlanta = b.ai_room_label === 'planta' ? 0 : 1
-    if (aPlanta !== bPlanta) return aPlanta - bPlanta
-    return (a.order_index ?? 0) - (b.order_index ?? 0)
-  })
+  // Hide plantas from the regular gallery (they live in the Plantas section)
+  const allMedia = [...rawMedia]
+    .filter((m) => m.ai_room_label !== 'planta')
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
   const currentMedia = displayMode === 'original'
     ? allMedia
-    : displayMode === 'enhanced'
-      ? allMedia.filter((m) => m.ai_enhanced_url)
-      : allMedia.filter((m) => m.ai_staged_url)
+    : allMedia.filter((m) => m.ai_staged_url)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -720,25 +714,22 @@ export function PropertyMediaGallery({
 
   const getDisplayUrl = (item: PropertyMedia | undefined) => {
     if (!item) return ''
-    if (displayMode === 'enhanced' && item.ai_enhanced_url) return item.ai_enhanced_url
     if (displayMode === 'staged' && item.ai_staged_url) return item.ai_staged_url
     return item.url
   }
 
-  const aiVersionCount = (type: 'enhanced' | 'staged') =>
-    allMedia.filter((m) => type === 'enhanced' ? m.ai_enhanced_url : m.ai_staged_url).length
+  const stagedCount = () => allMedia.filter((m) => m.ai_staged_url).length
 
-  const handleClearAiSingle = async (mediaId: string, type: 'enhanced' | 'staged' | 'all') => {
+  const handleClearStagedSingle = async (mediaId: string) => {
     try {
-      await clearAiVersion(mediaId, type)
-      toast.success(type === 'all' ? 'Versões IA eliminadas' : `Versão ${type === 'enhanced' ? 'melhorada' : 'decorada'} eliminada`)
-      // Refresh dialog media if open
+      await clearStagedVersion(mediaId)
+      toast.success('Versão decorada eliminada')
       if (aiDialogMedia?.id === mediaId) {
         const updated = media.find((m) => m.id === mediaId)
-        if (updated) setAiDialogMedia({ ...updated, ai_enhanced_url: type !== 'staged' ? null : updated.ai_enhanced_url, ai_staged_url: type !== 'enhanced' ? null : updated.ai_staged_url })
+        if (updated) setAiDialogMedia({ ...updated, ai_staged_url: null, ai_staged_style: null })
       }
     } catch {
-      toast.error('Erro ao eliminar versão IA')
+      toast.error('Erro ao eliminar versão decorada')
     }
   }
 
@@ -748,8 +739,8 @@ export function PropertyMediaGallery({
 
   const BATCH_CONCURRENCY = 3
 
-  const runBatch = async (type: 'stage' | 'enhance' | 'lighting', ids: string[], style?: string) => {
-    startJob(propertyId, type, ids.length, style)
+  const runBatchStage = async (ids: string[], style: string) => {
+    startJob(propertyId, 'stage', ids.length, style)
     exitSelectMode()
 
     let succeeded = 0
@@ -758,19 +749,9 @@ export function PropertyMediaGallery({
 
     const processOne = async (mediaId: string) => {
       try {
-        let resultUrl = ''
-        if (type === 'stage' && style) {
-          const r = await stageImage(mediaId, style)
-          resultUrl = r.url
-        } else if (type === 'enhance') {
-          const r = await enhanceImage(mediaId)
-          resultUrl = r.url
-        } else if (type === 'lighting') {
-          const r = await improveLighting(mediaId)
-          resultUrl = r.url
-        }
+        const r = await stageImage(mediaId, style)
         succeeded++
-        if (resultUrl) completedUrls.push(resultUrl)
+        if (r.url) completedUrls.push(r.url)
       } catch {
         failed++
       }
@@ -787,82 +768,39 @@ export function PropertyMediaGallery({
 
   const handleBatchStage = (style: string) => {
     if (selectedIds.size === 0) return
-    runBatch('stage', Array.from(selectedIds), style)
+    runBatchStage(Array.from(selectedIds), style)
   }
 
-  const handleBatchEnhance = () => {
-    if (selectedIds.size === 0) return
-    runBatch('enhance', Array.from(selectedIds))
-  }
-
-  const handleBatchLighting = () => {
-    if (selectedIds.size === 0) return
-    runBatch('lighting', Array.from(selectedIds))
-  }
-
-  const handleClearSelectedAi = async (type: 'enhanced' | 'staged' | 'all') => {
+  const handleClearSelectedStaged = async () => {
     if (selectedIds.size === 0) return
     try {
-      await clearAllAiVersions(type, Array.from(selectedIds))
-      const label = type === 'all' ? 'Versões IA' : type === 'enhanced' ? 'Versões melhoradas' : 'Versões decoradas'
-      toast.success(`${label} eliminadas de ${selectedIds.size} imagens`)
+      await clearAllStagedVersions(Array.from(selectedIds))
+      toast.success(`Versões decoradas eliminadas de ${selectedIds.size} imagens`)
       exitSelectMode()
-      // Switch back to originals if we just deleted all items in the current AI view
-      if (displayMode !== 'original' && (type === 'all' || type === displayMode)) {
-        setDisplayMode('original')
-      }
+      if (displayMode === 'staged') setDisplayMode('original')
     } catch {
-      toast.error('Erro ao eliminar versões IA')
+      toast.error('Erro ao eliminar versões decoradas')
     }
   }
 
-  const handleClearAllAi = async () => {
+  const handleClearAllStaged = async () => {
     if (!showClearAiConfirm) return
     setIsClearingAi(true)
     try {
-      await clearAllAiVersions(showClearAiConfirm.type)
-      const label = showClearAiConfirm.type === 'all' ? 'Todas as versões IA' : showClearAiConfirm.type === 'enhanced' ? 'Versões melhoradas' : 'Versões decoradas'
-      toast.success(`${label} eliminadas`)
-      if (displayMode !== 'original') setDisplayMode('original')
+      await clearAllStagedVersions()
+      toast.success('Versões decoradas eliminadas')
+      if (displayMode === 'staged') setDisplayMode('original')
     } catch {
-      toast.error('Erro ao eliminar versões IA')
+      toast.error('Erro ao eliminar versões decoradas')
     } finally {
       setIsClearingAi(false)
-      setShowClearAiConfirm(null)
+      setShowClearAiConfirm(false)
     }
   }
 
   // Helper to refresh dialog media after AI action
   const refreshDialogMedia = (mediaId: string, updates: Partial<PropertyMedia>) => {
     setAiDialogMedia((prev) => prev && prev.id === mediaId ? { ...prev, ...updates } : prev)
-  }
-
-  const handleEnhance = async (item: PropertyMedia) => {
-    setAiProcessing('enhance')
-    try {
-      const result = await enhanceImage(item.id)
-      refreshDialogMedia(item.id, { ai_enhanced_url: result.url })
-      setCompareView({ original: item.url, modified: result.url, label: 'Resolução Melhorada' })
-      toast.success('Resolução melhorada com sucesso')
-    } catch {
-      toast.error('Erro ao melhorar resolução')
-    } finally {
-      setAiProcessing(null)
-    }
-  }
-
-  const handleImproveLighting = async (item: PropertyMedia) => {
-    setAiProcessing('lighting')
-    try {
-      const result = await improveLighting(item.id)
-      refreshDialogMedia(item.id, { ai_enhanced_url: result.url })
-      setCompareView({ original: item.url, modified: result.url, label: 'Iluminação Melhorada' })
-      toast.success('Iluminação melhorada com sucesso')
-    } catch {
-      toast.error('Erro ao melhorar iluminação')
-    } finally {
-      setAiProcessing(null)
-    }
   }
 
   const handleStage = async (item: PropertyMedia, style: string) => {
@@ -886,10 +824,8 @@ export function PropertyMediaGallery({
     if (!refineInput.trim()) return
     setAiProcessing('refine')
     try {
-      const source = item.ai_staged_url ? 'staged' : item.ai_enhanced_url ? 'enhanced' : 'auto'
-      const result = await refineImage(item.id, refineInput, source)
-      const field = item.ai_staged_url ? 'ai_staged_url' : 'ai_enhanced_url'
-      refreshDialogMedia(item.id, { [field]: result.url })
+      const result = await refineImage(item.id, refineInput)
+      refreshDialogMedia(item.id, { ai_staged_url: result.url })
       setCompareView({ original: item.url, modified: result.url, label: 'Refinada' })
       setRefineInput('')
       toast.success('Imagem refinada com sucesso')
@@ -905,11 +841,8 @@ export function PropertyMediaGallery({
     setAiDialogMedia(item)
     setCustomPrompt('')
     setRefineInput('')
-    // Auto-show comparison if AI version exists
     if (item.ai_staged_url) {
       setCompareView({ original: item.url, modified: item.ai_staged_url, label: `Decoração ${item.ai_staged_style ?? ''}` })
-    } else if (item.ai_enhanced_url) {
-      setCompareView({ original: item.url, modified: item.ai_enhanced_url, label: 'Melhorada' })
     } else {
       setCompareView(null)
     }
@@ -926,10 +859,11 @@ export function PropertyMediaGallery({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h3 className="text-base font-semibold">Galeria de Imagens</h3>
-          {!selectMode && (
+          {currentMedia.length === 0 && !selectMode && (
             <PropertyMediaUpload
               propertyId={propertyId}
               onUploadComplete={handleUploadComplete}
+              variant="icon"
             />
           )}
           {currentMedia.length > 0 && (
@@ -953,24 +887,16 @@ export function PropertyMediaGallery({
                   Originais
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  value="enhanced"
-                  aria-label="Melhoradas"
-                  className="text-xs h-7 px-2"
-                  disabled={aiVersionCount('enhanced') === 0}
-                >
-                  Melhoradas {aiVersionCount('enhanced') > 0 && `(${aiVersionCount('enhanced')})`}
-                </ToggleGroupItem>
-                <ToggleGroupItem
                   value="staged"
                   aria-label="Decoradas"
                   className="text-xs h-7 px-2"
-                  disabled={aiVersionCount('staged') === 0}
+                  disabled={stagedCount() === 0}
                 >
-                  Decoradas {aiVersionCount('staged') > 0 && `(${aiVersionCount('staged')})`}
+                  Decoradas {stagedCount() > 0 && `(${stagedCount()})`}
                 </ToggleGroupItem>
               </ToggleGroup>
 
-              {/* AI actions dropdown */}
+              {/* Classify images dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -979,8 +905,8 @@ export function PropertyMediaGallery({
                     className="h-7 text-xs rounded-full gap-1.5"
                     disabled={isClassifying}
                   >
-                    {isClassifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    Ferramentas IA
+                    {isClassifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+                    Classificar imagens
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -992,33 +918,17 @@ export function PropertyMediaGallery({
                     <Brain className="h-3.5 w-3.5 mr-2" />
                     Reclassificar todas
                   </DropdownMenuItem>
-                  <div className="h-px bg-border my-1" />
-                  {aiVersionCount('enhanced') > 0 && (
-                    <DropdownMenuItem
-                      onClick={() => setShowClearAiConfirm({ type: 'enhanced' })}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Eliminar melhoradas ({aiVersionCount('enhanced')})
-                    </DropdownMenuItem>
-                  )}
-                  {aiVersionCount('staged') > 0 && (
-                    <DropdownMenuItem
-                      onClick={() => setShowClearAiConfirm({ type: 'staged' })}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Eliminar decoradas ({aiVersionCount('staged')})
-                    </DropdownMenuItem>
-                  )}
-                  {(aiVersionCount('enhanced') > 0 || aiVersionCount('staged') > 0) && (
-                    <DropdownMenuItem
-                      onClick={() => setShowClearAiConfirm({ type: 'all' })}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Eliminar todas as versões IA
-                    </DropdownMenuItem>
+                  {stagedCount() > 0 && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <DropdownMenuItem
+                        onClick={() => setShowClearAiConfirm(true)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Eliminar decoradas ({stagedCount()})
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1043,80 +953,51 @@ export function PropertyMediaGallery({
                   {selectedIds.size === currentMedia.length ? 'Desmarcar tudo' : 'Seleccionar tudo'}
                 </Button>
 
-                {/* Batch AI actions */}
+                {/* Batch decorar */}
                 {!batchProcessing && displayMode === 'original' && (
-                  <>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs rounded-full gap-1"
-                          disabled={selectedIds.size === 0}
-                        >
-                          <Sofa className="h-3 w-3" />
-                          Decorar ({selectedIds.size})
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {['moderno', 'classico', 'minimalista', 'escandinavo', 'industrial'].map((style) => (
-                          <DropdownMenuItem key={style} onClick={() => handleBatchStage(style)}>
-                            <span className="capitalize">{style}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs rounded-full gap-1"
-                          disabled={selectedIds.size === 0}
-                        >
-                          <Wand2 className="h-3 w-3" />
-                          Melhorar ({selectedIds.size})
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleBatchEnhance}>
-                          <Wand2 className="h-3.5 w-3.5 mr-2" />
-                          Melhorar resolução
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs rounded-full gap-1"
+                        disabled={selectedIds.size === 0}
+                      >
+                        <Sofa className="h-3 w-3" />
+                        Decorar ({selectedIds.size})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {['moderno', 'classico', 'minimalista', 'escandinavo', 'industrial'].map((style) => (
+                        <DropdownMenuItem key={style} onClick={() => handleBatchStage(style)}>
+                          <span className="capitalize">{style}</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleBatchLighting}>
-                          <Sun className="h-3.5 w-3.5 mr-2" />
-                          Melhorar iluminação
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
 
-                {/* Batch processing indicator */}
                 {batchProcessing && (
                   <BorderBeam active colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
                     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground rounded-full border px-3 py-1.5">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      {batchProgress.done}/{batchProgress.total}
-                      {batchProcessing === 'stage' ? ' decoradas' : ' melhoradas'}
+                      {batchProgress.done}/{batchProgress.total} decoradas
                     </span>
                   </BorderBeam>
                 )}
 
-                {displayMode !== 'original' ? (
-                  /* In AI view: delete just the AI versions for selected images */
+                {displayMode === 'staged' ? (
                   <Button
                     variant="destructive"
                     size="sm"
                     className="h-7 text-xs rounded-full gap-1"
                     disabled={selectedIds.size === 0}
-                    onClick={() => handleClearSelectedAi(displayMode === 'enhanced' ? 'enhanced' : 'staged')}
+                    onClick={handleClearSelectedStaged}
                   >
                     <Trash2 className="h-3 w-3" />
-                    Eliminar {displayMode === 'enhanced' ? 'melhoradas' : 'decoradas'} ({selectedIds.size})
+                    Eliminar decoradas ({selectedIds.size})
                   </Button>
                 ) : (
-                  /* In original view: show dropdown with all options */
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -1134,18 +1015,9 @@ export function PropertyMediaGallery({
                         <Trash2 className="h-3.5 w-3.5 mr-2" />
                         Eliminar imagens originais
                       </DropdownMenuItem>
-                      <div className="h-px bg-border my-1" />
-                      <DropdownMenuItem onClick={() => handleClearSelectedAi('enhanced')}>
-                        <Wand2 className="h-3.5 w-3.5 mr-2" />
-                        Eliminar versões melhoradas
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleClearSelectedAi('staged')}>
+                      <DropdownMenuItem onClick={handleClearSelectedStaged}>
                         <Sofa className="h-3.5 w-3.5 mr-2" />
                         Eliminar versões decoradas
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleClearSelectedAi('all')}>
-                        <Sparkles className="h-3.5 w-3.5 mr-2" />
-                        Eliminar todas as versões IA
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1188,26 +1060,6 @@ export function PropertyMediaGallery({
                   </ToggleGroupItem>
                 </ToggleGroup>
 
-                {viewMode === 'grid' && (
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    value={columns}
-                    onValueChange={(v) => v && setColumns(v as ColumnCount)}
-                    size="sm"
-                  >
-                    <ToggleGroupItem value="4" aria-label="4 colunas">
-                      4
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="8" aria-label="8 colunas">
-                      8
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="12" aria-label="12 colunas">
-                      12
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                )}
-
                 <Button
                   variant="outline"
                   size="icon"
@@ -1215,8 +1067,14 @@ export function PropertyMediaGallery({
                   onClick={() => { setPresentationIndex(0); setPresentationMode(true) }}
                   title="Modo apresentação"
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Presentation className="h-4 w-4" />
                 </Button>
+
+                <PropertyMediaUpload
+                  propertyId={propertyId}
+                  onUploadComplete={handleUploadComplete}
+                  variant="icon"
+                />
               </>
             )}
           </div>
@@ -1234,7 +1092,7 @@ export function PropertyMediaGallery({
             strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
           >
             {viewMode === 'grid' ? (
-              <div className={`grid gap-3 ${COLUMN_CLASSES[columns]}`}>
+              <div className={`grid gap-3 ${GRID_COLUMNS}`}>
                 {currentMedia.map((item) => (
                   <SortableGridItem
                     key={item.id}
@@ -1249,6 +1107,7 @@ export function PropertyMediaGallery({
                     selectMode={selectMode}
                     isSelected={selectedIds.has(item.id)}
                     onToggleSelect={toggleSelect}
+                    hideRoomLabels={hideRoomLabels}
                   />
                 ))}
               </div>
@@ -1318,26 +1177,19 @@ export function PropertyMediaGallery({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirm clear AI versions dialog */}
-      <AlertDialog open={!!showClearAiConfirm} onOpenChange={() => setShowClearAiConfirm(null)}>
+      {/* Confirm clear staged versions dialog */}
+      <AlertDialog open={showClearAiConfirm} onOpenChange={setShowClearAiConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Eliminar versões IA
-            </AlertDialogTitle>
+            <AlertDialogTitle>Eliminar versões decoradas</AlertDialogTitle>
             <AlertDialogDescription>
-              {showClearAiConfirm?.type === 'all'
-                ? 'Tem a certeza de que pretende eliminar todas as versões IA (melhoradas e decoradas) de todas as imagens?'
-                : showClearAiConfirm?.type === 'enhanced'
-                  ? `Tem a certeza de que pretende eliminar as ${aiVersionCount('enhanced')} versões melhoradas?`
-                  : `Tem a certeza de que pretende eliminar as ${aiVersionCount('staged')} versões decoradas?`
-              } As imagens originais não serão afectadas.
+              Tem a certeza de que pretende eliminar as {stagedCount()} versões decoradas? As imagens originais não serão afectadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isClearingAi}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleClearAllAi}
+              onClick={handleClearAllStaged}
               disabled={isClearingAi}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -1399,32 +1251,6 @@ export function PropertyMediaGallery({
                 >
                   Original
                 </Button>
-                {aiDialogMedia.ai_enhanced_url && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setCompareView({
-                        original: aiDialogMedia.url,
-                        modified: aiDialogMedia.ai_enhanced_url!,
-                        label: 'Melhorada',
-                      })}
-                    >
-                      <Wand2 className="h-3 w-3 mr-1.5" />
-                      Comparar melhorada
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-destructive hover:text-destructive h-7 px-2"
-                      onClick={() => handleClearAiSingle(aiDialogMedia.id, 'enhanced')}
-                      disabled={!!aiProcessing}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </>
-                )}
                 {aiDialogMedia.ai_staged_url && (
                   <>
                     <Button
@@ -1444,7 +1270,7 @@ export function PropertyMediaGallery({
                       variant="ghost"
                       size="sm"
                       className="text-xs text-destructive hover:text-destructive h-7 px-2"
-                      onClick={() => handleClearAiSingle(aiDialogMedia.id, 'staged')}
+                      onClick={() => handleClearStagedSingle(aiDialogMedia.id)}
                       disabled={!!aiProcessing}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -1465,50 +1291,8 @@ export function PropertyMediaGallery({
                 />
               </BorderBeam>
 
-              {/* Generate actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Enhance resolution */}
-                <BorderBeam active={aiProcessing === 'enhance'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
-                  <Button
-                    variant="outline"
-                    className="h-auto w-full py-3 flex flex-col items-center gap-1.5 rounded-2xl"
-                    disabled={!!aiProcessing}
-                    onClick={() => handleEnhance(aiDialogMedia)}
-                  >
-                    {aiProcessing === 'enhance' ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Wand2 className="h-5 w-5" />
-                    )}
-                    <span className="text-xs font-medium">
-                      {aiProcessing === 'enhance' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Resolução' : 'Melhorar Resolução'}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">Real-ESRGAN 4x</span>
-                  </Button>
-                </BorderBeam>
-
-                {/* Improve lighting */}
-                <BorderBeam active={aiProcessing === 'lighting'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
-                  <Button
-                    variant="outline"
-                    className="h-auto w-full py-3 flex flex-col items-center gap-1.5 rounded-2xl"
-                    disabled={!!aiProcessing}
-                    onClick={() => handleImproveLighting(aiDialogMedia)}
-                  >
-                    {aiProcessing === 'lighting' ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Sun className="h-5 w-5" />
-                    )}
-                    <span className="text-xs font-medium">
-                      {aiProcessing === 'lighting' ? 'A melhorar…' : aiDialogMedia.ai_enhanced_url ? 'Regenerar Iluminação' : 'Melhorar Iluminação'}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">OpenAI GPT Image</span>
-                  </Button>
-                </BorderBeam>
-
-                {/* Virtual staging dropdown */}
-                <BorderBeam active={aiProcessing === 'stage'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
+              {/* Virtual staging */}
+              <BorderBeam active={aiProcessing === 'stage'} colorVariant="colorful" size="sm" strength={1} brightness={1.8}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -1538,11 +1322,10 @@ export function PropertyMediaGallery({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                </BorderBeam>
-              </div>
+              </BorderBeam>
 
               {/* Refine existing AI image */}
-              {(aiDialogMedia.ai_enhanced_url || aiDialogMedia.ai_staged_url) && !aiProcessing && (
+              {aiDialogMedia.ai_staged_url && !aiProcessing && (
                 <div>
                   <p className="text-xs font-medium mb-1.5 text-muted-foreground">Refinar imagem IA</p>
                   <BorderBeam active={!!refineInput.trim()} colorVariant="ocean" size="sm" strength={0.8} brightness={1.6}>
@@ -1602,7 +1385,7 @@ export function PropertyMediaGallery({
                     originalUrl={currentItem.url}
                     modifiedUrl={aiUrl}
                     originalLabel="Original"
-                    modifiedLabel={displayMode === 'staged' ? 'Decorada' : 'Melhorada'}
+                    modifiedLabel="Decorada"
                     className="w-full h-full !aspect-auto !rounded-none"
                   />
                 ) : (

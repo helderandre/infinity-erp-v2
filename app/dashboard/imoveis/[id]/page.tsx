@@ -14,13 +14,24 @@ import { PropertyPlantasSection } from '@/components/properties/property-plantas
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
+import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
+import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
-import { MarketResearch } from '@/components/shared/market-research'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Progress } from '@/components/ui/progress'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -60,7 +71,10 @@ import {
   MessageSquare,
   EyeOff,
   Eye,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
+import { motion, LayoutGroup } from 'framer-motion'
 import {
   formatCurrency,
   formatArea,
@@ -94,9 +108,10 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 // ─── Tab config ────────────────────────────────────────────────
 
-type TabKey = 'resumo' | 'media' | 'interessados' | 'fichas' | 'documentos' | 'proprietarios' | 'processos'
+type TabKey = 'apresentacao' | 'resumo' | 'media' | 'interessados' | 'fichas' | 'documentos' | 'proprietarios' | 'processos'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: 'apresentacao', label: 'Apresentação', icon: Eye },
   { key: 'resumo', label: 'Resumo', icon: Home },
   { key: 'media', label: 'Media', icon: ImageIcon },
   { key: 'interessados', label: 'Interessados', icon: Users },
@@ -161,10 +176,14 @@ export default function ImovelDetalhePage() {
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
-  const [activeTab, setActiveTab] = useState<TabKey>('resumo')
+  const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas'>('imagens')
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('apresentacao')
   const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>('angariacao')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [editData, setEditData] = useState<Record<string, any>>({})
   const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
 
@@ -216,6 +235,24 @@ export default function ImovelDetalhePage() {
   }, [property])
 
   const cancelEditing = () => { setIsEditing(false); setEditData({}) }
+
+  const handleDeleteProperty = async () => {
+    if (!property?.id) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/properties/${property.id}?mode=permanent`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao eliminar imóvel')
+      }
+      toast.success('Imóvel eliminado permanentemente')
+      setDeleteStep(0)
+      router.push('/dashboard/imoveis')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao eliminar imóvel')
+      setIsDeleting(false)
+    }
+  }
 
   const updateField = (field: string, value: any) => {
     setEditData(prev => ({ ...prev, [field]: value }))
@@ -321,7 +358,7 @@ export default function ImovelDetalhePage() {
   }
 
   // Load process data — must wait for resolved UUID (URL `id` may be a slug)
-  useEffect(() => {
+  const fetchProcesses = useCallback(() => {
     if (!property?.id) return
     setProcessesLoading(true)
     fetch(`/api/processes?property_id=${property.id}`)
@@ -330,6 +367,8 @@ export default function ImovelDetalhePage() {
       .catch(() => setProcesses([]))
       .finally(() => setProcessesLoading(false))
   }, [property?.id])
+
+  useEffect(() => { fetchProcesses() }, [fetchProcesses])
 
   // Use resolved property UUID for sub-resource fetches (URL `id` may be a slug)
   const propertyId = property?.id
@@ -448,134 +487,68 @@ export default function ImovelDetalhePage() {
 
   const specs = property.dev_property_specifications
   const internal = property.dev_property_internal
-  const propertyImages = (property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta')
+  const propertyImages = (property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta' && m.media_type !== 'planta_3d')
   const coverImage = propertyImages.find((m: any) => m.is_cover)?.url
     || propertyImages[0]?.url
 
   return (
     <div className="space-y-5">
-      {/* ═══════ HERO HEADER with tabs inside ═══════ */}
-      <div className="relative overflow-hidden rounded-2xl bg-neutral-900">
-        {coverImage && (
-          <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: `url('${coverImage}')` }} />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/95 via-neutral-900/60 to-neutral-900/30" />
-
-        <div className="relative z-10 px-6 sm:px-8 pt-5 pb-5 flex flex-col justify-between" style={{ minHeight: '16rem' }}>
-          {/* Top row: back + edit toggle */}
-          <div className="flex items-center justify-between">
-            <button onClick={() => router.push('/dashboard/imoveis')} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Voltar
-            </button>
-            <div className="flex items-center gap-2">
-              {!isEditing && (
-                <MarketResearch
-                  variant="icon"
-                  context={property ? `Imóvel: ${property.title}, ${property.property_type}, ${property.city || ''} ${property.zone || ''}, Preço: ${property.listing_price ? (property.listing_price / 1000).toFixed(0) + 'k€' : 'N/A'}` : undefined}
-                  suggestions={[
-                    property?.city ? `Qual o preço médio por m2 em ${property.city}?` : 'Qual o preço médio por m2 em Lisboa?',
-                    property?.city ? `Tendências do mercado imobiliário em ${property.city}` : 'Tendências do mercado imobiliário em Portugal',
-                    'Qual a taxa de rentabilidade média para arrendamento?',
-                    property?.property_type ? `Procura actual por ${property.property_type} em Portugal` : 'Como está a procura de imóveis em Portugal?',
-                  ]}
-                />
-              )}
-              {isEditing && (
-                <>
-                  <button onClick={cancelEditing} className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-red-500/20 backdrop-blur-sm border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-all" title="Cancelar"><X className="h-4 w-4" /></button>
-                  <button onClick={saveChanges} disabled={isSaving} className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/30 transition-all disabled:opacity-50" title="Guardar">
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  </button>
-                </>
-              )}
-              <button onClick={() => isEditing ? cancelEditing() : startEditing()} className={cn('inline-flex items-center justify-center h-8 w-8 rounded-full backdrop-blur-sm border transition-all', isEditing ? 'bg-white/30 border-white/40 text-white ring-2 ring-white/20' : 'bg-white/15 border-white/20 text-white hover:bg-white/25')} title={isEditing ? 'Sair de edição' : 'Editar'}>
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Property info */}
-          <div className="mt-auto">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {isEditing ? (
-                <select value={editData.status || property.status || 'pending_approval'} onChange={(e) => updateField('status', e.target.value)} className="text-[11px] font-bold rounded-full px-3 py-1 bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-1 focus:ring-white/40 appearance-none cursor-pointer">
-                  {Object.entries(PROPERTY_STATUS_OPTIONS).map(([k, v]) => (<option key={k} value={k} className="text-neutral-900">{v}</option>))}
-                </select>
-              ) : (
-                <StatusBadge status={property.status || 'pending_approval'} type="property" />
-              )}
-              {property.business_type && (
-                <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full', property.business_type === 'venda' ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : property.business_type === 'arrendamento' ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : 'bg-white/15 text-neutral-300 border border-white/20')}>
-                  {BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type}
-                </span>
-              )}
-              {isEditing ? (
-                <button
-                  type="button"
-                  onClick={() => updateField('show_on_website', !editData.show_on_website)}
-                  className={cn('text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border transition-colors', editData.show_on_website ? 'bg-emerald-500/30 text-emerald-200 border-emerald-400/30' : 'bg-white/10 text-neutral-400 border-white/15')}
-                >
-                  {editData.show_on_website ? 'No Website' : 'Oculto do Website'}
-                </button>
-              ) : (
-                (property as any).show_on_website === false && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-400/20">
-                    Oculto do Website
-                  </span>
-                )
-              )}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">{property.title}</h1>
-            {(property.city || property.zone || property.address_street) && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-neutral-300 text-sm">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                {[property.address_street, property.zone, property.city].filter(Boolean).join(', ')}
-              </div>
-            )}
-            <div className="flex items-center gap-2.5 mt-1.5">
-              {property.external_ref && (
-                <span className="text-sm font-mono font-bold text-white/70 tracking-wide mr-1">ID: {property.external_ref}</span>
-              )}
-              <div className="hidden sm:flex items-center gap-2">
-                {[
-                    { key: 'infinity', url: (property as any).link_portal_infinity || `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-black', hover: 'hover:bg-neutral-800', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-white"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l7.03-6.24c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z"/></svg>) },
-                    { key: 'remax', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-600', hover: 'hover:bg-blue-700', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#EF4444"/></svg>) },
-                    { key: 'idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-400', hover: 'hover:bg-yellow-300', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#000"/></svg>) },
-                    { key: 'imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-red-500', hover: 'hover:bg-red-600', icon: (<svg viewBox="0 0 24 24" className="h-3.5 w-3.5"><path d="M12 2L3 9v12h6v-7h6v7h6V9L12 2z" fill="#fff"/></svg>) },
-                  ].map((portal) => (
-                    <a
-                      key={portal.key}
-                      href={portal.url || '#'}
-                      target={portal.url ? '_blank' : undefined}
-                      rel="noopener noreferrer"
-                      onClick={(e) => { if (!portal.url) e.preventDefault() }}
-                      className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${portal.bg} ${portal.hover} transition-all ${portal.url ? 'opacity-100 shadow-md' : 'opacity-30 cursor-not-allowed'}`}
-                      title={portal.key.charAt(0).toUpperCase() + portal.key.slice(1)}
-                    >
-                      {portal.icon}
-                    </a>
-                  ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 sm:gap-5 mt-3 flex-wrap">
-              <HeroStat icon={Euro} value={formatCurrency(property.listing_price)} className="text-white font-bold text-lg" />
-              {specs?.typology && <HeroStat icon={Building2} value={specs.typology} />}
-              <span className="hidden sm:contents">
-                {specs?.bedrooms != null && <HeroStat icon={BedDouble} value={`${specs.bedrooms} quartos`} />}
-                {specs?.bathrooms != null && <HeroStat icon={Bath} value={`${specs.bathrooms} WC`} />}
-                {specs?.area_util && <HeroStat icon={Maximize} value={formatArea(specs.area_util)} />}
-                {(specs?.parking_spaces || specs?.garage_spaces) && <HeroStat icon={Car} value={`${(specs?.parking_spaces || 0) + (specs?.garage_spaces || 0)} lug.`} />}
-              </span>
-            </div>
-          </div>
-
-          {/* Tab selector — inside hero */}
-          <div className="flex items-center gap-1 p-1 mt-4 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 overflow-x-auto scrollbar-hide w-fit max-w-full">
+      {/* ═══════ UNIFIED LIGHT TOOLBAR (all tabs) ═══════ */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <button
+          onClick={() => router.push('/dashboard/imoveis')}
+          className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar
+        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isEditing && (
+            <>
+              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
+                <X className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </Button>
+            </>
+          )}
+          {activeTab !== 'apresentacao' && (
+            <Button
+              variant={isEditing ? 'default' : 'outline'}
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={() => (isEditing ? cancelEditing() : startEditing())}
+              title={isEditing ? 'Sair de edição' : 'Editar'}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {activeTab !== 'apresentacao' && !isEditing && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setDeleteStep(1)}
+              title="Eliminar imóvel"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full">
             {TABS.map((t) => {
               const Icon = t.icon
               return (
-                <button key={t.key} onClick={() => setActiveTab(t.key)} className={cn('inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300', activeTab === t.key ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-300 hover:text-white hover:bg-white/10')}>
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+                    activeTab === t.key
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-background',
+                  )}
+                >
                   <Icon className="h-3.5 w-3.5" />
                   {t.label}
                 </button>
@@ -586,6 +559,11 @@ export default function ImovelDetalhePage() {
       </div>
 
       {/* ═══════ TAB CONTENT ═══════ */}
+
+      {/* ─── Apresentação (display page) ─── */}
+      {activeTab === 'apresentacao' && (
+        <PropertyApresentacaoTab property={property} onOpenMedia={() => setActiveTab('media')} />
+      )}
 
       {/* ─── Resumo (includes specs + financeiro + location) ─── */}
       {activeTab === 'resumo' && (
@@ -718,92 +696,148 @@ export default function ImovelDetalhePage() {
         </div>
       )}
 
-      {/* ─── Media (includes description + portal links) ─── */}
+      {/* ─── Media (images/plantas tabs on left | portals + description on right) ─── */}
       {activeTab === 'media' && (
-        <div className="space-y-5 animate-in fade-in duration-300">
-          {/* Portal links + Gallery — same card */}
-          <div className="rounded-xl border bg-card shadow-sm p-5 space-y-5">
-            {isEditing ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-muted-foreground font-medium shrink-0">Idealista</span>
-                <input value={editData.url_idealista ?? ''} onChange={(e) => updateField('url_idealista', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-primary/30" />
-                <span className="text-[10px] text-muted-foreground font-medium shrink-0">Imovirtual</span>
-                <input value={editData.url_imovirtual ?? ''} onChange={(e) => updateField('url_imovirtual', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-primary/30" />
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
-                  { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
-                  { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
-                  { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
-                ].map(portal => (
-                  <a
-                    key={portal.label}
-                    href={portal.url || '#'}
-                    target={portal.url ? '_blank' : undefined}
-                    rel="noopener noreferrer"
+        <LayoutGroup id="media-tab">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start animate-in fade-in duration-300">
+            {/* Left: Imagens / Plantas tabs */}
+            <motion.div
+              layout
+              transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+              className={cn(
+                'rounded-xl border bg-card shadow-sm p-5 space-y-4',
+                descriptionExpanded ? 'lg:col-span-1' : 'lg:col-span-2'
+              )}
+            >
+              <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+                {([['imagens', 'Imagens'], ['plantas', 'Plantas']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setMediaSection(key)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
-                      portal.url
-                        ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
-                        : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'
+                      'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
+                      mediaSection === key
+                        ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     )}
-                    onClick={(e) => { if (!portal.url) e.preventDefault() }}
                   >
-                    <ExternalLink className="h-3 w-3" />
-                    {portal.label}
-                  </a>
+                    {label}
+                  </button>
                 ))}
               </div>
-            )}
 
-            <PropertyMediaGallery
-              propertyId={property.id}
-              media={(property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta')}
-              onMediaChange={refetch}
-            />
-
-            {/* Description — inside same card */}
-            <div className="space-y-2 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">Descrição</h3>
-                  {isEditing && (
-                    <PropertyDescriptionGenerator
-                      propertyId={property.id}
-                      property={property}
-                      existingDescription={property.description || ''}
-                      onUseDescription={async (desc) => {
-                        updateField('description', desc)
-                        try {
-                          await fetch(`/api/properties/${property.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ description: desc }),
-                          })
-                          await refetch()
-                        } catch {
-                          toast.error('Erro ao guardar descrição')
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-                <DescriptionContent
-                  text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
-                  editing={isEditing}
-                  onChange={(v) => updateField('description', v)}
+              {mediaSection === 'imagens' && (
+                <PropertyMediaGallery
+                  propertyId={property.id}
+                  media={(property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta' && m.media_type !== 'planta_3d')}
+                  onMediaChange={refetch}
+                  hideRoomLabels={descriptionExpanded}
                 />
-              </div>
+              )}
 
-            {/* Plantas */}
-            <PropertyPlantasSection
-              propertyId={property.id}
-              plantas={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta')}
-              onMediaChange={refetch}
-            />
+              {mediaSection === 'plantas' && (
+                <PropertyPlantasSection
+                  propertyId={property.id}
+                  plantas={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta')}
+                  renders3d={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta_3d')}
+                  onMediaChange={refetch}
+                />
+              )}
+            </motion.div>
+
+            {/* Right: Portal links + Description (same card) */}
+            <motion.div
+              layout
+              transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+              className={cn(
+                'rounded-xl border bg-card shadow-sm p-5 space-y-4 lg:sticky lg:top-4',
+                descriptionExpanded ? 'lg:col-span-2' : 'lg:col-span-1'
+              )}
+            >
+              {/* Portal links */}
+              {isEditing ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">Idealista</span>
+                  <input value={editData.url_idealista ?? ''} onChange={(e) => updateField('url_idealista', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">Imovirtual</span>
+                  <input value={editData.url_imovirtual ?? ''} onChange={(e) => updateField('url_imovirtual', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
+                    { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
+                    { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
+                    { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
+                  ].map(portal => (
+                    <a
+                      key={portal.label}
+                      href={portal.url || '#'}
+                      target={portal.url ? '_blank' : undefined}
+                      rel="noopener noreferrer"
+                      className={cn(
+                        'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
+                        portal.url
+                          ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
+                          : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'
+                      )}
+                      onClick={(e) => { if (!portal.url) e.preventDefault() }}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {portal.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* Description (read-only or expanded editor) */}
+              <div className="pt-4 border-t">
+                {descriptionExpanded ? (
+                  <PropertyDescriptionGenerator
+                    inline
+                    propertyId={property.id}
+                    property={property}
+                    existingDescription={property.description || ''}
+                    onClose={() => setDescriptionExpanded(false)}
+                    onUseDescription={async (desc) => {
+                      updateField('description', desc)
+                      try {
+                        await fetch(`/api/properties/${property.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ description: desc }),
+                        })
+                        await refetch()
+                      } catch {
+                        toast.error('Erro ao guardar descrição')
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold">Descrição</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDescriptionExpanded(true)}
+                        className="h-8 gap-1.5 text-xs"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                        Editar descrição
+                      </Button>
+                    </div>
+                    <DescriptionContent
+                      text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
+                      editing={isEditing}
+                      onChange={(v) => updateField('description', v)}
+                    />
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </div>
+        </LayoutGroup>
       )}
 
       {/* ─── Interessados (pipeline + visitas + propostas) ─── */}
@@ -1379,46 +1413,23 @@ export default function ImovelDetalhePage() {
 
           <div className="p-5 pt-4">
           {/* ══ Sub-tab: Angariação ══ */}
-          {processSubTab === 'angariacao' && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              {processesLoading ? (
-                <Skeleton className="h-32 w-full rounded-xl" />
-              ) : processes.filter((p) => p.process_type === 'angariacao').length > 0 ? (
-                processes.filter((p) => p.process_type === 'angariacao').map((proc) => {
-                  const typeInfo = proc.process_type ? PROCESS_TYPES[proc.process_type as keyof typeof PROCESS_TYPES] : null
-                  const percent = proc.percent_complete || 0
-                  return (
-                    <div key={proc.id} className="rounded-xl border bg-card shadow-sm p-5 cursor-pointer transition-all hover:shadow-md hover:border-primary/30" onClick={() => router.push(`/dashboard/processos/${proc.id}`)}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><ClipboardList className="h-4 w-4 text-primary" /></div>
-                          <div>
-                            <p className="font-semibold text-sm">{proc.external_ref || 'Sem referência'}</p>
-                            {typeInfo && <p className="text-xs text-muted-foreground">{typeInfo.label}</p>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={proc.current_status} type="process" />
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 mb-3">
-                        <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Progresso</span><span className="font-medium">{percent}%</span></div>
-                        <Progress value={percent} className="h-1.5" />
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                        {proc.tpl_processes?.name && <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{proc.tpl_processes.name}</span>}
-                        {proc.requested_by_user?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proc.requested_by_user.commercial_name}</span>}
-                        {proc.started_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(proc.started_at)}</span>}
-                      </div>
-                    </div>
-                  )
-                })
-              ) : (
-                <EmptySection icon={FolderOpen} message="Nenhum processo de angariação. Os processos serão criados quando o imóvel for submetido para aprovação." />
-              )}
-            </div>
-          )}
+          {processSubTab === 'angariacao' && (() => {
+            const angariacao = processes.find((p) => p.process_type === 'angariacao')
+            if (processesLoading) return <Skeleton className="h-64 w-full rounded-xl" />
+            if (!angariacao) {
+              return (
+                <EmptySection
+                  icon={FolderOpen}
+                  message="Nenhum processo de angariação. Os processos serão criados quando o imóvel for submetido para aprovação."
+                />
+              )
+            }
+            return (
+              <div className="animate-in fade-in duration-200">
+                <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} />
+              </div>
+            )
+          })()}
 
           {/* removed: visitas + propostas moved to Interessados tab */}
           {false && (
@@ -1540,107 +1551,125 @@ export default function ImovelDetalhePage() {
           {processSubTab === 'venda' && (() => {
             const negocioProcesses = processes.filter((p) => p.process_type === 'negocio')
             const draftDeals = deals.filter((d) => d.status === 'draft')
-            const totalCount = negocioProcesses.length + draftDeals.length
+            const ACTIVE_STATUSES = ['active', 'on_hold', 'pending_approval', 'returned']
+            const currentProcess = negocioProcesses.find((p) => ACTIVE_STATUSES.includes(p.current_status))
+            const historicalProcesses = negocioProcesses.filter((p) => !currentProcess || p.id !== currentProcess.id)
             const isLoadingVenda = processesLoading || dealsLoading
+            const hasAnything = !!currentProcess || historicalProcesses.length > 0 || draftDeals.length > 0
+
+            const formatDealType = (dealType?: string | null) => {
+              if (dealType === 'pleno') return 'Pleno'
+              if (dealType === 'comprador_externo') return 'Comprador Externo'
+              if (dealType === 'pleno_agencia') return 'Pleno de Agência'
+              if (dealType === 'angariacao_externa') return 'Angariação Externa'
+              return dealType || 'Negócio'
+            }
 
             return (
-              <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-6 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">{isLoadingVenda ? '...' : `${totalCount} processo${totalCount !== 1 ? 's' : ''}`}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isLoadingVenda ? '...' : currentProcess ? 'Processo activo' : 'Sem processo activo'}
+                  </p>
                   <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowFechoDialog(true)}>
                     <Plus className="h-3 w-3" /> Fecho de Negócio
                   </Button>
                 </div>
-                {isLoadingVenda ? (
-                  <Skeleton className="h-32 w-full rounded-xl" />
-                ) : totalCount > 0 ? (
-                  <>
-                    {/* Submitted+ processes (same card as angariação) */}
-                    {negocioProcesses.map((proc) => {
-                      const typeLabel = proc.deal_type === 'pleno' ? 'Pleno' : proc.deal_type === 'comprador_externo' ? 'Comprador Externo' : proc.deal_type === 'pleno_agencia' ? 'Pleno de Agência' : proc.deal_type === 'angariacao_externa' ? 'Angariação Externa' : 'Negócio'
-                      const percent = proc.percent_complete || 0
-                      return (
-                        <div key={proc.id} className="rounded-xl border bg-card shadow-sm p-5 cursor-pointer transition-all hover:shadow-md hover:border-primary/30" onClick={() => router.push(`/dashboard/processos/${proc.id}`)}>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10"><Briefcase className="h-4 w-4 text-emerald-600" /></div>
-                              <div>
-                                <p className="font-semibold text-sm">{proc.external_ref || 'Sem referência'}</p>
-                                <p className="text-xs text-muted-foreground">{typeLabel}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <StatusBadge status={proc.current_status} type="process" />
-                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                            </div>
-                          </div>
-                          <div className="space-y-1.5 mb-3">
-                            <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Progresso</span><span className="font-medium">{percent}%</span></div>
-                            <Progress value={percent} className="h-1.5" />
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                            {proc.tpl_processes?.name && <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{proc.tpl_processes.name}</span>}
-                            {proc.requested_by_user?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proc.requested_by_user.commercial_name}</span>}
-                            {proc.started_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(proc.started_at)}</span>}
-                          </div>
-                        </div>
-                      )
-                    })}
 
-                    {/* Draft deals (not yet submitted) */}
-                    {draftDeals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        className="rounded-xl border border-dashed bg-card shadow-sm p-5 cursor-pointer transition-all hover:shadow-md hover:border-primary/30"
-                        onClick={() => {
-                          setResumeDealId(deal.id)
-                          setShowFechoDialog(true)
-                        }}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500/10"><Briefcase className="h-4 w-4 text-slate-500" /></div>
-                            <div>
-                              <p className="font-semibold text-sm">Rascunho</p>
-                              {deal.deal_type && <p className="text-xs text-muted-foreground">{deal.deal_type === 'pleno' ? 'Pleno' : deal.deal_type === 'comprador_externo' ? 'Comprador Externo' : deal.deal_type === 'pleno_agencia' ? 'Pleno de Agência' : deal.deal_type === 'angariacao_externa' ? 'Angariação Externa' : deal.deal_type}</p>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-slate-500/15 text-slate-700">Rascunho</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                if (!confirm('Eliminar este rascunho?')) return
-                                try {
-                                  await fetch(`/api/deals/${deal.id}`, { method: 'DELETE' })
-                                  toast.success('Rascunho eliminado')
-                                  fetchDeals()
-                                } catch {
-                                  toast.error('Erro ao eliminar')
-                                }
+                {isLoadingVenda ? (
+                  <Skeleton className="h-64 w-full rounded-xl" />
+                ) : !hasAnything ? (
+                  <EmptySection icon={Briefcase} message="Sem processos de negócio. Clique em 'Fecho de Negócio' para iniciar." />
+                ) : (
+                  <>
+                    {currentProcess && (
+                      <ProcessPipelinePanel processId={currentProcess.id} onProcessChange={fetchProcesses} />
+                    )}
+
+                    {(historicalProcesses.length > 0 || draftDeals.length > 0) && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Histórico</p>
+                        <div className="space-y-2">
+                          {historicalProcesses.map((proc) => {
+                            const percent = proc.percent_complete || 0
+                            return (
+                              <div
+                                key={proc.id}
+                                className="rounded-lg border bg-muted/30 p-3 cursor-pointer transition-all hover:bg-muted/60 hover:border-primary/30"
+                                onClick={() => router.push(`/dashboard/processos/${proc.id}`)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                                    <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-xs font-semibold truncate">{proc.external_ref || 'Sem referência'}</p>
+                                      <StatusBadge status={proc.current_status} type="process" />
+                                      <span className="text-[10px] text-muted-foreground">{formatDealType(proc.deal_type)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                                      {proc.started_at && (
+                                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(proc.started_at)}</span>
+                                      )}
+                                      <span>{percent}% concluído</span>
+                                    </div>
+                                  </div>
+                                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                </div>
+                              </div>
+                            )
+                          })}
+
+                          {draftDeals.map((deal) => (
+                            <div
+                              key={deal.id}
+                              className="rounded-lg border border-dashed bg-muted/30 p-3 cursor-pointer transition-all hover:bg-muted/60 hover:border-primary/30"
+                              onClick={() => {
+                                setResumeDealId(deal.id)
+                                setShowFechoDialog(true)
                               }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5 mb-3">
-                          <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Progresso</span><span className="font-medium">Rascunho</span></div>
-                          <Progress value={0} className="h-1.5" />
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                          {deal.deal_value > 0 && <span className="font-medium text-foreground">{formatCurrency(Number(deal.deal_value))}</span>}
-                          {deal.business_type && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{deal.business_type === 'venda' ? 'Venda' : deal.business_type === 'arrendamento' ? 'Arrendamento' : 'Trespasse'}</span>}
-                          {deal.consultant?.commercial_name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{deal.consultant.commercial_name}</span>}
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-500/10">
+                                  <Briefcase className="h-3.5 w-3.5 text-slate-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-xs font-semibold">Rascunho</p>
+                                    <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-slate-500/15 text-slate-700">Rascunho</span>
+                                    {deal.deal_type && <span className="text-[10px] text-muted-foreground">{formatDealType(deal.deal_type)}</span>}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                                    {deal.deal_value > 0 && <span className="font-medium text-foreground">{formatCurrency(Number(deal.deal_value))}</span>}
+                                    {deal.business_type && <span>{deal.business_type === 'venda' ? 'Venda' : deal.business_type === 'arrendamento' ? 'Arrendamento' : 'Trespasse'}</span>}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!confirm('Eliminar este rascunho?')) return
+                                    try {
+                                      await fetch(`/api/deals/${deal.id}`, { method: 'DELETE' })
+                                      toast.success('Rascunho eliminado')
+                                      fetchDeals()
+                                    } catch {
+                                      toast.error('Erro ao eliminar')
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </>
-                ) : (
-                  <EmptySection icon={Briefcase} message="Sem processos de negócio. Clique em 'Fecho de Negócio' para iniciar." />
                 )}
               </div>
             )
@@ -1728,6 +1757,69 @@ export default function ImovelDetalhePage() {
           setResumeDealId(null)
         }}
       />
+
+      {/* ═══════ DELETE CONFIRMATIONS (two-step) ═══════ */}
+      <AlertDialog open={deleteStep === 1} onOpenChange={(o) => !o && setDeleteStep(0)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar imóvel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar este imóvel?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); setDeleteStep(2) }}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteStep === 2} onOpenChange={(o) => !o && !isDeleting && setDeleteStep(0)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              Tem mesmo a certeza?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Esta acção é <strong>permanente e irreversível</strong>. Não é possível
+                  recuperar o imóvel após eliminação.
+                </p>
+                <p>Serão eliminados, em cascata:</p>
+                <ul className="list-disc pl-5 text-sm space-y-0.5">
+                  <li>Todas as imagens, plantas e renders 3D</li>
+                  <li>Documentos associados ao imóvel</li>
+                  <li>Especificações e dados internos</li>
+                  <li>Ligações a proprietários</li>
+                  <li>Processos, visitas e propostas relacionadas</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={isDeleting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDeleteProperty() }}
+              disabled={isDeleting}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />A eliminar…</>
+              ) : (
+                'Eliminar permanentemente'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -1840,8 +1932,8 @@ function DescriptionCard({ text, editing, onChange }: { text: string; editing?: 
 function HeroStat({ icon: Icon, value, className }: { icon: React.ElementType; value: string; className?: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <Icon className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-      <span className={cn('text-sm text-neutral-200', className)}>{value}</span>
+      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <span className={cn('text-sm text-foreground', className)}>{value}</span>
     </div>
   )
 }

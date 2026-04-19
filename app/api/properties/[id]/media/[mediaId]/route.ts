@@ -55,13 +55,13 @@ export async function DELETE(
     const auth = await requirePermission('properties')
     if (!auth.authorized) return auth.response
 
-    const { mediaId } = await params
+    const { id, mediaId } = await params
     const supabase = await createClient()
 
     // Get the media record to extract the R2 key
     const { data: media, error: fetchError } = await supabase
       .from('dev_property_media')
-      .select('url')
+      .select('url, is_cover, media_type')
       .eq('id', mediaId)
       .single()
 
@@ -94,6 +94,28 @@ export async function DELETE(
         { error: 'Erro ao eliminar imagem', details: error.message },
         { status: 500 }
       )
+    }
+
+    // If we just removed the cover from a gallery image, promote the next one
+    const wasGalleryCover =
+      media.is_cover &&
+      media.media_type !== 'planta' &&
+      media.media_type !== 'planta_3d'
+    if (wasGalleryCover) {
+      const { data: next } = await supabase
+        .from('dev_property_media')
+        .select('id')
+        .eq('property_id', id)
+        .not('media_type', 'in', '("planta","planta_3d")')
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (next?.id) {
+        await supabase
+          .from('dev_property_media')
+          .update({ is_cover: true })
+          .eq('id', next.id)
+      }
     }
 
     return NextResponse.json({ ok: true })

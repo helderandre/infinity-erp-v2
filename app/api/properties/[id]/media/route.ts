@@ -24,7 +24,21 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    const rows = data || []
+    const gallery = rows.filter(
+      (m) => m.media_type !== 'planta' && m.media_type !== 'planta_3d'
+    )
+    if (gallery.length > 0 && !gallery.some((m) => m.is_cover)) {
+      const first = gallery[0]
+      await supabase
+        .from('dev_property_media')
+        .update({ is_cover: true })
+        .eq('id', first.id)
+      const idx = rows.findIndex((m) => m.id === first.id)
+      if (idx !== -1) rows[idx] = { ...rows[idx], is_cover: true }
+    }
+
+    return NextResponse.json(rows)
   } catch (error) {
     console.error('Erro ao listar media:', error)
     return NextResponse.json(
@@ -93,6 +107,21 @@ export async function POST(
 
     const nextOrder = maxOrderData?.order_index != null ? maxOrderData.order_index + 1 : 0
 
+    // If this is a regular gallery image and no cover exists yet, auto-promote it
+    let finalIsCover = isCover
+    if (!finalIsCover && mediaType !== 'planta' && mediaType !== 'planta_3d') {
+      const { data: existingCover } = await supabase
+        .from('dev_property_media')
+        .select('id')
+        .eq('property_id', id)
+        .eq('is_cover', true)
+        .not('media_type', 'in', '("planta","planta_3d")')
+        .limit(1)
+      if (!existingCover || existingCover.length === 0) {
+        finalIsCover = true
+      }
+    }
+
     const { data: media, error } = await supabase
       .from('dev_property_media')
       .insert({
@@ -100,7 +129,7 @@ export async function POST(
         url,
         media_type: mediaType,
         order_index: nextOrder,
-        is_cover: isCover,
+        is_cover: finalIsCover,
       })
       .select()
       .single()
