@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { GeneratePresentationDialog } from '@/components/apresentacao/generate-presentation-dialog'
 import { BookingLinkDialog } from '@/components/booking/booking-link-dialog'
+import { SharePropertyButton } from '@/components/properties/share-property-button'
 import { FileDown } from 'lucide-react'
 import {
   BedDouble,
@@ -24,7 +25,6 @@ import {
   MapPin,
   Phone,
   Mail,
-  Share2,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
@@ -182,9 +182,11 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
       <div className="flex items-center justify-center lg:justify-between">
         <h1 className="hidden lg:block text-xl sm:text-2xl font-bold tracking-tight">Apresentação</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" title="Partilhar">
-            <Share2 className="h-4 w-4" />
-          </Button>
+          <SharePropertyButton
+            propertyId={property.id}
+            propertySlug={property.slug ?? null}
+            propertyTitle={property.title ?? ''}
+          />
           <ViewOnlinePopover property={property} />
           <BookingLinkDialog
             propertyId={property.id}
