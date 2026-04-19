@@ -183,13 +183,11 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
 
         {/* Description */}
         {has('descricao') && property.description && (
-          <div className="px-10 py-4 border-t border-neutral-200 flex-1">
+          <div className="px-10 py-4 border-t border-neutral-200 flex-1 overflow-hidden">
             <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
               Sobre este imóvel
             </div>
-            <p className="text-[12px] leading-relaxed text-neutral-700 whitespace-pre-wrap line-clamp-[14]">
-              {property.description}
-            </p>
+            <RichDescriptionFicha text={property.description} />
           </div>
         )}
 
@@ -342,6 +340,32 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
         </div>
       </section>
     </div>
+  )
+}
+
+function RichDescriptionFicha({ text }: { text: string }) {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const hasHtml = /<(strong|br|p|ul|li|em|b|i)[\s>/]/i.test(text)
+  let html = hasHtml ? text : escape(text)
+  html = html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+  const len = text.length
+  const sizeClass =
+    len < 400
+      ? 'text-[13px] leading-[1.55]'
+      : len < 900
+        ? 'text-[12px] leading-[1.5]'
+        : len < 1500
+          ? 'text-[11px] leading-[1.45]'
+          : 'text-[10px] leading-[1.4]'
+  return (
+    <div
+      className={`text-neutral-700 ${sizeClass} [&_strong]:text-neutral-900 [&_strong]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-0.5`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   )
 }
 

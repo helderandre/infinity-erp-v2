@@ -63,10 +63,11 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
   if (has('cover')) activeSlides.push({ key: 'cover', label: 'Capa' })
   if (has('resumo')) activeSlides.push({ key: 'resumo', label: 'Resumo' })
   if (has('descricao') && property.description) activeSlides.push({ key: 'descricao', label: 'Descrição' })
-  if (has('galeria') && images.length > 0) {
-    // Chunk images into groups of 6 per slide
-    const chunks = Math.ceil(images.length / 6)
-    for (let i = 0; i < chunks; i++) {
+  // Cap gallery to at most 2 slides of 6 images (12 images total)
+  const galleryImages = images.slice(0, 12)
+  const galleryChunks = Math.ceil(galleryImages.length / 6)
+  if (has('galeria') && galleryImages.length > 0) {
+    for (let i = 0; i < galleryChunks; i++) {
       activeSlides.push({ key: `galeria-${i}`, label: `Galeria ${i + 1}` })
     }
   }
@@ -295,9 +296,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             Sobre este imóvel
           </h2>
           <div className="flex-1 overflow-hidden">
-            <p className="text-lg leading-relaxed text-neutral-700 whitespace-pre-wrap line-clamp-[14]">
-              {property.description}
-            </p>
+            <RichDescription text={property.description} />
           </div>
           <div className="pt-6 text-xs text-neutral-500 tracking-wider uppercase">
             Infinity Group · {property.external_ref || ''}
@@ -305,27 +304,27 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
         </section>
       )}
 
-      {/* Galeria — chunks of 6 */}
+      {/* Galeria — up to 2 slides of 6 */}
       {has('galeria') &&
-        Array.from({ length: Math.ceil(images.length / 6) }).map((_, chunkIdx) => {
-          const chunk = images.slice(chunkIdx * 6, chunkIdx * 6 + 6)
+        Array.from({ length: galleryChunks }).map((_, chunkIdx) => {
+          const chunk = galleryImages.slice(chunkIdx * 6, chunkIdx * 6 + 6)
           return (
             <section
               key={`galeria-${chunkIdx}`}
               id={`slide-galeria-${chunkIdx}`}
               className="slide flex flex-col bg-neutral-50 px-14 py-12"
             >
-              <div className="flex items-end justify-between mb-6">
-                <div>
+              <div className="flex items-start justify-between gap-6 mb-6">
+                <div className="flex-1 min-w-0">
                   <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-2">
                     Galeria
                   </div>
-                  <h2 className="serif text-4xl font-medium text-neutral-900">
+                  <h2 className="serif text-3xl font-medium text-neutral-900 leading-tight line-clamp-2">
                     {property.title}
                   </h2>
                 </div>
-                <div className="text-xs tracking-[0.2em] uppercase text-neutral-500">
-                  {chunkIdx + 1} / {Math.ceil(images.length / 6)}
+                <div className="text-xs tracking-[0.2em] uppercase text-neutral-500 shrink-0 whitespace-nowrap pt-2">
+                  {chunkIdx + 1} / {galleryChunks}
                 </div>
               </div>
 
@@ -590,6 +589,37 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
         </section>
       )}
     </div>
+  )
+}
+
+function renderRichHtml(text: string) {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const hasHtml = /<(strong|br|p|ul|li|em|b|i)[\s>/]/i.test(text)
+  let html = hasHtml ? text : escape(text)
+  html = html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+  return html
+}
+
+function RichDescription({ text }: { text: string }) {
+  const len = text.length
+  // Auto-size based on length so it fits a single 720px slide without overflow.
+  const sizeClass =
+    len < 400
+      ? 'text-[22px] leading-[1.55]'
+      : len < 900
+        ? 'text-[18px] leading-[1.55]'
+        : len < 1500
+          ? 'text-[15px] leading-[1.5]'
+          : 'text-[13px] leading-[1.5]'
+  return (
+    <div
+      className={`text-neutral-700 ${sizeClass} [&_strong]:text-neutral-900 [&_strong]:font-semibold [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1`}
+      dangerouslySetInnerHTML={{ __html: renderRichHtml(text) }}
+    />
   )
 }
 

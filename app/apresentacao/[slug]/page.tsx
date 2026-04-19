@@ -1,8 +1,21 @@
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PresentationView } from '@/components/apresentacao/presentation-view'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const admin = createAdminClient()
+  const r = await admin
+    .from('dev_properties')
+    .select('title')
+    .or(`slug.eq.${slug},id.eq.${slug}`)
+    .maybeSingle()
+  const title = (r.data as any)?.title
+  return { title: title ? `${title} — Infinity Group` : 'Apresentação — Infinity Group' }
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>
