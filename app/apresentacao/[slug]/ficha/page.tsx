@@ -32,7 +32,7 @@ async function fetchPropertyBySlugOrId(slug: string) {
       dev_property_specifications(*),
       dev_property_internal(*),
       dev_property_media(*),
-      consultant:dev_users!dev_properties_consultant_id_fkey(
+      consultant:dev_users!consultant_id(
         id, commercial_name, professional_email,
         dev_consultant_profiles(profile_photo_url, phone_commercial)
       )

@@ -47,12 +47,18 @@ export async function POST(
     }
 
     const slugOrId = property.slug || property.id
-    const origin =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (() => {
-        const url = new URL(request.url)
-        return `${url.protocol}//${url.host}`
-      })()
+    const origin = (() => {
+      if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+      const h = request.headers
+      const proto = h.get('x-forwarded-proto') || 'https'
+      const host = h.get('x-forwarded-host') || h.get('host')
+      if (host && !host.startsWith('0.0.0.0') && !host.startsWith('127.0.0.1')) {
+        return `${proto}://${host}`
+      }
+      // Last resort — the original request URL
+      const url = new URL(request.url)
+      return `${url.protocol}//${url.host}`
+    })()
 
     // Internal URL used by Puppeteer to render the pages. In production we
     // hit the same container via 127.0.0.1 to skip DNS / TLS.
