@@ -121,9 +121,12 @@ export function useWhatsAppInstances() {
   )
 
   const deleteInstance = useCallback(
-    async (instanceId: string) => {
-      await postAction("delete", { instance_id: instanceId })
+    async (instanceId: string): Promise<{ unboundFlowsCount: number }> => {
+      const res = await postAction("delete", { instance_id: instanceId })
       await fetchInstances()
+      return {
+        unboundFlowsCount: typeof res?.unboundFlowsCount === "number" ? res.unboundFlowsCount : 0,
+      }
     },
     [fetchInstances]
   )

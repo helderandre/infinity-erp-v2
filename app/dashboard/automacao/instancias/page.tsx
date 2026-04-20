@@ -166,8 +166,14 @@ function InstanciasContent() {
     setDeleteId(null)
     await withCardLoading(id, async () => {
       try {
-        await deleteInstance(id)
+        const { unboundFlowsCount } = await deleteInstance(id)
         toast.success("Instância eliminada com sucesso")
+        if (unboundFlowsCount > 0) {
+          toast.info(
+            `${unboundFlowsCount} fluxo${unboundFlowsCount > 1 ? "s desvinculados" : " desvinculado"} — escolhe a nova instância no editor do fluxo.`,
+            { duration: 6000 },
+          )
+        }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao eliminar instância")
       }

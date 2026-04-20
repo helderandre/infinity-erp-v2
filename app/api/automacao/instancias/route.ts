@@ -618,18 +618,22 @@ async function handleDelete(
     return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 })
   }
 
-  // Verificar se há fluxos vinculados
-  const { count } = await supabase
+  // Desvincular fluxos antes de eliminar — assim o utilizador pode depois
+  // religar cada fluxo a uma nova instância no editor do fluxo.
+  const { data: unboundRows, error: unbindError } = await supabase
     .from("auto_flows")
-    .select("id", { count: "exact", head: true })
+    .update({ wpp_instance_id: null, updated_at: new Date().toISOString() })
     .eq("wpp_instance_id", instance_id)
+    .select("id")
 
-  if (count && count > 0) {
+  if (unbindError) {
     return NextResponse.json(
-      { error: `Não é possível eliminar: ${count} fluxo(s) vinculado(s) a esta instância` },
-      { status: 409 }
+      { error: "Erro ao desvincular fluxos da instância" },
+      { status: 500 }
     )
   }
+
+  const unboundCount = unboundRows?.length ?? 0
 
   // Remover da Uazapi (ignorar erro se já não existir)
   await fetchUazapi("/instance", {
@@ -647,7 +651,7 @@ async function handleDelete(
     return NextResponse.json({ error: "Erro ao eliminar instância" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, unboundFlowsCount: unboundCount })
 }
 
 async function handleRename(

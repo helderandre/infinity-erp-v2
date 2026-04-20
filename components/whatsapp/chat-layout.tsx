@@ -92,8 +92,10 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
   }, [refetchInstances])
 
   const handleDeleteInstance = useCallback(async (id: string) => {
+    let unboundFlowsCount = 0
     try {
-      await postAction('delete', { instance_id: id })
+      const res = await postAction('delete', { instance_id: id })
+      unboundFlowsCount = typeof res?.unboundFlowsCount === 'number' ? res.unboundFlowsCount : 0
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao eliminar instância')
       throw err
@@ -104,6 +106,12 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
       setSelectedChatId(null)
     }
     toast.success('Instância eliminada com sucesso')
+    if (unboundFlowsCount > 0) {
+      toast.info(
+        `${unboundFlowsCount} fluxo${unboundFlowsCount > 1 ? 's desvinculados' : ' desvinculado'} — escolhe a nova instância no editor do fluxo.`,
+        { duration: 6000 },
+      )
+    }
   }, [refetchInstances, selectedInstance])
 
   const handleCreateInstance = useCallback(async (params: { name: string; user_id?: string }) => {
