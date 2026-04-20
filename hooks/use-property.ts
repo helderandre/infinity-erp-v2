@@ -1,19 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { PropertyDetail } from '@/types/property'
 
 interface UsePropertyReturn {
   property: PropertyDetail | null
   isLoading: boolean
+  isRefreshing: boolean
   error: string | null
-  refetch: () => void
+  refetch: () => Promise<void>
 }
 
 export function useProperty(id: string | undefined): UsePropertyReturn {
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hasLoadedOnceRef = useRef(false)
 
   const fetchProperty = useCallback(async () => {
     if (!id) {
@@ -21,7 +24,13 @@ export function useProperty(id: string | undefined): UsePropertyReturn {
       return
     }
 
-    setIsLoading(true)
+    // Only show full loading state on the very first load.
+    // Subsequent refetches update the data silently (no skeleton).
+    if (!hasLoadedOnceRef.current) {
+      setIsLoading(true)
+    } else {
+      setIsRefreshing(true)
+    }
     setError(null)
     try {
       const res = await fetch(`/api/properties/${id}`)
@@ -32,12 +41,17 @@ export function useProperty(id: string | undefined): UsePropertyReturn {
 
       const data = await res.json()
       setProperty(data)
+      hasLoadedOnceRef.current = true
     } catch (err) {
       console.error('Erro ao carregar imóvel:', err)
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
-      setProperty(null)
+      // Don't wipe property on refetch errors — keep stale data visible
+      if (!hasLoadedOnceRef.current) {
+        setProperty(null)
+      }
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }, [id])
 
@@ -45,5 +59,5 @@ export function useProperty(id: string | undefined): UsePropertyReturn {
     fetchProperty()
   }, [fetchProperty])
 
-  return { property, isLoading, error, refetch: fetchProperty }
+  return { property, isLoading, isRefreshing, error, refetch: fetchProperty }
 }

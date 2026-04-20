@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Activity, Ban, Kanban, LayoutGrid, Plus, Target } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import { ProcessFocusView } from '@/components/processes/process-focus-view'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
@@ -49,9 +54,11 @@ interface ProcessPipelinePanelProps {
   processId: string
   className?: string
   onProcessChange?: () => void
+  /** Optional DOM slot to portal the right-side toolbar (view picker + filters + add) into. */
+  toolbarElement?: HTMLElement | null
 }
 
-export function ProcessPipelinePanel({ processId, className, onProcessChange }: ProcessPipelinePanelProps) {
+export function ProcessPipelinePanel({ processId, className, onProcessChange, toolbarElement }: ProcessPipelinePanelProps) {
   const { user } = useUser()
 
   const [process, setProcess] = useState<any>(null)
@@ -63,6 +70,9 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterAssignee, setFilterAssignee] = useState<string>('all')
   const [filterRole, setFilterRole] = useState<string>('all')
+  const [focusStageId, setFocusStageId] = useState<string | null>(null)
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null)
+  const manualTaskIdRef = useRef<string | null>(null)
 
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
   const [bypassTask, setBypassTask] = useState<ProcessTask | null>(null)
@@ -261,7 +271,7 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [process?.stages])
 
-  const { filteredStages, assignees, roles, progressPercent, totalTasks } = useMemo(() => {
+  const { filteredStages, assignees, roles, progressPercent, totalTasks, completedTasks } = useMemo(() => {
     if (!process?.stages) {
       return {
         filteredStages: [] as ProcessStageWithTasks[],
@@ -269,6 +279,7 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
         roles: [] as string[],
         progressPercent: 0,
         totalTasks: 0,
+        completedTasks: 0,
       }
     }
     const allTasks: ProcessTask[] = process.stages.flatMap((s: ProcessStageWithTasks) => s.tasks)
@@ -276,11 +287,13 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
     const roleSet = new Set<string>()
     let total = 0
     let completedWeight = 0
+    let completedFull = 0
     for (const t of allTasks) {
       total++
       const isComplete = t.status === 'completed' || t.status === 'skipped'
       if (isComplete) {
         completedWeight++
+        completedFull++
       } else if (t.subtasks && t.subtasks.length > 0) {
         const done = t.subtasks.filter((s) => s.is_completed).length
         completedWeight += done / t.subtasks.length
@@ -306,6 +319,7 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
       roles: Array.from(roleSet).sort(),
       progressPercent: total > 0 ? Math.round((completedWeight / total) * 100) : 0,
       totalTasks: total,
+      completedTasks: completedFull,
     }
   }, [process?.stages, filterStatus, filterPriority, filterAssignee, filterRole])
 
@@ -317,6 +331,86 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
     ADHOC_TASK_ROLES.includes(user.role.name as any) &&
     !!instance &&
     ['active', 'on_hold'].includes(instance.current_status)
+
+  // Sorted stages (by order_index) for stage dropdown + default-stage resolution
+  const sortedStages = useMemo(
+    () => [...filteredStages].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+    [filteredStages],
+  )
+
+  const resolvedStageId = useMemo(() => {
+    if (sortedStages.length === 0) return null
+    if (focusStageId && sortedStages.some((s) => s.id === focusStageId)) return focusStageId
+    // Auto-pick: first stage with a pending task, else first future stage, else last
+    const current = sortedStages.find((s) => s.tasks.some((t) => t.status !== 'completed' && t.status !== 'skipped'))
+    if (current) return current.id
+    return sortedStages[sortedStages.length - 1].id
+  }, [sortedStages, focusStageId])
+
+  const focusStage = resolvedStageId
+    ? sortedStages.find((s) => s.id === resolvedStageId) ?? null
+    : null
+
+  // Sorted tasks within the selected stage (for task pills + card pair)
+  const sortedTasks = useMemo(
+    () =>
+      focusStage
+        ? [...focusStage.tasks].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        : [],
+    [focusStage],
+  )
+
+  const resolvedTaskId = useMemo(() => {
+    if (sortedTasks.length === 0) return null
+    if (focusTaskId && sortedTasks.some((t) => t.id === focusTaskId)) return focusTaskId
+    const firstPending = sortedTasks.find((t) => t.status !== 'completed' && t.status !== 'skipped')
+    return firstPending?.id ?? sortedTasks[0].id
+  }, [sortedTasks, focusTaskId])
+
+  const focusTask = resolvedTaskId
+    ? sortedTasks.find((t) => t.id === resolvedTaskId) ?? null
+    : null
+
+  // The task that represents the stage's current completion point — the first
+  // non-completed task. This is what gets the "you are here" pulse in the picker,
+  // independent of whichever task the user is currently viewing.
+  const completionTaskId = useMemo(() => {
+    if (sortedTasks.length === 0) return null
+    const firstPending = sortedTasks.find((t) => t.status !== 'completed' && t.status !== 'skipped')
+    return firstPending?.id ?? null
+  }, [sortedTasks])
+
+  // Reset task selection when stage changes
+  useEffect(() => {
+    setFocusTaskId(null)
+    manualTaskIdRef.current = null
+  }, [resolvedStageId])
+
+  // Auto-advance: if the currently selected task just completed AND user hadn't manually picked it,
+  // move to the next pending task in the same stage.
+  useEffect(() => {
+    if (!focusTask || !sortedTasks.length) return
+    const isDone = focusTask.status === 'completed' || focusTask.status === 'skipped'
+    if (isDone && manualTaskIdRef.current !== focusTask.id) {
+      const nextPending = sortedTasks.find(
+        (t) => t.status !== 'completed' && t.status !== 'skipped',
+      )
+      if (nextPending && nextPending.id !== focusTask.id) {
+        setFocusTaskId(nextPending.id)
+      }
+    }
+  }, [focusTask, sortedTasks])
+
+  const handleFocusTaskChange = useCallback((id: string) => {
+    manualTaskIdRef.current = id
+    setFocusTaskId(id)
+  }, [])
+
+  const activeFiltersCount =
+    (filterStatus !== 'all' ? 1 : 0) +
+    (filterPriority !== 'all' ? 1 : 0) +
+    (filterAssignee !== 'all' ? 1 : 0) +
+    (filterRole !== 'all' ? 1 : 0)
 
   if (isLoading && !process) {
     return (
@@ -341,9 +435,249 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
     )
   }
 
+  // ── Right cluster: View picker + Filtros + Plus ─────────────────────
+  // Extracted so it can either render inline (default) or be portaled into a
+  // parent-provided slot (e.g. the imóveis page sub-tab row).
+  const rightToolbar = (
+    <>
+      <ToggleGroup
+        type="single"
+        value={viewMode}
+        onValueChange={(v) => v && setViewMode(v as ViewMode)}
+        variant="outline"
+        size="sm"
+      >
+        <ToggleGroupItem value="foco" aria-label="Vista Foco">
+          <Target className="h-4 w-4" />
+          <span className="hidden sm:inline">Foco</span>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
+          <LayoutGrid className="h-4 w-4" />
+          <span className="hidden sm:inline">Kanban</span>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
+          <Activity className="h-4 w-4" />
+          <span className="hidden sm:inline">Timeline</span>
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full px-3">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filtros</span>
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary" className="h-4 min-w-4 px-1 rounded-full text-[9px]">
+                {activeFiltersCount}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" sideOffset={8} className="w-[280px] p-3 space-y-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Estado</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Prioridade</Label>
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as prioridades</SelectItem>
+                {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Responsável</Label>
+            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {assignees.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {roles.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Papel</Label>
+              <Select value={filterRole} onValueChange={setFilterRole}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Papel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os papéis</SelectItem>
+                  {roles.map((role) => {
+                    const rc = getRoleBadgeColors(role)
+                    return (
+                      <SelectItem key={role} value={role}>
+                        <span className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
+                          {role}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs h-7"
+              onClick={() => {
+                setFilterStatus('all')
+                setFilterPriority('all')
+                setFilterAssignee('all')
+                setFilterRole('all')
+              }}
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+      {canCreateAdhoc && (
+        <Button
+          size="icon"
+          variant="default"
+          className="h-8 w-8 rounded-full"
+          onClick={() => {
+            setAdhocPreselectedStage(undefined)
+            setAdhocTaskSheetOpen(true)
+          }}
+          title="Nova Tarefa"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div className={cn('space-y-4', className)}>
-      {totalTasks > 0 && (
+      {/* Right toolbar: portal into parent-provided slot when available, else render inline */}
+      {toolbarElement
+        ? createPortal(rightToolbar, toolbarElement)
+        : null}
+
+      {/* ── Controls row (above progress bar) ──────────────────────── */}
+      {(viewMode === 'foco' && focusStage) || !toolbarElement ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Stage selector + task pills — only when Foco view is active */}
+          {viewMode === 'foco' && focusStage && (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-muted transition-colors"
+                  >
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-primary-foreground px-1.5 text-[10px] font-bold">
+                      {String(sortedStages.findIndex((s) => s.id === focusStage.id) + 1).padStart(2, '0')}
+                    </span>
+                    <span className="truncate max-w-[260px]">{focusStage.name}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[320px]">
+                  <DropdownMenuLabel className="text-[11px] text-muted-foreground">Fases</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {sortedStages.map((stage, i) => {
+                    const done = stage.tasks_completed
+                    const total = stage.tasks_total
+                    const isDone = total > 0 && done === total
+                    const isCurrent = stage.is_current || stage.tasks.some((t) => t.status !== 'completed' && t.status !== 'skipped')
+                    return (
+                      <DropdownMenuItem
+                        key={stage.id}
+                        onClick={() => setFocusStageId(stage.id)}
+                        className={cn('flex items-start gap-2 py-2', stage.id === focusStage.id && 'bg-accent')}
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                            isDone && 'bg-emerald-500/15 text-emerald-700',
+                            !isDone && isCurrent && 'bg-primary text-primary-foreground',
+                            !isDone && !isCurrent && 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{stage.name}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {isDone ? 'Concluída' : isCurrent ? 'Em curso' : 'Por iniciar'}
+                            {total > 0 && ` · ${done}/${total}`}
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Task pills — now on the right side of the stage row */}
+              {sortedTasks.length > 1 && (
+                <div className="ml-auto flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-3 -my-2">
+                  {sortedTasks.map((task, i) => {
+                    const isDone = task.status === 'completed' || task.status === 'skipped'
+                    const isSelected = focusTask?.id === task.id
+                    const isCompletionCurrent = task.id === completionTaskId
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => handleFocusTaskChange(task.id)}
+                        title={task.title}
+                        className={cn(
+                          'inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold tabular-nums transition-all',
+                          isSelected
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm dark:bg-white dark:text-neutral-900 dark:border-white'
+                            : isDone
+                              ? 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
+                              : 'bg-card text-foreground border-border hover:border-primary/40',
+                          isCompletionCurrent && 'animate-focus-step-pulse',
+                        )}
+                        aria-current={isSelected ? 'step' : undefined}
+                      >
+                        {String(i + 1).padStart(2, '0')}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Inline-fallback right toolbar: only when no parent slot provided */}
+          {!toolbarElement && (
+            <div className="ml-auto flex items-center gap-2">{rightToolbar}</div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Progress bar — shown at panel root for Kanban/Timeline; inside the Foco left card otherwise */}
+      {totalTasks > 0 && viewMode !== 'foco' && (
         <div className="flex items-center gap-3">
           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
@@ -360,120 +694,12 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange }: 
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <MobileFilterSheet
-          activeCount={
-            (filterStatus !== 'all' ? 1 : 0) +
-            (filterPriority !== 'all' ? 1 : 0) +
-            (filterAssignee !== 'all' ? 1 : 0) +
-            (filterRole !== 'all' ? 1 : 0)
-          }
-        >
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os estados</SelectItem>
-              {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
-              <SelectValue placeholder="Prioridade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as prioridades</SelectItem>
-              {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-            <SelectTrigger className="w-[170px] h-8 rounded-full text-xs">
-              <SelectValue placeholder="Responsável" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {assignees.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {roles.length > 0 && (
-            <Select value={filterRole} onValueChange={setFilterRole}>
-              <SelectTrigger className="w-[180px] h-8 rounded-full text-xs">
-                <SelectValue placeholder="Papel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os papéis</SelectItem>
-                {roles.map((role) => {
-                  const rc = getRoleBadgeColors(role)
-                  return (
-                    <SelectItem key={role} value={role}>
-                      <span className="flex items-center gap-2">
-                        <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
-                        {role}
-                      </span>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          )}
-        </MobileFilterSheet>
-
-        <div className="ml-auto flex items-center gap-2">
-          {canCreateAdhoc && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setAdhocPreselectedStage(undefined)
-                setAdhocTaskSheetOpen(true)
-              }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Nova Tarefa
-            </Button>
-          )}
-          <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(v) => v && setViewMode(v as ViewMode)}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="foco" aria-label="Vista Foco">
-              <Target className="h-4 w-4" />
-              Foco
-            </ToggleGroupItem>
-            <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
-              <LayoutGrid className="h-4 w-4" />
-              Kanban
-            </ToggleGroupItem>
-            <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
-              <Activity className="h-4 w-4" />
-              Timeline
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </div>
-
       {viewMode === 'foco' ? (
         <ProcessFocusView
-          stages={filteredStages}
+          stage={focusStage}
+          tasks={sortedTasks}
+          activeTaskId={focusTask?.id ?? null}
+          onTaskChange={handleFocusTaskChange}
           instance={instance}
           property={instance.property}
           owners={process.owners}

@@ -21,9 +21,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import {
   Camera, Eye, EyeOff, Globe, Instagram, Linkedin, Loader2,
-  Lock, MapPin, Save, User, Users,
+  Lock, MapPin, Save, User, Users, CalendarClock,
 } from 'lucide-react'
 import type { ConsultantDetail } from '@/types/consultant'
+import { ConsultantAvailabilityPanel } from '@/components/booking/consultant-availability-panel'
 
 // ─── Schemas ────────────────────────────────────────────────
 
@@ -190,7 +191,7 @@ export default function PerfilPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="geral" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="geral" className="gap-1.5 text-xs">
             <User className="h-3.5 w-3.5" /> Geral
           </TabsTrigger>
@@ -203,8 +204,11 @@ export default function PerfilPage() {
           <TabsTrigger value="social" className="gap-1.5 text-xs">
             <Globe className="h-3.5 w-3.5" /> Redes
           </TabsTrigger>
+          <TabsTrigger value="disponibilidade" className="gap-1.5 text-xs">
+            <CalendarClock className="h-3.5 w-3.5" /> Disponibilidade
+          </TabsTrigger>
           <TabsTrigger value="seguranca" className="gap-1.5 text-xs">
-            <Lock className="h-3.5 w-3.5" /> Seguranca
+            <Lock className="h-3.5 w-3.5" /> Segurança
           </TabsTrigger>
         </TabsList>
 
@@ -265,6 +269,10 @@ export default function PerfilPage() {
             }}
             onSaved={fetchProfile}
           />
+        </TabsContent>
+
+        <TabsContent value="disponibilidade">
+          <ConsultantAvailabilityPanel />
         </TabsContent>
 
         <TabsContent value="seguranca">

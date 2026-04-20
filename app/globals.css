@@ -219,6 +219,47 @@
   animation: fadeInUp 0.3s ease-out forwards;
 }
 
+/* Radar-style ripples around the currently-selected step pill in the Foco picker */
+.animate-focus-step-pulse {
+  position: relative;
+}
+.animate-focus-step-pulse::before,
+.animate-focus-step-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.6);
+  animation: focus-step-ripple 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.animate-focus-step-pulse::after {
+  animation-delay: 0.9s;
+}
+
+@keyframes focus-step-ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 6px rgba(0, 0, 0, 0);
+  }
+}
+
+.dark .animate-focus-step-pulse::before,
+.dark .animate-focus-step-pulse::after {
+  animation-name: focus-step-ripple-dark;
+}
+
+@keyframes focus-step-ripple-dark {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+}
+
 /* craft.js editor — component selection indicator */
 .component-selected {
   outline: 2px solid color-mix(in oklch, var(--primary) 40%, transparent);

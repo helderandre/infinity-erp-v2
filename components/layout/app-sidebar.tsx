@@ -78,6 +78,7 @@ export const crmItems = [
 export const negocioItems = [
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
+  { title: 'Negócios', icon: Briefcase, href: '/dashboard/negocios', permission: 'leads' },
 ]
 
 export const infinityItems = [
@@ -357,7 +358,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user } = useUser()
-  const { hasPermission } = usePermissions()
+  const { hasPermission, isBroker } = usePermissions()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -456,7 +457,7 @@ export function AppSidebar() {
           items={negocioItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos']}
+          pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos', '/dashboard/negocios']}
         />
 
         {/* 6. Financeiro */}
@@ -493,8 +494,8 @@ export function AppSidebar() {
           />
         )}
 
-        {/* 9. Builder */}
-        {hasPermission('settings' as any) && (
+        {/* 9. Builder — admin only (Broker/CEO) */}
+        {isBroker() && (
           <CollapsibleGroup
             label="Builder"
             icon={Blocks}

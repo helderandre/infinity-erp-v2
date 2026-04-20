@@ -111,7 +111,7 @@ export async function GET(request: Request) {
         .select(`
           id, title, due_date, status, priority, assigned_to, stage_name,
           stage_order_index, order_index, completed_at, created_at, proc_instance_id,
-          proc_instances!inner(id, external_ref, current_status, deleted_at, property_id,
+          proc_instances!inner(id, external_ref, current_status, deleted_at, property_id, process_type, negocio_id,
             dev_properties(id, title)
           ),
           assignee:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
           id, title, due_date, is_completed, priority, assigned_to,
           completed_at, created_at, proc_task_id,
           proc_tasks!inner(id, title, stage_name, stage_order_index, proc_instance_id,
-            proc_instances!inner(id, external_ref, current_status, deleted_at, property_id,
+            proc_instances!inner(id, external_ref, current_status, deleted_at, property_id, process_type, negocio_id,
               dev_properties(id, title)
             )
           ),
@@ -254,6 +254,8 @@ export async function GET(request: Request) {
         source: 'proc_task',
         process_id: proc?.id || null,
         process_ref: proc?.external_ref || null,
+        process_type: proc?.process_type || null,
+        negocio_id: proc?.negocio_id || null,
         stage_name: pt.stage_name || null,
         property_id: property?.id || null,
         property_title: property?.title || null,
@@ -290,6 +292,8 @@ export async function GET(request: Request) {
         source: 'proc_subtask',
         process_id: proc?.id || null,
         process_ref: proc?.external_ref || null,
+        process_type: proc?.process_type || null,
+        negocio_id: proc?.negocio_id || null,
         stage_name: parent?.stage_name || null,
         property_id: property?.id || null,
         property_title: property?.title || null,

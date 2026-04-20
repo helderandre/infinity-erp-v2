@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -6,15 +7,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-    const supabase = await createClient() as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (await createClient()) as any
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-    const { data, error } = await supabase
+    const { id } = await params
+    // Use admin client to avoid RLS filtering out proposals / cross-agent visits
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createAdminClient() as any
+
+    const { data, error } = await admin
       .from('visits')
       .select(`
         *,
         consultant:dev_users!visits_consultant_id_fkey(id, commercial_name),
-        lead:leads(id, name, nome, email, phone_primary, telemovel)
+        lead:leads(id, nome, email, telemovel)
       `)
       .eq('property_id', id)
       .order('visit_date', { ascending: false })
@@ -39,12 +47,14 @@ export async function POST(
     if (authError || !user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
     const body = await request.json()
+    const admin = createAdminClient() as any
 
-    const { data, error } = await supabase
+    const { data, error } = await admin
       .from('visits')
       .insert({
         property_id: id,
         consultant_id: body.consultant_id || user.id,
+        seller_consultant_id: body.seller_consultant_id || body.consultant_id || user.id,
         lead_id: body.lead_id || null,
         visit_date: body.visit_date,
         visit_time: body.visit_time || null,

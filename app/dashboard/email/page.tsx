@@ -8,6 +8,7 @@ import { MessageList } from '@/components/email/inbox/message-list'
 import { MessageView } from '@/components/email/inbox/message-view'
 import { ConversationView } from '@/components/email/inbox/conversation-view'
 import { ComposeEmailDialog } from '@/components/email/compose-email-dialog'
+import { useEmailComposer } from '@/hooks/use-email-composer'
 import type { EmailThread } from '@/lib/email/thread-grouping'
 import {
   ResizablePanelGroup,
@@ -41,6 +42,12 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   PenSquare,
   Mail,
   Settings,
@@ -48,6 +55,8 @@ import {
   Folder,
   Users,
   Menu,
+  ChevronDown,
+  Wand2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -74,10 +83,12 @@ export default function EmailInboxPage() {
   // Thread state
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null)
 
-  // Compose state
+  // Advanced (Craft.js) compose state — retained as a secondary entry point
   const [composeOpen, setComposeOpen] = useState(false)
   const [replyTo, setReplyTo] = useState<FullMessage | null>(null)
   const [forwardMsg, setForwardMsg] = useState<FullMessage | null>(null)
+
+  const { openComposer } = useEmailComposer()
 
   // Mobile: show message view when a message is selected
   const [mobileView, setMobileView] = useState<'list' | 'message'>('list')
@@ -113,18 +124,35 @@ export default function EmailInboxPage() {
   }
 
   function handleReply(msg: FullMessage) {
-    setReplyTo(msg)
-    setForwardMsg(null)
-    setComposeOpen(true)
+    openComposer({
+      replyTo: msg,
+      accountId: selectedAccountId,
+      senderEmail: selectedAccount?.email_address,
+      senderName: selectedAccount?.display_name,
+      onSent: inbox.refresh,
+    })
   }
 
   function handleForward(msg: FullMessage) {
-    setForwardMsg(msg)
-    setReplyTo(null)
-    setComposeOpen(true)
+    openComposer({
+      forwardMessage: msg,
+      accountId: selectedAccountId,
+      senderEmail: selectedAccount?.email_address,
+      senderName: selectedAccount?.display_name,
+      onSent: inbox.refresh,
+    })
   }
 
   function handleNewEmail() {
+    openComposer({
+      accountId: selectedAccountId,
+      senderEmail: selectedAccount?.email_address,
+      senderName: selectedAccount?.display_name,
+      onSent: inbox.refresh,
+    })
+  }
+
+  function handleNewEmailAdvanced() {
     setReplyTo(null)
     setForwardMsg(null)
     setComposeOpen(true)
@@ -410,10 +438,35 @@ export default function EmailInboxPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleNewEmail} disabled={!selectedAccount}>
-                <PenSquare className="h-4 w-4 mr-1.5" />
-                Novo Email
-              </Button>
+              <div className="inline-flex shadow-sm">
+                <Button
+                  size="sm"
+                  onClick={handleNewEmail}
+                  disabled={!selectedAccount}
+                  className="rounded-r-none"
+                >
+                  <PenSquare className="h-4 w-4 mr-1.5" />
+                  Novo Email
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      disabled={!selectedAccount}
+                      className="rounded-l-none border-l border-primary-foreground/20 px-2"
+                      aria-label="Mais opções de composição"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleNewEmailAdvanced}>
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Modo avançado (templates)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                 <Link href="/dashboard/definicoes/email">
                   <Settings className="h-4 w-4" />

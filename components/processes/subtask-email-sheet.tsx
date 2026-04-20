@@ -24,9 +24,10 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { EmailToolbox } from '@/components/email-editor/email-toolbox'
+import { EmailToolboxPopover } from '@/components/email-editor/email-toolbox-popover'
 import { EmailSettingsPanel } from '@/components/email-editor/email-settings-panel'
 import { EmailLayer } from '@/components/email-editor/email-layer'
+import { useEmailComposer } from '@/hooks/use-email-composer'
 import {
   Mail,
   CheckCircle2,
@@ -137,6 +138,7 @@ interface EditorCanvasProps {
   onMarkAsSent: (p: SavePayload) => Promise<void>
   onSendEmail: (p: SavePayload) => void
   onResetTemplate?: () => void
+  onSwitchToSimpleComposer: (bodyHtml: string) => void
   isSaving: boolean
   isCompleting: boolean
   isResettingTemplate: boolean
@@ -178,6 +180,7 @@ function EditorCanvas({
   onMarkAsSent,
   onSendEmail,
   onResetTemplate,
+  onSwitchToSimpleComposer,
   isSaving,
   isCompleting,
   isResettingTemplate,
@@ -247,28 +250,53 @@ function EditorCanvas({
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Edit layout — always mounted to preserve Craft.js state */}
-        <div className={cn('flex flex-1 overflow-hidden', activeTab !== 'edit' && 'hidden')}>
-          <EmailToolbox />
-          <div className="flex-1 overflow-auto bg-muted/30 p-6">
-            <div className="mx-auto" style={{ maxWidth: 620 }}>
-              <Frame data={loadedEditorState}>
-                <Element
-                  is={EmailContainer}
-                  canvas
-                  padding={24}
-                  background="#ffffff"
-                  width="100%"
-                  direction="column"
-                  align="stretch"
-                  justify="flex-start"
-                  gap={8}
-                >
-                  <EmailText html="Edite o seu template aqui" />
-                </Element>
-              </Frame>
-            </div>
+        <div className={cn('flex flex-1 overflow-hidden flex-col', activeTab !== 'edit' && 'hidden')}>
+          {/* Edit toolbar: compact Inserir popover + switch to simple composer */}
+          <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-muted/20 shrink-0">
+            <EmailToolboxPopover />
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              Arraste o bloco para o corpo do email
+            </span>
+            {!isCompleted && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-7 text-xs"
+                onClick={() => {
+                  const state = query.serialize()
+                  const html = wrapEmailHtml(renderEmailToHtml(state, {}))
+                  onSwitchToSimpleComposer(html)
+                }}
+              >
+                <Pen className="h-3.5 w-3.5 mr-1.5" />
+                Usar composer simples
+              </Button>
+            )}
           </div>
-          <RightSidebar />
+
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 overflow-auto bg-muted/30 p-6">
+              <div className="mx-auto" style={{ maxWidth: 620 }}>
+                <Frame data={loadedEditorState}>
+                  <Element
+                    is={EmailContainer}
+                    canvas
+                    padding={24}
+                    background="#ffffff"
+                    width="100%"
+                    direction="column"
+                    align="stretch"
+                    justify="flex-start"
+                    gap={8}
+                  >
+                    <EmailText html="Edite o seu template aqui" />
+                  </Element>
+                </Frame>
+              </div>
+            </div>
+            <RightSidebar />
+          </div>
         </div>
 
         {/* Preview */}
@@ -689,6 +717,25 @@ export function SubtaskEmailSheet({
     setEmailDialogOpen(true)
   }
 
+  const { openComposer } = useEmailComposer()
+
+  const handleSwitchToSimpleComposer = useCallback(
+    (bodyHtml: string) => {
+      openComposer({
+        accountId: emailAccount?.id,
+        senderEmail: emailAccount?.email_address,
+        senderName: emailAccount?.display_name ?? undefined,
+        initialTo: ownerEmail,
+        initialSubject: subject,
+        initialBodyHtml: bodyHtml,
+        // Template HTML already carries its own closing + signature.
+        omitSignature: true,
+      })
+      onOpenChange(false)
+    },
+    [openComposer, emailAccount, ownerEmail, subject, onOpenChange]
+  )
+
   const handleConfirmSend = async () => {
     if (!pendingPayload || !emailAccount) return
     setIsSendingEmail(true)
@@ -782,8 +829,7 @@ export function SubtaskEmailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="flex flex-col p-0"
-        style={{ position: 'fixed', inset: 0, width: '100vw', maxWidth: '100vw', height: '100dvh' }}
+        className="flex flex-col p-0 gap-0 w-[95vw] sm:max-w-[1100px]"
         side="right"
       >
         {/* Header */}
@@ -873,6 +919,7 @@ export function SubtaskEmailSheet({
                   onMarkAsSent={handleMarkAsSent}
                   onSendEmail={handleInitiateSend}
                   onResetTemplate={handleResetTemplate}
+                  onSwitchToSimpleComposer={handleSwitchToSimpleComposer}
                   isSaving={isSaving}
                   isCompleting={isCompleting}
                   isResettingTemplate={isResettingTemplate}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { MessageSquare, X, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,12 @@ interface FloatingChatProps {
 export function FloatingChat({ processId, currentUser, onEntityClick }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  // Mount flag so we only render the portal client-side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Track unread messages when chat is closed
   useEffect(() => {
@@ -56,12 +63,14 @@ export function FloatingChat({ processId, currentUser, onEntityClick }: Floating
     setIsOpen(false)
   }, [])
 
-  return (
+  if (!mounted) return null
+
+  const overlay = (
     <>
       {/* Chat Panel */}
       <div
         className={cn(
-          'fixed bottom-28 sm:bottom-20 right-4 left-4 z-40 sm:left-auto sm:w-[600px] rounded-2xl border bg-background shadow-2xl transition-all duration-300 ease-out',
+          'fixed bottom-24 right-4 left-4 z-50 sm:left-auto sm:w-[600px] sm:right-6 sm:bottom-24 rounded-2xl border bg-background shadow-2xl transition-all duration-300 ease-out',
           isOpen
             ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
             : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
@@ -102,7 +111,7 @@ export function FloatingChat({ processId, currentUser, onEntityClick }: Floating
       <button
         onClick={handleToggle}
         className={cn(
-          'fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40 flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
+          'fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
           'h-14 w-14 bg-primary text-primary-foreground hover:bg-primary/90',
           isOpen && 'bg-muted text-muted-foreground hover:bg-muted/90'
         )}
@@ -123,4 +132,6 @@ export function FloatingChat({ processId, currentUser, onEntityClick }: Floating
       </button>
     </>
   )
+
+  return createPortal(overlay, document.body)
 }

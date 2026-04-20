@@ -245,3 +245,50 @@ export function calculateCurrentStages(
 
   return currentStages
 }
+
+/**
+ * Resolves the best-matching active template for a given process context.
+ *
+ * Today: picks the single active template whose `process_type` matches.
+ * Future hook points: branch by `business_type` / `deal_type` / property scenario
+ * once per-scenario templates are seeded. Keep the scoring in one place so the
+ * approval UI can stay simple.
+ */
+export interface ResolveTemplateInput {
+  process_type: string
+  business_type?: string | null
+  deal_type?: string | null
+}
+
+export interface ResolvedTemplate {
+  id: string
+  name: string
+}
+
+export type ResolveTemplateResult =
+  | { ok: true; template: ResolvedTemplate }
+  | { ok: false; reason: 'no_candidates' | 'ambiguous'; candidates: ResolvedTemplate[] }
+
+export async function resolveTemplate(
+  // Accept any Supabase client (server, admin, or browser)
+  supabase: { from: (t: string) => any },
+  input: ResolveTemplateInput,
+): Promise<ResolveTemplateResult> {
+  const { data, error } = await supabase
+    .from('tpl_processes')
+    .select('id, name, is_active, process_type')
+    .eq('is_active', true)
+    .is('deleted_at', null)
+
+  if (error) throw error
+
+  const candidates = (data ?? [])
+    .filter((t: any) => !input.process_type || t.process_type === input.process_type)
+    .map((t: any) => ({ id: t.id as string, name: t.name as string }))
+
+  if (candidates.length === 0) return { ok: false, reason: 'no_candidates', candidates: [] }
+  if (candidates.length === 1) return { ok: true, template: candidates[0] }
+
+  // Multiple matches — can't auto-pick safely. Caller should surface picker (admin only).
+  return { ok: false, reason: 'ambiguous', candidates }
+}

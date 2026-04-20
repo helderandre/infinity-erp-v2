@@ -81,11 +81,24 @@ export default function ConsultorDetalhePage() {
   const [analyzingContract, setAnalyzingContract] = useState(false)
   const [contractAnalysis, setContractAnalysis] = useState<Record<string, any> | null>(null)
   const [localContractUrl, setLocalContractUrl] = useState<string | null>(null)
+
+  const [goodbyeValue, setGoodbyeValue] = useState('')
+  const [goodbyeSaving, setGoodbyeSaving] = useState(false)
+  const [goodbyeDirty, setGoodbyeDirty] = useState(false)
   const contractFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/libraries/roles').then(r => r.ok ? r.json() : []).then(d => setRoles(d || [])).catch(() => {})
   }, [])
+
+  // Sync goodbye textarea from loaded profile
+  useEffect(() => {
+    if (!consultant || goodbyeDirty) return
+    const stored =
+      (consultant.dev_consultant_profiles as { email_signature_goodbye?: string | null } | null)
+        ?.email_signature_goodbye ?? ''
+    setGoodbyeValue(stored)
+  }, [consultant, goodbyeDirty])
 
   // Populate draft when entering edit mode
   const enterEdit = () => {
@@ -1054,7 +1067,66 @@ export default function ConsultorDetalhePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-sm">Assinatura de Email</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Imagem utilizada como assinatura nos templates de email</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Texto de despedida e imagem utilizados nos emails enviados a partir do ERP</p>
+                  </div>
+                </div>
+
+                {/* Despedida (goodbye) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Despedida</label>
+                    {goodbyeDirty && (
+                      <span className="text-[10px] text-muted-foreground">Alterações não guardadas</span>
+                    )}
+                  </div>
+                  <Textarea
+                    value={goodbyeValue}
+                    onChange={(e) => {
+                      setGoodbyeValue(e.target.value)
+                      setGoodbyeDirty(true)
+                    }}
+                    placeholder="Com os melhores cumprimentos,"
+                    rows={3}
+                    className="resize-y text-sm"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-muted-foreground">
+                      Deixe vazio para usar o texto predefinido &ldquo;Com os melhores cumprimentos,&rdquo;
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full text-xs h-7"
+                      disabled={!goodbyeDirty || goodbyeSaving}
+                      onClick={async () => {
+                        setGoodbyeSaving(true)
+                        try {
+                          const res = await fetch(`/api/consultants/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              profile: {
+                                email_signature_goodbye: goodbyeValue.trim() ? goodbyeValue : null,
+                              },
+                            }),
+                          })
+                          if (!res.ok) {
+                            const err = await res.json().catch(() => null)
+                            throw new Error(err?.error || 'Erro ao guardar')
+                          }
+                          toast.success('Despedida guardada')
+                          setGoodbyeDirty(false)
+                          refetch()
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Erro ao guardar')
+                        } finally {
+                          setGoodbyeSaving(false)
+                        }
+                      }}
+                    >
+                      {goodbyeSaving ? 'A guardar…' : 'Guardar'}
+                    </Button>
                   </div>
                 </div>
 

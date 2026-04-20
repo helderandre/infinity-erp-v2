@@ -1,136 +1,58 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Mail, Eye, RotateCcw, Send, Edit } from 'lucide-react'
-import { cn, formatDateTime } from '@/lib/utils'
-import { EMAIL_STATUS_CONFIG } from '@/lib/constants'
-import { SubtaskCardBase, type CardState } from './subtask-card-base'
+import { CheckCircle2, Lock, Mail } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ProcSubtask } from '@/types/subtask'
 import type { LogEmail } from '@/types/process'
 
-const EMAIL_STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Mail,
-  // Dynamic icons loaded from EMAIL_STATUS_CONFIG
-}
-
 interface SubtaskCardEmailProps {
   subtask: ProcSubtask
-  ownerEmail: string
-  emails: LogEmail[]
+  // Kept for interface compatibility with SubtaskCardList — no longer rendered inline.
+  ownerEmail?: string
+  emails?: LogEmail[]
   onOpenSheet: (subtask: ProcSubtask) => void
-  onRevert: (subtaskId: string) => void
-  onResend: (subtask: ProcSubtask) => void
-  onResetTemplate: (subtaskId: string) => void
+  onRevert?: (subtaskId: string) => void
+  onResend?: (subtask: ProcSubtask) => void
+  onResetTemplate?: (subtaskId: string) => void
 }
 
-export function SubtaskCardEmail({
-  subtask, ownerEmail, emails, onOpenSheet, onRevert, onResend, onResetTemplate,
-}: SubtaskCardEmailProps) {
+/**
+ * Minimal, fully-clickable row. The entire row is the affordance — no inline
+ * "Ver email" button. All email details (subject, recipients, template,
+ * delivery status, resend/revert actions) live in the sheet opened on click.
+ */
+export function SubtaskCardEmail({ subtask, onOpenSheet }: SubtaskCardEmailProps) {
   const isBlocked = !!(subtask as any).is_blocked
-  const hasRendered = !!(subtask.config as Record<string, unknown>).rendered
-  const rendered = (subtask.config as Record<string, unknown>).rendered as Record<string, string> | undefined
-
-  const state: CardState = subtask.is_completed ? 'completed' : hasRendered ? 'draft' : 'pending'
-
-  // Email status from log_emails
-  const emailLog = emails.find(e => e.proc_subtask_id === subtask.id)
-  const emailStatus = emailLog?.last_event
-  const statusConfig = emailStatus ? EMAIL_STATUS_CONFIG[emailStatus] : null
+  const isCompleted = subtask.is_completed
 
   return (
-    <SubtaskCardBase
-      subtask={subtask}
-      state={state}
-      icon={<Mail className={cn('h-4 w-4', state === 'completed' ? 'text-emerald-500' : 'text-amber-500')} />}
-      typeLabel="Email"
+    <button
+      type="button"
+      onClick={() => onOpenSheet(subtask)}
+      disabled={isBlocked}
+      className={cn(
+        'group w-full flex items-center gap-3 py-1 text-left transition-colors',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+      )}
     >
-      <div className="space-y-2 text-xs">
-        {/* Preview info */}
-        {(rendered?.subject || ownerEmail) && (
-          <div className="space-y-0.5 text-muted-foreground">
-            {ownerEmail && <p>Para: <span className="font-medium text-foreground">{ownerEmail}</span></p>}
-            {rendered?.subject && <p>Assunto: <span className="font-medium text-foreground">{rendered.subject}</span></p>}
-          </div>
+      <div
+        className={cn(
+          'flex h-8 w-8 items-center justify-center rounded-full shrink-0 transition-colors',
+          isBlocked
+            ? 'bg-muted text-muted-foreground'
+            : isCompleted
+              ? 'bg-emerald-500/15 text-emerald-500 dark:text-emerald-400'
+              : 'bg-amber-500/15 text-amber-500 dark:text-amber-400',
         )}
-
-        {/* Email status badge */}
-        {subtask.is_completed && statusConfig && (
-          <div className="flex items-center gap-1.5">
-            <Badge
-              variant={statusConfig.badgeVariant || 'secondary'}
-              className="gap-0.5 text-[10px] px-1.5 py-0"
-            >
-              <span className={cn('h-2.5 w-2.5', statusConfig.color)}>●</span>
-              {statusConfig.label}
-            </Badge>
-            {subtask.completed_at && (
-              <span className="text-muted-foreground">{formatDateTime(subtask.completed_at)}</span>
-            )}
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-1.5">
-          {!subtask.is_completed && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-full"
-                onClick={() => onOpenSheet(subtask)}
-                disabled={isBlocked}
-              >
-                <Edit className="mr-1 h-3 w-3" />
-                {hasRendered ? 'Continuar Edição' : 'Editar Email'}
-              </Button>
-              {hasRendered && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
-                  onClick={() => onResetTemplate(subtask.id)}
-                >
-                  <RotateCcw className="mr-1 h-3 w-3" />
-                  Resetar Template
-                </Button>
-              )}
-            </>
-          )}
-
-          {subtask.is_completed && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-full"
-                onClick={() => onOpenSheet(subtask)}
-              >
-                <Eye className="mr-1 h-3 w-3" />
-                Ver Email
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-full"
-                onClick={() => onResend(subtask)}
-              >
-                <Send className="mr-1 h-3 w-3" />
-                Reenviar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-orange-600 hover:text-orange-700 rounded-full"
-                onClick={() => onRevert(subtask.id)}
-              >
-                <RotateCcw className="mr-1 h-3 w-3" />
-                Reverter
-              </Button>
-            </>
-          )}
-        </div>
+      >
+        {isBlocked ? <Lock className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
       </div>
-    </SubtaskCardBase>
+      <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground truncate transition-colors">
+        Email
+      </span>
+      {isCompleted && (
+        <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
+      )}
+    </button>
   )
 }

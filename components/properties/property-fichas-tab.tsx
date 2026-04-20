@@ -20,11 +20,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
+
+type FichasSubTab = 'dashboard' | 'fichas' | 'recomendacoes'
 
 interface PropertyFichasTabProps {
   propertyId: string
   propertySlug: string | null
   listingPrice: number | null
+  // If provided, the internal sub-tab switcher is hidden and ONLY the listed sections are rendered (stacked in order).
+  forcedSubTabs?: FichasSubTab[]
 }
 
 const SOURCE_LABELS: Record<string, { label: string; icon: typeof Globe }> = {
@@ -33,7 +40,9 @@ const SOURCE_LABELS: Record<string, { label: string; icon: typeof Globe }> = {
   manual: { label: 'Manual', icon: PenLine },
 }
 
-export function PropertyFichasTab({ propertyId, propertySlug, listingPrice }: PropertyFichasTabProps) {
+export function PropertyFichasTab({ propertyId, propertySlug, listingPrice, forcedSubTabs }: PropertyFichasTabProps) {
+  const isForced = !!forcedSubTabs && forcedSubTabs.length > 0
+  const shouldShow = (tab: FichasSubTab) => isForced ? forcedSubTabs!.includes(tab) : true
   const [fichas, setFichas] = useState<VisitFicha[]>([])
   const [stats, setStats] = useState<FichaDashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -43,7 +52,7 @@ export function PropertyFichasTab({ propertyId, propertySlug, listingPrice }: Pr
   const [scanFiles, setScanFiles] = useState<File[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [expandedFicha, setExpandedFicha] = useState<string | null>(null)
+  const [sheetFichaId, setSheetFichaId] = useState<string | null>(null)
   const [subTab, setSubTab] = useState<'dashboard' | 'fichas' | 'recomendacoes'>('dashboard')
 
   const fetchData = useCallback(async () => {
@@ -151,8 +160,8 @@ export function PropertyFichasTab({ propertyId, propertySlug, listingPrice }: Pr
         </div>
       ) : (
         <>
-          {/* Sub-tabs */}
-          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+          {/* Sub-tabs (hidden when forcedSubTabs is in use) */}
+          {!isForced && <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
             {([
               { key: 'dashboard' as const, label: 'Dashboard', icon: BarChart3, badge: null },
               { key: 'fichas' as const, label: 'Fichas', icon: FileText, badge: totalFichas },
@@ -173,10 +182,10 @@ export function PropertyFichasTab({ propertyId, propertySlug, listingPrice }: Pr
                 </button>
               )
             })}
-          </div>
+          </div>}
 
           {/* ─── Dashboard Sub-tab ─── */}
-          {subTab === 'dashboard' && (
+          {(isForced ? shouldShow('dashboard') : subTab === 'dashboard') && (
             <div className="space-y-5 animate-in fade-in duration-300">
               {/* KPI Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -267,110 +276,173 @@ export function PropertyFichasTab({ propertyId, propertySlug, listingPrice }: Pr
           )}
 
           {/* ─── Fichas Individuais Sub-tab ─── */}
-          {subTab === 'fichas' && (
-            <div className="space-y-3 animate-in fade-in duration-300">
-              {fichas.map((ficha, idx) => {
-                const isExpanded = expandedFicha === ficha.id
-                const sourceInfo = SOURCE_LABELS[ficha.source] || SOURCE_LABELS.manual
-                const SourceIcon = sourceInfo.icon
-
-                return (
-                  <div
-                    key={ficha.id}
-                    className="rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden transition-all hover:shadow-sm animate-in fade-in slide-in-from-bottom-2"
-                    style={{ animationDelay: `${idx * 30}ms`, animationFillMode: 'backwards' }}
-                  >
-                    {/* Header row */}
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-left" onClick={() => setExpandedFicha(isExpanded ? null : ficha.id)}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold truncate">{ficha.client_name || 'Anónimo'}</p>
-                          <Badge variant="secondary" className="rounded-full text-[9px] px-1.5 gap-1 shrink-0">
-                            <SourceIcon className="h-2.5 w-2.5" />
-                            {sourceInfo.label}
-                          </Badge>
+          {(isForced ? shouldShow('fichas') : subTab === 'fichas') && (
+            <>
+              <div className="space-y-2 animate-in fade-in duration-300">
+                {fichas.map((ficha, idx) => {
+                  const sourceInfo = SOURCE_LABELS[ficha.source] || SOURCE_LABELS.manual
+                  const SourceIcon = sourceInfo.icon
+                  return (
+                    <button
+                      key={ficha.id}
+                      onClick={() => setSheetFichaId(ficha.id)}
+                      className="w-full rounded-xl border bg-card/50 backdrop-blur-sm hover:bg-muted/40 hover:shadow-sm transition-all text-left animate-in fade-in slide-in-from-bottom-2"
+                      style={{ animationDelay: `${idx * 30}ms`, animationFillMode: 'backwards' }}
+                    >
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold truncate">{ficha.client_name || 'Anónimo'}</p>
+                            <Badge variant="secondary" className="rounded-full text-[9px] px-1.5 gap-1 shrink-0">
+                              <SourceIcon className="h-2.5 w-2.5" />
+                              {sourceInfo.label}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {ficha.visit_date ? format(new Date(ficha.visit_date), "d 'de' MMMM yyyy", { locale: pt }) : 'Sem data'}
+                            {ficha.visit_time && ` às ${ficha.visit_time.slice(0, 5)}`}
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {ficha.visit_date ? format(new Date(ficha.visit_date), "d 'de' MMMM yyyy", { locale: pt }) : 'Sem data'}
-                          {ficha.visit_time && ` às ${ficha.visit_time.slice(0, 5)}`}
-                        </p>
+                        {ficha.rating_overall && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            <span className="text-sm font-bold tabular-nums">{ficha.rating_overall}</span>
+                          </div>
+                        )}
                       </div>
-                      {ficha.rating_overall && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-sm font-bold tabular-nums">{ficha.rating_overall}</span>
-                        </div>
-                      )}
-                      {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </button>
+                  )
+                })}
+              </div>
 
-                    {/* Expanded detail */}
-                    {isExpanded && (
-                      <div className="border-t px-4 py-4 space-y-4 animate-in fade-in duration-200">
-                        {/* Ratings */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {RATING_FIELDS.map((field) => {
-                            const val = ficha[field.key as keyof VisitFicha] as number | null
-                            if (!val) return null
-                            return (
-                              <div key={field.key} className="rounded-lg bg-muted/30 p-2 text-center">
-                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{field.label}</p>
-                                <div className="flex justify-center mt-1">
-                                  {[1, 2, 3, 4, 5].map((s) => (
-                                    <Star key={s} className={cn('h-3 w-3', s <= val ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/15')} />
-                                  ))}
-                                </div>
-                              </div>
-                            )
-                          })}
+              {/* Ficha detail Sheet */}
+              <Sheet open={!!sheetFichaId} onOpenChange={(o) => !o && setSheetFichaId(null)}>
+                <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+                  {(() => {
+                    const ficha = fichas.find((f) => f.id === sheetFichaId)
+                    if (!ficha) return null
+                    const sourceInfo = SOURCE_LABELS[ficha.source] || SOURCE_LABELS.manual
+                    const SourceIcon = sourceInfo.icon
+                    return (
+                      <>
+                        <div className="px-6 py-5 border-b bg-muted/20 shrink-0">
+                          <SheetHeader className="space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <SheetTitle className="text-lg">{ficha.client_name || 'Anónimo'}</SheetTitle>
+                              <Badge variant="secondary" className="rounded-full text-[10px] gap-1">
+                                <SourceIcon className="h-2.5 w-2.5" />
+                                {sourceInfo.label}
+                              </Badge>
+                              {ficha.rating_overall && (
+                                <span className="inline-flex items-center gap-1 ml-auto">
+                                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                  <span className="text-base font-bold tabular-nums">{ficha.rating_overall}</span>
+                                </span>
+                              )}
+                            </div>
+                            <SheetDescription className="text-xs">
+                              {ficha.visit_date ? format(new Date(ficha.visit_date), "d 'de' MMMM yyyy", { locale: pt }) : 'Sem data'}
+                              {ficha.visit_time && ` às ${ficha.visit_time.slice(0, 5)}`}
+                            </SheetDescription>
+                          </SheetHeader>
                         </div>
 
-                        {/* Text responses */}
-                        {ficha.liked_most && (
-                          <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">O que mais gostou</p><p className="text-sm">{ficha.liked_most}</p></div>
-                        )}
-                        {ficha.liked_least && (
-                          <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">O que menos gostou</p><p className="text-sm">{ficha.liked_least}</p></div>
-                        )}
+                        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                          {/* Ratings */}
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Avaliações</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {RATING_FIELDS.map((field) => {
+                                const val = ficha[field.key as keyof VisitFicha] as number | null
+                                if (!val) return null
+                                return (
+                                  <div key={field.key} className="rounded-lg bg-muted/30 border p-2.5">
+                                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{field.label}</p>
+                                    <div className="flex mt-1">
+                                      {[1, 2, 3, 4, 5].map((s) => (
+                                        <Star key={s} className={cn('h-3 w-3', s <= val ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/15')} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
 
-                        <div className="flex flex-wrap gap-3 text-xs">
-                          {ficha.would_buy !== null && (
-                            <span className={cn('px-2 py-1 rounded-full', ficha.would_buy ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600')}>
-                              {ficha.would_buy ? 'Compraria' : 'Não compraria'}
-                            </span>
+                          {/* Text responses */}
+                          {ficha.liked_most && (
+                            <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3">
+                              <p className="text-[10px] text-emerald-700 uppercase tracking-wider font-semibold mb-1">O que mais gostou</p>
+                              <p className="text-sm leading-relaxed">{ficha.liked_most}</p>
+                            </div>
                           )}
-                          {ficha.perceived_value && (
-                            <span className="px-2 py-1 rounded-full bg-muted/50">Valor: {(ficha.perceived_value / 1000).toFixed(0)}k€</span>
+                          {ficha.liked_least && (
+                            <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3">
+                              <p className="text-[10px] text-red-700 uppercase tracking-wider font-semibold mb-1">O que menos gostou</p>
+                              <p className="text-sm leading-relaxed">{ficha.liked_least}</p>
+                            </div>
                           )}
-                          {ficha.has_property_to_sell && (
-                            <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-600">Tem imóvel p/ vender</span>
+
+                          {/* Intention */}
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            {ficha.would_buy !== null && (
+                              <span className={cn('px-2.5 py-1 rounded-full font-medium', ficha.would_buy ? 'bg-emerald-500/10 text-emerald-700' : 'bg-red-500/10 text-red-700')}>
+                                {ficha.would_buy ? 'Compraria' : 'Não compraria'}
+                              </span>
+                            )}
+                            {ficha.perceived_value && (
+                              <span className="px-2.5 py-1 rounded-full bg-muted/50 font-medium">
+                                Valor percebido: {(ficha.perceived_value / 1000).toFixed(0)}k€
+                              </span>
+                            )}
+                            {ficha.has_property_to_sell && (
+                              <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-700 font-medium">
+                                Tem imóvel p/ vender
+                              </span>
+                            )}
+                          </div>
+
+                          {ficha.would_buy_reason && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Razão</p>
+                              <p className="text-sm italic">&quot;{ficha.would_buy_reason}&quot;</p>
+                            </div>
+                          )}
+
+                          {/* Contact */}
+                          {(ficha.client_email || ficha.client_phone) && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Contacto</p>
+                              <p className="text-sm">{ficha.client_email}</p>
+                              {ficha.client_phone && <p className="text-sm">{ficha.client_phone}</p>}
+                            </div>
                           )}
                         </div>
 
-                        {ficha.would_buy_reason && (
-                          <p className="text-xs text-muted-foreground italic">"{ficha.would_buy_reason}"</p>
-                        )}
-
-                        {/* Consent + delete */}
-                        <div className="flex items-center justify-between pt-2 border-t">
+                        <div className="px-6 py-3 border-t bg-background shrink-0 flex items-center justify-between">
                           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                             {ficha.consent_share_with_owner ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                             {ficha.consent_share_with_owner ? 'Autoriza partilha' : 'Não autoriza partilha'}
                           </div>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive rounded-full" onClick={() => handleDelete(ficha.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs text-destructive hover:text-destructive rounded-full"
+                            onClick={() => { handleDelete(ficha.id); setSheetFichaId(null) }}
+                          >
                             <Trash2 className="mr-1 h-3 w-3" /> Eliminar
                           </Button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                      </>
+                    )
+                  })()}
+                </SheetContent>
+              </Sheet>
+            </>
           )}
 
           {/* ─── Recomendações Sub-tab ─── */}
-          {subTab === 'recomendacoes' && (
+          {(isForced ? shouldShow('recomendacoes') : subTab === 'recomendacoes') && (
             <div className="space-y-5 animate-in fade-in duration-300">
               {totalFichas < 2 ? (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">

@@ -388,6 +388,8 @@ export type Database = {
           error_detail: string | null
           evaluated_count: number
           id: string
+          phase: string | null
+          skipped_breakdown: Json | null
           skipped_count: number
           spawned_count: number
           tick_at: string
@@ -399,6 +401,8 @@ export type Database = {
           error_detail?: string | null
           evaluated_count?: number
           id?: string
+          phase?: string | null
+          skipped_breakdown?: Json | null
           skipped_count?: number
           spawned_count?: number
           tick_at?: string
@@ -410,6 +414,8 @@ export type Database = {
           error_detail?: string | null
           evaluated_count?: number
           id?: string
+          phase?: string | null
+          skipped_breakdown?: Json | null
           skipped_count?: number
           spawned_count?: number
           tick_at?: string
@@ -568,6 +574,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_business: boolean | null
+          is_default: boolean
           name: string
           phone: string | null
           profile_name: string | null
@@ -586,6 +593,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_business?: boolean | null
+          is_default?: boolean
           name: string
           phone?: string | null
           profile_name?: string | null
@@ -604,6 +612,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_business?: boolean | null
+          is_default?: boolean
           name?: string
           phone?: string | null
           profile_name?: string | null
@@ -1282,6 +1291,88 @@ export type Database = {
         }
         Relationships: []
       }
+      consultant_availability_rules: {
+        Row: {
+          active: boolean
+          consultant_id: string
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          consultant_id: string
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          consultant_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_availability_rules_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultant_booking_settings: {
+        Row: {
+          advance_days: number
+          buffer_minutes: number
+          consultant_id: string
+          created_at: string
+          min_notice_hours: number
+          public_booking_enabled: boolean
+          slot_duration_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          advance_days?: number
+          buffer_minutes?: number
+          consultant_id: string
+          created_at?: string
+          min_notice_hours?: number
+          public_booking_enabled?: boolean
+          slot_duration_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          advance_days?: number
+          buffer_minutes?: number
+          consultant_id?: string
+          created_at?: string
+          min_notice_hours?: number
+          public_booking_enabled?: boolean
+          slot_duration_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_booking_settings_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: true
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultant_documents: {
         Row: {
           consultant_id: string
@@ -1358,6 +1449,7 @@ export type Database = {
           imap_port: number
           imap_secure: boolean
           is_active: boolean
+          is_default: boolean
           is_verified: boolean
           last_error: string | null
           last_sync_at: string | null
@@ -1377,6 +1469,7 @@ export type Database = {
           imap_port?: number
           imap_secure?: boolean
           is_active?: boolean
+          is_default?: boolean
           is_verified?: boolean
           last_error?: string | null
           last_sync_at?: string | null
@@ -1396,6 +1489,7 @@ export type Database = {
           imap_port?: number
           imap_secure?: boolean
           is_active?: boolean
+          is_default?: boolean
           is_verified?: boolean
           last_error?: string | null
           last_sync_at?: string | null
@@ -1531,6 +1625,44 @@ export type Database = {
           {
             foreignKeyName: "consultant_payouts_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultant_template_defaults: {
+        Row: {
+          category: string
+          channel: string
+          consultant_id: string
+          created_at: string
+          id: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          channel: string
+          consultant_id: string
+          created_at?: string
+          id?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          channel?: string
+          consultant_id?: string
+          created_at?: string
+          id?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_template_defaults_consultant_id_fkey"
+            columns: ["consultant_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -1780,6 +1912,7 @@ export type Database = {
           auto_run_id: string | null
           contact_automation_id: string | null
           created_at: string
+          custom_event_id: string | null
           delivery_log_ids: string[]
           error: string | null
           event_type: string | null
@@ -1796,6 +1929,7 @@ export type Database = {
           auto_run_id?: string | null
           contact_automation_id?: string | null
           created_at?: string
+          custom_event_id?: string | null
           delivery_log_ids?: string[]
           error?: string | null
           event_type?: string | null
@@ -1812,6 +1946,7 @@ export type Database = {
           auto_run_id?: string | null
           contact_automation_id?: string | null
           created_at?: string
+          custom_event_id?: string | null
           delivery_log_ids?: string[]
           error?: string | null
           event_type?: string | null
@@ -1837,6 +1972,13 @@ export type Database = {
             columns: ["contact_automation_id"]
             isOneToOne: false
             referencedRelation: "contact_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_automation_runs_custom_event_id_fkey"
+            columns: ["custom_event_id"]
+            isOneToOne: false
+            referencedRelation: "custom_commemorative_events"
             referencedColumns: ["id"]
           },
           {
@@ -2012,6 +2154,157 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      crm_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_commemorative_events: {
+        Row: {
+          channels: string[]
+          consultant_id: string
+          created_at: string
+          description: string | null
+          email_template_id: string | null
+          event_date: string
+          id: string
+          is_recurring: boolean
+          last_triggered_year: number | null
+          name: string
+          send_hour: number
+          smtp_account_id: string | null
+          status: string
+          updated_at: string
+          wpp_instance_id: string | null
+          wpp_template_id: string | null
+        }
+        Insert: {
+          channels?: string[]
+          consultant_id: string
+          created_at?: string
+          description?: string | null
+          email_template_id?: string | null
+          event_date: string
+          id?: string
+          is_recurring?: boolean
+          last_triggered_year?: number | null
+          name: string
+          send_hour?: number
+          smtp_account_id?: string | null
+          status?: string
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Update: {
+          channels?: string[]
+          consultant_id?: string
+          created_at?: string
+          description?: string | null
+          email_template_id?: string | null
+          event_date?: string
+          id?: string
+          is_recurring?: boolean
+          last_triggered_year?: number | null
+          name?: string
+          send_hour?: number
+          smtp_account_id?: string | null
+          status?: string
+          updated_at?: string
+          wpp_instance_id?: string | null
+          wpp_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_commemorative_events_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_commemorative_events_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "tpl_email_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_commemorative_events_smtp_account_id_fkey"
+            columns: ["smtp_account_id"]
+            isOneToOne: false
+            referencedRelation: "consultant_email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_commemorative_events_wpp_template_id_fkey"
+            columns: ["wpp_template_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_event_leads: {
+        Row: {
+          added_at: string
+          event_id: string
+          lead_id: string
+        }
+        Insert: {
+          added_at?: string
+          event_id: string
+          lead_id: string
+        }
+        Update: {
+          added_at?: string
+          event_id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_event_leads_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "custom_commemorative_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_event_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deal_clients: {
         Row: {
@@ -2836,6 +3129,7 @@ export type Database = {
       dev_consultant_profiles: {
         Row: {
           bio: string | null
+          email_signature_goodbye: string | null
           email_signature_html: string | null
           email_signature_url: string | null
           instagram_handle: string | null
@@ -2849,6 +3143,7 @@ export type Database = {
         }
         Insert: {
           bio?: string | null
+          email_signature_goodbye?: string | null
           email_signature_html?: string | null
           email_signature_url?: string | null
           instagram_handle?: string | null
@@ -2862,6 +3157,7 @@ export type Database = {
         }
         Update: {
           bio?: string | null
+          email_signature_goodbye?: string | null
           email_signature_html?: string | null
           email_signature_url?: string | null
           instagram_handle?: string | null
@@ -3163,6 +3459,8 @@ export type Database = {
           media_type: string | null
           order_index: number | null
           property_id: string | null
+          render_3d_style: string | null
+          source_media_id: string | null
           url: string
         }
         Insert: {
@@ -3177,6 +3475,8 @@ export type Database = {
           media_type?: string | null
           order_index?: number | null
           property_id?: string | null
+          render_3d_style?: string | null
+          source_media_id?: string | null
           url: string
         }
         Update: {
@@ -3191,6 +3491,8 @@ export type Database = {
           media_type?: string | null
           order_index?: number | null
           property_id?: string | null
+          render_3d_style?: string | null
+          source_media_id?: string | null
           url?: string
         }
         Relationships: [
@@ -3199,6 +3501,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_property_media_source_media_id_fkey"
+            columns: ["source_media_id"]
+            isOneToOne: false
+            referencedRelation: "dev_property_media"
             referencedColumns: ["id"]
           },
         ]
@@ -5141,6 +5450,198 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      internal_chat_attachments: {
+        Row: {
+          attachment_type: string
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          message_id: string
+          mime_type: string | null
+          storage_key: string
+          uploaded_by: string
+        }
+        Insert: {
+          attachment_type?: string
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          message_id: string
+          mime_type?: string | null
+          storage_key: string
+          uploaded_by: string
+        }
+        Update: {
+          attachment_type?: string
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+          storage_key?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_chat_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_messages: {
+        Row: {
+          channel_id: string
+          content: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          has_attachments: boolean
+          id: string
+          is_deleted: boolean
+          is_edited: boolean
+          mentions: Json
+          parent_message_id: string | null
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string
+          content: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          mentions?: Json
+          parent_message_id?: string | null
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string
+          content?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          has_attachments?: boolean
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          mentions?: Json
+          parent_message_id?: string | null
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_chat_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_chat_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_read_receipts: {
+        Row: {
+          channel_id: string
+          last_read_at: string
+          last_read_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id?: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_read_receipts_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_chat_read_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kv_store_6f39db24: {
         Row: {
@@ -9583,6 +10084,50 @@ export type Database = {
             columns: ["tpl_task_id"]
             isOneToOne: false
             referencedRelation: "tpl_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_availability_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          note: string | null
+          property_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          note?: string | null
+          property_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          note?: string | null
+          property_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_availability_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -14112,6 +14657,7 @@ export type Database = {
       }
       visits: {
         Row: {
+          booking_source: string
           cancelled_by: string | null
           cancelled_reason: string | null
           client_email: string | null
@@ -14138,6 +14684,7 @@ export type Database = {
           property_id: string
           proposal_responded_at: string | null
           proposal_responded_by: string | null
+          public_token: string | null
           rejected_reason: string | null
           seller_consultant_id: string | null
           status: string
@@ -14146,6 +14693,7 @@ export type Database = {
           visit_time: string
         }
         Insert: {
+          booking_source?: string
           cancelled_by?: string | null
           cancelled_reason?: string | null
           client_email?: string | null
@@ -14172,6 +14720,7 @@ export type Database = {
           property_id: string
           proposal_responded_at?: string | null
           proposal_responded_by?: string | null
+          public_token?: string | null
           rejected_reason?: string | null
           seller_consultant_id?: string | null
           status?: string
@@ -14180,6 +14729,7 @@ export type Database = {
           visit_time: string
         }
         Update: {
+          booking_source?: string
           cancelled_by?: string | null
           cancelled_reason?: string | null
           client_email?: string | null
@@ -14206,6 +14756,7 @@ export type Database = {
           property_id?: string
           proposal_responded_at?: string | null
           proposal_responded_by?: string | null
+          public_token?: string | null
           rejected_reason?: string | null
           seller_consultant_id?: string | null
           status?: string
@@ -14347,6 +14898,84 @@ export type Database = {
             columns: ["manager_reviewed_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wpp_activity_sessions: {
+        Row: {
+          agent_id: string | null
+          chat_id: string
+          contact_id: string
+          created_at: string
+          direction: string
+          ended_at: string | null
+          id: string
+          instance_id: string
+          lead_id: string
+          message_count: number
+          started_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          chat_id: string
+          contact_id: string
+          created_at?: string
+          direction?: string
+          ended_at?: string | null
+          id?: string
+          instance_id: string
+          lead_id: string
+          message_count?: number
+          started_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          chat_id?: string
+          contact_id?: string
+          created_at?: string
+          direction?: string
+          ended_at?: string | null
+          id?: string
+          instance_id?: string
+          lead_id?: string
+          message_count?: number
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wpp_activity_sessions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_activity_sessions_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "wpp_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_activity_sessions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wpp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_activity_sessions_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_activity_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -14815,6 +15444,79 @@ export type Database = {
           },
         ]
       }
+      wpp_scheduled_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          created_by: string
+          error_message: string | null
+          id: string
+          instance_id: string
+          media_file_name: string | null
+          media_url: string | null
+          message_type: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          text: string | null
+          updated_at: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          id?: string
+          instance_id: string
+          media_file_name?: string | null
+          media_url?: string | null
+          message_type?: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          id?: string
+          instance_id?: string
+          media_file_name?: string | null
+          media_url?: string | null
+          message_type?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wpp_scheduled_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "wpp_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_scheduled_messages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wpp_scheduled_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "auto_wpp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       forma_course_completion_stats: {
@@ -14949,10 +15651,12 @@ export type Database = {
         Returns: string
       }
       increment_download_count: { Args: { doc_id: string }; Returns: undefined }
+      is_active_dev_user: { Args: never; Returns: boolean }
       populate_process_tasks: {
         Args: { p_instance_id: string }
         Returns: undefined
       }
+      process_scheduled_wpp_messages: { Args: never; Returns: undefined }
       recalc_agent_lead_count: {
         Args: { agent_uuid: string }
         Returns: undefined

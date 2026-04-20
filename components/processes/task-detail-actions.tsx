@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -89,6 +90,8 @@ interface TaskDetailActionsProps {
   onTaskUpdate: () => void
   /** Ref callback to render state buttons in a fixed bar outside the scroll area */
   stateButtonsRef?: React.MutableRefObject<(() => React.ReactNode) | null>
+  /** Optional DOM slot to portal the "Adicionar Subtarefa" icon button into (e.g. the task card header row). */
+  addSubtaskSlot?: HTMLElement | null
 }
 
 export function TaskDetailActions({
@@ -103,6 +106,7 @@ export function TaskDetailActions({
   deal,
   onTaskUpdate,
   stateButtonsRef,
+  addSubtaskSlot,
 }: TaskDetailActionsProps) {
   const { user } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -452,26 +456,6 @@ export function TaskDetailActions({
                 />
               ) : null
             })()}
-            {canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '') && (
-              <div className="opacity-65">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full rounded-full">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Adicionar Subtarefa
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-56">
-                    {SUBTASK_TYPE_OPTIONS.map(opt => (
-                      <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
-                        <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {opt.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
           </div>
         )
       }
@@ -522,27 +506,7 @@ export function TaskDetailActions({
       }
 
       default:
-        // For MANUAL or other types, allow adding subtasks ad-hoc
-        if (canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '')) {
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full rounded-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Subtarefa
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-56">
-                {SUBTASK_TYPE_OPTIONS.map(opt => (
-                  <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
-                    <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )
-        }
+        // Ad-hoc "Adicionar Subtarefa" is rendered at the top-right of the action card instead.
         return null
     }
   }
@@ -748,9 +712,34 @@ export function TaskDetailActions({
     emailForm.subject.trim() &&
     emailForm.body.trim()
 
+  const canAddAdhocHere = canManageAdhoc && !['completed', 'skipped'].includes(task.status ?? '')
+
+  const addSubtaskButton = canAddAdhocHere ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" title="Adicionar subtarefa">
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {SUBTASK_TYPE_OPTIONS.map((opt) => (
+          <DropdownMenuItem key={opt.type} onClick={() => openAddSubtask(opt.type)}>
+            <opt.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null
+
   return (
     <div className="space-y-3 -mt-1">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
+      {/* Adicionar Subtarefa: portal into parent-provided slot when available, else render inline at top-right */}
+      {addSubtaskButton && addSubtaskSlot
+        ? createPortal(addSubtaskButton, addSubtaskSlot)
+        : addSubtaskButton && (
+            <div className="flex items-center justify-end">{addSubtaskButton}</div>
+          )}
 
       {/* Action-type specific content — disabled overlay when blocked */}
       {isBlocked && !['completed', 'skipped'].includes(task.status ?? '') ? (

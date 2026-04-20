@@ -43,6 +43,7 @@ import {
 import {
   ArrowLeft,
   LayoutGrid,
+  Target,
   List,
   Ban,
   AlertTriangle,
@@ -74,6 +75,7 @@ import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewSection } from '@/components/processes/process-review-section'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
+import { ProcessFocusView } from '@/components/processes/process-focus-view'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
 import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
@@ -91,6 +93,7 @@ import { ProcessFinanceiroTab } from '@/components/processes/process-financeiro-
 import { DealDialog } from '@/components/deals/deal-dialog'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
 import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
@@ -100,7 +103,7 @@ import { ProcessTimelineView } from '@/components/processes/process-timeline-vie
 import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
 
-type ViewMode = 'kanban' | 'timeline'
+type ViewMode = 'foco' | 'kanban' | 'timeline'
 
 type SidebarSection = string // 'detalhes' | 'imovel' | 'pipeline' | 'proprietarios' | 'proprietarios:<id>' | 'documentos'
 
@@ -109,10 +112,12 @@ export default function ProcessoDetailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useUser()
+  const { isBroker } = usePermissions()
+  const canManageTemplates = isBroker()
   const [process, setProcess] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+  const [viewMode, setViewMode] = useState<ViewMode>('foco')
   const [activeSection, setActiveSection] = useState<SidebarSection>('detalhes')
 
   // Process-level activities (for timeline view)
@@ -214,12 +219,12 @@ export default function ProcessoDetailPage() {
     }
   }
 
-  const handleApprove = async (tplProcessId: string) => {
+  const handleApprove = async (tplProcessId?: string) => {
     try {
       const response = await fetch(`/api/processes/${params.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tpl_process_id: tplProcessId }),
+        body: JSON.stringify(tplProcessId ? { tpl_process_id: tplProcessId } : {}),
       })
 
       if (!response.ok) {
@@ -860,10 +865,12 @@ export default function ProcessoDetailPage() {
                 <DropdownMenuContent align="end">
                   {['active', 'on_hold'].includes(instance.current_status) && (
                     <>
-                      <DropdownMenuItem onClick={() => { loadTemplates(); setSelectedNewTemplateId(''); setReTemplateDialogOpen(true) }}>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Alterar template
-                      </DropdownMenuItem>
+                      {canManageTemplates && (
+                        <DropdownMenuItem onClick={() => { loadTemplates(); setSelectedNewTemplateId(''); setReTemplateDialogOpen(true) }}>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Alterar template
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
                         <XCircle className="mr-2 h-4 w-4" />
                         Cancelar processo
@@ -1144,6 +1151,10 @@ export default function ProcessoDetailPage() {
                         </Button>
                       )}
                       <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
+                        <ToggleGroupItem value="foco" aria-label="Vista Foco">
+                          <Target className="h-4 w-4" />
+                          Foco
+                        </ToggleGroupItem>
                         <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
                           <LayoutGrid className="h-4 w-4" />
                           Kanban
@@ -1157,7 +1168,9 @@ export default function ProcessoDetailPage() {
                   </div>
 
                   {/* Views */}
-                  {viewMode === 'kanban' ? (
+                  {viewMode === 'foco' ? (
+                    <ProcessFocusView stages={filteredStages} onOpenTask={handleTaskClick} />
+                  ) : viewMode === 'kanban' ? (
                     <ProcessKanbanView
                       stages={filteredStages}
                       isProcessing={isProcessing}

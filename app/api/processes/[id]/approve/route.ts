@@ -1,16 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { autoCompleteTasks, recalculateProgress } from '@/lib/process-engine'
+import { autoCompleteTasks, recalculateProgress, resolveTemplate } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { requireRoles } from '@/lib/auth/permissions'
 import { PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 
 const approveSchema = z.object({
-  tpl_process_id: z.string().min(1, 'Template obrigatório').regex(
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
-    'Formato de ID inválido'
-  ),
+  // Optional — when absent, server auto-resolves the matching active template
+  // based on process_type. Consultants never see a picker; admins may override.
+  tpl_process_id: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+      'Formato de ID inválido'
+    )
+    .optional(),
 })
 
 export async function POST(
@@ -35,54 +40,20 @@ export async function POST(
     console.log('[APPROVE] Body used?:', request.bodyUsed)
 
     const rawText = await request.text()
-    console.log('[APPROVE] Raw body text:', JSON.stringify(rawText))
-    console.log('[APPROVE] Raw body length:', rawText.length)
-
-    if (!rawText || rawText.length === 0) {
-      return NextResponse.json(
-        { error: 'Body vazio — nenhum dado recebido' },
-        { status: 400 }
-      )
-    }
-
-    const body = JSON.parse(rawText)
+    const body = rawText && rawText.length > 0 ? JSON.parse(rawText) : {}
     console.log('[APPROVE] Body parsed:', JSON.stringify(body))
 
     const validation = approveSchema.safeParse(body)
     if (!validation.success) {
       console.log('[APPROVE] Validação falhou:', validation.error.flatten())
       return NextResponse.json(
-        { error: 'Template de processo obrigatório', details: validation.error.flatten() },
+        { error: 'Corpo inválido', details: validation.error.flatten() },
         { status: 400 }
       )
     }
 
-    const { tpl_process_id } = validation.data
-    console.log('[APPROVE] Template ID validado:', tpl_process_id)
-
-    // Verificar se o template existe e está activo
-    const { data: template, error: templateError } = await supabase
-      .from('tpl_processes')
-      .select('*')
-      .eq('id', tpl_process_id)
-      .single()
-
-    console.log('[APPROVE] Template:', template, 'erro:', templateError?.message)
-
-    if (templateError || !template) {
-      return NextResponse.json(
-        { error: 'Template não encontrado' },
-        { status: 404 }
-      )
-    }
-
-    if (!template.is_active) {
-      console.log('[APPROVE] Template inactivo')
-      return NextResponse.json(
-        { error: 'O template seleccionado está inactivo' },
-        { status: 400 }
-      )
-    }
+    const providedTemplateId = validation.data.tpl_process_id
+    console.log('[APPROVE] Template ID fornecido:', providedTemplateId ?? '(auto-resolve)')
 
     // Verificar se o processo existe e está em pending_approval ou returned
     const { data: proc, error: procError } = await supabase
@@ -92,7 +63,7 @@ export async function POST(
       .is('deleted_at', null)
       .single()
 
-    console.log('[APPROVE] Processo:', proc ? { id: proc.id, status: proc.current_status, tpl: proc.tpl_process_id, property: proc.property } : 'null', 'erro:', procError?.message)
+    console.log('[APPROVE] Processo:', proc ? { id: proc.id, status: proc.current_status, tpl: proc.tpl_process_id, property: proc.property, type: (proc as any).process_type } : 'null', 'erro:', procError?.message)
 
     if (procError || !proc) {
       return NextResponse.json(
@@ -112,14 +83,62 @@ export async function POST(
       )
     }
 
-    // Validar compatibilidade de tipo entre template e processo
-    if ((template as any).process_type && (proc as any).process_type &&
-        (template as any).process_type !== (proc as any).process_type) {
-      console.log('[APPROVE] Tipo incompatível — template:', (template as any).process_type, 'processo:', (proc as any).process_type)
-      return NextResponse.json(
-        { error: 'O template seleccionado não é compatível com este tipo de processo' },
-        { status: 400 }
-      )
+    const procType = (proc as any).process_type as string | undefined
+
+    // Resolver template: ou o explicitamente fornecido ou o auto-resolvido
+    let tpl_process_id: string
+    let template: any
+
+    if (providedTemplateId) {
+      const { data: tpl, error: templateError } = await supabase
+        .from('tpl_processes')
+        .select('*')
+        .eq('id', providedTemplateId)
+        .single()
+
+      if (templateError || !tpl) {
+        return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 })
+      }
+      if (!tpl.is_active) {
+        return NextResponse.json({ error: 'O template seleccionado está inactivo' }, { status: 400 })
+      }
+      if ((tpl as any).process_type && procType && (tpl as any).process_type !== procType) {
+        return NextResponse.json(
+          { error: 'O template seleccionado não é compatível com este tipo de processo' },
+          { status: 400 }
+        )
+      }
+      template = tpl
+      tpl_process_id = providedTemplateId
+    } else {
+      if (!procType) {
+        return NextResponse.json(
+          { error: 'Processo sem tipo definido — não é possível resolver o template automaticamente' },
+          { status: 400 }
+        )
+      }
+      const resolved = await resolveTemplate(supabase as any, { process_type: procType })
+      if (!resolved.ok) {
+        return NextResponse.json(
+          {
+            error:
+              resolved.reason === 'no_candidates'
+                ? 'Nenhum template activo para este tipo de processo'
+                : 'Mais do que um template activo — é necessário escolher',
+            reason: resolved.reason,
+            candidates: resolved.candidates,
+          },
+          { status: resolved.reason === 'no_candidates' ? 404 : 409 }
+        )
+      }
+      tpl_process_id = resolved.template.id
+      const { data: tpl } = await supabase
+        .from('tpl_processes')
+        .select('*')
+        .eq('id', tpl_process_id)
+        .single()
+      template = tpl
+      console.log('[APPROVE] Template auto-resolvido:', template?.name, tpl_process_id)
     }
 
     // Se o processo já tem tarefas (re-aprovação após devolução com template diferente),

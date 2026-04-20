@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
@@ -20,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Check, X, Undo2, AlertCircle, FileStack } from 'lucide-react'
+import { Check, X, Undo2, AlertCircle, FileStack, Settings2 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { usePermissions } from '@/hooks/use-permissions'
 import type { ProcessInstance, ProcessOwner, ProcessDocument } from '@/types/process'
 
 interface TemplateOption {
@@ -38,72 +37,66 @@ interface ProcessReviewSectionProps {
   property: ProcessInstance['property']
   owners: ProcessOwner[]
   documents: ProcessDocument[]
-  onApprove: (tplProcessId: string) => Promise<void>
+  onApprove: (tplProcessId?: string) => Promise<void>
   onReturn: (reason: string) => Promise<void>
   onReject: (reason: string) => Promise<void>
 }
 
 export function ProcessReviewSection({
   process,
-  property,
-  owners,
-  documents,
   onApprove,
   onReturn,
   onReject,
 }: ProcessReviewSectionProps) {
+  const { isBroker } = usePermissions()
+  const canOverrideTemplate = isBroker()
+
   const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [returnReason, setReturnReason] = useState('')
   const [rejectReason, setRejectReason] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Estado do template
+  // Admin-only manual override state
+  const [overrideOpen, setOverrideOpen] = useState(false)
   const [templates, setTemplates] = useState<TemplateOption[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
-
-  // Carregar templates activos ao montar
-  useEffect(() => {
-    loadTemplates()
-  }, [])
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
 
   const processType = (process as any).process_type as string | undefined
 
-  const loadTemplates = async () => {
+  useEffect(() => {
+    if (!overrideOpen || templates.length > 0) return
     setIsLoadingTemplates(true)
-    try {
-      const res = await fetch('/api/templates')
-      if (!res.ok) throw new Error('Erro ao carregar templates')
-      const data = await res.json()
-      // Filtrar templates activos e compatíveis com o tipo de processo
-      const activeTemplates = data.filter((t: any) => {
-        if (t.is_active === false) return false
-        if (processType && t.process_type && t.process_type !== processType) return false
-        return true
+    fetch('/api/templates')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        const active = (data || []).filter((t: any) => {
+          if (t.is_active === false) return false
+          if (processType && t.process_type && t.process_type !== processType) return false
+          return true
+        })
+        setTemplates(active)
       })
-      setTemplates(activeTemplates)
+      .catch(() => setTemplates([]))
+      .finally(() => setIsLoadingTemplates(false))
+  }, [overrideOpen, processType, templates.length])
 
-      // Auto-select if only 1 compatible template
-      if (activeTemplates.length === 1) {
-        setSelectedTemplateId(activeTemplates[0].id)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar templates:', error)
-      setTemplates([])
+  const handleApproveAuto = async () => {
+    setIsProcessing(true)
+    try {
+      await onApprove()
     } finally {
-      setIsLoadingTemplates(false)
+      setIsProcessing(false)
     }
   }
 
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
-
-  const handleApproveClick = async () => {
+  const handleApproveOverride = async () => {
     if (!selectedTemplateId) return
-
     setIsProcessing(true)
     try {
       await onApprove(selectedTemplateId)
+      setOverrideOpen(false)
     } finally {
       setIsProcessing(false)
     }
@@ -159,55 +152,9 @@ export function ProcessReviewSection({
           </div>
         )}
 
-        {/* Template selector — hidden when auto-selected (single match) */}
-        {isLoadingTemplates ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
-            <Spinner variant="infinite" size={14} />
-            A carregar templates...
-          </div>
-        ) : templates.length === 0 ? (
-          <p className="text-xs text-destructive">
-            Nenhum template activo encontrado. Crie um template antes de aprovar.
-          </p>
-        ) : templates.length > 1 ? (
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-              <FileStack className="h-3.5 w-3.5" />
-              Template de Processo *
-            </Label>
-            <Select
-              value={selectedTemplateId}
-              onValueChange={setSelectedTemplateId}
-            >
-              <SelectTrigger className="h-9 bg-white dark:bg-background">
-                <SelectValue placeholder="Seleccionar template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((tpl) => (
-                  <SelectItem key={tpl.id} value={tpl.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{tpl.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedTemplate?.description && (
-              <p className="text-[11px] text-muted-foreground">{selectedTemplate.description}</p>
-            )}
-          </div>
-        ) : null}
-
         {/* Action buttons — compact */}
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={handleApproveClick}
-            disabled={isProcessing || !selectedTemplateId || templates.length === 0}
-          >
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" onClick={handleApproveAuto} disabled={isProcessing}>
             {isProcessing ? (
               <Spinner variant="infinite" size={14} className="mr-1.5" />
             ) : (
@@ -237,6 +184,18 @@ export function ProcessReviewSection({
               <X className="mr-1.5 h-3.5 w-3.5" />
               Rejeitar
             </Button>
+          )}
+
+          {canOverrideTemplate && (
+            <button
+              type="button"
+              onClick={() => setOverrideOpen(true)}
+              className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isProcessing}
+            >
+              <Settings2 className="h-3 w-3" />
+              Aprovar com template específico
+            </button>
           )}
         </div>
 
@@ -318,6 +277,65 @@ export function ProcessReviewSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Admin-only: manual template override */}
+      {canOverrideTemplate && (
+        <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Aprovar com template específico</DialogTitle>
+              <DialogDescription>
+                Por defeito o sistema escolhe o template automaticamente. Use esta opção apenas se precisar de aplicar um template diferente.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <FileStack className="h-3.5 w-3.5" />
+                Template de Processo
+              </Label>
+              {isLoadingTemplates ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <Spinner variant="infinite" size={14} />
+                  A carregar templates...
+                </div>
+              ) : templates.length === 0 ? (
+                <p className="text-xs text-destructive">Nenhum template activo encontrado.</p>
+              ) : (
+                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Seleccionar template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{tpl.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({tpl.stages_count} fases, {tpl.tasks_count} tarefas)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOverrideOpen(false)} disabled={isProcessing}>
+                Cancelar
+              </Button>
+              <Button onClick={handleApproveOverride} disabled={isProcessing || !selectedTemplateId}>
+                {isProcessing ? (
+                  <Spinner variant="infinite" size={14} className="mr-1.5" />
+                ) : (
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Aprovar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

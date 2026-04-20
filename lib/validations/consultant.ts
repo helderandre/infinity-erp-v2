@@ -9,6 +9,7 @@ export const consultantProfileSchema = z.object({
   linkedin_url: z.string().url('URL inválido').or(z.literal('')).nullable().optional(),
   email_signature_url: z.string().nullable().optional(),
   email_signature_html: z.string().nullable().optional(),
+  email_signature_goodbye: z.string().max(500, 'Máximo 500 caracteres').nullable().optional(),
 })
 
 export const consultantPrivateDataSchema = z.object({

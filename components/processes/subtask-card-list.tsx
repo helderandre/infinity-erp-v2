@@ -316,18 +316,6 @@ export function SubtaskCardList({
   return (
     <>
       <div className="space-y-3">
-        {/* Progress bar */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="flex-1 text-xs font-medium text-muted-foreground">
-              {completedCount} de {totalCount} items completos
-            </span>
-            <span className="text-xs text-muted-foreground tabular-nums">{progress}%</span>
-          </div>
-          <Progress value={progress} className="h-1.5" />
-        </div>
-
         {/* Cards — inside a unified card */}
         <div className="rounded-xl border bg-card/50 overflow-hidden divide-y">
           {subtasks.map((subtask, idx) => {

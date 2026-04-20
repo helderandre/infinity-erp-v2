@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -14,11 +15,15 @@ import { PropertyPlantasSection } from '@/components/properties/property-plantas
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
+import { PropertyVisitasTab } from '@/components/properties/property-visitas-tab'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
+import { PropertyAvailabilityPanel } from '@/components/booking/property-availability-panel'
+import { PropertyOwnerAddDialog } from '@/components/properties/property-owner-add-dialog'
+import { PropertyOwnerInvitesSection } from '@/components/properties/property-owner-invites-section'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Progress } from '@/components/ui/progress'
@@ -108,14 +113,13 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 // ─── Tab config ────────────────────────────────────────────────
 
-type TabKey = 'apresentacao' | 'resumo' | 'media' | 'interessados' | 'fichas' | 'documentos' | 'proprietarios' | 'processos'
+type TabKey = 'apresentacao' | 'resumo' | 'media' | 'interessados' | 'visitas' | 'documentos' | 'proprietarios' | 'processos'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'apresentacao', label: 'Apresentação', icon: Eye },
-  { key: 'resumo', label: 'Resumo', icon: Home },
   { key: 'media', label: 'Media', icon: ImageIcon },
   { key: 'interessados', label: 'Interessados', icon: Users },
-  { key: 'fichas', label: 'Fichas de Visita', icon: ClipboardList },
+  { key: 'visitas', label: 'Visitas', icon: Calendar },
   { key: 'documentos', label: 'Documentos', icon: FileText },
   { key: 'proprietarios', label: 'Proprietários', icon: User },
   { key: 'processos', label: 'Processos', icon: ClipboardList },
@@ -125,15 +129,14 @@ type ProcessSubTab = 'angariacao' | 'venda' | 'impic'
 
 const PROCESS_SUBTABS: { key: ProcessSubTab; label: string; icon: React.ElementType }[] = [
   { key: 'angariacao', label: 'Angariação', icon: FolderOpen },
-  { key: 'venda', label: 'Proc. Venda', icon: FileText },
+  { key: 'venda', label: 'Venda', icon: FileText },
   { key: 'impic', label: 'IMPIC', icon: ShieldCheck },
 ]
 
-type InteressadosSubTab = 'pipeline' | 'visitas' | 'propostas'
+type InteressadosSubTab = 'pipeline' | 'propostas'
 
 const INTERESSADOS_SUBTABS: { key: InteressadosSubTab; label: string }[] = [
   { key: 'pipeline', label: 'Leads Infinity' },
-  { key: 'visitas', label: 'Visitas' },
   { key: 'propostas', label: 'Propostas' },
 ]
 
@@ -169,6 +172,7 @@ export default function ImovelDetalhePage() {
   const [showFechoDialog, setShowFechoDialog] = useState(false)
   const [resumeDealId, setResumeDealId] = useState<string | null>(null)
   const [selectedOwner, setSelectedOwner] = useState<any>(null)
+  const isMobile = useIsMobile()
   const [interessados, setInteressados] = useState<{ linked: any[]; suggestions: any[] }>({ linked: [], suggestions: [] })
   const [interessadosLoading, setInteressadosLoading] = useState(true)
   const [interessadosSubTab, setInteressadosSubTab] = useState<InteressadosSubTab>('pipeline')
@@ -180,6 +184,7 @@ export default function ImovelDetalhePage() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('apresentacao')
   const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>('angariacao')
+  const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
@@ -234,7 +239,11 @@ export default function ImovelDetalhePage() {
     setIsEditing(true)
   }, [property])
 
-  const cancelEditing = () => { setIsEditing(false); setEditData({}) }
+  const cancelEditing = () => {
+    setIsEditing(false)
+    setEditData({})
+    if (activeTab === 'resumo') setActiveTab('apresentacao')
+  }
 
   const handleDeleteProperty = async () => {
     if (!property?.id) return
@@ -349,6 +358,7 @@ export default function ImovelDetalhePage() {
       toast.success('Imóvel actualizado com sucesso')
       setIsEditing(false)
       setEditData({})
+      if (activeTab === 'resumo') setActiveTab('apresentacao')
       refetch()
     } catch (e: any) {
       toast.error(e.message || 'Erro ao guardar alterações')
@@ -495,46 +505,97 @@ export default function ImovelDetalhePage() {
     <div className="space-y-5">
       {/* ═══════ UNIFIED LIGHT TOOLBAR (all tabs) ═══════ */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <button
-          onClick={() => router.push('/dashboard/imoveis')}
-          className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar
-        </button>
+        {/* Row 1 (mobile): Voltar + Edit/Delete inline. On desktop: only Voltar */}
+        <div className="flex items-center justify-between gap-2 lg:justify-start">
+          <button
+            onClick={() => router.push('/dashboard/imoveis')}
+            className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar
+          </button>
+
+          {/* Mobile-only edit/delete buttons */}
+          <div className="flex items-center gap-2 lg:hidden">
+            {isEditing && (
+              <>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                </Button>
+              </>
+            )}
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => {
+                  if (activeTab === 'apresentacao') setActiveTab('resumo')
+                  startEditing()
+                }}
+                title="Editar"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setDeleteStep(1)}
+                title="Eliminar imóvel"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2 (mobile) / inline (desktop): tabs + desktop-only edit/delete */}
         <div className="flex items-center gap-2 flex-wrap">
-          {isEditing && (
-            <>
-              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
-                <X className="h-4 w-4" />
+          {/* Desktop-only edit/delete buttons */}
+          <div className="hidden lg:flex items-center gap-2">
+            {isEditing && (
+              <>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                </Button>
+              </>
+            )}
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => {
+                  if (activeTab === 'apresentacao') setActiveTab('resumo')
+                  startEditing()
+                }}
+                title="Editar"
+              >
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            )}
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setDeleteStep(1)}
+                title="Eliminar imóvel"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            </>
-          )}
-          {activeTab !== 'apresentacao' && (
-            <Button
-              variant={isEditing ? 'default' : 'outline'}
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => (isEditing ? cancelEditing() : startEditing())}
-              title={isEditing ? 'Sair de edição' : 'Editar'}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {activeTab !== 'apresentacao' && !isEditing && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setDeleteStep(1)}
-              title="Eliminar imóvel"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
+            )}
+          </div>
+
           <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full">
             {TABS.map((t) => {
               const Icon = t.icon
@@ -1105,49 +1166,6 @@ export default function ImovelDetalhePage() {
             </div>
           )}
 
-          {/* ══ Visitas ══ */}
-          {interessadosSubTab === 'visitas' && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{visitsLoading ? '...' : `${visits.length} visita${visits.length !== 1 ? 's' : ''}`}</p>
-                <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowVisitDialog(true)}>
-                  <Plus className="h-3 w-3" /> Agendar Visita
-                </Button>
-              </div>
-              {visitsLoading ? (
-                <Skeleton className="h-32 w-full rounded-xl" />
-              ) : visits.length > 0 ? (
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                  <div className="divide-y">
-                    {visits.map((v) => {
-                      const VISIT_STATUS: Record<string, { label: string; color: string }> = { scheduled: { label: 'Agendada', color: 'bg-blue-500/15 text-blue-700' }, confirmed: { label: 'Confirmada', color: 'bg-emerald-500/15 text-emerald-700' }, completed: { label: 'Realizada', color: 'bg-slate-500/15 text-slate-700' }, cancelled: { label: 'Cancelada', color: 'bg-red-500/15 text-red-700' }, no_show: { label: 'Não compareceu', color: 'bg-amber-500/15 text-amber-700' } }
-                      const st = VISIT_STATUS[v.status] || { label: v.status, color: 'bg-muted text-muted-foreground' }
-                      return (
-                        <div key={v.id} className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 shrink-0"><Calendar className="h-4 w-4 text-blue-600" /></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{v.visit_date ? new Date(v.visit_date + 'T00:00:00').toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
-                              {v.visit_time && <span className="text-xs text-muted-foreground">{v.visit_time.slice(0, 5)}</span>}
-                              <span className={cn('text-[10px] font-medium rounded-full px-2 py-0.5', st.color)}>{st.label}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {(v.client_name || v.lead?.nome || v.lead?.name) && <span className="flex items-center gap-1"><User className="h-3 w-3" />{v.client_name || v.lead?.nome || v.lead?.name}</span>}
-                              {v.consultant?.commercial_name && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{v.consultant.commercial_name}</span>}
-                            </div>
-                          </div>
-                          {v.feedback_rating && <div className="text-xs font-bold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">{v.feedback_rating}/5</div>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <EmptySection icon={Calendar} message="Sem visitas registadas." />
-              )}
-            </div>
-          )}
-
           {/* ══ Propostas ══ */}
           {interessadosSubTab === 'propostas' && (
             <div className="space-y-4 animate-in fade-in duration-200">
@@ -1195,13 +1213,18 @@ export default function ImovelDetalhePage() {
         </div>
       )}
 
-      {/* ─── Fichas de Visita ─── */}
-      {activeTab === 'fichas' && property && (
+      {/* ─── Visitas (Pedidos · Visitas · Fichas · Análise) ─── */}
+      {activeTab === 'visitas' && property && (
         <div className="animate-in fade-in duration-300">
-          <PropertyFichasTab
+          <PropertyVisitasTab
             propertyId={property.id}
             propertySlug={property.slug}
+            consultantId={property.consultant_id ?? null}
             listingPrice={property.listing_price ? Number(property.listing_price) : null}
+            visits={visits}
+            visitsLoading={visitsLoading}
+            onNewVisitClick={() => setShowVisitDialog(true)}
+            onVisitsChange={() => { fetchVisits() }}
           />
         </div>
       )}
@@ -1216,171 +1239,97 @@ export default function ImovelDetalhePage() {
       {/* ─── Proprietários ─── */}
       {activeTab === 'proprietarios' && (
         <div className="space-y-5 animate-in fade-in duration-300">
-          <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
-            <SectionTitle icon={Users}>Proprietários</SectionTitle>
-            {property.property_owners?.length ? (
-              <div className="space-y-2">
-                {property.property_owners.map((po, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border/30 cursor-pointer hover:bg-muted/60 hover:shadow-sm transition-all"
-                    onClick={() => setSelectedOwner(po)}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{po.owners?.name || 'Proprietário'}</p>
-                        {po.is_main_contact && <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full px-2 py-0.5">Contacto Principal</span>}
-                        {po.owners?.person_type === 'coletiva' && <span className="text-[10px] font-medium bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">Empresa</span>}
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        {po.owners?.nif && <span>NIF: {po.owners.nif}</span>}
-                        {po.owners?.email && <span>{po.owners.email}</span>}
-                        {po.owners?.phone && <span>{po.owners.phone}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold bg-muted rounded-full px-3 py-1">{po.ownership_percentage}%</span>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                  </div>
-                ))}
+          {/* Top — invite generator */}
+          <PropertyOwnerInvitesSection
+            propertyId={property.id}
+            onSubmissionDetected={refetch}
+          />
+
+          {/* List (left half) + detail (right half on md+) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <SectionTitle icon={Users}>Proprietários</SectionTitle>
+                <PropertyOwnerAddDialog
+                  propertyId={property.id}
+                  hasExistingOwners={(property.property_owners?.length ?? 0) > 0}
+                  onAdded={refetch}
+                />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum proprietário associado a este imóvel.</p>
-            )}
+              {property.property_owners?.length ? (
+                <div className="space-y-2">
+                  {property.property_owners.map((po, i) => {
+                    const isSelected = selectedOwner?.owners?.id === po.owners?.id
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          'flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all',
+                          isSelected
+                            ? 'bg-primary/5 border-primary/40 shadow-sm'
+                            : 'bg-muted/40 border-border/30 hover:bg-muted/60 hover:shadow-sm'
+                        )}
+                        onClick={() => setSelectedOwner(isSelected ? null : po)}
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-sm truncate">{po.owners?.name || 'Proprietário'}</p>
+                            {po.is_main_contact && <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full px-2 py-0.5">Contacto Principal</span>}
+                            {po.owners?.person_type === 'coletiva' && <span className="text-[10px] font-medium bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">Empresa</span>}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                            {po.owners?.nif && <span>NIF: {po.owners.nif}</span>}
+                            {po.owners?.email && <span className="truncate max-w-[180px]">{po.owners.email}</span>}
+                            {po.owners?.phone && <span>{po.owners.phone}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-bold bg-muted rounded-full px-3 py-1">{po.ownership_percentage}%</span>
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum proprietário associado a este imóvel.</p>
+              )}
+            </div>
+
+            {/* Inline detail (desktop only) */}
+            <div className="hidden md:block md:sticky md:top-4">
+              {selectedOwner?.owners ? (
+                <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-2 duration-300">
+                  <OwnerDetailContent
+                    selectedOwner={selectedOwner}
+                    propertyId={property.id}
+                    variant="inline"
+                    onClose={() => setSelectedOwner(null)}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed bg-muted/20 p-10 text-center">
+                  <User className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {property.property_owners?.length
+                      ? 'Seleccione um proprietário para ver os detalhes'
+                      : 'Ainda não há proprietários associados'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Owner detail sheet */}
-          <Sheet open={!!selectedOwner} onOpenChange={(o) => { if (!o) setSelectedOwner(null) }}>
+          {/* Owner detail sheet — mobile only */}
+          <Sheet open={!!selectedOwner && isMobile} onOpenChange={(o) => { if (!o) setSelectedOwner(null) }}>
             <SheetContent className="sm:max-w-md overflow-y-auto p-0">
-              {selectedOwner?.owners && (() => {
-                const o = selectedOwner.owners
-                const isCompany = o.person_type === 'coletiva'
-                return (
-                  <div className="flex flex-col">
-                    {/* Header */}
-                    <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 px-6 pt-8 pb-6 text-white shrink-0">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center text-lg font-bold">
-                          {(o.name || '?')[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-lg leading-tight">{o.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            {isCompany && <span className="text-[10px] font-medium bg-violet-500/30 text-violet-200 rounded-full px-2 py-0.5">Empresa</span>}
-                            {selectedOwner.is_main_contact && <span className="text-[10px] font-medium bg-emerald-500/30 text-emerald-200 rounded-full px-2 py-0.5">Contacto Principal</span>}
-                            <span className="text-neutral-400 text-xs">{selectedOwner.ownership_percentage}% propriedade</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-6 py-5 space-y-5">
-                      {/* Contact */}
-                      <div className="space-y-2">
-                        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</p>
-                        <div className="grid grid-cols-1 gap-2">
-                          {o.email && <OwnerField icon={Mail} label="Email" value={o.email} />}
-                          {o.phone && <OwnerField icon={Phone} label="Telemóvel" value={o.phone} />}
-                          {o.nif && <OwnerField icon={FileText} label="NIF" value={o.nif} />}
-                        </div>
-                      </div>
-
-                      {/* Identification */}
-                      {(o.id_doc_type || o.nationality || o.birth_date) && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Identificação</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {o.nationality && <InfoChip label="Nacionalidade" value={o.nationality} />}
-                            {o.naturality && <InfoChip label="Naturalidade" value={o.naturality} />}
-                            {o.birth_date && <InfoChip label="Data Nascimento" value={formatDate(o.birth_date)} />}
-                            {o.id_doc_type && <InfoChip label="Doc. Identificação" value={o.id_doc_type.toUpperCase()} />}
-                            {o.id_doc_number && <InfoChip label="Nº Documento" value={o.id_doc_number} />}
-                            {o.id_doc_expiry && <InfoChip label="Validade Doc." value={formatDate(o.id_doc_expiry)} />}
-                            {o.id_doc_issued_by && <InfoChip label="Emitido por" value={o.id_doc_issued_by} />}
-                            {o.marital_status && <InfoChip label="Estado Civil" value={o.marital_status} />}
-                            {o.marital_regime && <InfoChip label="Regime Matrimonial" value={o.marital_regime} />}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Address */}
-                      {(o.address || o.city) && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Morada</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {o.address && <InfoChip label="Morada" value={o.address} />}
-                            {o.postal_code && <InfoChip label="Código Postal" value={o.postal_code} />}
-                            {o.city && <InfoChip label="Cidade" value={o.city} />}
-                            {o.is_portugal_resident != null && <InfoChip label="Residente PT" value={o.is_portugal_resident ? 'Sim' : 'Não'} />}
-                            {o.residence_country && <InfoChip label="País Residência" value={o.residence_country} />}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Professional */}
-                      {(o.profession || o.last_profession) && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Profissão</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {o.profession && <InfoChip label="Profissão" value={o.profession} />}
-                            {o.last_profession && <InfoChip label="Última Profissão" value={o.last_profession} />}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Compliance / PEP */}
-                      {(o.is_pep != null || o.funds_origin?.length) && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Compliance</p>
-                          <div className="space-y-2">
-                            {o.is_pep != null && (
-                              <div className={cn('rounded-lg px-3 py-2 text-sm font-medium', o.is_pep ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')}>
-                                PEP: {o.is_pep ? `Sim — ${o.pep_position || 'Cargo não especificado'}` : 'Não'}
-                              </div>
-                            )}
-                            {o.funds_origin?.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                <span className="text-[10px] text-muted-foreground mr-1">Origem fundos:</span>
-                                {o.funds_origin.map((f: string) => (
-                                  <span key={f} className="text-[10px] bg-muted rounded-full px-2 py-0.5 font-medium">{f}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Company info */}
-                      {isCompany && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Dados Empresa</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {o.legal_representative_name && <InfoChip label="Representante Legal" value={o.legal_representative_name} />}
-                            {o.legal_representative_nif && <InfoChip label="NIF Representante" value={o.legal_representative_nif} />}
-                            {o.legal_nature && <InfoChip label="Natureza Jurídica" value={o.legal_nature} />}
-                            {o.company_object && <InfoChip label="Objecto Social" value={o.company_object} />}
-                            {o.cae_code && <InfoChip label="CAE" value={o.cae_code} />}
-                            {o.rcbe_code && <InfoChip label="RCBE" value={o.rcbe_code} />}
-                            {o.country_of_incorporation && <InfoChip label="País Constituição" value={o.country_of_incorporation} />}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Observations */}
-                      {o.observations && (
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Observações</p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{o.observations}</p>
-                        </div>
-                      )}
-
-                      {/* Documentos do proprietário (apenas deste imóvel) */}
-                      <OwnerDocumentsList ownerId={o.id} propertyId={property.id} />
-                    </div>
-                  </div>
-                )
-              })()}
+              {selectedOwner?.owners && (
+                <OwnerDetailContent
+                  selectedOwner={selectedOwner}
+                  propertyId={property.id}
+                  variant="sheet"
+                />
+              )}
             </SheetContent>
           </Sheet>
         </div>
@@ -1389,26 +1338,29 @@ export default function ImovelDetalhePage() {
       {/* ─── Processos (unified tab with sub-tabs) ─── */}
       {activeTab === 'processos' && (
         <div className="rounded-xl border bg-card shadow-sm animate-in fade-in duration-300 overflow-hidden">
-          {/* Sub-tab selector */}
-          <div className="flex items-center gap-1 p-1 m-4 mb-0 rounded-full bg-muted/50 border border-border/30 overflow-x-auto scrollbar-hide w-fit max-w-full">
-            {PROCESS_SUBTABS.map((st) => {
-              const Icon = st.icon
-              return (
-                <button
-                  key={st.key}
-                  onClick={() => setProcessSubTab(st.key)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-300',
-                    processSubTab === st.key
-                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                >
-                  <Icon className="h-3 w-3" />
-                  {st.label}
-                </button>
-              )
-            })}
+          {/* Sub-tab selector row: chips on the left, panel toolbar slot on the right */}
+          <div className="flex items-center gap-3 m-4 mb-0 flex-wrap">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 overflow-x-auto scrollbar-hide w-fit max-w-full">
+              {PROCESS_SUBTABS.map((st) => {
+                const Icon = st.icon
+                return (
+                  <button
+                    key={st.key}
+                    onClick={() => setProcessSubTab(st.key)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-300',
+                      processSubTab === st.key
+                        ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {st.label}
+                  </button>
+                )
+              })}
+            </div>
+            <div ref={setProcessToolbarEl} className="ml-auto flex items-center gap-2" />
           </div>
 
           <div className="p-5 pt-4">
@@ -1426,7 +1378,7 @@ export default function ImovelDetalhePage() {
             }
             return (
               <div className="animate-in fade-in duration-200">
-                <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} />
+                <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
               </div>
             )
           })()}
@@ -1583,7 +1535,7 @@ export default function ImovelDetalhePage() {
                 ) : (
                   <>
                     {currentProcess && (
-                      <ProcessPipelinePanel processId={currentProcess.id} onProcessChange={fetchProcesses} />
+                      <ProcessPipelinePanel processId={currentProcess.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
                     )}
 
                     {(historicalProcesses.length > 0 || draftDeals.length > 0) && (
@@ -2170,6 +2122,181 @@ function EmptySection({ icon: Icon, message }: { icon: React.ElementType; messag
     <div className="rounded-xl border bg-card shadow-sm p-12 text-center">
       <Icon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
       <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  )
+}
+
+function OwnerDetailContent({
+  selectedOwner,
+  propertyId,
+  onClose,
+  variant,
+}: {
+  selectedOwner: any
+  propertyId: string
+  onClose?: () => void
+  variant: 'sheet' | 'inline'
+}) {
+  const o = selectedOwner.owners
+  const isCompany = o.person_type === 'coletiva'
+  return (
+    <div className="flex flex-col">
+      {/* Header */}
+      <div
+        className={cn(
+          'bg-gradient-to-br from-neutral-900 to-neutral-800 px-6 pt-8 pb-6 text-white shrink-0',
+          variant === 'inline' && 'rounded-t-xl'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center text-lg font-bold">
+            {(o.name || '?')[0].toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg leading-tight">{o.name}</h3>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {isCompany && (
+                <span className="text-[10px] font-medium bg-violet-500/30 text-violet-200 rounded-full px-2 py-0.5">
+                  Empresa
+                </span>
+              )}
+              {selectedOwner.is_main_contact && (
+                <span className="text-[10px] font-medium bg-emerald-500/30 text-emerald-200 rounded-full px-2 py-0.5">
+                  Contacto Principal
+                </span>
+              )}
+              <span className="text-neutral-400 text-xs">
+                {selectedOwner.ownership_percentage}% propriedade
+              </span>
+            </div>
+          </div>
+          {variant === 'inline' && onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="px-6 py-5 space-y-5">
+        {/* Contact */}
+        <div className="space-y-2">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</p>
+          <div className="grid grid-cols-1 gap-2">
+            {o.email && <OwnerField icon={Mail} label="Email" value={o.email} />}
+            {o.phone && <OwnerField icon={Phone} label="Telemóvel" value={o.phone} />}
+            {o.nif && <OwnerField icon={FileText} label="NIF" value={o.nif} />}
+          </div>
+        </div>
+
+        {/* Identification */}
+        {(o.id_doc_type || o.nationality || o.birth_date) && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Identificação</p>
+            <div className="grid grid-cols-2 gap-2">
+              {o.nationality && <InfoChip label="Nacionalidade" value={o.nationality} />}
+              {o.naturality && <InfoChip label="Naturalidade" value={o.naturality} />}
+              {o.birth_date && <InfoChip label="Data Nascimento" value={formatDate(o.birth_date)} />}
+              {o.id_doc_type && <InfoChip label="Doc. Identificação" value={o.id_doc_type.toUpperCase()} />}
+              {o.id_doc_number && <InfoChip label="Nº Documento" value={o.id_doc_number} />}
+              {o.id_doc_expiry && <InfoChip label="Validade Doc." value={formatDate(o.id_doc_expiry)} />}
+              {o.id_doc_issued_by && <InfoChip label="Emitido por" value={o.id_doc_issued_by} />}
+              {o.marital_status && <InfoChip label="Estado Civil" value={o.marital_status} />}
+              {o.marital_regime && <InfoChip label="Regime Matrimonial" value={o.marital_regime} />}
+            </div>
+          </div>
+        )}
+
+        {/* Address */}
+        {(o.address || o.city) && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Morada</p>
+            <div className="grid grid-cols-2 gap-2">
+              {o.address && <InfoChip label="Morada" value={o.address} />}
+              {o.postal_code && <InfoChip label="Código Postal" value={o.postal_code} />}
+              {o.city && <InfoChip label="Cidade" value={o.city} />}
+              {o.is_portugal_resident != null && (
+                <InfoChip label="Residente PT" value={o.is_portugal_resident ? 'Sim' : 'Não'} />
+              )}
+              {o.residence_country && <InfoChip label="País Residência" value={o.residence_country} />}
+            </div>
+          </div>
+        )}
+
+        {/* Professional */}
+        {(o.profession || o.last_profession) && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Profissão</p>
+            <div className="grid grid-cols-2 gap-2">
+              {o.profession && <InfoChip label="Profissão" value={o.profession} />}
+              {o.last_profession && <InfoChip label="Última Profissão" value={o.last_profession} />}
+            </div>
+          </div>
+        )}
+
+        {/* Compliance / PEP */}
+        {(o.is_pep != null || o.funds_origin?.length) && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Compliance</p>
+            <div className="space-y-2">
+              {o.is_pep != null && (
+                <div
+                  className={cn(
+                    'rounded-lg px-3 py-2 text-sm font-medium',
+                    o.is_pep
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  )}
+                >
+                  PEP: {o.is_pep ? `Sim — ${o.pep_position || 'Cargo não especificado'}` : 'Não'}
+                </div>
+              )}
+              {o.funds_origin?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="text-[10px] text-muted-foreground mr-1">Origem fundos:</span>
+                  {o.funds_origin.map((f: string) => (
+                    <span key={f} className="text-[10px] bg-muted rounded-full px-2 py-0.5 font-medium">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Company info */}
+        {isCompany && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Dados Empresa</p>
+            <div className="grid grid-cols-2 gap-2">
+              {o.legal_representative_name && <InfoChip label="Representante Legal" value={o.legal_representative_name} />}
+              {o.legal_representative_nif && <InfoChip label="NIF Representante" value={o.legal_representative_nif} />}
+              {o.legal_nature && <InfoChip label="Natureza Jurídica" value={o.legal_nature} />}
+              {o.company_object && <InfoChip label="Objecto Social" value={o.company_object} />}
+              {o.cae_code && <InfoChip label="CAE" value={o.cae_code} />}
+              {o.rcbe_code && <InfoChip label="RCBE" value={o.rcbe_code} />}
+              {o.country_of_incorporation && <InfoChip label="País Constituição" value={o.country_of_incorporation} />}
+            </div>
+          </div>
+        )}
+
+        {/* Observations */}
+        {o.observations && (
+          <div className="space-y-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Observações</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{o.observations}</p>
+          </div>
+        )}
+
+        {/* Documentos do proprietário (apenas deste imóvel) */}
+        <OwnerDocumentsList ownerId={o.id} propertyId={propertyId} />
+      </div>
     </div>
   )
 }

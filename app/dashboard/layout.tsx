@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { BreadcrumbOverrideProvider } from '@/hooks/use-breadcrumb-overrides'
+import { EmailComposerProvider } from '@/hooks/use-email-composer'
 
 const SearchCommand = dynamic(
   () => import('@/components/layout/search-command').then((m) => m.SearchCommand),
@@ -48,6 +49,10 @@ const AiBatchNotification = dynamic(
 )
 const CommunicationMenu = dynamic(
   () => import('@/components/layout/communication-menu').then((m) => m.CommunicationMenu),
+  { ssr: false }
+)
+const EmailComposerPopup = dynamic(
+  () => import('@/components/email/composer/composer-popup').then((m) => m.EmailComposerPopup),
   { ssr: false }
 )
 
@@ -98,16 +103,24 @@ export default function DashboardLayout({
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
     && !SIDEBAR_PAGE_EXCEPTIONS.some((r) => pathname === r || pathname?.startsWith(r + '/'))
   const isCompactPadding = COMPACT_PADDING_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
+  // Routes where breadcrumbs should be hidden on mobile (still visible on lg+)
+  const hideBreadcrumbsOnMobile = /^\/dashboard\/imoveis\/[^/]+$/.test(pathname ?? '')
 
   return (
     <BreadcrumbOverrideProvider>
+      <EmailComposerProvider>
       <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
         <AppSidebar />
         <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
           <header className="sticky top-0 z-20 flex py-2 shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-6" />
-            <Breadcrumbs />
+            <Separator
+              orientation="vertical"
+              className={cn('mr-2 h-6', hideBreadcrumbsOnMobile && 'hidden lg:block')}
+            />
+            <div className={cn(hideBreadcrumbsOnMobile && 'hidden lg:contents')}>
+              <Breadcrumbs />
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <AiAgentChat />
               <CommunicationMenu />
@@ -139,6 +152,8 @@ export default function DashboardLayout({
         <MobileBottomNav />
         <AiBatchNotification />
       </SidebarProvider>
+      <EmailComposerPopup />
+      </EmailComposerProvider>
     </BreadcrumbOverrideProvider>
   )
 }

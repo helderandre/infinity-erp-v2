@@ -41,6 +41,8 @@ export interface TaskWithRelations extends Task {
   // ─── Populated when source !== 'task' ───
   process_id?: string | null
   process_ref?: string | null
+  process_type?: 'angariacao' | 'negocio' | null
+  negocio_id?: string | null
   stage_name?: string | null
   property_id?: string | null
   property_title?: string | null
