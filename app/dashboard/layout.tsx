@@ -43,6 +43,10 @@ const AiAgentChat = dynamic(
   () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
   { ssr: false }
 )
+const AiLongPressTrigger = dynamic(
+  () => import('@/components/shared/ai-long-press-trigger').then((m) => m.AiLongPressTrigger),
+  { ssr: false }
+)
 const AiBatchNotification = dynamic(
   () => import('@/components/shared/ai-batch-notification').then((m) => m.AiBatchNotification),
   { ssr: false }
@@ -151,6 +155,7 @@ export default function DashboardLayout({
         <GoalDailyPopup />
         <MobileBottomNav />
         <AiBatchNotification />
+        <AiLongPressTrigger />
       </SidebarProvider>
       <EmailComposerPopup />
       </EmailComposerProvider>
