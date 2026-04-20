@@ -17,6 +17,8 @@ export interface Task {
   entity_type: TaskEntityType | null
   entity_id: string | null
   order_index: number
+  task_list_id: string | null
+  section: string | null
   created_at: string
   updated_at: string
 }

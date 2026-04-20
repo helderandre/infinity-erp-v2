@@ -1,13 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
-import { format, isPast, isToday, isTomorrow, isYesterday } from 'date-fns'
-import { pt } from 'date-fns/locale'
 import {
-  Check, X, Loader2, RotateCcw, Workflow,
-  Building2, User, Handshake, UserSquare, ListTodo, CalendarCheck,
-  MapPin, CalendarDays,
+  Check, X, Loader2, RotateCcw, MoreHorizontal, MapPin,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +13,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import {
+  PriorityCheck, PriorityFlag, DueDateText, buildDueShort,
+} from '@/components/tasks/task-primitives'
 import type { TaskWithRelations } from '@/types/task'
 
 interface TaskListItemProps {
@@ -28,208 +26,110 @@ interface TaskListItemProps {
   isSelected?: boolean
 }
 
-function buildDueShort(date: Date): string {
-  const time = format(date, 'HH:mm', { locale: pt })
-  if (isToday(date)) return `Hoje ${time}`
-  if (isTomorrow(date)) return `Amanhã ${time}`
-  if (isYesterday(date)) return `Ontem ${time}`
-  return format(date, "d MMM, HH:mm", { locale: pt })
-}
-
-function iconForTask(task: TaskWithRelations) {
-  if (task.source === 'proc_task' || task.source === 'proc_subtask') return Workflow
-  switch (task.entity_type) {
-    case 'property': return Building2
-    case 'lead': return User
-    case 'negocio': return Handshake
-    case 'owner': return UserSquare
-    case 'process': return Workflow
-    default: return ListTodo
-  }
-}
-
-function subtitleFor(task: TaskWithRelations): string | null {
-  if (task.description) return task.description
-  if ((task.source === 'proc_task' || task.source === 'proc_subtask') && task.stage_name) {
-    return task.property_title
-      ? `${task.property_title} · ${task.stage_name}`
-      : task.stage_name
-  }
-  if (task.property_title) return task.property_title
-  return null
-}
-
-// ─── Small round check in top-right ────────────────────────────────────────
-
-function CheckCircle({
-  checked,
-  disabled,
-  onClick,
-  title,
-}: {
-  checked: boolean
-  disabled?: boolean
-  onClick: () => void
-  title?: string
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={(e) => { e.stopPropagation(); onClick() }}
-      title={title}
-      className={cn(
-        'size-5 rounded-full flex items-center justify-center transition-all shrink-0',
-        checked
-          ? 'bg-foreground text-background shadow-[0_1px_3px_rgba(0,0,0,0.18)]'
-          : 'bg-muted/40 hover:bg-muted border border-border/50 hover:border-border',
-        disabled && 'cursor-not-allowed opacity-40',
-      )}
-    >
-      {checked && <Check className="size-3" strokeWidth={3} />}
-    </button>
-  )
-}
-
-// ─── Main item ──────────────────────────────────────────────────────────────
+// ─── Main row ──────────────────────────────────────────────────────────────
 
 export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSelected = false }: TaskListItemProps) {
   if (task.source === 'visit_proposal' && !task.is_completed) {
-    return <VisitProposalItem task={task} onSelect={onSelect} onRefresh={onRefresh} isSelected={isSelected} />
+    return <VisitProposalRow task={task} onSelect={onSelect} onRefresh={onRefresh} isSelected={isSelected} />
   }
 
-  const Icon = iconForTask(task)
   const dueDate = task.due_date ? new Date(task.due_date) : null
-  const isOverdue = dueDate && !task.is_completed && isPast(dueDate) && !isToday(dueDate)
-  const isDueToday = dueDate && isToday(dueDate)
-  const subtitle = subtitleFor(task)
   const isProcessTask = task.source === 'proc_task' || task.source === 'proc_subtask'
   const isVisitProposalRecord = task.source === 'visit_proposal'
   const isReadOnly = isProcessTask || isVisitProposalRecord
 
-  // Tint do ícone para prioridades altas — subtil, não invasivo
-  const iconTint = task.is_completed
-    ? 'bg-muted/50 text-muted-foreground/60'
-    : task.priority === 1 ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
-    : task.priority === 2 ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400'
-    : 'bg-muted/70 text-foreground/65 dark:bg-neutral-800/60'
-
   return (
     <div
       className={cn(
-        'group relative rounded-2xl p-4 cursor-pointer transition-all duration-200',
-        // Soft "pillow" shadow — very spread, low contrast (inspirado na referência)
-        'bg-card shadow-[0_2px_10px_-2px_rgba(15,23,42,0.06),0_1px_3px_-1px_rgba(15,23,42,0.04)]',
-        'hover:shadow-[0_6px_20px_-4px_rgba(15,23,42,0.1),0_2px_6px_-2px_rgba(15,23,42,0.05)]',
-        'hover:-translate-y-[1px]',
-        isSelected && 'ring-1 ring-primary/25 shadow-[0_8px_24px_-4px_rgba(15,23,42,0.14)]',
-        // Completed: bg muted + no shadow (card fica "rebaixado")
-        task.is_completed && [
-          'bg-muted/40 dark:bg-muted/20',
-          'shadow-none hover:shadow-[0_1px_3px_rgba(0,0,0,0.04)]',
-          'hover:translate-y-0',
-        ],
+        'group relative flex items-start gap-3 px-2.5 py-2 cursor-pointer transition-colors',
+        'border-b border-border/50 last:border-b-0',
+        'hover:bg-muted/40',
+        isSelected && 'bg-primary/5 hover:bg-primary/5',
+        task.is_completed && 'opacity-55',
       )}
       onClick={() => onSelect(task)}
     >
-      <div className="flex items-start gap-3">
-        {/* Ícone circular */}
-        <div className={cn(
-          'size-11 rounded-full flex items-center justify-center shrink-0 transition-colors',
-          iconTint,
-        )}>
-          <Icon className="size-[18px]" strokeWidth={1.75} />
+      <div className="mt-[3px]">
+        <PriorityCheck
+          priority={task.priority}
+          checked={task.is_completed}
+          disabled={isReadOnly}
+          onClick={() => !isReadOnly && onToggleComplete(task.id, task.is_completed)}
+          title={
+            isProcessTask ? 'Concluir no detalhe do processo'
+            : isVisitProposalRecord ? 'Gerida no detalhe da visita'
+            : undefined
+          }
+        />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        {/* Linha 1: título + chips inline */}
+        <div className="flex items-center gap-1.5 min-w-0 leading-snug">
+          <span className={cn(
+            'text-[0.85rem] truncate tracking-tight',
+            task.is_completed
+              ? 'text-muted-foreground line-through decoration-muted-foreground/60'
+              : 'text-foreground',
+          )}>
+            {task.title}
+          </span>
+
+          {task.is_recurring && (
+            <RotateCcw className="h-3 w-3 text-muted-foreground shrink-0" />
+          )}
+
+          {/* Chip de processo inline (Todoist-style hashtag) */}
+          {isProcessTask && task.process_ref && (
+            <span className="text-[10.5px] text-muted-foreground/80 shrink-0 truncate max-w-[120px]">
+              #{task.process_ref}
+            </span>
+          )}
         </div>
 
-        {/* Conteúdo */}
-        <div className="flex-1 min-w-0 pt-1 pr-7">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <h4 className={cn(
-              'text-[0.9rem] font-semibold leading-snug truncate tracking-tight',
-              task.is_completed && 'text-muted-foreground',
-            )}>
-              {task.title}
-            </h4>
-            {task.is_recurring && (
-              <RotateCcw className="h-3 w-3 text-muted-foreground shrink-0" />
+        {/* Linha 2: subtitle + due date + meta */}
+        {(task.description || task.property_title || task.stage_name || dueDate) && (
+          <div className="flex items-center gap-2 min-w-0 text-[11px]">
+            {(task.description || task.property_title || task.stage_name) && (
+              <span className="text-muted-foreground/80 truncate">
+                {task.description
+                  || (task.property_title && task.stage_name
+                      ? `${task.property_title} · ${task.stage_name}`
+                      : task.property_title || task.stage_name)}
+              </span>
+            )}
+
+            {dueDate && (
+              <DueDateText
+                date={dueDate}
+                isCompleted={task.is_completed}
+                className="shrink-0 ml-auto"
+              />
             )}
           </div>
+        )}
+      </div>
 
-          {subtitle && (
-            <p className={cn(
-              'text-xs text-muted-foreground/80 mt-0.5 line-clamp-1',
-              task.is_completed && 'text-muted-foreground/60',
-            )}>
-              {subtitle}
-            </p>
-          )}
-
-          {/* Meta row — badges à esquerda, data à direita */}
-          {(dueDate || (isProcessTask && task.process_ref) || isVisitProposalRecord) && (
-            <div className="flex items-center justify-between gap-2 mt-2 text-[11px]">
-              {/* Badges à esquerda (processo / estado) */}
-              <div className="flex items-center flex-wrap gap-1.5 min-w-0">
-                {isProcessTask && task.process_id && task.process_ref && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] h-4 px-1.5 rounded-full gap-0.5 bg-muted/50"
-                  >
-                    <Workflow className="h-2.5 w-2.5" />
-                    {task.process_ref}
-                  </Badge>
-                )}
-                {isVisitProposalRecord && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-[10px] h-4 px-1.5 rounded-full',
-                      task.title.startsWith('Proposta rejeitada')
-                        ? 'border-red-500/30 text-red-700 dark:text-red-300 bg-red-500/5'
-                        : 'border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/5',
-                    )}
-                  >
-                    {task.title.startsWith('Proposta rejeitada') ? 'Rejeitada' : 'Confirmada'}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Data à direita */}
-              {dueDate && (
-                <span className={cn(
-                  'flex items-center gap-1 shrink-0 ml-auto',
-                  isOverdue ? 'text-red-600 font-medium'
-                    : isDueToday ? 'text-orange-600 font-medium'
-                    : 'text-muted-foreground',
-                )}>
-                  <CalendarDays className="h-3 w-3" />
-                  {buildDueShort(dueDate)}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Check circle no topo-direito */}
-        <div className="absolute top-4 right-4">
-          <CheckCircle
-            checked={task.is_completed}
-            disabled={isReadOnly}
-            onClick={() => !isReadOnly && onToggleComplete(task.id, task.is_completed)}
-            title={
-              isProcessTask ? 'Concluir no detalhe do processo'
-              : isVisitProposalRecord ? 'Gerida no detalhe da visita'
-              : undefined
-            }
-          />
-        </div>
+      {/* Right side: flag + hover actions */}
+      <div className="flex items-center gap-1 shrink-0 self-start mt-[3px]">
+        {!task.is_completed && <PriorityFlag priority={task.priority} />}
+        <button
+          type="button"
+          className="size-5 rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onSelect(task) }}
+          aria-label="Mais opções"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   )
 }
 
-// ─── Visit Proposal Item ────────────────────────────────────────────────────
+// ─── Visit Proposal Row (same shape, inline actions) ───────────────────────
 
-function VisitProposalItem({
+function VisitProposalRow({
   task,
   onSelect,
   onRefresh,
@@ -249,7 +149,6 @@ function VisitProposalItem({
   const clientName = task.visit_client_name || 'Cliente'
   const buyerAgent = task.visit_buyer_agent_name
   const dueDate = task.due_date ? new Date(task.due_date) : null
-
   const subtitle = buyerAgent ? `${clientName} · por ${buyerAgent}` : clientName
 
   const respond = async (decision: 'confirm' | 'reject', reason?: string) => {
@@ -280,72 +179,66 @@ function VisitProposalItem({
     <>
       <div
         className={cn(
-          'group relative rounded-2xl p-4 cursor-pointer transition-all duration-200',
-          'bg-amber-50/60 dark:bg-amber-950/15',
-          'shadow-[0_2px_10px_-2px_rgba(217,119,6,0.12),0_1px_3px_-1px_rgba(217,119,6,0.08)]',
-          'hover:shadow-[0_6px_20px_-4px_rgba(217,119,6,0.18),0_2px_6px_-2px_rgba(217,119,6,0.1)]',
-          'hover:-translate-y-[1px]',
-          isSelected && 'ring-1 ring-amber-500/40 shadow-[0_8px_24px_-4px_rgba(217,119,6,0.22)]',
+          'group relative flex items-start gap-3 px-2.5 py-2 cursor-pointer transition-colors',
+          'border-b border-border/50 last:border-b-0',
+          'hover:bg-amber-50/40 dark:hover:bg-amber-950/10',
+          isSelected && 'bg-amber-50/60 dark:bg-amber-950/20',
         )}
         onClick={() => onSelect(task)}
       >
-        <div className="flex items-start gap-3">
-          {/* Ícone circular âmbar */}
-          <div className="size-11 rounded-full flex items-center justify-center shrink-0 bg-amber-100/80 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-            <MapPin className="size-[18px]" strokeWidth={1.75} />
+        {/* Amber pin marker (replaces checkbox for visit proposals) */}
+        <div className="size-[18px] rounded-full flex items-center justify-center shrink-0 mt-[3px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+          <MapPin className="size-[11px]" strokeWidth={2.5} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 min-w-0 leading-snug">
+            <span className="text-[0.85rem] truncate tracking-tight text-foreground">
+              {propertyTitle}
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[9px] font-medium text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10 rounded-full px-1.5 h-4 shrink-0"
+            >
+              Proposta
+            </Badge>
           </div>
 
-          {/* Conteúdo */}
-          <div className="flex-1 min-w-0 pt-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <h4 className="text-[0.9rem] font-semibold leading-snug truncate tracking-tight">
-                {propertyTitle}
-              </h4>
-              <Badge
-                variant="outline"
-                className="text-[9px] font-medium text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10 rounded-full px-1.5 h-4 shrink-0"
-              >
-                Proposta
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground/80 mt-0.5 line-clamp-1">
-              {subtitle}
-            </p>
-
-            <div className="flex items-center justify-between gap-2 mt-2.5">
-              {dueDate && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <CalendarCheck className="h-3 w-3" />
-                  {buildDueShort(dueDate)}
-                </span>
-              )}
-
-              <div
-                className="flex items-center gap-1.5 shrink-0 ml-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Button
-                  size="sm"
-                  className="h-6 px-2.5 gap-1 text-[11px] rounded-full bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => respond('confirm')}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-                  Confirmar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-2.5 gap-1 text-[11px] rounded-full border-red-500/30 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
-                  onClick={() => setRejectOpen(true)}
-                  disabled={isSubmitting}
-                >
-                  <X className="h-2.5 w-2.5" />
-                  Rejeitar
-                </Button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 min-w-0 text-[11px]">
+            <span className="text-muted-foreground/80 truncate">{subtitle}</span>
+            {dueDate && (
+              <span className="shrink-0 ml-auto tabular-nums text-muted-foreground">
+                {buildDueShort(dueDate)}
+              </span>
+            )}
           </div>
+        </div>
+
+        {/* Inline actions (right) */}
+        <div
+          className="flex items-center gap-1 shrink-0 self-start mt-[1px]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="sm"
+            className="h-6 px-2 gap-1 text-[11px] rounded-full bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => respond('confirm')}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
+            <span className="hidden sm:inline">Confirmar</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 gap-1 text-[11px] rounded-full border-red-500/30 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+            onClick={() => setRejectOpen(true)}
+            disabled={isSubmitting}
+          >
+            <X className="h-2.5 w-2.5" />
+            <span className="hidden sm:inline">Rejeitar</span>
+          </Button>
         </div>
       </div>
 

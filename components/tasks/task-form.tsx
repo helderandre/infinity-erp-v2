@@ -24,7 +24,7 @@ import type { TaskEntityType } from '@/types/task'
 import { useTaskMutations } from '@/hooks/use-tasks'
 import type { z } from 'zod'
 
-type FormData = z.infer<typeof createTaskSchema>
+type FormData = z.input<typeof createTaskSchema>
 
 interface TaskFormProps {
   open: boolean
@@ -36,6 +36,12 @@ interface TaskFormProps {
     entity_id?: string
     assigned_to?: string
     parent_task_id?: string
+    title?: string
+    description?: string
+    priority?: number
+    due_date?: string
+    task_list_id?: string
+    section?: string
   }
 }
 
@@ -76,14 +82,17 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
   const form = useForm<FormData>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      priority: 4,
+      title: defaultValues?.title || '',
+      description: defaultValues?.description || '',
+      priority: defaultValues?.priority ?? 4,
       is_recurring: false,
+      due_date: defaultValues?.due_date || undefined,
       entity_type: defaultValues?.entity_type || null,
       entity_id: defaultValues?.entity_id || null,
       assigned_to: defaultValues?.assigned_to || null,
       parent_task_id: defaultValues?.parent_task_id || null,
+      task_list_id: defaultValues?.task_list_id || null,
+      section: defaultValues?.section || null,
     },
   })
 

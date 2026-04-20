@@ -37,6 +37,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { TaskListsSidebarGroup } from '@/components/layout/task-lists-sidebar-group'
 
 // ─── Menu Data ───────────────────────────────────────────
 
@@ -419,6 +420,9 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/calendario', '/dashboard/objetivos']}
           defaultOpenOverride={pathname === '/dashboard'}
         />
+
+        {/* 1.5. Listas (task lists — dynamic) */}
+        <TaskListsSidebarGroup />
 
         {/* 2. Comunicação */}
         <CollapsibleGroup

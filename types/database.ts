@@ -1373,6 +1373,91 @@ export type Database = {
           },
         ]
       }
+      consultant_booking_windows: {
+        Row: {
+          active: boolean
+          consultant_id: string
+          created_at: string
+          end_date: string
+          id: string
+          note: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          consultant_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          note?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          consultant_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          note?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_booking_windows_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultant_date_overrides: {
+        Row: {
+          blocked: boolean
+          consultant_id: string
+          created_at: string
+          end_time: string | null
+          id: string
+          note: string | null
+          override_date: string
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          blocked?: boolean
+          consultant_id: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          note?: string | null
+          override_date: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blocked?: boolean
+          consultant_id?: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          note?: string | null
+          override_date?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_date_overrides_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultant_documents: {
         Row: {
           consultant_id: string
@@ -10132,6 +10217,91 @@ export type Database = {
           },
         ]
       }
+      property_booking_windows: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string
+          id: string
+          note: string | null
+          property_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date: string
+          id?: string
+          note?: string | null
+          property_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string
+          id?: string
+          note?: string | null
+          property_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_booking_windows_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_date_overrides: {
+        Row: {
+          blocked: boolean
+          created_at: string
+          end_time: string | null
+          id: string
+          note: string | null
+          override_date: string
+          property_id: string
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          blocked?: boolean
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          note?: string | null
+          override_date: string
+          property_id: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blocked?: boolean
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          note?: string | null
+          override_date?: string
+          property_id?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_date_overrides_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_listings: {
         Row: {
           approval_date: string | null
@@ -10320,6 +10490,66 @@ export type Database = {
           },
         ]
       }
+      property_owner_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          note: string | null
+          property_id: string
+          status: string
+          submission_metadata: Json | null
+          submitted_at: string | null
+          submitted_owner_ids: string[]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          note?: string | null
+          property_id: string
+          status?: string
+          submission_metadata?: Json | null
+          submitted_at?: string | null
+          submitted_owner_ids?: string[]
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          note?: string | null
+          property_id?: string
+          status?: string
+          submission_metadata?: Json | null
+          submitted_at?: string | null
+          submitted_owner_ids?: string[]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_owner_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owner_invites_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_owners: {
         Row: {
           is_main_contact: boolean | null
@@ -10359,6 +10589,60 @@ export type Database = {
           },
           {
             foreignKeyName: "property_owners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_presentations: {
+        Row: {
+          format: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          pdf_url: string
+          property_id: string
+          sections: string[] | null
+          share_url: string | null
+          summary_override: string | null
+          updated_at: string
+        }
+        Insert: {
+          format: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          pdf_url: string
+          property_id: string
+          sections?: string[] | null
+          share_url?: string | null
+          summary_override?: string | null
+          updated_at?: string
+        }
+        Update: {
+          format?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          pdf_url?: string
+          property_id?: string
+          sections?: string[] | null
+          share_url?: string | null
+          summary_override?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_presentations_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_presentations_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "dev_properties"
@@ -11490,6 +11774,84 @@ export type Database = {
           },
         ]
       }
+      task_list_shares: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          task_list_id: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          task_list_id: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          task_list_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_list_shares_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_list_shares_task_list_id_fkey"
+            columns: ["task_list_id"]
+            isOneToOne: false
+            referencedRelation: "task_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_list_shares_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_lists: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_lists_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -11508,6 +11870,8 @@ export type Database = {
           parent_task_id: string | null
           priority: number
           recurrence_rule: string | null
+          section: string | null
+          task_list_id: string | null
           title: string
           updated_at: string
         }
@@ -11528,6 +11892,8 @@ export type Database = {
           parent_task_id?: string | null
           priority?: number
           recurrence_rule?: string | null
+          section?: string | null
+          task_list_id?: string | null
           title: string
           updated_at?: string
         }
@@ -11548,6 +11914,8 @@ export type Database = {
           parent_task_id?: string | null
           priority?: number
           recurrence_rule?: string | null
+          section?: string | null
+          task_list_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -11578,6 +11946,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_task_list_id_fkey"
+            columns: ["task_list_id"]
+            isOneToOne: false
+            referencedRelation: "task_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -14660,9 +15035,11 @@ export type Database = {
           booking_source: string
           cancelled_by: string | null
           cancelled_reason: string | null
+          client_agency: string | null
           client_email: string | null
           client_name: string | null
           client_phone: string | null
+          client_type: string
           confirmation_method: string | null
           confirmed_at: string | null
           confirmed_by: string | null
@@ -14696,9 +15073,11 @@ export type Database = {
           booking_source?: string
           cancelled_by?: string | null
           cancelled_reason?: string | null
+          client_agency?: string | null
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          client_type?: string
           confirmation_method?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
@@ -14732,9 +15111,11 @@ export type Database = {
           booking_source?: string
           cancelled_by?: string | null
           cancelled_reason?: string | null
+          client_agency?: string | null
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          client_type?: string
           confirmation_method?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null

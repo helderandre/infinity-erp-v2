@@ -1,19 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { format, isPast, isToday } from 'date-fns'
-import { pt } from 'date-fns/locale'
 import {
-  CalendarDays, Building2, X,
-  Handshake, ArrowRight,
+  Building2, X, Handshake, ArrowRight,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { TASK_PRIORITY_MAP } from '@/types/task'
 import type { TaskWithRelations } from '@/types/task'
+import { DueDateText, PriorityFlag } from '@/components/tasks/task-primitives'
 
 interface ProcessTaskContentProps {
   task: TaskWithRelations
@@ -22,9 +19,7 @@ interface ProcessTaskContentProps {
 }
 
 export function ProcessTaskContent({ task, variant = 'sheet', onClose }: ProcessTaskContentProps) {
-  const priority = TASK_PRIORITY_MAP[task.priority as keyof typeof TASK_PRIORITY_MAP]
   const dueDate = task.due_date ? new Date(task.due_date) : null
-  const isOverdue = dueDate && !task.is_completed && isPast(dueDate) && !isToday(dueDate)
 
   const isAngariacao = task.process_type === 'angariacao'
   const isNegocio = task.process_type === 'negocio'
@@ -41,21 +36,23 @@ export function ProcessTaskContent({ task, variant = 'sheet', onClose }: Process
   const primaryLabel = isAngariacao ? 'Ver no imóvel' : 'Ver no negócio'
 
   const header = (
-    <div className="flex items-center justify-between px-6 py-4 border-b">
-      <h3 className="text-base font-semibold tracking-tight">Tarefa do processo</h3>
+    <div className="flex items-center justify-between px-5 py-3 border-b">
+      <h3 className="text-[13px] font-semibold tracking-tight text-muted-foreground uppercase">
+        Tarefa do processo
+      </h3>
       {variant === 'inline' && onClose && (
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="h-3.5 w-3.5" />
         </Button>
       )}
     </div>
   )
 
   const body = (
-    <div className="p-6 space-y-6">
+    <div className="p-5 space-y-5">
       {/* Identificação do processo */}
       <div>
-        <div className="flex items-center gap-1.5 mb-2.5">
+        <div className="flex items-center gap-1.5 mb-2">
           <Badge
             variant="outline"
             className={cn(
@@ -71,72 +68,69 @@ export function ProcessTaskContent({ task, variant = 'sheet', onClose }: Process
           </Badge>
           {task.process_ref && (
             <span className="text-[10px] font-mono text-muted-foreground tracking-tight">
-              {task.process_ref}
+              #{task.process_ref}
             </span>
           )}
         </div>
 
-        <h2 className={cn(
-          'text-xl font-semibold leading-tight tracking-tight',
-          task.is_completed && 'line-through text-muted-foreground',
-        )}>
-          {task.title}
-        </h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className={cn(
+            'text-lg font-semibold leading-tight tracking-tight',
+            task.is_completed && 'line-through text-muted-foreground',
+          )}>
+            {task.title}
+          </h2>
+          {!task.is_completed && (
+            <div className="shrink-0 mt-1">
+              <PriorityFlag priority={task.priority} />
+            </div>
+          )}
+        </div>
 
         {task.stage_name && (
-          <p className="text-sm text-muted-foreground mt-1.5">
+          <p className="text-[13px] text-muted-foreground mt-1.5">
             {task.stage_name}
           </p>
         )}
       </div>
 
-      {/* Meta row minimal */}
-      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm">
-        {priority && (
-          <span className="flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 rounded-full', priority.dot)} />
-            <span className={priority.color}>{priority.label}</span>
-          </span>
-        )}
+      {/* Meta row minimal — same language as the row */}
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-[11.5px]">
         {dueDate && (
-          <span className={cn(
-            'flex items-center gap-1.5',
-            isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
-          )}>
-            <CalendarDays className="h-3.5 w-3.5" />
-            {format(dueDate, 'PPP', { locale: pt })}
-          </span>
+          <DueDateText
+            date={dueDate}
+            isCompleted={task.is_completed}
+            variant="long"
+          />
         )}
         {task.property_title && (
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <Building2 className="h-3.5 w-3.5" />
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Building2 className="h-3 w-3" />
             <span className="truncate max-w-[200px]">{task.property_title}</span>
           </span>
         )}
       </div>
 
       {/* Acção primária — abre o imóvel ou o negócio na tab processos */}
-      <div className="pt-2">
-        {primaryHref && (
+      {primaryHref && (
+        <div className="pt-2">
           <Link href={primaryHref} className="block">
             <button
               type="button"
               className={cn(
-                'w-full rounded-full px-5 py-3.5 flex items-center gap-3',
+                'w-full rounded-xl px-4 py-3 flex items-center gap-3',
                 'bg-foreground text-background',
-                'shadow-[0_8px_24px_-6px_rgba(0,0,0,0.35),0_2px_6px_-2px_rgba(0,0,0,0.2)]',
-                'hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4),0_4px_10px_-3px_rgba(0,0,0,0.25)]',
-                'hover:-translate-y-[1px] transition-all duration-200',
+                'hover:bg-foreground/90 transition-colors duration-200',
                 'group',
               )}
             >
               <PrimaryIcon className="h-4 w-4" />
-              <span className="text-sm font-semibold tracking-tight">{primaryLabel}</span>
+              <span className="text-[13px] font-semibold tracking-tight">{primaryLabel}</span>
               <ArrowRight className="h-4 w-4 ml-auto transition-transform group-hover:translate-x-0.5" />
             </button>
           </Link>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 

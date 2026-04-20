@@ -12,6 +12,8 @@ export const createTaskSchema = z.object({
   recurrence_rule: z.string().optional().nullable(),
   entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
+  task_list_id: z.string().uuid().optional().nullable(),
+  section: z.string().trim().max(80).optional().nullable(),
 })
 
 // ─── Update Task ─────────────────────────────────────────────
@@ -27,6 +29,8 @@ export const updateTaskSchema = z.object({
   entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   order_index: z.number().int().optional(),
+  task_list_id: z.string().uuid().optional().nullable(),
+  section: z.string().trim().max(80).optional().nullable(),
 })
 
 // ─── Create Comment ──────────────────────────────────────────
@@ -50,6 +54,7 @@ export const taskQuerySchema = z.object({
   // - 'process'  = só proc_task + proc_subtask
   // - undefined  = todas (back-compat)
   source_filter: z.enum(['personal', 'process']).optional(),
+  task_list_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })

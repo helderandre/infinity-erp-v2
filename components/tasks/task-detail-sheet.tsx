@@ -1,16 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { format, isPast, isToday } from 'date-fns'
+import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 import {
-  CalendarDays, Loader2, Paperclip, Plus, RotateCcw, Send, Trash2, X,
+  Loader2, Paperclip, Plus, RotateCcw, Send, Trash2, X,
 } from 'lucide-react'
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,9 +18,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import { TASK_PRIORITY_MAP, TASK_ENTITY_LABELS } from '@/types/task'
+import { TASK_ENTITY_LABELS } from '@/types/task'
 import type { TaskWithRelations, TaskComment, TaskAttachment, TaskEntityType } from '@/types/task'
 import { useTaskMutations } from '@/hooks/use-tasks'
+import {
+  PriorityCheck, PriorityFlag, DueDateText,
+} from '@/components/tasks/task-primitives'
 
 // ─── Shared content (usado tanto em sheet como inline) ──────────────────────
 
@@ -159,19 +161,20 @@ export function TaskDetailContent({
     }
   }
 
-  const priority = task ? TASK_PRIORITY_MAP[task.priority as keyof typeof TASK_PRIORITY_MAP] : null
-  const isOverdue = task?.due_date && !task.is_completed && isPast(new Date(task.due_date)) && !isToday(new Date(task.due_date))
+  const dueDate = task?.due_date ? new Date(task.due_date) : null
   const subTasks = (task?.sub_tasks || []) as TaskWithRelations[]
 
   const header = (
-    <div className="flex items-center justify-between px-6 py-4 border-b">
-      <h3 className="text-base font-semibold">Detalhe da Tarefa</h3>
-      <div className="flex items-center gap-1">
+    <div className="flex items-center justify-between px-5 py-3 border-b">
+      <h3 className="text-[13px] font-semibold tracking-tight text-muted-foreground uppercase">
+        Tarefa
+      </h3>
+      <div className="flex items-center gap-0.5">
         {task && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                <Trash2 className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -191,8 +194,8 @@ export function TaskDetailContent({
           </AlertDialog>
         )}
         {variant === 'inline' && onClose && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
@@ -202,70 +205,77 @@ export function TaskDetailContent({
   const body = (
     <>
       {isLoading ? (
-        <div className="p-6 space-y-4">
-          <Skeleton className="h-7 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-16 w-full" />
+        <div className="p-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <Skeleton className="size-[22px] rounded-full mt-1" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+          <Skeleton className="h-3 w-1/3" />
         </div>
       ) : task ? (
-        <div className="p-6 space-y-6">
-          {/* Título com checkbox inline à esquerda */}
+        <div className="p-5 space-y-5">
+          {/* Título com checkbox inline à esquerda (mesmo primitivo da lista) */}
           <div className="flex items-start gap-3">
-            <Checkbox
-              checked={task.is_completed}
-              onCheckedChange={handleToggle}
-              className="mt-1 size-5 rounded-full border-[1.5px] data-checked:bg-blue-500 data-checked:border-blue-500 data-checked:text-white"
-            />
+            <div className="mt-1.5">
+              <PriorityCheck
+                priority={task.priority}
+                checked={task.is_completed}
+                onClick={handleToggle}
+                size="md"
+              />
+            </div>
             <div className="flex-1 min-w-0">
-              <h2 className={cn(
-                'text-xl font-semibold leading-tight tracking-tight',
-                task.is_completed && 'line-through text-muted-foreground',
-              )}>
-                {task.title}
-              </h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className={cn(
+                  'text-lg font-semibold leading-tight tracking-tight',
+                  task.is_completed && 'line-through text-muted-foreground',
+                )}>
+                  {task.title}
+                </h2>
+                {!task.is_completed && (
+                  <div className="shrink-0 mt-1">
+                    <PriorityFlag priority={task.priority} />
+                  </div>
+                )}
+              </div>
               {task.description && (
-                <p className="text-sm text-muted-foreground/90 mt-1.5 whitespace-pre-wrap leading-relaxed">
+                <p className="text-[13px] text-muted-foreground/90 mt-1.5 whitespace-pre-wrap leading-relaxed">
                   {task.description}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Meta: linha única compacta (Todoist style) */}
-          <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm">
-            {task.due_date && (
-              <span className={cn(
-                'flex items-center gap-1.5',
-                isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
-              )}>
-                <CalendarDays className="h-3.5 w-3.5" />
-                {format(new Date(task.due_date), 'd MMM yyyy', { locale: pt })}
-              </span>
-            )}
-            {priority && (
-              <span className="flex items-center gap-1.5">
-                <span className={cn('h-2 w-2 rounded-full', priority.dot)} />
-                <span className={priority.color}>{priority.label}</span>
-              </span>
+          {/* Meta: linha compacta (same visual language da lista) */}
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-[11.5px] pl-[34px]">
+            {dueDate && (
+              <DueDateText
+                date={dueDate}
+                isCompleted={task.is_completed}
+                variant="long"
+              />
             )}
             {task.is_recurring && (
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <RotateCcw className="h-3.5 w-3.5" />
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <RotateCcw className="h-3 w-3" />
                 Recorrente
               </span>
             )}
             {task.entity_type && (
-              <span className="text-[11px] rounded-full bg-muted/70 px-2 py-0.5 text-muted-foreground">
-                {TASK_ENTITY_LABELS[task.entity_type as TaskEntityType]}
+              <span className="text-[10.5px] text-muted-foreground/80">
+                @{TASK_ENTITY_LABELS[task.entity_type as TaskEntityType].toLowerCase()}
               </span>
             )}
           </div>
 
-          {/* Sub-tarefas — sem separador duro, apenas micro-header */}
+          {/* Sub-tarefas — rows estilo Todoist com connector line à esquerda */}
           <section>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1 px-1">
               <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Sub-tarefas {subTasks.length > 0 && <span className="text-muted-foreground/60">· {subTasks.length}</span>}
+                Sub-tarefas {subTasks.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {subTasks.length}</span>}
               </h4>
               <Button
                 variant="ghost"
@@ -277,13 +287,20 @@ export function TaskDetailContent({
                 Adicionar
               </Button>
             </div>
-            {subTasks.length > 0 ? (
-              <div className="space-y-1">
+            {subTasks.length > 0 && (
+              <div className="ml-[9px] border-l border-border/60 pl-[13px]">
                 {subTasks.map((st) => (
-                  <div key={st.id} className="flex items-center gap-2.5 py-1.5 text-sm group">
-                    <Checkbox
+                  <div
+                    key={st.id}
+                    className={cn(
+                      'group flex items-center gap-2.5 py-1.5 text-[13px] border-b border-border/40 last:border-b-0',
+                      st.is_completed && 'opacity-55',
+                    )}
+                  >
+                    <PriorityCheck
+                      priority={st.priority}
                       checked={st.is_completed}
-                      onCheckedChange={async () => {
+                      onClick={async () => {
                         try {
                           await toggleComplete(st.id, st.is_completed)
                           fetchTask()
@@ -292,7 +309,6 @@ export function TaskDetailContent({
                           toast.error('Erro ao actualizar sub-tarefa')
                         }
                       }}
-                      className="size-4 rounded-full border-[1.5px] data-checked:bg-blue-500 data-checked:border-blue-500"
                     />
                     <span className={cn(
                       'flex-1 truncate',
@@ -300,17 +316,18 @@ export function TaskDetailContent({
                     )}>
                       {st.title}
                     </span>
+                    {!st.is_completed && <PriorityFlag priority={st.priority} />}
                   </div>
                 ))}
               </div>
-            ) : null}
+            )}
           </section>
 
           {/* Anexos */}
           <section>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1 px-1">
               <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Anexos {attachments.length > 0 && <span className="text-muted-foreground/60">· {attachments.length}</span>}
+                Anexos {attachments.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {attachments.length}</span>}
               </h4>
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground" asChild disabled={isUploading}>
                 <label>
@@ -320,10 +337,10 @@ export function TaskDetailContent({
                 </label>
               </Button>
             </div>
-            {attachments.length > 0 ? (
-              <div className="space-y-1">
+            {attachments.length > 0 && (
+              <div className="border-t border-border/40">
                 {attachments.map((att) => (
-                  <div key={att.id} className="flex items-center gap-2 py-1.5 text-sm group">
+                  <div key={att.id} className="flex items-center gap-2 py-2 px-1 text-[13px] group border-b border-border/40 last:border-b-0 hover:bg-muted/30 transition-colors rounded">
                     <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <a
                       href={att.file_url}
@@ -350,28 +367,28 @@ export function TaskDetailContent({
                   </div>
                 ))}
               </div>
-            ) : null}
+            )}
           </section>
 
           {/* Comentários */}
           <section>
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Comentários {comments.length > 0 && <span className="text-muted-foreground/60">· {comments.length}</span>}
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+              Comentários {comments.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {comments.length}</span>}
             </h4>
 
             {comments.length > 0 && (
-              <div className="space-y-2 mb-3">
+              <div className="space-y-1.5 mb-3">
                 {comments.map((c) => (
-                  <div key={c.id} className="rounded-xl bg-muted/40 px-3 py-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium">
+                  <div key={c.id} className="rounded-lg bg-muted/40 px-3 py-2">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11.5px] font-medium">
                         {c.user?.commercial_name || 'Utilizador'}
                       </span>
                       <span className="text-[10px] text-muted-foreground">
                         {format(new Date(c.created_at), 'dd MMM · HH:mm', { locale: pt })}
                       </span>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                    <p className="text-[13px] whitespace-pre-wrap leading-snug">{c.content}</p>
                   </div>
                 ))}
               </div>
@@ -383,7 +400,7 @@ export function TaskDetailContent({
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Escrever comentário..."
                 rows={2}
-                className="flex-1 text-sm rounded-xl"
+                className="flex-1 text-[13px] rounded-lg resize-none min-h-0"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     handleSendComment()
@@ -392,11 +409,11 @@ export function TaskDetailContent({
               />
               <Button
                 size="icon"
-                className="shrink-0 self-end rounded-full"
+                className="shrink-0 self-end rounded-full h-8 w-8"
                 onClick={handleSendComment}
                 disabled={!newComment.trim() || isSendingComment}
               >
-                {isSendingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isSendingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               </Button>
             </div>
           </section>

@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const {
       assigned_to, created_by, priority, is_completed, overdue,
       entity_type, entity_id, parent_task_id, search,
-      source_filter,
+      source_filter, task_list_id,
       limit, offset,
     } = params.data
 
@@ -71,9 +71,12 @@ export async function GET(request: Request) {
     // - 'personal' = tasks (todoist-style) + visit_proposal,  SEM proc tasks
     // - 'process'  = só proc_task + proc_subtask, SEM tasks gerais nem visit proposals
     // - undefined  = tudo (back-compat)
+    // When filtering by a task list, proc tasks and visit proposals don't apply
+    // (they aren't assignable to lists).
+    const listScoped = !!task_list_id
     const includeGeneralTasks = source_filter !== 'process'
-    const includeProcSourcesByFilter = source_filter !== 'personal'
-    const includeVisitProposals = source_filter !== 'process'
+    const includeProcSourcesByFilter = !listScoped && source_filter !== 'personal'
+    const includeVisitProposals = !listScoped && source_filter !== 'process'
 
     // ─── 1. General tasks query ───
     let tasksQuery = supabase
@@ -96,6 +99,7 @@ export async function GET(request: Request) {
     }
     if (entity_type) tasksQuery = tasksQuery.eq('entity_type', entity_type)
     if (entity_id) tasksQuery = tasksQuery.eq('entity_id', entity_id)
+    if (task_list_id) tasksQuery = tasksQuery.eq('task_list_id', task_list_id)
     if (search) tasksQuery = tasksQuery.ilike('title', `%${search}%`)
 
     // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───
@@ -417,6 +421,8 @@ export async function POST(request: Request) {
         recurrence_rule: data.recurrence_rule || null,
         entity_type: data.entity_type || null,
         entity_id: data.entity_id || null,
+        task_list_id: data.task_list_id || null,
+        section: data.section || null,
       })
       .select('id, title, assigned_to')
       .single()

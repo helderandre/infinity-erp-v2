@@ -14,6 +14,7 @@ interface TaskFilters {
   entity_id?: string
   search?: string
   source_filter?: 'personal' | 'process'
+  task_list_id?: string
 }
 
 interface UseTasksReturn {
@@ -29,10 +30,20 @@ interface UseTasksReturn {
   pageSize: number
 }
 
-export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksReturn {
+interface UseTasksOptions {
+  enabled?: boolean
+  pageSize?: number
+}
+
+export function useTasks(initialFilters?: TaskFilters, options: UseTasksOptions | number = {}): UseTasksReturn {
+  // Back-compat: legacy second arg was a number (pageSize)
+  const opts: UseTasksOptions = typeof options === 'number' ? { pageSize: options } : options
+  const enabled = opts.enabled ?? true
+  const pageSize = opts.pageSize ?? 50
+
   const [tasks, setTasks] = useState<TaskWithRelations[]>([])
   const [total, setTotal] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<TaskFilters>(initialFilters || {})
   const [page, setPage] = useState(1)
@@ -40,6 +51,12 @@ export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksR
   const debouncedSearch = useDebounce(filters.search || '', 300)
 
   const fetchTasks = useCallback(async () => {
+    if (!enabled) {
+      setTasks([])
+      setTotal(0)
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     setError(null)
 
@@ -53,6 +70,7 @@ export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksR
       if (filters.entity_type) params.set('entity_type', filters.entity_type)
       if (filters.entity_id) params.set('entity_id', filters.entity_id)
       if (filters.source_filter) params.set('source_filter', filters.source_filter)
+      if (filters.task_list_id) params.set('task_list_id', filters.task_list_id)
       if (debouncedSearch) params.set('search', debouncedSearch)
       params.set('limit', String(pageSize))
       params.set('offset', String((page - 1) * pageSize))
@@ -68,7 +86,7 @@ export function useTasks(initialFilters?: TaskFilters, pageSize = 50): UseTasksR
     } finally {
       setIsLoading(false)
     }
-  }, [filters.assigned_to, filters.created_by, filters.priority, filters.is_completed, filters.overdue, filters.entity_type, filters.entity_id, filters.source_filter, debouncedSearch, page, pageSize])
+  }, [enabled, filters.assigned_to, filters.created_by, filters.priority, filters.is_completed, filters.overdue, filters.entity_type, filters.entity_id, filters.source_filter, filters.task_list_id, debouncedSearch, page, pageSize])
 
   useEffect(() => {
     fetchTasks()
