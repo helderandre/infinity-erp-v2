@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -182,8 +182,11 @@ export default function ImovelDetalhePage() {
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
   const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas'>('imagens')
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('apresentacao')
-  const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>('angariacao')
+  const searchParams = useSearchParams()
+  const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
+  const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
+  const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>(initialProcessSubTab)
   const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)

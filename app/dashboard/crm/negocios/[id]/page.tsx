@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /**
@@ -9,10 +9,12 @@ import { Skeleton } from '@/components/ui/skeleton'
  * Resolves the lead_id from the negócio and redirects to the full
  * negócio detail page at /dashboard/leads/[leadId]/negocios/[negocioId]
  * which has matching, visits, interessados, etc.
+ * Query params (like ?tab=processos) are preserved across the redirect.
  */
 export default function CrmNegocioRedirectPage() {
   const { id: negocioId } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -23,13 +25,15 @@ export default function CrmNegocioRedirectPage() {
         const data = await res.json()
         const leadId = data.lead_id
         if (!leadId) throw new Error('No lead_id')
-        router.replace(`/dashboard/leads/${leadId}/negocios/${negocioId}`)
+        const qs = searchParams.toString()
+        const suffix = qs ? `?${qs}` : ''
+        router.replace(`/dashboard/leads/${leadId}/negocios/${negocioId}${suffix}`)
       } catch {
         setError(true)
       }
     }
     resolve()
-  }, [negocioId, router])
+  }, [negocioId, router, searchParams])
 
   if (error) {
     return (

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
-  CalendarDays, Building2, Workflow, X,
+  CalendarDays, Building2, X,
   Handshake, ArrowRight,
 } from 'lucide-react'
 
@@ -29,14 +29,16 @@ export function ProcessTaskContent({ task, variant = 'sheet', onClose }: Process
   const isAngariacao = task.process_type === 'angariacao'
   const isNegocio = task.process_type === 'negocio'
 
-  const secondaryHref = isAngariacao && task.property_id
-    ? `/dashboard/imoveis/${task.property_id}`
+  // Abrir processo = abrir a página do imóvel/negócio na tab correcta.
+  // Não fazemos mais navegação para /dashboard/processos/[id] a partir daqui.
+  const primaryHref = isAngariacao && task.property_id
+    ? `/dashboard/imoveis/${task.property_id}?tab=processos&sub=angariacao`
     : isNegocio && task.negocio_id
-      ? `/dashboard/crm/negocios/${task.negocio_id}`
+      ? `/dashboard/crm/negocios/${task.negocio_id}?tab=processos`
       : null
 
-  const secondaryLabel = isAngariacao ? 'Abrir imóvel' : 'Abrir negócio'
-  const SecondaryIcon = isAngariacao ? Building2 : Handshake
+  const PrimaryIcon = isAngariacao ? Building2 : Handshake
+  const primaryLabel = isAngariacao ? 'Ver no imóvel' : 'Ver no negócio'
 
   const header = (
     <div className="flex items-center justify-between px-6 py-4 border-b">
@@ -113,10 +115,10 @@ export function ProcessTaskContent({ task, variant = 'sheet', onClose }: Process
         )}
       </div>
 
-      {/* Acções — botões glassmorphic (não cards) */}
-      <div className="space-y-2 pt-2">
-        {task.process_id && (
-          <Link href={`/dashboard/processos/${task.process_id}`} className="block">
+      {/* Acção primária — abre o imóvel ou o negócio na tab processos */}
+      <div className="pt-2">
+        {primaryHref && (
+          <Link href={primaryHref} className="block">
             <button
               type="button"
               className={cn(
@@ -128,30 +130,9 @@ export function ProcessTaskContent({ task, variant = 'sheet', onClose }: Process
                 'group',
               )}
             >
-              <Workflow className="h-4 w-4" />
-              <span className="text-sm font-semibold tracking-tight">Ver processo</span>
+              <PrimaryIcon className="h-4 w-4" />
+              <span className="text-sm font-semibold tracking-tight">{primaryLabel}</span>
               <ArrowRight className="h-4 w-4 ml-auto transition-transform group-hover:translate-x-0.5" />
-            </button>
-          </Link>
-        )}
-
-        {secondaryHref && (
-          <Link href={secondaryHref} className="block">
-            <button
-              type="button"
-              className={cn(
-                'w-full rounded-full px-5 py-3 flex items-center gap-3',
-                'bg-card/70 backdrop-blur-md border border-border/50',
-                'shadow-[0_2px_10px_-2px_rgba(15,23,42,0.06),0_1px_3px_-1px_rgba(15,23,42,0.04)]',
-                'hover:bg-card hover:border-border',
-                'hover:shadow-[0_6px_20px_-4px_rgba(15,23,42,0.1),0_2px_6px_-2px_rgba(15,23,42,0.05)]',
-                'hover:-translate-y-[1px] transition-all duration-200',
-                'group',
-              )}
-            >
-              <SecondaryIcon className="h-4 w-4 text-foreground/70" />
-              <span className="text-sm font-medium tracking-tight">{secondaryLabel}</span>
-              <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </button>
           </Link>
         )}
