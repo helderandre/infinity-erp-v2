@@ -7,6 +7,87 @@ import { z } from 'zod'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const EDGE_SMTP_SECRET = process.env.EDGE_SMTP_SECRET || ''
+const R2_PUBLIC_DOMAIN = process.env.R2_PUBLIC_DOMAIN || ''
+
+const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB — larger ones stay as external <img> URLs
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Scan outgoing HTML for `<img src="<R2_PUBLIC_DOMAIN>/...">`, fetch each image
+ * server-side, attach it as an inline MIME part (Content-ID + inline disposition),
+ * and rewrite the `src` to `cid:<id>`. This is what makes Outlook display images
+ * inline without the "Download pictures" prompt.
+ *
+ * Images over MAX_INLINE_IMAGE_BYTES, or failures to fetch, fall back to the original
+ * external URL so the send is never blocked by this step.
+ */
+async function inlineR2Images(html: string): Promise<{
+  html: string
+  inline: { filename: string; content_type: string; data_base64: string; cid: string; inline: true }[]
+}> {
+  if (!R2_PUBLIC_DOMAIN) return { html, inline: [] }
+
+  const escapedDomain = escapeRegex(R2_PUBLIC_DOMAIN)
+  const pattern = new RegExp(
+    `src=(["'])(${escapedDomain}/[^"']+)\\1`,
+    'gi'
+  )
+
+  const uniqueUrls = new Set<string>()
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(html)) !== null) {
+    uniqueUrls.add(match[2])
+  }
+  if (uniqueUrls.size === 0) return { html, inline: [] }
+
+  const srcToCid = new Map<string, { cid: string; filename: string; content_type: string; data_base64: string }>()
+
+  await Promise.all(
+    Array.from(uniqueUrls).map(async (url) => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return
+        const contentType = res.headers.get('content-type') || 'application/octet-stream'
+        if (!contentType.startsWith('image/')) return
+        const ab = await res.arrayBuffer()
+        if (ab.byteLength > MAX_INLINE_IMAGE_BYTES) return
+        const buf = Buffer.from(ab)
+        const filename = decodeURIComponent(url.split('/').pop() || 'image').slice(0, 80)
+        const cid = `${crypto.randomUUID()}@infinity-erp`
+        srcToCid.set(url, {
+          cid,
+          filename,
+          content_type: contentType,
+          data_base64: buf.toString('base64'),
+        })
+      } catch {
+        // Skip — external URL stays in place
+      }
+    })
+  )
+
+  let rewritten = html
+  for (const [url, data] of srcToCid) {
+    const escapedUrl = escapeRegex(url)
+    rewritten = rewritten.replace(
+      new RegExp(`src=(["'])${escapedUrl}\\1`, 'gi'),
+      `src="cid:${data.cid}"`
+    )
+  }
+
+  const inline = Array.from(srcToCid.values()).map((d) => ({
+    filename: d.filename,
+    content_type: d.content_type,
+    data_base64: d.data_base64,
+    cid: d.cid,
+    inline: true as const,
+  }))
+
+  return { html: rewritten, inline }
+}
 
 const attachmentSchema = z.object({
   filename: z.string(),
@@ -161,12 +242,17 @@ export async function POST(req: Request) {
       })
     )
 
-    // 4. Inject open-tracking pixel into the HTML
+    // 4. Inline R2 images into MIME parts (CID) so Outlook renders them without prompting.
+    //    Must happen before the tracking pixel so the pixel URL is preserved as external.
+    const { html: inlinedHtml, inline: inlineAttachments } = await inlineR2Images(body_html)
+
+    // 5. Inject open-tracking pixel into the HTML
     const requestOrigin = new URL(req.url).origin
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || requestOrigin
-    const trackedHtml = injectOpenTrackingPixel(body_html, message.id, baseUrl)
+    const trackedHtml = injectOpenTrackingPixel(inlinedHtml, message.id, baseUrl)
 
-    // 5. Call Supabase Edge Function (smtp-send) to bypass serverless SMTP port restrictions
+    // 6. Call Supabase Edge Function (smtp-send) to bypass serverless SMTP port restrictions
+    const combinedAttachments = [...inlineAttachments, ...edgeAttachments]
     const edgePayload = {
       smtp: {
         host: account.smtp_host,
@@ -184,7 +270,7 @@ export async function POST(req: Request) {
       text: body_text,
       in_reply_to,
       references: in_reply_to,
-      attachments: edgeAttachments.length > 0 ? edgeAttachments : undefined,
+      attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
     }
 
     const edgeUrl = `${SUPABASE_URL}/functions/v1/smtp-send`
