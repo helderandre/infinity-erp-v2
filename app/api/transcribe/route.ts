@@ -33,10 +33,16 @@ export async function POST(request: Request) {
 
     const file = new File([audioFile], 'audio.webm', { type: 'audio/webm' })
 
+    // Domain vocabulary hint — biases Whisper toward known brand and
+    // real-estate terms so words like "Gmail" don't come back as "gay mail".
+    const WHISPER_PROMPT =
+      'Transcrição em português de Portugal. Vocabulário comum: Gmail, Outlook, WhatsApp, iPhone, Android, Instagram, LinkedIn, Facebook, Google, Apple, Microsoft, Zoom, Slack, Teams, T0, T1, T2, T3, T4, T5, Lisboa, Porto, Algarve, Cascais, Oeiras, Sintra, apartamento, moradia, terreno, comercial, arrendamento, venda, trespasse, angariação, fecho, negócio, contacto, imóvel, cliente, proprietário, consultor, comissão, CPCV, IMI, NIF, NIPC, código postal, euros.'
+
     const transcription = await openai.audio.transcriptions.create({
       model: 'whisper-1',
       file,
       language: 'pt',
+      prompt: WHISPER_PROMPT,
     })
 
     return NextResponse.json({ text: transcription.text })

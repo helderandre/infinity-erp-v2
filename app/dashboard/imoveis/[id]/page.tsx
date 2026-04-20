@@ -599,22 +599,26 @@ export default function ImovelDetalhePage() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full">
+          <div className="flex items-center justify-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full mx-auto sm:mx-0">
             {TABS.map((t) => {
               const Icon = t.icon
+              const isActive = activeTab === t.key
               return (
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
+                  title={t.label}
+                  aria-label={t.label}
                   className={cn(
-                    'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-                    activeTab === t.key
+                    'inline-flex items-center justify-center gap-1.5 h-8 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+                    isActive ? 'px-3.5 py-1.5' : 'w-8 sm:w-auto sm:px-3.5 sm:py-1.5',
+                    isActive
                       ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                       : 'text-muted-foreground hover:text-foreground hover:bg-background',
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {t.label}
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{t.label}</span>
                 </button>
               )
             })}

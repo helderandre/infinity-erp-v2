@@ -34,6 +34,7 @@ import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -137,6 +138,11 @@ export default function ProcessosPage() {
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>()
   const [showFechoDialog, setShowFechoDialog] = useState(false)
+  // Voice-seeded prefill: populated once on mount from the `?new=...` query
+  // param + the voice module-level cache. Consumed by the respective dialog.
+  const [voiceAcquisitionPrefill, setVoiceAcquisitionPrefill] = useState<Record<string, unknown> | undefined>(() =>
+    peekPrefill('acquisition') ?? undefined
+  )
   const [exportOpen, setExportOpen] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const suppressClickUntilRef = useRef(0)
@@ -256,6 +262,34 @@ export default function ProcessosPage() {
   useEffect(() => {
     loadProcesses()
   }, [loadProcesses])
+
+  // Open the angariação/fecho dialog on mount if the voice assistant
+  // routed us here via `?new=angariacao`, `?new=fecho`, or `?resume=<procId>`.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const mode = params.get('new')
+    const resumeId = params.get('resume')
+
+    if (resumeId) {
+      setResumeDraftId(resumeId)
+      setDraftDialogOpen(true)
+    } else if (mode === 'angariacao') {
+      setResumeDraftId(undefined)
+      setDraftDialogOpen(true)
+    } else if (mode === 'fecho') {
+      setShowFechoDialog(true)
+    }
+
+    clearPrefill('acquisition')
+    clearPrefill('fecho')
+
+    if (mode || resumeId) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('new')
+      url.searchParams.delete('resume')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
 
   // Count processes by status (from unfiltered data when no status filter, otherwise show current)
   const statusCounts = processes.reduce((acc: Record<string, number>, proc: any) => {
@@ -860,13 +894,16 @@ export default function ProcessosPage() {
           setDraftDialogOpen(open)
           if (!open) {
             setResumeDraftId(undefined)
+            setVoiceAcquisitionPrefill(undefined)
             loadProcesses()
           }
         }}
         draftId={resumeDraftId}
+        prefillData={voiceAcquisitionPrefill as any}
         onComplete={(procInstanceId) => {
           setDraftDialogOpen(false)
           setResumeDraftId(undefined)
+          setVoiceAcquisitionPrefill(undefined)
           router.push(`/dashboard/processos/${procInstanceId}`)
         }}
       />

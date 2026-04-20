@@ -3,10 +3,31 @@
 import { useEffect, useState } from 'react'
 import { LeadForm } from '@/components/leads/lead-form'
 import { Skeleton } from '@/components/ui/skeleton'
+import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
+
+type LeadPrefill = {
+  nome?: string
+  email?: string
+  telemovel?: string
+  observacoes?: string
+  negocio_tipo?: string
+  tipo_imovel?: string
+  localizacao?: string
+  quartos_min?: string | number
+  orcamento?: string | number
+  orcamento_max?: string | number
+}
 
 export default function NovoLeadPage() {
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // Lazy init: peek returns the same value on both Strict Mode invocations so
+  // the form always receives the prefill, even in dev double-render.
+  const [prefill] = useState<LeadPrefill | null>(() => peekPrefill<LeadPrefill>('lead'))
+
+  useEffect(() => {
+    clearPrefill('lead')
+  }, [])
 
   useEffect(() => {
     async function loadConsultants() {
@@ -49,7 +70,7 @@ export default function NovoLeadPage() {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : (
-        <LeadForm consultants={consultants} />
+        <LeadForm consultants={consultants} initialValues={prefill ?? undefined} />
       )}
     </div>
   )

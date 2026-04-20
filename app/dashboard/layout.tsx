@@ -43,8 +43,12 @@ const AiAgentChat = dynamic(
   () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
   { ssr: false }
 )
-const AiLongPressTrigger = dynamic(
-  () => import('@/components/shared/ai-long-press-trigger').then((m) => m.AiLongPressTrigger),
+const AiVoiceTrigger = dynamic(
+  () => import('@/components/shared/ai-voice-trigger').then((m) => m.AiVoiceTrigger),
+  { ssr: false }
+)
+const AiVoiceAssistant = dynamic(
+  () => import('@/components/shared/ai-voice-assistant').then((m) => m.AiVoiceAssistant),
   { ssr: false }
 )
 const AiBatchNotification = dynamic(
@@ -102,6 +106,26 @@ export default function DashboardLayout({
     mainRef.current?.scrollTo(0, 0)
   }, [pathname])
 
+  // Lock body scroll/bounce on app-like routes (email, whatsapp, chat)
+  const isAppLike =
+    pathname?.startsWith('/dashboard/email') ||
+    pathname?.startsWith('/dashboard/whatsapp') ||
+    pathname?.startsWith('/dashboard/comunicacao/chat')
+
+  useEffect(() => {
+    if (!isAppLike) return
+    const prevOverflow = document.body.style.overflow
+    const prevOverscroll = document.body.style.overscrollBehavior
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+    document.documentElement.style.overscrollBehavior = 'none'
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.overscrollBehavior = prevOverscroll
+      document.documentElement.style.overscrollBehavior = ''
+    }
+  }, [isAppLike])
+
   const isFullBleed = FULL_BLEED_ROUTES.some((r) => pathname?.startsWith(r))
     || /^\/dashboard\/formacoes\/cursos\/[^/]+\/licoes\/[^/]+$/.test(pathname ?? '')
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
@@ -136,14 +160,14 @@ export default function DashboardLayout({
           <main
             ref={mainRef}
             className={cn(
-              "flex flex-1 flex-col overflow-x-hidden overflow-y-auto",
+              "flex flex-1 flex-col overflow-x-hidden",
               isFullBleed
-                ? "min-h-0"
+                ? "min-h-0 overflow-hidden overscroll-none"
                 : isSidebarPage
-                  ? "min-h-0"
+                  ? "min-h-0 overflow-y-auto"
                   : isCompactPadding
-                    ? "p-2"
-                    : "gap-4 p-4 md:gap-6 md:p-6"
+                    ? "p-2 overflow-y-auto"
+                    : "gap-4 p-4 md:gap-6 md:p-6 overflow-y-auto"
             )}
           >
             <PushBanner />
@@ -155,7 +179,8 @@ export default function DashboardLayout({
         <GoalDailyPopup />
         <MobileBottomNav />
         <AiBatchNotification />
-        <AiLongPressTrigger />
+        <AiVoiceTrigger />
+        <AiVoiceAssistant />
       </SidebarProvider>
       <EmailComposerPopup />
       </EmailComposerProvider>

@@ -1,14 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PropertyForm } from '@/components/properties/property-form'
 import { ArrowLeft, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 
 export default function NovoImovelPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [prefill] = useState<Record<string, unknown> | null>(() => peekPrefill('property'))
+
+  useEffect(() => {
+    clearPrefill('property')
+  }, [])
 
   async function handleSubmit(data: {
     property: Record<string, unknown>
@@ -65,7 +71,12 @@ export default function NovoImovelPage() {
         </div>
       </div>
 
-      <PropertyForm mode="create" onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+      <PropertyForm
+        mode="create"
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+        defaultValues={prefill ?? undefined}
+      />
     </div>
   )
 }

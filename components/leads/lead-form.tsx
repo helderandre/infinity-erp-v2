@@ -31,6 +31,12 @@ interface LeadFormProps {
     email?: string
     telemovel?: string
     observacoes?: string
+    negocio_tipo?: string
+    tipo_imovel?: string
+    localizacao?: string
+    quartos_min?: string | number
+    orcamento?: string | number
+    orcamento_max?: string | number
   }
   /**
    * Transcript fed to the AI extractor in the background when the form mounts.
@@ -84,13 +90,13 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
   }, [user?.id])
 
   // Negócio inline (required: at least tipo)
-  const [negocioTipo, setNegocioTipo] = useState<string>('')
+  const [negocioTipo, setNegocioTipo] = useState<string>(initialValues?.negocio_tipo || '')
   const [negocioFields, setNegocioFields] = useState({
-    tipo_imovel: '',
-    localizacao: '',
-    quartos_min: '',
-    orcamento: '',
-    orcamento_max: '',
+    tipo_imovel: initialValues?.tipo_imovel || '',
+    localizacao: initialValues?.localizacao || '',
+    quartos_min: initialValues?.quartos_min !== undefined ? String(initialValues.quartos_min) : '',
+    orcamento: initialValues?.orcamento !== undefined ? String(initialValues.orcamento) : '',
+    orcamento_max: initialValues?.orcamento_max !== undefined ? String(initialValues.orcamento_max) : '',
   })
 
   // Referral

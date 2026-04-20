@@ -43,10 +43,8 @@ const SECTIONS: Section[] = [
 
 export function MobileBottomNav() {
   const pathname = usePathname()
-  const navRef = useRef<HTMLDivElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
-  const [bubbleStyle, setBubbleStyle] = useState({ left: 0, width: 0 })
 
   // Publish the actual rendered nav height as a CSS variable so full-bleed
   // pages (like /dashboard/whatsapp) can reserve the exact space and sit
@@ -102,23 +100,6 @@ export function MobileBottomNav() {
     return bestIdx
   }, [pathname, currentSection])
 
-  // Update bubble position
-  useEffect(() => {
-    if (!navRef.current) return
-    const buttons = navRef.current.querySelectorAll<HTMLElement>('[data-nav-item]')
-    const activeBtn = buttons[activeItemIndex]
-    if (activeBtn) {
-      const navRect = navRef.current.getBoundingClientRect()
-      const btnRect = activeBtn.getBoundingClientRect()
-      setBubbleStyle({
-        left: btnRect.left - navRect.left,
-        width: btnRect.width,
-      })
-    } else {
-      setBubbleStyle({ left: 0, width: 0 })
-    }
-  }, [activeItemIndex, currentSection])
-
   const handleSectionSelect = useCallback((key: string) => {
     setSelectedSectionKey(key)
     setSectionPopupOpen(false)
@@ -132,17 +113,17 @@ export function MobileBottomNav() {
   return (
     <div
       ref={rootRef}
-      className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible"
+      className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible px-3 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2"
     >
       {/* Section picker popup */}
       {sectionPopupOpen && (
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setSectionPopupOpen(false)} />
-          {/* Popup */}
-          <div className="absolute bottom-full left-2 right-2 mb-2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
-            <div className="bg-card/95 backdrop-blur-xl rounded-2xl border border-border/30 shadow-2xl p-2 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-4 gap-1">
+          {/* Popup — matches the nav pill's glass-black + circle language */}
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-fit max-w-[calc(100%-1.5rem)] animate-in slide-in-from-bottom-4 fade-in duration-200">
+            <div className="bg-neutral-900/90 backdrop-blur-xl rounded-3xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] px-10 py-5 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-4 gap-x-12 gap-y-7">
                 {SECTIONS.map(s => {
                   const Icon = s.icon
                   const isActive = s.key === selectedSectionKey
@@ -150,15 +131,26 @@ export function MobileBottomNav() {
                     <button
                       key={s.key}
                       onClick={() => handleSectionSelect(s.key)}
-                      className={cn(
-                        'flex flex-col items-center gap-1 rounded-xl p-2.5 transition-colors',
-                        isActive
-                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                          : 'text-muted-foreground hover:bg-muted/50 active:bg-muted'
-                      )}
+                      className="flex flex-col items-center gap-2 transition-transform active:scale-95"
                     >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-[9px] font-medium leading-tight text-center">{s.label}</span>
+                      <div
+                        className={cn(
+                          'h-11 w-11 rounded-full flex items-center justify-center transition-colors',
+                          isActive
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'bg-white/20 text-white hover:bg-white/30',
+                        )}
+                      >
+                        <Icon className="h-[18px] w-[18px]" />
+                      </div>
+                      <span
+                        className={cn(
+                          'text-[10px] font-medium leading-tight text-center',
+                          isActive ? 'text-white' : 'text-white/85',
+                        )}
+                      >
+                        {s.label}
+                      </span>
                     </button>
                   )
                 })}
@@ -168,39 +160,20 @@ export function MobileBottomNav() {
         </>
       )}
 
-      {/* Bottom bar */}
-      <div className="relative z-10 bg-background/90 backdrop-blur-xl border-t border-border/30 px-1 pb-[env(safe-area-inset-bottom)]">
-        <div ref={navRef} className="relative flex items-center py-1.5">
-          {/* Sliding bubble indicator — white with shadow */}
-          {activeItemIndex >= 0 && bubbleStyle.width > 0 && (
-            <div
-              className="absolute top-1 rounded-2xl bg-white dark:bg-neutral-800 shadow-[0_2px_12px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out"
-              style={{
-                left: bubbleStyle.left,
-                width: bubbleStyle.width,
-                height: 'calc(100% - 8px)',
-              }}
-            />
-          )}
+      {/* Bottom pill — glassmorphic black, shrinks to content */}
+      <div className="relative z-10 w-fit max-w-full mx-auto flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+        {/* Section circle (left) */}
+        <button
+          onClick={() => setSectionPopupOpen(v => !v)}
+          aria-label={currentSection.label}
+          title={currentSection.label}
+          className="shrink-0 h-11 w-11 rounded-full bg-white flex items-center justify-center shadow-sm transition-transform active:scale-95"
+        >
+          <SectionIcon className="h-[18px] w-[18px] text-neutral-900" />
+        </button>
 
-          {/* Section switcher button (always first, on the left) */}
-          <button
-            onClick={() => setSectionPopupOpen(v => !v)}
-            className={cn(
-              'relative z-10 flex flex-col items-center gap-0.5 px-2.5 py-1.5 shrink-0',
-              sectionPopupOpen ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          >
-            <div className={cn(
-              'h-7 w-7 rounded-xl flex items-center justify-center transition-colors duration-200',
-              'bg-neutral-900 dark:bg-white'
-            )}>
-              <SectionIcon className="h-3.5 w-3.5 text-white dark:text-neutral-900" />
-            </div>
-            <span className="text-[8px] font-semibold truncate max-w-[48px]">{currentSection.label}</span>
-          </button>
-
-          {/* Page items */}
+        {/* Page items */}
+        <div className="flex items-center gap-1">
           {visibleItems.map((item, idx) => {
             const Icon = item.icon
             const isActive = idx === activeItemIndex
@@ -208,16 +181,17 @@ export function MobileBottomNav() {
               <Link
                 key={`${item.href}-${idx}`}
                 href={item.href}
-                data-nav-item
+                aria-label={item.title}
+                title={item.title}
                 className={cn(
-                  'relative z-10 flex flex-1 flex-col items-center gap-0.5 px-1 py-1.5 rounded-2xl transition-colors duration-300 min-w-0',
+                  'inline-flex items-center justify-center gap-1.5 h-11 rounded-full text-xs font-medium whitespace-nowrap transition-all',
                   isActive
-                    ? 'text-neutral-900 dark:text-white'
-                    : 'text-muted-foreground'
+                    ? 'px-4 bg-white text-neutral-900 shadow-sm'
+                    : 'w-11 text-white/75 hover:text-white active:bg-white/10',
                 )}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-[8px] font-medium truncate max-w-[52px]">{item.title}</span>
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className={cn(isActive ? 'inline' : 'hidden')}>{item.title}</span>
               </Link>
             )
           })}

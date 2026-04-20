@@ -162,7 +162,9 @@ export function EmailComposerPopup() {
   // like dropped images). Fullscreen windows break out of the flex row via
   // fixed positioning on their wrapper; the others hide behind a fullscreen one.
   return (
-    <div className="pointer-events-none fixed bottom-0 right-0 z-50 flex flex-row-reverse items-end gap-2 px-6">
+    <div
+      className="pointer-events-none fixed right-0 z-50 flex items-end gap-2 flex-col justify-end top-1/2 bottom-[calc(var(--mobile-nav-height,0px)+1rem)] sm:top-auto sm:bottom-0 sm:flex-row-reverse sm:justify-start sm:px-6"
+    >
       {drafts.map((d) => {
         const isFullscreen = d.mode === 'fullscreen'
         return (
@@ -553,12 +555,15 @@ function ComposerWindow({ draft, stacked }: WindowProps) {
   // The parent wrapper positions each window (flex row for stacked, fixed inset
   // for fullscreen). The window itself only controls its own size + chrome.
   const windowStyle = cn(
-    'flex flex-col bg-background border shadow-2xl',
-    stacked && mode === 'minimized' &&
-      'w-80 rounded-t-lg border-b-0 h-10 overflow-hidden',
+    'flex bg-background border shadow-2xl',
+    // Minimized: vertical pull-tab on mobile, horizontal strip on desktop
+    stacked && mode === 'minimized' && [
+      'flex-col w-9 min-h-[140px] rounded-l-xl border-r-0 overflow-hidden',
+      'sm:flex-row sm:w-80 sm:h-10 sm:min-h-0 sm:rounded-t-lg sm:rounded-l-none sm:border-r sm:border-b-0',
+    ],
     stacked && mode === 'normal' &&
-      'w-[560px] max-w-[calc(100vw-2rem)] rounded-t-lg border-b-0 h-[min(600px,90vh)]',
-    !stacked && 'w-full h-full rounded-lg'
+      'flex-col w-[560px] max-w-[calc(100vw-1rem)] rounded-t-lg border-b-0 h-[min(600px,85vh)]',
+    !stacked && 'flex-col w-full h-full rounded-lg'
   )
 
   const draftIndicator = (() => {
@@ -613,11 +618,36 @@ function ComposerWindow({ draft, stacked }: WindowProps) {
             </div>
           </div>
         )}
-        {/* Header */}
+        {/* Mobile-only: vertical pull-tab "separador" when minimized */}
+        {stacked && mode === 'minimized' && (
+          <div
+            className="sm:hidden flex flex-col items-center justify-between flex-1 w-full bg-neutral-800 text-neutral-50 px-1 py-2.5 gap-2 cursor-pointer"
+            onClick={() => setMode('normal')}
+          >
+            <Mail className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-[11px] font-medium overflow-hidden [writing-mode:vertical-rl] max-h-[90px] leading-none">
+              {(subject.trim() || title).slice(0, 28)}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleClose()
+              }}
+              className="text-neutral-300 hover:text-neutral-50 p-0.5"
+              aria-label="Fechar"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        {/* Header (horizontal — hidden on mobile when minimized) */}
         <div
           className={cn(
             'flex items-center justify-between gap-2 bg-neutral-800 text-neutral-50 px-3 py-2 shrink-0 rounded-t-lg',
-            mode !== 'fullscreen' && 'cursor-pointer'
+            mode !== 'fullscreen' && 'cursor-pointer',
+            stacked && mode === 'minimized' && 'hidden sm:flex',
           )}
           onClick={
             mode === 'minimized'
