@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -45,7 +45,7 @@ const SOURCE_LABELS: Record<string, string> = {
 interface PipelineValue { compra: number; venda: number; arrendamento: number; total: number }
 interface LeadSource { source: string; count: number }
 
-export default function RelatorioSemanalPage() {
+function RelatorioSemanalPageInner() {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
   const [report, setReport] = useState<{
     id: string; status: string; notes_wins: string | null; notes_challenges: string | null
@@ -363,3 +363,12 @@ export default function RelatorioSemanalPage() {
     </div>
   )
 }
+
+export default function RelatorioSemanalPage() {
+  return (
+    <Suspense fallback={null}>
+      <RelatorioSemanalPageInner />
+    </Suspense>
+  )
+}
+

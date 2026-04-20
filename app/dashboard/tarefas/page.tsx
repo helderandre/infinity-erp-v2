@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckSquare, AlertTriangle, Clock, Zap, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +9,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -44,7 +46,7 @@ type Selection =
   | { kind: 'proposal'; visitId: string }
   | null
 
-export default function TarefasPage() {
+function TarefasPageInner() {
   const { user } = useUser()
   const isMobile = useIsMobile()
   const searchParams = useSearchParams()
@@ -225,29 +227,17 @@ export default function TarefasPage() {
         <StatsCard icon={<Zap className="size-4" strokeWidth={1.75} />} label="Urgentes" value={stats?.urgent} isLoading={statsLoading} color="orange" />
       </div>
 
-      {/* List header OR Pill picker */}
-      {listId && list ? (
-        <ListHeader
-          list={list}
-          memberCount={list.members?.length ?? 0}
-          onShare={() => setShareOpen(true)}
-          onRenamed={async (name) => {
-            await updateList(list.id, { name })
-            refetchList()
-          }}
-          onColorChanged={async (color) => {
-            await updateList(list.id, { color })
-            refetchList()
-          }}
-          onDeleted={async () => {
-            await removeList(list.id)
-            toast.success('Lista eliminada')
-            router.push('/dashboard/tarefas')
-          }}
+      {/* Single header row: switcher + tabs + list actions (when in a list) */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <TaskListSwitcher
+          activeListId={listId}
+          activeListName={list?.name}
+          activeListColor={(list?.color as TaskListColor | undefined) ?? 'neutral'}
+          defaultViewLabel="Listas"
         />
-      ) : (
-        <div className="flex items-center gap-2 flex-wrap">
-          <TaskListSwitcher activeListId={null} defaultViewLabel="Listas" />
+
+        {/* Pill picker — only when NOT inside a list (processes don't apply to lists) */}
+        {!listId && (
           <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
             {([
               { key: 'personal' as const, label: 'Tarefas', icon: ListChecks, count: personalTab.total },
@@ -268,7 +258,6 @@ export default function TarefasPage() {
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {/* Mobile: only active tab shows label. Desktop: always show. */}
                   <span className={cn(!isActive && 'hidden sm:inline')}>{t.label}</span>
                   {t.count > 0 && (
                     <span
@@ -286,8 +275,23 @@ export default function TarefasPage() {
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Member avatars + list actions — only when inside a list */}
+        {listId && list && (
+          <ListInlineActions
+            list={list}
+            onShare={() => setShareOpen(true)}
+            onRenamed={async (name) => { await updateList(list.id, { name }); refetchList() }}
+            onColorChanged={async (color) => { await updateList(list.id, { color }); refetchList() }}
+            onDeleted={async () => {
+              await removeList(list.id)
+              toast.success('Lista eliminada')
+              router.push('/dashboard/tarefas')
+            }}
+          />
+        )}
+      </div>
 
       {/* List view */}
       {listId && (
@@ -537,9 +541,8 @@ function TaskList({
 
 // ─── List Header (inside a task list) ───────────────────────
 
-function ListHeader({
+function ListInlineActions({
   list,
-  memberCount,
   onShare,
   onRenamed,
   onColorChanged,
@@ -549,145 +552,130 @@ function ListHeader({
     id: string
     name: string
     color: string
-    owner_id: string
     is_owner: boolean
-    owner?: { id: string; commercial_name: string; profile_photo_url?: string | null } | null
     members?: Array<{ user_id: string; commercial_name: string; profile_photo_url?: string | null }>
   }
-  memberCount: number
   onShare: () => void
   onRenamed: (name: string) => Promise<void>
   onColorChanged: (color: string) => Promise<void>
   onDeleted: () => Promise<void>
 }) {
-  const [isRenaming, setIsRenaming] = useState(false)
-  const [name, setName] = useState(list.name)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const colorClass = TASK_LIST_COLORS[list.color as TaskListColor]?.hash || 'text-muted-foreground'
-  const avatars = (list.members || []).slice(0, 4)
-
-  const commitRename = async () => {
-    const trimmed = name.trim()
-    if (!trimmed || trimmed === list.name) {
-      setIsRenaming(false)
-      setName(list.name)
-      return
-    }
-    try {
-      await onRenamed(trimmed)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao renomear')
-      setName(list.name)
-    } finally {
-      setIsRenaming(false)
-    }
-  }
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [name, setName] = useState(list.name)
+  const avatars = (list.members || []).slice(0, 3)
+  const memberCount = list.members?.length ?? 0
 
   const initials = (n: string) => n.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
 
+  const commitRename = async () => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === list.name) { setRenameOpen(false); setName(list.name); return }
+    try { await onRenamed(trimmed) } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao renomear')
+      setName(list.name)
+    } finally { setRenameOpen(false) }
+  }
+
   return (
     <>
-      <div className="flex items-center gap-2.5 px-1">
-        {isRenaming ? (
-          <>
-            <Hash className={cn('size-6 shrink-0', colorClass)} strokeWidth={2.5} />
-            <input
-              value={name}
-              autoFocus
-              onChange={(e) => setName(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); commitRename() }
-                if (e.key === 'Escape') { setIsRenaming(false); setName(list.name) }
-              }}
-              className="text-xl font-semibold tracking-tight bg-transparent border-b border-primary/40 outline-none px-1 flex-1 min-w-0"
-            />
-          </>
-        ) : (
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <TaskListSwitcher
-              activeListId={list.id}
-              activeListName={list.name}
-              activeListColor={list.color as TaskListColor}
-              variant="title"
-            />
-          </div>
-        )}
+      {/* Member avatars (shared lists) */}
+      {avatars.length > 0 && (
+        <div className="flex -space-x-1.5">
+          {avatars.map((m) => (
+            <Avatar key={m.user_id} className="size-6 border-2 border-background">
+              <AvatarImage src={m.profile_photo_url || undefined} />
+              <AvatarFallback className="text-[9px]">{initials(m.commercial_name)}</AvatarFallback>
+            </Avatar>
+          ))}
+          {memberCount > avatars.length && (
+            <div className="size-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium text-muted-foreground">
+              +{memberCount - avatars.length}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Member avatars */}
-        {avatars.length > 0 && (
-          <div className="flex -space-x-1.5">
-            {avatars.map((m) => (
-              <Avatar key={m.user_id} className="size-6 border-2 border-background">
-                <AvatarImage src={m.profile_photo_url || undefined} />
-                <AvatarFallback className="text-[9px]">
-                  {initials(m.commercial_name)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {memberCount > avatars.length && (
-              <div className="size-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium text-muted-foreground">
-                +{memberCount - avatars.length}
+      {/* Owner-only actions */}
+      {list.is_owner && (
+        <>
+          <button
+            type="button"
+            onClick={onShare}
+            className="inline-flex items-center justify-center size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+            title="Partilhar"
+          >
+            <UserPlus className="h-4 w-4" />
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                aria-label="Mais acções"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => { setName(list.name); setRenameOpen(true) }}>
+                <Pencil className="h-3.5 w-3.5 mr-2" />
+                Renomear
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                Cor
               </div>
-            )}
-          </div>
-        )}
+              <div className="flex flex-wrap gap-1 px-2 pb-2">
+                {(Object.entries(TASK_LIST_COLORS) as [TaskListColor, typeof TASK_LIST_COLORS[TaskListColor]][]).map(([key, c]) => (
+                  <button
+                    key={key}
+                    onClick={() => onColorChanged(key)}
+                    className={cn(
+                      'size-6 rounded-full hover:bg-muted/60 flex items-center justify-center',
+                      list.color === key && 'ring-2 ring-primary/40',
+                    )}
+                    title={c.label}
+                  >
+                    <Hash className={cn('size-3.5', c.hash)} strokeWidth={2.5} />
+                  </button>
+                ))}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Eliminar lista
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
 
-        {/* Actions (owner only) */}
-        {list.is_owner && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={onShare}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Partilhar
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={() => setIsRenaming(true)}>
-                  <Pencil className="h-3.5 w-3.5 mr-2" />
-                  Renomear
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                  Cor
-                </div>
-                <div className="flex flex-wrap gap-1 px-2 pb-2">
-                  {(Object.entries(TASK_LIST_COLORS) as [TaskListColor, typeof TASK_LIST_COLORS[TaskListColor]][]).map(([key, c]) => (
-                    <button
-                      key={key}
-                      onClick={() => onColorChanged(key)}
-                      className={cn(
-                        'size-6 rounded-full hover:bg-muted/60 flex items-center justify-center',
-                        list.color === key && 'ring-2 ring-primary/40',
-                      )}
-                      title={c.label}
-                    >
-                      <Hash className={cn('size-3.5', c.hash)} strokeWidth={2.5} />
-                    </button>
-                  ))}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                  Eliminar lista
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        )}
-      </div>
+      {/* Rename dialog */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Renomear lista</DialogTitle>
+          </DialogHeader>
+          <input
+            value={name}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitRename() }
+              if (e.key === 'Escape') { setRenameOpen(false); setName(list.name) }
+            }}
+            className="w-full text-sm h-9 rounded-md border border-input bg-transparent px-3 py-1 outline-none focus:ring-2 focus:ring-ring"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setRenameOpen(false); setName(list.name) }}>Cancelar</Button>
+            <Button onClick={commitRename}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -779,3 +767,12 @@ function StatsCard({
     </div>
   )
 }
+
+export default function TarefasPage() {
+  return (
+    <Suspense fallback={null}>
+      <TarefasPageInner />
+    </Suspense>
+  )
+}
+

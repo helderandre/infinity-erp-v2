@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
@@ -19,6 +19,16 @@ import { NewListDialog } from '@/components/tasks/new-list-dialog'
 import { TASK_LIST_COLORS, type TaskListColor, type TaskListWithMeta } from '@/types/task-list'
 
 export function TaskListsSidebarGroup() {
+  // useSearchParams() must be under a Suspense boundary for Next.js's
+  // prerender check; everything else stays in the inner component.
+  return (
+    <Suspense fallback={null}>
+      <TaskListsSidebarGroupInner />
+    </Suspense>
+  )
+}
+
+function TaskListsSidebarGroupInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeListId = searchParams.get('list')

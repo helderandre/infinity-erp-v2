@@ -1,5 +1,6 @@
 'use client'
 
+
 import { Suspense, useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
@@ -61,7 +62,7 @@ const PAGE_SIZE = 20
 const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS)
 const DEFAULT_STATUSES = ALL_STATUS_KEYS.filter((k) => k !== 'cancelled')
 
-export default function ImoveisPage() {
+function ImoveisPageInner() {
   return (
     <Suspense fallback={<ImoveisPageSkeleton />}>
       <ImoveisPageContent />
@@ -608,3 +609,12 @@ function ImoveisPageContent() {
     </div>
   )
 }
+
+export default function ImoveisPage() {
+  return (
+    <Suspense fallback={null}>
+      <ImoveisPageInner />
+    </Suspense>
+  )
+}
+

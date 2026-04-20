@@ -63,7 +63,7 @@ const PERIODS = [
 // Page
 // ============================================================================
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   return (
     <Suspense fallback={<div className="space-y-6"><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-96 rounded-2xl" /></div>}>
       <AnalyticsContent />
@@ -480,3 +480,12 @@ function formatCurrency(value: number): string {
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k €`
   return `${value.toLocaleString('pt-PT')} €`
 }
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyticsPageInner />
+    </Suspense>
+  )
+}
+

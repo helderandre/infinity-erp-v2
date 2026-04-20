@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, format, parseISO, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -24,7 +25,7 @@ import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 import type { CalendarEventFormData } from '@/lib/validations/calendar'
 
-export default function CalendarioPage() {
+function CalendarioPageInner() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'month' | 'week' | 'agenda'>('month')
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
@@ -534,3 +535,12 @@ export default function CalendarioPage() {
     </div>
   )
 }
+
+export default function CalendarioPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarioPageInner />
+    </Suspense>
+  )
+}
+

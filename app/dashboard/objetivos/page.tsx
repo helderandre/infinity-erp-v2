@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,7 @@ import { useGoals } from '@/hooks/use-goals'
 import { GoalCompareTable } from '@/components/goals/goal-compare-table'
 import { formatCurrency } from '@/lib/constants'
 
-export default function ObjetivosPage() {
+function ObjetivosPageInner() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const { goals, isLoading } = useGoals({ year })
@@ -177,3 +177,12 @@ export default function ObjetivosPage() {
     </div>
   )
 }
+
+export default function ObjetivosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ObjetivosPageInner />
+    </Suspense>
+  )
+}
+

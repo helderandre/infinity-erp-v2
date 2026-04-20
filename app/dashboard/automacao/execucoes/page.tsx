@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
@@ -340,7 +341,7 @@ function ExpandedSteps({ executionId }: { executionId: string }) {
   )
 }
 
-export default function ExecucoesPage() {
+function ExecucoesPageInner() {
   return (
     <Suspense
       fallback={
@@ -358,3 +359,12 @@ export default function ExecucoesPage() {
     </Suspense>
   )
 }
+
+export default function ExecucoesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExecucoesPageInner />
+    </Suspense>
+  )
+}
+

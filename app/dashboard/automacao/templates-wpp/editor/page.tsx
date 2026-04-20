@@ -1,5 +1,6 @@
 "use client"
 
+
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -147,7 +148,7 @@ function TemplateEditorContent() {
   )
 }
 
-export default function TemplateEditorPage() {
+function TemplateEditorPageInner() {
   return (
     <Suspense
       fallback={
@@ -163,3 +164,12 @@ export default function TemplateEditorPage() {
     </Suspense>
   )
 }
+
+export default function TemplateEditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <TemplateEditorPageInner />
+    </Suspense>
+  )
+}
+

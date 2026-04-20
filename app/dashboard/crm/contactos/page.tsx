@@ -1,5 +1,6 @@
 'use client'
 
+
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -25,7 +26,7 @@ import type { LeadsContactWithRelations, LeadsContactStage } from '@/types/leads
 
 const PAGE_SIZE = 25
 
-export default function ContactosPage() {
+function ContactosPageInner() {
   return (
     <Suspense fallback={<Skeleton className="h-96 w-full rounded-xl" />}>
       <ContactosPageContent />
@@ -291,3 +292,12 @@ function ContactosPageContent() {
     </div>
   )
 }
+
+export default function ContactosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContactosPageInner />
+    </Suspense>
+  )
+}
+

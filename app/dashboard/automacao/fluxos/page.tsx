@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+
+import { Suspense, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Workflow, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export default function FluxosPage() {
+function FluxosPageInner() {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
@@ -175,3 +176,12 @@ export default function FluxosPage() {
     </div>
   )
 }
+
+export default function FluxosPage() {
+  return (
+    <Suspense fallback={null}>
+      <FluxosPageInner />
+    </Suspense>
+  )
+}
+

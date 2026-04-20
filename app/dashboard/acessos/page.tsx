@@ -1,5 +1,6 @@
 'use client'
 
+
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import {
   KeyRound, Building2, Link2, Globe, Sparkles, Copy, Check,
@@ -627,7 +628,7 @@ function LinksContent() {
 
 // ─── Page ───────────────────────────────────────────────
 
-export default function AcessosPage() {
+function AcessosPageInner() {
   return (
     <Suspense fallback={<AcessosSkeleton />}>
       <AcessosPageContent />
@@ -683,3 +684,12 @@ function AcessosPageContent() {
     </div>
   )
 }
+
+export default function AcessosPage() {
+  return (
+    <Suspense fallback={null}>
+      <AcessosPageInner />
+    </Suspense>
+  )
+}
+

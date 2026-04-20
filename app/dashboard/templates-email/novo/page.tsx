@@ -1,10 +1,13 @@
 'use client'
 
+
+
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { EmailEditorComponent } from '@/components/email-editor/email-editor'
 import { normalizeCategory } from '@/lib/constants-template-categories'
 
-export default function NovoTemplateEmailPage() {
+function NovoTemplateEmailPageInner() {
   const searchParams = useSearchParams()
   const scope = searchParams.get('scope') as 'consultant' | 'global' | null
   const category = normalizeCategory(searchParams.get('category'))
@@ -21,3 +24,12 @@ export default function NovoTemplateEmailPage() {
     />
   )
 }
+
+export default function NovoTemplateEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <NovoTemplateEmailPageInner />
+    </Suspense>
+  )
+}
+

@@ -1,5 +1,6 @@
 "use client"
 
+
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -583,7 +584,7 @@ function FlowEditorContent() {
   )
 }
 
-export default function FlowEditorPage() {
+function FlowEditorPageInner() {
   return (
     <Suspense
       fallback={
@@ -605,3 +606,12 @@ export default function FlowEditorPage() {
     </Suspense>
   )
 }
+
+export default function FlowEditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <FlowEditorPageInner />
+    </Suspense>
+  )
+}
+

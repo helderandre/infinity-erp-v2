@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { getIGProfiles, getIGMedia, getIGComments, getScheduledPosts } from "./actions"
 import { getSavedCompetitors } from "@/app/dashboard/competitors/actions"
 import { InstagramClient } from "./instagram-client"
@@ -9,13 +10,15 @@ export default async function InstagramPage() {
     await Promise.all([getIGProfiles(), getIGMedia(), getIGComments(), getScheduledPosts(), getSavedCompetitors()])
 
   return (
-    <InstagramClient
-      profiles={profiles}
-      media={media}
-      comments={comments}
-      scheduledPosts={scheduledPosts}
-      apiError={mediaError ?? commentsError ?? null}
-      savedCompetitors={savedCompetitors}
-    />
+    <Suspense fallback={null}>
+      <InstagramClient
+        profiles={profiles}
+        media={media}
+        comments={comments}
+        scheduledPosts={scheduledPosts}
+        apiError={mediaError ?? commentsError ?? null}
+        savedCompetitors={savedCompetitors}
+      />
+    </Suspense>
   )
 }

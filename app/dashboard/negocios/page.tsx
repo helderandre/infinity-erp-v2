@@ -1,5 +1,6 @@
 'use client'
 
+
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -97,7 +98,7 @@ const statusOptions = (Object.keys(DEAL_STATUSES) as DealStatus[]).map((k) => ({
 const ALL_STATUS_KEYS = statusOptions.map((o) => o.value)
 const DEFAULT_STATUSES: DealStatus[] = ['draft', 'submitted', 'active', 'completed']
 
-export default function NegociosPage() {
+function NegociosPageInner() {
   return (
     <Suspense fallback={<NegociosPageSkeleton />}>
       <NegociosPageContent />
@@ -752,3 +753,12 @@ function Pagination({
     </div>
   )
 }
+
+export default function NegociosPage() {
+  return (
+    <Suspense fallback={null}>
+      <NegociosPageInner />
+    </Suspense>
+  )
+}
+

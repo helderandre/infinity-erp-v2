@@ -1,5 +1,6 @@
 'use client'
 
+
 import { Suspense, useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -45,7 +46,7 @@ import type { LeadWithAgent } from '@/types/lead'
 
 const PAGE_SIZE = 20
 
-export default function LeadsPage() {
+function LeadsPageInner() {
   return (
     <Suspense fallback={<LeadsPageSkeleton />}>
       <LeadsPageContent />
@@ -532,3 +533,12 @@ function LeadsPageContent() {
     </div>
   )
 }
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsPageInner />
+    </Suspense>
+  )
+}
+
