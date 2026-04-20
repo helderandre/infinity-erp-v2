@@ -37,6 +37,16 @@ import {
   updatePaymentInvoice,
 } from '@/app/dashboard/comissoes/deals/actions'
 import { DealComplianceTab } from '@/components/financial/deal-compliance-tab'
+import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
+import { Workflow, Euro, ShieldCheck } from 'lucide-react'
+
+type DealTab = 'processo' | 'financeiro' | 'compliance'
+
+const DEAL_TABS: { key: DealTab; label: string; icon: typeof Workflow }[] = [
+  { key: 'processo', label: 'Processo', icon: Workflow },
+  { key: 'financeiro', label: 'Financeiro', icon: Euro },
+  { key: 'compliance', label: 'Compliance', icon: ShieldCheck },
+]
 import type { Deal, DealPayment, DealScenario } from '@/types/deal'
 import {
   DEAL_SCENARIOS,
@@ -78,6 +88,8 @@ export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [deal, setDeal] = useState<Deal | null>(null)
   const [loading, setLoading] = useState(true)
+  const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
+  const [activeTab, setActiveTab] = useState<'processo' | 'financeiro' | 'compliance'>('processo')
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({})
 
   const loadDeal = useCallback(async () => {
@@ -284,101 +296,159 @@ export default function DealDetailPage() {
         </div>
       </div>
 
-      {/* ═══ Content grid ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-        {/* Left: Payments timeline */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Cronograma de Pagamentos</h2>
-              {payments.length > 0 && (
-                <Badge variant="outline" className="rounded-full text-[10px]">
-                  {payments.length} momento{payments.length !== 1 ? 's' : ''}
-                </Badge>
-              )}
-            </div>
-
-            {payments.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                Sem momentos de pagamento.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {payments.map((payment) => (
-                  <PaymentCard
-                    key={payment.id}
-                    payment={payment}
-                    onStatusChange={handleStatusChange}
-                    onInvoiceChange={handleInvoiceChange}
-                  />
-                ))}
-              </div>
-            )}
+      {/* ═══ Tabs ═══ */}
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        {/* Tab selector row: chips on the left, panel toolbar slot on the right */}
+        <div className="flex items-center gap-3 m-4 mb-0 flex-wrap">
+          <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 overflow-x-auto scrollbar-hide w-fit max-w-full">
+            {DEAL_TABS.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-300',
+                    activeTab === t.key
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {t.label}
+                </button>
+              )
+            })}
           </div>
+          <div ref={setProcessToolbarEl} className="ml-auto flex items-center gap-2" />
         </div>
 
-        {/* Right: Financial summary */}
-        <div className="lg:sticky lg:top-4">
-          <div className="rounded-xl border bg-card shadow-sm p-5 space-y-3">
-            <h3 className="text-base font-semibold">Resumo Financeiro</h3>
-            <div className="space-y-2.5 text-sm">
-              <Row label="Valor do negócio" value={fmtCurrency(deal.deal_value)} bold />
-              <Row
-                label={`Comissão (${fmtPct(deal.commission_pct)})`}
-                value={fmtCurrency(deal.commission_total)}
-                bold
-              />
-              <Separator />
-              {deal.has_share && (
-                <>
-                  <Row label="Nossa parte" value={fmtCurrency(deal.share_amount)} />
-                  <Row
-                    label={`Parceiro (${deal.partner_agency_name ?? '—'})`}
-                    value={fmtCurrency(deal.partner_amount)}
-                    muted
-                  />
-                  <Separator />
-                </>
-              )}
-              <Row
-                label={`Rede (${fmtPct(deal.network_pct)})`}
-                value={fmtCurrency(deal.network_amount)}
-                muted
-              />
-              <Row label="Margem agência" value={fmtCurrency(deal.agency_margin)} />
-              <Row
-                label={`Consultor (${fmtPct(deal.consultant_pct)})`}
-                value={fmtCurrency(deal.consultant_amount)}
-              />
-              <Row label="Líquido agência" value={fmtCurrency(deal.agency_net)} bold />
-              <Separator />
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-                Momentos
-              </p>
-              {payments.map((p) => {
-                const done = p.is_signed && p.is_received && p.is_reported
-                return (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      {statusIndicator(p)}
-                      <span>{PAYMENT_MOMENTS[p.payment_moment]}</span>
-                    </span>
-                    <Badge
-                      variant={done ? 'default' : 'secondary'}
-                      className="rounded-full text-[10px] font-medium border-0"
-                    >
-                      {fmtCurrency(p.amount)} ({p.payment_pct}%)
-                    </Badge>
+        <div className="p-5 pt-4">
+          {/* ── Processo tab ── */}
+          {activeTab === 'processo' && (
+            <div className="animate-in fade-in duration-200">
+              {deal.proc_instance_id ? (
+                <ProcessPipelinePanel
+                  processId={deal.proc_instance_id}
+                  toolbarElement={processToolbarEl}
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed bg-muted/20 p-6 flex items-start gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground shrink-0">
+                    <Workflow className="h-4 w-4" />
                   </div>
-                )
-              })}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Processo ainda não iniciado</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Assim que o negócio for submetido para aprovação, o processo de fecho aparecerá aqui.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* ── Financeiro tab ── */}
+          {activeTab === 'financeiro' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start animate-in fade-in duration-200">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold">Cronograma de Pagamentos</h2>
+                    {payments.length > 0 && (
+                      <Badge variant="outline" className="rounded-full text-[10px]">
+                        {payments.length} momento{payments.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">
+                      Sem momentos de pagamento.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {payments.map((payment) => (
+                        <PaymentCard
+                          key={payment.id}
+                          payment={payment}
+                          onStatusChange={handleStatusChange}
+                          onInvoiceChange={handleInvoiceChange}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:sticky lg:top-4">
+                <div className="rounded-xl border bg-card shadow-sm p-5 space-y-3">
+                  <h3 className="text-base font-semibold">Resumo Financeiro</h3>
+                  <div className="space-y-2.5 text-sm">
+                    <Row label="Valor do negócio" value={fmtCurrency(deal.deal_value)} bold />
+                    <Row
+                      label={`Comissão (${fmtPct(deal.commission_pct)})`}
+                      value={fmtCurrency(deal.commission_total)}
+                      bold
+                    />
+                    <Separator />
+                    {deal.has_share && (
+                      <>
+                        <Row label="Nossa parte" value={fmtCurrency(deal.share_amount)} />
+                        <Row
+                          label={`Parceiro (${deal.partner_agency_name ?? '—'})`}
+                          value={fmtCurrency(deal.partner_amount)}
+                          muted
+                        />
+                        <Separator />
+                      </>
+                    )}
+                    <Row
+                      label={`Rede (${fmtPct(deal.network_pct)})`}
+                      value={fmtCurrency(deal.network_amount)}
+                      muted
+                    />
+                    <Row label="Margem agência" value={fmtCurrency(deal.agency_margin)} />
+                    <Row
+                      label={`Consultor (${fmtPct(deal.consultant_pct)})`}
+                      value={fmtCurrency(deal.consultant_amount)}
+                    />
+                    <Row label="Líquido agência" value={fmtCurrency(deal.agency_net)} bold />
+                    <Separator />
+                    <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                      Momentos
+                    </p>
+                    {payments.map((p) => {
+                      const done = p.is_signed && p.is_received && p.is_reported
+                      return (
+                        <div key={p.id} className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            {statusIndicator(p)}
+                            <span>{PAYMENT_MOMENTS[p.payment_moment]}</span>
+                          </span>
+                          <Badge
+                            variant={done ? 'default' : 'secondary'}
+                            className="rounded-full text-[10px] font-medium border-0"
+                          >
+                            {fmtCurrency(p.amount)} ({p.payment_pct}%)
+                          </Badge>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Compliance tab ── */}
+          {activeTab === 'compliance' && (
+            <div className="animate-in fade-in duration-200">
+              <DealComplianceTab dealId={deal.id} dealValue={deal.deal_value} dealDate={deal.deal_date} />
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Compliance IMPIC */}
-      <DealComplianceTab dealId={deal.id} dealValue={deal.deal_value} dealDate={deal.deal_date} />
     </div>
   )
 }
