@@ -48,6 +48,8 @@ interface Props {
   onAttachFiles: (files: File[]) => void
   onInlineImageUpload: (file: File) => Promise<void>
   onDiscard: () => void
+  /** Slot rendered just before the signature/discard buttons — used for the AI panel. */
+  endSlot?: React.ReactNode
 }
 
 const TEXT_COLORS = [
@@ -103,6 +105,7 @@ export function ComposerToolbar({
   onAttachFiles,
   onInlineImageUpload,
   onDiscard,
+  endSlot,
 }: Props) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -502,6 +505,7 @@ export function ComposerToolbar({
       </Tooltip>
 
       <div className="ml-auto flex items-center gap-0.5">
+        {endSlot}
         {/* Signature toggle */}
         {signatureAvailable && (
           <Tooltip delayDuration={300}>

@@ -31,6 +31,7 @@ const schema = z.object({
   // Common
   tone: z.enum(['professional', 'friendly', 'formal']).optional().default('professional'),
   instruction: z.string().optional(),    // user's free-text (or transcribed voice) instruction
+  existing_draft: z.string().optional(), // user's current draft body — polish/complete this while preserving intent + facts
 })
 
 const DRAFT_SCHEMA = {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
 
     const {
       subject, from_name, from_email, body_text, body_html,
-      contact_name, contact_email, tone, instruction,
+      contact_name, contact_email, tone, instruction, existing_draft,
     } = validation.data
 
     const supabase = await createClient()
@@ -91,6 +92,8 @@ O consultor que assina é: ${userName}.
 
 REGRA CRÍTICA: Se o utilizador deu uma instrução sobre O QUE dizer, segue-a EXACTAMENTE. Se diz "não quero", "recusar", "não", "declinar" — a resposta DEVE ser uma recusa educada. NUNCA contradigas a intenção do utilizador.
 
+MODO POLIR: Se o utilizador fornecer um RASCUNHO ACTUAL, o objectivo é polir esse rascunho — mantém a intenção, os factos e compromissos exactamente como o utilizador escreveu. Corrige gramática, melhora o tom, completa saudações/fechos em falta, reorganiza se necessário. NUNCA inventes factos, datas, valores ou compromissos que não estejam no rascunho. Se o utilizador também deu uma instrução, aplica-a ao rascunho.
+
 Estilo do CORPO:
 - Profissional e educado, sem ser excessivamente efusivo — directo mas cortês
 - 2-4 parágrafos curtos. Nunca respostas secas de 1-2 linhas, mas também não exageres
@@ -110,6 +113,13 @@ DEVOLVE SEMPRE um JSON com ambos os campos "subject" e "body".`
     const contextLines: string[] = []
     if (instruction) {
       contextLines.push(`INSTRUÇÃO DO UTILIZADOR (seguir obrigatoriamente): ${instruction}`)
+    }
+    if (existing_draft && existing_draft.trim()) {
+      contextLines.push('')
+      contextLines.push('RASCUNHO ACTUAL DO UTILIZADOR (polir preservando intenção e factos):')
+      contextLines.push('---')
+      contextLines.push(existing_draft.trim())
+      contextLines.push('---')
     }
     if (isReply) {
       contextLines.push('')

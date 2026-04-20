@@ -35,6 +35,7 @@ import {
 } from '@/hooks/use-email-composer'
 import { useComposerEditor } from './use-composer-editor'
 import { ComposerToolbar } from './composer-toolbar'
+import { ComposerAIPanel } from './composer-ai-panel'
 
 type DraftStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -154,21 +155,29 @@ export function EmailComposerPopup() {
 
   if (drafts.length === 0) return null
 
-  const fullscreen = drafts.find((d) => d.mode === 'fullscreen')
+  const hasFullscreen = drafts.some((d) => d.mode === 'fullscreen')
 
-  if (fullscreen) {
-    // Fullscreen takes over — other drafts are preserved in context but hidden.
-    return <ComposerWindow key={fullscreen.uid} draft={fullscreen} stacked={false} />
-  }
-
-  // Stack view: drafts flow right-to-left along the bottom edge.
+  // Every draft lives in the same parent container so mode transitions don't
+  // reparent its subtree (which would unmount the TipTap editor and lose state
+  // like dropped images). Fullscreen windows break out of the flex row via
+  // fixed positioning on their wrapper; the others hide behind a fullscreen one.
   return (
     <div className="pointer-events-none fixed bottom-0 right-0 z-50 flex flex-row-reverse items-end gap-2 px-6">
-      {drafts.map((d) => (
-        <div key={d.uid} className="pointer-events-auto">
-          <ComposerWindow draft={d} stacked />
-        </div>
-      ))}
+      {drafts.map((d) => {
+        const isFullscreen = d.mode === 'fullscreen'
+        return (
+          <div
+            key={d.uid}
+            className={cn(
+              'pointer-events-auto',
+              isFullscreen && 'fixed inset-6 sm:inset-10 md:inset-16 z-[60]',
+              !isFullscreen && hasFullscreen && 'hidden'
+            )}
+          >
+            <ComposerWindow draft={d} stacked={!isFullscreen} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -541,15 +550,15 @@ function ComposerWindow({ draft, stacked }: WindowProps) {
       ? 'Reencaminhar'
       : 'Nova mensagem'
 
-  // Stacked windows flow inside the parent flex container; fullscreen breaks out as a fixed overlay.
+  // The parent wrapper positions each window (flex row for stacked, fixed inset
+  // for fullscreen). The window itself only controls its own size + chrome.
   const windowStyle = cn(
     'flex flex-col bg-background border shadow-2xl',
     stacked && mode === 'minimized' &&
       'w-80 rounded-t-lg border-b-0 h-10 overflow-hidden',
     stacked && mode === 'normal' &&
       'w-[560px] max-w-[calc(100vw-2rem)] rounded-t-lg border-b-0 h-[min(600px,90vh)]',
-    !stacked && mode === 'fullscreen' &&
-      'fixed z-50 inset-6 sm:inset-10 md:inset-16 rounded-lg'
+    !stacked && 'w-full h-full rounded-lg'
   )
 
   const draftIndicator = (() => {
@@ -801,6 +810,15 @@ function ComposerWindow({ draft, stacked }: WindowProps) {
               onAttachFiles={handleAttachFiles}
               onInlineImageUpload={uploadInlineImage}
               onDiscard={handleDiscard}
+              endSlot={
+                <ComposerAIPanel
+                  editor={editor}
+                  replyTo={state.replyTo}
+                  forwardMessage={state.forwardMessage}
+                  currentSubject={subject}
+                  onSubjectChange={setSubject}
+                />
+              }
             />
 
             {/* Send bar */}

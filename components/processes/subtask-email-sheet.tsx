@@ -152,7 +152,7 @@ function RightSidebar() {
   return (
     <Tabs
       defaultValue="properties"
-      className="w-64 shrink-0 border-l flex flex-col overflow-hidden gap-0"
+      className="w-56 shrink-0 border-l flex flex-col overflow-hidden gap-0"
     >
       <TabsList className="w-full rounded-none border-b h-9 shrink-0">
         <TabsTrigger value="properties" className="flex-1 text-xs">
@@ -829,7 +829,7 @@ export function SubtaskEmailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="flex flex-col p-0 gap-0 w-[95vw] sm:max-w-[1100px]"
+        className="flex flex-col p-0 gap-0 data-[side=right]:w-[95vw] data-[side=right]:sm:max-w-[1180px]"
         side="right"
       >
         {/* Header */}
