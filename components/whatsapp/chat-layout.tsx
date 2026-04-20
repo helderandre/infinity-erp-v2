@@ -118,6 +118,13 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
     const data = await postAction('create', { ...params, user_id: params.user_id ?? userId })
     await refetchInstances()
     toast.success('Instância criada com sucesso')
+    const rebound = (data?.reboundFlowsCount ?? 0) + (data?.reboundAutomationsCount ?? 0)
+    if (rebound > 0) {
+      toast.info(
+        `${rebound} automatismo${rebound > 1 ? 's religados' : ' religado'} à nova instância.`,
+        { duration: 6000 },
+      )
+    }
     return data.instance
   }, [refetchInstances, userId])
 

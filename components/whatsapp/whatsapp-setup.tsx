@@ -51,6 +51,13 @@ export function WhatsAppSetup({ userId, onInstanceCreated }: WhatsAppSetupProps)
       }
       setCreatedInstance(instance)
       setShowConnect(true)
+      const rebound = (data?.reboundFlowsCount ?? 0) + (data?.reboundAutomationsCount ?? 0)
+      if (rebound > 0) {
+        toast.info(
+          `${rebound} automatismo${rebound > 1 ? 's religados' : ' religado'} à nova instância.`,
+          { duration: 6000 },
+        )
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar instância')
     } finally {

@@ -77,10 +77,21 @@ export function useWhatsAppInstances() {
   }, [])
 
   const createInstance = useCallback(
-    async (params: { name: string; user_id?: string }) => {
+    async (
+      params: { name: string; user_id?: string }
+    ): Promise<{
+      instance: WhatsAppInstance
+      reboundFlowsCount: number
+      reboundAutomationsCount: number
+    }> => {
       const data = await postAction("create", params)
       await fetchInstances()
-      return data.instance as WhatsAppInstance
+      return {
+        instance: data.instance as WhatsAppInstance,
+        reboundFlowsCount: typeof data?.reboundFlowsCount === "number" ? data.reboundFlowsCount : 0,
+        reboundAutomationsCount:
+          typeof data?.reboundAutomationsCount === "number" ? data.reboundAutomationsCount : 0,
+      }
     },
     [fetchInstances]
   )

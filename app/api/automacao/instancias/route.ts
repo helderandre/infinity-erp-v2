@@ -407,7 +407,35 @@ async function handleCreate(
     return NextResponse.json({ error: "Erro ao guardar instância", details: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ instance }, { status: 201 })
+  // 3. Auto-rebind orphaned flows/automations created by the same user.
+  // Only triggers when the new instance has an assigned user (user_id is set)
+  // — otherwise we'd risk rebinding someone else's orphans.
+  let reboundFlowsCount = 0
+  let reboundAutomationsCount = 0
+  if (instance?.user_id) {
+    const nowIso = new Date().toISOString()
+
+    const { data: reboundFlows } = await supabase
+      .from("auto_flows")
+      .update({ wpp_instance_id: instance.id, updated_at: nowIso })
+      .is("wpp_instance_id", null)
+      .eq("created_by", instance.user_id)
+      .select("id")
+    reboundFlowsCount = reboundFlows?.length ?? 0
+
+    const { data: reboundAutomations } = await supabase
+      .from("contact_automations")
+      .update({ wpp_instance_id: instance.id, updated_at: nowIso })
+      .is("wpp_instance_id", null)
+      .eq("created_by", instance.user_id)
+      .select("id")
+    reboundAutomationsCount = reboundAutomations?.length ?? 0
+  }
+
+  return NextResponse.json(
+    { instance, reboundFlowsCount, reboundAutomationsCount },
+    { status: 201 }
+  )
 }
 
 async function handleConnect(

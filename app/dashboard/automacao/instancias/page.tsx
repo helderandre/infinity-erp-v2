@@ -141,8 +141,15 @@ function InstanciasContent() {
 
   const handleCreate = async (params: { name: string; user_id?: string }) => {
     try {
-      await createInstance(params)
+      const { reboundFlowsCount, reboundAutomationsCount } = await createInstance(params)
       toast.success("Instância criada com sucesso")
+      const rebound = reboundFlowsCount + reboundAutomationsCount
+      if (rebound > 0) {
+        toast.info(
+          `${rebound} automatismo${rebound > 1 ? "s religados" : " religado"} à nova instância.`,
+          { duration: 6000 },
+        )
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar instância")
       throw err
