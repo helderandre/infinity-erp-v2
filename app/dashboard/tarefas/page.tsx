@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskSections } from '@/components/tasks/task-sections'
-import { TaskSectionsByField } from '@/components/tasks/task-sections-by-field'
 import { TaskQuickAdd } from '@/components/tasks/task-quick-add'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskDetailContent } from '@/components/tasks/task-detail-sheet'
@@ -293,49 +292,6 @@ function TarefasPageInner() {
         )}
       </div>
 
-      {/* List view */}
-      {listId && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
-            <TaskQuickAdd
-              key={listId}
-              taskListId={listId}
-              onCreated={() => { listTab.refetch(); refetchList() }}
-              onOpenFullForm={() => {
-                setFormDefaults({ task_list_id: listId })
-                setShowForm(true)
-              }}
-              placeholder={list ? `Adicionar tarefa a ${list.name}...` : 'Adicionar tarefa...'}
-            />
-            {listTab.isLoading ? (
-              <ListSkeleton />
-            ) : listTab.tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Hash className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <h3 className="text-sm font-medium">Lista vazia</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Começa por adicionar uma tarefa em cima.
-                </p>
-              </div>
-            ) : (
-              <TaskSectionsByField
-                tasks={listTab.tasks}
-                taskListId={listId}
-                onToggleComplete={handleToggleComplete}
-                onSelect={handleSelectTask}
-                onRefresh={() => { listTab.refetch(); refetchList() }}
-                onCreateInSection={(section) => {
-                  setFormDefaults({ task_list_id: listId, section: section || undefined })
-                  setShowForm(true)
-                }}
-                isSelected={isTaskSelected}
-              />
-            )}
-          </div>
-          {detailPanel}
-        </div>
-      )}
-
       {/* Share dialog */}
       {listId && list && (
         <ShareListDialog
@@ -349,34 +305,52 @@ function TarefasPageInner() {
         />
       )}
 
-      {!listId && activeTab === 'personal' && (
+      {/* Personal tasks (or list-filtered tasks) — same layout, the list is just a filter */}
+      {(listId || activeTab === 'personal') && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
             <TaskFilters
-              filters={personalTab.filters}
-              onFiltersChange={personalTab.setFilters}
-              onNewTask={() => { setFormDefaults(undefined); setShowForm(true) }}
+              filters={listId ? listTab.filters : personalTab.filters}
+              onFiltersChange={listId ? listTab.setFilters : personalTab.setFilters}
+              onNewTask={() => { setFormDefaults(listId ? { task_list_id: listId } : undefined); setShowForm(true) }}
               consultants={consultants}
               currentUserId={user?.id}
             />
             <TaskQuickAdd
-              onCreated={() => { personalTab.refetch(); refetchStats() }}
-              onOpenFullForm={() => { setFormDefaults(undefined); setShowForm(true) }}
+              key={listId || 'none'}
+              taskListId={listId || undefined}
+              onCreated={() => {
+                if (listId) { listTab.refetch(); refetchList() }
+                else { personalTab.refetch() }
+                refetchStats()
+              }}
+              onOpenFullForm={() => {
+                setFormDefaults(listId ? { task_list_id: listId } : undefined)
+                setShowForm(true)
+              }}
+              placeholder={listId && list ? `Adicionar tarefa a ${list.name}...` : undefined}
             />
             <TaskList
-              tasks={personalTab.tasks}
-              isLoading={personalTab.isLoading}
-              isCompletedFilter={personalTab.filters.is_completed}
+              tasks={listId ? listTab.tasks : personalTab.tasks}
+              isLoading={listId ? listTab.isLoading : personalTab.isLoading}
+              isCompletedFilter={(listId ? listTab.filters : personalTab.filters).is_completed}
               onToggleComplete={handleToggleComplete}
               onSelect={handleSelectTask}
-              onRefresh={() => { personalTab.refetch(); refetchStats() }}
-              onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
-              emptyMessage="Todas as tarefas estão em dia!"
+              onRefresh={() => {
+                if (listId) { listTab.refetch(); refetchList() }
+                else { personalTab.refetch() }
+                refetchStats()
+              }}
+              onCreate={() => {
+                setFormDefaults(listId ? { task_list_id: listId } : undefined)
+                setShowForm(true)
+              }}
+              emptyMessage={listId ? 'Lista vazia. Começa por adicionar uma tarefa em cima.' : 'Todas as tarefas estão em dia!'}
               isSelected={isTaskSelected}
             />
-            {personalTab.total > 0 && (
+            {(listId ? listTab.total : personalTab.total) > 0 && (
               <p className="text-xs text-muted-foreground text-center">
-                A mostrar {personalTab.tasks.length} de {personalTab.total} tarefa{personalTab.total !== 1 ? 's' : ''}
+                A mostrar {(listId ? listTab.tasks : personalTab.tasks).length} de {listId ? listTab.total : personalTab.total} tarefa{(listId ? listTab.total : personalTab.total) !== 1 ? 's' : ''}
               </p>
             )}
           </div>
@@ -698,22 +672,6 @@ function ListInlineActions({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
-}
-
-function ListSkeleton() {
-  return (
-    <div className="space-y-1">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-3 px-2.5 py-2 border-b border-border/50 last:border-b-0">
-          <Skeleton className="size-[18px] rounded-full shrink-0 mt-[3px]" />
-          <div className="flex-1 space-y-1.5 pt-0.5">
-            <Skeleton className="h-3 w-3/5" />
-            <Skeleton className="h-2.5 w-2/5" />
-          </div>
-        </div>
-      ))}
-    </div>
   )
 }
 

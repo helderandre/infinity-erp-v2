@@ -92,7 +92,12 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
   }, [refetchInstances])
 
   const handleDeleteInstance = useCallback(async (id: string) => {
-    await postAction('delete', { instance_id: id })
+    try {
+      await postAction('delete', { instance_id: id })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao eliminar instância')
+      throw err
+    }
     const updated = await refetchInstances()
     if (id === selectedInstance) {
       setSelectedInstance(updated[0]?.id || '')
