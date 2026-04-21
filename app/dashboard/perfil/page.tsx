@@ -147,12 +147,12 @@ export default function PerfilPage() {
   const roleName = profile?.user_roles?.[0]?.roles?.name
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="max-w-3xl space-y-3 sm:space-y-6">
       {/* Header card with photo */}
       <Card>
-        <CardContent className="flex items-center gap-6 pt-6">
-          <div className="relative group">
-            <Avatar className="h-24 w-24 rounded-2xl">
+        <CardContent className="flex flex-col items-center gap-4 pt-6 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+          <div className="relative group shrink-0">
+            <Avatar className="h-20 w-20 rounded-2xl sm:h-24 sm:w-24">
               {photoUrl && <AvatarImage src={photoUrl} alt={profile?.commercial_name || ''} />}
               <AvatarFallback className="rounded-2xl bg-neutral-900 text-white text-2xl font-bold dark:bg-white dark:text-neutral-900">
                 {userInitials}
@@ -177,9 +177,9 @@ export default function PerfilPage() {
               onChange={handlePhotoUpload}
             />
           </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{profile?.commercial_name || 'Utilizador'}</h1>
-            <p className="text-sm text-muted-foreground">{user?.auth_user?.email}</p>
+          <div className="flex-1 min-w-0 w-full">
+            <h1 className="text-xl font-bold sm:text-2xl truncate">{profile?.commercial_name || 'Utilizador'}</h1>
+            <p className="text-sm text-muted-foreground truncate">{user?.auth_user?.email}</p>
             {roleName && (
               <span className="mt-1 inline-block rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
                 {roleName}
@@ -191,7 +191,7 @@ export default function PerfilPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="geral" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 md:grid-cols-6">
           <TabsTrigger value="geral" className="gap-1.5 text-xs">
             <User className="h-3.5 w-3.5" /> Geral
           </TabsTrigger>
@@ -205,7 +205,9 @@ export default function PerfilPage() {
             <Globe className="h-3.5 w-3.5" /> Redes
           </TabsTrigger>
           <TabsTrigger value="disponibilidade" className="gap-1.5 text-xs">
-            <CalendarClock className="h-3.5 w-3.5" /> Disponibilidade
+            <CalendarClock className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Disponibilidade</span>
+            <span className="sm:hidden">Agenda</span>
           </TabsTrigger>
           <TabsTrigger value="seguranca" className="gap-1.5 text-xs">
             <Lock className="h-3.5 w-3.5" /> Segurança
@@ -322,7 +324,7 @@ function GeneralTab({ defaultValues, onSaved }: { defaultValues: GeneralForm; on
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="commercial_name">Nome Comercial *</Label>
               <Input id="commercial_name" {...register('commercial_name')} />
@@ -344,7 +346,7 @@ function GeneralTab({ defaultValues, onSaved }: { defaultValues: GeneralForm; on
             <Textarea id="bio" {...register('bio')} rows={4} placeholder="Uma breve descricao sobre si..." />
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Guardar
             </Button>
@@ -419,7 +421,7 @@ function PersonalTab({
           <CardDescription>Informacao pessoal e identificacao.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Genero</Label>
               <Select
@@ -439,7 +441,7 @@ function PersonalTab({
               <Input id="birth_date" type="date" {...personal.register('birth_date')} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="nationality">Nacionalidade</Label>
               <Input id="nationality" {...personal.register('nationality')} placeholder="Portuguesa" />
@@ -455,8 +457,8 @@ function PersonalTab({
       {/* Company section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <CardTitle>Empresa</CardTitle>
               <CardDescription>Dados da empresa (se aplicavel).</CardDescription>
             </div>
@@ -465,7 +467,7 @@ function PersonalTab({
         </CardHeader>
         {showCompany && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="company_name">Nome da Empresa</Label>
                 <Input id="company_name" {...company.register('company_name')} />
@@ -475,7 +477,7 @@ function PersonalTab({
                 <Input id="company_nipc" {...company.register('company_nipc')} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="company_phone">Telefone</Label>
                 <Input id="company_phone" {...company.register('company_phone')} />
@@ -498,7 +500,7 @@ function PersonalTab({
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={onSubmit} disabled={saving}>
+        <Button onClick={onSubmit} disabled={saving} className="w-full sm:w-auto">
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar
         </Button>
@@ -546,7 +548,7 @@ function AddressTab({ defaultValues, onSaved }: { defaultValues: AddressForm; on
             <Label htmlFor="address_private">Morada</Label>
             <Input id="address_private" {...register('address_private')} placeholder="Rua, numero, andar..." />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="postal_code">Codigo Postal</Label>
               <Input id="postal_code" {...register('postal_code')} placeholder="1000-001" />
@@ -560,7 +562,7 @@ function AddressTab({ defaultValues, onSaved }: { defaultValues: AddressForm; on
               <Input id="district" {...register('district')} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="concelho">Concelho</Label>
               <Input id="concelho" {...register('concelho')} />
@@ -571,7 +573,7 @@ function AddressTab({ defaultValues, onSaved }: { defaultValues: AddressForm; on
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Guardar
             </Button>
@@ -648,8 +650,8 @@ function SocialTab({ defaultValues, onSaved }: { defaultValues: SocialForm; onSa
             </div>
           </div>
           <Separator />
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <Label>Visivel no Website</Label>
               <p className="text-xs text-muted-foreground">Mostrar o seu perfil no website publico da agencia.</p>
             </div>
@@ -659,7 +661,7 @@ function SocialTab({ defaultValues, onSaved }: { defaultValues: SocialForm; onSa
             />
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Guardar
             </Button>
@@ -707,7 +709,7 @@ function SecurityTab() {
         <CardDescription>Altere a sua palavra-passe.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-md">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 w-full max-w-md">
           <div className="space-y-2">
             <Label htmlFor="new_password">Nova Palavra-passe</Label>
             <div className="relative">
@@ -742,7 +744,7 @@ function SecurityTab() {
             )}
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
               Alterar Palavra-passe
             </Button>
@@ -757,18 +759,18 @@ function SecurityTab() {
 
 function ProfileSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="-mx-2 sm:mx-auto max-w-3xl space-y-3 sm:space-y-6">
       <Card>
-        <CardContent className="flex items-center gap-6 pt-6">
-          <Skeleton className="h-24 w-24 rounded-2xl" />
-          <div className="space-y-2 flex-1">
+        <CardContent className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:items-center sm:gap-6">
+          <Skeleton className="h-20 w-20 rounded-2xl sm:h-24 sm:w-24" />
+          <div className="space-y-2 flex-1 w-full">
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </div>
         </CardContent>
       </Card>
-      <Skeleton className="h-10 w-full rounded-lg" />
+      <Skeleton className="h-20 w-full rounded-lg md:h-10" />
       <Card>
         <CardContent className="space-y-4 pt-6">
           <Skeleton className="h-10 w-full" />
