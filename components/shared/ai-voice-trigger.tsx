@@ -15,15 +15,38 @@ function dispatchOpen() {
  * Global trigger: holding the primary pointer (mouse click or finger) on any
  * non-editable area for 2 seconds opens the voice assistant.
  *
- * Uses Pointer Events so the same code path handles mouse, touch and pen
- * without duplicate event wiring.
+ * While the hold is in progress we set `data-voice-holding="true"` on `<body>`
+ * and inject a scoped stylesheet that disables text selection and iOS's native
+ * callout menu on every element *except* form controls. This prevents iPhone
+ * Safari from popping the text-selection magnifier or the "Copy / Look Up"
+ * menu during the hold. Selection and callouts are restored the moment the
+ * timer fires, the finger lifts, or the gesture is cancelled.
  */
 export function AiVoiceTrigger() {
   useEffect(() => {
+    // ── 1) Inject the selection-suppression stylesheet once ──────────────
+    const style = document.createElement('style')
+    style.setAttribute('data-voice-trigger-styles', 'true')
+    style.textContent = `
+      body[data-voice-holding="true"],
+      body[data-voice-holding="true"] *:not(input):not(textarea):not([contenteditable="true"]):not([contenteditable=""]) {
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    // ── 2) Pointer long-press + motion/scroll cancels ───────────────────
     let timer: ReturnType<typeof setTimeout> | null = null
     let activePointerId: number | null = null
     let startX = 0
     let startY = 0
+
+    const setHolding = (yes: boolean) => {
+      if (yes) document.body.setAttribute('data-voice-holding', 'true')
+      else document.body.removeAttribute('data-voice-holding')
+    }
 
     const clear = () => {
       if (timer) {
@@ -31,12 +54,12 @@ export function AiVoiceTrigger() {
         timer = null
       }
       activePointerId = null
+      setHolding(false)
     }
 
     const onPointerDown = (e: PointerEvent) => {
       clear()
 
-      // Only primary pointer: left mouse button, first finger, or pen tip.
       if (!e.isPrimary) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
 
@@ -47,9 +70,12 @@ export function AiVoiceTrigger() {
       startX = e.clientX
       startY = e.clientY
 
+      setHolding(true)
+
       timer = setTimeout(() => {
         timer = null
         activePointerId = null
+        setHolding(false)
         try { navigator.vibrate?.(30) } catch {}
         dispatchOpen()
       }, LONG_PRESS_MS)
@@ -69,19 +95,26 @@ export function AiVoiceTrigger() {
       if (e.pointerId === activePointerId) clear()
     }
 
-    // Any scroll OR any finger drag cancels the long-press — prevents the
-    // voice overlay from opening while the user is scrolling a page or a
-    // nested container (e.g. a long list, a sheet, a detail pane).
+    // Kill timer on any kind of motion that implies the user is doing
+    // something else (scroll / drag / wheel).
     const cancelOnMotion = () => clear()
+
+    // Block iOS Safari's callout menu while the hold is active — by this
+    // point `data-voice-holding` is set, so we know the user is mid-press.
+    const onContextMenu = (e: Event) => {
+      if (document.body.getAttribute('data-voice-holding') === 'true') {
+        e.preventDefault()
+      }
+    }
 
     document.addEventListener('pointerdown', onPointerDown, { passive: true })
     document.addEventListener('pointermove', onPointerMove, { passive: true })
     document.addEventListener('pointerup', onPointerEnd, { passive: true })
     document.addEventListener('pointercancel', onPointerEnd, { passive: true })
-    // `capture: true` so nested scroll containers also trigger the cancel.
     document.addEventListener('scroll', cancelOnMotion, { passive: true, capture: true })
     document.addEventListener('touchmove', cancelOnMotion, { passive: true })
     document.addEventListener('wheel', cancelOnMotion, { passive: true })
+    document.addEventListener('contextmenu', onContextMenu)
 
     return () => {
       clear()
@@ -92,6 +125,9 @@ export function AiVoiceTrigger() {
       document.removeEventListener('scroll', cancelOnMotion, true)
       document.removeEventListener('touchmove', cancelOnMotion)
       document.removeEventListener('wheel', cancelOnMotion)
+      document.removeEventListener('contextmenu', onContextMenu)
+      if (style.parentNode) style.parentNode.removeChild(style)
+      document.body.removeAttribute('data-voice-holding')
     }
   }, [])
 
