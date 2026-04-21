@@ -41,7 +41,7 @@ export function NotificationPopover() {
     let pu = 0
     let gu = 0
     for (const n of notifications) {
-      if (classifyBucket(n.entity_type) === 'processo') {
+      if (classifyBucket(n.notification_type) === 'processo') {
         proc.push(n)
         if (!n.is_read) pu++
       } else {

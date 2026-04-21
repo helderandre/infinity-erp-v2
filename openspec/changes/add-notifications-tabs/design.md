@@ -7,7 +7,7 @@ A página `/dashboard/notificacoes` já tem filtros (`all`/`unread` + dropdown p
 ## Goals / Non-Goals
 
 **Goals:**
-- Classificar determinísticamente cada notificação em **Processo** ou **Geral** com base apenas em `entity_type`, sem depender de `notification_type` (mais estável a tipos novos).
+- Classificar determinísticamente cada notificação em **Processo** ou **Geral** com base em `notification_type` com uma lista estreita de 4 valores conversacionais (ver D1).
 - Duas abas no popover com contagem de não-lidas por bucket; aba default escolhida pela presença de não-lidas (Processo > Geral > Processo).
 - "Marcar tudo como lido" passa a operar apenas sobre a aba activa.
 - Zero mudanças de DB, zero migrações, zero impacto nas subscrições realtime.
@@ -21,29 +21,32 @@ A página `/dashboard/notificacoes` já tem filtros (`all`/`unread` + dropdown p
 
 ## Decisions
 
-### D1. Classificação por `entity_type`, não por `notification_type`
+### D1. Classificação por `notification_type` (lista estreita de "menções + chat")
 
-**Decisão:** adicionar um helper puro em [lib/notifications/types.ts](lib/notifications/types.ts):
+> **Revisto após feedback de UAT** (v2). A decisão original foi classificar por `entity_type`, mas isso colocava em Processo tudo o que referenciasse uma entidade `proc_*` — incluindo `calendar_reminder` (que é emitido com `entity_type: 'proc_instance'` em [app/api/cron/calendar-reminders/route.ts:180](app/api/cron/calendar-reminders/route.ts#L180)), `task_assigned`, alertas (`alert_on_*`, emitidos pelo [lib/alerts/service.ts](lib/alerts/service.ts) com `entity_type: 'proc_task'`), etc. O utilizador explicitou que a aba Processo só deve conter "menções do processo e chat do processo". A classificação por `entity_type` era demasiado abrangente.
+
+**Decisão revista:** classificar por `notification_type` com uma lista estreita e explícita das interacções conversacionais:
 
 ```ts
-export const PROCESS_ENTITY_TYPES = [
-  'proc_instance',
-  'proc_task',
-  'proc_task_comment',
-  'proc_chat_message',
+export const PROCESS_NOTIFICATION_TYPES = [
+  'comment_mention',   // @-mention num comentário de tarefa de processo
+  'chat_mention',      // @-mention no chat de processo
+  'chat_message',      // nova mensagem no chat de processo
+  'task_comment',      // novo comentário na tarefa atribuída ao utilizador
 ] as const
 
-export type NotificationBucket = 'processo' | 'geral'
-
-export function classifyBucket(entityType: EntityType | string | null | undefined): NotificationBucket {
-  return PROCESS_ENTITY_TYPES.includes(entityType as any) ? 'processo' : 'geral'
+export function classifyBucket(notificationType: string | null | undefined): NotificationBucket {
+  return PROCESS_NOTIFICATION_TYPES.includes(notificationType as ProcessNotificationType)
+    ? 'processo'
+    : 'geral'
 }
 ```
 
 **Porquê e não alternativas:**
-- *Alternativa A: classificar por `notification_type`*. Há 27 tipos (`process_*`, `task_*`, `comment_mention`, `chat_mention`, `dm_message`, etc.) e mais alguns podem surgir. `comment_mention` pode ser de tarefa de processo *ou* de tarefa geral — depende de `entity_type`. Classificar por tipo força manutenção sempre que surja um novo tipo.
-- *Alternativa B: nova coluna `source` na DB*. Resolve, mas requer migração, backfill e actualização de todos os call sites de `NotificationService.create`. Sobre-engenharia para um split de UI.
-- **Escolhida: `entity_type`**. Já existe, já é preenchido em todos os call sites (inserts em `app/api/processes/[id]/tasks/[taskId]/comments/route.ts:114-147` e `app/api/processes/[id]/chat/route.ts:144-160`), e a lista de `PROCESS_ENTITY_TYPES` é pequena e estável. Qualquer tipo futuro cai no bucket Geral por default — *degradação graciosa*.
+- *Alternativa A (original): classificar por `entity_type`*. **Rejeitada** — falha com `calendar_reminder`/`task_assigned`/alertas que referenciam entidades de processo mas não são conversação.
+- *Alternativa B: nova coluna `source` na DB*. Continua sobre-engenharia — não precisamos de persistir uma classificação que é puramente de apresentação.
+- *Alternativa C: híbrido `notification_type` AND `entity_type ∈ proc_*`*. Redundante — os 4 tipos acima são emitidos exclusivamente a partir de processos ([app/api/processes/[id]/tasks/[taskId]/comments/route.ts:107-150](app/api/processes/[id]/tasks/[taskId]/comments/route.ts#L107-L150), [app/api/processes/[id]/chat/route.ts:140-164](app/api/processes/[id]/chat/route.ts#L140-L164)). Adicionar o `entity_type` check só cria um nó-e de manutenção dupla.
+- **Escolhida: `notification_type` estreito**. Ganhos: (1) match literal ao pedido do utilizador ("menções do processo, chat do processo"); (2) tipos não-conversacionais (`calendar_reminder`, `task_assigned`, alertas) caem correctamente em Geral; (3) tipos novos caem em Geral por default — degradação graciosa; (4) lista de 4 itens é mais pequena/estável que antes.
 
 ### D2. Filtragem client-side (não server-side)
 
@@ -60,18 +63,13 @@ O hook [hooks/use-notifications.ts](hooks/use-notifications.ts) continua a carre
 
 **Contrato da API (aditivo, não-breaking):**
 
-`PUT /api/notifications` passa a aceitar body opcional `{ entity_types?: string[] }`. Se presente, o `UPDATE` adiciona `.in('entity_type', entity_types)` ao filtro existente `.eq('recipient_id', userId).eq('is_read', false)`. Se ausente, comportamento idêntico ao actual (marca tudo).
+`PUT /api/notifications` passa a aceitar body opcional `{ notification_types?: string[] }` ou `{ exclude_notification_types?: string[] }` (mutuamente exclusivos — 400 se ambos). Se presente, o `UPDATE` adiciona `.in('notification_type', list)` / `.not('notification_type','in','(...)')` ao filtro existente `.eq('recipient_id', userId).eq('is_read', false)`. Se ausente, comportamento idêntico ao actual (marca tudo).
 
-**No hook:** `markAllAsRead(entityTypes?: readonly string[])` — assinatura aditiva, default undefined. Optimistic update local aplica o mesmo filtro.
+**No hook:** `markAllAsRead(options?: { scope?: NotificationBucket })` — assinatura aditiva. Optimistic update local aplica o mesmo filtro via `classifyBucket(n.notification_type) === scope`.
 
-**CRM (`leads_notifications`):** o bucket Processo só inclui `proc_*`, portanto CRM nunca está na aba Processo. Quando a aba activa é Processo, **não tocamos** em `/api/crm/notifications`. Quando é Geral, chamamos `markAllAsRead` para `/api/crm/notifications` **e** `PUT /api/notifications` com `entity_types` = complemento dos `PROCESS_ENTITY_TYPES` (ou mais simples: flag `exclude_entity_types` — ver *D3a*).
+**CRM (`leads_notifications`):** nenhum dos `PROCESS_NOTIFICATION_TYPES` é emitido a partir do normalizer CRM ([hooks/use-notifications.ts:23-39](hooks/use-notifications.ts#L23-L39)) — os `notification_type` CRM vêm do backend CRM (p.ex. `lead_assigned`, `lead_status_changed`) e caem sempre em Geral. Quando a aba activa é Processo, **não tocamos** em `/api/crm/notifications`. Quando é Geral, chamamos `PUT /api/crm/notifications { all: true }` **e** `PUT /api/notifications` com `exclude_notification_types: PROCESS_NOTIFICATION_TYPES`.
 
-**D3a — exclude vs include:** mais limpo adicionar **ambos** os modos? Não. Para a aba Geral precisamos de "tudo excepto Processo". Duas opções:
-
-- (i) enumerar todos os `entity_type` Geral conhecidos e passar em `entity_types` — frágil (tipos novos ficam de fora).
-- (ii) adicionar `exclude_entity_types?: string[]` — flexível e futura-prova.
-
-**Escolhida:** (ii). API aceita **um dos dois** (não ambos simultaneamente — 400 se ambos presentes). Aba Processo → `entity_types: PROCESS_ENTITY_TYPES`. Aba Geral → `exclude_entity_types: PROCESS_ENTITY_TYPES`.
+**D3a — exclude vs include:** mantido tal como antes — aceitar **um dos dois** (não ambos simultaneamente — 400 se ambos presentes). Aba Processo → `notification_types: PROCESS_NOTIFICATION_TYPES`. Aba Geral → `exclude_notification_types: PROCESS_NOTIFICATION_TYPES`.
 
 ### D4. Aba default ao abrir
 
@@ -91,9 +89,9 @@ Reutilizar o componente `Badge` do shadcn. Quando `unread > 0` para a aba, mostr
 
 ## Risks / Trade-offs
 
-- **[Risk]** Uma notificação pode chegar com `entity_type` novo/inesperado → cai silenciosamente em Geral. **Mitigação:** comportamento desejado (fail-open para Geral). Tipos novos de processo devem ser adicionados a `PROCESS_ENTITY_TYPES`; adicionar teste unitário sobre `classifyBucket` com cada valor actualmente emitido.
+- **[Risk]** Uma notificação pode chegar com `notification_type` novo/inesperado → cai silenciosamente em Geral. **Mitigação:** comportamento desejado (fail-open para Geral). Tipos novos de conversação em processo devem ser explicitamente adicionados a `PROCESS_NOTIFICATION_TYPES`.
 - **[Risk]** "Marcar tudo como lido" na aba Processo pode parecer que limpou tudo se o utilizador tiver sempre a aba Processo aberta e não olhar para Geral. **Mitigação:** badge na aba Geral permanece visível com o contador de não-lidas — sinal claro de que há mais.
-- **[Risk]** O helper `classifyBucket` e a API de exclude/include ficam dessincronizados (novo tipo de processo adicionado ao helper mas não reflectido na UI). **Mitigação:** usar a mesma constante `PROCESS_ENTITY_TYPES` nos dois sítios (popover → `useMemo` usa o helper; hook → passa a constante directamente ao endpoint).
+- **[Risk]** O helper `classifyBucket` e a API de exclude/include ficam dessincronizados (novo tipo adicionado ao helper mas não reflectido na UI). **Mitigação:** usar a mesma constante `PROCESS_NOTIFICATION_TYPES` nos dois sítios (popover → `useMemo` usa o helper; hook → passa a constante directamente ao endpoint).
 - **[Trade-off]** Não persistimos aba seleccionada → utilizador pode achar que o popover "muda sozinho". Aceitável: o default é útil (leva onde há trabalho), e o custo de mudar de aba é um clique.
 - **[Trade-off]** Não filtramos server-side → puxamos notificações geral + processo numa só chamada. Já é o comportamento actual; não regride.
 
@@ -101,8 +99,8 @@ Reutilizar o componente `Badge` do shadcn. Quando `unread > 0` para a aba, mostr
 
 Não há migração de DB. Rollout em passos atómicos:
 
-1. Deploy do helper `classifyBucket` + constante `PROCESS_ENTITY_TYPES` em [lib/notifications/types.ts](lib/notifications/types.ts).
-2. Deploy do endpoint `PUT /api/notifications` com suporte a `entity_types` / `exclude_entity_types` (aditivo; clientes antigos continuam a funcionar).
+1. Deploy do helper `classifyBucket` + constante `PROCESS_NOTIFICATION_TYPES` em [lib/notifications/types.ts](lib/notifications/types.ts).
+2. Deploy do endpoint `PUT /api/notifications` com suporte a `notification_types` / `exclude_notification_types` (aditivo; clientes antigos continuam a funcionar).
 3. Deploy do hook + popover com tabs.
 
 **Rollback:** reverter (3) restaura o popover plano; (1) e (2) ficam no código sem utilizadores (inócuo).

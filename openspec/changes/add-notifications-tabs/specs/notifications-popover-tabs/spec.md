@@ -1,29 +1,46 @@
 ## ADDED Requirements
 
-### Requirement: Bucket classification via entity_type
+### Requirement: Bucket classification via notification_type
 
-The system SHALL classify every notification into exactly one of two buckets — `processo` or `geral` — based solely on its `entity_type` field. Notifications whose `entity_type` is one of `proc_instance`, `proc_task`, `proc_task_comment`, or `proc_chat_message` MUST be classified as `processo`. All other values (including unknown, null, or undefined) MUST be classified as `geral`.
+The system SHALL classify every notification into exactly one of two buckets — `processo` or `geral` — based solely on its `notification_type` field. Only the notification types that represent **direct conversational activity inside a process** — mentions and chat — MUST be classified as `processo`:
 
-A pure helper `classifyBucket(entityType)` and the constant `PROCESS_ENTITY_TYPES` MUST live in `lib/notifications/types.ts` and be the single source of truth for this classification across UI and API callers.
+- `comment_mention` (someone @-mentioned the user in a process task comment)
+- `chat_mention` (someone @-mentioned the user in process chat)
+- `chat_message` (a new message in process chat the user participates in)
+- `task_comment` (a new comment on a process task the user is assigned to)
+
+All other `notification_type` values — including `calendar_reminder`, `task_assigned`, `task_updated`, `task_overdue`, `task_completed`, `subtask_*`, `alert_on_*`, `process_created`, `process_approved`, `process_rejected`, `process_returned`, `process_deleted`, `internal_chat_message`, `internal_chat_mention`, `dm_message`, and any future type not explicitly listed in `PROCESS_NOTIFICATION_TYPES` — MUST be classified as `geral` (fail-open default).
+
+A pure helper `classifyBucket(notificationType)` and the constant `PROCESS_NOTIFICATION_TYPES` MUST live in `lib/notifications/types.ts` and be the single source of truth for this classification across UI and API callers.
 
 #### Scenario: Comment mention on a process task
 
-- **WHEN** a notification has `entity_type = 'proc_task_comment'` and `notification_type = 'comment_mention'`
+- **WHEN** a notification has `notification_type = 'comment_mention'` (regardless of `entity_type`)
 - **THEN** `classifyBucket` returns `'processo'` and the notification appears in the Processo tab
+
+#### Scenario: Calendar reminder tied to a process task
+
+- **WHEN** a notification has `notification_type = 'calendar_reminder'` and `entity_type = 'proc_instance'` (or `'proc_task'`)
+- **THEN** `classifyBucket` returns `'geral'` — calendar reminders are informational, not conversational, so they belong in Geral even though they reference a process entity
+
+#### Scenario: Task assignment
+
+- **WHEN** a notification has `notification_type = 'task_assigned'` and `entity_type = 'proc_task'`
+- **THEN** `classifyBucket` returns `'geral'` — assignments are not "mentions or chat"
 
 #### Scenario: Direct message between users
 
-- **WHEN** a notification has `entity_type = 'internal_chat_message'` and `notification_type = 'dm_message'`
+- **WHEN** a notification has `notification_type = 'dm_message'`
 - **THEN** `classifyBucket` returns `'geral'` and the notification appears in the Geral tab
 
-#### Scenario: Unknown or future entity_type
+#### Scenario: Unknown or future notification_type
 
-- **WHEN** a notification has `entity_type = 'some_future_type'` not listed in `PROCESS_ENTITY_TYPES`
+- **WHEN** a notification has `notification_type = 'some_future_type'` not listed in `PROCESS_NOTIFICATION_TYPES`
 - **THEN** `classifyBucket` returns `'geral'` (fail-open default)
 
 #### Scenario: CRM notification normalised from leads_notifications
 
-- **WHEN** a notification originated from `leads_notifications` and has been normalised into the unified `Notification` shape with `entity_type = 'lead'` (or similar non-proc value)
+- **WHEN** a notification originated from `leads_notifications` and has been normalised into the unified `Notification` shape with a CRM-specific `notification_type` (not in `PROCESS_NOTIFICATION_TYPES`)
 - **THEN** it is classified as `'geral'`
 
 ### Requirement: Tabs in the notification popover
@@ -50,7 +67,7 @@ Counts MUST be derived client-side from the already-fetched notification array; 
 
 #### Scenario: 3 unread in Processo, 0 unread in Geral
 
-- **WHEN** the user's notifications include 3 unread with `entity_type = 'proc_task_comment'` and zero unread notifications outside `PROCESS_ENTITY_TYPES`
+- **WHEN** the user's notifications include 3 unread with `notification_type = 'comment_mention'` and zero unread notifications outside `PROCESS_NOTIFICATION_TYPES`
 - **THEN** the Processo tab shows a destructive badge `3` and the Geral tab shows no badge
 
 #### Scenario: 150 unread in Geral
@@ -104,7 +121,7 @@ After a successful mark-all, the active tab's unread badge MUST disappear and th
 #### Scenario: Marking all read from Geral tab with CRM notifications
 
 - **WHEN** user is on the Geral tab with a mix of `internal_chat_message` notifications and CRM-normalised notifications (from `leads_notifications`)
-- **THEN** both the `notifications` table (excluding `PROCESS_ENTITY_TYPES`) and the `leads_notifications` table are updated so that all Geral notifications become read
+- **THEN** both the `notifications` table (excluding `PROCESS_NOTIFICATION_TYPES`) and the `leads_notifications` table are updated so that all Geral notifications become read
 
 #### Scenario: Button disabled when no unread in active tab
 
@@ -115,8 +132,8 @@ After a successful mark-all, the active tab's unread badge MUST disappear and th
 
 The endpoint `PUT /api/notifications` SHALL accept an optional body with exactly one of two mutually-exclusive fields:
 
-- `entity_types: string[]` — limits the update to notifications whose `entity_type` is in this list
-- `exclude_entity_types: string[]` — limits the update to notifications whose `entity_type` is NOT in this list
+- `notification_types: string[]` — limits the update to notifications whose `notification_type` is in this list
+- `exclude_notification_types: string[]` — limits the update to notifications whose `notification_type` is NOT in this list
 
 When neither field is provided, the endpoint MUST preserve existing behaviour (mark all unread for the recipient). When both fields are provided, the endpoint MUST respond `400` with an error message indicating that the fields are mutually exclusive.
 
@@ -124,13 +141,13 @@ The response shape MUST remain unchanged from the current implementation.
 
 #### Scenario: Include filter for Processo tab
 
-- **WHEN** client sends `PUT /api/notifications` with body `{ "entity_types": ["proc_instance","proc_task","proc_task_comment","proc_chat_message"] }`
-- **THEN** the server updates only the recipient's unread rows whose `entity_type` is in that array and returns success
+- **WHEN** client sends `PUT /api/notifications` with body `{ "notification_types": ["comment_mention","chat_mention","chat_message","task_comment"] }`
+- **THEN** the server updates only the recipient's unread rows whose `notification_type` is in that array and returns success
 
 #### Scenario: Exclude filter for Geral tab
 
-- **WHEN** client sends `PUT /api/notifications` with body `{ "exclude_entity_types": ["proc_instance","proc_task","proc_task_comment","proc_chat_message"] }`
-- **THEN** the server updates only the recipient's unread rows whose `entity_type` is NOT in that array and returns success
+- **WHEN** client sends `PUT /api/notifications` with body `{ "exclude_notification_types": ["comment_mention","chat_mention","chat_message","task_comment"] }`
+- **THEN** the server updates only the recipient's unread rows whose `notification_type` is NOT in that array and returns success
 
 #### Scenario: No body (legacy behaviour)
 
@@ -139,7 +156,7 @@ The response shape MUST remain unchanged from the current implementation.
 
 #### Scenario: Both filters provided
 
-- **WHEN** client sends `PUT /api/notifications` with both `entity_types` and `exclude_entity_types` non-empty
+- **WHEN** client sends `PUT /api/notifications` with both `notification_types` and `exclude_notification_types` non-empty
 - **THEN** the server responds with status `400` and an error describing the conflict, and performs no update
 
 ### Requirement: Empty states per tab
@@ -153,12 +170,12 @@ The existing global empty state ("Nenhuma notificação" or equivalent) SHALL no
 
 #### Scenario: Processo bucket is empty
 
-- **WHEN** the user has no notifications with `entity_type` in `PROCESS_ENTITY_TYPES` and the Processo tab is active
+- **WHEN** the user has no notifications with `notification_type` in `PROCESS_NOTIFICATION_TYPES` and the Processo tab is active
 - **THEN** the list area shows "Sem notificações de processo"
 
 #### Scenario: Geral bucket is empty
 
-- **WHEN** the user has no notifications outside `PROCESS_ENTITY_TYPES` and the Geral tab is active
+- **WHEN** the user has no notifications outside `PROCESS_NOTIFICATION_TYPES` and the Geral tab is active
 - **THEN** the list area shows "Sem notificações gerais"
 
 ### Requirement: No regression in global unread count or realtime
@@ -167,5 +184,5 @@ The global bell-icon badge SHALL continue to display the **total** unread count 
 
 #### Scenario: Realtime insert into Processo bucket while Geral is active
 
-- **WHEN** a new notification with `entity_type = 'proc_task_comment'` arrives via realtime while the user has the Geral tab active
+- **WHEN** a new notification with `notification_type = 'comment_mention'` arrives via realtime while the user has the Geral tab active
 - **THEN** the Processo tab badge increments, the Geral view is unchanged, and the global bell badge also increments

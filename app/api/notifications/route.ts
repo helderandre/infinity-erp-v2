@@ -78,7 +78,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    let scope: { entity_types?: string[]; exclude_entity_types?: string[] } = {}
+    let scope: { notification_types?: string[]; exclude_notification_types?: string[] } = {}
     const contentType = request.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
       const raw = await request.text()
@@ -102,11 +102,11 @@ export async function PUT(request: Request) {
       .eq('recipient_id', user.id)
       .eq('is_read', false)
 
-    if (scope.entity_types && scope.entity_types.length > 0) {
-      query = query.in('entity_type', scope.entity_types)
-    } else if (scope.exclude_entity_types && scope.exclude_entity_types.length > 0) {
-      const list = scope.exclude_entity_types.map((t) => `"${t}"`).join(',')
-      query = query.not('entity_type', 'in', `(${list})`)
+    if (scope.notification_types && scope.notification_types.length > 0) {
+      query = query.in('notification_type', scope.notification_types)
+    } else if (scope.exclude_notification_types && scope.exclude_notification_types.length > 0) {
+      const list = scope.exclude_notification_types.map((t) => `"${t}"`).join(',')
+      query = query.not('notification_type', 'in', `(${list})`)
     }
 
     const { data, error } = await query.select('id')

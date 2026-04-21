@@ -6,11 +6,11 @@ export const notificationUpdateSchema = z.object({
 
 export const markAllReadScopeSchema = z
   .object({
-    entity_types: z.array(z.string().min(1)).min(1).optional(),
-    exclude_entity_types: z.array(z.string().min(1)).min(1).optional(),
+    notification_types: z.array(z.string().min(1)).min(1).optional(),
+    exclude_notification_types: z.array(z.string().min(1)).min(1).optional(),
   })
-  .refine((v) => !(v.entity_types && v.exclude_entity_types), {
-    message: 'entity_types and exclude_entity_types are mutually exclusive',
+  .refine((v) => !(v.notification_types && v.exclude_notification_types), {
+    message: 'notification_types and exclude_notification_types are mutually exclusive',
   })
 
 export const notificationQuerySchema = z.object({

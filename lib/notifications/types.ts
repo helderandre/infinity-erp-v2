@@ -35,21 +35,21 @@ export type NotificationEntityType =
   | 'task_comment'
   | 'lead'
 
-export const PROCESS_ENTITY_TYPES = [
-  'proc_instance',
-  'proc_task',
-  'proc_task_comment',
-  'proc_chat_message',
+export const PROCESS_NOTIFICATION_TYPES = [
+  'comment_mention',
+  'chat_mention',
+  'chat_message',
+  'task_comment',
 ] as const
 
-export type ProcessEntityType = (typeof PROCESS_ENTITY_TYPES)[number]
+export type ProcessNotificationType = (typeof PROCESS_NOTIFICATION_TYPES)[number]
 
 export type NotificationBucket = 'processo' | 'geral'
 
 export function classifyBucket(
-  entityType: string | null | undefined,
+  notificationType: string | null | undefined,
 ): NotificationBucket {
-  return PROCESS_ENTITY_TYPES.includes(entityType as ProcessEntityType)
+  return PROCESS_NOTIFICATION_TYPES.includes(notificationType as ProcessNotificationType)
     ? 'processo'
     : 'geral'
 }

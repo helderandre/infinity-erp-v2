@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showNotificationToast } from '@/components/notifications/notification-toast'
 import {
-  PROCESS_ENTITY_TYPES,
+  PROCESS_NOTIFICATION_TYPES,
   classifyBucket,
   type Notification,
   type NotificationBucket,
@@ -208,7 +208,7 @@ export function useNotifications(userId: string | null) {
     const now = new Date().toISOString()
     const shouldTouch = (n: Notification) => {
       if (!scope) return !n.is_read
-      return !n.is_read && classifyBucket(n.entity_type) === scope
+      return !n.is_read && classifyBucket(n.notification_type) === scope
     }
 
     const snapshot: Array<{ id: string; read_at: string | null }> = []
@@ -227,7 +227,7 @@ export function useNotifications(userId: string | null) {
           fetch('/api/notifications', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entity_types: [...PROCESS_ENTITY_TYPES] }),
+            body: JSON.stringify({ notification_types: [...PROCESS_NOTIFICATION_TYPES] }),
           }),
         )
       } else if (scope === 'geral') {
@@ -235,7 +235,7 @@ export function useNotifications(userId: string | null) {
           fetch('/api/notifications', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exclude_entity_types: [...PROCESS_ENTITY_TYPES] }),
+            body: JSON.stringify({ exclude_notification_types: [...PROCESS_NOTIFICATION_TYPES] }),
           }),
           fetch('/api/crm/notifications', {
             method: 'PUT',
