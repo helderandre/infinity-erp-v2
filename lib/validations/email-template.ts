@@ -7,7 +7,9 @@ export const emailTemplateSchema = z.object({
   description: z.string().optional(),
   body_html: z.string().min(1, 'Corpo do email é obrigatório'),
   editor_state: z.any().optional(),
-  category: z.enum(TEMPLATE_CATEGORY_VALUES).default('geral'),
+  category: z.string().min(1).default('geral'),
+  scope: z.enum(['global', 'consultant']).optional(),
+  scope_id: z.string().uuid().nullable().optional(),
 })
 
 export const emailTemplateUpdateSchema = emailTemplateSchema.partial()

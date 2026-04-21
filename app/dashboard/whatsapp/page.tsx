@@ -9,19 +9,27 @@ export default async function WhatsAppPage({
 }) {
   const supabase = await createClient()
 
-  // Get current user + role
+  // Get current user + all roles (cumulative)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data: devUser } = await (supabase as any)
     .from('dev_users')
-    .select('id, role_id, roles:role_id(name)')
+    .select(`
+      id,
+      user_roles!user_roles_user_id_fkey(
+        role:roles(name)
+      )
+    `)
     .eq('id', user.id)
     .single()
 
-  const roleName = (devUser?.roles as any)?.name || ''
-  const isWppAdmin = WHATSAPP_ADMIN_ROLES.some(
-    (r) => r.toLowerCase() === roleName.toLowerCase()
+  const userRoles: string[] = ((devUser as any)?.user_roles || [])
+    .map((ur: any) => ur.role?.name)
+    .filter(Boolean)
+
+  const isWppAdmin = userRoles.some((r) =>
+    WHATSAPP_ADMIN_ROLES.some((a) => a.toLowerCase() === r.toLowerCase())
   )
 
   // Admins see all instances, regular users only their own

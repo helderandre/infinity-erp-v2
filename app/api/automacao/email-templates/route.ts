@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     let query = (supabase as SupabaseAny)
       .from("tpl_email_library")
-      .select("id, name, subject, description, category, scope, scope_id, is_active, is_system, created_at, updated_at")
+      .select("id, name, subject, description, category, scope, scope_id, is_active, is_system, created_by, created_at, updated_at")
       .order("name", { ascending: true })
 
     if (activeFilter === "true") query = query.eq("is_active", true)
@@ -103,11 +103,9 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
-    if (category && !(TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(category)) {
-      return NextResponse.json(
-        { error: `Categoria inválida. Permitidas: ${TEMPLATE_CATEGORY_VALUES.join(", ")}` },
-        { status: 400 },
-      )
+    // Category accepts fixed event types and custom automation IDs
+    if (category && category.trim().length === 0) {
+      return NextResponse.json({ error: "Categoria não pode ser vazia" }, { status: 400 })
     }
 
     // Scope handling: client can ask for 'consultant' → we force scope_id to auth.user.id

@@ -43,6 +43,7 @@ import {
 interface InstanceCardProps {
   instance: WhatsAppInstance
   loading?: boolean
+  isAdmin?: boolean
   onConnect: (id: string) => void
   onDisconnect: (id: string) => void
   onDelete: (id: string) => void
@@ -69,6 +70,7 @@ function formatPhone(phone: string): string {
 export function InstanceCard({
   instance,
   loading: cardLoading = false,
+  isAdmin = false,
   onConnect,
   onDisconnect,
   onDelete,
@@ -224,20 +226,26 @@ export function InstanceCard({
                     <Pencil className="mr-2 h-4 w-4" />
                     Renomear
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => { setMenuOpen(false); onAssignUser(instance.id) }}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Atribuir utilizador
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => { setMenuOpen(false); onDelete(instance.id) }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Eliminar
-                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => { setMenuOpen(false); onAssignUser(instance.id) }}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Atribuir utilizador
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => { setMenuOpen(false); onDelete(instance.id) }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

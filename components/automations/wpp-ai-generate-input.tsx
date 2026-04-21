@@ -33,6 +33,10 @@ const DEFAULT_SUGGESTIONS = [
   'Feliz Natal',
 ]
 
+function isUUID(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+}
+
 const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
   aniversario_contacto: [
     'Parabéns calorosos e pessoais',
@@ -101,12 +105,39 @@ export function WppAiGenerateInput({
   const recognitionRef = useRef<any>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  const [automationName, setAutomationName] = useState<string | null>(null)
+  const [automationDesc, setAutomationDesc] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!category || !isUUID(category)) {
+      setAutomationName(null)
+      setAutomationDesc(null)
+      return
+    }
+    fetch(`/api/automacao/custom-events/${category}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setAutomationName(data.name ?? null)
+          setAutomationDesc(data.description ?? null)
+        }
+      })
+      .catch(() => {})
+  }, [category])
+
   const suggestions = useMemo(() => {
     if (category && CATEGORY_SUGGESTIONS[category]) {
       return CATEGORY_SUGGESTIONS[category]
     }
+    if (automationName) {
+      return [
+        `Mensagem calorosa de ${automationName}`,
+        `${automationName} — tom profissional e festivo`,
+        `Saudação de ${automationName} com destaque pessoal`,
+      ]
+    }
     return DEFAULT_SUGGESTIONS
-  }, [category])
+  }, [category, automationName])
 
   const showSuggestions = !prompt.trim() && !interimText && !isGenerating
 
@@ -201,7 +232,13 @@ export function WppAiGenerateInput({
         const res = await fetch('/api/automacao/templates-wpp/ai-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text, scope, category }),
+          body: JSON.stringify({
+            prompt: text,
+            scope,
+            category,
+            automation_name: automationName,
+            automation_description: automationDesc,
+          }),
         })
 
         if (!res.ok) {

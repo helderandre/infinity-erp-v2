@@ -125,7 +125,7 @@ export async function DELETE(
     // Scope guard — consultor só pode eliminar os seus próprios templates.
     const { data: existing } = await supabase
       .from('tpl_email_library')
-      .select('id, scope, scope_id, is_system')
+      .select('id, scope, scope_id, is_system, created_by')
       .eq('id', id)
       .maybeSingle()
     if (!existing) {
@@ -143,11 +143,13 @@ export async function DELETE(
       .map((ur) => ur.role?.name)
       .filter(Boolean) as string[]
     const isBroker = roles.some((r) => ['admin', 'Broker/CEO'].includes(r))
-    const existingRow = existing as { scope?: string; scope_id?: string | null }
-    if (!isBroker && existingRow.scope === 'consultant' && existingRow.scope_id !== user.id) {
-      return NextResponse.json({ error: 'Template não é seu' }, { status: 403 })
-    }
-    if (!isBroker && existingRow.scope === 'global') {
+    const existingRow = existing as { scope?: string; scope_id?: string | null; created_by?: string | null }
+    const isOwnConsultant = existingRow.scope === 'consultant' && existingRow.scope_id === user.id
+    const isOwnLegacyGlobal = existingRow.scope === 'global' && existingRow.created_by === user.id
+    if (!isBroker && !isOwnConsultant && !isOwnLegacyGlobal) {
+      if (existingRow.scope === 'consultant') {
+        return NextResponse.json({ error: 'Template não é seu' }, { status: 403 })
+      }
       return NextResponse.json({ error: 'Apenas administradores podem eliminar templates globais' }, { status: 403 })
     }
 

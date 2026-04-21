@@ -38,6 +38,7 @@ export function useWhatsAppInstances() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const fetchInstances = useCallback(async () => {
     setLoading(true)
@@ -47,6 +48,7 @@ export function useWhatsAppInstances() {
       if (!res.ok) throw new Error("Erro ao carregar instâncias")
       const data = await res.json()
       setInstances(data.instances ?? [])
+      if (typeof data.isAdmin === "boolean") setIsAdmin(data.isAdmin)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido"
       setError(msg)
@@ -146,6 +148,7 @@ export function useWhatsAppInstances() {
     instances,
     loading,
     error,
+    isAdmin,
     refetch: fetchInstances,
     syncInstances,
     createInstance,

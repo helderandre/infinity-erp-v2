@@ -24,7 +24,7 @@ interface InternalChatHeaderProps {
 }
 
 export function InternalChatHeader({ onlineUsers, currentUserId, onBack }: InternalChatHeaderProps) {
-  const others = onlineUsers.filter((u) => u.user_id !== currentUserId)
+  const others = onlineUsers.filter((u) => u.user_id !== currentUserId && u.user_name)
 
   return (
     <div className="border-b px-4 py-2.5 flex items-center justify-between shrink-0">

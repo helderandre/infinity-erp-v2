@@ -36,9 +36,16 @@ export function getAllowedCategoriesForEvent(eventType: ContactAutomationEventTy
   return [primary, "geral"]
 }
 
-export function normalizeCategory(value: string | null | undefined): TemplateCategory {
+export function normalizeCategory(value: string | null | undefined): string {
   if (!value) return "geral"
-  return (TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(value)
-    ? (value as TemplateCategory)
-    : "geral"
+  // Accept both fixed categories and custom automation IDs/names
+  return value
+}
+
+export function getCategoryLabel(category: string): string {
+  if ((TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(category)) {
+    return TEMPLATE_CATEGORY_LABELS_PT[category as TemplateCategory]
+  }
+  // For custom automation IDs, return the value as-is (will be resolved to name by caller)
+  return category
 }

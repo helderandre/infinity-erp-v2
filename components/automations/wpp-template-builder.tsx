@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -271,7 +273,7 @@ export function WppTemplateBuilder({
               variant="ghost"
               size="icon"
               onClick={() =>
-                router.push("/dashboard/automacao/templates-wpp")
+                router.back()
               }
             >
               <ArrowLeft className="h-4 w-4" />
@@ -323,26 +325,8 @@ export function WppTemplateBuilder({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Categoria</Label>
-                <Select
-                  value={category}
-                  onValueChange={(v) =>
-                    onCategoryChange(v as WhatsAppTemplateCategory)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TEMPLATE_CATEGORY_LABELS).map(
-                      ([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">Automação</Label>
+                <WppAutomationSelect value={category} onChange={(v) => onCategoryChange(v as WhatsAppTemplateCategory)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">
@@ -491,5 +475,52 @@ export function WppTemplateBuilder({
         onSave={handleSaveMessage}
       />
     </>
+  )
+}
+
+// ─── Automation Select for WPP Templates ─────────────────────────────
+
+interface CustomEvt { id: string; name: string }
+
+function WppAutomationSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [customEvents, setCustomEvents] = useState<CustomEvt[]>([])
+
+  useEffect(() => {
+    fetch("/api/automacao/custom-events")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setCustomEvents((data ?? []).map((e: CustomEvt) => ({ id: e.id, name: e.name }))))
+      .catch(() => {})
+  }, [])
+
+  const customLabel = customEvents.find((e) => e.id === value)?.name
+
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue>{customLabel ?? TEMPLATE_CATEGORY_LABELS[value as WhatsAppTemplateCategory] ?? value}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel className="text-[10px]">Automações fixas</SelectLabel>
+          {Object.entries(TEMPLATE_CATEGORY_LABELS)
+            .filter(([k]) => !["custom", "geral"].includes(k))
+            .map(([k, label]) => (
+              <SelectItem key={k} value={k}>{label}</SelectItem>
+            ))}
+        </SelectGroup>
+        {customEvents.length > 0 && (
+          <SelectGroup>
+            <SelectLabel className="text-[10px]">Automações personalizadas</SelectLabel>
+            {customEvents.map((e) => (
+              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        <SelectGroup>
+          <SelectLabel className="text-[10px]">Outros</SelectLabel>
+          <SelectItem value="geral">Geral</SelectItem>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   )
 }

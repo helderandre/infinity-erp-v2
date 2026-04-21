@@ -79,6 +79,7 @@ function InstanciasContent() {
   const {
     instances,
     loading,
+    isAdmin,
     syncInstances,
     createInstance,
     connectInstance,
@@ -283,20 +284,22 @@ function InstanciasContent() {
             Gerir instâncias WhatsApp conectadas ao sistema
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSync} disabled={syncing}>
-            {syncing ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Actualizar
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova
-          </Button>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleSync} disabled={syncing}>
+              {syncing ? (
+                <Spinner variant="infinite" size={16} className="mr-2" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Actualizar
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -360,16 +363,22 @@ function InstanciasContent() {
             <p className="text-sm text-muted-foreground mt-1 mb-4">
               Crie uma nova instância ou sincronize com a Uazapi
             </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleSync}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sincronizar
-              </Button>
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Criar instância
-              </Button>
-            </div>
+            {isAdmin ? (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleSync}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Sincronizar
+                </Button>
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar instância
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Contacte um administrador para lhe atribuir uma instância.
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -379,6 +388,7 @@ function InstanciasContent() {
               key={instance.id}
               instance={instance}
               loading={loadingIds.has(instance.id)}
+              isAdmin={isAdmin}
               onConnect={setConnectId}
               onDisconnect={handleDisconnect}
               onDelete={setDeleteId}

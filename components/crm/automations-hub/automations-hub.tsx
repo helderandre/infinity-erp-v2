@@ -2,23 +2,21 @@
 
 import { Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Bell, Calendar, History, FileCode2, VolumeX, Mail } from "lucide-react"
+import { Bell, Calendar, History, FileCode2, Settings } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ScheduledTab } from "./scheduled-tab"
 import { RunsTab } from "./runs-tab"
 import { MyTemplatesTab } from "./my-templates-tab"
-import { GlobalMutesTab } from "./global-mutes-tab"
 import { AccountsTab } from "./accounts-tab"
 
-type TabKey = "automatismos" | "execucoes" | "templates" | "desativados" | "configuracoes"
+type TabKey = "automatismos" | "execucoes" | "templates" | "configuracoes"
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "automatismos", label: "Automatismos", icon: Calendar },
   { key: "execucoes", label: "Execuções", icon: History },
   { key: "templates", label: "Templates", icon: FileCode2 },
-  { key: "desativados", label: "Contactos Desativados", icon: VolumeX },
-  { key: "configuracoes", label: "Configurações de Envio", icon: Mail },
+  { key: "configuracoes", label: "Canais de Envio", icon: Settings },
 ]
 
 interface AutomationsHubProps {
@@ -94,11 +92,6 @@ export function AutomationsHub({ userId, isBroker, canSeeAll }: AutomationsHubPr
         {activeTab === "templates" && (
           <Suspense fallback={<Skeleton className="h-96" />}>
             <MyTemplatesTab userId={userId} />
-          </Suspense>
-        )}
-        {activeTab === "desativados" && (
-          <Suspense fallback={<Skeleton className="h-96" />}>
-            <GlobalMutesTab userId={userId} />
           </Suspense>
         )}
         {activeTab === "configuracoes" && (

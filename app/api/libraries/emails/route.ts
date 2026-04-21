@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { emailTemplateSchema } from '@/lib/validations/email-template'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
-    const auth = await requirePermission('settings')
+    const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
     const supabase = await createClient()
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const auth = await requirePermission('settings')
+    const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
     const supabase = await createClient()
@@ -71,9 +71,22 @@ export async function POST(request: Request) {
       )
     }
 
+    // Enforce scope: consultants always create as 'consultant' with their own scope_id
+    const isBrokerRole = auth.roles.some((r: string) => ['admin', 'Broker/CEO'].includes(r))
+    let scope = parsed.data.scope ?? (isBrokerRole ? 'global' : 'consultant')
+    let scopeId = parsed.data.scope_id ?? null
+
+    if (scope === 'consultant') {
+      scopeId = auth.user.id
+    } else if (scope === 'global' && !isBrokerRole) {
+      // Non-brokers cannot create global templates — force consultant scope
+      scope = 'consultant'
+      scopeId = auth.user.id
+    }
+
     const { data, error } = await supabase
       .from('tpl_email_library')
-      .insert({ ...parsed.data, created_by: auth.user.id })
+      .insert({ ...parsed.data, scope, scope_id: scopeId, created_by: auth.user.id })
       .select()
       .single()
 

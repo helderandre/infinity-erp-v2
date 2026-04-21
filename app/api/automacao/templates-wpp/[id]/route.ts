@@ -18,7 +18,7 @@ async function assertCanMutate(
   if (!auth.authorized) return auth.response
   const { data: existing } = await (supabase as SupabaseAny)
     .from("auto_wpp_templates")
-    .select("id, scope, scope_id, is_system")
+    .select("id, scope, scope_id, is_system, created_by")
     .eq("id", id)
     .maybeSingle()
   if (!existing) {
@@ -28,10 +28,13 @@ async function assertCanMutate(
     return NextResponse.json({ error: "Template de sistema não pode ser modificado" }, { status: 403 })
   }
   if (!isBroker(auth.roles)) {
-    if (existing.scope === "global") {
-      return NextResponse.json({ error: "Apenas administradores podem modificar templates globais" }, { status: 403 })
-    }
-    if (existing.scope === "consultant" && existing.scope_id !== auth.user.id) {
+    // Allow consultant to modify their own templates (including legacy global ones they created)
+    const isOwnConsultant = existing.scope === "consultant" && existing.scope_id === auth.user.id
+    const isOwnLegacyGlobal = existing.scope === "global" && existing.created_by === auth.user.id
+    if (!isOwnConsultant && !isOwnLegacyGlobal) {
+      if (existing.scope === "global") {
+        return NextResponse.json({ error: "Apenas administradores podem modificar templates globais" }, { status: 403 })
+      }
       return NextResponse.json({ error: "Template não é seu" }, { status: 403 })
     }
   }
@@ -105,12 +108,6 @@ export async function PUT(
       updates.description = body.description?.trim() || null
     if (body.messages !== undefined) updates.messages = body.messages
     if (body.category !== undefined) {
-      if (body.category && !(TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(body.category)) {
-        return NextResponse.json(
-          { error: `Categoria inválida. Permitidas: ${TEMPLATE_CATEGORY_VALUES.join(', ')}` },
-          { status: 400 }
-        )
-      }
       updates.category = body.category || null
     }
     if (body.tags !== undefined) updates.tags = body.tags

@@ -59,6 +59,11 @@ const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
   ],
 }
 
+// Check if category is a UUID (custom automation)
+function isUUID(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+}
+
 // Web Speech API — not all browsers have types, so we use any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getSpeechRecognition(): (new () => any) | null {
@@ -97,12 +102,42 @@ export function AiGenerateInput({
   const recognitionRef = useRef<any>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  const [automationName, setAutomationName] = useState<string | null>(null)
+  const [automationDesc, setAutomationDesc] = useState<string | null>(null)
+
+  // Fetch custom automation details if category is a UUID
+  useEffect(() => {
+    if (!category || !isUUID(category)) {
+      setAutomationName(null)
+      setAutomationDesc(null)
+      return
+    }
+    fetch(`/api/automacao/custom-events/${category}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setAutomationName(data.name ?? null)
+          setAutomationDesc(data.description ?? null)
+        }
+      })
+      .catch(() => {})
+  }, [category])
+
   const suggestions = useMemo(() => {
+    // Fixed category with predefined suggestions
     if (category && CATEGORY_SUGGESTIONS[category]) {
       return CATEGORY_SUGGESTIONS[category]
     }
+    // Custom automation — generate contextual suggestions from name
+    if (automationName) {
+      return [
+        `Mensagem calorosa de ${automationName}`,
+        `${automationName} — tom profissional e festivo`,
+        `Saudação de ${automationName} com destaque pessoal`,
+      ]
+    }
     return DEFAULT_SUGGESTIONS
-  }, [category])
+  }, [category, automationName])
 
   const showSuggestions = !prompt.trim() && !interimText && !isGenerating
 
@@ -203,7 +238,13 @@ export function AiGenerateInput({
         const res = await fetch('/api/libraries/emails/ai-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text, scope, category }),
+          body: JSON.stringify({
+            prompt: text,
+            scope,
+            category,
+            automation_name: automationName,
+            automation_description: automationDesc,
+          }),
         })
 
         if (!res.ok) {

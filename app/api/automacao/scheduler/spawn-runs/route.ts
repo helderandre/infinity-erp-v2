@@ -496,6 +496,246 @@ async function runVirtualPhase(supabase: any, now: Date) {
   return { evaluated, spawned, skipped: skippedTotal, errors, skippedBreakdown }
 }
 
+// ──────────────────────────────────────────
+// Fase C — custom commemorative events
+// ──────────────────────────────────────────
+async function runCustomEventsPhase(supabase: any, now: Date) {
+  let evaluated = 0
+  let spawned = 0
+  let skipped = 0
+  const errors: string[] = []
+
+  const currentMonth = now.getMonth() + 1 // 1-based
+  const currentDay = now.getDate()
+  const currentYear = now.getFullYear()
+
+  // Find active custom events where event_date matches today (month/day)
+  // and not yet triggered this year
+  const { data: events, error: evtErr } = await supabase
+    .from("custom_commemorative_events")
+    .select("id, consultant_id, name, event_date, send_hour, is_recurring, channels, email_template_id, wpp_template_id, smtp_account_id, wpp_instance_id, last_triggered_year")
+    .eq("status", "active")
+    .or(`last_triggered_year.is.null,last_triggered_year.lt.${currentYear}`)
+
+  if (evtErr) {
+    errors.push(`custom events select: ${evtErr.message}`)
+    return { evaluated, spawned, skipped, errors }
+  }
+
+  // Filter by month/day match
+  const todayEvents = (events ?? []).filter((e: any) => {
+    const d = new Date(e.event_date + "T00:00:00Z")
+    return d.getUTCMonth() + 1 === currentMonth && d.getUTCDate() === currentDay
+  })
+
+  for (const evt of todayEvents) {
+    try {
+      // Get leads for this event
+      const { data: eventLeads } = await supabase
+        .from("custom_event_leads")
+        .select("lead_id, leads!inner(id, agent_id, email, telemovel)")
+        .eq("event_id", evt.id)
+
+      if (!eventLeads || eventLeads.length === 0) {
+        await supabase
+          .from("custom_commemorative_events")
+          .update({ last_triggered_year: currentYear, ...(evt.is_recurring ? {} : { status: "archived" }) })
+          .eq("id", evt.id)
+        continue
+      }
+
+      evaluated += eventLeads.length
+
+      for (const el of eventLeads) {
+        const lead = el.leads as any
+        if (!lead) continue
+
+        try {
+          // Build scheduled_for from today + send_hour in Europe/Lisbon
+          const scheduledDate = new Date(now)
+          scheduledDate.setHours(evt.send_hour, 0, 0, 0)
+          const scheduledForIso = scheduledDate.toISOString()
+
+          // Check mutes per channel
+          const activeChannels: Array<{
+            channel: "email" | "whatsapp"
+            templateId: string | null
+            accountId: string | null
+          }> = []
+
+          for (const channel of evt.channels as Array<"email" | "whatsapp">) {
+            if (channel === "email" && !lead.email) continue
+            if (channel === "whatsapp" && !lead.telemovel) continue
+
+            const muted = await isMuted(supabase, {
+              leadId: lead.id,
+              agentId: evt.consultant_id,
+              eventType: evt.name,
+              channel,
+            })
+            if (muted) {
+              skipped++
+              continue
+            }
+
+            // Use directly configured template/account from the event
+            const templateId = channel === "email" ? evt.email_template_id : evt.wpp_template_id
+            const accountId = channel === "email" ? evt.smtp_account_id : evt.wpp_instance_id
+
+            if (!templateId) {
+              // Fallback: try cascade resolution
+              const tpl = await resolveTemplateForLead(supabase, {
+                leadId: lead.id,
+                agentId: evt.consultant_id,
+                eventType: evt.name,
+                channel,
+              })
+              if (!tpl) continue
+
+              const acct = channel === "email"
+                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+              if (!acct) continue
+
+              activeChannels.push({ channel, templateId: tpl.templateId, accountId: acct.id })
+            } else if (!accountId) {
+              // Template exists but no account — try cascade for account
+              const acct = channel === "email"
+                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+              if (!acct) continue
+              activeChannels.push({ channel, templateId, accountId: acct.id })
+            } else {
+              activeChannels.push({ channel, templateId, accountId })
+            }
+          }
+
+          if (activeChannels.length === 0) {
+            skipped++
+            continue
+          }
+
+          // Insert contact_automation_runs (idempotency via unique-ish check)
+          const { data: carRun, error: carErr } = await supabase
+            .from("contact_automation_runs")
+            .insert({
+              kind: "custom_event",
+              custom_event_id: evt.id,
+              lead_id: lead.id,
+              event_type: evt.name,
+              scheduled_for: scheduledForIso,
+              status: "pending",
+            })
+            .select("id")
+            .single()
+
+          if (carErr) {
+            if (String(carErr.message).toLowerCase().includes("duplicate")) {
+              skipped++
+              continue
+            }
+            throw new Error(`custom car insert: ${carErr.message}`)
+          }
+
+          // Resolve variables
+          const variables = await resolveContactVariables(supabase as any, {
+            contactId: lead.id,
+            timezone: "Europe/Lisbon",
+            now,
+          })
+
+          // Create auto_run + steps
+          const { data: run, error: runErr } = await supabase
+            .from("auto_runs")
+            .insert({
+              flow_id: CONTACT_AUTOMATIONS_SENTINEL_FLOW_ID,
+              trigger_id: null,
+              triggered_by: "schedule",
+              status: "running",
+              context: { variables, custom_event: true, event_name: evt.name, lead_id: lead.id },
+              entity_type: "contact_automation_custom",
+              entity_id: carRun.id,
+              started_at: now.toISOString(),
+              is_test: false,
+            })
+            .select("id")
+            .single()
+          if (runErr || !run) throw new Error(`custom auto_run insert: ${runErr?.message ?? "unknown"}`)
+
+          const stepsToInsert: any[] = []
+          for (const ch of activeChannels) {
+            if (ch.channel === "email") {
+              stepsToInsert.push({
+                run_id: run.id,
+                flow_id: CONTACT_AUTOMATIONS_SENTINEL_FLOW_ID,
+                node_id: "inline-custom-email",
+                node_type: "email",
+                node_label: `Email personalizado (${evt.name})`,
+                status: "pending",
+                scheduled_for: now.toISOString(),
+                priority: 3,
+                input_data: { variables },
+                node_data_snapshot: {
+                  type: "email",
+                  emailTemplateId: ch.templateId,
+                  recipientVariable: "contact_email",
+                  smtpAccountId: ch.accountId,
+                },
+              })
+            } else {
+              stepsToInsert.push({
+                run_id: run.id,
+                flow_id: CONTACT_AUTOMATIONS_SENTINEL_FLOW_ID,
+                node_id: "inline-custom-whatsapp",
+                node_type: "whatsapp",
+                node_label: `WhatsApp personalizado (${evt.name})`,
+                status: "pending",
+                scheduled_for: now.toISOString(),
+                priority: 3,
+                input_data: { variables },
+                node_data_snapshot: {
+                  type: "whatsapp",
+                  templateId: ch.templateId,
+                  recipientVariable: "contact_phone",
+                  wppInstanceId: ch.accountId,
+                },
+              })
+            }
+          }
+
+          const { error: stepsErr } = await supabase.from("auto_step_runs").insert(stepsToInsert)
+          if (stepsErr) throw new Error(`custom steps insert: ${stepsErr.message}`)
+
+          // Link car → auto_run
+          await supabase
+            .from("contact_automation_runs")
+            .update({ auto_run_id: run.id })
+            .eq("id", carRun.id)
+
+          spawned++
+        } catch (err: any) {
+          errors.push(`custom ${evt.id}/${lead.id}: ${err?.message}`)
+          console.error(`[SCHEDULER] custom event (${evt.id}/${lead.id}) falhou:`, err)
+        }
+      }
+
+      // Mark event as triggered this year
+      await supabase
+        .from("custom_commemorative_events")
+        .update({
+          last_triggered_year: currentYear,
+          ...(evt.is_recurring ? {} : { status: "archived" }),
+        })
+        .eq("id", evt.id)
+    } catch (err: any) {
+      errors.push(`custom event ${evt.id}: ${err?.message}`)
+      console.error(`[SCHEDULER] custom event ${evt.id} falhou:`, err)
+    }
+  }
+
+  return { evaluated, spawned, skipped, errors }
+}
+
 async function processTick() {
   const started = Date.now()
   const supabase = createAdminClient()
@@ -544,11 +784,33 @@ async function processTick() {
     })
   }
 
+  // Fase C — custom commemorative events
+  let custom = { evaluated: 0, spawned: 0, skipped: 0, errors: [] as string[] }
+  try {
+    custom = await runCustomEventsPhase(supabase, now)
+  } catch (err: any) {
+    console.error("[SCHEDULER] custom events phase fatal:", err)
+    custom.errors.push(`phase_c_fatal: ${err?.message}`)
+  }
+  if (custom.evaluated > 0 || custom.errors.length > 0) {
+    await supabase.from("auto_scheduler_log").insert({
+      tick_at: now.toISOString(),
+      phase: "custom_events",
+      evaluated_count: custom.evaluated,
+      spawned_count: custom.spawned,
+      skipped_count: custom.skipped,
+      error_count: custom.errors.length,
+      error_detail: custom.errors.length ? custom.errors.slice(0, 5).join(" | ") : null,
+      duration_ms: Date.now() - started,
+      skipped_breakdown: {},
+    })
+  }
+
   return {
-    evaluated: manual.evaluated + virtual.evaluated,
-    spawned: manual.spawned + virtual.spawned,
-    skipped: manual.skipped + virtual.skipped,
-    errors: manual.errors.length + virtual.errors.length,
+    evaluated: manual.evaluated + virtual.evaluated + custom.evaluated,
+    spawned: manual.spawned + virtual.spawned + custom.spawned,
+    skipped: manual.skipped + virtual.skipped + custom.skipped,
+    errors: manual.errors.length + virtual.errors.length + custom.errors.length,
     duration_ms: Date.now() - started,
     virtualEnabled,
   }

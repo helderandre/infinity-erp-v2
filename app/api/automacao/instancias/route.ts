@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/permissions"
+import { WHATSAPP_ADMIN_ROLES } from "@/lib/auth/roles"
 
 // Nota: As tabelas auto_* foram criadas na Fase 1 mas os tipos TS (database.ts)
 // ainda não foram regenerados. Usamos casts explícitos até à regeneração.
@@ -139,17 +141,31 @@ async function registerWebhook(supabase: SupabaseAny, token: string, instanceId:
 
 export async function GET(request: Request) {
   try {
+    // ── Auth + role check ──
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
+    const isAdmin = auth.roles.some((r) =>
+      WHATSAPP_ADMIN_ROLES.some((a) => a.toLowerCase() === r.toLowerCase())
+    )
+
     const supabase = createAdminClient() as SupabaseAny
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
 
     if (id) {
       // Detalhe de uma instância + fluxos + execuções recentes
-      const { data: instance, error } = await supabase
+      let detailQuery = supabase
         .from("auto_wpp_instances")
         .select("*, user:dev_users(id, commercial_name)")
         .eq("id", id)
-        .single()
+
+      // Non-admin: only own instances
+      if (!isAdmin) {
+        detailQuery = detailQuery.eq("user_id", auth.user.id)
+      }
+
+      const { data: instance, error } = await detailQuery.single()
 
       if (error || !instance) {
         return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 })
@@ -171,14 +187,22 @@ export async function GET(request: Request) {
         instance,
         flows: flows ?? [],
         executions: executions ?? [],
+        isAdmin,
       })
     }
 
-    // Lista de todas as instâncias com flow_count
-    const { data: instances, error } = await supabase
+    // Lista de instâncias com flow_count
+    let listQuery = supabase
       .from("auto_wpp_instances")
       .select("*, user:dev_users(id, commercial_name)")
       .order("created_at", { ascending: false })
+
+    // Non-admin: only own instances
+    if (!isAdmin) {
+      listQuery = listQuery.eq("user_id", auth.user.id)
+    }
+
+    const { data: instances, error } = await listQuery
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -202,7 +226,7 @@ export async function GET(request: Request) {
       flow_count: countMap[inst.id] || 0,
     }))
 
-    return NextResponse.json({ instances: enriched })
+    return NextResponse.json({ instances: enriched, isAdmin })
   } catch (error) {
     console.error("Erro ao carregar instâncias:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
@@ -211,11 +235,49 @@ export async function GET(request: Request) {
 
 // ── POST: Acções ──
 
+/** Actions that require admin role */
+const ADMIN_ONLY_ACTIONS = new Set(["sync", "create", "delete", "assign_user"])
+
+/** Actions that non-admin users can perform on their own instances */
+const USER_ACTIONS = new Set(["connect", "disconnect", "status", "rename"])
+
 export async function POST(request: Request) {
   try {
+    // ── Auth + role check ──
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
+    const isAdmin = auth.roles.some((r) =>
+      WHATSAPP_ADMIN_ROLES.some((a) => a.toLowerCase() === r.toLowerCase())
+    )
+
     const supabase = createAdminClient() as SupabaseAny
     const body = await request.json()
     const { action, ...params } = body
+
+    // Gate admin-only actions
+    if (ADMIN_ONLY_ACTIONS.has(action) && !isAdmin) {
+      return NextResponse.json(
+        { error: "Sem permissão para esta acção" },
+        { status: 403 }
+      )
+    }
+
+    // For user-level actions, verify ownership (non-admin only)
+    if (USER_ACTIONS.has(action) && !isAdmin && params.instance_id) {
+      const { data: inst } = await supabase
+        .from("auto_wpp_instances")
+        .select("user_id")
+        .eq("id", params.instance_id)
+        .single()
+
+      if (!inst || inst.user_id !== auth.user.id) {
+        return NextResponse.json(
+          { error: "Sem permissão para esta instância" },
+          { status: 403 }
+        )
+      }
+    }
 
     switch (action) {
       case "sync":

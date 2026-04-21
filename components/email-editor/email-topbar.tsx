@@ -1,11 +1,12 @@
 'use client'
 
+import { useCallback, useEffect, useState } from 'react'
 import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen, Sparkles, Loader2 } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
 import {
@@ -23,11 +24,11 @@ interface EmailTopbarProps {
   subject: string
   mode: EditorMode
   signatureMode?: SignatureMode
-  category?: TemplateCategory
+  category?: string
   onNameChange: (value: string) => void
   onSubjectChange: (value: string) => void
   onSignatureModeChange?: (mode: SignatureMode) => void
-  onCategoryChange?: (value: TemplateCategory) => void
+  onCategoryChange?: (value: string) => void
   onSave: (editorState: string) => void
   onModeChange: (mode: EditorMode, editorState: string) => void
   isSaving: boolean
@@ -73,7 +74,7 @@ export function EmailTopbar({
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => router.push('/dashboard/templates-email')}
+        onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" />
       </Button>
@@ -94,23 +95,12 @@ export function EmailTopbar({
         className="flex-1 border-none shadow-none focus-visible:ring-0 text-sm text-muted-foreground"
       />
 
-      {/* Categoria */}
+      {/* Automação */}
       {onCategoryChange && (
-        <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Categoria</span>
-          <Select value={category} onValueChange={(v) => onCategoryChange(v as TemplateCategory)}>
-            <SelectTrigger className="h-7 w-[140px] text-xs font-medium border-none shadow-none bg-transparent p-0 gap-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              {TEMPLATE_CATEGORY_VALUES.map((c) => (
-                <SelectItem key={c} value={c} className="text-xs">
-                  {TEMPLATE_CATEGORY_LABELS_PT[c]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <AutomationCategorySelect
+          value={category}
+          onChange={onCategoryChange}
+        />
       )}
 
       {/* Signature mode */}
@@ -193,6 +183,68 @@ export function EmailTopbar({
           Guardar
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ─── Automation/Category Select ──────────────────────────────────────
+
+interface CustomEvent { id: string; name: string }
+
+function AutomationCategorySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [customEvents, setCustomEvents] = useState<CustomEvent[]>([])
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/automacao/custom-events")
+      if (res.ok) {
+        const data = await res.json()
+        setCustomEvents((data ?? []).map((e: CustomEvent) => ({ id: e.id, name: e.name })))
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  // Resolve display label for the current value
+  const fixedLabel = (TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(value)
+    ? TEMPLATE_CATEGORY_LABELS_PT[value as TemplateCategory]
+    : null
+  const customLabel = customEvents.find((e) => e.id === value)?.name
+  const displayLabel = fixedLabel ?? customLabel ?? value
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Automação</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-7 w-[160px] text-xs font-medium border-none shadow-none bg-transparent p-0 gap-1">
+          <SelectValue>{displayLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent className="rounded-xl">
+          <SelectGroup>
+            <SelectLabel className="text-[10px]">Automações fixas</SelectLabel>
+            {TEMPLATE_CATEGORY_VALUES.filter((c) => !["custom", "geral"].includes(c)).map((c) => (
+              <SelectItem key={c} value={c} className="text-xs">
+                {TEMPLATE_CATEGORY_LABELS_PT[c]}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+          {customEvents.length > 0 && (
+            <SelectGroup>
+              <SelectLabel className="text-[10px]">Automações personalizadas</SelectLabel>
+              {customEvents.map((e) => (
+                <SelectItem key={e.id} value={e.id} className="text-xs">
+                  {e.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          <SelectGroup>
+            <SelectLabel className="text-[10px]">Outros</SelectLabel>
+            <SelectItem value="geral" className="text-xs">Geral</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }

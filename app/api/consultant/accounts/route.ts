@@ -13,12 +13,12 @@ export async function GET() {
   const [smtpRes, wppRes] = await Promise.all([
     (supabase as any)
       .from("consultant_email_accounts")
-      .select("id, email_address, display_name, is_active, is_verified, is_default, created_at")
+      .select("id, email_address, display_name, smtp_host, is_active, is_verified, is_default, created_at")
       .eq("consultant_id", userId)
       .order("created_at", { ascending: true }),
     (supabase as any)
       .from("auto_wpp_instances")
-      .select("id, name, phone, connection_status, is_default, created_at")
+      .select("id, name, phone, profile_name, profile_pic_url, connection_status, is_default, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: true }),
   ])

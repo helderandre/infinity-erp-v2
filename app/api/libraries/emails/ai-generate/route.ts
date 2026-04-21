@@ -107,7 +107,9 @@ Regras para metadados:
 function buildContextPrompt(
   scope: string | undefined,
   category: string | undefined,
-  consultant: { name: string; bio: string | null; specializations: string[] | null; phone: string | null } | null
+  consultant: { name: string; bio: string | null; specializations: string[] | null; phone: string | null } | null,
+  automationName?: string | null,
+  automationDescription?: string | null,
 ): string {
   const parts: string[] = []
 
@@ -131,6 +133,18 @@ function buildContextPrompt(
     parts.push(`## Contexto: Template global da empresa`)
     parts.push(`Este é um template institucional da Infinity Group. Usa tom profissional e corporativo.`)
     parts.push(`Escreve na terceira pessoa ou em nome da empresa ("A equipa da Infinity Group deseja-lhe...").`)
+  }
+
+  // Custom automation context (when category is a UUID / custom event)
+  if (automationName) {
+    parts.push(`\n## Automação personalizada: "${automationName}"`)
+    parts.push(`Este email é para a automação "${automationName}" — uma data comemorativa personalizada criada pelo consultor.`)
+    if (automationDescription) {
+      parts.push(`Descrição da automação: "${automationDescription}"`)
+    }
+    parts.push(`O conteúdo do email deve ser adequado a esta ocasião/data comemorativa.`)
+    parts.push(`Usa um tom festivo e adequado ao tema "${automationName}".`)
+    parts.push(`Usa {{lead_nome}} para o nome do destinatário e {{consultor_nome}} para a assinatura.`)
   }
 
   // Category context
@@ -167,7 +181,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { prompt, scope, category } = body
+    const { prompt, scope, category, automation_name, automation_description } = body
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Prompt é obrigatório' }), { status: 400 })
@@ -198,7 +212,7 @@ export async function POST(request: Request) {
     }
 
     // Build enriched system prompt
-    const contextPrompt = buildContextPrompt(scope, category, consultant)
+    const contextPrompt = buildContextPrompt(scope, category, consultant, automation_name, automation_description)
     const fullSystemPrompt = BASE_SYSTEM_PROMPT + contextPrompt
 
     const result = streamText({

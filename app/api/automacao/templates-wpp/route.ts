@@ -150,11 +150,8 @@ export async function POST(request: Request) {
       )
     }
 
-    if (category && !(TEMPLATE_CATEGORY_VALUES as readonly string[]).includes(category)) {
-      return NextResponse.json(
-        { error: `Categoria inválida. Permitidas: ${TEMPLATE_CATEGORY_VALUES.join(', ')}` },
-        { status: 400 }
-      )
+    if (category && category.trim().length === 0) {
+      return NextResponse.json({ error: "Categoria não pode ser vazia" }, { status: 400 })
     }
 
     let scopeValue: "global" | "consultant" = "global"

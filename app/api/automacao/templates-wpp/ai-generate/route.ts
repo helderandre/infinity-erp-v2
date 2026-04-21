@@ -89,7 +89,9 @@ Responde APENAS com dois blocos delimitados. Sem texto antes, entre, ou depois.
 function buildContextPrompt(
   scope: string | undefined,
   category: string | undefined,
-  consultant: { name: string; bio: string | null; specializations: string[] | null; phone: string | null } | null
+  consultant: { name: string; bio: string | null; specializations: string[] | null; phone: string | null } | null,
+  automationName?: string | null,
+  automationDescription?: string | null,
 ): string {
   const parts: string[] = []
 
@@ -113,7 +115,15 @@ function buildContextPrompt(
     parts.push(`Template institucional da Infinity Group. Tom profissional mas acessível — é WhatsApp, não email.`)
   }
 
-  if (category && CATEGORY_LABELS[category]) {
+  // Custom automation context
+  if (automationName) {
+    parts.push(`\n## Automação personalizada: "${automationName}"`)
+    parts.push(`Esta mensagem WhatsApp é para a automação "${automationName}" — uma data comemorativa personalizada.`)
+    if (automationDescription) {
+      parts.push(`Descrição: "${automationDescription}"`)
+    }
+    parts.push(`O conteúdo deve ser adequado a esta ocasião. Tom festivo e adequado ao tema "${automationName}".`)
+  } else if (category && CATEGORY_LABELS[category]) {
     parts.push(`\n## Tipo: ${CATEGORY_LABELS[category]}`)
 
     if (category === 'aniversario_contacto') {
@@ -141,7 +151,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { prompt, scope, category } = body
+    const { prompt, scope, category, automation_name, automation_description } = body
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Prompt é obrigatório' }), { status: 400 })
@@ -171,7 +181,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const contextPrompt = buildContextPrompt(scope, category, consultant)
+    const contextPrompt = buildContextPrompt(scope, category, consultant, automation_name, automation_description)
     const fullSystemPrompt = BASE_SYSTEM_PROMPT + contextPrompt
 
     const result = streamText({

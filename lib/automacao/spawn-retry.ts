@@ -34,7 +34,7 @@ export async function spawnRetry(
   const { data: original, error: origErr } = await supabase
     .from("contact_automation_runs")
     .select(
-      "id, kind, contact_automation_id, lead_id, event_type, status, scheduled_for",
+      "id, kind, contact_automation_id, custom_event_id, lead_id, event_type, status, scheduled_for",
     )
     .eq("id", originalRunId)
     .maybeSingle()
@@ -78,6 +78,26 @@ export async function spawnRetry(
     manualRow = ma
   } else if (o.kind === "virtual") {
     if (!leadId || !eventType) return { status: "error", error: "Run virtual sem lead/event_type" }
+  } else if (o.kind === "custom_event") {
+    // Custom commemorative event — resolve template/account from the event record
+    const { data: customEvt } = await supabase
+      .from("custom_commemorative_events")
+      .select("id, channels, email_template_id, wpp_template_id, smtp_account_id, wpp_instance_id, name")
+      .eq("id", o.custom_event_id)
+      .maybeSingle()
+    if (!customEvt) return { status: "error", error: "Evento personalizado não encontrado" }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ce = customEvt as any
+    channels = (ce.channels ?? []) as Array<"email" | "whatsapp">
+    eventType = eventType ?? ce.name
+    manualRow = {
+      smtp_account_id: ce.smtp_account_id,
+      wpp_instance_id: ce.wpp_instance_id,
+      email_template_id: ce.email_template_id,
+      wpp_template_id: ce.wpp_template_id,
+      channels: ce.channels,
+    }
+    if (!leadId) return { status: "error", error: "Run custom_event sem lead_id" }
   } else {
     return { status: "error", error: `kind desconhecido: ${o.kind}` }
   }
@@ -119,7 +139,7 @@ export async function spawnRetry(
     if (channel === "email" && !l.email) continue
     if (channel === "whatsapp" && !l.telemovel) continue
 
-    if (o.kind === "manual" && manualRow) {
+    if ((o.kind === "manual" || o.kind === "custom_event") && manualRow) {
       const hasOverride =
         channel === "email"
           ? Boolean(manualRow.template_overrides?.email?.body_html)
@@ -237,6 +257,7 @@ export async function spawnRetry(
     .insert({
       kind: o.kind,
       contact_automation_id: o.kind === "manual" ? o.contact_automation_id : null,
+      custom_event_id: o.kind === "custom_event" ? o.custom_event_id : null,
       lead_id: leadId,
       event_type: eventType,
       auto_run_id: run.id,
