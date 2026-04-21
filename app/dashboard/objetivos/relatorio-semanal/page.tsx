@@ -144,42 +144,42 @@ function RelatorioSemanalPageInner() {
   const isSubmitted = report?.status === 'submitted' || report?.status === 'reviewed'
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all shrink-0">
             <ArrowLeft className="h-3.5 w-3.5" />
-            Voltar
+            <span className="hidden sm:inline">Voltar</span>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Relatório Semanal</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Relatório Semanal</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Reflecte sobre a tua semana e submete ao Team Leader
             </p>
           </div>
         </div>
         {/* Week navigator */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigateWeek(-1)} className="rounded-full h-8 w-8">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button variant="ghost" size="icon" onClick={() => navigateWeek(-1)} className="rounded-full h-8 w-8 shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-2 rounded-full bg-muted/60 px-4 py-1.5">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium">{formatWeekRange(weekStart)}</span>
+          <div className="flex items-center gap-2 rounded-full bg-muted/60 px-3 sm:px-4 py-1.5 min-w-0">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium truncate">{formatWeekRange(weekStart)}</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => navigateWeek(1)} disabled={weekStart >= getMonday(new Date())} className="rounded-full h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={() => navigateWeek(1)} disabled={weekStart >= getMonday(new Date())} className="rounded-full h-8 w-8 shrink-0">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Skeleton className="h-28 rounded-2xl" />
           <Skeleton className="h-28 rounded-2xl" />
           <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl col-span-2" />
+          <Skeleton className="h-64 rounded-2xl sm:col-span-2" />
           <Skeleton className="h-64 rounded-2xl" />
         </div>
       ) : (
@@ -243,7 +243,7 @@ function RelatorioSemanalPageInner() {
             <div className="lg:col-span-3 space-y-6">
               {/* Lead sources */}
               {leadSources.length > 0 && (
-                <div className="rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
                   <h3 className="text-sm font-semibold mb-4">Origem dos Leads</h3>
                   <div className="flex flex-wrap gap-2">
                     {leadSources.map(ls => (
@@ -258,10 +258,10 @@ function RelatorioSemanalPageInner() {
 
               {/* Activities table — Finexy style */}
               <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-4 border-b">
                   <h3 className="text-sm font-semibold">Actividades da Semana</h3>
                   {!isSubmitted && currentGoal && (
-                    <Button size="sm" variant="outline" onClick={() => setDeclareOpen(true)} className="rounded-full text-xs h-8">
+                    <Button size="sm" variant="outline" onClick={() => setDeclareOpen(true)} className="rounded-full text-xs h-8 self-start sm:self-auto">
                       <Plus className="mr-1 h-3 w-3" />
                       Registar adicionais
                     </Button>
@@ -277,21 +277,21 @@ function RelatorioSemanalPageInner() {
                     const declaredPct = (b.declared / maxBar) * 100
 
                     return (
-                      <div key={type} className="flex items-center gap-4 px-6 py-3.5">
+                      <div key={type} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3.5">
                         {/* Status dot */}
                         <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${b.total > 0 ? 'bg-emerald-500' : 'bg-red-400'}`} />
                         {/* Label */}
-                        <span className="text-sm flex-1 min-w-0">{(GOAL_ACTIVITY_TYPES as Record<string, string>)[type] || type}</span>
-                        {/* System + declared breakdown */}
+                        <span className="text-sm flex-1 min-w-0 truncate">{(GOAL_ACTIVITY_TYPES as Record<string, string>)[type] || type}</span>
+                        {/* System + declared breakdown — esconde no mobile */}
                         {b.declared > 0 && (
-                          <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                          <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums shrink-0">
                             {b.system} + {b.declared}
                           </span>
                         )}
                         {/* Total */}
                         <span className="text-sm font-bold tabular-nums w-8 text-right shrink-0">{b.total}</span>
-                        {/* Mini progress bar */}
-                        <div className="h-2 w-24 rounded-full bg-muted overflow-hidden flex shrink-0">
+                        {/* Mini progress bar — esconde no mobile */}
+                        <div className="hidden sm:flex h-2 w-24 rounded-full bg-muted overflow-hidden shrink-0">
                           {b.system > 0 && <div className="h-full bg-emerald-500" style={{ width: `${systemPct}%` }} />}
                           {b.declared > 0 && <div className="h-full bg-emerald-300" style={{ width: `${declaredPct}%` }} />}
                         </div>
@@ -301,7 +301,7 @@ function RelatorioSemanalPageInner() {
                 </div>
 
                 {/* Legend footer */}
-                <div className="px-6 py-3 border-t bg-muted/20 flex items-center justify-between">
+                <div className="px-4 sm:px-6 py-3 border-t bg-muted/20 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /> No sistema</span>
                     <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-300" /> Adicionais</span>
@@ -313,7 +313,7 @@ function RelatorioSemanalPageInner() {
               </div>
 
               {/* Report form */}
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
                 <h3 className="text-sm font-semibold mb-5">Reflexão Semanal</h3>
                 <WeeklyReportForm
                   reportId={report?.id || null}
@@ -328,7 +328,7 @@ function RelatorioSemanalPageInner() {
 
               {/* Manager feedback */}
               {report?.manager_feedback && (
-                <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-6">
+                <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4 sm:p-6">
                   <h3 className="text-sm font-semibold text-purple-800 mb-2">Feedback do Team Leader</h3>
                   <p className="text-sm text-purple-700 leading-relaxed">{report.manager_feedback}</p>
                 </div>
@@ -337,7 +337,7 @@ function RelatorioSemanalPageInner() {
 
             {/* Right column (2) — AI advice */}
             <div className="lg:col-span-2">
-              <div className="rounded-2xl border bg-white p-6 shadow-sm sticky top-6">
+              <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm lg:sticky lg:top-6">
                 <h3 className="text-sm font-semibold mb-5">Conselhos IA</h3>
                 {report?.id ? (
                   <WeeklyReportAIAdvice advice={advice} onGenerate={handleGenerateAdvice} />

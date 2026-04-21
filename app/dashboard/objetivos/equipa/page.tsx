@@ -50,31 +50,31 @@ export default function EquipaPage() {
   const pending = totalConsultants - submitted
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all shrink-0">
             <ArrowLeft className="h-3.5 w-3.5" />
-            Voltar
+            <span className="hidden sm:inline">Voltar</span>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Equipa — Visão Semanal</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Equipa — Visão Semanal</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Acompanha os relatórios e actividades de cada consultor
             </p>
           </div>
         </div>
         {/* Week navigator */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigateWeek(-1)} className="rounded-full h-8 w-8">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button variant="ghost" size="icon" onClick={() => navigateWeek(-1)} className="rounded-full h-8 w-8 shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-2 rounded-full bg-muted/60 px-4 py-1.5">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium">{formatWeekRange(weekStart)}</span>
+          <div className="flex items-center gap-2 rounded-full bg-muted/60 px-3 sm:px-4 py-1.5 min-w-0">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium truncate">{formatWeekRange(weekStart)}</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => navigateWeek(1)} disabled={weekStart >= getMonday(new Date())} className="rounded-full h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={() => navigateWeek(1)} disabled={weekStart >= getMonday(new Date())} className="rounded-full h-8 w-8 shrink-0">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -146,7 +146,7 @@ export default function EquipaPage() {
           {/* Consultant list */}
           {data?.reports && data.reports.length > 0 ? (
             <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b">
+              <div className="px-4 sm:px-6 py-4 border-b">
                 <h2 className="text-sm font-semibold">Consultores</h2>
               </div>
               <div className="divide-y">

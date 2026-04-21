@@ -54,13 +54,13 @@ export function GoalCompareTable({ year }: GoalCompareTableProps) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <div>
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle className="text-base">Comparação de Consultores</CardTitle>
           {dateRange && <p className="text-xs text-muted-foreground">{dateRange}</p>}
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as 'weekly' | 'monthly')}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -69,7 +69,7 @@ export function GoalCompareTable({ year }: GoalCompareTableProps) {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -81,42 +81,83 @@ export function GoalCompareTable({ year }: GoalCompareTableProps) {
             Nenhum objetivo configurado para {year}.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Consultor</TableHead>
-                <TableHead className="text-right">Objetivo</TableHead>
-                <TableHead className="text-right">Realizado</TableHead>
-                <TableHead className="text-right">Leads</TableHead>
-                <TableHead className="text-right">Chamadas</TableHead>
-                <TableHead className="text-right">Visitas</TableHead>
-                <TableHead className="w-[50px] text-center">St.</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile: card list */}
+            <div className="space-y-2.5 sm:hidden">
               {rows.map((row) => (
-                <TableRow key={row.consultant_id}>
-                  <TableCell className="font-medium">{row.commercial_name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(row.target)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(row.realized)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.leads.done}/{row.leads.target}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.calls.done}/{row.calls.target}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.visits.done}/{row.visits.target}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex justify-center">
-                      <GoalStatusIndicator status={row.status} size="md" />
+                <div key={row.consultant_id} className="rounded-xl border bg-card p-3.5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold truncate flex-1 min-w-0">{row.commercial_name}</p>
+                    <GoalStatusIndicator status={row.status} size="md" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-lg bg-muted/40 px-3 py-2">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">Objetivo</p>
+                      <p className="text-sm font-bold tabular-nums truncate">{formatCurrency(row.target)}</p>
                     </div>
-                  </TableCell>
-                </TableRow>
+                    <div className="rounded-lg bg-muted/40 px-3 py-2">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">Realizado</p>
+                      <p className="text-sm font-bold tabular-nums truncate">{formatCurrency(row.realized)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-1 border-t">
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Leads</p>
+                      <p className="text-xs font-medium tabular-nums">{row.leads.done}/{row.leads.target}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Chamadas</p>
+                      <p className="text-xs font-medium tabular-nums">{row.calls.done}/{row.calls.target}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Visitas</p>
+                      <p className="text-xs font-medium tabular-nums">{row.visits.done}/{row.visits.target}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Consultor</TableHead>
+                    <TableHead className="text-right">Objetivo</TableHead>
+                    <TableHead className="text-right">Realizado</TableHead>
+                    <TableHead className="text-right">Leads</TableHead>
+                    <TableHead className="text-right">Chamadas</TableHead>
+                    <TableHead className="text-right">Visitas</TableHead>
+                    <TableHead className="w-[50px] text-center">St.</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.consultant_id}>
+                      <TableCell className="font-medium">{row.commercial_name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(row.target)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(row.realized)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.leads.done}/{row.leads.target}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.calls.done}/{row.calls.target}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.visits.done}/{row.visits.target}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <GoalStatusIndicator status={row.status} size="md" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

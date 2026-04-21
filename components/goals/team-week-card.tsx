@@ -119,10 +119,10 @@ export function TeamWeekCard({ consultantName, report, activities, trustRatio, p
         onClick={() => setSheetOpen(true)}
         className="w-full transition-colors hover:bg-muted/30 text-left"
       >
-        <div className="flex items-center gap-4 px-6 py-4">
+        <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4">
           {/* Name + status */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold truncate">{consultantName}</p>
               {report ? (
                 <Badge variant="secondary" className={`${STATUS_COLOR[status] || 'bg-slate-100'} text-[10px] rounded-lg`}>
@@ -136,8 +136,8 @@ export function TeamWeekCard({ consultantName, report, activities, trustRatio, p
               )}
             </div>
 
-            {/* Inline metrics */}
-            <div className="flex items-center gap-3 mt-1.5">
+            {/* Inline metrics — wrap on mobile */}
+            <div className="flex items-center gap-x-3 gap-y-1 mt-1.5 flex-wrap">
               {metricKeys.map(key => {
                 const metric = activities.by_type[key]
                 if (!metric) return null
@@ -150,6 +150,40 @@ export function TeamWeekCard({ consultantName, report, activities, trustRatio, p
                   </div>
                 )
               })}
+            </div>
+
+            {/* Mobile-only compact pipeline + trust pill */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-2 sm:hidden">
+              {pipelineValue && pipelineValue.total > 0 && (
+                <>
+                  {pipelineValue.venda > 0 && (
+                    <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700 font-medium inline-flex items-center gap-1">
+                      <Home className="h-2.5 w-2.5" />
+                      {formatCommission(pipelineValue.venda)}
+                    </span>
+                  )}
+                  {pipelineValue.compra > 0 && (
+                    <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                      <ShoppingCart className="h-2.5 w-2.5" />
+                      {formatCommission(pipelineValue.compra)}
+                    </span>
+                  )}
+                  {pipelineValue.arrendamento > 0 && (
+                    <span className="rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] text-purple-700 font-medium inline-flex items-center gap-1">
+                      <Key className="h-2.5 w-2.5" />
+                      {formatCommission(pipelineValue.arrendamento)}
+                    </span>
+                  )}
+                </>
+              )}
+              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                trustRatio >= 0.8 ? 'bg-emerald-50 text-emerald-700' :
+                trustRatio >= 0.6 ? 'bg-blue-50 text-blue-700' :
+                trustRatio >= 0.4 ? 'bg-amber-50 text-amber-700' :
+                'bg-red-50 text-red-700'
+              }`}>
+                {Math.round(trustRatio * 100)}% sistema
+              </span>
             </div>
           </div>
 

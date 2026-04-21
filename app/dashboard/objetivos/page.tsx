@@ -24,26 +24,26 @@ function ObjetivosPageInner() {
   const avgBuyers = goals.length ? Math.round(goals.reduce((s, g) => s + g.pct_buyers, 0) / goals.length) : 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Objetivos</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Objetivos</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Quadro de objetivos multi-temporal dos consultores
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild className="rounded-full h-8 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="rounded-full h-8 text-xs flex-1 sm:flex-initial min-w-0">
             <Link href="/dashboard/objetivos/relatorio-semanal">
-              <FileText className="mr-1.5 h-3.5 w-3.5" />
-              Relatório Semanal
+              <FileText className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Relatório<span className="hidden sm:inline"> Semanal</span></span>
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild className="rounded-full h-8 text-xs">
+          <Button variant="outline" size="sm" asChild className="rounded-full h-8 text-xs flex-1 sm:flex-initial min-w-0">
             <Link href="/dashboard/objetivos/equipa">
-              <UsersRound className="mr-1.5 h-3.5 w-3.5" />
-              Equipa
+              <UsersRound className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Equipa</span>
             </Link>
           </Button>
           <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -67,35 +67,35 @@ function ObjetivosPageInner() {
 
       {/* Summary cards — Finexy style */}
       {!isLoading && goals.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-2xl bg-orange-500 text-white p-5 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="rounded-2xl bg-orange-500 text-white p-4 sm:p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-white/80">Total Anual</p>
               <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center">
                 <TrendingUp className="h-4 w-4" />
               </div>
             </div>
-            <p className="text-3xl font-bold">{formatCurrency(totalAnnual)}</p>
+            <p className="text-2xl sm:text-3xl font-bold truncate">{formatCurrency(totalAnnual)}</p>
             <p className="text-xs text-white/70 mt-1">{goals.length} consultores</p>
           </div>
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border bg-white p-4 sm:p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-muted-foreground">Média Vendedores</p>
               <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center">
                 <Users className="h-4 w-4 text-amber-600" />
               </div>
             </div>
-            <p className="text-3xl font-bold">{avgSellers}%</p>
+            <p className="text-2xl sm:text-3xl font-bold">{avgSellers}%</p>
             <p className="text-xs text-muted-foreground mt-1">do objetivo total</p>
           </div>
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border bg-white p-4 sm:p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-muted-foreground">Média Compradores</p>
               <div className="h-8 w-8 rounded-xl bg-blue-50 flex items-center justify-center">
                 <Users className="h-4 w-4 text-blue-600" />
               </div>
             </div>
-            <p className="text-3xl font-bold">{avgBuyers}%</p>
+            <p className="text-2xl sm:text-3xl font-bold">{avgBuyers}%</p>
             <p className="text-xs text-muted-foreground mt-1">do objetivo total</p>
           </div>
         </div>
@@ -103,17 +103,17 @@ function ObjetivosPageInner() {
 
       {/* Goals list */}
       <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b">
+        <div className="px-4 sm:px-6 py-4 border-b">
           <h2 className="text-sm font-semibold">Objetivos {year}</h2>
         </div>
         {isLoading ? (
-          <div className="p-6 space-y-3">
+          <div className="p-4 sm:p-6 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full rounded-xl" />
             ))}
           </div>
         ) : goals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex flex-col items-center justify-center py-16 text-center px-4">
             <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
               <Target className="h-7 w-7 text-muted-foreground/40" />
             </div>
@@ -140,12 +140,17 @@ function ObjetivosPageInner() {
                 <Link
                   key={goal.id}
                   href={`/dashboard/objetivos/${goal.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group"
+                  className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-muted/30 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{goal.consultant?.commercial_name || '—'}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Vend. {goal.pct_sellers}% · Comp. {goal.pct_buyers}%
+                    </p>
+                    {/* Mobile-only inline value */}
+                    <p className="text-xs font-semibold tabular-nums mt-1 sm:hidden">
+                      {formatCurrency(goal.annual_revenue_target)}
+                      <span className="text-muted-foreground font-normal"> /ano</span>
                     </p>
                   </div>
 

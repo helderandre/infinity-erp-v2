@@ -99,22 +99,22 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-6">
       {/* ── Black hero card ── */}
-      <div className="rounded-2xl bg-neutral-900 text-white p-6 shadow-lg">
-        <div className="flex items-start justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-white/70 hover:bg-white/20 hover:text-white transition-all">
+      <div className="rounded-2xl bg-neutral-900 text-white p-4 sm:p-6 shadow-lg">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/dashboard/objetivos" className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-white/70 hover:bg-white/20 hover:text-white transition-all shrink-0">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Voltar
+              <span className="hidden sm:inline">Voltar</span>
             </Link>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-white/50">Objetivos {goal.year}</p>
-              <h1 className="text-xl font-bold">{goal.consultant?.commercial_name || 'Consultor'}</h1>
+              <h1 className="text-lg sm:text-xl font-bold truncate">{goal.consultant?.commercial_name || 'Consultor'}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="secondary" className="rounded-full h-8 text-xs bg-white/10 text-white border-0 hover:bg-white/20">
+                <Button size="sm" variant="secondary" className="rounded-full h-8 text-xs bg-white/10 text-white border-0 hover:bg-white/20 flex-1 sm:flex-initial">
                   <Plus className="mr-1.5 h-3.5 w-3.5" /> Registar
                 </Button>
               </DialogTrigger>
@@ -123,37 +123,37 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
                 <GoalActivityForm goalId={id} onSuccess={() => { setActivityDialogOpen(false); refetch(); refetchActivities() }} onCancel={() => setActivityDialogOpen(false)} />
               </DialogContent>
             </Dialog>
-            <Button size="sm" variant="secondary" asChild className="rounded-full h-8 text-xs bg-white/10 text-white border-0 hover:bg-white/20">
+            <Button size="sm" variant="secondary" asChild className="rounded-full h-8 text-xs bg-white/10 text-white border-0 hover:bg-white/20 flex-1 sm:flex-initial">
               <Link href={`/dashboard/objetivos/${id}/editar`}><Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar</Link>
             </Button>
           </div>
         </div>
 
         {/* Key numbers row */}
-        <div className="grid grid-cols-4 gap-4 mb-5">
-          <div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+          <div className="min-w-0">
             <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Objetivo Anual</p>
-            <p className="text-2xl font-bold mt-0.5">{formatCurrency(financial.annual.total)}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 truncate">{formatCurrency(financial.annual.total)}</p>
             <p className="text-[10px] text-white/40 mt-0.5">V. {goal.pct_sellers}% · C. {goal.pct_buyers}%</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Realizado</p>
-            <p className="text-2xl font-bold mt-0.5">{formatCurrency(reality_check.total_realized)}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 truncate">{formatCurrency(reality_check.total_realized)}</p>
             <p className={`text-[10px] mt-0.5 ${isOnTrack ? 'text-emerald-400' : 'text-red-400'}`}>
               {reality_check.pct_achieved.toFixed(0)}% do esperado
             </p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Projeção</p>
-            <p className="text-2xl font-bold mt-0.5">{formatCurrency(reality_check.projected_annual)}</p>
-            <p className="text-[10px] text-white/40 mt-0.5">
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 truncate">{formatCurrency(reality_check.projected_annual)}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 truncate">
               {reality_check.gap > 0 ? `Gap ${formatCurrency(reality_check.gap)}` : 'No alvo'}
             </p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Obj. Semanal</p>
-            <p className="text-2xl font-bold mt-0.5">{formatCurrency(financial.weekly.total)}</p>
-            <p className="text-[10px] text-white/40 mt-0.5">
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 truncate">{formatCurrency(financial.weekly.total)}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 truncate">
               Diário: {formatCurrency(financial.daily.total)}
             </p>
           </div>
@@ -181,8 +181,8 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
       {/* ── Main content card with tabs ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-          {/* Tab bar — pill style */}
-          <div className="px-6 pt-5 pb-4">
+          {/* Tab bar — pill style (scrollable on mobile) */}
+          <div className="px-4 sm:px-6 pt-5 pb-4 -mx-px overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm h-auto">
               {[
                 { value: 'objetivos', icon: Target, label: 'Objetivos' },
@@ -204,30 +204,30 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
           </div>
 
           {/* ── Tab: Objetivos ── */}
-          <TabsContent value="objetivos" className="mt-0 p-6 space-y-6">
+          <TabsContent value="objetivos" className="mt-0 p-4 sm:p-6 space-y-6">
             {/* KPI cards row */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <div className="rounded-2xl bg-orange-500 text-white p-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div className="rounded-2xl bg-orange-500 text-white p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] font-medium text-white/80 uppercase tracking-wider">Anual</p>
                   <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center"><Target className="h-3.5 w-3.5" /></div>
                 </div>
-                <p className="text-2xl font-bold">{formatCurrency(financial.annual.total)}</p>
-                {progress && <p className="text-[10px] text-white/70 mt-1">Real. {formatCurrency(progress.annual.realized)}</p>}
+                <p className="text-xl sm:text-2xl font-bold truncate">{formatCurrency(financial.annual.total)}</p>
+                {progress && <p className="text-[10px] text-white/70 mt-1 truncate">Real. {formatCurrency(progress.annual.realized)}</p>}
               </div>
               {(['monthly', 'weekly', 'daily'] as GoalPeriod[]).map(period => {
                 const target = financial[period]
                 const realized = period === 'monthly' ? progress?.monthly.realized : period === 'weekly' ? progress?.weekly.realized : null
                 return (
-                  <div key={period} className="rounded-2xl border p-5">
+                  <div key={period} className="rounded-2xl border p-4 sm:p-5">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{GOAL_PERIOD_LABELS[period]}</p>
                     </div>
-                    <p className="text-2xl font-bold">{formatCurrency(target.total)}</p>
+                    <p className="text-xl sm:text-2xl font-bold truncate">{formatCurrency(target.total)}</p>
                     {realized !== null && realized !== undefined && (
-                      <p className="text-[10px] text-muted-foreground mt-1">Real. <span className="font-medium text-foreground">{formatCurrency(realized)}</span></p>
+                      <p className="text-[10px] text-muted-foreground mt-1 truncate">Real. <span className="font-medium text-foreground">{formatCurrency(realized)}</span></p>
                     )}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">V. {formatCurrency(target.sellers)} · C. {formatCurrency(target.buyers)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">V. {formatCurrency(target.sellers)} · C. {formatCurrency(target.buyers)}</p>
                   </div>
                 )
               })}
@@ -238,16 +238,16 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
               <div className="px-5 py-3 border-b bg-muted/20">
                 <p className="text-xs font-semibold">Detalhe por Período</p>
               </div>
-              <div className="grid grid-cols-4 divide-x">
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0">
                 {(['annual', 'monthly', 'weekly', 'daily'] as GoalPeriod[]).map(period => {
                   const t = financial[period]
                   return (
-                    <div key={period} className="p-4 text-center">
+                    <div key={period} className="p-4 text-center min-w-0">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-1">{GOAL_PERIOD_LABELS[period]}</p>
-                      <p className="text-base font-bold">{formatCurrency(t.total)}</p>
-                      <div className="flex justify-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                        <span>V. {formatCurrency(t.sellers)}</span>
-                        <span>C. {formatCurrency(t.buyers)}</span>
+                      <p className="text-sm sm:text-base font-bold truncate">{formatCurrency(t.total)}</p>
+                      <div className="flex flex-col sm:flex-row justify-center gap-0.5 sm:gap-2 mt-1 text-[10px] text-muted-foreground">
+                        <span className="truncate">V. {formatCurrency(t.sellers)}</span>
+                        <span className="truncate">C. {formatCurrency(t.buyers)}</span>
                       </div>
                     </div>
                   )
@@ -257,8 +257,8 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
           </TabsContent>
 
           {/* ── Tab: Ações ── */}
-          <TabsContent value="acoes" className="mt-0 p-6">
-            <div className="grid gap-6 lg:grid-cols-2">
+          <TabsContent value="acoes" className="mt-0 p-4 sm:p-6">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Ações de Hoje */}
               <div className="rounded-2xl border overflow-hidden">
                 <div className="px-5 py-3 border-b bg-muted/20">
@@ -319,7 +319,7 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
           </TabsContent>
 
           {/* ── Tab: Funil Vendedores ── */}
-          <TabsContent value="funil-vendedores" className="mt-0 p-6 space-y-6">
+          <TabsContent value="funil-vendedores" className="mt-0 p-4 sm:p-6 space-y-6">
             <FunnelSection
               title="Funil Vendedores"
               pct={goal.pct_sellers}
@@ -337,7 +337,7 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
           </TabsContent>
 
           {/* ── Tab: Funil Compradores ── */}
-          <TabsContent value="funil-compradores" className="mt-0 p-6 space-y-6">
+          <TabsContent value="funil-compradores" className="mt-0 p-4 sm:p-6 space-y-6">
             <FunnelSection
               title="Funil Compradores"
               pct={goal.pct_buyers}
@@ -355,7 +355,7 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
 
           {/* ── Tab: Histórico ── */}
           <TabsContent value="historico" className="mt-0">
-            <div className="px-6 py-4 border-b bg-muted/20">
+            <div className="px-4 sm:px-6 py-4 border-b bg-muted/20">
               <p className="text-xs font-semibold">Histórico de Actividades</p>
             </div>
             <div className="divide-y">
@@ -366,28 +366,34 @@ export default function ObjetivoDetalhePage({ params }: { params: Promise<{ id: 
                   const Icon = ACTIVITY_ICONS[activity.activity_type] || MessageSquare
                   const colorClass = ACTIVITY_COLORS[activity.activity_type] || 'text-slate-500 bg-slate-50'
                   return (
-                    <div key={activity.id} className="flex items-center gap-4 px-6 py-3.5">
+                    <div key={activity.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3.5">
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${colorClass}`}>
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium">{(GOAL_ACTIVITY_TYPES as Record<string, string>)[activity.activity_type]}</span>
                           <span className="text-[10px] text-muted-foreground">({(GOAL_ORIGINS as Record<string, string>)[activity.origin]})</span>
                         </div>
                         {activity.notes && <p className="text-xs text-muted-foreground truncate">{activity.notes}</p>}
+                        <div className="flex items-center gap-2 mt-0.5 sm:hidden">
+                          {activity.revenue_amount ? (
+                            <span className="text-xs font-semibold text-emerald-600">{formatCurrency(activity.revenue_amount)}</span>
+                          ) : null}
+                          <span className="text-[10px] text-muted-foreground">{formatDate(activity.activity_date)}</span>
+                        </div>
                       </div>
                       {activity.revenue_amount ? (
-                        <span className="text-sm font-semibold text-emerald-600 shrink-0">{formatCurrency(activity.revenue_amount)}</span>
+                        <span className="hidden sm:inline text-sm font-semibold text-emerald-600 shrink-0">{formatCurrency(activity.revenue_amount)}</span>
                       ) : null}
-                      <span className="text-xs text-muted-foreground shrink-0">{formatDate(activity.activity_date)}</span>
+                      <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">{formatDate(activity.activity_date)}</span>
                     </div>
                   )
                 })
               )}
             </div>
             {activities.length > 50 && (
-              <div className="px-6 py-3 border-t text-center text-xs text-muted-foreground">
+              <div className="px-4 sm:px-6 py-3 border-t text-center text-xs text-muted-foreground">
                 A mostrar as 50 mais recentes de {activities.length} actividades
               </div>
             )}
@@ -424,39 +430,43 @@ function FunnelSection({
         <span className="text-xs text-muted-foreground">— {pct}% do objetivo</span>
       </div>
 
-      {/* Funnel table */}
+      {/* Funnel table — scroll horizontal no mobile */}
       <div className="rounded-2xl border overflow-hidden">
-        <div className="grid grid-cols-5 bg-muted/20 border-b">
-          <div className="px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">KPI</div>
-          {periods.map(p => (
-            <div key={p} className="px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">
-              {GOAL_PERIOD_LABELS[p]}
-            </div>
-          ))}
-        </div>
-        <div className="divide-y">
-          {rows.map(row => (
-            <div key={row.key} className="grid grid-cols-5">
-              <div className="px-5 py-3 text-sm font-medium">{row.label}</div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[560px]">
+            <div className="grid grid-cols-5 bg-muted/20 border-b">
+              <div className="px-4 sm:px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">KPI</div>
               {periods.map(p => (
-                <div key={p} className="px-4 py-3 text-sm tabular-nums text-right">
-                  {fmt(row.key, (funnel[p] as Record<string, number>)[row.key] || 0)}
+                <div key={p} className="px-3 sm:px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">
+                  {GOAL_PERIOD_LABELS[p]}
                 </div>
               ))}
             </div>
-          ))}
+            <div className="divide-y">
+              {rows.map(row => (
+                <div key={row.key} className="grid grid-cols-5">
+                  <div className="px-4 sm:px-5 py-3 text-sm font-medium">{row.label}</div>
+                  {periods.map(p => (
+                    <div key={p} className="px-3 sm:px-4 py-3 text-sm tabular-nums text-right">
+                      {fmt(row.key, (funnel[p] as Record<string, number>)[row.key] || 0)}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Parameters */}
       {params.length > 0 && (
-        <div className="rounded-2xl border p-5">
+        <div className="rounded-2xl border p-4 sm:p-5">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Parâmetros do Funil</p>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
             {params.map(p => (
-              <div key={p.label} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{p.label}</span>
-                <span className="font-medium tabular-nums">{p.value ?? '—'}</span>
+              <div key={p.label} className="flex justify-between gap-3 text-sm">
+                <span className="text-muted-foreground truncate">{p.label}</span>
+                <span className="font-medium tabular-nums shrink-0">{p.value ?? '—'}</span>
               </div>
             ))}
           </div>
