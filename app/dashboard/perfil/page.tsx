@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -25,6 +24,18 @@ import {
 } from 'lucide-react'
 import type { ConsultantDetail } from '@/types/consultant'
 import { ConsultantAvailabilityPanel } from '@/components/booking/consultant-availability-panel'
+import { cn } from '@/lib/utils'
+
+const TABS = [
+  { key: 'geral' as const, label: 'Geral', icon: User },
+  { key: 'pessoal' as const, label: 'Pessoal', icon: Users },
+  { key: 'morada' as const, label: 'Morada', icon: MapPin },
+  { key: 'social' as const, label: 'Redes', icon: Globe },
+  { key: 'disponibilidade' as const, label: 'Agenda', icon: CalendarClock },
+  { key: 'seguranca' as const, label: 'Segurança', icon: Lock },
+]
+
+type TabKey = (typeof TABS)[number]['key']
 
 // ─── Schemas ────────────────────────────────────────────────
 
@@ -89,6 +100,7 @@ export default function PerfilPage() {
   const [profile, setProfile] = useState<ConsultantDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('geral')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchProfile = useCallback(async () => {
@@ -150,7 +162,7 @@ export default function PerfilPage() {
     <div className="max-w-3xl space-y-3 sm:space-y-6">
       {/* Header card with photo */}
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 pt-6 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+        <CardContent className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
           <div className="relative group shrink-0">
             <Avatar className="h-20 w-20 rounded-2xl sm:h-24 sm:w-24">
               {photoUrl && <AvatarImage src={photoUrl} alt={profile?.commercial_name || ''} />}
@@ -189,32 +201,38 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs defaultValue="geral" className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 md:grid-cols-6">
-          <TabsTrigger value="geral" className="gap-1.5 text-xs">
-            <User className="h-3.5 w-3.5" /> Geral
-          </TabsTrigger>
-          <TabsTrigger value="pessoal" className="gap-1.5 text-xs">
-            <Users className="h-3.5 w-3.5" /> Pessoal
-          </TabsTrigger>
-          <TabsTrigger value="morada" className="gap-1.5 text-xs">
-            <MapPin className="h-3.5 w-3.5" /> Morada
-          </TabsTrigger>
-          <TabsTrigger value="social" className="gap-1.5 text-xs">
-            <Globe className="h-3.5 w-3.5" /> Redes
-          </TabsTrigger>
-          <TabsTrigger value="disponibilidade" className="gap-1.5 text-xs">
-            <CalendarClock className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Disponibilidade</span>
-            <span className="sm:hidden">Agenda</span>
-          </TabsTrigger>
-          <TabsTrigger value="seguranca" className="gap-1.5 text-xs">
-            <Lock className="h-3.5 w-3.5" /> Segurança
-          </TabsTrigger>
-        </TabsList>
+      {/* Pill Navigation */}
+      <div className="flex justify-center sm:justify-start">
+        <div className="inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm max-w-full overflow-x-auto">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                title={tab.label}
+                aria-label={tab.label}
+                className={cn(
+                  'inline-flex items-center justify-center gap-2 h-9 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-300',
+                  isActive ? 'px-4 sm:px-5' : 'w-9 sm:w-auto sm:px-5',
+                  isActive
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
-        <TabsContent value="geral">
+      {/* Content */}
+      <div key={activeTab} className="animate-in fade-in duration-300">
+        {activeTab === 'geral' && (
           <GeneralTab
             defaultValues={{
               commercial_name: profile?.commercial_name || '',
@@ -224,9 +242,9 @@ export default function PerfilPage() {
             }}
             onSaved={fetchProfile}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="pessoal">
+        {activeTab === 'pessoal' && (
           <PersonalTab
             defaultValues={{
               gender: pd?.gender || '',
@@ -246,9 +264,9 @@ export default function PerfilPage() {
             }}
             onSaved={fetchProfile}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="morada">
+        {activeTab === 'morada' && (
           <AddressTab
             defaultValues={{
               address_private: pd?.address_private || '',
@@ -260,9 +278,9 @@ export default function PerfilPage() {
             }}
             onSaved={fetchProfile}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="social">
+        {activeTab === 'social' && (
           <SocialTab
             defaultValues={{
               instagram_handle: p?.instagram_handle || '',
@@ -271,16 +289,12 @@ export default function PerfilPage() {
             }}
             onSaved={fetchProfile}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="disponibilidade">
-          <ConsultantAvailabilityPanel />
-        </TabsContent>
+        {activeTab === 'disponibilidade' && <ConsultantAvailabilityPanel />}
 
-        <TabsContent value="seguranca">
-          <SecurityTab />
-        </TabsContent>
-      </Tabs>
+        {activeTab === 'seguranca' && <SecurityTab />}
+      </div>
     </div>
   )
 }
