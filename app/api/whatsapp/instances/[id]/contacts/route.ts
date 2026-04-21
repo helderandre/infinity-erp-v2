@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/permissions"
+import { WHATSAPP_ADMIN_ROLES } from "@/lib/auth/roles"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -7,13 +9,45 @@ type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+async function assertInstanceOwnership(
+  supabase: SupabaseAny,
+  instanceId: string,
+  userId: string,
+  isAdmin: boolean,
+) {
+  if (isAdmin) return null
+  const { data: inst } = await supabase
+    .from("auto_wpp_instances")
+    .select("user_id")
+    .eq("id", instanceId)
+    .single()
+  if (!inst || inst.user_id !== userId) {
+    return NextResponse.json(
+      { error: "Sem permissão para esta instância" },
+      { status: 403 },
+    )
+  }
+  return null
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
+    const isAdmin = auth.roles.some((r) =>
+      WHATSAPP_ADMIN_ROLES.some((a) => a.toLowerCase() === r.toLowerCase()),
+    )
+
     const { id: instanceId } = await params
     const supabase = createAdminClient() as SupabaseAny
+
+    const forbidden = await assertInstanceOwnership(supabase, instanceId, auth.user.id, isAdmin)
+    if (forbidden) return forbidden
+
     const { searchParams } = new URL(request.url)
 
     const search = searchParams.get("search") || ""
@@ -64,7 +98,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
+    const isAdmin = auth.roles.some((r) =>
+      WHATSAPP_ADMIN_ROLES.some((a) => a.toLowerCase() === r.toLowerCase()),
+    )
+
     const { id: instanceId } = await params
+    const supabase = createAdminClient() as SupabaseAny
+
+    const forbidden = await assertInstanceOwnership(supabase, instanceId, auth.user.id, isAdmin)
+    if (forbidden) return forbidden
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-chats-api`, {
       method: "POST",

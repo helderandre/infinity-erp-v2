@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/permissions"
 import { WHATSAPP_ADMIN_ROLES } from "@/lib/auth/roles"
+import { deleteImageFromR2 } from "@/lib/r2/images"
+import { pLimit } from "@/lib/concurrency"
 
 // Nota: As tabelas auto_* foram criadas na Fase 1 mas os tipos TS (database.ts)
 // ainda não foram regenerados. Usamos casts explícitos até à regeneração.
@@ -725,13 +727,69 @@ async function handleDelete(
 
   const unboundCount = unboundRows?.length ?? 0
 
+  // Contar rows que a cascata vai remover — para toast informativo.
+  const [chatsCount, messagesCount, contactsCount, mediaCount, mediaKeys] = await Promise.all([
+    supabase
+      .from("wpp_chats")
+      .select("*", { count: "exact", head: true })
+      .eq("instance_id", instance_id),
+    supabase
+      .from("wpp_messages")
+      .select("*", { count: "exact", head: true })
+      .eq("instance_id", instance_id),
+    supabase
+      .from("wpp_contacts")
+      .select("*", { count: "exact", head: true })
+      .eq("instance_id", instance_id),
+    supabase
+      .from("wpp_message_media")
+      .select("*", { count: "exact", head: true })
+      .eq("instance_id", instance_id),
+    supabase
+      .from("wpp_message_media")
+      .select("r2_key, thumbnail_r2_key")
+      .eq("instance_id", instance_id),
+  ])
+
+  const deletedCounts = {
+    chats: chatsCount.count ?? 0,
+    messages: messagesCount.count ?? 0,
+    contacts: contactsCount.count ?? 0,
+    media: mediaCount.count ?? 0,
+  }
+
+  // Limpeza R2 best-effort: depois do DELETE não há forma de enumerar os
+  // ficheiros órfãos. Falhas individuais são logadas mas não abortam.
+  const keys: string[] = []
+  for (const row of (mediaKeys.data ?? []) as { r2_key: string | null; thumbnail_r2_key: string | null }[]) {
+    if (row.r2_key) keys.push(row.r2_key)
+    if (row.thumbnail_r2_key) keys.push(row.thumbnail_r2_key)
+  }
+
+  if (keys.length > 0) {
+    const r2Limit = pLimit(10)
+    await Promise.allSettled(
+      keys.map((key) =>
+        r2Limit(async () => {
+          try {
+            await deleteImageFromR2(key)
+          } catch (err) {
+            console.error(`[whatsapp delete] R2 delete failed for ${key}:`, err)
+          }
+        })
+      )
+    )
+  }
+
   // Remover da Uazapi (ignorar erro se já não existir)
   await fetchUazapi("/instance", {
     method: "DELETE",
     token: instance.uazapi_token,
   })
 
-  // Remover do banco
+  // Remover do banco — cascata apaga wpp_chats, wpp_messages, wpp_contacts,
+  // wpp_message_media, wpp_labels, wpp_scheduled_messages, wpp_activity_sessions,
+  // wpp_debug_log onde instance_id iguala este id.
   const { error } = await supabase
     .from("auto_wpp_instances")
     .delete()
@@ -741,7 +799,11 @@ async function handleDelete(
     return NextResponse.json({ error: "Erro ao eliminar instância" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, unboundFlowsCount: unboundCount })
+  return NextResponse.json({
+    success: true,
+    unboundFlowsCount: unboundCount,
+    deletedCounts,
+  })
 }
 
 async function handleRename(

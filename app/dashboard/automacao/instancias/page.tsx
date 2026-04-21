@@ -174,8 +174,26 @@ function InstanciasContent() {
     setDeleteId(null)
     await withCardLoading(id, async () => {
       try {
-        const { unboundFlowsCount } = await deleteInstance(id)
-        toast.success("Instância eliminada com sucesso")
+        const { unboundFlowsCount, deletedCounts } = await deleteInstance(id)
+        const totalDeleted =
+          (deletedCounts?.chats ?? 0) +
+          (deletedCounts?.messages ?? 0) +
+          (deletedCounts?.contacts ?? 0)
+        if (totalDeleted > 0 && deletedCounts) {
+          const parts: string[] = []
+          if (deletedCounts.chats > 0) {
+            parts.push(`${deletedCounts.chats} conversa${deletedCounts.chats > 1 ? "s" : ""}`)
+          }
+          if (deletedCounts.messages > 0) {
+            parts.push(`${deletedCounts.messages} mensage${deletedCounts.messages > 1 ? "ns" : "m"}`)
+          }
+          if (deletedCounts.contacts > 0) {
+            parts.push(`${deletedCounts.contacts} contacto${deletedCounts.contacts > 1 ? "s" : ""}`)
+          }
+          toast.success(`Instância eliminada — ${parts.join(", ")} removido${totalDeleted > 1 ? "s" : ""}`)
+        } else {
+          toast.success("Instância eliminada com sucesso")
+        }
         if (unboundFlowsCount > 0) {
           toast.info(
             `${unboundFlowsCount} fluxo${unboundFlowsCount > 1 ? "s desvinculados" : " desvinculado"} — escolhe a nova instância no editor do fluxo.`,
@@ -467,11 +485,23 @@ function InstanciasContent() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar instância</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem a certeza de que pretende eliminar a instância{" "}
-              <strong>{deletingInstance?.name}</strong>? Esta acção irá remover a instância
-              da Uazapi e do sistema. É irreversível.
+            <AlertDialogTitle>
+              Eliminar instância <strong>{deletingInstance?.name}</strong>?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Esta acção é <strong>irreversível</strong> e vai remover:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>a instância na Uazapi</li>
+                  <li>todas as conversas, mensagens e contactos desta instância</li>
+                  <li>os ficheiros de media associados em armazenamento</li>
+                </ul>
+                <p className="text-muted-foreground">
+                  Se quer apenas parar de receber mensagens, use <strong>Desconectar</strong> — o histórico fica preservado para reconexão.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
