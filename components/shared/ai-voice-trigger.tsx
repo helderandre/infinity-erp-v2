@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 
-const LONG_PRESS_MS = 2000
+const LONG_PRESS_MS = 1500
 const MOVE_THRESHOLD_PX = 6
 const EDITABLE_SELECTOR =
   'input, textarea, select, [contenteditable="true"], [contenteditable=""], [data-no-long-press]'
