@@ -4,8 +4,14 @@ import { useEffect } from 'react'
 
 const LONG_PRESS_MS = 1500
 const MOVE_THRESHOLD_PX = 6
+// Elements (and their descendants) where the long-press trigger must not
+// fire. Covers native form controls, explicit opt-outs via `data-no-long-press`
+// (e.g. select dropdowns, action buttons inside the voice overlay), and
+// `data-allow-selection` — an escape hatch to preserve iOS's native
+// long-press-to-select behaviour for specific blocks (addresses, long
+// descriptions, codes, etc.) where users need to copy text.
 const EDITABLE_SELECTOR =
-  'input, textarea, select, [contenteditable="true"], [contenteditable=""], [data-no-long-press]'
+  'input, textarea, select, [contenteditable="true"], [contenteditable=""], [data-no-long-press], [data-allow-selection]'
 
 function dispatchOpen() {
   window.dispatchEvent(new Event('open-voice-assistant'))
