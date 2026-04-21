@@ -4,6 +4,15 @@ export const notificationUpdateSchema = z.object({
   is_read: z.boolean(),
 })
 
+export const markAllReadScopeSchema = z
+  .object({
+    entity_types: z.array(z.string().min(1)).min(1).optional(),
+    exclude_entity_types: z.array(z.string().min(1)).min(1).optional(),
+  })
+  .refine((v) => !(v.entity_types && v.exclude_entity_types), {
+    message: 'entity_types and exclude_entity_types are mutually exclusive',
+  })
+
 export const notificationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

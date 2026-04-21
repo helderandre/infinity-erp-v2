@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showNotificationToast } from '@/components/notifications/notification-toast'
-import type { Notification } from '@/lib/notifications/types'
+import {
+  PROCESS_ENTITY_TYPES,
+  classifyBucket,
+  type Notification,
+  type NotificationBucket,
+} from '@/lib/notifications/types'
 
 // CRM lead notifications have a slightly different shape — normalize to unified format
 interface CrmNotification {
@@ -26,7 +31,7 @@ function normalizeCrmNotification(n: CrmNotification): Notification {
     recipient_id: n.recipient_id,
     sender_id: null,
     notification_type: n.type as Notification['notification_type'],
-    entity_type: 'proc_instance' as const, // fallback for display
+    entity_type: 'lead' as const,
     entity_id: n.contact_id ?? n.entry_id ?? n.id,
     title: n.title,
     body: n.body,
@@ -198,18 +203,68 @@ export function useNotifications(userId: string | null) {
     }
   }, [])
 
-  const markAllAsRead = useCallback(async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() })))
-    setUnreadCount(0)
-    // Mark all in both systems
-    await Promise.all([
-      fetch('/api/notifications', { method: 'PUT' }),
-      fetch('/api/crm/notifications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ all: true }),
-      }),
-    ])
+  const markAllAsRead = useCallback(async (options?: { scope?: NotificationBucket }) => {
+    const scope = options?.scope
+    const now = new Date().toISOString()
+    const shouldTouch = (n: Notification) => {
+      if (!scope) return !n.is_read
+      return !n.is_read && classifyBucket(n.entity_type) === scope
+    }
+
+    const snapshot: Array<{ id: string; read_at: string | null }> = []
+    setNotifications(prev => prev.map(n => {
+      if (!shouldTouch(n)) return n
+      snapshot.push({ id: n.id, read_at: n.read_at })
+      return { ...n, is_read: true, read_at: now }
+    }))
+    setUnreadCount(prev => Math.max(0, prev - snapshot.length))
+
+    try {
+      const tasks: Promise<Response>[] = []
+
+      if (scope === 'processo') {
+        tasks.push(
+          fetch('/api/notifications', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity_types: [...PROCESS_ENTITY_TYPES] }),
+          }),
+        )
+      } else if (scope === 'geral') {
+        tasks.push(
+          fetch('/api/notifications', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exclude_entity_types: [...PROCESS_ENTITY_TYPES] }),
+          }),
+          fetch('/api/crm/notifications', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true }),
+          }),
+        )
+      } else {
+        tasks.push(
+          fetch('/api/notifications', { method: 'PUT' }),
+          fetch('/api/crm/notifications', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true }),
+          }),
+        )
+      }
+
+      const results = await Promise.all(tasks)
+      if (results.some(r => !r.ok)) throw new Error('mark_all_failed')
+    } catch {
+      const touched = new Map(snapshot.map(s => [s.id, s.read_at]))
+      setNotifications(prev => prev.map(n => (
+        touched.has(n.id)
+          ? { ...n, is_read: false, read_at: touched.get(n.id) ?? null }
+          : n
+      )))
+      setUnreadCount(prev => prev + snapshot.length)
+    }
   }, [])
 
   const deleteNotification = useCallback(async (notificationId: string) => {

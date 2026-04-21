@@ -33,6 +33,26 @@ export type NotificationEntityType =
   | 'internal_chat_message'
   | 'task'
   | 'task_comment'
+  | 'lead'
+
+export const PROCESS_ENTITY_TYPES = [
+  'proc_instance',
+  'proc_task',
+  'proc_task_comment',
+  'proc_chat_message',
+] as const
+
+export type ProcessEntityType = (typeof PROCESS_ENTITY_TYPES)[number]
+
+export type NotificationBucket = 'processo' | 'geral'
+
+export function classifyBucket(
+  entityType: string | null | undefined,
+): NotificationBucket {
+  return PROCESS_ENTITY_TYPES.includes(entityType as ProcessEntityType)
+    ? 'processo'
+    : 'geral'
+}
 
 export interface CreateNotificationParams {
   recipientId: string

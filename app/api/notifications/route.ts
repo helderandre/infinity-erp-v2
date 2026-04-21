@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { notificationQuerySchema } from '@/lib/validations/notification'
+import { markAllReadScopeSchema, notificationQuerySchema } from '@/lib/validations/notification'
 
 export async function GET(request: Request) {
   try {
@@ -78,11 +78,38 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    const { data, error } = await (db.from('notifications') as ReturnType<typeof supabase.from>)
+    let scope: { entity_types?: string[]; exclude_entity_types?: string[] } = {}
+    const contentType = request.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      const raw = await request.text()
+      if (raw.trim().length > 0) {
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(raw)
+        } catch {
+          return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+        }
+        const result = markAllReadScopeSchema.safeParse(parsed)
+        if (!result.success) {
+          return NextResponse.json({ error: result.error.issues[0]?.message ?? 'Pedido inválido' }, { status: 400 })
+        }
+        scope = result.data
+      }
+    }
+
+    let query = (db.from('notifications') as ReturnType<typeof supabase.from>)
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('recipient_id', user.id)
       .eq('is_read', false)
-      .select('id')
+
+    if (scope.entity_types && scope.entity_types.length > 0) {
+      query = query.in('entity_type', scope.entity_types)
+    } else if (scope.exclude_entity_types && scope.exclude_entity_types.length > 0) {
+      const list = scope.exclude_entity_types.map((t) => `"${t}"`).join(',')
+      query = query.not('entity_type', 'in', `(${list})`)
+    }
+
+    const { data, error } = await query.select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
