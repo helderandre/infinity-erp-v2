@@ -583,12 +583,13 @@ async function runCustomEventsPhase(supabase: any, now: Date) {
             const accountId = channel === "email" ? evt.smtp_account_id : evt.wpp_instance_id
 
             if (!templateId) {
-              // Fallback: try cascade resolution
+              // Fallback: cascade by custom-event UUID (templates are scoped by event id, not name)
               const tpl = await resolveTemplateForLead(supabase, {
                 leadId: lead.id,
                 agentId: evt.consultant_id,
                 eventType: evt.name,
                 channel,
+                categoryOverride: evt.id,
               })
               if (!tpl) continue
 

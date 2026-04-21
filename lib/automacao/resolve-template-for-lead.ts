@@ -9,6 +9,7 @@ export interface ResolveTemplateArgs {
   agentId: string | null
   eventType: ContactAutomationEventType
   channel: ContactAutomationChannel
+  categoryOverride?: string
 }
 
 export interface ResolvedTemplate {
@@ -23,9 +24,9 @@ export async function resolveTemplateForLead(
   supabase: AnySupabase,
   args: ResolveTemplateArgs,
 ): Promise<ResolvedTemplate | null> {
-  const { leadId, agentId, eventType, channel } = args
+  const { leadId, agentId, eventType, channel, categoryOverride } = args
   const table = channel === "email" ? "tpl_email_library" : "auto_wpp_templates"
-  const category = EVENT_TYPE_TO_CATEGORY[eventType]
+  const category = categoryOverride ?? EVENT_TYPE_TO_CATEGORY[eventType]
 
   // Layer 1: lead assignment
   const assignmentCol = channel === "email" ? "email_template_id" : "wpp_template_id"
