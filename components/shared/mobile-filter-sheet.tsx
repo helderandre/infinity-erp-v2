@@ -25,11 +25,11 @@ export function MobileFilterSheet({ children, activeCount = 0 }: MobileFilterShe
       <div className="sm:hidden">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-2">
-              <SlidersHorizontal className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full text-xs px-3">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
               Filtros
               {activeCount > 0 && (
-                <Badge variant="secondary" className="h-5 min-w-5 px-1 rounded-full text-[10px]">
+                <Badge variant="secondary" className="h-4 min-w-4 px-1 rounded-full text-[9px]">
                   {activeCount}
                 </Badge>
               )}

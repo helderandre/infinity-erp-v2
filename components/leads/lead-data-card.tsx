@@ -26,6 +26,7 @@ import {
   LEAD_TIPOS_DOCUMENTO,
 } from '@/lib/constants'
 import { DocumentAnalyzer } from './document-analyzer'
+import { Copyable } from '@/components/shared/copyable'
 import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 
 /* ─── Display Field ─── */
@@ -34,11 +35,14 @@ function DisplayField({
   value,
   icon,
   fullWidth,
+  copyable,
 }: {
   label: string
   value?: string | null
   icon?: string
   fullWidth?: boolean
+  /** Show a copy-to-clipboard button next to the value (phone, email, NIF, …). */
+  copyable?: boolean
 }) {
   return (
     <div
@@ -48,7 +52,11 @@ function DisplayField({
         {icon && <span className="mr-1">{icon}</span>}
         {label}
       </p>
-      <p className="text-sm font-medium">{value || '—'}</p>
+      {copyable && value ? (
+        <Copyable value={value} label={label} className="text-sm font-medium" />
+      ) : (
+        <p className="text-sm font-medium">{value || '—'}</p>
+      )}
     </div>
   )
 }
@@ -370,9 +378,9 @@ export function LeadDataCard({
                 </>
               ) : (
                 <>
-                  <DisplayField icon="📱" label="Telemóvel" value={val('telemovel')} />
-                  <DisplayField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} />
-                  <DisplayField icon="✉️" label="Email" value={val('email')} />
+                  <DisplayField icon="📱" label="Telemóvel" value={val('telemovel')} copyable />
+                  <DisplayField icon="☎️" label="Telefone Fixo" value={val('telefone_fixo')} copyable />
+                  <DisplayField icon="✉️" label="Email" value={val('email')} copyable />
                   <DisplayField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={() => {}} isEditing={false} />
                   <ToggleField icon="📣" label="Consentimento WebMarketing" checked={boolVal('consentimento_webmarketing')} onChange={() => {}} isEditing={false} />
@@ -407,11 +415,11 @@ export function LeadDataCard({
 
                   <SectionHeader title="Documento de Identificação" />
                   <DisplayField icon="🪪" label="Tipo de Documento" value={val('tipo_documento')} />
-                  <DisplayField icon="🆔" label="Número de Documento" value={val('numero_documento')} />
+                  <DisplayField icon="🆔" label="Número de Documento" value={val('numero_documento')} copyable />
                   <DisplayField icon="📅" label="Data de Validade" value={val('data_validade_documento')} />
                   <DisplayField icon="🌍" label="Nacionalidade" value={val('nacionalidade')} />
                   <DisplayField icon="🌐" label="País Emissor" value={val('pais_emissor')} />
-                  <DisplayField icon="🏛️" label="NIF" value={val('nif')} />
+                  <DisplayField icon="🏛️" label="NIF" value={val('nif')} copyable />
                 </>
               )}
 
@@ -480,8 +488,8 @@ export function LeadDataCard({
                 </>
               ) : (
                 <>
-                  <DisplayField icon="🏠" label="Morada" value={val('morada')} fullWidth />
-                  <DisplayField icon="📮" label="Código Postal" value={val('codigo_postal')} />
+                  <DisplayField icon="🏠" label="Morada" value={val('morada')} fullWidth copyable />
+                  <DisplayField icon="📮" label="Código Postal" value={val('codigo_postal')} copyable />
                   <DisplayField icon="🏘️" label="Localidade" value={val('localidade')} />
                   <DisplayField icon="🏙️" label="Distrito" value={val('distrito')} />
                   <DisplayField icon="🏛️" label="Concelho" value={val('concelho')} />
@@ -546,11 +554,11 @@ export function LeadDataCard({
                     </>
                   ) : (
                     <>
-                      <DisplayField icon="🔢" label="NIPC" value={val('nipc')} />
+                      <DisplayField icon="🔢" label="NIPC" value={val('nipc')} copyable />
                       <DisplayField icon="🏢" label="Nome da Empresa" value={val('empresa')} />
-                      <DisplayField icon="📍" label="Morada da Empresa" value={val('morada_empresa')} fullWidth />
-                      <DisplayField icon="📞" label="Telefone" value={val('telefone_empresa')} />
-                      <DisplayField icon="✉️" label="Email" value={val('email_empresa')} />
+                      <DisplayField icon="📍" label="Morada da Empresa" value={val('morada_empresa')} fullWidth copyable />
+                      <DisplayField icon="📞" label="Telefone" value={val('telefone_empresa')} copyable />
+                      <DisplayField icon="✉️" label="Email" value={val('email_empresa')} copyable />
                       <DisplayField icon="🌐" label="Website" value={val('website_empresa')} />
                     </>
                   )}

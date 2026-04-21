@@ -535,7 +535,7 @@ export default function ConsultorDetalhePage() {
 
       {/* ─── Pill Navigation + Edit Toggle ─── */}
       <div className="mt-6 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+        <div className="inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm mx-auto sm:mx-0">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
@@ -543,15 +543,18 @@ export default function ConsultorDetalhePage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
+                title={tab.label}
+                aria-label={tab.label}
                 className={cn(
-                  'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                  'inline-flex items-center justify-center gap-2 h-9 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-300',
+                  isActive ? 'px-4 sm:px-5' : 'w-9 sm:w-auto sm:px-5',
                   isActive
                     ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                     : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {tab.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{tab.label}</span>
               </button>
             )
           })}

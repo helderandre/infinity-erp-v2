@@ -43,6 +43,7 @@ import {
   BUSINESS_TYPES,
 } from '@/lib/constants'
 import { toast } from 'sonner'
+import { Copyable } from '@/components/shared/copyable'
 import type { OwnerWithProperties } from '@/types/owner'
 
 function DetailRow({
@@ -182,10 +183,12 @@ export default function OwnerDetailPage() {
                 label="Email"
                 value={
                   owner.email ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                      {owner.email}
-                    </span>
+                    <Copyable value={owner.email} label="Email">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                        {owner.email}
+                      </span>
+                    </Copyable>
                   ) : null
                 }
               />
@@ -193,14 +196,23 @@ export default function OwnerDetailPage() {
                 label="Telefone"
                 value={
                   owner.phone ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                      {owner.phone}
-                    </span>
+                    <Copyable value={owner.phone} label="Telefone">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                        {owner.phone}
+                      </span>
+                    </Copyable>
                   ) : null
                 }
               />
-              <DetailRow label="NIF" value={owner.nif} />
+              <DetailRow
+                label="NIF"
+                value={
+                  owner.nif ? (
+                    <Copyable value={owner.nif} label="NIF" />
+                  ) : null
+                }
+              />
               <DetailRow
                 label="Morada"
                 value={

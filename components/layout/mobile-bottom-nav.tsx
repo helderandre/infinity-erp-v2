@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ContactRound, Briefcase, Euro, Landmark,
@@ -22,7 +23,7 @@ interface Section {
   label: string
   icon: LucideIcon
   items: { title: string; icon: any; href: string }[]
-  prefixes: string[] // path prefixes that belong to this section
+  prefixes: string[]
 }
 
 const SECTIONS: Section[] = [
@@ -48,9 +49,8 @@ export function MobileBottomNav() {
   const stripRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
 
-  // Publish the actual rendered nav height as a CSS variable so full-bleed
-  // pages (like /dashboard/whatsapp) can reserve the exact space and sit
-  // flush against the nav with no white gap.
+  // Publish the rendered nav height as a CSS variable so full-bleed pages
+  // (like /dashboard/whatsapp) can reserve the exact space.
   useEffect(() => {
     if (!rootRef.current) return
     const el = rootRef.current
@@ -69,7 +69,6 @@ export function MobileBottomNav() {
     }
   }, [])
 
-  // Detect current section from pathname
   const currentSectionKey = useMemo(() => {
     if (!pathname) return 'meu_espaco'
     for (const section of SECTIONS) {
@@ -79,17 +78,11 @@ export function MobileBottomNav() {
   }, [pathname])
 
   const [selectedSectionKey, setSelectedSectionKey] = useState(currentSectionKey)
-  // `centeredKey` = whichever item is currently under the strip's center cursor
-  // (scroll-driven, pending). Commits to `selectedSectionKey` only on tap.
-  const [centeredKey, setCenteredKey] = useState(currentSectionKey)
-
-  // Sync selected section when navigating
   useEffect(() => { setSelectedSectionKey(currentSectionKey) }, [currentSectionKey])
 
   const currentSection = SECTIONS.find(s => s.key === selectedSectionKey) || SECTIONS[0]
   const SectionIcon = currentSection.icon
 
-  // Active item index within the current section
   const activeItemIndex = useMemo(() => {
     let bestIdx = -1
     let bestLen = 0
@@ -100,55 +93,29 @@ export function MobileBottomNav() {
         bestIdx = idx
       }
     })
-    // Also check exact /dashboard match for meu_espaco
     if (currentSection.key === 'meu_espaco' && pathname === '/dashboard') bestIdx = 0
     return bestIdx
   }, [pathname, currentSection])
 
-  // On open: reset the centered cursor to the committed section and scroll it
-  // into the middle of the strip. Deps only on sectionPopupOpen so state
-  // updates during scroll don't re-trigger scrollIntoView.
-  useEffect(() => {
-    if (!sectionPopupOpen || !stripRef.current) return
-    setCenteredKey(selectedSectionKey)
-    const el = stripRef.current.querySelector<HTMLElement>(`[data-section-key="${selectedSectionKey}"]`)
-    if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionPopupOpen])
+  // Read latest selected key inside the ref callback without rebinding it.
+  const selectedKeyRef = useRef(selectedSectionKey)
+  selectedKeyRef.current = selectedSectionKey
 
-  // Roulette cursor: debounced scroll handler updates `centeredKey` (pending
-  // highlight) once the strip settles. Commit happens on tap, not here.
-  useEffect(() => {
-    if (!sectionPopupOpen) return
-    const strip = stripRef.current
-    if (!strip) return
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const update = () => {
-      const rect = strip.getBoundingClientRect()
-      const center = rect.left + rect.width / 2
-      let closest: string | null = null
-      let min = Infinity
-      strip.querySelectorAll<HTMLElement>('[data-section-key]').forEach(btn => {
-        const r = btn.getBoundingClientRect()
-        const d = Math.abs(r.left + r.width / 2 - center)
-        if (d < min) { min = d; closest = btn.dataset.sectionKey || null }
-      })
-      if (closest) setCenteredKey(closest)
+  // Ref callback that centers the selected section as soon as the strip
+  // mounts — synchronously, during the commit phase, BEFORE Framer Motion's
+  // layout measurements run. A useEffect would fire after Framer measures,
+  // leaving the fly animation pointed at the pre-scroll position.
+  const stripRefCallback = useCallback((node: HTMLDivElement | null) => {
+    const wasNull = stripRef.current === null
+    stripRef.current = node
+    if (node && wasNull) {
+      const el = node.querySelector<HTMLElement>(`[data-section-key="${selectedKeyRef.current}"]`)
+      if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' })
     }
-    const onScroll = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(update, 80)
-    }
-    strip.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      strip.removeEventListener('scroll', onScroll)
-      if (timer) clearTimeout(timer)
-    }
-  }, [sectionPopupOpen])
+  }, [])
 
   if (!pathname?.startsWith('/dashboard')) return null
 
-  // Limit items shown (max 4 + the section button = 5 slots)
   const visibleItems = currentSection.items.slice(0, 4)
 
   return (
@@ -156,103 +123,119 @@ export function MobileBottomNav() {
       ref={rootRef}
       className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible px-3 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2"
     >
-      {/* Section picker — horizontal scrollable strip attached above the nav */}
       {sectionPopupOpen && (
-        <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setSectionPopupOpen(false)} />
-          {/* Strip — roulette: scroll to position, tap to commit */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 w-[288px] max-w-[calc(100%-1.5rem)] animate-in slide-in-from-bottom-4 fade-in duration-200">
-            <div className="bg-neutral-900/90 backdrop-blur-xl rounded-3xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] overflow-hidden">
-              <div
-                ref={stripRef}
-                className="flex gap-1.5 overflow-x-auto snap-x snap-mandatory py-2 [padding-inline:calc((100%-54px)/2)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_32px,black_calc(100%-32px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_32px,black_calc(100%-32px),transparent_100%)]"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                {SECTIONS.map(s => {
-                  const Icon = s.icon
-                  const isSelected = s.key === selectedSectionKey
-                  const isCentered = s.key === centeredKey
-                  return (
-                    <button
-                      key={s.key}
-                      data-section-key={s.key}
-                      onClick={() => {
-                        setSelectedSectionKey(s.key)
-                        setSectionPopupOpen(false)
-                        const href = s.items[0]?.href
-                        if (href) router.push(href)
-                      }}
-                      className="shrink-0 snap-center flex flex-col items-center gap-1 w-[54px] active:scale-95"
-                    >
-                      <div
-                        className={cn(
-                          'h-9 w-9 rounded-full flex items-center justify-center transition-[transform,background-color,color,box-shadow] duration-200 ease-out',
-                          isCentered && 'scale-[1.15] shadow-[0_4px_14px_rgba(0,0,0,0.4)]',
-                          isSelected
-                            ? 'bg-white text-neutral-900'
-                            : isCentered
-                              ? 'bg-white/55 text-white'
-                              : 'bg-white/15 text-white/70',
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <span
-                        className={cn(
-                          'text-[10px] font-medium leading-tight text-center transition-[color,opacity] duration-200',
-                          isCentered ? 'text-white' : 'text-white/50',
-                        )}
-                      >
-                        {s.label}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </>
+        <div className="fixed inset-0 z-40" onClick={() => setSectionPopupOpen(false)} />
       )}
 
-      {/* Bottom pill — glassmorphic black, shrinks to content */}
-      <div className="relative z-10 w-fit max-w-full mx-auto flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
-        {/* Section circle (left) */}
-        <button
-          onClick={() => setSectionPopupOpen(v => !v)}
-          aria-label={currentSection.label}
-          title={currentSection.label}
-          className="shrink-0 h-11 w-11 rounded-full bg-white flex items-center justify-center shadow-sm transition-transform active:scale-95"
-        >
-          <SectionIcon className="h-[18px] w-[18px] text-neutral-900" />
-        </button>
+      <motion.div
+        layout
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+        className="relative z-50 w-fit max-w-full mx-auto flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
+      >
+        {!sectionPopupOpen && (
+          <motion.button
+            layoutId="section-bubble"
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            onClick={() => setSectionPopupOpen(true)}
+            aria-label={currentSection.label}
+            title={currentSection.label}
+            className="shrink-0 h-11 w-11 rounded-full bg-white flex items-center justify-center shadow-sm"
+          >
+            <SectionIcon className="h-[18px] w-[18px] text-neutral-900" />
+          </motion.button>
+        )}
 
-        {/* Page items */}
-        <div className="flex items-center gap-1">
-          {visibleItems.map((item, idx) => {
-            const Icon = item.icon
-            const isActive = idx === activeItemIndex
-            return (
-              <Link
-                key={`${item.href}-${idx}`}
-                href={item.href}
-                aria-label={item.title}
-                title={item.title}
-                onClick={() => setSectionPopupOpen(false)}
-                className={cn(
-                  'inline-flex items-center justify-center gap-1.5 h-11 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-                  isActive
-                    ? 'px-4 bg-white text-neutral-900 shadow-sm'
-                    : 'w-11 text-white/75 hover:text-white active:bg-white/10',
-                )}
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                <span className={cn(isActive ? 'inline' : 'hidden')}>{item.title}</span>
-              </Link>
-            )
-          })}
-        </div>
-      </div>
+        {sectionPopupOpen ? (
+          <div
+            ref={stripRefCallback}
+            className="w-[240px] flex items-center gap-1 overflow-x-auto snap-x snap-mandatory [padding-inline:100px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)]"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {SECTIONS.map(s => {
+              const Icon = s.icon
+              const isSelected = s.key === selectedSectionKey
+              const handleTap = () => {
+                if (s.key === selectedSectionKey) {
+                  // Tapped the already-selected section → just close; bubble
+                  // flies back to the left with current icon.
+                  setSectionPopupOpen(false)
+                  return
+                }
+                // Two-phase update: first let the bubble become the tapped
+                // section's pill (via layoutId transfer within the open strip),
+                // then close the picker on the next frame so the bubble flies
+                // from the tapped position to the left.
+                setSelectedSectionKey(s.key)
+                requestAnimationFrame(() => {
+                  setSectionPopupOpen(false)
+                  const href = s.items[0]?.href
+                  if (href) router.push(href)
+                })
+              }
+              const commonClass = cn(
+                'shrink-0 snap-center inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-xs font-medium whitespace-nowrap',
+                isSelected
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'bg-white/15 text-white/80 transition-colors duration-200 active:scale-95',
+              )
+              if (isSelected) {
+                return (
+                  <motion.button
+                    key={s.key}
+                    layoutId="section-bubble"
+                    transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                    data-section-key={s.key}
+                    onClick={handleTap}
+                    aria-label={s.label}
+                    title={s.label}
+                    className={commonClass}
+                  >
+                    <Icon className="h-[18px] w-[18px] shrink-0" />
+                    <span>{s.label}</span>
+                  </motion.button>
+                )
+              }
+              return (
+                <button
+                  key={s.key}
+                  data-section-key={s.key}
+                  onClick={handleTap}
+                  aria-label={s.label}
+                  title={s.label}
+                  className={commonClass}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <span>{s.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {visibleItems.map((item, idx) => {
+              const Icon = item.icon
+              const isActive = idx === activeItemIndex
+              return (
+                <Link
+                  key={`${item.href}-${idx}`}
+                  href={item.href}
+                  aria-label={item.title}
+                  title={item.title}
+                  className={cn(
+                    'inline-flex items-center justify-center gap-1.5 h-11 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+                    isActive
+                      ? 'px-4 bg-white text-neutral-900 shadow-sm'
+                      : 'w-11 text-white/75 hover:text-white active:bg-white/10',
+                  )}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <span className={cn(isActive ? 'inline' : 'hidden')}>{item.title}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </motion.div>
     </div>
   )
 }

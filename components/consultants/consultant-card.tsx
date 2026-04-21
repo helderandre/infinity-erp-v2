@@ -1,7 +1,8 @@
 'use client'
 
 import { Card } from '@/components/ui/card'
-import { Phone, Mail, MessageSquare } from 'lucide-react'
+import { Phone, Mail, MessageSquare, Copy } from 'lucide-react'
+import { toast } from 'sonner'
 import type { ConsultantWithProfile } from '@/types/consultant'
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -16,6 +17,15 @@ function WhatsAppIcon({ className }: { className?: string }) {
 interface ConsultantCardProps {
   consultant: ConsultantWithProfile
   onClick?: () => void
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('Copiado')
+  } catch {
+    toast.error('Não foi possível copiar')
+  }
 }
 
 export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
@@ -33,7 +43,7 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
 
   return (
     <Card
-      className="overflow-hidden transition-all hover:shadow-xl rounded-xl cursor-pointer group pt-0"
+      className="overflow-hidden transition-all shadow-md hover:shadow-xl rounded-2xl cursor-pointer group pt-0"
       onClick={onClick}
     >
       {/* Photo with name overlay */}
@@ -62,19 +72,31 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
       </div>
 
       {/* Info + actions */}
-      <div className="px-4 pt-3 pb-3 space-y-2.5">
-        <div className="space-y-1 text-sm text-muted-foreground">
+      <div className="px-3 pt-3 pb-3 space-y-2">
+        <div className="space-y-1.5">
           {email && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-              <span className="truncate">{email}</span>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); void copyToClipboard(email) }}
+              className="group/row w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+              title="Clique para copiar"
+            >
+              <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate text-[12px] text-foreground/80 flex-1">{email}</span>
+              <Copy className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover/row:text-muted-foreground transition-colors" />
+            </button>
           )}
           {phone && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-              <span>{phone}</span>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); void copyToClipboard(phone) }}
+              className="group/row w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+              title="Clique para copiar"
+            >
+              <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-[12px] text-foreground/80 flex-1">{phone}</span>
+              <Copy className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover/row:text-muted-foreground transition-colors" />
+            </button>
           )}
         </div>
 

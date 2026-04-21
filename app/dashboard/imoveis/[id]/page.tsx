@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { Copyable } from '@/components/shared/copyable'
 import { toast } from 'sonner'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import { PropertyDocumentsRoot } from '@/components/properties/property-documents-root'
@@ -657,15 +658,15 @@ export default function ImovelDetalhePage() {
                       <InfoChip label="Negócio" value={BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type} editing={isEditing} editValue={editData.business_type} onChange={(v) => updateField('business_type', v)} type="select" options={BUSINESS_TYPES} />
                       <InfoChip label="Condição" value={PROPERTY_CONDITIONS[property.property_condition as keyof typeof PROPERTY_CONDITIONS] || property.property_condition} editing={isEditing} editValue={editData.property_condition} onChange={(v) => updateField('property_condition', v)} type="select" options={PROPERTY_CONDITIONS} />
                       <InfoChip label="Certificado" value={ENERGY_CERTIFICATES[property.energy_certificate as keyof typeof ENERGY_CERTIFICATES] || property.energy_certificate} editing={isEditing} editValue={editData.energy_certificate} onChange={(v) => updateField('energy_certificate', v)} type="select" options={ENERGY_CERTIFICATES} />
-                      <InfoChip label="Referência" value={property.external_ref} editing={isEditing} editValue={editData.external_ref} onChange={(v) => updateField('external_ref', v)} />
+                      <InfoChip label="Referência" value={property.external_ref} editing={isEditing} editValue={editData.external_ref} onChange={(v) => updateField('external_ref', v)} copyable />
                       <InfoChip label="Consultor" value={property.consultant?.commercial_name} editing={isEditing} editValue={editData.consultant_id} onChange={(v) => updateField('consultant_id', v)} type="select" options={Object.fromEntries(consultantsList.map(c => [c.id, c.commercial_name]))} />
                     </div>
                   </div>
                   <div className="space-y-4">
                     <SectionTitle icon={MapPin}>Localização</SectionTitle>
                     <div className="grid grid-cols-2 gap-3">
-                      <InfoChip label="Morada" value={property.address_street} editing={isEditing} editValue={editData.address_street} onChange={(v) => updateField('address_street', v)} />
-                      <InfoChip label="Código Postal" value={property.postal_code} editing={isEditing} editValue={editData.postal_code} onChange={(v) => updateField('postal_code', v)} />
+                      <InfoChip label="Morada" value={property.address_street} editing={isEditing} editValue={editData.address_street} onChange={(v) => updateField('address_street', v)} copyable />
+                      <InfoChip label="Código Postal" value={property.postal_code} editing={isEditing} editValue={editData.postal_code} onChange={(v) => updateField('postal_code', v)} copyable />
                       <InfoChip label="Cidade" value={property.city} editing={isEditing} editValue={editData.city} onChange={(v) => updateField('city', v)} />
                       <InfoChip label="Zona" value={property.zone} editing={isEditing} editValue={editData.zone} onChange={(v) => updateField('zone', v)} />
                     </div>
@@ -1914,6 +1915,7 @@ function InfoChip({
   onChange,
   type = 'text',
   options,
+  copyable,
 }: {
   label: string
   value: string | number | null | undefined
@@ -1922,6 +1924,8 @@ function InfoChip({
   onChange?: (val: string) => void
   type?: 'text' | 'number' | 'select' | 'textarea'
   options?: Record<string, string>
+  /** Show a copy button next to the value (reference, postal code, morada…). */
+  copyable?: boolean
 }) {
   if (editing && onChange) {
     return (
@@ -1959,7 +1963,11 @@ function InfoChip({
   return (
     <div className="rounded-lg bg-muted/40 border border-border/30 px-3 py-2.5">
       <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
-      <p className="text-sm font-medium mt-0.5">{value || '—'}</p>
+      {copyable && value ? (
+        <Copyable value={value} label={label} className="text-sm font-medium mt-0.5" />
+      ) : (
+        <p className="text-sm font-medium mt-0.5">{value || '—'}</p>
+      )}
     </div>
   )
 }

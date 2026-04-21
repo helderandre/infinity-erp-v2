@@ -93,6 +93,7 @@ import { ProcessFinanceiroTab } from '@/components/processes/process-financeiro-
 import { DealDialog } from '@/components/deals/deal-dialog'
 import type { OwnerRoleType } from '@/types/owner'
 import { useUser } from '@/hooks/use-user'
+import { Copyable } from '@/components/shared/copyable'
 import { usePermissions } from '@/hooks/use-permissions'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
@@ -901,7 +902,11 @@ export default function ProcessoDetailPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30">Angariação</span>
               )}
             </div>
-            <h1 className="text-xl font-bold text-white truncate">{instance.external_ref}</h1>
+            <h1 className="text-xl font-bold text-white truncate">
+              <Copyable value={instance.external_ref} label="Referência">
+                {instance.external_ref}
+              </Copyable>
+            </h1>
             <p className="text-sm text-white/60 truncate mt-0.5">
               {isNegocio && deal
                 ? `${deal.deal_value ? formatCurrency(Number(deal.deal_value)) : 'Sem valor'}`

@@ -57,7 +57,7 @@ function ConsultoresPageSkeleton() {
     <div className="space-y-6">
       <Skeleton className="h-40 w-full rounded-xl" />
       <Skeleton className="h-10 w-64 rounded-full" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
         ))}
@@ -172,46 +172,9 @@ function ConsultoresPageContent() {
 
   return (
     <div>
-      {/* ─── Hero Card ─── */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">
-              Equipa
-            </p>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Consultores
-          </h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Gestão de consultores, perfis e equipas da imobiliária.
-          </p>
-        </div>
-        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
-          <Button
-            size="sm"
-            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-            onClick={() => setExportOpen(true)}
-          >
-            <Download className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Exportar</span>
-          </Button>
-          <Button
-            size="sm"
-            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Novo Consultor</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* ─── Pill Toggle Navigation ─── */}
-      <div className="mt-6 flex items-center justify-center sm:justify-between gap-3 flex-wrap">
-        <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+      {/* ─── Pill Toggle + Actions ─── */}
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3 flex-nowrap">
+        <div className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm shrink-0">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
@@ -220,7 +183,7 @@ function ConsultoresPageContent() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  'inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                  'inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 h-7 sm:h-9 rounded-full text-[13px] sm:text-sm font-medium transition-colors duration-300',
                   isActive
                     ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
                     : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -233,42 +196,64 @@ function ConsultoresPageContent() {
           })}
         </div>
 
-        {/* View toggle — only for consultores tab */}
-        {activeTab === 'consultores' && (
-          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                'h-8 w-8 rounded-full flex items-center justify-center transition-colors duration-300',
-                viewMode === 'grid'
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={cn(
-                'h-8 w-8 rounded-full flex items-center justify-center transition-colors duration-300',
-                viewMode === 'table'
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* View toggle — only for consultores tab */}
+          {activeTab === 'consultores' && (
+            <div className="inline-flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn(
+                  'h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center transition-colors duration-300',
+                  viewMode === 'grid'
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={cn(
+                  'h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center transition-colors duration-300',
+                  viewMode === 'table'
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons (icon-only on mobile, icon+label on desktop) */}
+          <button
+            onClick={() => setExportOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-muted/40 hover:bg-muted/60 text-sm font-medium transition-colors"
+            aria-label="Exportar"
+            title="Exportar"
+          >
+            <Download className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium transition-colors hover:opacity-90"
+            aria-label="Novo Consultor"
+            title="Novo Consultor"
+          >
+            <Plus className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Novo Consultor</span>
+          </button>
+        </div>
       </div>
 
       {/* ─── Content ─── */}
-      <div className="mt-6 pb-6">
+      <div className="mt-3 sm:mt-6 pb-6">
         <div key={activeTab} className="animate-in fade-in duration-300">
 
           {/* ═══════ CONSULTORES TAB ═══════ */}
           {activeTab === 'consultores' && (
-            <div className="space-y-5">
+            <div className="space-y-3 sm:space-y-5">
               {/* Filters */}
               <ConsultantFilters
                 search={search}
@@ -285,7 +270,7 @@ function ConsultoresPageContent() {
               {/* Loading */}
               {isLoading ? (
                 viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                       <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
                     ))}
@@ -314,7 +299,19 @@ function ConsultoresPageContent() {
                 />
               ) : viewMode === 'grid' ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {/* Mobile: horizontal swipe carousel (one card at a time) */}
+                  <div className="sm:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2 scrollbar-hide">
+                    {consultants.map((consultant) => (
+                      <div key={consultant.id} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
+                        <ConsultantCard
+                          consultant={consultant}
+                          onClick={() => router.push(`/dashboard/consultores/${consultant.id}`)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop: grid */}
+                  <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {consultants.map((consultant) => (
                       <ConsultantCard
                         key={consultant.id}
@@ -432,7 +429,7 @@ function ConsultoresPageContent() {
           {activeTab === 'staff' && (
             <div className="space-y-5">
               {isLoadingStaff ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                   {[1, 2, 3, 4].map((i) => (
                     <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
                   ))}
@@ -443,34 +440,47 @@ function ConsultoresPageContent() {
                   title="Nenhum membro de staff encontrado"
                   description="Ainda não existem membros de staff registados."
                 />
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                  {[...staffMembers]
-                    .sort((a, b) => {
-                      const aRole = a.user_roles?.[0]?.roles?.name || ''
-                      const bRole = b.user_roles?.[0]?.roles?.name || ''
-                      if (aRole === 'Broker/CEO') return -1
-                      if (bRole === 'Broker/CEO') return 1
-                      return a.commercial_name.localeCompare(b.commercial_name)
-                    })
-                    .map((member) => {
-                      const roleName = member.user_roles?.[0]?.roles?.name
-                      return (
-                        <div key={member.id} className="relative">
-                          <ConsultantCard
-                            consultant={member}
-                            onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
-                          />
-                          {roleName && (
-                            <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
-                              {roleName}
-                            </Badge>
-                          )}
+              ) : (() => {
+                const sortedStaff = [...staffMembers].sort((a, b) => {
+                  const aRole = a.user_roles?.[0]?.roles?.name || ''
+                  const bRole = b.user_roles?.[0]?.roles?.name || ''
+                  if (aRole === 'Broker/CEO') return -1
+                  if (bRole === 'Broker/CEO') return 1
+                  return a.commercial_name.localeCompare(b.commercial_name)
+                })
+                const renderStaffCard = (member: typeof sortedStaff[number]) => {
+                  const roleName = member.user_roles?.[0]?.roles?.name
+                  return (
+                    <div key={member.id} className="relative h-full">
+                      <ConsultantCard
+                        consultant={member}
+                        onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                      />
+                      {roleName && (
+                        <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
+                          {roleName}
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <>
+                    {/* Mobile: horizontal swipe carousel */}
+                    <div className="sm:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2 scrollbar-hide">
+                      {sortedStaff.map((member) => (
+                        <div key={`m-${member.id}`} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
+                          {renderStaffCard(member)}
                         </div>
-                      )
-                    })}
-                </div>
-              )}
+                      ))}
+                    </div>
+                    {/* Desktop: grid */}
+                    <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {sortedStaff.map(renderStaffCard)}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>

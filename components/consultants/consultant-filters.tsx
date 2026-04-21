@@ -77,7 +77,7 @@ export function ConsultantFilters({
           placeholder="Pesquisar consultor..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 h-9 rounded-full bg-muted/50 border-0 text-sm"
+          className="pl-8 sm:pl-9 h-8 sm:h-9 rounded-full bg-muted/50 border-0 text-xs sm:text-sm"
         />
       </div>
 
