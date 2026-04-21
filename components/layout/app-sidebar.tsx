@@ -52,7 +52,6 @@ export const comunicacaoItems = [
   { title: 'Chat Interno', icon: MessagesSquare, href: '/dashboard/comunicacao/chat', permission: 'dashboard' },
   { title: 'WhatsApp', icon: WhatsAppIcon, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
-  { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos', permission: 'dashboard' },
 ]
 
 export const soloItems: { title: string; icon: any; href: string; permission: string }[] = []
@@ -126,6 +125,7 @@ export const digitalItems = marketingItems
 
 export const automationItems = [
   { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
+  { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
   { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
   { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
@@ -427,7 +427,7 @@ export function AppSidebar() {
           items={comunicacaoItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos']}
+          pathPrefixes={['/dashboard/whatsapp', '/dashboard/email']}
         />
 
         {/* 3. Infinity */}
