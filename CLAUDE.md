@@ -2,7 +2,21 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-04-16
+**Última actualização:** 2026-04-21
+
+### ✅ Email Editor — modos Padrão + Avançado (ENTREGUE via `add-email-editor-standard-mode`)
+- Dois modos de edição em `/dashboard/templates-email/novo` e `[id]`: **Padrão** (Tiptap rico com toolbar + slash-menu + envelope Header/Signature/Footer fixo) e **Avançado** (canvas Craft.js com toolbox/camadas). Toggle com **Pré-visualizar** continua a funcionar a partir de ambos.
+- **Modo Padrão tem paridade de componentes com Avançado** para os blocos mais comuns: títulos H1-H4, imagens, botões, divisores, anexos, listas, citação, links, variáveis `{{}}` via `@`. Toolbar fixa no topo (fonte/tamanho/B/I/U/cor/alinhamento/listas/citação/divisor/limpar) + slash-menu (`/`) para inserir blocos. Só `EmailGrid`, `EmailPropertyGrid`, `EmailPortalLinks`, `EmailSpacer` são advanced-only.
+- Custom Tiptap nodes em [`components/email-editor/standard/nodes/`](components/email-editor/standard/nodes/): `EmailButtonNode` (atom com data-attrs), `EmailAttachmentNode` (atom com fileUrl/fileSize/label). `parseHTML` + `renderHTML` garantem round-trip HTML↔node.
+- Uploads reutilizam endpoints existentes: `/api/libraries/emails/upload` (imagem) e `/api/libraries/emails/upload-attachment` (anexo).
+- Helpers puros em [`lib/email/standard-state.ts`](lib/email/standard-state.ts): `buildStandardState`, `isStandardCompatible`, `extractStandardContent`. `isStandardCompatible` agora retorna true quando todos os nós não-envelope são representáveis em Padrão (text/heading/image/button/divider/attachment). `extractStandardContent` serializa cada nó advanced para HTML Tiptap-compatível em vez de o descartar.
+- Heurística de auto-selecção ao abrir: `body_html only → Padrão` (seed Tiptap); `isStandardCompatible(editor_state) → Padrão`; senão → Avançado. Novos templates abrem em Padrão.
+- Persistência unificada: ambos os modos gravam no mesmo `editor_state` Craft.js + `body_html` (via `renderEmailToHtml`) — zero mudanças em [`lib/email-renderer.ts`](lib/email-renderer.ts) ou nas APIs. O `EmailText.html` em modo Padrão pode conter HTML rico (H1-H4, `<img>`, `<a data-email-button>`, `<hr>`, etc.).
+- Toggle Avançado → Padrão com blocos advanced-only (grids/spacers) abre `AlertDialog` listando contagem/tipos descartados; só muda após confirmação explícita.
+- Componentes estáticos em [`components/email-editor/standard/`](components/email-editor/standard/) (`StaticEmailHeader`, `StaticEmailSignature`, `StaticEmailFooter`) replicam o visual dos nós Craft.js sem depender de `useNode` — usados no canvas standard.
+- Hook partilhado [`hooks/use-resolved-signature.ts`](hooks/use-resolved-signature.ts) com cache client-side para resolver `email_signature_url` por consultor.
+
+**📄 Especificação:** [SPEC-EMAIL-EDITOR.md](docs/M12-EMAIL/SPEC-EMAIL-EDITOR.md) secção 1.1 — modos, shape canónica e heurística.
 
 ### ✅ Contact Automations (ENTREGUE via `add-contact-automations` + `add-fixed-contact-automations`)
 - Tab "Automatismos" em `app/dashboard/leads/[id]/page.tsx`: secção **Eventos fixos** (aniversário/Natal/Ano Novo — implícitos) + wizard manual para `aniversario_fecho` e `festividade`.

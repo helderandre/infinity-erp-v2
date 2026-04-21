@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Editor, Frame, Element, useEditor } from '@craftjs/core'
 import { ROOT_NODE, getRandomId } from '@craftjs/utils'
 import { Layers } from '@craftjs/layers'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 import { EmailContainer } from './user/email-container'
 import { EmailText } from './user/email-text'
@@ -30,6 +40,17 @@ import { EmailTopbar, type EditorMode, type SignatureMode } from './email-topbar
 import { EmailLayer } from './email-layer'
 import { EmailPreviewPanel } from './email-preview-panel'
 import { AiGenerateInput } from './ai-generate-panel'
+import {
+  EmailStandardCanvas,
+  type EmailStandardCanvasHandle,
+} from './standard/email-standard-canvas'
+import {
+  buildStandardState,
+  extractStandardContent,
+  isStandardCanonical,
+  isStandardCompatible,
+  labelForDroppedType,
+} from '@/lib/email/standard-state'
 import { renderEmailToHtml } from '@/lib/email-renderer'
 import { normalizeCategory } from '@/lib/constants-template-categories'
 import type { EmailMeta } from '@/lib/email/ai-state-injector'
@@ -59,20 +80,21 @@ interface EmailEditorProps {
   initialDescription: string
   initialCategory?: import('@/lib/constants-template-categories').TemplateCategory
   initialScope?: 'consultant' | 'global'
+  initialMode?: 'standard' | 'advanced'
+  /** Initial Tiptap HTML seed for standard mode. Only used when initialMode === 'standard'. */
+  initialStandardHtml?: string
+  /** Consultant id for signature preview in standard mode. */
+  initialSignatureConsultantId?: string | null
 }
 
 /**
  * Sanitize serialized Craft.js state to fix duplicate node IDs
  * caused by a previous buggy duplication that reused original IDs.
- *
- * When a parent's `nodes` array has the same ID more than once,
- * we deep-clone the subtree for each extra occurrence and assign fresh IDs.
  */
 function sanitizeEditorState(raw: string): string {
   try {
     const nodes = JSON.parse(raw) as Record<string, Record<string, unknown>>
 
-    // Collect all subtree node IDs for a given root
     function collectSubtreeIds(rootId: string): string[] {
       const ids: string[] = [rootId]
       const node = nodes[rootId] as { nodes?: string[]; linkedNodes?: Record<string, string> } | undefined
@@ -86,7 +108,6 @@ function sanitizeEditorState(raw: string): string {
       return ids
     }
 
-    // Clone a subtree starting from rootId, generating fresh IDs
     function cloneSubtree(rootId: string): string {
       const subtreeIds = collectSubtreeIds(rootId)
       const oldToNew: Record<string, string> = {}
@@ -118,7 +139,6 @@ function sanitizeEditorState(raw: string): string {
       return oldToNew[rootId]
     }
 
-    // Walk every node and fix duplicate children
     let changed = false
     for (const node of Object.values(nodes)) {
       const childIds = (node as { nodes?: string[] }).nodes
@@ -127,7 +147,6 @@ function sanitizeEditorState(raw: string): string {
       const seen = new Set<string>()
       for (let i = 0; i < childIds.length; i++) {
         if (seen.has(childIds[i])) {
-          // Duplicate — clone the subtree and replace reference
           childIds[i] = cloneSubtree(childIds[i])
           changed = true
         }
@@ -182,6 +201,371 @@ function RightSidebar() {
   )
 }
 
+// ─── EditorShell — lives inside <Editor> so it can use useEditor() ──────────
+
+interface EditorShellProps {
+  name: string
+  subject: string
+  mode: EditorMode
+  setMode: (m: EditorMode) => void
+  signatureMode: SignatureMode
+  category: import('@/lib/constants-template-categories').TemplateCategory
+  isSaving: boolean
+  aiPanelOpen: boolean
+  setAiPanelOpen: (v: boolean) => void
+  isAiGenerating: boolean
+  setIsAiGenerating: (v: boolean) => void
+  previewEditorState: string | null
+  setPreviewEditorState: (s: string | null) => void
+  onNameChange: (v: string) => void
+  onSubjectChange: (v: string) => void
+  onSignatureModeChange: (m: SignatureMode) => void
+  onCategoryChange: (v: string) => void
+  onSave: (editorState: string) => void
+  onAiMeta: (meta: EmailMeta) => void
+  initialScope?: 'consultant' | 'global'
+  initialStandardHtml: string
+  initialSignatureConsultantId?: string | null
+  sanitizedData?: string
+}
+
+function EditorShell({
+  name,
+  subject,
+  mode,
+  setMode,
+  signatureMode,
+  category,
+  isSaving,
+  aiPanelOpen,
+  setAiPanelOpen,
+  isAiGenerating,
+  setIsAiGenerating,
+  previewEditorState,
+  setPreviewEditorState,
+  onNameChange,
+  onSubjectChange,
+  onSignatureModeChange,
+  onCategoryChange,
+  onSave,
+  onAiMeta,
+  initialScope,
+  initialStandardHtml,
+  initialSignatureConsultantId,
+  sanitizedData,
+}: EditorShellProps) {
+  const { actions, query } = useEditor()
+  const standardHandleRef = useRef<EmailStandardCanvasHandle>(null)
+  const [standardHtml, setStandardHtml] = useState<string>(initialStandardHtml)
+  // Baseline HTML for the standard editor — what it contained the last time
+  // it was seeded from Craft.js (mount, advanced→standard switch, or AI
+  // generation). If the current Tiptap HTML still matches this baseline the
+  // user has NOT edited, so we can skip rewriting the Craft.js state on the
+  // next mode switch (avoids duplicating AI-generated multi-node output).
+  const standardBaselineRef = useRef<string>(initialStandardHtml)
+  const [lossyDialog, setLossyDialog] = useState<{
+    open: boolean
+    html: string
+    droppedByType: Record<string, number>
+  }>({ open: false, html: '', droppedByType: {} })
+
+  const dropLabel = useMemo(() => {
+    const entries = Object.entries(lossyDialog.droppedByType)
+    if (entries.length === 0) return ''
+    return entries
+      .map(([type, count]) => `${count} ${labelForDroppedType(type)}${count > 1 ? 's' : ''}`)
+      .join(', ')
+  }, [lossyDialog.droppedByType])
+
+  // Read current standard HTML (from Tiptap) — falls back to internal state.
+  const readStandardHtml = useCallback((): string => {
+    return standardHandleRef.current?.getHtml() ?? standardHtml
+  }, [standardHtml])
+
+  // Push the standard HTML into the Craft.js state so `query.serialize()`
+  // produces a valid standard editor_state.
+  //
+  // Three paths:
+  //
+  // 1. Pristine: the user has not typed since the Tiptap editor was last
+  //    seeded (baseline === current). The Craft.js state already matches
+  //    what the user sees — do nothing. Preserves AI-generated multi-node
+  //    structures (heading + text + button as separate Craft.js nodes).
+  //
+  // 2. Canonical fast-path: the Craft.js state is exactly the canonical
+  //    standard shape (single EmailText in INNER). Update that node's html
+  //    via setProp to preserve its custom props.
+  //
+  // 3. Rebuild: any other case (multi-node compatible state the user has
+  //    edited, or advanced state post lossy-confirm). Replace the Craft.js
+  //    state with a fresh canonical shape built from the current Tiptap html.
+  const syncStandardToCraft = useCallback(() => {
+    const html = readStandardHtml()
+
+    if (html === standardBaselineRef.current) {
+      // Pristine — no-op.
+      return
+    }
+
+    const serialized = query.serialize()
+
+    if (isStandardCanonical(serialized)) {
+      try {
+        const state = JSON.parse(serialized) as Record<string, { type?: { resolvedName?: string } }>
+        for (const [nodeId, node] of Object.entries(state)) {
+          if (node?.type?.resolvedName === 'EmailText') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            actions.setProp(nodeId, (p: any) => {
+              p.html = html
+            })
+            standardBaselineRef.current = html
+            return
+          }
+        }
+      } catch {
+        // fall through to rebuild
+      }
+    }
+
+    const rebuilt = buildStandardState({
+      html,
+      signatureConsultantId: initialSignatureConsultantId ?? undefined,
+    })
+    actions.deserialize(rebuilt)
+    standardBaselineRef.current = html
+  }, [actions, initialSignatureConsultantId, query, readStandardHtml])
+
+  // Handle mode toggle with lossy confirmation when advanced → standard loses blocks.
+  const handleModeChange = useCallback(
+    (next: EditorMode) => {
+      if (next === mode) return
+
+      if (mode === 'standard' && next === 'advanced') {
+        syncStandardToCraft()
+        setMode('advanced')
+        return
+      }
+
+      if (mode === 'advanced' && next === 'standard') {
+        const serialized = query.serialize()
+        const { html, droppedCount, droppedByType } = extractStandardContent(serialized)
+        if (droppedCount > 0) {
+          setLossyDialog({ open: true, html, droppedByType })
+          return
+        }
+        setStandardHtml(html)
+        standardHandleRef.current?.setHtml(html)
+        standardBaselineRef.current = html
+        setMode('standard')
+        return
+      }
+
+      if (next === 'preview') {
+        if (mode === 'standard') syncStandardToCraft()
+        const snapshot = query.serialize()
+        setPreviewEditorState(snapshot)
+        setMode('preview')
+        return
+      }
+
+      // Leaving preview to edit mode — snapshot stays in Craft.js state.
+      setMode(next)
+    },
+    [mode, query, setMode, setPreviewEditorState, syncStandardToCraft]
+  )
+
+  const confirmLossySwitch = useCallback(() => {
+    const { html } = lossyDialog
+    setStandardHtml(html)
+    standardHandleRef.current?.setHtml(html)
+    // Destructive: replace the Craft.js state with the canonical standard
+    // shape so the dropped blocks are actually gone and cannot reappear.
+    const rebuilt = buildStandardState({
+      html,
+      signatureConsultantId: initialSignatureConsultantId ?? undefined,
+    })
+    actions.deserialize(rebuilt)
+    standardBaselineRef.current = html
+    setLossyDialog({ open: false, html: '', droppedByType: {} })
+    setMode('standard')
+  }, [actions, initialSignatureConsultantId, lossyDialog, setMode])
+
+  const cancelLossySwitch = useCallback(() => {
+    setLossyDialog({ open: false, html: '', droppedByType: {} })
+  }, [])
+
+  // Save — serializes whichever mode is active and hands a string to the parent.
+  const handleSave = useCallback(() => {
+    if (mode === 'standard') {
+      syncStandardToCraft()
+    }
+    const serialized = query.serialize()
+    if (process.env.NODE_ENV !== 'production' && mode === 'standard') {
+      console.debug('[email-editor] save from standard mode', {
+        tiptapHtmlLength: readStandardHtml().length,
+        serializedLength: serialized.length,
+      })
+    }
+    onSave(serialized)
+  }, [mode, onSave, query, readStandardHtml, syncStandardToCraft])
+
+  // Topbar onSave receives serialized state, but our new flow does not need it.
+  const topbarSave = useCallback(() => {
+    handleSave()
+  }, [handleSave])
+
+  // Custom generating-change handler: when the AI finishes generating while
+  // the user is in standard mode, decide whether to stay (standard-compatible
+  // output) or switch to advanced (output contains advanced-only blocks).
+  const handleAiGeneratingChange = useCallback(
+    (generating: boolean) => {
+      setIsAiGenerating(generating)
+      if (!generating && mode === 'standard') {
+        const serialized = query.serialize()
+        if (isStandardCompatible(serialized)) {
+          const { html } = extractStandardContent(serialized)
+          setStandardHtml(html)
+          standardHandleRef.current?.setHtml(html)
+          // Baseline = post-AI html. Keeps the AI-generated multi-node Craft
+          // state intact when the user later switches to advanced without
+          // editing (no duplication).
+          standardBaselineRef.current = html
+          toast.success('A IA gerou o conteúdo no modo Padrão.')
+        } else {
+          setMode('advanced')
+          toast.info('A IA gerou blocos que só existem no modo Avançado.')
+        }
+      }
+    },
+    [mode, query, setIsAiGenerating, setMode]
+  )
+
+  return (
+    <>
+      <EmailTopbar
+        name={name}
+        subject={subject}
+        mode={mode}
+        signatureMode={signatureMode}
+        onNameChange={onNameChange}
+        onSubjectChange={onSubjectChange}
+        onSignatureModeChange={onSignatureModeChange}
+        category={category}
+        onCategoryChange={onCategoryChange}
+        onSave={topbarSave}
+        onModeChange={(newMode) => handleModeChange(newMode)}
+        isSaving={isSaving}
+        onAiGenerate={() => setAiPanelOpen(true)}
+        isAiGenerating={isAiGenerating}
+      />
+
+      {/* Standard mode canvas */}
+      {mode === 'standard' && (
+        <div className="flex flex-1 min-h-0 relative">
+          <EmailStandardCanvas
+            ref={standardHandleRef}
+            initialHtml={standardHtml}
+            signatureConsultantId={initialSignatureConsultantId}
+            isAiGenerating={isAiGenerating}
+            onHtmlChange={setStandardHtml}
+          />
+          <AiGenerateInput
+            visible={aiPanelOpen || isAiGenerating}
+            onClose={() => setAiPanelOpen(false)}
+            onGeneratingChange={handleAiGeneratingChange}
+            onMetaGenerated={onAiMeta}
+            scope={initialScope}
+            category={category}
+            mode="standard"
+          />
+        </div>
+      )}
+
+      {/* Advanced mode — Craft.js canvas. Kept mounted and hidden in preview
+          to preserve the edit history. */}
+      <div
+        className="flex flex-1 min-h-0"
+        style={{ display: mode === 'advanced' ? 'flex' : 'none' }}
+      >
+        <EmailToolbox />
+        <div className="flex-1 overflow-auto bg-muted/30 p-8 relative">
+          <div className="mx-auto" style={{ maxWidth: 620 }}>
+            <Frame data={sanitizedData}>
+              <Element
+                is={EmailContainer}
+                canvas
+                padding={0}
+                background="#ffffff"
+                width="100%"
+                direction="column"
+                align="stretch"
+                justify="flex-start"
+                gap={0}
+              >
+                <EmailHeader />
+                <Element
+                  is={EmailContainer}
+                  canvas
+                  padding={24}
+                  background="#ffffff"
+                  width="100%"
+                  direction="column"
+                  align="stretch"
+                  justify="flex-start"
+                  gap={8}
+                >
+                  <EmailText html="Escreva o conteúdo do email aqui..." />
+                </Element>
+                <EmailSignature />
+                <EmailFooter />
+              </Element>
+            </Frame>
+          </div>
+
+          <AiGenerateInput
+            visible={(aiPanelOpen || isAiGenerating) && mode === 'advanced'}
+            onClose={() => setAiPanelOpen(false)}
+            onGeneratingChange={handleAiGeneratingChange}
+            onMetaGenerated={onAiMeta}
+            scope={initialScope}
+            category={category}
+            mode="advanced"
+          />
+        </div>
+        <RightSidebar />
+      </div>
+
+      {/* Preview mode */}
+      {mode === 'preview' && (
+        <EmailPreviewPanel editorState={previewEditorState} subject={subject} />
+      )}
+
+      <AlertDialog
+        open={lossyDialog.open}
+        onOpenChange={(open) => {
+          if (!open) cancelLossySwitch()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Voltar ao modo Padrão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ao voltar ao modo Padrão perderá {dropLabel} que só existem no modo
+              Avançado. O texto será preservado. Tem a certeza?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelLossySwitch}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLossySwitch}>Continuar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
+// ─── EmailEditorComponent — top-level state + persistence ──────────────────
+
 export function EmailEditorComponent({
   initialData,
   templateId,
@@ -190,6 +574,9 @@ export function EmailEditorComponent({
   initialDescription,
   initialCategory,
   initialScope,
+  initialMode,
+  initialStandardHtml,
+  initialSignatureConsultantId,
 }: EmailEditorProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
@@ -199,7 +586,7 @@ export function EmailEditorComponent({
     import('@/lib/constants-template-categories').TemplateCategory
   >(initialCategory ?? 'geral')
   const [isSaving, setIsSaving] = useState(false)
-  const [mode, setMode] = useState<EditorMode>('edit')
+  const [mode, setMode] = useState<EditorMode>(initialMode ?? 'standard')
   const [signatureMode, setSignatureMode] = useState<SignatureMode>('process_owner')
   const [previewEditorState, setPreviewEditorState] = useState<string | null>(null)
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
@@ -208,7 +595,12 @@ export function EmailEditorComponent({
   const handleAiMeta = useCallback((meta: EmailMeta) => {
     if (meta.name) setName(meta.name)
     if (meta.subject) setSubject(meta.subject)
-    if (meta.category) setCategory(normalizeCategory(meta.category))
+    if (meta.category)
+      setCategory(
+        normalizeCategory(meta.category) as import(
+          '@/lib/constants-template-categories'
+        ).TemplateCategory
+      )
   }, [])
 
   const sanitizedData = useMemo(
@@ -216,140 +608,93 @@ export function EmailEditorComponent({
     [initialData]
   )
 
-  const handleSave = async (editorState: string) => {
-    if (!name.trim()) {
-      toast.error('O nome do template é obrigatório')
-      return
-    }
-    if (!subject.trim()) {
-      toast.error('O assunto do email é obrigatório')
-      return
-    }
+  const seededStandardHtml = useMemo(() => {
+    if (typeof initialStandardHtml === 'string') return initialStandardHtml
+    if (!initialData) return ''
+    return extractStandardContent(initialData).html
+  }, [initialData, initialStandardHtml])
 
-    setIsSaving(true)
-    try {
-      const body = {
-        name: name.trim(),
-        subject: subject.trim(),
-        description: description.trim() || undefined,
-        body_html: renderEmailToHtml(editorState, {}),
-        editor_state: JSON.parse(editorState),
-        signature_mode: signatureMode,
-        category,
+  const handleSave = useCallback(
+    async (editorState: string) => {
+      if (!name.trim()) {
+        toast.error('O nome do template é obrigatório')
+        return
+      }
+      if (!subject.trim()) {
+        toast.error('O assunto do email é obrigatório')
+        return
       }
 
-      if (templateId) {
-        const res = await fetch(`/api/libraries/emails/${templateId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (!res.ok) throw new Error('Erro ao guardar template')
-        toast.success('Template guardado com sucesso')
-      } else {
-        const res = await fetch('/api/libraries/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (!res.ok) throw new Error('Erro ao criar template')
-        const data = await res.json()
-        toast.success('Template criado com sucesso')
-        router.push(`/dashboard/templates-email/${data.id}`)
-      }
-    } catch (error) {
-      console.error('Erro ao guardar template:', error)
-      toast.error('Erro ao guardar template')
-    } finally {
-      setIsSaving(false)
-    }
-  }
+      setIsSaving(true)
+      try {
+        const body = {
+          name: name.trim(),
+          subject: subject.trim(),
+          description: description.trim() || undefined,
+          body_html: renderEmailToHtml(editorState, {}),
+          editor_state: JSON.parse(editorState),
+          signature_mode: signatureMode,
+          category,
+        }
 
-  const handleModeChange = (newMode: EditorMode, editorState: string) => {
-    if (newMode === 'preview') {
-      setPreviewEditorState(editorState)
-    }
-    setMode(newMode)
-  }
+        if (templateId) {
+          const res = await fetch(`/api/libraries/emails/${templateId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          if (!res.ok) throw new Error('Erro ao guardar template')
+          toast.success('Template guardado com sucesso')
+        } else {
+          const res = await fetch('/api/libraries/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          if (!res.ok) throw new Error('Erro ao criar template')
+          const data = await res.json()
+          toast.success('Template criado com sucesso')
+          router.push(`/dashboard/templates-email/${data.id}`)
+        }
+      } catch (error) {
+        console.error('Erro ao guardar template:', error)
+        toast.error('Erro ao guardar template')
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [category, description, name, router, signatureMode, subject, templateId]
+  )
 
   return (
     <div className="flex h-full flex-col">
       <Editor resolver={resolver} onRender={RenderNode}>
         <KeyboardShortcuts />
-        <EmailTopbar
+        <EditorShell
           name={name}
           subject={subject}
           mode={mode}
+          setMode={setMode}
           signatureMode={signatureMode}
+          category={category}
+          isSaving={isSaving}
+          aiPanelOpen={aiPanelOpen}
+          setAiPanelOpen={setAiPanelOpen}
+          isAiGenerating={isAiGenerating}
+          setIsAiGenerating={setIsAiGenerating}
+          previewEditorState={previewEditorState}
+          setPreviewEditorState={setPreviewEditorState}
           onNameChange={setName}
           onSubjectChange={setSubject}
           onSignatureModeChange={setSignatureMode}
-          category={category}
-          onCategoryChange={setCategory}
+          onCategoryChange={(v) => setCategory(v as typeof category)}
           onSave={handleSave}
-          onModeChange={handleModeChange}
-          isSaving={isSaving}
-          onAiGenerate={() => setAiPanelOpen(true)}
-          isAiGenerating={isAiGenerating}
+          onAiMeta={handleAiMeta}
+          initialScope={initialScope}
+          initialStandardHtml={seededStandardHtml}
+          initialSignatureConsultantId={initialSignatureConsultantId}
+          sanitizedData={sanitizedData}
         />
-
-        {/* Edit mode — kept mounted but hidden when in preview to preserve state */}
-        <div className="flex flex-1 min-h-0" style={{ display: mode === 'edit' ? 'flex' : 'none' }}>
-          <EmailToolbox />
-          <div className="flex-1 overflow-auto bg-muted/30 p-8 relative">
-            <div className="mx-auto" style={{ maxWidth: 620 }}>
-              <Frame data={sanitizedData}>
-                <Element
-                  is={EmailContainer}
-                  canvas
-                  padding={0}
-                  background="#ffffff"
-                  width="100%"
-                  direction="column"
-                  align="stretch"
-                  justify="flex-start"
-                  gap={0}
-                >
-                  <EmailHeader />
-                  <Element
-                    is={EmailContainer}
-                    canvas
-                    padding={24}
-                    background="#ffffff"
-                    width="100%"
-                    direction="column"
-                    align="stretch"
-                    justify="flex-start"
-                    gap={8}
-                  >
-                    <EmailText html="Escreva o conteúdo do email aqui..." />
-                  </Element>
-                  <EmailSignature />
-                  <EmailFooter />
-                </Element>
-              </Frame>
-            </div>
-
-            {/* AI inline input — floats at the bottom of the canvas area */}
-            <AiGenerateInput
-              visible={aiPanelOpen || isAiGenerating}
-              onClose={() => setAiPanelOpen(false)}
-              onGeneratingChange={setIsAiGenerating}
-              onMetaGenerated={handleAiMeta}
-              scope={initialScope}
-              category={category}
-            />
-          </div>
-          <RightSidebar />
-        </div>
-
-        {/* Preview mode */}
-        {mode === 'preview' && (
-          <EmailPreviewPanel
-            editorState={previewEditorState}
-            subject={subject}
-          />
-        )}
       </Editor>
     </div>
   )

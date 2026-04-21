@@ -21,6 +21,7 @@ function NovoTemplateEmailPageInner() {
       initialDescription=""
       initialCategory={category}
       initialScope={scope ?? undefined}
+      initialMode="standard"
     />
   )
 }

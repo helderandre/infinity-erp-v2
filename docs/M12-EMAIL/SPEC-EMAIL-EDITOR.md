@@ -4,6 +4,89 @@
 
 O Email Editor e um editor visual drag-and-drop para criar templates de email HTML. Construido sobre a biblioteca **Craft.js**, permite ao utilizador compor emails arrastando blocos (texto, imagens, botoes, contentores, grelhas, etc.) e configurar cada um via painel de propriedades. O resultado final e convertido em HTML compativel com clientes de email (Gmail, Outlook) usando layout baseado em `<table>` em vez de flexbox/grid.
 
+### 1.1 Modos de edicao
+
+O editor expoe tres modos via toggle na topbar:
+
+- **Padrao (`standard`)** — editor Tiptap rico com toolbar fixa no topo (fonte, tamanho, B/I/U, cor, alinhamento, listas, citacao, divisor) e slash-menu (`/`) para inserir titulos, imagem, botao, anexo, etc. O envelope institucional (Cabecalho + Assinatura + Rodape) e renderizado em volta de forma imutavel. Use para a maioria dos emails — texto corrido com alguns blocos.
+- **Avancado (`advanced`)** — canvas Craft.js com toolbox + camadas + propriedades. Use para layouts multi-coluna, grelha de imoveis, links de portais, e composicoes que o Padrao nao representa.
+- **Pre-visualizar (`preview`)** — snapshot do estado actual renderizado com dados reais (via selecao de imovel/proprietario/consultor). Funciona identicamente a partir de qualquer modo de edicao.
+
+### 1.2 Componentes suportados por modo
+
+| Componente | Padrao | Avancado |
+|---|---|---|
+| Paragrafo / formatacao inline (B/I/U/strike/cor/alinhamento) | ✅ | ✅ |
+| Titulos H1-H4 | ✅ | ✅ (`EmailHeading`) |
+| Listas (ordenadas e nao-ordenadas) | ✅ | ✅ |
+| Citacao | ✅ | ✅ |
+| Link | ✅ | ✅ |
+| Imagem (upload R2 ou URL) | ✅ | ✅ (`EmailImage`) |
+| Botao | ✅ (`EmailButtonNode` Tiptap) | ✅ (`EmailButton`) |
+| Divisor | ✅ (`<hr>`) | ✅ (`EmailDivider`) |
+| Anexo | ✅ (`EmailAttachmentNode` Tiptap) | ✅ (`EmailAttachment`) |
+| Variaveis `{{chave}}` via `@` | ✅ | ✅ |
+| Espacador | — | ✅ (`EmailSpacer`) |
+| Grelha multi-coluna | — | ✅ (`EmailGrid`) |
+| Grelha de imoveis | — | ✅ (`EmailPropertyGrid`) |
+| Links de portais | — | ✅ (`EmailPortalLinks`) |
+
+So os componentes da seccao "—" geram o `AlertDialog` de perda quando o utilizador toggles `advanced → standard`.
+
+### 1.3 Heuristica de auto-seleccao ao abrir um template
+
+Em `/dashboard/templates-email/[id]`:
+
+1. `editor_state === null` e `body_html !== ''` → abre em **Padrao**, Tiptap seeded com o `body_html`.
+2. `isStandardCompatible(editor_state)` → abre em **Padrao**, com `extractStandardContent` a converter cada no representavel (text/heading/image/button/divider/attachment) em HTML Tiptap-compativel.
+3. Caso contrario → abre em **Avancado**.
+
+Helpers em [`lib/email/standard-state.ts`](../../lib/email/standard-state.ts):
+- `buildStandardState({ html, signatureConsultantId? })` — constroi a shape canonica.
+- `isStandardCompatible(editorState)` — todos os nos nao-envelope sao representaveis em Padrao.
+- `extractStandardContent(editorState)` — serializa cada no advanced para HTML inline que o Tiptap do Padrao consegue re-parsear via `parseHTML` dos custom nodes.
+
+### 1.4 Shape canonica do `editor_state` para modo Padrao
+
+```
+ROOT (EmailContainer, canvas, padding=0, gap=0)
+  ├── EmailHeader
+  ├── EmailContainer (canvas, padding=24, gap=8)
+  │     └── EmailText { html: <tiptap HTML rico>, fontSize=15, color=#404040, ... }
+  ├── EmailSignature { consultantId? }
+  └── EmailFooter
+```
+
+O `EmailText.html` pode conter qualquer marcacao Tiptap — `<h1>..<h4>`, `<img>`, `<a data-email-button>`, `<hr>`, `<div data-email-attachment>`, listas, etc. O `renderEmailToHtml` em `lib/email-renderer.ts` trata blocos inline atraves de `renderText` (que ja detecta `ul/ol/table/blockquote/hr`).
+
+### 1.5 Standard mode — arquitectura
+
+```
+components/email-editor/standard/
+├── email-standard-canvas.tsx      — orquestra toolbar + Tiptap + dialogs + envelope estatico
+├── use-standard-tiptap.ts         — hook com StarterKit (H1-H4, hr, blockquote), Image,
+│                                     VariableMention (@), SlashCommand (/), custom nodes
+├── standard-toolbar.tsx           — toolbar fixa (Undo/Redo, fonte, tamanho, B/I/U/S, cor,
+│                                     alinhamento, listas, citacao, blocos, limpar formatacao)
+├── slash-menu.tsx                 — Extension+Suggestion+tippy, items H1/H2/H3, Imagem,
+│                                     Botao, Anexo, Divisor, Citacao, Lista/Lista numerada
+├── insert-dialogs.tsx             — Dialogs modais para Botao, Imagem, Anexo, Link
+├── static-email-header.tsx        — versao sem useNode, visualmente identica ao Craft.js
+├── static-email-signature.tsx     — idem, usa hooks/use-resolved-signature.ts
+├── static-email-footer.tsx        — idem
+└── nodes/
+    ├── button-node.ts             — Tiptap Node atom, parseHTML/renderHTML com data-attrs
+    └── attachment-node.ts         — idem, armazena fileUrl/fileName/fileSize/required
+```
+
+Uploads reusam os endpoints existentes: `/api/libraries/emails/upload` (imagem) e `/api/libraries/emails/upload-attachment` (anexo).
+
+### 1.6 Toggle entre modos
+
+- `Padrao → Avancado`: sempre lossless. O HTML do Tiptap e sincronizado para o `EmailText` central. Via fast path (Craft.js state ja na shape canonica): `actions.setProp` preserva props custom. Via fallback: `buildStandardState` + `actions.deserialize`.
+- `Avancado → Padrao`: lossless se todos os nos nao-envelope forem representaveis em Padrao (heading/image/button/divider/attachment/text) — cada um serializa para HTML inline equivalente. Lossy se existir qualquer `EmailSpacer`, `EmailGrid`, `EmailPropertyGrid`, `EmailPortalLinks`, ou `EmailContainer` aninhado — `AlertDialog` lista a contagem, so muda apos confirmacao.
+- Qualquer modo `→ Preview`: em Padrao sincroniza Tiptap para Craft.js primeiro, depois `query.serialize()` alimenta o `EmailPreviewPanel`.
+
 ### Localizacao no Projecto
 
 ```

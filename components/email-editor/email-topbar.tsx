@@ -5,7 +5,7 @@ import { useEditor } from '@craftjs/core'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Undo2, Redo2, Save, Pencil, Eye, Pen, Sparkles, Loader2, LayoutTemplate } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { useRouter } from 'next/navigation'
@@ -15,7 +15,7 @@ import {
   type TemplateCategory,
 } from '@/lib/constants-template-categories'
 
-export type EditorMode = 'edit' | 'preview'
+export type EditorMode = 'standard' | 'advanced' | 'preview'
 
 export type SignatureMode = 'process_owner' | 'sender'
 
@@ -128,9 +128,13 @@ export function EmailTopbar({
           variant="outline"
           size="sm"
         >
-          <ToggleGroupItem value="edit" aria-label="Modo Edição" className="gap-1.5 px-3">
+          <ToggleGroupItem value="standard" aria-label="Modo Padrão" className="gap-1.5 px-3">
             <Pencil className="h-3.5 w-3.5" />
-            Edição
+            Padrão
+          </ToggleGroupItem>
+          <ToggleGroupItem value="advanced" aria-label="Modo Avançado" className="gap-1.5 px-3">
+            <LayoutTemplate className="h-3.5 w-3.5" />
+            Avançado
           </ToggleGroupItem>
           <ToggleGroupItem value="preview" aria-label="Modo Pré-visualização" className="gap-1.5 px-3">
             <Eye className="h-3.5 w-3.5" />

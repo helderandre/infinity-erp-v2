@@ -293,8 +293,62 @@ function renderGrid(props: Record<string, unknown>, cells: string[]): string {
   return html
 }
 
+/**
+ * Replace standard-mode marker divs with the full email-safe HTML of the
+ * corresponding block. Markers carry a URI-encoded JSON payload in a
+ * `data-payload` attribute.
+ *
+ * Supported markers:
+ *   <div data-email-property-grid data-payload="...">  → renderPropertyGridBlock
+ *   <div data-email-portal-links  data-payload="...">  → renderPortalLinks
+ *   <div data-email-button        data-payload="...">  → renderButton
+ *   <div data-email-image         data-payload="...">  → renderImage
+ *   <div data-email-attachment    data-payload="...">  → renderAttachment
+ */
+function expandStandardMarkers(html: string, variables: VariablesMap): string {
+  function decode(payload: string): Record<string, unknown> | null {
+    try {
+      return JSON.parse(decodeURIComponent(payload)) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+
+  const markerPattern =
+    /<div\b[^>]*\bdata-email-(property-grid|portal-links|button|image|attachment)\b[^>]*>[\s\S]*?<\/div>/gi
+
+  return html.replace(markerPattern, (full, kind: string) => {
+    const payloadMatch = full.match(/data-payload="([^"]*)"/i)
+    const decoded = payloadMatch ? decode(payloadMatch[1]) : null
+    if (!decoded) return ''
+    if (kind === 'property-grid') {
+      const mode = decoded.mode === 'dynamic' ? 'dynamic' : 'manual'
+      const list = Array.isArray(decoded.properties) ? decoded.properties : []
+      // Dynamic + empty = placeholder slot. The send flow is expected to
+      // hydrate the payload before rendering; at preview time we render an
+      // empty string so the layout stays predictable.
+      if (mode === 'dynamic' && list.length === 0) return ''
+      return renderPropertyGridBlock(decoded)
+    }
+    if (kind === 'portal-links') {
+      return renderPortalLinks(decoded as Record<string, unknown> & { portals: unknown })
+    }
+    if (kind === 'button') {
+      return renderButton(decoded, variables)
+    }
+    if (kind === 'image') {
+      return renderImage(decoded)
+    }
+    if (kind === 'attachment') {
+      return renderAttachment(decoded, variables)
+    }
+    return ''
+  })
+}
+
 function renderText(props: Record<string, unknown>, variables: VariablesMap): string {
   let html = replaceVariables(stripVariableSpans((props.html as string) || ''), variables)
+  html = expandStandardMarkers(html, variables)
   const fontSize = (props.fontSize as number) || 16
   const color = (props.color as string) || '#000000'
   const textAlign = (props.textAlign as string) || 'left'

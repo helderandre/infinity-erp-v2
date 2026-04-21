@@ -1,28 +1,16 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useNode } from '@craftjs/core'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Paperclip, Upload, X, FileText, FileSpreadsheet, FileImage, File } from 'lucide-react'
-import { Spinner } from '@/components/kibo-ui/spinner'
-import { toast } from 'sonner'
+import { Paperclip, FileText, FileSpreadsheet, FileImage, File } from 'lucide-react'
+import {
+  EmailAttachmentForm,
+  EMAIL_ATTACHMENT_FORM_DEFAULTS,
+  type EmailAttachmentFormProps,
+} from '@/components/email-editor/shared/email-block-forms'
+import { useAttachmentUploadHandler } from '@/components/email-editor/shared/use-attachment-upload'
 
-const ACCEPT_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp'
-const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-
-interface EmailAttachmentProps {
-  label?: string
-  description?: string
-  docTypeId?: string
-  required?: boolean
-  fileUrl?: string
-  fileName?: string
-  fileSize?: number
-}
+type EmailAttachmentProps = EmailAttachmentFormProps
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -87,193 +75,54 @@ export const EmailAttachment = ({
     </div>
   )
 }
-
 const EmailAttachmentSettings = () => {
   const {
     actions: { setProp },
-    label,
-    description,
-    docTypeId,
-    required,
-    fileUrl,
-    fileName,
-    fileSize,
+    props,
   } = useNode((node) => ({
-    label: node.data.props.label,
-    description: node.data.props.description,
-    docTypeId: node.data.props.docTypeId,
-    required: node.data.props.required,
-    fileUrl: node.data.props.fileUrl,
-    fileName: node.data.props.fileName,
-    fileSize: node.data.props.fileSize,
+    props: node.data.props as EmailAttachmentFormProps,
   }))
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [isUploading, setIsUploading] = useState(false)
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    e.target.value = ''
-
-    if (file.size > MAX_SIZE) {
-      toast.error('Ficheiro demasiado grande. Máximo 10MB.')
-      return
-    }
-
-    setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/libraries/emails/upload-attachment', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao carregar ficheiro')
-      }
-
-      const data = await res.json()
+  const { triggerUpload, uploading, fileInput } = useAttachmentUploadHandler({
+    onUploaded: (data) => {
       setProp((p: EmailAttachmentProps) => {
         p.fileUrl = data.url
         p.fileName = data.fileName
         p.fileSize = data.fileSize
       })
-      toast.success('Ficheiro carregado com sucesso')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar ficheiro')
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleRemoveFile = () => {
-    setProp((p: EmailAttachmentProps) => {
-      p.fileUrl = ''
-      p.fileName = ''
-      p.fileSize = 0
-    })
-  }
-
-  const FileIcon = fileName ? getFileIcon(fileName) : null
+    },
+  })
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Título</Label>
-        <Input
-          type="text"
-          value={label}
-          onChange={(e) => setProp((p: EmailAttachmentProps) => { p.label = e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Descrição</Label>
-        <Input
-          type="text"
-          placeholder="Descrição opcional..."
-          value={description}
-          onChange={(e) => setProp((p: EmailAttachmentProps) => { p.description = e.target.value })}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Ficheiro Anexo</Label>
-        {fileUrl && fileName ? (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3">
-            {FileIcon && <FileIcon className="h-5 w-5 shrink-0 text-primary" />}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{fileName}</p>
-              {fileSize > 0 && (
-                <p className="text-xs text-muted-foreground">{formatFileSize(fileSize)}</p>
-              )}
-            </div>
-            <div className="flex gap-1 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isUploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-1.5 h-3 w-3" />
-                Trocar
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleRemoveFile}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {isUploading ? (
-              <Spinner variant="infinite" size={16} className="mr-2" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            {isUploading ? 'A carregar...' : 'Carregar ficheiro'}
-          </Button>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPT_TYPES}
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <p className="text-xs text-muted-foreground">
-          PDF, DOC, DOCX, XLS, XLSX, JPG, PNG ou WebP. Máx. 10MB.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>ID Tipo de Documento</Label>
-        <Input
-          type="text"
-          placeholder="UUID do doc_type (opcional)"
-          value={docTypeId}
-          onChange={(e) => setProp((p: EmailAttachmentProps) => { p.docTypeId = e.target.value })}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <Label>Obrigatório</Label>
-        <Switch
-          checked={required}
-          onCheckedChange={(v) => setProp((p: EmailAttachmentProps) => { p.required = v })}
-        />
-      </div>
+    <div className="space-y-4 p-3">
+      <EmailAttachmentForm
+        props={props}
+        onChange={(patch) =>
+          setProp((p: EmailAttachmentProps) => {
+            Object.assign(p, patch)
+          })
+        }
+        onUpload={triggerUpload}
+        onRemove={() =>
+          setProp((p: EmailAttachmentProps) => {
+            p.fileUrl = ''
+            p.fileName = ''
+            p.fileSize = 0
+          })
+        }
+        uploading={uploading}
+      />
+      {fileInput}
+      <p className="text-xs text-muted-foreground">
+        PDF, DOC, DOCX, XLS, XLSX, JPG, PNG ou WebP. Máx. 10MB.
+      </p>
     </div>
   )
 }
 
 EmailAttachment.craft = {
   displayName: 'Anexo',
-  props: {
-    label: 'Documento anexo',
-    description: '',
-    docTypeId: '',
-    required: true,
-    fileUrl: '',
-    fileName: '',
-    fileSize: 0,
-  },
+  props: { ...EMAIL_ATTACHMENT_FORM_DEFAULTS },
   related: {
     settings: EmailAttachmentSettings,
   },

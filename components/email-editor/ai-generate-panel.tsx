@@ -80,6 +80,8 @@ interface AiGenerateInputProps {
   onMetaGenerated?: (meta: EmailMeta) => void
   scope?: 'consultant' | 'global'
   category?: string
+  /** When set, the server biases the prompt to avoid blocks the mode can't represent. */
+  mode?: 'standard' | 'advanced'
 }
 
 export function AiGenerateInput({
@@ -89,6 +91,7 @@ export function AiGenerateInput({
   onMetaGenerated,
   scope,
   category,
+  mode,
 }: AiGenerateInputProps) {
   const { actions, query } = useEditor()
   const [prompt, setPrompt] = useState('')
@@ -244,6 +247,7 @@ export function AiGenerateInput({
             category,
             automation_name: automationName,
             automation_description: automationDesc,
+            mode,
           }),
         })
 

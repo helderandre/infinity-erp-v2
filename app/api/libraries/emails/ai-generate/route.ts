@@ -181,7 +181,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { prompt, scope, category, automation_name, automation_description } = body
+    const {
+      prompt,
+      scope,
+      category,
+      automation_name,
+      automation_description,
+      mode,
+    } = body
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Prompt é obrigatório' }), { status: 400 })
@@ -213,7 +220,11 @@ export async function POST(request: Request) {
 
     // Build enriched system prompt
     const contextPrompt = buildContextPrompt(scope, category, consultant, automation_name, automation_description)
-    const fullSystemPrompt = BASE_SYSTEM_PROMPT + contextPrompt
+    const modePrompt =
+      mode === 'standard'
+        ? `\n\n## Restrições do modo Padrão\nO utilizador está a trabalhar no modo Padrão (editor de texto corrido). Para manter o resultado 100% compatível:\n- NÃO uses EmailGrid (grelha multi-coluna) nem EmailSpacer (espaçador).\n- NÃO uses EmailContainer aninhado com múltiplos filhos não-texto. Prefere texto corrido com títulos e parágrafos.\n- Podes usar EmailHeading, EmailText, EmailButton, EmailImage e EmailDivider (tudo o que é "inline" num email de prosa).\n- Pensa num email do Gmail/Outlook: fluxo vertical de blocos simples, sem grid layouts.`
+        : ''
+    const fullSystemPrompt = BASE_SYSTEM_PROMPT + contextPrompt + modePrompt
 
     const result = streamText({
       model: openai('gpt-4o-mini'),
