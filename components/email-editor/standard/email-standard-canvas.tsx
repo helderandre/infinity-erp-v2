@@ -9,10 +9,11 @@ import {
   useState,
 } from 'react'
 import { EditorContent, type Editor } from '@tiptap/react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Upload } from 'lucide-react'
 import { useStandardTiptap } from './use-standard-tiptap'
 import { useAutomationVariables } from '@/components/email-editor/automation-variables-context'
 import { EmailBubbleMenu } from '@/components/email-editor/email-bubble-menu'
+import { useEditorDrop } from '@/components/email-editor/shared/use-editor-drop'
 import { StaticEmailHeader } from './static-email-header'
 import { StaticEmailSignature } from './static-email-signature'
 import { StaticEmailFooter } from './static-email-footer'
@@ -237,6 +238,35 @@ export const EmailStandardCanvas = forwardRef<
     editor.chain().focus().insertEmailAttachment(attrs).run()
   }
 
+  // Drop zone = the scrollable area that surrounds the envelope preview.
+  // Any image/file dragged over gets uploaded and inserted at the end of
+  // the editor body (or at the caret if the Tiptap editor currently has focus).
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  const [dropZoneEl, setDropZoneEl] = useState<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    setDropZoneEl(dropZoneRef.current)
+  }, [])
+
+  const { dragging: dropDragging } = useEditorDrop(dropZoneEl, {
+    onImageUploaded: (url) => {
+      if (!editor) return
+      editor.chain().focus().insertEmailImage({ src: url }).run()
+    },
+    onAttachmentUploaded: (data) => {
+      if (!editor) return
+      editor
+        .chain()
+        .focus()
+        .insertEmailAttachment({
+          fileUrl: data.url,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+        })
+        .run()
+    },
+  })
+
   return (
     <div className="flex flex-1 flex-col min-h-0">
       <StandardToolbar
@@ -251,7 +281,21 @@ export const EmailStandardCanvas = forwardRef<
       />
 
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 overflow-auto bg-muted/30 p-8 relative">
+        <div
+          ref={dropZoneRef}
+          className="flex-1 overflow-auto bg-muted/30 p-8 relative"
+        >
+          {dropDragging && (
+            <div className="pointer-events-none absolute inset-4 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5">
+              <div className="flex flex-col items-center gap-2 rounded-md bg-background/95 px-4 py-3 text-sm font-medium shadow-sm border">
+                <Upload className="h-5 w-5 text-primary" />
+                Largar para adicionar
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  Imagens entram no corpo · outros ficheiros como anexos
+                </span>
+              </div>
+            </div>
+          )}
           <div className="mx-auto" style={{ maxWidth: 620 }}>
             <div className="bg-white rounded-md overflow-hidden shadow-sm">
               <StaticEmailHeader />

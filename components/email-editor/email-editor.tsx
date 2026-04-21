@@ -44,6 +44,8 @@ import {
   EmailStandardCanvas,
   type EmailStandardCanvasHandle,
 } from './standard/email-standard-canvas'
+import { useEditorDrop } from './shared/use-editor-drop'
+import { Upload } from 'lucide-react'
 import {
   buildStandardState,
   extractStandardContent,
@@ -414,6 +416,66 @@ function EditorShell({
     handleSave()
   }, [handleSave])
 
+  // Advanced-mode drop zone — images and files dropped on the Craft.js
+  // canvas are uploaded then inserted as EmailImage / EmailAttachment nodes
+  // inside the inner container (second child of ROOT).
+  const advancedDropRef = useRef<HTMLDivElement>(null)
+  const [advancedDropEl, setAdvancedDropEl] = useState<HTMLDivElement | null>(
+    null
+  )
+  useEffect(() => {
+    setAdvancedDropEl(advancedDropRef.current)
+  }, [])
+
+  const findInnerContainerId = useCallback((): string | null => {
+    try {
+      const root = query.node(ROOT_NODE).get()
+      for (const childId of root.data.nodes) {
+        const child = query.node(childId).get()
+        // The inner container is an EmailContainer that isn't the ROOT.
+        // Header/Signature/Footer are non-container nodes.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const typeRef = child.data.type as any
+        if (typeRef === EmailContainer || typeRef?.resolvedName === 'EmailContainer') {
+          return childId
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return null
+  }, [query])
+
+  const addAdvancedNode = useCallback(
+    (element: React.ReactElement) => {
+      const innerId = findInnerContainerId()
+      if (!innerId) return
+      try {
+        const tree = query.parseReactElement(element).toNodeTree()
+        const inner = query.node(innerId).get()
+        actions.addNodeTree(tree, innerId, inner.data.nodes.length)
+      } catch (e) {
+        console.error('[advanced drop] failed to insert node', e)
+      }
+    },
+    [actions, findInnerContainerId, query]
+  )
+
+  const { dragging: advancedDropDragging } = useEditorDrop(advancedDropEl, {
+    onImageUploaded: (url) => {
+      addAdvancedNode(<EmailImage src={url} alt="" />)
+    },
+    onAttachmentUploaded: (data) => {
+      addAdvancedNode(
+        <EmailAttachment
+          fileUrl={data.url}
+          fileName={data.fileName}
+          fileSize={data.fileSize}
+        />
+      )
+    },
+  })
+
   // Custom generating-change handler: when the AI finishes generating while
   // the user is in standard mode, decide whether to stay (standard-compatible
   // output) or switch to advanced (output contains advanced-only blocks).
@@ -488,7 +550,21 @@ function EditorShell({
         style={{ display: mode === 'advanced' ? 'flex' : 'none' }}
       >
         <EmailToolbox />
-        <div className="flex-1 overflow-auto bg-muted/30 p-8 relative">
+        <div
+          ref={advancedDropRef}
+          className="flex-1 overflow-auto bg-muted/30 p-8 relative"
+        >
+          {advancedDropDragging && (
+            <div className="pointer-events-none absolute inset-4 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5">
+              <div className="flex flex-col items-center gap-2 rounded-md bg-background/95 px-4 py-3 text-sm font-medium shadow-sm border">
+                <Upload className="h-5 w-5 text-primary" />
+                Largar para adicionar
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  Imagens entram no corpo · outros ficheiros como anexos
+                </span>
+              </div>
+            </div>
+          )}
           <div className="mx-auto" style={{ maxWidth: 620 }}>
             <Frame data={sanitizedData}>
               <Element
