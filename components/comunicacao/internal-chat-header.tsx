@@ -1,7 +1,8 @@
 'use client'
 
-import { Users } from 'lucide-react'
+import { Users, ArrowLeft } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -19,14 +20,20 @@ interface PresenceUser {
 interface InternalChatHeaderProps {
   onlineUsers: PresenceUser[]
   currentUserId: string
+  onBack?: () => void
 }
 
-export function InternalChatHeader({ onlineUsers, currentUserId }: InternalChatHeaderProps) {
+export function InternalChatHeader({ onlineUsers, currentUserId, onBack }: InternalChatHeaderProps) {
   const others = onlineUsers.filter((u) => u.user_id !== currentUserId)
 
   return (
     <div className="border-b px-4 py-2.5 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
+        {onBack && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 md:hidden" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
           <Users className="h-4 w-4 text-primary" />
         </div>

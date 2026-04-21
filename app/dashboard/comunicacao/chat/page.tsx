@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { MessageSquare, ArrowLeft, User } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { MessageSquare, ArrowLeft } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
 import { useProcessChannels } from '@/hooks/use-process-channels'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
@@ -13,7 +13,7 @@ import { ProcessChat } from '@/components/processes/process-chat'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getDmChannelId } from '@/lib/constants'
 import { useChatUnread } from '@/hooks/use-chat-unread'
 
@@ -24,6 +24,18 @@ export default function ChatPage() {
   const [activeConversation, setActiveConversation] = useState<ConversationType | null>({
     type: 'internal',
   })
+  const [listSheetOpen, setListSheetOpen] = useState(false)
+
+  const handleSelectConversation = useCallback(
+    (conv: ConversationType) => {
+      setActiveConversation(conv)
+      setListSheetOpen(false)
+      setTimeout(refetchUnread, 1500)
+    },
+    [refetchUnread]
+  )
+
+  const openListSheet = useCallback(() => setListSheetOpen(true), [])
 
   const currentUser = useMemo(
     () => ({
@@ -71,21 +83,12 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full bg-background overflow-hidden">
-      {/* Left sidebar — conversation list */}
-      <div
-        className={cn(
-          'w-full md:w-80 md:border-r shrink-0 flex flex-col',
-          activeConversation ? 'hidden md:flex' : 'flex'
-        )}
-      >
+      {/* Desktop: persistent left sidebar with the conversation list */}
+      <div className="hidden md:flex md:w-80 md:border-r shrink-0 flex-col">
         <ConversationList
           currentUserId={currentUser.id}
           activeConversation={activeConversation}
-          onSelect={(conv) => {
-            setActiveConversation(conv)
-            // Refetch unread after a short delay (time for markAsRead to fire)
-            setTimeout(refetchUnread, 1500)
-          }}
+          onSelect={handleSelectConversation}
           processChannels={channels}
           isLoadingChannels={channelsLoading}
           onSearchChannels={searchChannels}
@@ -93,13 +96,31 @@ export default function ChatPage() {
         />
       </div>
 
-      {/* Right panel — chat */}
-      <div
-        className={cn(
-          'flex-1 flex flex-col min-w-0',
-          !activeConversation ? 'hidden md:flex' : 'flex'
-        )}
-      >
+      {/* Mobile: same list in a slide-in Sheet — opened via the header icon */}
+      <Sheet open={listSheetOpen} onOpenChange={setListSheetOpen}>
+        <SheetContent
+          side="left"
+          className="md:hidden p-0 gap-0 flex flex-col data-[side=left]:w-[88vw] data-[side=left]:sm:max-w-sm"
+        >
+          <SheetHeader className="px-4 py-3 border-b shrink-0">
+            <SheetTitle className="text-sm">Conversas</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 flex flex-col">
+            <ConversationList
+              currentUserId={currentUser.id}
+              activeConversation={activeConversation}
+              onSelect={handleSelectConversation}
+              processChannels={channels}
+              isLoadingChannels={channelsLoading}
+              onSearchChannels={searchChannels}
+              unreadCounts={unreadCounts}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Right panel — chat (always visible, even on mobile) */}
+      <div className="flex-1 flex flex-col min-w-0">
         {!activeConversation ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
             <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
@@ -112,6 +133,7 @@ export default function ChatPage() {
               <InternalChatHeader
                 onlineUsers={onlineUsers}
                 currentUserId={currentUser.id}
+                onBack={openListSheet}
               />
             }
           />
@@ -125,7 +147,7 @@ export default function ChatPage() {
               <DmChatHeader
                 userName={activeConversation.userName}
                 avatarUrl={activeConversation.avatarUrl}
-                onBack={() => setActiveConversation(null)}
+                onBack={openListSheet}
               />
             }
           />
@@ -135,7 +157,7 @@ export default function ChatPage() {
               processId={activeConversation.processId}
               externalRef={activeProcessChannel?.external_ref || ''}
               propertyTitle={activeProcessChannel?.property_title}
-              onBack={() => setActiveConversation(null)}
+              onBack={openListSheet}
             />
             <div className="flex-1 min-h-0">
               <ProcessChat
