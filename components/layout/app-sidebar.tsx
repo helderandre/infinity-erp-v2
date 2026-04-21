@@ -7,7 +7,7 @@ import {
   LogOut, ChevronDown, Sun, Moon, Monitor, ChevronRight,
   Zap, Mail, FileCode2, Workflow, Braces, Bot,
   MessageCircle, MessageSquareText, Instagram, BarChart3,
-  Plug, Store, ClipboardList, Blocks, UserPlus, Target,
+  Plug, Store, ClipboardList, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell,
@@ -76,6 +76,7 @@ export const crmItems = [
 
 export const negocioItems = [
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
+  { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
   { title: 'Negócios', icon: Briefcase, href: '/dashboard/negocios', permission: 'leads' },
 ]
@@ -124,16 +125,13 @@ export const marketingItems = [
 export const digitalItems = marketingItems
 
 export const automationItems = [
-  { title: 'Dashboard', icon: Zap, href: '/dashboard/automacao' },
-  { title: 'Automatismos', icon: Workflow, href: '/dashboard/automacao/fluxos' },
-  { title: 'Execuções', icon: Braces, href: '/dashboard/automacao/execucoes' },
+  { title: 'Automatismos', icon: Zap, href: '/dashboard/automacao' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
-  { title: 'Templates WhatsApp', icon: MessageSquareText, href: '/dashboard/automacao/templates-wpp' },
+  { title: 'Definições', icon: Settings, href: '/dashboard/automacao/definicoes' },
 ]
 
 export const builderItems = [
   { title: 'Template de Email', icon: Mail, href: '/dashboard/templates-email' },
-  { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates' },
   { title: 'Template de Documentos', icon: FileCode2, href: '/dashboard/templates-documentos' },
   { title: 'Variáveis de Template', icon: Braces, href: '/dashboard/templates-variaveis' },
 ]
@@ -491,18 +489,6 @@ export function AppSidebar() {
             pathname={pathname}
             hasPermission={() => true}
             pathPrefixes={['/dashboard/automacao']}
-          />
-        )}
-
-        {/* 9. Builder — admin only (Broker/CEO) */}
-        {isBroker() && (
-          <CollapsibleGroup
-            label="Builder"
-            icon={Blocks}
-            items={builderItems}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/templates-email', '/dashboard/processos/templates', '/dashboard/templates-documentos', '/dashboard/templates-variaveis']}
           />
         )}
 
