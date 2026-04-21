@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -27,7 +27,7 @@ interface Section {
 
 const SECTIONS: Section[] = [
   { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: ['/dashboard/calendario', '/dashboard/objetivos'] },
-  { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: ['/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos'] },
+  { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: ['/dashboard/comunicacao', '/dashboard/whatsapp', '/dashboard/email', '/dashboard/automacao/fluxos'] },
   { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: ['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos'] },
   { key: 'crm', label: 'CRM', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/crm', '/dashboard/leads', '/dashboard/acompanhamentos'] },
   { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: ['/dashboard/imoveis', '/dashboard/processos'] },
@@ -43,7 +43,9 @@ const SECTIONS: Section[] = [
 
 export function MobileBottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const rootRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
 
   // Publish the actual rendered nav height as a CSS variable so full-bleed
@@ -77,6 +79,9 @@ export function MobileBottomNav() {
   }, [pathname])
 
   const [selectedSectionKey, setSelectedSectionKey] = useState(currentSectionKey)
+  // `centeredKey` = whichever item is currently under the strip's center cursor
+  // (scroll-driven, pending). Commits to `selectedSectionKey` only on tap.
+  const [centeredKey, setCenteredKey] = useState(currentSectionKey)
 
   // Sync selected section when navigating
   useEffect(() => { setSelectedSectionKey(currentSectionKey) }, [currentSectionKey])
@@ -100,10 +105,46 @@ export function MobileBottomNav() {
     return bestIdx
   }, [pathname, currentSection])
 
-  const handleSectionSelect = useCallback((key: string) => {
-    setSelectedSectionKey(key)
-    setSectionPopupOpen(false)
-  }, [])
+  // On open: reset the centered cursor to the committed section and scroll it
+  // into the middle of the strip. Deps only on sectionPopupOpen so state
+  // updates during scroll don't re-trigger scrollIntoView.
+  useEffect(() => {
+    if (!sectionPopupOpen || !stripRef.current) return
+    setCenteredKey(selectedSectionKey)
+    const el = stripRef.current.querySelector<HTMLElement>(`[data-section-key="${selectedSectionKey}"]`)
+    if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionPopupOpen])
+
+  // Roulette cursor: debounced scroll handler updates `centeredKey` (pending
+  // highlight) once the strip settles. Commit happens on tap, not here.
+  useEffect(() => {
+    if (!sectionPopupOpen) return
+    const strip = stripRef.current
+    if (!strip) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const update = () => {
+      const rect = strip.getBoundingClientRect()
+      const center = rect.left + rect.width / 2
+      let closest: string | null = null
+      let min = Infinity
+      strip.querySelectorAll<HTMLElement>('[data-section-key]').forEach(btn => {
+        const r = btn.getBoundingClientRect()
+        const d = Math.abs(r.left + r.width / 2 - center)
+        if (d < min) { min = d; closest = btn.dataset.sectionKey || null }
+      })
+      if (closest) setCenteredKey(closest)
+    }
+    const onScroll = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(update, 80)
+    }
+    strip.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      strip.removeEventListener('scroll', onScroll)
+      if (timer) clearTimeout(timer)
+    }
+  }, [sectionPopupOpen])
 
   if (!pathname?.startsWith('/dashboard')) return null
 
@@ -115,38 +156,52 @@ export function MobileBottomNav() {
       ref={rootRef}
       className="fixed bottom-0 left-0 right-0 z-50 sm:hidden overflow-visible px-3 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-2"
     >
-      {/* Section picker popup */}
+      {/* Section picker — horizontal scrollable strip attached above the nav */}
       {sectionPopupOpen && (
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setSectionPopupOpen(false)} />
-          {/* Popup — matches the nav pill's glass-black + circle language */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-fit max-w-[calc(100%-1.5rem)] animate-in slide-in-from-bottom-4 fade-in duration-200">
-            <div className="bg-neutral-900/90 backdrop-blur-xl rounded-3xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] px-10 py-5 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-4 gap-x-12 gap-y-7">
+          {/* Strip — roulette: scroll to position, tap to commit */}
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 w-[288px] max-w-[calc(100%-1.5rem)] animate-in slide-in-from-bottom-4 fade-in duration-200">
+            <div className="bg-neutral-900/90 backdrop-blur-xl rounded-3xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] overflow-hidden">
+              <div
+                ref={stripRef}
+                className="flex gap-1.5 overflow-x-auto snap-x snap-mandatory py-2 [padding-inline:calc((100%-54px)/2)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_32px,black_calc(100%-32px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_32px,black_calc(100%-32px),transparent_100%)]"
+                style={{ scrollbarWidth: 'none' }}
+              >
                 {SECTIONS.map(s => {
                   const Icon = s.icon
-                  const isActive = s.key === selectedSectionKey
+                  const isSelected = s.key === selectedSectionKey
+                  const isCentered = s.key === centeredKey
                   return (
                     <button
                       key={s.key}
-                      onClick={() => handleSectionSelect(s.key)}
-                      className="flex flex-col items-center gap-2 transition-transform active:scale-95"
+                      data-section-key={s.key}
+                      onClick={() => {
+                        setSelectedSectionKey(s.key)
+                        setSectionPopupOpen(false)
+                        const href = s.items[0]?.href
+                        if (href) router.push(href)
+                      }}
+                      className="shrink-0 snap-center flex flex-col items-center gap-1 w-[54px] active:scale-95"
                     >
                       <div
                         className={cn(
-                          'h-11 w-11 rounded-full flex items-center justify-center transition-colors',
-                          isActive
-                            ? 'bg-white text-neutral-900 shadow-sm'
-                            : 'bg-white/20 text-white hover:bg-white/30',
+                          'h-9 w-9 rounded-full flex items-center justify-center transition-[transform,background-color,color,box-shadow] duration-200 ease-out',
+                          isCentered && 'scale-[1.15] shadow-[0_4px_14px_rgba(0,0,0,0.4)]',
+                          isSelected
+                            ? 'bg-white text-neutral-900'
+                            : isCentered
+                              ? 'bg-white/55 text-white'
+                              : 'bg-white/15 text-white/70',
                         )}
                       >
-                        <Icon className="h-[18px] w-[18px]" />
+                        <Icon className="h-4 w-4" />
                       </div>
                       <span
                         className={cn(
-                          'text-[10px] font-medium leading-tight text-center',
-                          isActive ? 'text-white' : 'text-white/85',
+                          'text-[10px] font-medium leading-tight text-center transition-[color,opacity] duration-200',
+                          isCentered ? 'text-white' : 'text-white/50',
                         )}
                       >
                         {s.label}
@@ -183,6 +238,7 @@ export function MobileBottomNav() {
                 href={item.href}
                 aria-label={item.title}
                 title={item.title}
+                onClick={() => setSectionPopupOpen(false)}
                 className={cn(
                   'inline-flex items-center justify-center gap-1.5 h-11 rounded-full text-xs font-medium whitespace-nowrap transition-all',
                   isActive
