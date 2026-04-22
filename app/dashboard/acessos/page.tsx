@@ -6,7 +6,8 @@ import {
   KeyRound, Building2, Link2, Globe, Sparkles, Copy, Check,
   ExternalLink, Phone, MapPin, Plus, Trash2, Search,
   MessageCircle, BarChart3, FileText,
-  Home, Users, Laptop, Loader2, UserCircle,
+  Home, Users, Laptop, Loader2, UserCircle, AlertTriangle,
+  MoreHorizontal, Pencil,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -22,8 +23,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { CustomSiteDialog } from '@/components/acessos/custom-site-dialog'
+import { useAcessosCustomSites } from '@/hooks/use-acessos-custom-sites'
+import type { HydratedAcessosCustomSite } from '@/types/acessos'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -103,15 +111,6 @@ const WEBSITES = {
     label: 'Casafari',
     links: [
       { title: 'Casafari', url: 'https://pt.casafari.com/login?next=%2Faccount%2Fstarting-page' },
-    ],
-  },
-  outros: {
-    label: 'Outros',
-    links: [
-      { title: 'ChatGPT', url: 'https://chat.openai.com' },
-      { title: 'Canva', url: 'https://www.canva.com' },
-      { title: 'WhatsApp Web', url: 'https://web.whatsapp.com' },
-      { title: 'Monday.com', url: 'https://monday.com' },
     ],
   },
 }
@@ -227,23 +226,56 @@ function IconActionButton({ href, icon: Icon, label }: { href: string; icon: typ
   )
 }
 
-function LinkCard({ title, url, icon: Icon = ExternalLink }: { title: string; url: string; icon?: typeof ExternalLink }) {
+function LinkCard({
+  title, url, icon: Icon = ExternalLink, actions, badge,
+}: {
+  title: string
+  url: string
+  icon?: typeof ExternalLink
+  actions?: React.ReactNode
+  badge?: React.ReactNode
+}) {
+  const hasTrailing = !!actions || !!badge
+  if (!hasTrailing) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center gap-3.5 rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm p-4 transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/50 hover:-translate-y-0.5"
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/30 group-hover:from-primary/10 group-hover:to-primary/5 transition-all">
+          <Icon className="size-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{title}</p>
+          <p className="text-[10px] text-muted-foreground/50 truncate mt-0.5">{url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>
+        </div>
+        <ExternalLink className="size-3.5 text-muted-foreground/20 group-hover:text-primary/50 transition-colors shrink-0" />
+      </a>
+    )
+  }
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-center gap-3.5 rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm p-4 transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/50 hover:-translate-y-0.5"
-    >
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/30 group-hover:from-primary/10 group-hover:to-primary/5 transition-all">
-        <Icon className="size-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
+    <div className="group relative flex items-center gap-3.5 rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm p-4 transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/50 hover:-translate-y-0.5">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3.5 flex-1 min-w-0"
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/30 group-hover:from-primary/10 group-hover:to-primary/5 transition-all">
+          <Icon className="size-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{title}</p>
+          <p className="text-[10px] text-muted-foreground/50 truncate mt-0.5">{url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>
+        </div>
+      </a>
+      <div className="flex items-center gap-2 shrink-0">
+        {badge}
+        {actions}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold truncate">{title}</p>
-        <p className="text-[10px] text-muted-foreground/50 truncate mt-0.5">{url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>
-      </div>
-      <ExternalLink className="size-3.5 text-muted-foreground/20 group-hover:text-primary/50 transition-colors shrink-0" />
-    </a>
+    </div>
   )
 }
 
@@ -422,38 +454,182 @@ function WebsitesContent() {
   const { copiedKey, copy } = useCopy()
   const [subTab, setSubTab] = useState<'microsir' | 'casafari' | 'outros'>('microsir')
 
-  const section = WEBSITES[subTab]
-
   return (
     <div className="space-y-5">
       <PillTabs tabs={SUB_TABS_WEBSITES} active={subTab} onChange={setSubTab} />
 
-      <div className="space-y-4">
-        {/* Credentials */}
-        {'login' in section && (
-          <GlassCard header="Credenciais de Acesso">
-            <div className="divide-y divide-border/30 px-5">
-              <InfoRow
-                label="Login"
-                value={(section as typeof WEBSITES.microsir).login}
-                copyKey={`${subTab}-login`} copiedKey={copiedKey} onCopy={copy}
-              />
-              <InfoRow
-                label="Password"
-                value={(section as typeof WEBSITES.microsir).password}
-                copyKey={`${subTab}-pass`} copiedKey={copiedKey} onCopy={copy}
-              />
-            </div>
-          </GlassCard>
-        )}
+      {subTab === 'outros' ? (
+        <OutrosContent />
+      ) : (
+        <div className="space-y-4">
+          {/* Credentials */}
+          {'login' in WEBSITES[subTab] && (
+            <GlassCard header="Credenciais de Acesso">
+              <div className="divide-y divide-border/30 px-5">
+                <InfoRow
+                  label="Login"
+                  value={(WEBSITES[subTab] as typeof WEBSITES.microsir).login}
+                  copyKey={`${subTab}-login`} copiedKey={copiedKey} onCopy={copy}
+                />
+                <InfoRow
+                  label="Password"
+                  value={(WEBSITES[subTab] as typeof WEBSITES.microsir).password}
+                  copyKey={`${subTab}-pass`} copiedKey={copiedKey} onCopy={copy}
+                />
+              </div>
+              {subTab === 'microsir' && (
+                <div className="mx-5 mb-5 mt-3 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>Faz logout do teu Maxwork e entra com as credenciais indicadas acima – Assistente.</span>
+                </div>
+              )}
+            </GlassCard>
+          )}
 
-        {/* Links */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {section.links.map((link) => (
-            <LinkCard key={link.title} title={link.title} url={link.url} />
-          ))}
+          {/* Links */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {WEBSITES[subTab].links.map((link) => (
+              <LinkCard key={link.title} title={link.title} url={link.url} />
+            ))}
+          </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Sub-tab: Outros (dynamic) ──────────────────────────
+
+function OutrosContent() {
+  const { sites, isLoading, canManageGlobal, refetch } = useAcessosCustomSites()
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<HydratedAcessosCustomSite | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<HydratedAcessosCustomSite | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/acessos/custom-sites/${deleteTarget.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Erro ao eliminar')
+      }
+      toast.success('Site eliminado')
+      setDeleteTarget(null)
+      await refetch()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao eliminar')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Button
+          size="sm"
+          onClick={() => { setEditing(null); setDialogOpen(true) }}
+          className="gap-1.5"
+        >
+          <Plus className="size-3.5" />
+          Adicionar site
+        </Button>
       </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        </div>
+      ) : sites.length === 0 ? (
+        <EmptyState
+          icon={Globe}
+          title="Sem sites"
+          description="Adiciona o teu primeiro site para o acessar rapidamente."
+          action={{
+            label: 'Adicionar site',
+            onClick: () => { setEditing(null); setDialogOpen(true) },
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {sites.map((site) => {
+            const systemBadge = site.is_system
+              ? <Badge variant="secondary" className="text-[10px]">Sistema</Badge>
+              : null
+            const showActions = site.can_edit || site.can_delete
+            const actions = showActions ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                    aria-label="Acções"
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {site.can_edit && (
+                    <DropdownMenuItem
+                      onClick={() => { setEditing(site); setDialogOpen(true) }}
+                    >
+                      <Pencil className="mr-2 size-3.5" /> Editar
+                    </DropdownMenuItem>
+                  )}
+                  {site.can_delete && (
+                    <DropdownMenuItem
+                      onClick={() => setDeleteTarget(site)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 size-3.5" /> Eliminar
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null
+            return (
+              <LinkCard
+                key={site.id}
+                title={site.title}
+                url={site.url}
+                badge={systemBadge}
+                actions={actions}
+              />
+            )
+          })}
+        </div>
+      )}
+
+      <CustomSiteDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialData={editing}
+        canManageGlobal={canManageGlobal}
+        onSaved={refetch}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar site</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar &quot;{deleteTarget?.title}&quot;? Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+              {deleting && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

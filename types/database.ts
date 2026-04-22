@@ -41,6 +41,66 @@ export type Database = {
         }
         Relationships: []
       }
+      acessos_custom_sites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          owner_id: string | null
+          scope: string
+          sort_order: number
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          owner_id?: string | null
+          scope: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          owner_id?: string | null
+          scope?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acessos_custom_sites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acessos_custom_sites_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_materials: {
         Row: {
           agent_id: string
@@ -107,6 +167,72 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_personal_designs: {
+        Row: {
+          agent_id: string
+          canva_url: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          sort_order: number
+          thumbnail_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          canva_url?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          sort_order?: number
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          canva_url?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          sort_order?: number
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_personal_designs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_personal_designs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_design_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -7780,10 +7906,61 @@ export type Database = {
           },
         ]
       }
+      marketing_design_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_design_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_design_templates: {
         Row: {
           canva_url: string | null
           category: string
+          category_id: string | null
           created_at: string
           description: string | null
           file_name: string | null
@@ -7801,6 +7978,7 @@ export type Database = {
         Insert: {
           canva_url?: string | null
           category: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           file_name?: string | null
@@ -7818,6 +7996,7 @@ export type Database = {
         Update: {
           canva_url?: string | null
           category?: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           file_name?: string | null
@@ -7833,6 +8012,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "marketing_design_templates_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_design_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "marketing_design_templates_uploaded_by_fkey"
             columns: ["uploaded_by"]
