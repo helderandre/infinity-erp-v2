@@ -28,6 +28,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TaskUploadAction } from './task-upload-action'
 import { SubtaskCardList } from './subtask-card-list'
 import { BatchDocumentUpload } from './batch-document-upload'
+import { DocumentsChecklistCard } from './documents-checklist-card'
+import { PropertyCmiReadiness } from '@/components/properties/property-cmi-readiness'
+import { ACQUISITION_STORE_DOCS_TPL_TASK_ID } from '@/lib/acquisitions/cmi-requirements'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -409,9 +412,45 @@ export function TaskDetailActions({
 
       case 'COMPOSITE':
       case 'FORM': {
+        // Task "Armazenar documentos" do template canónico de Angariações: usa a
+        // vista CMI (Imóvel + Proprietários, IA em massa) em vez das subtasks.
+        if (task.tpl_task_id === ACQUISITION_STORE_DOCS_TPL_TASK_ID) {
+          return <PropertyCmiReadiness propertyId={propertyId} processId={processId} />
+        }
+
+        const allSubtasks = task.subtasks || []
+        const allUploadSubtasks = allSubtasks.filter((s) => {
+          const config = s.config as Record<string, unknown>
+          const type = (config?.type as string) || ''
+          return type === 'upload' || config?.check_type === 'document'
+        })
+        const useChecklistView = allUploadSubtasks.length >= 2
+        const pendingUploadSubtasks = allUploadSubtasks.filter((s) => !s.is_completed)
+
+        const handleRevertSubtask = async (subtaskId: string) => {
+          try {
+            const res = await fetch(
+              `/api/processes/${processId}/tasks/${task.id}/subtasks/${subtaskId}`,
+              {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_completed: false }),
+              },
+            )
+            if (res.ok) {
+              toast.success('Subtarefa revertida')
+              onTaskUpdate()
+            } else {
+              toast.error('Erro ao reverter subtarefa')
+            }
+          } catch {
+            toast.error('Erro ao reverter subtarefa')
+          }
+        }
+
         return (
           <div className="space-y-3">
-            {task.subtasks && task.subtasks.length > 0 && (
+            {allSubtasks.length > 0 && (
               <SubtaskCardList
                 task={task as ProcessTask & { subtasks: ProcSubtask[] }}
                 processId={processId}
@@ -423,6 +462,7 @@ export function TaskDetailActions({
                 processDocuments={processDocuments}
                 deal={deal}
                 canDeleteAdhocSubtask={canManageAdhoc}
+                excludeUploadSubtasks={useChecklistView}
                 onSubtaskToggle={async (taskId, subtaskId, completed) => {
                   const res = await fetch(
                     `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtaskId}`,
@@ -438,24 +478,35 @@ export function TaskDetailActions({
                 onDeleteSubtask={(subtask) => setDeletingSubtask(subtask)}
               />
             )}
-            {/* Batch upload with AI classification */}
-            {!['completed', 'skipped'].includes(task.status ?? '') && (() => {
-              const uploadSubtasks = (task.subtasks || []).filter((s) => {
-                const config = s.config as Record<string, unknown>
-                const type = config?.type as string || ''
-                return (type === 'upload' || config?.check_type === 'document') && !s.is_completed
-              })
-              return uploadSubtasks.length > 0 ? (
+
+            {/* Checklist view — compact pills + AI drop-zone (primary UX for upload-heavy tasks) */}
+            {useChecklistView && !['completed', 'skipped'].includes(task.status ?? '') && (
+              <DocumentsChecklistCard
+                processId={processId}
+                taskId={task.id}
+                propertyId={propertyId}
+                uploadSubtasks={allUploadSubtasks}
+                existingDocs={processDocuments}
+                owners={owners}
+                mainOwnerId={task.owner_id || mainOwnerId}
+                onRevert={handleRevertSubtask}
+                onTaskUpdate={onTaskUpdate}
+              />
+            )}
+
+            {/* Legacy batch upload — shown only when the checklist view isn't active */}
+            {!useChecklistView &&
+              !['completed', 'skipped'].includes(task.status ?? '') &&
+              pendingUploadSubtasks.length > 0 && (
                 <BatchDocumentUpload
                   processId={processId}
                   taskId={task.id}
                   propertyId={propertyId}
-                  uploadSubtasks={uploadSubtasks}
+                  uploadSubtasks={pendingUploadSubtasks}
                   ownerId={task.owner_id || mainOwnerId}
                   onComplete={onTaskUpdate}
                 />
-              ) : null
-            })()}
+              )}
           </div>
         )
       }

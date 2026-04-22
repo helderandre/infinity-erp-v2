@@ -9,6 +9,7 @@ export type VoiceToolName =
   | 'create_reminder'
   | 'create_call_log'
   | 'create_visit'
+  | 'send_property'
   | 'search_document'
 
 export type VoiceConfidence = 'alta' | 'media' | 'baixa'
@@ -280,6 +281,33 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'send_property',
+      description:
+        'Enviar um imóvel (partilhar link do anúncio + mensagem) a um ou mais contactos por email e/ou WhatsApp. Usar para "enviar imóvel X ao João", "manda o apartamento da Rua Y à Maria por whatsapp", "partilhar esta casa com o Pedro e a Ana por email". O utilizador pode depois editar/escolher destinatários no ecrã de composição.',
+      parameters: withConfidence(
+        {
+          property_query: {
+            type: 'string',
+            description: 'Termo para encontrar o imóvel (título, referência, zona, cidade)',
+          },
+          contact_names: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Nomes dos contactos a quem enviar. Vazio se o utilizador não nomeou ninguém — o utilizador pode escolher no ecrã de composição.',
+          },
+          message: {
+            type: 'string',
+            description: 'Mensagem/intro personalizada (opcional)',
+          },
+        },
+        ['property_query']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_document',
       description:
         'Procurar documentos OU materiais de marketing/designs ("Os Meus Designs") por palavra-chave. Usar para "procurar documento", "buscar ficheiro", "encontrar contrato", "buscar flyer", "procurar design de venda", "material de marketing", etc.',
@@ -318,6 +346,11 @@ export function buildConfirmText(tool: string, args: Record<string, any>): strin
       return args.contact_name
         ? `Marcar visita com ${args.contact_name}`
         : 'Marcar visita'
+    case 'send_property': {
+      const names = Array.isArray(args.contact_names) ? args.contact_names : []
+      const to = names.length > 0 ? ` a ${names.join(', ')}` : ''
+      return args.property_query ? `Enviar imóvel "${args.property_query}"${to}` : 'Enviar imóvel'
+    }
     case 'search_document':
       return `Procurar documentos: "${args.query}"`
     default:

@@ -8,8 +8,7 @@ import type { DealFormData } from '@/lib/validations/deal'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { DialogHeader, DialogFooter, DialogTitle } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+import { DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Check, Save, X, AlertCircle, Sparkles } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
@@ -283,55 +282,51 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
     <Form {...(form as any)}>
       <form onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full overflow-hidden">
         <DealQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
-        {/* Header */}
-        <DialogHeader className="flex-shrink-0 border-b px-4 sm:px-6 py-3 sm:py-4">
+        {/* Dark header — matches lead-entry-dialog look */}
+        <div className="bg-neutral-900 rounded-t-2xl px-4 sm:px-5 py-3 sm:py-4 flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-base sm:text-lg font-semibold shrink min-w-0">
-              <span className="truncate block">{initialDraftId ? 'Retomar Fecho' : 'Fecho de Negócio'}</span>
-              {propertyContext && (
-                <span className="text-xs sm:text-sm font-normal text-muted-foreground truncate block">
-                  {propertyContext.external_ref || propertyContext.title}
-                </span>
-              )}
+            <DialogTitle asChild>
+              <div className="text-white text-sm sm:text-base font-medium shrink min-w-0">
+                <span className="truncate block">{initialDraftId ? 'Retomar Fecho' : 'Fecho de Negócio'}</span>
+                {propertyContext && (
+                  <span className="text-[11px] sm:text-xs font-normal text-white/60 truncate block">
+                    {propertyContext.external_ref || propertyContext.title}
+                  </span>
+                )}
+              </div>
             </DialogTitle>
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <Button
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-2 sm:px-3"
                 onClick={handleSaveDraft}
                 disabled={savingDraft || submitting}
+                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {savingDraft ? (
-                  <Spinner variant="infinite" size={14} className="sm:mr-1.5" />
+                  <Spinner variant="infinite" size={14} />
                 ) : (
-                  <Save className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <Save className="h-3.5 w-3.5" />
                 )}
                 <span className="hidden sm:inline">Guardar Rascunho</span>
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-2 sm:px-3"
                 onClick={() => setQuickFillOpen(true)}
+                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5"
               >
-                <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                <Sparkles className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Preencher com IA</span>
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
                 onClick={onClose}
+                className="h-8 w-8 rounded-full bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15 transition-colors flex items-center justify-center"
               >
                 <X className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
           </div>
-        </DialogHeader>
+        </div>
 
         {/* Content with Tabs */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -379,33 +374,33 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
         </div>
 
         {/* Footer */}
-        <DialogFooter className="flex-shrink-0 border-t px-4 sm:px-6 py-3 sm:py-4 !m-0 !rounded-none items-center">
-          <div className="flex items-center justify-end gap-2 sm:gap-3 w-full">
-            {missingCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700 border-0 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                {missingCount} campo{missingCount > 1 ? 's' : ''} em falta
-              </Badge>
+        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 flex items-center justify-end gap-2 sm:gap-3">
+          {missingCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
+              <AlertCircle className="h-3 w-3" />
+              {missingCount} campo{missingCount > 1 ? 's' : ''} em falta
+            </span>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="rounded-full text-xs h-8 px-4"
+          >
+            {submitting ? (
+              <>
+                <Spinner variant="infinite" size={14} className="mr-1.5" />
+                A submeter...
+              </>
+            ) : (
+              <>
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+                Submeter Fecho
+              </>
             )}
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Spinner variant="infinite" size={16} className="mr-2" />
-                  A submeter...
-                </>
-              ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Submeter Fecho
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogFooter>
+          </Button>
+        </div>
       </form>
     </Form>
   )

@@ -108,7 +108,7 @@ function DrillDownSheet({ config, open, onOpenChange }: {
           <div className="space-y-2">
             {items.map(item => (
               <button key={item.id} onClick={() => { onOpenChange(false); router.push(item.href) }}
-                className="w-full flex items-center gap-3 rounded-xl border border-white/50 dark:border-white/10 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-4 text-left hover:shadow-md hover:bg-card/80 transition-all group"
+                className="w-full flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4 text-left hover:shadow-md hover:border-neutral-300 dark:hover:border-white/20 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor,
     <Comp
       onClick={onClick}
       className={cn(
-        'relative rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-lg hover:shadow-black/[0.06] text-left w-full overflow-hidden',
+        'relative rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-md hover:border-neutral-300 dark:hover:border-white/20 text-left w-full overflow-hidden',
         onClick && 'cursor-pointer group'
       )}
     >
@@ -224,7 +224,7 @@ function MiniStat({ label, value, accent, onClick }: {
   if (onClick) {
     return (
       <button onClick={onClick}
-        className="flex items-center justify-between w-full text-left rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/5 px-3.5 py-2.5 mb-1.5 hover:shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-all group"
+        className="flex items-center justify-between w-full text-left rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 px-3.5 py-2.5 mb-1.5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors group"
       >
         <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
         <span className="flex items-center gap-1.5">
@@ -235,7 +235,7 @@ function MiniStat({ label, value, accent, onClick }: {
     )
   }
   return (
-    <div className="flex items-center justify-between rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/5 px-3.5 py-2.5 mb-1.5">
+    <div className="flex items-center justify-between rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 px-3.5 py-2.5 mb-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={cn('text-xs font-bold tabular-nums', accent)}>{value}</span>
     </div>
@@ -339,35 +339,9 @@ function ManagementDashboard() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
       <DrillDownSheet config={sheetConfig} open={sheetOpen} onOpenChange={setSheetOpen} />
 
-      {/* Hero — clean, large type */}
-      <div className="pt-2">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground capitalize mt-1">{today()}</p>
-          </div>
-          <div className="hidden md:flex items-center gap-4">
-            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] px-5 py-3 text-center">
-              <p className="text-xl font-bold text-emerald-600 tabular-nums">{fmt.format(rpt.reported_this_month)}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Este Mês</p>
-            </div>
-            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] px-5 py-3 text-center">
-              <p className="text-xl font-bold tabular-nums">{fmt.format(rpt.reported_this_year)}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Este Ano</p>
-            </div>
-            {urgentAlerts > 0 && (
-              <Badge variant="destructive" className="gap-1.5 rounded-full h-8 px-3">
-                <AlertCircle className="h-3.5 w-3.5" />
-                {urgentAlerts} alertas
-              </Badge>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Main Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] h-auto">
+        <TabsList className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm h-auto">
           {[
             { value: 'overview', label: 'Visão Geral', icon: Euro },
             { value: 'pipeline', label: 'Pipeline', icon: Handshake },
@@ -375,10 +349,16 @@ function ManagementDashboard() {
             { value: 'alerts', label: 'Alertas', icon: AlertTriangle, badge: urgentAlerts > 0 ? urgentAlerts : null },
           ].map(tab => (
             <TabsTrigger key={tab.value} value={tab.value}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-300 data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent hover:text-foreground border-0 flex-initial"
+              className={cn(
+                'group/tab inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300',
+                'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
+                'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
+                'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900',
+                'border-0 flex-initial'
+              )}
             >
-              <tab.icon className="h-3.5 w-3.5" />
-              {tab.label}
+              <tab.icon className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline group-data-[state=active]/tab:inline">{tab.label}</span>
               {tab.badge && <Badge variant="destructive" className="text-[9px] rounded-full px-1.5 ml-0.5 h-4 min-w-4">{tab.badge}</Badge>}
             </TabsTrigger>
           ))}
@@ -412,7 +392,7 @@ function ManagementDashboard() {
           {/* Chart + Angariações */}
           <div className="grid gap-4 lg:grid-cols-3">
             {/* Revenue Chart */}
-            <div className="lg:col-span-2 rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <div className="lg:col-span-2 rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">Evolução Mensal</h3>
@@ -475,7 +455,7 @@ function ManagementDashboard() {
             </div>
 
             {/* Angariações */}
-            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold">Angariações</h3>
                 <div className="rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums bg-neutral-100 dark:bg-white/10 text-foreground">
@@ -492,7 +472,7 @@ function ManagementDashboard() {
                   { label: 'Vendidas', value: acq.sold, fetcher: () => getDrillDownProperties({ status: 'sold' }) },
                 ].map(s => (
                   <button key={s.label} onClick={() => openDrillDown({ title: s.label, fetcher: s.fetcher })}
-                    className="rounded-xl p-3 text-center transition-all hover:shadow-md bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 group"
+                    className="rounded-xl p-3 text-center transition-all hover:shadow-md bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 group"
                   >
                     <p className="text-2xl font-bold tabular-nums">{s.value}</p>
                     <p className="text-[10px] text-muted-foreground font-medium">{s.label}</p>
@@ -514,7 +494,7 @@ function ManagementDashboard() {
 
           {/* Forecasts + Pending — side by side */}
           <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+          <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
             <h3 className="text-sm font-semibold mb-4">Previsões</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
@@ -529,7 +509,7 @@ function ManagementDashboard() {
                 const Comp = tile.onClick ? 'button' : 'div'
                 return (
                   <Comp key={tile.label} onClick={tile.onClick}
-                    className={cn('rounded-xl p-4 text-left transition-all bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5', tile.onClick && 'hover:shadow-md cursor-pointer group')}
+                    className={cn('rounded-xl p-4 text-left transition-all bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10', tile.onClick && 'hover:shadow-md cursor-pointer group')}
                   >
                     <p className="text-2xl font-bold tabular-nums tracking-tight">{tile.value}</p>
                     <p className="text-[10px] text-muted-foreground font-medium mt-1 leading-tight flex items-center justify-between">
@@ -543,13 +523,13 @@ function ManagementDashboard() {
           </div>
 
           {/* Valores Pendentes */}
-          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+          <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
             <h3 className="text-sm font-semibold mb-4">Valores Pendentes</h3>
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               {/* Por reportar */}
               <button onClick={() => openDrillDown({ title: 'Por Reportar', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
-                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-4 text-left hover:shadow-md transition-all group"
+                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 p-4 text-left hover:shadow-md transition-all group"
               >
                 <div className="flex items-center gap-2 mb-1">
                   {rpt.signed_pending > 0 && <span className="h-2 w-2 rounded-full bg-neutral-900 dark:bg-white animate-pulse" />}
@@ -565,7 +545,7 @@ function ManagementDashboard() {
 
               {/* Por receber */}
               <button onClick={() => openDrillDown({ title: 'Por Receber', fetcher: () => getDrillDownTransactions({ status: 'approved' }) })}
-                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5 p-4 text-left hover:shadow-md transition-all group"
+                className="rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 p-4 text-left hover:shadow-md transition-all group"
               >
                 <div className="flex items-center gap-2 mb-1">
                   {mg.pending_collection > 0 && <span className="h-2 w-2 rounded-full bg-neutral-900 dark:bg-white animate-pulse" />}
@@ -599,7 +579,7 @@ function ManagementDashboard() {
         {/* ═══ Tab: Pipeline ═══ */}
         <TabsContent value="pipeline" className="mt-6 space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
               <h3 className="text-sm font-semibold mb-1">Pipeline de Receita</h3>
               <p className="text-[11px] text-muted-foreground mb-4">Valor ponderado por fase × probabilidade</p>
               {pipeline.length === 0 ? (
@@ -630,7 +610,7 @@ function ManagementDashboard() {
                 </div>
               )}
             </div>
-            <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+            <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
               <h3 className="text-sm font-semibold mb-3">Previsões</h3>
               <MiniStat label="Facturação prevista" value={fmt.format(fc.expected_revenue)} />
               <MiniStat label="Margem prevista" value={fmt.format(fc.expected_margin)} />
@@ -648,7 +628,7 @@ function ManagementDashboard() {
           {/* Controls row */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Metric pills */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
               <button onClick={() => setRankingTab('revenue')}
                 className={cn('px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
                   rankingTab === 'revenue' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -662,7 +642,7 @@ function ManagementDashboard() {
             </div>
 
             {/* Period pills */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
               {([['ytd', 'Este Ano'], ['month', 'Este Mês'], ['custom', 'Personalizado']] as const).map(([val, label]) => (
                 <button key={val} onClick={() => setRankingPeriod(val)}
                   className={cn('px-3 py-1.5 rounded-full text-[10px] font-medium transition-colors duration-300',
@@ -685,7 +665,7 @@ function ManagementDashboard() {
 
           </div>
 
-          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
             {currentRankings.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground"><p className="text-sm">Sem dados disponíveis</p></div>
             ) : (
@@ -744,7 +724,7 @@ function ManagementDashboard() {
 
         {/* ═══ Tab: Alertas ═══ */}
         <TabsContent value="alerts" className="mt-6">
-          <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+          <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
             {alerts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <div className="rounded-full bg-emerald-500/10 p-4 mb-3"><TrendingUp className="h-6 w-6 text-emerald-500" /></div>
@@ -874,7 +854,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
         <KpiCard label="Objectivo Anual" value={fmt.format(data.annual_target)} icon={Target}
           iconBg="bg-neutral-100 dark:bg-white/10" iconColor="text-foreground"
         />
-        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4">
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4">
           <div className="relative h-14 w-14 shrink-0">
             <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90">
               <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-muted" />
@@ -895,7 +875,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       {/* Row 2: Properties + Objectives */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* My Properties */}
-        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Os Meus Imóveis</h3>
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -905,13 +885,13 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
               { label: 'Volume', value: fmtCompact.format(data.my_properties.volume), status: null },
             ].map(tile => tile.status ? (
               <button key={tile.label} onClick={() => openDrillDown({ title: `Os Meus Imóveis — ${tile.label}`, fetcher: () => getDrillDownProperties({ consultant_id: userId, status: tile.status }) })}
-                className="rounded-xl p-4 text-center transition-all hover:shadow-md cursor-pointer group bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5"
+                className="rounded-xl p-4 text-center transition-all hover:shadow-md cursor-pointer group bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10"
               >
                 <p className="text-2xl font-bold tabular-nums">{tile.value}</p>
                 <p className="text-[11px] text-muted-foreground">{tile.label}</p>
               </button>
             ) : (
-              <div key={tile.label} className="rounded-xl p-4 text-center bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-white/5">
+              <div key={tile.label} className="rounded-xl p-4 text-center bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
                 <p className="text-xl font-bold tabular-nums">{tile.value}</p>
                 <p className="text-[11px] text-muted-foreground">{tile.label}</p>
               </div>
@@ -920,7 +900,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
         </div>
 
         {/* Objectives */}
-        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Objectivos vs Realizado</h3>
           <div className="space-y-5">
             {[
@@ -959,7 +939,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       {/* Row 3: Actions + Comparison */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Actions */}
-        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Próximas Acções</h3>
           {data.upcoming_actions.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-muted-foreground">
@@ -993,7 +973,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
         </div>
 
         {/* Vs Average */}
-        <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
           <h3 className="text-sm font-semibold mb-4">Eu vs Média da Agência</h3>
           {data.vs_average.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Sem dados</p>
@@ -1020,7 +1000,7 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
       </div>
 
       {/* Row 4: Monthly Evolution */}
-      <div className="rounded-2xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold">Evolução Mensal</h3>

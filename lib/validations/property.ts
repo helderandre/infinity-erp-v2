@@ -73,6 +73,11 @@ export const propertyInternalSchema = z.object({
   condominium_fee: z.number().nonnegative().optional(),
   cpcv_percentage: z.number().min(0).max(100).default(0),
   reference_internal: z.string().optional(),
+  has_mortgage: z.boolean().nullable().optional(),
+  mortgage_owed: z.number().nonnegative().nullable().optional(),
+  use_license_number: z.string().nullable().optional(),
+  use_license_date: z.string().nullable().optional(),
+  use_license_issuer: z.string().nullable().optional(),
 })
 
 export const propertyMediaSchema = z.object({

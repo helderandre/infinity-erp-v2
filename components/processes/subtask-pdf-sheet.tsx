@@ -37,15 +37,21 @@ import type { TemplateVariable } from '@/hooks/use-template-variables'
 // ─── Types ───────────────────────────────────────────────────────
 
 interface SubtaskPdfSheetProps {
-  subtask: ProcSubtask
+  /** Subtask mode: when present, the sheet can save draft + complete. */
+  subtask?: ProcSubtask
   propertyId: string
-  processId: string
-  taskId: string
+  processId?: string
+  taskId?: string
   consultantId?: string
   open: boolean
   onOpenChange: (v: boolean) => void
-  onComplete: () => void
+  /** Called when the subtask is completed. Required in subtask mode. */
+  onComplete?: () => void
   onSaveDraft?: () => void
+  /** Preview mode: when `subtask` is absent, these props drive the sheet. */
+  docLibraryId?: string
+  ownerId?: string
+  previewTitle?: string
 }
 
 interface PdfFieldData {
@@ -177,7 +183,11 @@ export function SubtaskPdfSheet({
   onOpenChange,
   onComplete,
   onSaveDraft: onSaveDraftProp,
+  docLibraryId: docLibraryIdProp,
+  ownerId: ownerIdProp,
+  previewTitle,
 }: SubtaskPdfSheetProps) {
+  const isPreviewOnly = !subtask
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [templateName, setTemplateName] = useState('')
@@ -203,9 +213,11 @@ export function SubtaskPdfSheet({
 
   const { variables: templateVariables } = useTemplateVariables()
 
-  const docLibraryId = getDocLibraryId(subtask)
-  const ownerId = (subtask as unknown as { owner_id?: string }).owner_id
-  const isCompleted = subtask.is_completed
+  const docLibraryId = subtask ? getDocLibraryId(subtask) : docLibraryIdProp
+  const ownerId = subtask
+    ? (subtask as unknown as { owner_id?: string }).owner_id
+    : ownerIdProp
+  const isCompleted = subtask?.is_completed ?? false
   const pdfProxyUrl = docLibraryId ? `/api/libraries/docs/${docLibraryId}/pdf` : null
   const zoom = ZOOM_LEVELS[zoomIndex]
 
@@ -248,9 +260,11 @@ export function SubtaskPdfSheet({
       setResolvedVariables(vars)
 
       // Restore draft or pre-populate
-      const rendered = (subtask.config as Record<string, unknown>).rendered as
-        | { pdf_field_values?: Record<string, string> }
-        | undefined
+      const rendered = subtask
+        ? ((subtask.config as Record<string, unknown>).rendered as
+            | { pdf_field_values?: Record<string, string> }
+            | undefined)
+        : undefined
 
       if (rendered?.pdf_field_values) {
         setFieldValues(rendered.pdf_field_values)
@@ -272,7 +286,7 @@ export function SubtaskPdfSheet({
     } finally {
       setIsLoading(false)
     }
-  }, [docLibraryId, open, propertyId, ownerId, consultantId, processId, subtask.config])
+  }, [docLibraryId, open, propertyId, ownerId, consultantId, processId, subtask])
 
   useEffect(() => {
     if (open) {
@@ -383,6 +397,7 @@ export function SubtaskPdfSheet({
 
   // ─── Save draft ──────────────────────────────────────────────────
   const handleSaveDraft = async () => {
+    if (!subtask || !processId || !taskId) return
     setIsSaving(true)
     try {
       const res = await fetch(
@@ -496,6 +511,7 @@ export function SubtaskPdfSheet({
 
   // ─── Complete subtask ────────────────────────────────────────────
   const handleComplete = async () => {
+    if (!subtask || !processId || !taskId) return
     setIsCompleting(true)
     try {
       const res = await fetch(
@@ -518,7 +534,7 @@ export function SubtaskPdfSheet({
       )
       if (!res.ok) throw new Error('Erro ao concluir subtarefa')
       toast.success('Documento PDF concluído!')
-      onComplete()
+      onComplete?.()
       onOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao concluir')
@@ -528,7 +544,9 @@ export function SubtaskPdfSheet({
   }
 
   // ─── Render helpers ──────────────────────────────────────────────
-  const ownerInfo = (subtask as unknown as { owner?: { person_type?: string; name?: string } }).owner
+  const ownerInfo = subtask
+    ? (subtask as unknown as { owner?: { person_type?: string; name?: string } }).owner
+    : undefined
   const isPreview = activeTab === 'preview' || isCompleted
 
   // Page numbers array
@@ -549,7 +567,7 @@ export function SubtaskPdfSheet({
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-base leading-snug">
-                {templateName || 'Documento PDF'}
+                {previewTitle || templateName || 'Documento PDF'}
               </SheetTitle>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
@@ -796,7 +814,7 @@ export function SubtaskPdfSheet({
         )}
 
         {/* ─── Footer ──────────────────────────────────────── */}
-        {!isLoading && !error && !isCompleted && (
+        {!isLoading && !error && !isCompleted && !isPreviewOnly && (
           <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Button
@@ -830,11 +848,20 @@ export function SubtaskPdfSheet({
           </div>
         )}
 
-        {isCompleted && !isLoading && (
+        {(isCompleted || isPreviewOnly) && !isLoading && !error && (
           <div className="px-4 py-3 border-t shrink-0 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-emerald-600">
-              <CheckCircle2 className="h-4 w-4" />
-              Documento concluído.
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isCompleted ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-600">Documento concluído.</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  <span>Pré-visualização — altere os campos para testar</span>
+                </>
+              )}
             </div>
             <Button
               variant="outline" size="sm"

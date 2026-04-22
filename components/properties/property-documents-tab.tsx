@@ -41,6 +41,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/constants'
 import { toast } from 'sonner'
+import { PropertyCmiReadiness } from './property-cmi-readiness'
 
 interface PropertyDoc {
   id: string
@@ -82,13 +83,14 @@ const STATUS_STYLES: Record<ExpiryStatus, { dot: string; text: string; bg: strin
 }
 
 // ─── Tab definitions ─────────────────────────────────────────────
-type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario'
+type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi'
 
 const TABS: { key: DocTab; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'imovel', label: 'Imóvel' },
   { key: 'contratual', label: 'Contratual' },
   { key: 'proprietario', label: 'Proprietário' },
+  { key: 'cmi', label: 'CMI' },
 ]
 
 function tabFor(category: string | null | undefined): DocTab {
@@ -147,7 +149,7 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
 
   // Counts per tab
   const tabCounts = useMemo(() => {
-    const counts: Record<DocTab, number> = { todos: allDocs.length, imovel: 0, contratual: 0, proprietario: 0 }
+    const counts: Record<DocTab, number> = { todos: allDocs.length, imovel: 0, contratual: 0, proprietario: 0, cmi: 0 }
     for (const doc of allDocs) {
       const t = tabFor(doc.doc_type?.category)
       counts[t]++
@@ -538,18 +540,20 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
               )}
             >
               {tab.label}
-              <span className={cn(
-                'text-[9px] rounded-full px-1.5 py-0',
-                activeTab === tab.key ? 'bg-white/20 dark:bg-neutral-900/20' : 'bg-muted-foreground/10'
-              )}>
-                {tabCounts[tab.key]}
-              </span>
+              {tab.key !== 'cmi' && (
+                <span className={cn(
+                  'text-[9px] rounded-full px-1.5 py-0',
+                  activeTab === tab.key ? 'bg-white/20 dark:bg-neutral-900/20' : 'bg-muted-foreground/10'
+                )}>
+                  {tabCounts[tab.key]}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          {selectionMode ? (
+          {activeTab === 'cmi' ? null : selectionMode ? (
             <>
               <span className="text-xs text-muted-foreground">
                 {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
@@ -635,7 +639,11 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
         </div>
       </div>
 
+      {/* ─── CMI readiness panel ─── */}
+      {activeTab === 'cmi' && <PropertyCmiReadiness propertyId={propertyId} />}
+
       {/* ─── Two-column layout: alerts sidebar + docs list ─── */}
+      {activeTab !== 'cmi' && (
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
         {/* Alerts sidebar */}
         <aside className="space-y-3">
@@ -833,6 +841,7 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
         )}
         </div>
       </div>
+      )}
 
       {/* Preview modal — portal so it escapes any transformed ancestor */}
       {previewDoc && typeof window !== 'undefined' && createPortal(

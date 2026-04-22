@@ -38,6 +38,14 @@ export interface SubmitContext {
   userId?: string
 }
 
+export interface VoiceSearchRecipient {
+  id: string
+  nome: string
+  telemovel?: string
+  email?: string
+  nif?: string
+}
+
 export interface VoiceSearchResult {
   id: string
   title: string
@@ -47,7 +55,14 @@ export interface VoiceSearchResult {
   /** Small meta text (e.g. category, extension, date). */
   meta?: string
   /** Which source surfaced this result — used to tint/label the card. */
-  kind?: 'document' | 'design'
+  kind?: 'document' | 'design' | 'property'
+  /**
+   * Pre-resolved recipients to auto-fill the Compose panel. Populated by
+   * tools that captured names via voice (e.g. send_property).
+   */
+  initialRecipients?: VoiceSearchRecipient[]
+  /** Optional intro message captured by voice; used as default in Compose. */
+  defaultMessage?: string
 }
 
 export interface SubmitResult {
@@ -716,6 +731,128 @@ const createVisit: ToolConfig = {
   },
 }
 
+// ── Send property ────────────────────────────────────────────────────────
+//
+// Voice: "enviar imóvel T3 em Lisboa ao João Silva por email"
+//   → resolve property (first match) + resolve recipients (by name)
+//   → return as a VoiceSearchResult so the ResultsPanel shows the property
+//     card with Email / WhatsApp send buttons pre-wired.
+//   → ComposePanel opens with the resolved recipients pre-selected, default
+//     message already tailored for properties, and the public property link
+//     already in the body.
+
+const PUBLIC_WEBSITE_URL =
+  process.env.NEXT_PUBLIC_WEBSITE_URL?.replace(/\/+$/, '') || 'https://infinitygroup.pt'
+
+function buildPublicPropertyUrl(slug: string): string {
+  return `${PUBLIC_WEBSITE_URL}/property/${slug}`
+}
+
+const sendProperty: ToolConfig = {
+  title: 'Enviar imóvel',
+  submitLabel: 'Procurar e preparar envio',
+  fields: [
+    { key: 'property_query', label: 'Imóvel', required: true, placeholder: 'Título, referência, zona…' },
+    {
+      key: 'contact_names_text',
+      label: 'Destinatários',
+      placeholder: 'Nomes separados por vírgulas (opcional)',
+    },
+    { key: 'message', label: 'Mensagem', inputType: 'textarea' },
+  ],
+  submit: async (args) => {
+    const q = String(args.property_query ?? '').trim()
+    if (!q) throw new Error('Imóvel em falta')
+
+    const propsRes = await fetch(
+      `/api/properties?search=${encodeURIComponent(q)}&per_page=5`
+    )
+    if (!propsRes.ok) throw new Error('Falha ao procurar imóvel')
+    const pdata = await propsRes.json()
+    const plist: any[] = Array.isArray(pdata?.data) ? pdata.data : []
+    if (plist.length === 0) {
+      throw new Error(`Imóvel "${q}" não encontrado`)
+    }
+
+    // Resolve recipient names (accept either voice-provided array or a
+    // comma-separated string edited in the overlay).
+    const rawNames: string[] = Array.isArray(args.contact_names)
+      ? args.contact_names.map((n: unknown) => String(n).trim()).filter(Boolean)
+      : String(args.contact_names_text ?? '')
+          .split(/[,;]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+
+    const seen = new Set<string>()
+    const initialRecipients: VoiceSearchRecipient[] = []
+    for (const name of rawNames) {
+      try {
+        const r = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=3`)
+        if (!r.ok) continue
+        const d = await r.json()
+        const arr: any[] = Array.isArray(d) ? d : d?.data || []
+        const pick =
+          arr.find(
+            (l) => String(l.nome ?? '').trim().toLowerCase() === name.toLowerCase()
+          ) || arr[0]
+        if (pick && !seen.has(String(pick.id))) {
+          seen.add(String(pick.id))
+          initialRecipients.push({
+            id: String(pick.id),
+            nome: String(pick.nome ?? ''),
+            telemovel: pick.telemovel ? String(pick.telemovel) : undefined,
+            email: pick.email ? String(pick.email) : undefined,
+            nif: pick.nif ? String(pick.nif) : undefined,
+          })
+        }
+      } catch {
+        // ignore individual lookup failures
+      }
+    }
+
+    // Build a result card per property (top match + up to 3 alternatives).
+    const priceFmt = (v: unknown) => {
+      const n = Number(v)
+      if (isNaN(n)) return ''
+      return new Intl.NumberFormat('pt-PT', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 0,
+      }).format(n)
+    }
+
+    const results: VoiceSearchResult[] = plist.slice(0, 4).map((p: any, idx: number) => {
+      const slug = String(p.slug || p.id)
+      const url = buildPublicPropertyUrl(slug)
+      const metaParts = [
+        priceFmt(p.listing_price),
+        p.city || p.zone,
+        p.external_ref,
+      ].filter(Boolean)
+      return {
+        id: `property:${p.id}`,
+        title: String(p.title || 'Imóvel'),
+        subtitle: p.address_street ? String(p.address_street) : undefined,
+        url,
+        meta: metaParts.join(' · ') || undefined,
+        kind: 'property',
+        // Only the top match inherits the voice-resolved recipients and custom
+        // message — alternatives are just for picking a different property.
+        initialRecipients: idx === 0 ? initialRecipients : undefined,
+        defaultMessage:
+          idx === 0 && args.message
+            ? String(args.message).trim() || undefined
+            : undefined,
+      }
+    })
+
+    return {
+      results,
+      message: `${results.length} imóvel${results.length !== 1 ? 'is' : ''} encontrado${results.length !== 1 ? 's' : ''}`,
+    }
+  },
+}
+
 const searchDocument: ToolConfig = {
   title: 'Procurar documentos e designs',
   submitLabel: 'Procurar',
@@ -858,6 +995,7 @@ export const TOOL_CONFIGS: Record<VoiceToolName, ToolConfig> = {
   create_reminder: createReminder,
   create_call_log: createCallLog,
   create_visit: createVisit,
+  send_property: sendProperty,
   search_document: searchDocument,
 }
 

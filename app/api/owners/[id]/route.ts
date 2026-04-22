@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { ownerSchema } from '@/lib/validations/owner'
 import { requirePermission } from '@/lib/auth/permissions'
 
@@ -62,6 +63,61 @@ export async function GET(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     )
+  }
+}
+
+// Partial update — used by the CMI readiness inline edit dialog. Accepts
+// only the KYC columns the dialog touches, so downstream code is not
+// affected by the schema's full refine-rules.
+const partialOwnerSchema = z
+  .object({
+    naturality: z.string().nullable().optional(),
+    address: z.string().nullable().optional(),
+    marital_status: z.string().nullable().optional(),
+    marital_regime: z.string().nullable().optional(),
+  })
+  .strict()
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requirePermission('owners')
+    if (!auth.authorized) return auth.response
+
+    const { id } = await params
+    const supabase = await createClient()
+    const body = await request.json()
+    const validation = partialOwnerSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', details: validation.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const updates: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(validation.data)) {
+      updates[k] = v === '' ? null : v
+    }
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ ok: true, patched: [] })
+    }
+
+    const { error } = await supabase
+      .from('owners')
+      .update(updates)
+      .eq('id', id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, patched: Object.keys(updates) })
+  } catch (err: any) {
+    console.error('Erro em PATCH /api/owners/[id]:', err)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
 

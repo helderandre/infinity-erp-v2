@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       dev_consultant_profiles: 'user_id',
       dev_property_specifications: 'property_id',
       dev_property_internal: 'property_id',
+      dev_property_legal_data: 'property_id',
       dev_consultant_private_data: 'user_id',
     }
 

@@ -96,6 +96,11 @@ export default function EditarImovelPage() {
     imi_value: internal?.imi_value ?? '',
     condominium_fee: internal?.condominium_fee ?? '',
     cpcv_percentage: internal?.cpcv_percentage ?? '',
+    has_mortgage: (internal as any)?.has_mortgage ?? undefined,
+    mortgage_owed: (internal as any)?.mortgage_owed ?? '',
+    use_license_number: (internal as any)?.use_license_number || '',
+    use_license_date: (internal as any)?.use_license_date || '',
+    use_license_issuer: (internal as any)?.use_license_issuer || '',
   }
 
   async function handleSubmit(data: {

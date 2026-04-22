@@ -220,7 +220,7 @@ function FocusTaskCard({
   // across all three so non-active cards reserve their TRUE height in the carousel.
   const wrapperClass = cn(
     'relative w-full rounded-2xl shadow-sm flex flex-col transition-all',
-    isActive && 'border bg-card p-6',
+    isActive && 'border bg-card p-4 sm:p-6 overflow-hidden',
     isPast && 'border bg-muted/50 p-6 hover:bg-muted cursor-pointer',
     isFuture && 'bg-neutral-900 text-white/70 border border-neutral-800 p-6 hover:bg-neutral-800 cursor-pointer',
   )
@@ -316,7 +316,7 @@ function FocusTaskCard({
       )}
 
       {/* Subtasks / action surface — rendered inline as mini glass cards via TaskDetailActions */}
-      <div className="mt-5 dark rounded-xl bg-neutral-900 text-foreground p-3 sm:p-4">
+      <div className="task-action-surface mt-5 -mx-4 sm:mx-0 dark text-foreground py-3 px-0 sm:py-0 sm:px-0">
         <TaskDetailActions
           task={task}
           processId={instance.id}

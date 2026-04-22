@@ -19,6 +19,13 @@ const LEGAL_DATA_FIELDS = [
   'quota_parte',
 ] as const
 
+// Campos da licença de utilização que vão para dev_property_internal
+const LICENSE_FIELDS = [
+  'use_license_number',
+  'use_license_date',
+  'use_license_issuer',
+] as const
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
@@ -86,6 +93,11 @@ const EXTRACTION_SCHEMA = `{
     "contract_term": "string — prazo do contrato (ex: '6 meses')",
     "contract_expiry": "string — data de expiração YYYY-MM-DD"
   },
+  "license": {
+    "use_license_number": "string — Número da Licença de Utilização (ex: '125/2019')",
+    "use_license_date": "string — Data de emissão da licença (YYYY-MM-DD)",
+    "use_license_issuer": "string — Entidade emissora (ex: 'Câmara Municipal de Lisboa')"
+  },
   "legal_data": {
     "artigo_matricial": "string — Nº do artigo matricial da Caderneta Predial (ex: '4567')",
     "artigo_matricial_tipo": "string — 'urbano' | 'rustico' | 'misto'",
@@ -118,7 +130,7 @@ Regras importantes:
 - Contrato de Mediação (CMI): preço do imóvel (listing_price), tipo de negócio, comissão acordada (valor + tipo % ou fixo), regime contratual, prazo, data expiração, morada, proprietário com NIF
 - Cartão de Cidadão (CC): contém nome, NIF, data nascimento, número do doc, validade, nacionalidade
 - Certidão Permanente Empresa: contém nome empresa, NIPC, objecto social, sede, representante legal, CAE
-- Licença de Utilização: contém tipo de utilização do imóvel
+- Licença de Utilização: contém número da licença, data de emissão, entidade emissora (Câmara Municipal), tipo de utilização (habitação/comércio/serviços) — preenche "license" com estes dados
 
 - Se houver múltiplos proprietários, lista todos no array owners
 - Converte datas para formato YYYY-MM-DD
@@ -310,10 +322,56 @@ export async function POST(request: Request) {
       }
     }
 
+    // ── Persistência de license em dev_property_internal ──
+    let licenseSaved = false
+    let licenseFieldsSet = 0
+    if (propertyId && extracted?.license && typeof extracted.license === 'object') {
+      try {
+        const cleaned: Record<string, any> = {}
+        for (const key of LICENSE_FIELDS) {
+          const v = extracted.license[key]
+          if (v == null || v === '' || (typeof v === 'string' && v.trim() === '')) continue
+          cleaned[key] = typeof v === 'string' ? v.trim() : v
+        }
+        if (Object.keys(cleaned).length > 0) {
+          const supabase = await createClient() as any
+          const { data: existing } = await supabase
+            .from('dev_property_internal')
+            .select('use_license_number, use_license_date, use_license_issuer')
+            .eq('property_id', propertyId)
+            .maybeSingle()
+
+          // Merge — AI só sobrepõe campos em branco (padrão já usado no
+          // resto do sistema para extracções automáticas).
+          const merged: Record<string, any> = { property_id: propertyId }
+          for (const key of LICENSE_FIELDS) {
+            const current = existing?.[key]
+            if (current != null && current !== '') continue
+            if (cleaned[key] !== undefined) merged[key] = cleaned[key]
+          }
+          if (Object.keys(merged).length > 1) {
+            const { error: upsertErr } = await supabase
+              .from('dev_property_internal')
+              .upsert(merged, { onConflict: 'property_id' })
+            if (!upsertErr) {
+              licenseSaved = true
+              licenseFieldsSet = Object.keys(merged).length - 1
+            } else {
+              console.error('[extract] Erro ao gravar license:', upsertErr)
+            }
+          }
+        }
+      } catch (licErr) {
+        console.error('[extract] Erro a processar license:', licErr)
+      }
+    }
+
     return NextResponse.json({
       data: extracted,
       legal_data_saved: legalDataSaved,
       legal_data_fields_set: legalDataFieldsSet,
+      license_saved: licenseSaved,
+      license_fields_set: licenseFieldsSet,
     })
   } catch (error) {
     console.error('Erro ao extrair dados:', error)

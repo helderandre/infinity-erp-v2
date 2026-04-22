@@ -445,3 +445,12 @@ body[data-document-selection-active='true'] {
     display: none;
   }
 }
+
+/* Task action surface: forces descendant glass cards to render solid dark
+ * so each rounded card reads as its own "black card" instead of leaning on
+ * a visible dark wrapper backdrop. */
+.task-action-surface .bg-card\/50 {
+  background-color: rgb(23 23 23); /* neutral-900 */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

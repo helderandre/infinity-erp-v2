@@ -47,6 +47,8 @@ interface SubtaskCardListProps {
   processDocuments?: ProcessDocument[]
   deal?: (Deal & { deal_clients?: DealClient[]; deal_payments?: DealPayment[] }) | null
   canDeleteAdhocSubtask?: boolean
+  /** Skip upload subtasks — useful when a parent view (e.g. DocumentsChecklistCard) already renders them */
+  excludeUploadSubtasks?: boolean
   onSubtaskToggle: (taskId: string, subtaskId: string, completed: boolean) => Promise<void>
   onTaskUpdate: () => void
   onDeleteSubtask?: (subtask: ProcSubtask) => void
@@ -63,6 +65,7 @@ export function SubtaskCardList({
   processDocuments = [],
   deal,
   canDeleteAdhocSubtask,
+  excludeUploadSubtasks = false,
   onSubtaskToggle,
   onTaskUpdate,
   onDeleteSubtask,
@@ -79,21 +82,6 @@ export function SubtaskCardList({
   const [isCompletingExternalForm, setIsCompletingExternalForm] = useState(false)
   const [openWhatsAppSubtask, setOpenWhatsAppSubtask] = useState<ProcSubtask | null>(null)
 
-  const subtasks = task.subtasks || []
-  const completedCount = subtasks.filter(s => s.is_completed).length
-  const totalCount = subtasks.length
-  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
-
-  // Empty state
-  if (subtasks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <ClipboardList className="h-8 w-8 text-muted-foreground/40 mb-3" />
-        <p className="text-sm text-muted-foreground">Sem subtarefas definidas.</p>
-      </div>
-    )
-  }
-
   const getSubtaskType = (subtask: ProcSubtask): string => {
     const config = subtask.config || {} as Record<string, unknown>
     if (config.type) return config.type as string
@@ -101,6 +89,25 @@ export function SubtaskCardList({
     if (config.check_type === 'document') return 'upload'
     if (config.check_type === 'field') return 'checklist'
     return 'checklist'
+  }
+
+  const rawSubtasks = task.subtasks || []
+  const subtasks = excludeUploadSubtasks
+    ? rawSubtasks.filter((s) => getSubtaskType(s) !== 'upload')
+    : rawSubtasks
+  const completedCount = subtasks.filter(s => s.is_completed).length
+  const totalCount = subtasks.length
+  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+
+  // Empty state — render nothing when upload subtasks are excluded and no other subtasks remain
+  if (subtasks.length === 0) {
+    if (excludeUploadSubtasks) return null
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <ClipboardList className="h-8 w-8 text-muted-foreground/40 mb-3" />
+        <p className="text-sm text-muted-foreground">Sem subtarefas definidas.</p>
+      </div>
+    )
   }
 
   const handleRevert = async (subtaskId: string) => {

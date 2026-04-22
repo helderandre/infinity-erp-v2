@@ -94,6 +94,11 @@ const formSchema = propertySchema.extend({
   imi_value: z.coerce.number().nonnegative().optional().or(z.literal('')),
   condominium_fee: z.coerce.number().nonnegative().optional().or(z.literal('')),
   cpcv_percentage: z.coerce.number().min(0).max(100).optional().or(z.literal('')),
+  has_mortgage: z.boolean().optional(),
+  mortgage_owed: z.coerce.number().nonnegative().optional().or(z.literal('')),
+  use_license_number: z.string().optional(),
+  use_license_date: z.string().optional(),
+  use_license_issuer: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -189,6 +194,8 @@ export function PropertyForm({
       storage_area, balcony_area, pool_area, attic_area, pantry_area, gym_area,
       internal_notes, commission_agreed, commission_type, contract_term,
       contract_expiry, imi_value, condominium_fee, cpcv_percentage,
+      has_mortgage, mortgage_owed,
+      use_license_number, use_license_date, use_license_issuer,
       ...propertyData
     } = values
 
@@ -229,6 +236,15 @@ export function PropertyForm({
     const imiN = cleanNumber(imi_value); if (imiN !== undefined) internal.imi_value = imiN
     const condoN = cleanNumber(condominium_fee); if (condoN !== undefined) internal.condominium_fee = condoN
     const cpcvN = cleanNumber(cpcv_percentage); if (cpcvN !== undefined) internal.cpcv_percentage = cpcvN
+    if (has_mortgage !== undefined) (internal as any).has_mortgage = has_mortgage
+    if (!has_mortgage) {
+      (internal as any).mortgage_owed = null
+    } else {
+      const mortN = cleanNumber(mortgage_owed); if (mortN !== undefined) (internal as any).mortgage_owed = mortN
+    }
+    if (use_license_number !== undefined) (internal as any).use_license_number = use_license_number || null
+    if (use_license_date !== undefined) (internal as any).use_license_date = use_license_date || null
+    if (use_license_issuer !== undefined) (internal as any).use_license_issuer = use_license_issuer || null
 
     await onSubmit({ property, specifications, internal })
   }
@@ -599,6 +615,84 @@ export function PropertyForm({
                     <FormMessage />
                   </FormItem>
                 )} />
+              </div>
+
+              {/* Licença de Utilização */}
+              <div className="rounded-xl border p-4 space-y-4">
+                <h4 className="text-sm font-semibold">Licença de Utilização</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormField control={form.control} name="use_license_number" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex.: 125/2019" {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="use_license_date" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data de emissão</FormLabel>
+                      <FormControl>
+                        <MaskInput
+                          mask={datePTMask}
+                          placeholder="DD/MM/AAAA"
+                          value={field.value ? isoToDatePT(field.value) : ''}
+                          onValueChange={(_masked, unmasked) => {
+                            if (unmasked.length === 8) field.onChange(datePTtoISO(unmasked))
+                            else field.onChange(unmasked ? unmasked : '')
+                          }}
+                          onBlur={field.onBlur}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="use_license_issuer" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Entidade emissora</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Câmara Municipal de..." {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+
+              {/* Hipoteca */}
+              <div className="rounded-xl border p-4 space-y-4">
+                <FormField control={form.control} name="has_mortgage" render={({ field }) => (
+                  <FormItem className="flex items-center gap-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={!!field.value}
+                        onCheckedChange={(v) => field.onChange(v === true)}
+                      />
+                    </FormControl>
+                    <FormLabel className="m-0 cursor-pointer">Existe hipoteca sobre o imóvel</FormLabel>
+                  </FormItem>
+                )} />
+
+                {form.watch('has_mortgage') && (
+                  <FormField control={form.control} name="mortgage_owed" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor aproximado em dívida (EUR)</FormLabel>
+                      <FormControl>
+                        <MaskInput
+                          mask="currency"
+                          currency="EUR"
+                          locale="pt-PT"
+                          placeholder="0,00 €"
+                          value={field.value != null ? String(field.value) : ''}
+                          onValueChange={(_masked, unmasked) => { field.onChange(unmasked ? Number(unmasked) : undefined) }}
+                          onBlur={field.onBlur}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                )}
               </div>
 
               <FormField control={form.control} name="internal_notes" render={({ field }) => (

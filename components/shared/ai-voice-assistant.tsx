@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { AlertCircle, ArrowLeft, Check, ChevronDown, ExternalLink, FileText, Image as ImageIcon, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Trash2, User, UserCheck, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Building2, Check, ChevronDown, ExternalLink, FileText, Image as ImageIcon, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Trash2, User, UserCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -933,7 +933,12 @@ function ResultCard({
   variant: 'featured' | 'compact'
   onSend: (r: VoiceSearchResult, channel: 'email' | 'whatsapp') => void
 }) {
-  const Icon = result.kind === 'design' ? ImageIcon : FileText
+  const Icon =
+    result.kind === 'property'
+      ? Building2
+      : result.kind === 'design'
+        ? ImageIcon
+        : FileText
 
   if (variant === 'compact') {
     return (
@@ -1038,13 +1043,16 @@ function ComposePanel({
   onBack: () => void
   onSent: () => void
 }) {
-  const [recipients, setRecipients] = useState<ContactMatch[]>([])
+  const initialRecipients = (result.initialRecipients ?? []) as ContactMatch[]
+  const [recipients, setRecipients] = useState<ContactMatch[]>(initialRecipients)
   const [recipientQuery, setRecipientQuery] = useState('')
   const [matches, setMatches] = useState<ContactMatch[]>([])
   const [searching, setSearching] = useState(false)
   const [defaultContacts, setDefaultContacts] = useState<ContactMatch[]>([])
   const [subject, setSubject] = useState(result.title)
-  const [message, setMessage] = useState(defaultMessage(result, channel))
+  const [message, setMessage] = useState(
+    result.defaultMessage || defaultMessage(result, channel)
+  )
   const [sending, setSending] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
 
@@ -1528,6 +1536,13 @@ function VoiceMicButton({
 }
 
 function defaultMessage(result: VoiceSearchResult, channel: 'email' | 'whatsapp'): string {
+  if (result.kind === 'property') {
+    const metaLine = result.meta ? `\n${result.meta}` : ''
+    if (channel === 'email') {
+      return `Olá,\n\nPartilho contigo um imóvel que pode interessar:\n\n${result.title}${metaLine}\n\nVê aqui: ${result.url}\n\nCumprimentos`
+    }
+    return `Olá! Partilho este imóvel:\n${result.title}${metaLine}\n${result.url}`
+  }
   if (channel === 'email') {
     return `Olá,\n\nSegue o ficheiro que pediste: "${result.title}".\n\n${result.url}\n\nCumprimentos`
   }
