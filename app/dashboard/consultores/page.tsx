@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,18 +31,25 @@ import {
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
-import { CONSULTANT_ROLES } from '@/lib/auth/roles'
+import { classifyMember } from '@/lib/auth/roles'
 import type { ConsultantWithProfile } from '@/types/consultant'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 50
 
 const TABS = [
-  { key: 'consultores' as const, label: 'Consultores', icon: Users },
+  { key: 'equipa' as const, label: 'Equipa', icon: Users },
+  { key: 'consultores' as const, label: 'Consultores', icon: UserCircle },
   { key: 'staff' as const, label: 'Staff', icon: Briefcase },
 ]
 
 type TabKey = (typeof TABS)[number]['key']
+
+const DEFAULT_ROLE_BY_TAB: Record<TabKey, string | undefined> = {
+  equipa: undefined,
+  consultores: 'Consultor',
+  staff: 'Staff',
+}
 
 export default function ConsultoresPage() {
   return (
@@ -54,7 +61,7 @@ export default function ConsultoresPage() {
 
 function ConsultoresPageSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[1600px] mx-auto space-y-6">
       <Skeleton className="h-40 w-full rounded-xl" />
       <Skeleton className="h-10 w-64 rounded-full" />
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
@@ -68,7 +75,7 @@ function ConsultoresPageSkeleton() {
 
 function ConsultoresPageContent() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabKey>('consultores')
+  const [activeTab, setActiveTab] = useState<TabKey>('equipa')
 
   const [consultants, setConsultants] = useState<ConsultantWithProfile[]>([])
   const [total, setTotal] = useState(0)
@@ -78,9 +85,25 @@ function ConsultoresPageContent() {
   const [createOpen, setCreateOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
 
-  // Staff state
-  const [staffMembers, setStaffMembers] = useState<ConsultantWithProfile[]>([])
-  const [isLoadingStaff, setIsLoadingStaff] = useState(true)
+  // Equipa + Staff derived state (single fetch of all members)
+  const [allMembers, setAllMembers] = useState<ConsultantWithProfile[]>([])
+  const [isLoadingAll, setIsLoadingAll] = useState(true)
+
+  const consultantMembers = useMemo(
+    () =>
+      allMembers.filter((m) =>
+        m.user_roles?.some((ur) => classifyMember(ur.roles?.name) === 'consultor')
+      ),
+    [allMembers]
+  )
+
+  const staffMembers = useMemo(
+    () =>
+      allMembers.filter((m) =>
+        m.user_roles?.some((ur) => classifyMember(ur.roles?.name) === 'staff')
+      ),
+    [allMembers]
+  )
 
   // Filters
   const [search, setSearch] = useState('')
@@ -123,12 +146,10 @@ function ConsultoresPageContent() {
       if (res.ok) {
         const data = await res.json()
         setRoles(
-          (data || [])
-            .filter((r: { name: string }) => (CONSULTANT_ROLES as readonly string[]).includes(r.name))
-            .map((r: { id: string; name: string }) => ({
-              id: r.id,
-              name: r.name,
-            }))
+          (data || []).map((r: { id: string; name: string }) => ({
+            id: r.id,
+            name: r.name,
+          }))
         )
       }
     } catch {
@@ -136,26 +157,23 @@ function ConsultoresPageContent() {
     }
   }, [])
 
-  const loadStaff = useCallback(async () => {
-    setIsLoadingStaff(true)
+  const loadAllMembers = useCallback(async () => {
+    setIsLoadingAll(true)
     try {
       const res = await fetch('/api/consultants?consultant_only=false&status=active&per_page=100')
-      if (!res.ok) throw new Error('Erro ao carregar staff')
+      if (!res.ok) throw new Error('Erro ao carregar equipa')
       const data = await res.json()
-      const all: ConsultantWithProfile[] = data.data || []
-      setStaffMembers(all.filter((u) =>
-        !u.user_roles?.some((ur: any) => (CONSULTANT_ROLES as readonly string[]).includes(ur.roles?.name))
-      ))
+      setAllMembers((data.data || []) as ConsultantWithProfile[])
     } catch {
-      setStaffMembers([])
+      setAllMembers([])
     } finally {
-      setIsLoadingStaff(false)
+      setIsLoadingAll(false)
     }
   }, [])
 
   useEffect(() => { loadConsultants() }, [loadConsultants])
   useEffect(() => { loadRoles() }, [loadRoles])
-  useEffect(() => { loadStaff() }, [loadStaff])
+  useEffect(() => { loadAllMembers() }, [loadAllMembers])
   useEffect(() => { setPage(0) }, [debouncedSearch, status, role])
 
   const clearFilters = () => {
@@ -171,7 +189,7 @@ function ConsultoresPageContent() {
     name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <div>
+    <div className="w-full max-w-[1600px] mx-auto">
       {/* ─── Pill Toggle + Actions ─── */}
       <div className="flex items-center justify-between gap-1.5 sm:gap-3 flex-nowrap">
         <div className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm shrink-0">
@@ -197,8 +215,8 @@ function ConsultoresPageContent() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* View toggle — only for consultores tab */}
-          {activeTab === 'consultores' && (
+          {/* View toggle — visible for equipa + consultores */}
+          {(activeTab === 'equipa' || activeTab === 'consultores') && (
             <div className="inline-flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-full bg-muted/30 backdrop-blur-sm">
               <button
                 onClick={() => setViewMode('grid')}
@@ -238,11 +256,11 @@ function ConsultoresPageContent() {
           <button
             onClick={() => setCreateOpen(true)}
             className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium transition-colors hover:opacity-90"
-            aria-label="Novo Consultor"
-            title="Novo Consultor"
+            aria-label="Novo Membro"
+            title="Novo Membro"
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">Novo Consultor</span>
+            <span className="hidden sm:inline">Novo Membro</span>
           </button>
         </div>
       </div>
@@ -250,6 +268,139 @@ function ConsultoresPageContent() {
       {/* ─── Content ─── */}
       <div className="mt-3 sm:mt-6 pb-6">
         <div key={activeTab} className="animate-in fade-in duration-300">
+
+          {/* ═══════ EQUIPA TAB ═══════ */}
+          {activeTab === 'equipa' && (
+            <div className="space-y-3 sm:space-y-5">
+              {isLoadingAll ? (
+                viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                      <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                    ))}
+                  </div>
+                )
+              ) : allMembers.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="Nenhum membro encontrado"
+                  description="Comece por adicionar o primeiro membro à equipa"
+                  action={{ label: 'Novo Membro', onClick: () => setCreateOpen(true) }}
+                />
+              ) : (() => {
+                const sortedMembers = [...allMembers].sort((a, b) =>
+                  a.commercial_name.localeCompare(b.commercial_name)
+                )
+                const renderMemberCard = (member: ConsultantWithProfile) => {
+                  const roleName = member.user_roles?.[0]?.roles?.name
+                  return (
+                    <div key={member.id} className="relative h-full">
+                      <ConsultantCard
+                        consultant={member}
+                        onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                      />
+                      {roleName && (
+                        <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
+                          {roleName}
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                }
+
+                if (viewMode === 'grid') {
+                  return (
+                    <>
+                      {/* Mobile: horizontal swipe carousel */}
+                      <div className="sm:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2 scrollbar-hide">
+                        {sortedMembers.map((member) => (
+                          <div key={`eq-m-${member.id}`} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
+                            {renderMemberCard(member)}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Desktop: grid */}
+                      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        {sortedMembers.map(renderMemberCard)}
+                      </div>
+                    </>
+                  )
+                }
+
+                return (
+                  <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[50px]" />
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Nome</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Email</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Telemóvel</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Função</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedMembers.map((member) => {
+                          const profile = member.dev_consultant_profiles
+                          const roleName = member.user_roles?.[0]?.roles?.name
+                          return (
+                            <TableRow
+                              key={member.id}
+                              className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
+                              onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                            >
+                              <TableCell>
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={profile?.profile_photo_url || undefined} />
+                                  <AvatarFallback className="text-xs bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-600 dark:to-neutral-700">
+                                    {getInitials(member.commercial_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">{member.commercial_name}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {member.professional_email || '—'}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {profile?.phone_commercial || '—'}
+                              </TableCell>
+                              <TableCell>
+                                {roleName ? (
+                                  <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 bg-muted/50">
+                                    {roleName}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {member.is_active ? (
+                                  <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                                    Ativo
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
+                                    Inativo
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
 
           {/* ═══════ CONSULTORES TAB ═══════ */}
           {activeTab === 'consultores' && (
@@ -293,7 +444,7 @@ function ConsultoresPageContent() {
                   }
                   action={
                     !hasActiveFilters
-                      ? { label: 'Novo Consultor', onClick: () => router.push('/dashboard/consultores/novo') }
+                      ? { label: 'Novo Membro', onClick: () => setCreateOpen(true) }
                       : undefined
                   }
                 />
@@ -428,7 +579,7 @@ function ConsultoresPageContent() {
           {/* ═══════ STAFF TAB ═══════ */}
           {activeTab === 'staff' && (
             <div className="space-y-5">
-              {isLoadingStaff ? (
+              {isLoadingAll ? (
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                   {[1, 2, 3, 4].map((i) => (
                     <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
@@ -489,8 +640,15 @@ function ConsultoresPageContent() {
       {/* Create Consultant Dialog */}
       <CreateConsultantDialog
         open={createOpen}
-        onOpenChange={(open) => { setCreateOpen(open); if (!open) loadConsultants() }}
+        onOpenChange={(open) => {
+          setCreateOpen(open)
+          if (!open) {
+            loadConsultants()
+            loadAllMembers()
+          }
+        }}
         roles={roles}
+        defaultRoleName={DEFAULT_ROLE_BY_TAB[activeTab]}
       />
       <CsvExportDialog
         open={exportOpen}

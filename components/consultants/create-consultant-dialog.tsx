@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -34,9 +34,11 @@ interface CreateConsultantDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   roles: { id: string; name: string }[]
+  /** Pré-selecciona um role pelo nome quando a lista carrega (sem erro se não existir). */
+  defaultRoleName?: string
 }
 
-export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateConsultantDialogProps) {
+export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleName }: CreateConsultantDialogProps) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -70,6 +72,23 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
   })
 
   const update = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }))
+
+  // Pré-selecciona o role sugerido pela tab de origem quando a lista de roles chega
+  // ou quando defaultRoleName muda. Não sobrepõe selecções manuais do utilizador.
+  useEffect(() => {
+    if (!defaultRoleName || roles.length === 0) return
+    const match = roles.find(r => r.name === defaultRoleName)
+    if (!match) return
+    setForm(f => (f.role_id ? f : { ...f, role_id: match.id }))
+  }, [defaultRoleName, roles])
+
+  // Reset ao fechar para que a próxima abertura apanhe o novo defaultRoleName da tab actual
+  useEffect(() => {
+    if (!open) {
+      setStep(0)
+      setForm(f => ({ ...f, role_id: '' }))
+    }
+  }, [open])
 
   const toggleArray = (field: 'specializations' | 'languages', item: string) => {
     setForm(f => ({
@@ -124,15 +143,15 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Erro ao criar consultor')
+        throw new Error(err.error || 'Erro ao criar membro')
       }
 
       const { id } = await res.json()
-      toast.success('Consultor criado com sucesso')
+      toast.success('Membro criado com sucesso')
       onOpenChange(false)
       router.push(`/dashboard/consultores/${id}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar consultor')
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar membro')
     } finally {
       setSubmitting(false)
     }
@@ -142,7 +161,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0">
+      <DialogContent className="max-w-lg rounded-2xl p-0 sm:p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0">
         {/* Header */}
         <div className="shrink-0 bg-neutral-900 px-6 py-5">
           <div className="flex items-center gap-3">
@@ -150,7 +169,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
               {(() => { const Icon = STEPS[step].icon; return <Icon className="h-5 w-5 text-white" /> })()}
             </div>
             <div>
-              <h3 className="text-white font-semibold">Novo Consultor</h3>
+              <h3 className="text-white font-semibold">Novo Membro</h3>
               <p className="text-neutral-400 text-xs mt-0.5">{STEPS[step].label}</p>
             </div>
           </div>
@@ -170,7 +189,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
         </div>
 
         {/* Content — scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5">
           {/* Step 0: Credentials */}
           {step === 0 && (
             <>
@@ -327,7 +346,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 px-6 pb-5 pt-3 border-t flex items-center justify-between gap-3">
+        <div className="shrink-0 px-6 py-4 border-t flex items-center justify-between gap-3">
           {step > 0 ? (
             <Button variant="outline" className="rounded-full" onClick={() => setStep(s => s - 1)}>
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
@@ -342,7 +361,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles }: CreateCons
           {isLast ? (
             <Button className="rounded-full" onClick={handleSubmit} disabled={submitting}>
               {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
-              Criar Consultor
+              Criar Membro
             </Button>
           ) : (
             <Button className="rounded-full" onClick={() => setStep(s => s + 1)} disabled={!canNext()}>

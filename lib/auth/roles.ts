@@ -13,7 +13,31 @@ export const PROCESS_MANAGER_ROLES = ['Broker/CEO', 'Gestor Processual', 'admin'
 export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
 
 /** Roles consideradas "consultores" (não back-office/admin) */
-export const CONSULTANT_ROLES = ['Consultor', 'Consultora Executiva', 'Team Leader'] as const
+export const CONSULTANT_ROLE_NAMES = ['Consultor', 'Consultora Executiva', 'Team Leader'] as const
+
+/** Alias histórico de CONSULTANT_ROLE_NAMES. Mantido para não quebrar imports existentes. */
+export const CONSULTANT_ROLES = CONSULTANT_ROLE_NAMES
+
+/** Roles consideradas "staff" interno (back-office, gestão, marketing). */
+export const STAFF_ROLE_NAMES = [
+  'Office Manager',
+  'Gestor Processual',
+  'Gestora Processual', // alias defensivo caso coexista outra grafia
+  'Marketing',
+  'Recrutador',
+  'Intermediário de Crédito',
+  'Staff',
+] as const
+
+/** Classifica um role pelo bucket da UI de Equipa. */
+export function classifyMember(
+  roleName: string | null | undefined
+): 'consultor' | 'staff' | 'other' {
+  if (!roleName) return 'other'
+  if ((CONSULTANT_ROLE_NAMES as readonly string[]).includes(roleName)) return 'consultor'
+  if ((STAFF_ROLE_NAMES as readonly string[]).includes(roleName)) return 'staff'
+  return 'other'
+}
 
 /** Roles que podem ser responsáveis por um imóvel ou processo (consultores + brokers) */
 export const PROPERTY_RESPONSIBLE_ROLES = [
@@ -46,7 +70,8 @@ export const ROLE_GROUPS = {
   admin: ADMIN_ROLES,
   processManager: PROCESS_MANAGER_ROLES,
   adhocTask: ADHOC_TASK_ROLES,
-  consultant: CONSULTANT_ROLES,
+  consultant: CONSULTANT_ROLE_NAMES,
+  staff: STAFF_ROLE_NAMES,
   approverNotification: APPROVER_NOTIFICATION_ROLES,
   emailAdmin: EMAIL_ADMIN_ROLES,
   whatsappAdmin: WHATSAPP_ADMIN_ROLES,
