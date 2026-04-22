@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { useUser } from '@/hooks/use-user'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -21,13 +19,41 @@ import {
   Search, Download, Eye, Upload, FileText, File, FileImage,
   FileSpreadsheet, Loader2, Trash2, MoreHorizontal, Pencil,
   FolderOpen, Library, Blocks, Check, ChevronRight, ChevronLeft,
-  Filter,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+  CompanyCategoriesProvider,
+  useCompanyCategories,
+} from '@/components/documents/company-categories-provider'
+import { CompanyCategorySelect } from '@/components/documents/company-category-select'
+import { CompanyCategoryAddButton } from '@/components/documents/company-category-add-button'
+import { CompanyCategoryFormDialog } from '@/components/documents/company-category-form-dialog'
+import { CompanyCategoryDeleteDialog } from '@/components/documents/company-category-delete-dialog'
+import { CompanyCategorySectionHeader } from '@/components/documents/company-category-section-header'
+import type { CompanyDocumentCategory } from '@/hooks/use-company-document-categories'
+
+import {
+  MarketingDesignCategoriesProvider,
+  useMarketingDesignCategoriesContext,
+} from '@/components/marketing/design-categories/marketing-design-categories-provider'
+import { MarketingDesignCategorySelect } from '@/components/marketing/design-categories/marketing-design-category-select'
+import { MarketingDesignCategoryAddButton } from '@/components/marketing/design-categories/marketing-design-category-add-button'
+import { MarketingDesignCategoryFormDialog } from '@/components/marketing/design-categories/marketing-design-category-form-dialog'
+import { MarketingDesignCategoryDeleteDialog } from '@/components/marketing/design-categories/marketing-design-category-delete-dialog'
+import { MarketingDesignCategorySectionHeader } from '@/components/marketing/design-categories/marketing-design-category-section-header'
+import type { MarketingDesignCategory } from '@/hooks/use-marketing-design-categories'
+import { KIT_CATEGORY_TO_DESIGN_SLUG } from '@/lib/marketing/kit-category-map'
+import {
+  usePersonalDesigns,
+  type PersonalDesign as PersonalDesignType,
+} from '@/hooks/use-personal-designs'
+import { PersonalDesignCard } from '@/components/marketing/personal-design-card'
+import { PersonalDesignFormDialog } from '@/components/marketing/personal-design-form-dialog'
+import { PersonalDesignPreviewDialog } from '@/components/marketing/personal-design-preview-dialog'
 
 // ─── Types ───
 
@@ -44,21 +70,6 @@ interface CompanyDocument {
   download_count: number
   created_at: string
   uploaded_by_user: { commercial_name: string } | null
-}
-
-
-// ─── Constants ───
-
-const CATEGORIES: Record<string, string> = {
-  angariacao: 'Angariação',
-  institucional: 'Institucionais',
-  cliente: 'Cliente',
-  contratos: 'Contratos',
-  kyc: 'KYC',
-  fiscal: 'Fiscal',
-  marketing: 'Marketing',
-  formacao: 'Formação',
-  outro: 'Outros',
 }
 
 const FILE_ICONS: Record<string, typeof FileText> = {
@@ -102,6 +113,14 @@ async function downloadFile(url: string, filename: string) {
 type Tab = 'documentos' | 'templates'
 
 export default function BibliotecaPage() {
+  return (
+    <CompanyCategoriesProvider>
+      <BibliotecaPageContent />
+    </CompanyCategoriesProvider>
+  )
+}
+
+function BibliotecaPageContent() {
   const [tab, setTab] = useState<Tab>('documentos')
 
   const tabs: { key: Tab; label: string; icon: typeof Library }[] = [
@@ -142,7 +161,11 @@ export default function BibliotecaPage() {
 
       {/* Tab Content */}
       {tab === 'documentos' && <DocumentosTab />}
-      {tab === 'templates' && <MarketingTemplatesTab />}
+      {tab === 'templates' && (
+        <MarketingDesignCategoriesProvider>
+          <MarketingTemplatesTab />
+        </MarketingDesignCategoriesProvider>
+      )}
     </div>
   )
 }
@@ -150,6 +173,7 @@ export default function BibliotecaPage() {
 // ─── Documentos Tab ───
 
 function DocumentosTab() {
+  const { getLabel, getCategory, activeCategories } = useCompanyCategories()
   const [documents, setDocuments] = useState<CompanyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -167,6 +191,27 @@ function DocumentosTab() {
   const [uploading, setUploading] = useState(false)
   const [uploadFiles, setUploadFiles] = useState<{ file: File; name: string }[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Category management UI state
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false)
+  const [categoryToEdit, setCategoryToEdit] = useState<CompanyDocumentCategory | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<CompanyDocumentCategory | null>(null)
+  /**
+   * After the create-category dialog resolves, the new slug is assigned to
+   * this ref target so we know whether to auto-select it in the filter or in
+   * the upload dialog. `null` = no pending target.
+   */
+  const [pendingCategoryTarget, setPendingCategoryTarget] = useState<
+    'filter' | 'upload' | 'edit' | null
+  >(null)
+
+  // Keep uploadCategory in sync with the first available active category
+  useEffect(() => {
+    if (activeCategories.length === 0) return
+    if (!activeCategories.some((c) => c.slug === uploadCategory)) {
+      setUploadCategory(activeCategories[0].slug)
+    }
+  }, [activeCategories, uploadCategory])
 
   const fetchDocuments = useCallback(async () => {
     setLoading(true)
@@ -283,17 +328,19 @@ function DocumentosTab() {
             className="pl-9 rounded-full"
           />
         </div>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[200px] rounded-full">
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {Object.entries(CATEGORIES).map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CompanyCategorySelect
+          value={category}
+          onValueChange={setCategory}
+          includeAllOption
+          triggerClassName="w-[200px]"
+        />
+        <CompanyCategoryAddButton
+          onClick={() => {
+            setCategoryToEdit(null)
+            setPendingCategoryTarget('filter')
+            setCategoryFormOpen(true)
+          }}
+        />
         <Button className="rounded-full gap-2" onClick={() => setUploadOpen(true)}>
           <Upload className="h-4 w-4" />
           Carregar
@@ -330,10 +377,22 @@ function DocumentosTab() {
           {(category === 'all' ? Object.entries(grouped) : [[category, documents]]).map(([cat, docs]) => (
             <div key={cat}>
               {category === 'all' && (
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {CATEGORIES[cat] || cat}
-                  <span className="ml-1.5 text-muted-foreground/60">({(docs as CompanyDocument[]).length})</span>
-                </h3>
+                <CompanyCategorySectionHeader
+                  slug={cat as string}
+                  label={getLabel(cat as string)}
+                  count={(docs as CompanyDocument[]).length}
+                  category={getCategory(cat as string)}
+                  onEdit={(c) => {
+                    setCategoryToEdit(c)
+                    setPendingCategoryTarget(null)
+                    setCategoryFormOpen(true)
+                  }}
+                  onDelete={(c) => setCategoryToDelete(c)}
+                  onAddDocument={(c) => {
+                    setUploadCategory(c.slug)
+                    setUploadOpen(true)
+                  }}
+                />
               )}
               <div className="rounded-xl border overflow-hidden divide-y">
                 {(docs as CompanyDocument[]).map((doc) => {
@@ -410,7 +469,7 @@ function DocumentosTab() {
                 <div>
                   <p className="text-sm font-medium">{previewDoc.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {CATEGORIES[previewDoc.category] || previewDoc.category}
+                    {getLabel(previewDoc.category)}
                     {previewDoc.file_size && ` · ${formatFileSize(previewDoc.file_size)}`}
                   </p>
                 </div>
@@ -433,14 +492,22 @@ function DocumentosTab() {
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Categoria</label>
-              <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CATEGORIES).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <CompanyCategorySelect
+                    value={uploadCategory}
+                    onValueChange={setUploadCategory}
+                  />
+                </div>
+                <CompanyCategoryAddButton
+                  onClick={() => {
+                    setCategoryToEdit(null)
+                    setPendingCategoryTarget('upload')
+                    setCategoryFormOpen(true)
+                  }}
+                  label="Nova"
+                />
+              </div>
             </div>
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" className="hidden"
               onChange={(e) => {
@@ -499,14 +566,22 @@ function DocumentosTab() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Categoria</label>
-              <Select value={editCategory} onValueChange={setEditCategory}>
-                <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CATEGORIES).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <CompanyCategorySelect
+                    value={editCategory}
+                    onValueChange={setEditCategory}
+                  />
+                </div>
+                <CompanyCategoryAddButton
+                  onClick={() => {
+                    setCategoryToEdit(null)
+                    setPendingCategoryTarget('edit')
+                    setCategoryFormOpen(true)
+                  }}
+                  label="Nova"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Ficheiro</label>
@@ -564,6 +639,44 @@ function DocumentosTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Create/Edit Dialog */}
+      <CompanyCategoryFormDialog
+        open={categoryFormOpen}
+        onOpenChange={(next) => {
+          setCategoryFormOpen(next)
+          if (!next) {
+            setCategoryToEdit(null)
+            setPendingCategoryTarget(null)
+          }
+        }}
+        category={categoryToEdit}
+        onSaved={(slug) => {
+          if (pendingCategoryTarget === 'filter') {
+            setCategory(slug)
+          } else if (pendingCategoryTarget === 'upload') {
+            setUploadCategory(slug)
+          } else if (pendingCategoryTarget === 'edit') {
+            setEditCategory(slug)
+          }
+          setPendingCategoryTarget(null)
+          fetchDocuments()
+        }}
+      />
+
+      {/* Category Delete Dialog */}
+      <CompanyCategoryDeleteDialog
+        open={!!categoryToDelete}
+        onOpenChange={(next) => !next && setCategoryToDelete(null)}
+        category={categoryToDelete}
+        onDeleted={() => {
+          // If we were filtering by the just-deleted category, reset
+          if (categoryToDelete && category === categoryToDelete.slug) {
+            setCategory('all')
+          }
+          fetchDocuments()
+        }}
+      />
     </>
   )
 }
@@ -582,27 +695,10 @@ interface DesignTemplate {
   sort_order: number
 }
 
-const DESIGN_CATEGORIES: Record<string, string> = {
-  placas: 'Placas',
-  cartoes: 'Cartões',
-  badges: 'Badges',
-  assinaturas: 'Assinaturas',
-  relatorios: 'Relatórios',
-  estudos: 'Estudos de Mercado',
-  redes_sociais: 'Redes Sociais',
-  outro: 'Outros',
-}
-
-const DESIGN_CATEGORY_ICONS: Record<string, string> = {
-  placas: '🪧',
-  cartoes: '💳',
-  badges: '🏷️',
-  assinaturas: '✉️',
-  relatorios: '📊',
-  estudos: '📈',
-  redes_sociais: '📱',
-  outro: '📁',
-}
+// Emoji fallback used only when a template row has no thumbnail — resolved
+// lazily from the dynamic category label when available, otherwise shows a
+// generic icon. The hardcoded DESIGN_CATEGORIES / DESIGN_CATEGORY_ICONS maps
+// were removed in favour of `marketing_design_categories` (dynamic).
 
 function MarketingTemplatesTab() {
   const [subTab, setSubTab] = useState<'personal' | 'team'>('personal')
@@ -657,6 +753,8 @@ const EMPTY_TEAM_DESIGN: TeamDesignFormState = {
 }
 
 function TeamDesignsTab() {
+  const { activeCategories, getLabel, getCategory } =
+    useMarketingDesignCategoriesContext()
   const [templates, setTemplates] = useState<DesignTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -667,6 +765,22 @@ function TeamDesignsTab() {
   const [thumbUploading, setThumbUploading] = useState(false)
   const [deleteDesign, setDeleteDesign] = useState<DesignTemplate | null>(null)
   const thumbInputRef = useRef<HTMLInputElement>(null)
+
+  // Category management dialogs
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false)
+  const [categoryToEdit, setCategoryToEdit] = useState<MarketingDesignCategory | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<MarketingDesignCategory | null>(null)
+  const [pendingCategoryTarget, setPendingCategoryTarget] = useState<
+    'filter' | 'form' | null
+  >(null)
+
+  // Default the form category to the first active category once loaded
+  useEffect(() => {
+    if (activeCategories.length === 0) return
+    if (!activeCategories.some((c) => c.slug === form.category)) {
+      setForm((p) => ({ ...p, category: activeCategories[0].slug }))
+    }
+  }, [activeCategories, form.category])
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true)
@@ -793,24 +907,26 @@ function TeamDesignsTab() {
             className="pl-9 rounded-full"
           />
         </div>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger
-            className={cn(
-              'rounded-full shrink-0 w-9 h-9 px-0 justify-center sm:w-[200px] sm:h-auto sm:px-3 sm:justify-between',
-              '[&>svg:last-child]:hidden sm:[&>svg:last-child]:block',
-              '[&>span[data-slot=select-value]]:hidden sm:[&>span[data-slot=select-value]]:flex'
-            )}
-          >
-            <Filter className="h-4 w-4 sm:hidden" />
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {Object.entries(DESIGN_CATEGORIES).map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div
+          className={cn(
+            'shrink-0',
+            '[&_button[data-slot=select-trigger]]:w-9 [&_button[data-slot=select-trigger]]:h-9 [&_button[data-slot=select-trigger]]:px-0 [&_button[data-slot=select-trigger]]:justify-center',
+            'sm:[&_button[data-slot=select-trigger]]:w-[200px] sm:[&_button[data-slot=select-trigger]]:h-auto sm:[&_button[data-slot=select-trigger]]:px-3 sm:[&_button[data-slot=select-trigger]]:justify-between'
+          )}
+        >
+          <MarketingDesignCategorySelect
+            value={category}
+            onValueChange={setCategory}
+            includeAllOption
+          />
+        </div>
+        <MarketingDesignCategoryAddButton
+          onClick={() => {
+            setCategoryToEdit(null)
+            setPendingCategoryTarget('filter')
+            setCategoryFormOpen(true)
+          }}
+        />
         <Button
           className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
           onClick={openCreate}
@@ -845,9 +961,22 @@ function TeamDesignsTab() {
         <div className="space-y-6">
           {Object.entries(grouped).map(([cat, items]) => (
             <div key={cat} className="space-y-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {DESIGN_CATEGORIES[cat] || cat}
-              </h3>
+              <MarketingDesignCategorySectionHeader
+                slug={cat}
+                label={getLabel(cat)}
+                count={(items as DesignTemplate[]).length}
+                category={getCategory(cat)}
+                onEdit={(c) => {
+                  setCategoryToEdit(c)
+                  setPendingCategoryTarget(null)
+                  setCategoryFormOpen(true)
+                }}
+                onDelete={(c) => setCategoryToDelete(c)}
+                onAddDesign={(c) => {
+                  setForm({ ...EMPTY_TEAM_DESIGN, category: c.slug })
+                  setFormOpen(true)
+                }}
+              />
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {items.map((t) => (
                   <div
@@ -871,7 +1000,7 @@ function TeamDesignsTab() {
                         </div>
                       ) : (
                         <div className="aspect-[4/3] bg-muted/40 flex items-center justify-center">
-                          <span className="text-3xl">{DESIGN_CATEGORY_ICONS[t.category] || '📁'}</span>
+                          <span className="text-3xl">📁</span>
                         </div>
                       )}
                       <div className="p-2.5">
@@ -923,14 +1052,24 @@ function TeamDesignsTab() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Categoria</label>
-              <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
-                <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(DESIGN_CATEGORIES).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <MarketingDesignCategorySelect
+                    value={form.category}
+                    onValueChange={(v) =>
+                      setForm((p) => ({ ...p, category: v }))
+                    }
+                  />
+                </div>
+                <MarketingDesignCategoryAddButton
+                  onClick={() => {
+                    setCategoryToEdit(null)
+                    setPendingCategoryTarget('form')
+                    setCategoryFormOpen(true)
+                  }}
+                  label="Nova"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Link Canva</label>
@@ -1012,6 +1151,41 @@ function TeamDesignsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Create/Edit Dialog */}
+      <MarketingDesignCategoryFormDialog
+        open={categoryFormOpen}
+        onOpenChange={(next) => {
+          setCategoryFormOpen(next)
+          if (!next) {
+            setCategoryToEdit(null)
+            setPendingCategoryTarget(null)
+          }
+        }}
+        category={categoryToEdit}
+        onSaved={(slug) => {
+          if (pendingCategoryTarget === 'filter') {
+            setCategory(slug)
+          } else if (pendingCategoryTarget === 'form') {
+            setForm((p) => ({ ...p, category: slug }))
+          }
+          setPendingCategoryTarget(null)
+          fetchTemplates()
+        }}
+      />
+
+      {/* Category Delete Dialog */}
+      <MarketingDesignCategoryDeleteDialog
+        open={!!categoryToDelete}
+        onOpenChange={(next) => !next && setCategoryToDelete(null)}
+        category={categoryToDelete}
+        onDeleted={() => {
+          if (categoryToDelete && category === categoryToDelete.slug) {
+            setCategory('all')
+          }
+          fetchTemplates()
+        }}
+      />
     </>
   )
 }
@@ -1047,10 +1221,24 @@ const KIT_CATEGORY_LABELS: Record<string, string> = {
 function KitConsultorTab() {
   const { user } = useUser()
   const userId = user?.id || null
+  const { activeCategories, getCategory } = useMarketingDesignCategoriesContext()
   const [items, setItems] = useState<AgentMaterial[]>([])
   const [loading, setLoading] = useState(true)
   const [previewItem, setPreviewItem] = useState<AgentMaterial | null>(null)
   const [previewPageIdx, setPreviewPageIdx] = useState(0)
+
+  // Personal designs — merged inline with kit items
+  const personal = usePersonalDesigns(userId)
+
+  // Filter / dialog state for the unified view
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [personalFormOpen, setPersonalFormOpen] = useState(false)
+  const [personalFormDesign, setPersonalFormDesign] = useState<PersonalDesignType | null>(null)
+  const [personalFormCategoryDefault, setPersonalFormCategoryDefault] = useState<string | undefined>()
+  const [personalPreview, setPersonalPreview] = useState<PersonalDesignType | null>(null)
+  const [personalDeleteTarget, setPersonalDeleteTarget] = useState<PersonalDesignType | null>(null)
+  const [categoryDialogOpenFromKit, setCategoryDialogOpenFromKit] = useState(false)
 
   const fetchMaterials = useCallback(async () => {
     if (!userId) return
@@ -1076,6 +1264,92 @@ function KitConsultorTab() {
   const totalCount = items.length
   const progressPct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0
 
+  // Merge kit items + personal designs, grouped by dynamic design-category slug.
+  // Kit items resolve via KIT_CATEGORY_TO_DESIGN_SLUG (fallback `outro`).
+  const activeSlugSet = new Set(activeCategories.map((c) => c.slug))
+
+  const resolveKitSlug = (kitCategory: string): string => {
+    const raw = KIT_CATEGORY_TO_DESIGN_SLUG[
+      kitCategory as keyof typeof KIT_CATEGORY_TO_DESIGN_SLUG
+    ] as string | undefined
+    return raw && activeSlugSet.has(raw) ? raw : 'outro'
+  }
+
+  const searchQ = search.trim().toLowerCase()
+  const matchesSearch = (name: string) =>
+    !searchQ || name.toLowerCase().includes(searchQ)
+  const matchesFilter = (slug: string) =>
+    categoryFilter === 'all' || categoryFilter === slug
+
+  const mergedGroups = (() => {
+    const map = new Map<
+      string,
+      { kit: AgentMaterial[]; personal: PersonalDesignType[] }
+    >()
+    const ensure = (slug: string) => {
+      if (!map.has(slug)) map.set(slug, { kit: [], personal: [] })
+      return map.get(slug)!
+    }
+
+    for (const item of items) {
+      const slug = resolveKitSlug(item.template.category)
+      if (!matchesFilter(slug)) continue
+      if (!matchesSearch(item.template.name)) continue
+      ensure(slug).kit.push(item)
+    }
+    for (const d of personal.items) {
+      const slug = d.category?.slug ?? 'outro'
+      const effective = activeSlugSet.has(slug) ? slug : 'outro'
+      if (!matchesFilter(effective)) continue
+      if (!matchesSearch(d.name)) continue
+      ensure(effective).personal.push(d)
+    }
+
+    const ordered: {
+      slug: string
+      kit: AgentMaterial[]
+      personal: PersonalDesignType[]
+    }[] = []
+    for (const cat of activeCategories) {
+      const g = map.get(cat.slug)
+      if (g && (g.kit.length > 0 || g.personal.length > 0)) {
+        ordered.push({ slug: cat.slug, ...g })
+      }
+    }
+    for (const [slug, g] of map.entries()) {
+      if (!ordered.some((o) => o.slug === slug)) {
+        ordered.push({ slug, ...g })
+      }
+    }
+    return ordered
+  })()
+
+  const hasAnything = items.length > 0 || personal.items.length > 0
+  const hasAnythingAfterFilter = mergedGroups.some(
+    (g) => g.kit.length > 0 || g.personal.length > 0
+  )
+
+  const openPersonalCreate = (slug?: string) => {
+    setPersonalFormDesign(null)
+    setPersonalFormCategoryDefault(slug)
+    setPersonalFormOpen(true)
+  }
+  const openPersonalEdit = (d: PersonalDesignType) => {
+    setPersonalFormDesign(d)
+    setPersonalFormCategoryDefault(undefined)
+    setPersonalFormOpen(true)
+  }
+  const handlePersonalDelete = async () => {
+    if (!personalDeleteTarget) return
+    try {
+      await personal.deleteDesign(personalDeleteTarget.id)
+      toast.success('Design eliminado')
+      setPersonalDeleteTarget(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao eliminar design')
+    }
+  }
+
   const handleDownloadAll = async () => {
     const allPages = items.flatMap(i => i.pages.filter(p => p.file_url))
     if (allPages.length === 0) { toast.error('Nenhum material disponível'); return }
@@ -1094,7 +1368,7 @@ function KitConsultorTab() {
   const previewPage = previewItem?.pages[previewPageIdx] || null
   const previewTotalPages = previewItem?.pages.length || 0
 
-  if (loading || !userId) {
+  if (loading || personal.loading || !userId) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-16 rounded-2xl" />
@@ -1107,86 +1381,219 @@ function KitConsultorTab() {
     )
   }
 
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={Blocks}
-        title="Sem materiais"
-        description="O teu kit de marketing ainda não foi criado. Contacta o departamento de marketing."
-      />
-    )
-  }
-
   return (
     <>
-      {/* Progress */}
-      <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-semibold text-sm">O Meu Kit</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {readyCount} de {totalCount} materiais prontos
-            </p>
-          </div>
-          {readyCount > 0 && (
-            <Button variant="outline" size="sm" className="rounded-full gap-2 text-xs" onClick={handleDownloadAll}>
-              <Download className="h-3.5 w-3.5" />Descarregar Todos
-            </Button>
-          )}
-        </div>
-        <Progress value={progressPct} className="h-2" />
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-muted-foreground">{progressPct}% completo</span>
-          {readyCount === totalCount && totalCount > 0 && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-[10px]"><Check className="h-3 w-3 mr-1" />Kit Completo</Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Materials — continuous grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-        {items.map(({ template, pages }) => {
-          const hasPages = pages.length > 0
-          const cover = pages[0]
-
-          return (
-            <div
-              key={template.id}
-              className={cn(
-                'rounded-lg border p-2 space-y-1.5 transition-all',
-                hasPages ? 'bg-card/50 border-border cursor-pointer hover:shadow-sm' : 'bg-muted/10 border-dashed opacity-60'
-              )}
-              onClick={() => { if (hasPages) { setPreviewItem({ template, pages }); setPreviewPageIdx(0) } }}
-            >
-              {hasPages && cover ? (
-                <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-muted">
-                  <img src={cover.thumbnail_url || cover.file_url || ''} alt={template.name} className="w-full h-full object-cover" />
-                  {pages.length > 1 && (
-                    <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">{pages.length} pág.</span>
-                  )}
-                </div>
-              ) : (
-                <div className="aspect-[4/3] rounded-md bg-muted/30 flex items-center justify-center">
-                  <FileImage className="h-6 w-6 text-muted-foreground/20" />
-                </div>
-              )}
-              <p className="text-[10px] font-medium truncate">{template.name}</p>
-              {hasPages ? (
-                <Button
-                  variant="outline" size="sm" className="w-full rounded-full text-[10px] h-6 gap-1"
-                  onClick={(e) => { e.stopPropagation(); handleDownloadTemplate(pages, template.name) }}
-                >
-                  <Download className="h-2.5 w-2.5" />Descarregar{pages.length > 1 ? ` (${pages.length})` : ''}
-                </Button>
-              ) : (
-                <div className="h-6 flex items-center justify-center">
-                  <span className="text-[9px] text-muted-foreground italic">Pendente</span>
-                </div>
-              )}
+      {/* Progress — kit only */}
+      {items.length > 0 && (
+        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-sm">O Meu Kit</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {readyCount} de {totalCount} materiais prontos
+              </p>
             </div>
-          )
-        })}
+            {readyCount > 0 && (
+              <Button variant="outline" size="sm" className="rounded-full gap-2 text-xs" onClick={handleDownloadAll}>
+                <Download className="h-3.5 w-3.5" />Descarregar Todos
+              </Button>
+            )}
+          </div>
+          <Progress value={progressPct} className="h-2" />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[10px] text-muted-foreground">{progressPct}% completo</span>
+            {readyCount === totalCount && totalCount > 0 && (
+              <Badge className="bg-emerald-100 text-emerald-700 text-[10px]"><Check className="h-3 w-3 mr-1" />Kit Completo</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Unified filter bar */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar kit ou designs pessoais…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 rounded-full"
+          />
+        </div>
+        <div
+          className={cn(
+            'shrink-0',
+            '[&_button[data-slot=select-trigger]]:w-9 [&_button[data-slot=select-trigger]]:h-9 [&_button[data-slot=select-trigger]]:px-0 [&_button[data-slot=select-trigger]]:justify-center',
+            'sm:[&_button[data-slot=select-trigger]]:w-[200px] sm:[&_button[data-slot=select-trigger]]:h-auto sm:[&_button[data-slot=select-trigger]]:px-3 sm:[&_button[data-slot=select-trigger]]:justify-between'
+          )}
+        >
+          <MarketingDesignCategorySelect
+            value={categoryFilter}
+            onValueChange={setCategoryFilter}
+            includeAllOption
+          />
+        </div>
+        <MarketingDesignCategoryAddButton
+          onClick={() => setCategoryDialogOpenFromKit(true)}
+        />
+        <Button
+          className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
+          onClick={() => openPersonalCreate()}
+          title="Adicionar design"
+        >
+          <Upload className="h-4 w-4" />
+          <span className="hidden sm:inline">Adicionar design</span>
+        </Button>
       </div>
+
+      {/* Unified grouped view — kit + personal together */}
+      {!hasAnything ? (
+        <EmptyState
+          icon={Blocks}
+          title="Sem designs"
+          description="Adicione o teu primeiro design pessoal ou aguarde o kit da equipa."
+          action={{ label: 'Adicionar design', onClick: () => openPersonalCreate() }}
+        />
+      ) : !hasAnythingAfterFilter ? (
+        <EmptyState
+          icon={FileImage}
+          title="Nenhum design corresponde à pesquisa"
+          description="Tente ajustar a pesquisa ou limpar o filtro de categoria."
+        />
+      ) : (
+        <div className="space-y-6">
+          {mergedGroups.map(({ slug, kit: kitGroup, personal: personalGroup }) => {
+            const cat = getCategory(slug)
+            const total = kitGroup.length + personalGroup.length
+            return (
+              <div key={slug} className="space-y-3">
+                <MarketingDesignCategorySectionHeader
+                  slug={slug}
+                  label={cat?.label ?? slug}
+                  count={total}
+                  category={cat}
+                  onAddDesign={(c) => openPersonalCreate(c.slug)}
+                />
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  {/* Kit items */}
+                  {kitGroup.map(({ template, pages }) => {
+                    const hasPages = pages.length > 0
+                    const cover = pages[0]
+                    return (
+                      <div
+                        key={`kit-${template.id}`}
+                        className={cn(
+                          'rounded-lg border p-2 space-y-1.5 transition-all',
+                          hasPages
+                            ? 'bg-card/50 border-border cursor-pointer hover:shadow-sm'
+                            : 'bg-muted/10 border-dashed opacity-60'
+                        )}
+                        onClick={() => {
+                          if (hasPages) {
+                            setPreviewItem({ template, pages })
+                            setPreviewPageIdx(0)
+                          }
+                        }}
+                      >
+                        {hasPages && cover ? (
+                          <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-muted">
+                            <img
+                              src={cover.thumbnail_url || cover.file_url || ''}
+                              alt={template.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {pages.length > 1 && (
+                              <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
+                                {pages.length} pág.
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="aspect-[4/3] rounded-md bg-muted/30 flex items-center justify-center">
+                            <FileImage className="h-6 w-6 text-muted-foreground/20" />
+                          </div>
+                        )}
+                        <p className="text-[10px] font-medium truncate">{template.name}</p>
+                        {hasPages ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full rounded-full text-[10px] h-6 gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadTemplate(pages, template.name)
+                            }}
+                          >
+                            <Download className="h-2.5 w-2.5" />
+                            Descarregar{pages.length > 1 ? ` (${pages.length})` : ''}
+                          </Button>
+                        ) : (
+                          <div className="h-6 flex items-center justify-center">
+                            <span className="text-[9px] text-muted-foreground italic">Pendente</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {/* Personal designs */}
+                  {personalGroup.map((d) => (
+                    <PersonalDesignCard
+                      key={`personal-${d.id}`}
+                      design={d}
+                      onOpen={setPersonalPreview}
+                      onEdit={openPersonalEdit}
+                      onDelete={setPersonalDeleteTarget}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Personal design dialogs */}
+      <PersonalDesignFormDialog
+        open={personalFormOpen}
+        onOpenChange={setPersonalFormOpen}
+        design={personalFormDesign}
+        defaultCategory={personalFormCategoryDefault}
+        onCreateWithFile={async (fd) => { await personal.uploadDesign(fd) }}
+        onCreateLink={async (payload) => { await personal.createLinkDesign(payload) }}
+        onUpdate={async (id, payload) => { await personal.updateDesign(id, payload) }}
+      />
+      <PersonalDesignPreviewDialog
+        design={personalPreview}
+        onOpenChange={(open) => !open && setPersonalPreview(null)}
+      />
+      <AlertDialog
+        open={!!personalDeleteTarget}
+        onOpenChange={(open) => !open && setPersonalDeleteTarget(null)}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar design</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar &quot;{personalDeleteTarget?.name}&quot;? Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handlePersonalDelete}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <MarketingDesignCategoryFormDialog
+        open={categoryDialogOpenFromKit}
+        onOpenChange={setCategoryDialogOpenFromKit}
+        onSaved={(slug) => setCategoryFilter(slug)}
+      />
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>

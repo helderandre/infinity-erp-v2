@@ -967,9 +967,60 @@ export type Database = {
         }
         Relationships: []
       }
+      company_document_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_document_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_documents: {
         Row: {
           category: string
+          category_id: string | null
           created_at: string
           description: string | null
           download_count: number
@@ -987,6 +1038,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           download_count?: number
@@ -1004,6 +1056,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           download_count?: number
@@ -1020,6 +1073,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "company_documents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_document_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "company_documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
@@ -3384,12 +3444,17 @@ export type Database = {
           contract_term: string | null
           cpcv_percentage: number | null
           exact_address: string | null
+          has_mortgage: boolean | null
           imi_value: number | null
           internal_notes: string | null
           listing_links: Json
+          mortgage_owed: number | null
           postal_code: string | null
           property_id: string
           reference_internal: string | null
+          use_license_date: string | null
+          use_license_issuer: string | null
+          use_license_number: string | null
         }
         Insert: {
           commission_agreed?: number | null
@@ -3400,12 +3465,17 @@ export type Database = {
           contract_term?: string | null
           cpcv_percentage?: number | null
           exact_address?: string | null
+          has_mortgage?: boolean | null
           imi_value?: number | null
           internal_notes?: string | null
           listing_links?: Json
+          mortgage_owed?: number | null
           postal_code?: string | null
           property_id: string
           reference_internal?: string | null
+          use_license_date?: string | null
+          use_license_issuer?: string | null
+          use_license_number?: string | null
         }
         Update: {
           commission_agreed?: number | null
@@ -3416,12 +3486,17 @@ export type Database = {
           contract_term?: string | null
           cpcv_percentage?: number | null
           exact_address?: string | null
+          has_mortgage?: boolean | null
           imi_value?: number | null
           internal_notes?: string | null
           listing_links?: Json
+          mortgage_owed?: number | null
           postal_code?: string | null
           property_id?: string
           reference_internal?: string | null
+          use_license_date?: string | null
+          use_license_issuer?: string | null
+          use_license_number?: string | null
         }
         Relationships: [
           {

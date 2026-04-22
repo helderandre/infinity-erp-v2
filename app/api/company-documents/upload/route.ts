@@ -26,6 +26,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nenhum ficheiro enviado' }, { status: 400 })
     }
 
+    // Validate category exists and is active
+    const { data: categoryRow, error: categoryError } = await supabase
+      .from('company_document_categories')
+      .select('id, slug, is_active')
+      .eq('slug', category)
+      .maybeSingle()
+
+    if (categoryError) {
+      return NextResponse.json({ error: categoryError.message }, { status: 500 })
+    }
+    if (!categoryRow) {
+      return NextResponse.json({ error: 'Categoria inválida' }, { status: 400 })
+    }
+    if (!categoryRow.is_active) {
+      return NextResponse.json({ error: 'Categoria inactiva' }, { status: 400 })
+    }
+
     const s3 = getR2Client()
     const results = []
 
@@ -62,6 +79,7 @@ export async function POST(request: Request) {
         .insert({
           name: displayName || file.name,
           category,
+          category_id: categoryRow.id,
           file_path: url,
           file_name: file.name,
           file_size: file.size,

@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+import { resolveActiveDesignCategory } from '@/lib/marketing/design-categories'
+
 // GET: list marketing design templates
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient() as any
+    const supabase = (await createClient()) as any
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
 // POST: create a new design template
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient() as any
+    const supabase = (await createClient()) as any
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -52,11 +54,24 @@ export async function POST(request: Request) {
 
     const body = await request.json()
 
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+      return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
+    }
+    if (!body.category || typeof body.category !== 'string') {
+      return NextResponse.json({ error: 'Categoria é obrigatória' }, { status: 400 })
+    }
+
+    const resolved = await resolveActiveDesignCategory(supabase, body.category)
+    if (!resolved) {
+      return NextResponse.json({ error: 'Categoria inválida' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('marketing_design_templates')
       .insert({
-        name: body.name,
-        category: body.category,
+        name: body.name.trim(),
+        category: resolved.slug,
+        category_id: resolved.id,
         subcategory: body.subcategory || null,
         description: body.description || null,
         canva_url: body.canva_url || null,

@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
+    const categoryId = searchParams.get('category_id')
     const search = searchParams.get('search')
 
     let query = supabase
@@ -25,7 +26,10 @@ export async function GET(request: Request) {
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true })
 
-    if (category && category !== 'all') {
+    // category_id takes priority over category slug when both are supplied
+    if (categoryId) {
+      query = query.eq('category_id', categoryId)
+    } else if (category && category !== 'all') {
       query = query.eq('category', category)
     }
 
