@@ -7,7 +7,7 @@ import {
   ExternalLink, Phone, MapPin, Plus, Trash2, Search,
   MessageCircle, BarChart3, FileText,
   Home, Users, Laptop, Loader2, UserCircle, AlertTriangle,
-  MoreHorizontal, Pencil,
+  MoreHorizontal, Pencil, CopyCheck,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,9 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { CustomSiteDialog } from '@/components/acessos/custom-site-dialog'
+import { CompanyInfoEditDialog } from '@/components/acessos/company-info-edit-dialog'
 import { useAcessosCustomSites } from '@/hooks/use-acessos-custom-sites'
+import { useAcessosCompanyInfo } from '@/hooks/use-acessos-company-info'
 import type { HydratedAcessosCustomSite } from '@/types/acessos'
 
 // ─── Types ──────────────────────────────────────────────
@@ -59,25 +61,6 @@ function useCopy() {
 }
 
 // ─── Data ───────────────────────────────────────────────
-
-const COMPANY_INFO = {
-  faturacao: {
-    nome: 'LECOQIMMO - MEDIAÇÃO IMOBILIÁRIA, UNIPESSOAL LDA',
-    sede: 'Avenida da Liberdade, Nº 129 B 1250-140 Lisboa',
-    nipc: '514828528',
-  },
-  agencia: {
-    nome: 'RE/MAX COLLECTION CONVICTUS',
-    morada: 'Avenida Ressano Garcia, 37 A 1070-234 Lisboa',
-    telefone: '218 036 779',
-    sede: {
-      nome: 'RE/MAX CONVICTUS',
-      morada: 'Av. das Forças Armadas 22 C 1600-082 Lisboa',
-      telefone: '217978189',
-      ami: '4719',
-    },
-  },
-}
 
 const ATALHOS = {
   remax: [
@@ -295,59 +278,153 @@ function AcessosSkeleton() {
 
 // ─── Tab: Estrutura ─────────────────────────────────────
 
+function CopyAllButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    toast.success('Todos os dados copiados!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all',
+        copied
+          ? 'bg-emerald-500/10 text-emerald-600'
+          : 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm'
+      )}
+    >
+      {copied ? <Check className="size-3.5" /> : <CopyCheck className="size-3.5" />}
+      {copied ? 'Copiado' : label ?? 'Copiar tudo'}
+    </button>
+  )
+}
+
 function EstruturaContent() {
   const { copiedKey, copy } = useCopy()
   const [subTab, setSubTab] = useState<'faturacao' | 'convictus'>('faturacao')
+  const { faturacao, convictus, canManage, isLoading, refetch } = useAcessosCompanyInfo()
+  const [editOpen, setEditOpen] = useState(false)
+
+  const faturacaoText = faturacao
+    ? [
+        `Nome: ${faturacao.nome}`,
+        `Sede: ${faturacao.sede}`,
+        `NIPC: ${faturacao.nipc}`,
+      ].join('\n')
+    : ''
+
+  const convictusText = convictus
+    ? [
+        '— Sede —',
+        `${convictus.sede.nome}`,
+        `Morada: ${convictus.sede.morada}`,
+        `Telefone: ${convictus.sede.telefone}`,
+        `AMI: ${convictus.sede.ami}`,
+        '',
+        '— A Nossa Agência —',
+        `${convictus.agencia.nome}`,
+        `Morada: ${convictus.agencia.morada}`,
+        `Telefone: ${convictus.agencia.telefone}`,
+      ].join('\n')
+    : ''
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-10 w-64 rounded-full" />
+        <Skeleton className="h-60 w-full rounded-2xl" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
-      <PillTabs tabs={SUB_TABS_ESTRUTURA} active={subTab} onChange={setSubTab} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PillTabs tabs={SUB_TABS_ESTRUTURA} active={subTab} onChange={setSubTab} />
+        <div className="flex items-center gap-2">
+          <CopyAllButton text={subTab === 'faturacao' ? faturacaoText : convictusText} />
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium bg-muted/60 text-foreground hover:bg-muted transition-all border border-border/30"
+              title="Editar dados"
+            >
+              <Pencil className="size-3.5" />
+              Editar
+            </button>
+          )}
+        </div>
+      </div>
 
-      {subTab === 'faturacao' && (
+      {subTab === 'faturacao' && faturacao && (
         <GlassCard header="Dados de Faturação">
           <div className="divide-y divide-border/30 px-5">
-            <InfoRow label="Nome da Empresa" value={COMPANY_INFO.faturacao.nome} copyKey="fat-nome" copiedKey={copiedKey} onCopy={copy} />
-            <InfoRow label="Sede" value={COMPANY_INFO.faturacao.sede} copyKey="fat-sede" copiedKey={copiedKey} onCopy={copy} />
-            <InfoRow label="NIPC" value={COMPANY_INFO.faturacao.nipc} copyKey="fat-nipc" copiedKey={copiedKey} onCopy={copy} />
+            <InfoRow label="Nome da Empresa" value={faturacao.nome} copyKey="fat-nome" copiedKey={copiedKey} onCopy={copy} />
+            <InfoRow label="Sede" value={faturacao.sede} copyKey="fat-sede" copiedKey={copiedKey} onCopy={copy} />
+            <InfoRow label="NIPC" value={faturacao.nipc} copyKey="fat-nipc" copiedKey={copiedKey} onCopy={copy} />
           </div>
         </GlassCard>
       )}
 
-      {subTab === 'convictus' && (
+      {subTab === 'convictus' && convictus && (
         <div className="space-y-4">
           <GlassCard header="Sede">
             <div className="divide-y divide-border/30 px-5">
               <InfoRow
-                label={COMPANY_INFO.agencia.sede.nome}
-                value={COMPANY_INFO.agencia.sede.morada}
+                label={convictus.sede.nome}
+                value={convictus.sede.morada}
                 copyKey="sede-morada" copiedKey={copiedKey} onCopy={copy}
-                actions={<IconActionButton href={`https://maps.google.com/?q=${encodeURIComponent(COMPANY_INFO.agencia.sede.morada)}`} icon={MapPin} label="Ver no mapa" />}
+                actions={<IconActionButton href={`https://maps.google.com/?q=${encodeURIComponent(convictus.sede.morada)}`} icon={MapPin} label="Ver no mapa" />}
               />
               <InfoRow
-                label="Telefone" value={COMPANY_INFO.agencia.sede.telefone}
+                label="Telefone" value={convictus.sede.telefone}
                 copyKey="sede-tel" copiedKey={copiedKey} onCopy={copy}
-                actions={<IconActionButton href={`tel:${COMPANY_INFO.agencia.sede.telefone}`} icon={Phone} label="Ligar" />}
+                actions={<IconActionButton href={`tel:${convictus.sede.telefone}`} icon={Phone} label="Ligar" />}
               />
-              <InfoRow label="AMI" value={COMPANY_INFO.agencia.sede.ami} copyKey="sede-ami" copiedKey={copiedKey} onCopy={copy} />
+              <InfoRow label="AMI" value={convictus.sede.ami} copyKey="sede-ami" copiedKey={copiedKey} onCopy={copy} />
             </div>
           </GlassCard>
 
           <GlassCard header="A Nossa Agência">
             <div className="divide-y divide-border/30 px-5">
               <InfoRow
-                label={COMPANY_INFO.agencia.nome}
-                value={COMPANY_INFO.agencia.morada}
+                label={convictus.agencia.nome}
+                value={convictus.agencia.morada}
                 copyKey="ag-morada" copiedKey={copiedKey} onCopy={copy}
-                actions={<IconActionButton href={`https://maps.google.com/?q=${encodeURIComponent(COMPANY_INFO.agencia.morada)}`} icon={MapPin} label="Ver no mapa" />}
+                actions={<IconActionButton href={`https://maps.google.com/?q=${encodeURIComponent(convictus.agencia.morada)}`} icon={MapPin} label="Ver no mapa" />}
               />
               <InfoRow
-                label="Telefone Loja" value={COMPANY_INFO.agencia.telefone}
+                label="Telefone Loja" value={convictus.agencia.telefone}
                 copyKey="ag-tel" copiedKey={copiedKey} onCopy={copy}
-                actions={<IconActionButton href={`tel:${COMPANY_INFO.agencia.telefone}`} icon={Phone} label="Ligar" />}
+                actions={<IconActionButton href={`tel:${convictus.agencia.telefone}`} icon={Phone} label="Ligar" />}
               />
             </div>
           </GlassCard>
         </div>
+      )}
+
+      {canManage && subTab === 'faturacao' && faturacao && (
+        <CompanyInfoEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          scope="faturacao"
+          initial={faturacao}
+          onSaved={refetch}
+        />
+      )}
+      {canManage && subTab === 'convictus' && convictus && (
+        <CompanyInfoEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          scope="convictus"
+          initial={convictus}
+          onSaved={refetch}
+        />
       )}
     </div>
   )
