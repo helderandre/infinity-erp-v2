@@ -48,8 +48,9 @@ export function MargemCard({ data, loading, fillViewport }: MargemCardProps) {
       : pct >= 50
       ? 'text-amber-600'
       : 'text-red-600'
+  const evolution = data.monthly_evolution ?? []
   const barMax = Math.max(
-    ...data.monthly_evolution.map((m) => Math.max(m.revenue, m.target)),
+    ...evolution.map((m) => Math.max(m.revenue, m.target)),
     1,
   )
 
@@ -154,7 +155,7 @@ export function MargemCard({ data, loading, fillViewport }: MargemCardProps) {
             fillViewport ? 'flex-1 min-h-0' : 'h-32',
           )}
         >
-          {data.monthly_evolution.map((m, i) => {
+          {evolution.map((m, i) => {
             const h = Math.max((m.revenue / barMax) * 100, 3)
             const tH = Math.max((m.target / barMax) * 100, 0)
             return (

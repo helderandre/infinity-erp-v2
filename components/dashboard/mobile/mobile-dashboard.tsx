@@ -42,14 +42,20 @@ export function MobileDashboard({ user }: MobileDashboardProps) {
 
   useEffect(() => {
     let cancelled = false
-    getAgentDashboard(user.id).then((res) => {
-      if (cancelled) return
-      if (!res.error) {
-        const { error: _err, ...rest } = res
-        setAgentData(rest as AgentDashboard)
-      }
-      setAgentLoading(false)
-    })
+    getAgentDashboard(user.id)
+      .then((res) => {
+        if (cancelled) return
+        if (!res.error) {
+          const { error: _err, ...rest } = res
+          setAgentData(rest as AgentDashboard)
+        }
+      })
+      .catch((err) => {
+        console.error('getAgentDashboard failed:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setAgentLoading(false)
+      })
     return () => {
       cancelled = true
     }

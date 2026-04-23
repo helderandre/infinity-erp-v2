@@ -55,7 +55,12 @@ export function AngariacoesFaturacaoCard({
     )
   }
 
-  const p = data.my_properties
+  const p = data.my_properties ?? {
+    active: 0,
+    reserved: 0,
+    sold_year: 0,
+    volume: 0,
+  }
 
   return (
     <Card className={cardClass}>

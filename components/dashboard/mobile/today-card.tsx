@@ -40,7 +40,7 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
   const fullDate = format(today, "d 'de' MMMM", { locale: ptBR })
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-  const dayEvents = events
+  const dayEvents = (events ?? [])
     .filter((e) => {
       try {
         return isSameDay(parseISO(e.start_date), today)
@@ -52,7 +52,7 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
       (a, b) => parseISO(a.start_date).getTime() - parseISO(b.start_date).getTime(),
     )
 
-  const dayTasks = tasks
+  const dayTasks = (tasks ?? [])
     .filter((t) => {
       if (!t.due_date) return false
       try {
