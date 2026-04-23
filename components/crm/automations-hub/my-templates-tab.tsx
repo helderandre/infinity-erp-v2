@@ -121,8 +121,8 @@ export function MyTemplatesTab({ userId }: Props) {
         const totalTpls = emailList.length + wppList.length
 
         return (
-          <Collapsible key={auto.key} defaultOpen={totalTpls > 0}>
-            <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors group">
+          <Collapsible key={auto.key} defaultOpen={totalTpls > 0} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 hover:bg-muted/50 transition-colors group">
               <div className={cn(
                 "flex h-7 w-7 items-center justify-center rounded-md",
                 auto.isFixed ? "bg-primary/10 text-primary" : "bg-violet-100 text-violet-700",
@@ -134,7 +134,7 @@ export function MyTemplatesTab({ userId }: Props) {
               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
 
-            <CollapsibleContent className="pt-3 space-y-4">
+            <CollapsibleContent className="border-t px-4 py-3 space-y-4 bg-muted/20">
               {/* Email section */}
               <ChannelSection
                 channel="email"
@@ -298,8 +298,13 @@ function ChannelSection({
   return (
     <div className="space-y-2 pl-2">
       <div className="flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{channelLabel}</span>
+        <Icon className={cn("h-3.5 w-3.5", channel === "whatsapp" ? "text-emerald-600" : "text-muted-foreground")} />
+        <span className={cn(
+          "text-xs font-medium uppercase tracking-wider",
+          channel === "whatsapp" ? "text-emerald-600" : "text-muted-foreground",
+        )}>
+          {channelLabel}
+        </span>
         <span className="text-[10px] text-muted-foreground">({templates.length})</span>
       </div>
 

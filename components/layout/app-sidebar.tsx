@@ -71,7 +71,7 @@ export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
   { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
-  { title: 'Automatismos Contactos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
+  { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
 ]
 
 export const negocioItems = [

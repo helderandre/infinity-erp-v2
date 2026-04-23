@@ -49,7 +49,7 @@ export function AutomationsHub({ userId, isBroker, canSeeAll }: AutomationsHubPr
               <Bell className="h-5 w-5 text-white" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Automatismos de Contactos
+              Automatismos
             </h1>
           </div>
 
