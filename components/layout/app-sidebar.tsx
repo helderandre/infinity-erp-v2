@@ -127,7 +127,7 @@ export const digitalItems = marketingItems
 export const automationItems = [
   { title: 'Automatismos', icon: Zap, href: '/dashboard/automacao' },
   { title: 'Instâncias WhatsApp', icon: MessageCircle, href: '/dashboard/automacao/instancias' },
-  { title: 'Definições', icon: Settings, href: '/dashboard/automacao/definicoes' },
+  { title: 'Templates', icon: Settings, href: '/dashboard/automacao/definicoes' },
 ]
 
 export const builderItems = [
@@ -480,18 +480,6 @@ export function AppSidebar() {
           />
         )}
 
-        {/* 8. Automações */}
-        {hasPermission('settings' as any) && (
-          <CollapsibleGroup
-            label="Automações"
-            icon={Bot}
-            items={automationItems}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/automacao']}
-          />
-        )}
-
         {/* 10. Recrutamento */}
         {hasPermission('recruitment' as any) && (
           <CollapsibleGroup
@@ -521,10 +509,10 @@ export function AppSidebar() {
           <CollapsibleGroup
             label="Tech"
             icon={Cpu}
-            items={techItems}
+            items={[...techItems, ...automationItems]}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/tech']}
+            pathPrefixes={['/dashboard/tech', '/dashboard/automacao']}
           />
         )}
 
