@@ -373,7 +373,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'open_link',
       description:
-        'Abrir um link/site rápido da página de Acessos: atalhos RE/MAX (MaxWork, Contactos, Convictus), portais (Idealista, Imovirtual, Casa Sapo, CasaYes), notícias imobiliárias, Casafari, MicroSIR, sites de trabalho (Canva, ChatGPT, WhatsApp Web, Monday, etc.) ou links pessoais do utilizador. Usar para "abre o canva", "abre o idealista", "mostra-me o MaxWork", "vai ao ChatGPT", "onde está o link do Casafari".',
+        'Abrir um link/site rápido da página de Acessos: atalhos RE/MAX (MaxWork, Contactos, Convictus), portais (Idealista, Imovirtual, Casa Sapo, CasaYes), notícias imobiliárias, Casafari, MicroSIR, sites adicionados em Websites > Outros (Canva, ChatGPT, WhatsApp Web, Monday, globais ou pessoais). Usar para "abre o canva", "abre o idealista", "mostra-me o MaxWork", "vai ao ChatGPT", "onde está o link do Casafari".',
       parameters: withConfidence(
         {
           query: {
@@ -400,27 +400,8 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
         },
         category: {
           type: 'string',
-          enum: [
-            'supplier',
-            'lawyer',
-            'notary',
-            'bank',
-            'photographer',
-            'constructor',
-            'insurance',
-            'energy_cert',
-            'cleaning',
-            'moving',
-            'appraiser',
-            'architect',
-            'home_staging',
-            'credit_broker',
-            'interior_design',
-            'marketing',
-            'other',
-          ],
           description:
-            'Tipo/serviço do parceiro. Mapeamento PT→slug: advogado/jurista→lawyer; notário→notary; banco→bank; fotógrafo→photographer; empreiteiro/construtor/obra→constructor; seguro/seguros/seguradora→insurance; certificado energético/energia/CE→energy_cert; limpeza/limpezas/faxina→cleaning; mudanças/transporte→moving; avaliador/perito→appraiser; arquitecto→architect; home staging/decoração de venda→home_staging; intermediário de crédito/credit broker→credit_broker; design de interiores/decorador→interior_design; marketing/publicidade→marketing; fornecedor/material→supplier; qualquer outro→other.',
+            'Tipo/serviço do parceiro em português tal como o utilizador o disse (ex: "advogado", "fotógrafo", "canalizador", "empreiteiro", "arquitecto"). Escreve a palavra singular em minúsculas. NÃO inventes categorias — deixa em branco se o utilizador não mencionou. A correspondência ao slug da base de dados (incluindo categorias personalizadas) é resolvida do lado do servidor.',
         },
       }),
     },

@@ -1,9 +1,9 @@
 'use client'
 
 
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useCallback } from 'react'
 import {
-  KeyRound, Building2, Link2, Globe, Sparkles, Copy, Check,
+  KeyRound, Building2, Globe, Sparkles, Copy, Check,
   ExternalLink, Phone, MapPin, Plus, Trash2, Search,
   MessageCircle, BarChart3, FileText,
   Home, Users, Laptop, Loader2, UserCircle, AlertTriangle,
@@ -12,14 +12,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
-} from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -38,16 +30,6 @@ import { CompanyInfoEditDialog } from '@/components/acessos/company-info-edit-di
 import { useAcessosCustomSites } from '@/hooks/use-acessos-custom-sites'
 import { useAcessosCompanyInfo } from '@/hooks/use-acessos-company-info'
 import type { HydratedAcessosCustomSite } from '@/types/acessos'
-
-// ─── Types ──────────────────────────────────────────────
-
-interface UserLink {
-  id: string
-  title: string
-  url: string
-  icon?: string
-  created_at: string
-}
 
 // ─── Copy Hook ──────────────────────────────────────────
 
@@ -106,7 +88,6 @@ const WEBSITES = {
 
 const TABS = [
   { key: 'atalhos' as const, label: 'Atalhos', icon: Sparkles },
-  { key: 'links' as const, label: 'Os Meus Links', icon: Link2 },
   { key: 'websites' as const, label: 'Websites', icon: Globe },
   { key: 'estrutura' as const, label: 'Estrutura', icon: Building2 },
 ] as const
@@ -739,195 +720,6 @@ function OutrosContent() {
   )
 }
 
-// ─── Tab: Links ─────────────────────────────────────────
-
-function LinksContent() {
-  const isMobile = useIsMobile()
-  const [links, setLinks] = useState<UserLink[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newUrl, setNewUrl] = useState('')
-
-  const fetchLinks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/user-links')
-      if (res.ok) setLinks(await res.json())
-    } catch {
-      toast.error('Erro ao carregar links')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchLinks() }, [fetchLinks])
-
-  const handleCreate = async () => {
-    if (!newTitle.trim() || !newUrl.trim()) return
-    setSaving(true)
-    try {
-      let url = newUrl.trim()
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url
-      }
-      const res = await fetch('/api/user-links', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle.trim(), url }),
-      })
-      if (!res.ok) throw new Error()
-      const link = await res.json()
-      setLinks((prev) => [link, ...prev])
-      setNewTitle('')
-      setNewUrl('')
-      setDialogOpen(false)
-      toast.success('Link adicionado!')
-    } catch {
-      toast.error('Erro ao guardar link')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-    try {
-      const res = await fetch(`/api/user-links?id=${deleteId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
-      setLinks((prev) => prev.filter((l) => l.id !== deleteId))
-      toast.success('Link eliminado')
-    } catch {
-      toast.error('Erro ao eliminar link')
-    } finally {
-      setDeleteId(null)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[72px] rounded-2xl" />
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-5">
-      {/* Add button */}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200"
-        >
-          <Plus className="size-3.5" />
-          Adicionar Link
-        </button>
-        <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
-          <SheetContent
-            side={isMobile ? 'bottom' : 'right'}
-            className={cn(
-              'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
-              'bg-background',
-              isMobile
-                ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
-                : 'w-full data-[side=right]:sm:max-w-[468px] sm:rounded-l-3xl',
-            )}
-          >
-            {isMobile && (
-              <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
-            )}
-            <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
-              <SheetHeader className="p-0 gap-0">
-                <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
-                  Novo link
-                </SheetTitle>
-                <SheetDescription className="text-xs text-muted-foreground mt-0.5">
-                  Adiciona um link rápido ao teu espaço pessoal.
-                </SheetDescription>
-              </SheetHeader>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-1 pb-8 space-y-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="link-title" className="text-xs font-medium text-muted-foreground">Título</Label>
-                <Input
-                  id="link-title"
-                  placeholder="Ex: Notion, Trello, ..."
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="link-url" className="text-xs font-medium text-muted-foreground">URL</Label>
-                <Input
-                  id="link-url"
-                  placeholder="https://..."
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  className="rounded-xl"
-                />
-              </div>
-            </div>
-            <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background border-t border-border/50">
-              <Button type="button" variant="outline" size="sm" className="rounded-full flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="button" size="sm" className="rounded-full flex-1" onClick={handleCreate} disabled={saving || !newTitle.trim() || !newUrl.trim()}>
-                {saving && <Loader2 className="size-3.5 mr-1.5 animate-spin" />}
-                Guardar
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {links.length === 0 ? (
-        <EmptyState
-          icon={Link2}
-          title="Sem links guardados"
-          description="Adiciona links para aceder rapidamente às tuas ferramentas do dia-a-dia"
-          action={{ label: 'Adicionar Link', onClick: () => setDialogOpen(true) }}
-        />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {links.map((link) => (
-            <div key={link.id} className="group relative">
-              <LinkCard title={link.title} url={link.url} />
-              <button
-                onClick={() => setDeleteId(link.id)}
-                className="absolute top-3 right-3 flex items-center justify-center size-7 rounded-full bg-background/80 backdrop-blur-sm border border-border/30 opacity-0 group-hover:opacity-100 transition-all text-muted-foreground hover:text-destructive hover:border-destructive/30"
-              >
-                <Trash2 className="size-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar link</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem a certeza de que pretende eliminar este link? Esta acção é irreversível.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
-
 // ─── Page ───────────────────────────────────────────────
 
 function AcessosPageInner() {
@@ -969,7 +761,6 @@ function AcessosPageContent() {
 
       {/* Content */}
       {activeTab === 'atalhos' && <AtalhosContent />}
-      {activeTab === 'links' && <LinksContent />}
       {activeTab === 'websites' && <WebsitesContent />}
       {activeTab === 'estrutura' && <EstruturaContent />}
     </div>

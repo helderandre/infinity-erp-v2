@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createPartnerSchema } from '@/lib/validations/partner'
 import { isPartnersStaff } from '@/lib/auth/partners-staff'
-import { PARTNER_CATEGORY_OPTIONS } from '@/lib/constants'
 
 export async function GET(request: Request) {
   try {
@@ -66,14 +65,27 @@ export async function GET(request: Request) {
     }
     if (is_recommended === 'true') query = query.eq('is_recommended', true)
     if (search) {
-      // Resolve category labels → slugs so free-text searches like
-      // "advogado" also match partners with category='lawyer' (the DB only
-      // stores the slug, never the PT label). Substring match keeps things
-      // forgiving ("arquit" hits "Arquitecto").
+      // Resolve category labels → slugs against the DYNAMIC catalogue
+      // (partner_categories) so free-text searches like "advogado" or
+      // "canalizador" (a custom category added via the admin dialog) match
+      // partners whose column stores just the slug. Substring match keeps
+      // things forgiving ("arquit" hits "Arquitecto").
       const needle = search.toLowerCase()
-      const matchedCategorySlugs = PARTNER_CATEGORY_OPTIONS
-        .filter((opt) => opt.label.toLowerCase().includes(needle))
-        .map((opt) => opt.value)
+      const { data: catRows } = await admin
+        .from('partner_categories')
+        .select('slug, label')
+        .eq('is_active', true)
+      const cats = Array.isArray(catRows) ? catRows : []
+      const matchedCategorySlugs = cats
+        .filter((c: any) => {
+          const label = String(c.label ?? '').toLowerCase()
+          return (
+            label === needle ||
+            label.includes(needle) ||
+            needle.includes(label)
+          )
+        })
+        .map((c: any) => String(c.slug))
 
       const conditions = [
         `name.ilike.%${search}%`,

@@ -1225,12 +1225,54 @@ const searchPartner: ToolConfig = {
   },
   submit: async (args) => {
     const name = String(args.name_query ?? '').trim()
-    const category = String(args.category ?? '').trim()
-    if (!name && !category) throw new Error('Indica um nome ou uma categoria')
+    const rawCategory = String(args.category ?? '').trim()
+    if (!name && !rawCategory) throw new Error('Indica um nome ou uma categoria')
+
+    // Resolve the free-form category string to a real slug from the
+    // dynamic catalogue in partner_categories. This catches:
+    //  - custom categories the admin added via the dialog (e.g. "Canalizador")
+    //  - PT labels ("Advogado" → slug "lawyer")
+    //  - slugs passed through verbatim
+    // If nothing matches, demote the term to the name/city search so we
+    // still return results instead of a dead filter.
+    let resolvedSlug = ''
+    let demotedCategoryAsSearch: string | null = null
+    if (rawCategory) {
+      try {
+        const catRes = await fetch('/api/partners/categories')
+        if (catRes.ok) {
+          const catJson = await catRes.json()
+          const cats: any[] = Array.isArray(catJson?.data) ? catJson.data : []
+          const needle = rawCategory.toLowerCase()
+          // 1) exact slug match
+          const slugHit = cats.find((c) => String(c.slug).toLowerCase() === needle)
+          if (slugHit) {
+            resolvedSlug = String(slugHit.slug)
+          } else {
+            // 2) label contains needle OR needle contains label (handles
+            // "advogado" vs "Advogados" and singular/plural variants).
+            const labelHit =
+              cats.find((c) => String(c.label).toLowerCase() === needle) ||
+              cats.find((c) => String(c.label).toLowerCase().includes(needle)) ||
+              cats.find((c) => needle.includes(String(c.label).toLowerCase()))
+            if (labelHit) {
+              resolvedSlug = String(labelHit.slug)
+            } else {
+              demotedCategoryAsSearch = rawCategory
+            }
+          }
+        }
+      } catch {
+        // ignore — we'll demote to search below
+        demotedCategoryAsSearch = rawCategory
+      }
+    }
 
     const params = new URLSearchParams()
-    if (name) params.set('search', name)
-    if (category) params.set('category', category)
+    // Combine name_query with the demoted category term when applicable.
+    const searchTerm = [name, demotedCategoryAsSearch].filter(Boolean).join(' ').trim()
+    if (searchTerm) params.set('search', searchTerm)
+    if (resolvedSlug) params.set('category', resolvedSlug)
     params.set('is_active', 'true')
     params.set('limit', '10')
 
@@ -1285,7 +1327,9 @@ const searchPartner: ToolConfig = {
     })
 
     const summary = [
-      category ? PARTNER_CATEGORY_LABEL_MAP[category] || category : null,
+      resolvedSlug
+        ? PARTNER_CATEGORY_LABEL_MAP[resolvedSlug] || resolvedSlug
+        : rawCategory || null,
       name ? `"${name}"` : null,
     ]
       .filter(Boolean)
@@ -1370,11 +1414,10 @@ const openLink: ToolConfig = {
     const q = String(args.query ?? '').trim()
     if (!q) throw new Error('Indica o nome do link')
 
-    // Parallel fetch: custom sites (global + personal) + user personal links.
-    const [customRes, userRes] = await Promise.all([
-      fetch('/api/acessos/custom-sites').catch(() => null),
-      fetch('/api/user-links').catch(() => null),
-    ])
+    // Single dynamic source: custom sites from Acessos > Websites > Outros
+    // (global sites from admins + personal sites per user). The separate
+    // "Os Meus Links" tab was retired in favour of this unified surface.
+    const customRes = await fetch('/api/acessos/custom-sites').catch(() => null)
 
     const toArray = async (res: Response | null): Promise<any[]> => {
       if (!res || !res.ok) return []
@@ -1386,10 +1429,7 @@ const openLink: ToolConfig = {
       }
     }
 
-    const [customSites, userLinks] = await Promise.all([
-      toArray(customRes),
-      toArray(userRes),
-    ])
+    const customSites = await toArray(customRes)
 
     type CandidateLink = {
       id: string
@@ -1406,12 +1446,6 @@ const openLink: ToolConfig = {
         title: String(s.title || 'Site'),
         url: String(s.url || ''),
         section: s.scope === 'personal' ? 'Os Meus Sites' : 'Outros Sites',
-      })),
-      ...userLinks.map((l: any) => ({
-        id: `mylink:${l.id}`,
-        title: String(l.title || 'Link'),
-        url: String(l.url || ''),
-        section: 'Os Meus Links',
       })),
     ].filter((c) => c.url && c.title)
 

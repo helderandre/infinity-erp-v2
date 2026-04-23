@@ -146,10 +146,10 @@ export default function DashboardLayout({
               <Breadcrumbs />
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <AiAgentChat />
               <div className="hidden sm:block">
                 <SearchCommand />
               </div>
+              <AiAgentChat />
               <QuickActions />
               <NotificationPopover />
             </div>
