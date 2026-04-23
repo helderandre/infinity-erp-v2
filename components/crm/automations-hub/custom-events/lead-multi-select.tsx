@@ -1,22 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Search, Users } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { MultiSelectFilter, type MultiSelectOption } from "@/components/shared/multi-select-filter"
 import { useEligibleLeads } from "@/hooks/use-eligible-leads"
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "Novo",
-  contacted: "Contactado",
-  qualified: "Qualificado",
-  archived: "Arquivado",
-  expired: "Expirado",
-}
+import { usePipelineStages } from "@/hooks/use-pipeline-stages"
+import { LEAD_ESTADOS } from "@/lib/constants"
+import { PIPELINE_TYPE_LABELS } from "@/lib/constants-leads-crm"
 
 interface LeadMultiSelectProps {
   selectedIds: string[]
@@ -32,20 +27,56 @@ export function LeadMultiSelect({
   onSelectAllChange,
 }: LeadMultiSelectProps) {
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [pipelineStageIds, setPipelineStageIds] = useState<string[]>([])
+  const [contactEstados, setContactEstados] = useState<string[]>([])
   const [page, setPage] = useState(1)
+
+  const { stages, isLoading: stagesLoading } = usePipelineStages()
+
+  const pipelineOptions = useMemo<MultiSelectOption[]>(() => {
+    const sorted = [...stages].sort((a, b) => {
+      if (a.pipeline_type !== b.pipeline_type) {
+        return a.pipeline_type.localeCompare(b.pipeline_type)
+      }
+      return a.order_index - b.order_index
+    })
+    return sorted.map((s) => ({
+      value: s.id,
+      label: s.name,
+      group: PIPELINE_TYPE_LABELS[s.pipeline_type] ?? s.pipeline_type,
+    }))
+  }, [stages])
+
+  const estadoOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      LEAD_ESTADOS.filter((e) => e !== "Lead").map((e) => ({
+        value: e,
+        label: e,
+      })),
+    [],
+  )
 
   const { leads, total, isLoading } = useEligibleLeads({
     search,
-    status: statusFilter,
+    pipelineStageIds,
+    contactEstados,
     page,
     limit: 30,
   })
 
+  function handlePipelineChange(values: string[]) {
+    setPipelineStageIds(values)
+    setPage(1)
+  }
+
+  function handleEstadosChange(values: string[]) {
+    setContactEstados(values)
+    setPage(1)
+  }
+
   function toggleLead(leadId: string) {
     if (selectAll) {
       onSelectAllChange(false)
-      // When unchecking "select all", switch to individual selection minus this one
       const allIds = leads.map((l) => l.id).filter((id) => id !== leadId)
       onSelectionChange(allIds)
       return
@@ -84,8 +115,8 @@ export function LeadMultiSelect({
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar por nome, email ou telemóvel..."
@@ -94,18 +125,26 @@ export function LeadMultiSelect({
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          title="Fase do pipeline"
+          options={pipelineOptions}
+          selected={pipelineStageIds}
+          onSelectedChange={handlePipelineChange}
+          searchable
+          maxBadges={1}
+        />
+        <MultiSelectFilter
+          title="Estado do contacto"
+          options={estadoOptions}
+          selected={contactEstados}
+          onSelectedChange={handleEstadosChange}
+          maxBadges={1}
+        />
       </div>
+
+      {stagesLoading && pipelineOptions.length === 0 && (
+        <p className="text-xs text-muted-foreground">A carregar fases do pipeline…</p>
+      )}
 
       {/* Leads list */}
       {isLoading ? (
@@ -138,7 +177,7 @@ export function LeadMultiSelect({
                 </div>
                 {lead.status && (
                   <Badge variant="outline" className="text-[10px] shrink-0">
-                    {STATUS_LABELS[lead.status] ?? lead.status}
+                    {lead.status}
                   </Badge>
                 )}
               </label>

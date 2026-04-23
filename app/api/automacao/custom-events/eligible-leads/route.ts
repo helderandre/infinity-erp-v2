@@ -1,9 +1,22 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/permissions"
+import { LEAD_ESTADOS } from "@/lib/constants"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SA = any
+
+const MAX_FILTERS_PER_GROUP = 20
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const VALID_ESTADOS = new Set<string>(LEAD_ESTADOS as readonly string[])
+
+function parseCsvParam(raw: string | null): string[] {
+  if (!raw) return []
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}
 
 // GET /api/automacao/custom-events/eligible-leads — leads do consultor para selecção
 export async function GET(request: Request) {
@@ -15,11 +28,29 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     const search = searchParams.get("search")?.trim()
-    const status = searchParams.get("status")
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50")))
     const offset = (page - 1) * limit
     const eventId = searchParams.get("event_id")
+
+    // Raw arrays from query string (CSV)
+    const rawPipelineStageIds = parseCsvParam(searchParams.get("pipeline_stage_ids"))
+    const rawContactEstados = parseCsvParam(searchParams.get("contact_estados"))
+
+    // Enforce caps BEFORE filtering — a request with 21 raw values is a client bug
+    if (
+      rawPipelineStageIds.length > MAX_FILTERS_PER_GROUP ||
+      rawContactEstados.length > MAX_FILTERS_PER_GROUP
+    ) {
+      return NextResponse.json(
+        { error: "Demasiados filtros (máximo 20 por grupo)" },
+        { status: 400 },
+      )
+    }
+
+    // Defence-in-depth: silently drop malformed values
+    const pipelineStageIds = rawPipelineStageIds.filter((v) => UUID_RE.test(v))
+    const contactEstados = rawContactEstados.filter((v) => VALID_ESTADOS.has(v))
 
     let query = supabase
       .from("leads")
@@ -32,8 +63,29 @@ export async function GET(request: Request) {
       query = query.or(`nome.ilike.%${search}%,email.ilike.%${search}%,telemovel.ilike.%${search}%`)
     }
 
-    if (status && status !== "all") {
-      query = query.eq("estado", status)
+    // Pipeline filter: two-step to avoid join duplication. First resolve lead_ids
+    // with a negócio in any of the selected stages, then restrict main query.
+    if (pipelineStageIds.length > 0) {
+      const { data: negocioRows, error: negocioErr } = await supabase
+        .from("negocios")
+        .select("lead_id")
+        .in("pipeline_stage_id", pipelineStageIds)
+
+      if (negocioErr) return NextResponse.json({ error: negocioErr.message }, { status: 500 })
+
+      const leadIdSet = Array.from(
+        new Set((negocioRows ?? []).map((r: SA) => r.lead_id).filter((v: unknown): v is string => !!v)),
+      )
+
+      if (leadIdSet.length === 0) {
+        return NextResponse.json({ leads: [], total: 0, page, limit })
+      }
+
+      query = query.in("id", leadIdSet)
+    }
+
+    if (contactEstados.length > 0) {
+      query = query.in("estado", contactEstados)
     }
 
     const { data, error, count } = await query

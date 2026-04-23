@@ -25,6 +25,7 @@ export interface MultiSelectOption {
   label: string
   dot?: string
   color?: string
+  group?: string
 }
 
 interface MultiSelectFilterProps {
@@ -57,6 +58,15 @@ export function MultiSelectFilter({
     }
   }
 
+  const hasGroups = options.some((o) => o.group)
+  const grouped = hasGroups
+    ? options.reduce<Record<string, MultiSelectOption[]>>((acc, opt) => {
+        const g = opt.group ?? ''
+        ;(acc[g] ??= []).push(opt)
+        return acc
+      }, {})
+    : null
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -86,34 +96,73 @@ export function MultiSelectFilter({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
+      <PopoverContent
+        className={cn('p-0', hasGroups ? 'w-[260px]' : 'w-[200px]')}
+        align="start"
+      >
         <Command>
           {searchable && <CommandInput placeholder={title} />}
-          <CommandList>
+          <CommandList className="max-h-[min(60vh,420px)] overflow-y-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-border">
             <CommandEmpty>Sem resultados.</CommandEmpty>
-            <CommandGroup className="p-0.5">
-              {options.map((opt) => {
-                const isSelected = selected.includes(opt.value)
-                return (
-                  <CommandItem key={opt.value} onSelect={() => toggle(opt.value)} className="gap-1.5 px-1.5 py-1 text-[13px]">
-                    <div
-                      className={cn(
-                        'flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary shrink-0',
-                        isSelected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'opacity-50 [&_svg]:invisible'
+            {grouped ? (
+              Object.entries(grouped).map(([groupName, opts], idx) => (
+                <CommandGroup
+                  key={groupName || `__ungrouped_${idx}`}
+                  heading={groupName || undefined}
+                  className="p-0.5"
+                >
+                  {opts.map((opt) => {
+                    const isSelected = selected.includes(opt.value)
+                    return (
+                      <CommandItem
+                        key={opt.value}
+                        onSelect={() => toggle(opt.value)}
+                        className="gap-1.5 px-1.5 py-1 text-[13px]"
+                      >
+                        <div
+                          className={cn(
+                            'flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary shrink-0',
+                            isSelected
+                              ? 'bg-primary text-primary-foreground'
+                              : 'opacity-50 [&_svg]:invisible',
+                          )}
+                        >
+                          <Check className="h-2.5 w-2.5" />
+                        </div>
+                        {opt.dot && (
+                          <span className={cn('h-2 w-2 rounded-full shrink-0', opt.dot)} />
+                        )}
+                        <span className={cn('truncate', opt.color)}>{opt.label}</span>
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              ))
+            ) : (
+              <CommandGroup className="p-0.5">
+                {options.map((opt) => {
+                  const isSelected = selected.includes(opt.value)
+                  return (
+                    <CommandItem key={opt.value} onSelect={() => toggle(opt.value)} className="gap-1.5 px-1.5 py-1 text-[13px]">
+                      <div
+                        className={cn(
+                          'flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary shrink-0',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground'
+                            : 'opacity-50 [&_svg]:invisible'
+                        )}
+                      >
+                        <Check className="h-2.5 w-2.5" />
+                      </div>
+                      {opt.dot && (
+                        <span className={cn('h-2 w-2 rounded-full shrink-0', opt.dot)} />
                       )}
-                    >
-                      <Check className="h-2.5 w-2.5" />
-                    </div>
-                    {opt.dot && (
-                      <span className={cn('h-2 w-2 rounded-full shrink-0', opt.dot)} />
-                    )}
-                    <span className={cn('truncate', opt.color)}>{opt.label}</span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
+                      <span className={cn('truncate', opt.color)}>{opt.label}</span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            )}
             <CommandSeparator />
             <CommandGroup className="p-0.5">
               {!isAllSelected && (
