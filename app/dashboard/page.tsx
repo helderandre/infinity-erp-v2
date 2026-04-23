@@ -41,6 +41,7 @@ import type {
   AgentDashboard as AgentData,
 } from '@/types/financial'
 import Link from 'next/link'
+import { MobileDashboard } from '@/components/dashboard/mobile/mobile-dashboard'
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
@@ -1051,12 +1052,21 @@ export default function DashboardPage() {
 
   const isManagement = isBroker() || hasPermission('financial' as any)
 
-  if (isManagement) return <ManagementDashboard />
-
   return (
-    <AgentDashboardView
-      userId={user.id}
-      userName={user.commercial_name || 'Consultor'}
-    />
+    <>
+      <div className="md:hidden">
+        <MobileDashboard user={user} />
+      </div>
+      <div className="hidden md:block">
+        {isManagement ? (
+          <ManagementDashboard />
+        ) : (
+          <AgentDashboardView
+            userId={user.id}
+            userName={user.commercial_name || 'Consultor'}
+          />
+        )}
+      </div>
+    </>
   )
 }

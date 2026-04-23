@@ -138,7 +138,11 @@ function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       ref={carouselRef}
-      className="overflow-hidden"
+      className={cn(
+        orientation === "horizontal"
+          ? "overflow-x-clip overflow-y-visible"
+          : "overflow-x-visible overflow-y-clip",
+      )}
       data-slot="carousel-content"
     >
       <div
