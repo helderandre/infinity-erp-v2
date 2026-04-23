@@ -20,6 +20,7 @@ export type PartnerCategory =
 export type PartnerVisibility = 'public' | 'private'
 export type PersonType = 'singular' | 'coletiva'
 export type PaymentMethod = 'transfer' | 'check' | 'cash' | 'other'
+export type PartnerStatus = 'pending' | 'approved' | 'rejected'
 
 export interface Partner {
   id: string
@@ -51,10 +52,19 @@ export interface Partner {
   average_delivery_days: number | null
   payment_terms: string | null
 
+  cover_image_url: string | null
+  description: string | null
+
   is_active: boolean
   created_at: string
   updated_at: string
   created_by: string | null
+
+  status: PartnerStatus
+  submitted_by: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  rejection_reason: string | null
 }
 
 export interface PartnerRating {
@@ -76,4 +86,5 @@ export interface PartnerFilters {
   is_active?: boolean
   search?: string
   is_recommended?: boolean
+  status?: PartnerStatus | 'all'
 }

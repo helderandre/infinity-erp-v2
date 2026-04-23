@@ -14,6 +14,7 @@ export async function GET(request: Request) {
       .from('temp_partners')
       .select('*')
       .eq('category', 'supplier')
+      .eq('status', 'approved')
       .order('name', { ascending: true })
 
     if (active === 'true') query = query.eq('is_active', true)

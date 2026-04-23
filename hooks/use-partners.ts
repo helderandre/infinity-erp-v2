@@ -18,11 +18,15 @@ interface UsePartnersReturn {
   total: number
   totalPages: number
   canSeePrivate: boolean
+  isStaff: boolean
+  pendingCount: number
   refetch: () => void
   createPartner: (data: CreatePartnerInput) => Promise<Partner | null>
   updatePartner: (id: string, data: any) => Promise<boolean>
   deletePartner: (id: string) => Promise<boolean>
   ratePartner: (id: string, rating: number, comment?: string) => Promise<boolean>
+  approvePartner: (id: string) => Promise<boolean>
+  rejectPartner: (id: string, reason: string) => Promise<boolean>
 }
 
 export function usePartners({
@@ -36,6 +40,8 @@ export function usePartners({
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [canSeePrivate, setCanSeePrivate] = useState(false)
+  const [isStaff, setIsStaff] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
 
   const abortRef = useRef<AbortController | null>(null)
   const filtersKey = JSON.stringify(filters || {})
@@ -56,6 +62,7 @@ export function usePartners({
       if (f.is_active !== undefined) params.set('is_active', String(f.is_active))
       if (f.is_recommended) params.set('is_recommended', 'true')
       if (f.search) params.set('search', f.search)
+      if (f.status) params.set('status', f.status)
 
       const res = await fetch(`/api/partners?${params}`, { signal: controller.signal })
       if (!res.ok) {
@@ -68,6 +75,8 @@ export function usePartners({
       setTotal(json.total || 0)
       setTotalPages(json.totalPages || 0)
       setCanSeePrivate(json.canSeePrivate || false)
+      setIsStaff(json.isStaff || false)
+      setPendingCount(json.pendingCount || 0)
     } catch (err: any) {
       if (err?.name === 'AbortError') return
       setError(err?.message || 'Erro ao carregar parceiros')
@@ -93,7 +102,11 @@ export function usePartners({
         throw new Error(body.error || 'Erro ao criar parceiro')
       }
       const json = await res.json()
-      toast.success('Parceiro criado com sucesso')
+      if (json.isProposal) {
+        toast.success('Proposta enviada para aprovação')
+      } else {
+        toast.success('Parceiro criado com sucesso')
+      }
       await fetchPartners()
       return json.data
     } catch (err: any) {
@@ -158,8 +171,45 @@ export function usePartners({
     }
   }, [fetchPartners])
 
+  const approvePartner = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/partners/${id}/approve`, { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao aprovar proposta')
+      }
+      toast.success('Proposta aprovada')
+      await fetchPartners()
+      return true
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao aprovar proposta')
+      return false
+    }
+  }, [fetchPartners])
+
+  const rejectPartner = useCallback(async (id: string, reason: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/partners/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao rejeitar proposta')
+      }
+      toast.success('Proposta rejeitada')
+      await fetchPartners()
+      return true
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao rejeitar proposta')
+      return false
+    }
+  }, [fetchPartners])
+
   return {
-    partners, isLoading, error, total, totalPages, canSeePrivate,
+    partners, isLoading, error, total, totalPages, canSeePrivate, isStaff, pendingCount,
     refetch: fetchPartners, createPartner, updatePartner, deletePartner, ratePartner,
+    approvePartner, rejectPartner,
   }
 }

@@ -1,6 +1,7 @@
 import type { useRouter } from 'next/navigation'
 import type { VoiceToolName } from './tools'
 import type { PropertyCardInput } from '@/lib/email/property-card-html'
+import { PARTNER_CATEGORY_COLORS } from '@/lib/constants'
 import { setPrefill } from './prefill'
 
 type Router = ReturnType<typeof useRouter>
@@ -110,7 +111,13 @@ export interface VoiceSearchResult {
   /** Small meta text (e.g. category, extension, date). */
   meta?: string
   /** Which source surfaced this result — used to tint/label the card. */
-  kind?: 'document' | 'design' | 'property'
+  kind?: 'document' | 'design' | 'property' | 'partner' | 'link'
+  /**
+   * When true the result card shows only an "Abrir" action — email/WhatsApp
+   * send buttons are hidden. Used by open_link so Acessos links behave like
+   * direct shortcuts, not share-to-contact flows.
+   */
+  openOnly?: boolean
   /**
    * Pre-resolved recipients to auto-fill the Compose panel. Populated by
    * tools that captured names via voice (e.g. send_property).
@@ -124,6 +131,23 @@ export interface VoiceSearchResult {
    * Outlook-safe grid via renderPropertyGrid().
    */
   card?: PropertyCardInput
+  /**
+   * Rich partner-card data — lets the results view paint a card that
+   * mirrors the /dashboard/parceiros grid (cover/category hero, recomendado
+   * badge, category dot + city + contact person).
+   */
+  partnerCard?: VoicePartnerCardData
+}
+
+export interface VoicePartnerCardData {
+  coverImageUrl?: string | null
+  isRecommended?: boolean
+  categoryLabel: string
+  /** Tailwind bg-*, text-*, dot-* classes for the category — matches PARTNER_CATEGORY_COLORS. */
+  categoryColor: { bg: string; text: string; dot: string }
+  city?: string
+  ratingAvg?: number | null
+  contactPerson?: string
 }
 
 export interface PropertyBasket {
@@ -160,6 +184,19 @@ export interface ToolConfig {
   submit: (args: Record<string, any>, ctx: SubmitContext) => Promise<SubmitResult>
   /** Override the default "all required fields filled" submission check. */
   canSubmit?: (args: Record<string, any>) => boolean
+  /**
+   * When true and the args already satisfy canSubmit, the overlay skips the
+   * review screen and calls submit() immediately. Meant for pure search
+   * tools (search_document, open_link, search_partner) where the user
+   * refines inline on the results screen instead of editing a form first.
+   */
+  autoSubmit?: boolean
+  /**
+   * Which field key to surface as an editable search input on the results
+   * screen. Only used when `autoSubmit` is true. Typing in that input
+   * mutates the args and re-runs submit() debounced.
+   */
+  searchFieldKey?: string
   /**
    * Optional "save as draft" action — if provided, the overlay shows a
    * secondary button that works even when required fields are still missing.
@@ -759,24 +796,33 @@ const createVisit: ToolConfig = {
   submit: async (args, { router, userId }) => {
     if (!userId) throw new Error('Utilizador actual não identificado')
 
-    // Resolve property
-    const q = String(args.property_query ?? '').trim()
-    const propsRes = await fetch(
-      `/api/properties?search=${encodeURIComponent(q)}&per_page=3`
-    )
-    if (!propsRes.ok) throw new Error('Falha ao procurar imóvel')
-    const pdata = await propsRes.json()
-    const plist: any[] = Array.isArray(pdata?.data) ? pdata.data : []
-    if (plist.length === 0) {
-      throw new Error(`Imóvel "${q}" não encontrado.`)
+    // Resolve property — prefer the id the user adopted during review, fall
+    // back to re-searching by property_query if none was picked.
+    let propertyId: string | undefined = args.resolved_property_id
+      ? String(args.resolved_property_id)
+      : undefined
+    if (!propertyId) {
+      const q = String(args.property_query ?? '').trim()
+      const propsRes = await fetch(
+        `/api/properties?search=${encodeURIComponent(q)}&per_page=3`
+      )
+      if (!propsRes.ok) throw new Error('Falha ao procurar imóvel')
+      const pdata = await propsRes.json()
+      const plist: any[] = Array.isArray(pdata?.data) ? pdata.data : []
+      if (plist.length === 0) {
+        throw new Error(`Imóvel "${q}" não encontrado.`)
+      }
+      propertyId = String(plist[0].id)
     }
-    const property = plist[0]
 
-    // Resolve contact (optional — fall back to client_name if no match)
+    // Resolve contact — prefer adopted id, fall back to name lookup. If still
+    // nothing we send client_name as a free-text fallback.
     const contactName = String(args.contact_name ?? '').trim()
-    let lead_id: string | undefined
-    let fallbackClientName: string | undefined = contactName
-    if (contactName) {
+    let lead_id: string | undefined = args.resolved_lead_id
+      ? String(args.resolved_lead_id)
+      : undefined
+    let fallbackClientName: string | undefined = lead_id ? undefined : contactName
+    if (!lead_id && contactName) {
       const lres = await fetch(
         `/api/leads?nome=${encodeURIComponent(contactName)}&limit=3`
       )
@@ -803,7 +849,7 @@ const createVisit: ToolConfig = {
     }
 
     const payload: Record<string, unknown> = {
-      property_id: String(property.id),
+      property_id: propertyId,
       consultant_id: userId,
       visit_date: datePart,
       visit_time: timePart,
@@ -1049,6 +1095,8 @@ const sendProperty: ToolConfig = {
 const searchDocument: ToolConfig = {
   title: 'Procurar documentos e designs',
   submitLabel: 'Procurar',
+  autoSubmit: true,
+  searchFieldKey: 'query',
   fields: [
     { key: 'query', label: 'Termo', required: true },
   ],
@@ -1120,6 +1168,274 @@ const searchDocument: ToolConfig = {
       message: results.length
         ? `${results.length} resultado${results.length !== 1 ? 's' : ''}`
         : 'Sem resultados',
+    }
+  },
+}
+
+// Static category list for the review-screen dropdown. Mirrors
+// PARTNER_CATEGORY_OPTIONS in lib/constants.ts — duplicated here so the
+// voice module stays free of UI-only dependencies.
+const PARTNER_CATEGORY_VOICE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'supplier', label: 'Fornecedor' },
+  { value: 'lawyer', label: 'Advogado' },
+  { value: 'notary', label: 'Notário' },
+  { value: 'bank', label: 'Banco' },
+  { value: 'photographer', label: 'Fotógrafo' },
+  { value: 'constructor', label: 'Empreiteiro' },
+  { value: 'insurance', label: 'Seguros' },
+  { value: 'energy_cert', label: 'Cert. Energética' },
+  { value: 'cleaning', label: 'Limpezas' },
+  { value: 'moving', label: 'Mudanças' },
+  { value: 'appraiser', label: 'Avaliador' },
+  { value: 'architect', label: 'Arquitecto' },
+  { value: 'home_staging', label: 'Home Staging' },
+  { value: 'credit_broker', label: 'Interm. Crédito' },
+  { value: 'interior_design', label: 'Design Interior' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'other', label: 'Outro' },
+]
+const PARTNER_CATEGORY_LABEL_MAP: Record<string, string> = Object.fromEntries(
+  PARTNER_CATEGORY_VOICE_OPTIONS.map((o) => [o.value, o.label])
+)
+
+const searchPartner: ToolConfig = {
+  title: 'Procurar parceiro',
+  submitLabel: 'Procurar',
+  autoSubmit: true,
+  searchFieldKey: 'name_query',
+  fields: [
+    {
+      key: 'name_query',
+      label: 'Nome / termo',
+      placeholder: 'Nome, pessoa, cidade, NIF (opcional)',
+    },
+    {
+      key: 'category',
+      label: 'Categoria',
+      inputType: 'select',
+      options: PARTNER_CATEGORY_VOICE_OPTIONS,
+    },
+  ],
+  // Must have at least one of name_query or category — enforced here so
+  // the submit button stays disabled until the user (or voice) provides one.
+  canSubmit: (args) => {
+    const hasName = Boolean(String(args.name_query ?? '').trim())
+    const hasCategory = Boolean(String(args.category ?? '').trim())
+    return hasName || hasCategory
+  },
+  submit: async (args) => {
+    const name = String(args.name_query ?? '').trim()
+    const category = String(args.category ?? '').trim()
+    if (!name && !category) throw new Error('Indica um nome ou uma categoria')
+
+    const params = new URLSearchParams()
+    if (name) params.set('search', name)
+    if (category) params.set('category', category)
+    params.set('is_active', 'true')
+    params.set('limit', '10')
+
+    const res = await fetch(`/api/partners?${params.toString()}`)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err?.error || 'Falha ao procurar parceiros')
+    }
+    const json = await res.json()
+    const list: any[] = Array.isArray(json?.data) ? json.data : []
+
+    // Fallback colours when a partner sits outside the known category map.
+    const FALLBACK_COLOR = { bg: 'bg-slate-500/15', text: 'text-slate-600', dot: 'bg-slate-500' }
+
+    const results: VoiceSearchResult[] = list.map((p: any) => {
+      const catLabel = PARTNER_CATEGORY_LABEL_MAP[p.category] || 'Parceiro'
+      const catColor = PARTNER_CATEGORY_COLORS[p.category] || FALLBACK_COLOR
+      const metaParts = [
+        catLabel,
+        p.is_recommended ? '★ Recomendado' : null,
+        p.city || null,
+        p.phone || null,
+      ].filter(Boolean)
+      const hasContact = Boolean(p.email || p.phone)
+      return {
+        id: `partner:${p.id}`,
+        title: String(p.name || 'Parceiro'),
+        subtitle: p.contact_person ? `Contacto: ${p.contact_person}` : undefined,
+        url: `/dashboard/parceiros/${p.id}`,
+        meta: metaParts.join(' · ') || undefined,
+        kind: 'partner',
+        partnerCard: {
+          coverImageUrl: p.cover_image_url ? String(p.cover_image_url) : null,
+          isRecommended: Boolean(p.is_recommended),
+          categoryLabel: catLabel,
+          categoryColor: catColor,
+          city: p.city ? String(p.city) : undefined,
+          ratingAvg: typeof p.rating_avg === 'number' ? p.rating_avg : null,
+          contactPerson: p.contact_person ? String(p.contact_person) : undefined,
+        },
+        initialRecipients: hasContact
+          ? [
+              {
+                id: String(p.id),
+                nome: String(p.name ?? ''),
+                email: p.email ? String(p.email) : undefined,
+                telemovel: p.phone ? String(p.phone) : undefined,
+              },
+            ]
+          : undefined,
+      }
+    })
+
+    const summary = [
+      category ? PARTNER_CATEGORY_LABEL_MAP[category] || category : null,
+      name ? `"${name}"` : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return {
+      results,
+      message: results.length
+        ? `${results.length} parceiro${results.length !== 1 ? 's' : ''} encontrado${results.length !== 1 ? 's' : ''}`
+        : `Nenhum parceiro para ${summary || 'esta pesquisa'}`,
+    }
+  },
+}
+
+// ── Quick-open links (Acessos page shortcuts) ────────────────────────────
+//
+// Static catalog mirrors the hardcoded atalhos/websites in
+// app/dashboard/acessos/page.tsx. At runtime we also merge the dynamic
+// acessos_custom_sites and user_links tables so every link that appears in
+// the Acessos page is reachable by voice.
+//
+// Each entry gets a list of `aliases` so common variations (e.g. "chat gpt"
+// vs "chatgpt") all score the same query.
+
+type StaticAcessosLink = {
+  id: string
+  title: string
+  url: string
+  section: string
+  aliases?: string[]
+}
+
+const STATIC_ACESSOS_LINKS: StaticAcessosLink[] = [
+  // Atalhos RE/MAX
+  { id: 'remax-maxwork', title: 'MaxWork', url: 'https://app.maxwork.pt/home', section: 'RE/MAX', aliases: ['max work'] },
+  { id: 'remax-contactos', title: 'Contactos RE/MAX', url: 'https://app.maxwork.pt/contact/list', section: 'RE/MAX' },
+  { id: 'remax-site', title: 'Imóveis RE/MAX', url: 'https://remax.pt/pt', section: 'RE/MAX', aliases: ['remax site', 'site remax'] },
+  { id: 'remax-convictus', title: 'Convictus', url: 'https://remax.pt/pt/comprar/imoveis/h/r/r/r/t?s=%7B%22of%22%3A%2212149%22%2C%22nm%22%3A%22RE%2FMAX%20ConviCtus%22%2C%22os%22%3A%22false%22%7D&p=1&o=-PublishDate', section: 'RE/MAX' },
+  // Portais imobiliários
+  { id: 'portal-idealista', title: 'Idealista', url: 'https://www.idealista.pt/', section: 'Portais' },
+  { id: 'portal-casayes', title: 'CasaYes', url: 'https://casayes.pt/pt', section: 'Portais' },
+  { id: 'portal-imovirtual', title: 'ImoVirtual', url: 'https://www.imovirtual.com/', section: 'Portais', aliases: ['imo virtual'] },
+  // Notícias
+  { id: 'news-ci', title: 'Confidencial Imobiliário', url: 'https://www.confidencialimobiliario.com/novidades/', section: 'Notícias', aliases: ['ci', 'confidencial'] },
+  { id: 'news-idealista', title: 'Idealista News', url: 'https://www.idealista.pt/news/', section: 'Notícias' },
+  { id: 'news-eco', title: 'Eco Sapo Imobiliário', url: 'https://eco.sapo.pt/topico/imobiliario/', section: 'Notícias', aliases: ['eco sapo'] },
+  // Websites
+  { id: 'web-microsir', title: 'MicroSIR', url: 'https://sir.confidencialimobiliario.com/', section: 'Websites', aliases: ['sir', 'micro sir'] },
+  { id: 'web-casafari', title: 'Casafari', url: 'https://pt.casafari.com/login?next=%2Faccount%2Fstarting-page', section: 'Websites' },
+]
+
+/** Simple token-based scorer: query tokens that hit title+aliases bump rank. */
+function scoreLink(query: string, title: string, aliases: string[] = []): number {
+  const q = query.toLowerCase().trim()
+  if (!q) return 0
+  const hay = [title, ...aliases].join(' ').toLowerCase()
+  if (hay === q) return 1000
+  if (hay.startsWith(q) || title.toLowerCase().startsWith(q)) return 800
+  if (hay.includes(q)) return 600
+  const qTokens = q.split(/\s+/).filter(Boolean)
+  let tokenScore = 0
+  for (const t of qTokens) {
+    if (hay.includes(t)) tokenScore += 100
+  }
+  return tokenScore
+}
+
+const openLink: ToolConfig = {
+  title: 'Abrir link',
+  submitLabel: 'Procurar',
+  autoSubmit: true,
+  searchFieldKey: 'query',
+  fields: [
+    {
+      key: 'query',
+      label: 'Nome',
+      required: true,
+      placeholder: 'Ex: canva, idealista, maxwork…',
+    },
+  ],
+  submit: async (args) => {
+    const q = String(args.query ?? '').trim()
+    if (!q) throw new Error('Indica o nome do link')
+
+    // Parallel fetch: custom sites (global + personal) + user personal links.
+    const [customRes, userRes] = await Promise.all([
+      fetch('/api/acessos/custom-sites').catch(() => null),
+      fetch('/api/user-links').catch(() => null),
+    ])
+
+    const toArray = async (res: Response | null): Promise<any[]> => {
+      if (!res || !res.ok) return []
+      try {
+        const raw = await res.json()
+        return Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []
+      } catch {
+        return []
+      }
+    }
+
+    const [customSites, userLinks] = await Promise.all([
+      toArray(customRes),
+      toArray(userRes),
+    ])
+
+    type CandidateLink = {
+      id: string
+      title: string
+      url: string
+      section: string
+      aliases?: string[]
+    }
+
+    const candidates: CandidateLink[] = [
+      ...STATIC_ACESSOS_LINKS,
+      ...customSites.map((s: any) => ({
+        id: `custom:${s.id}`,
+        title: String(s.title || 'Site'),
+        url: String(s.url || ''),
+        section: s.scope === 'personal' ? 'Os Meus Sites' : 'Outros Sites',
+      })),
+      ...userLinks.map((l: any) => ({
+        id: `mylink:${l.id}`,
+        title: String(l.title || 'Link'),
+        url: String(l.url || ''),
+        section: 'Os Meus Links',
+      })),
+    ].filter((c) => c.url && c.title)
+
+    // Score + sort
+    const scored = candidates
+      .map((c) => ({ c, score: scoreLink(q, c.title, c.aliases) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6)
+
+    const results: VoiceSearchResult[] = scored.map(({ c }) => ({
+      id: `link:${c.id}`,
+      title: c.title,
+      url: c.url,
+      meta: c.section,
+      kind: 'link',
+      openOnly: true,
+    }))
+
+    return {
+      results,
+      message: results.length
+        ? `${results.length} resultado${results.length !== 1 ? 's' : ''} para "${q}"`
+        : `Nenhum link para "${q}"`,
     }
   },
 }
@@ -1203,6 +1519,8 @@ export const TOOL_CONFIGS: Record<VoiceToolName, ToolConfig> = {
   create_visit: createVisit,
   send_property: sendProperty,
   search_document: searchDocument,
+  search_partner: searchPartner,
+  open_link: openLink,
 }
 
 /**

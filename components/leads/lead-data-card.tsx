@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Check, FileText, ExternalLink, Trash2, Sparkles } from 'lucide-react'
+import { Pencil, Check, FileText, ExternalLink, Trash2, Sparkles, Phone, IdCard, MapPin, Building2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -304,32 +305,39 @@ export function LeadDataCard({
         <Tabs defaultValue="contactos">
           {/* Sub-tabs header + edit button */}
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0">
-              <TabsTrigger
-                value="contactos"
-                className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                📞 Contactos
-              </TabsTrigger>
-              <TabsTrigger
-                value="identificacao"
-                className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                🪪 Identificação
-              </TabsTrigger>
-              <TabsTrigger
-                value="morada"
-                className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                📍 Morada
-              </TabsTrigger>
-              <TabsTrigger
-                value="empresa"
-                className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                🏢 Empresa
-              </TabsTrigger>
-            </TabsList>
+            <div className="@container min-w-0 flex-1">
+              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
+                {[
+                  { key: 'contactos', label: 'Contactos', icon: Phone },
+                  { key: 'identificacao', label: 'Identificação', icon: IdCard },
+                  { key: 'morada', label: 'Morada', icon: MapPin },
+                  { key: 'empresa', label: 'Empresa', icon: Building2 },
+                ].map((t) => {
+                  const Icon = t.icon
+                  return (
+                    <TabsTrigger
+                      key={t.key}
+                      value={t.key}
+                      className={cn(
+                        'group inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-3 py-1.5 text-sm',
+                        'data-[state=active]:bg-background data-[state=active]:shadow-sm',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span
+                        className={cn(
+                          'hidden truncate',
+                          'group-data-[state=active]:inline',
+                          '@lg:inline',
+                        )}
+                      >
+                        {t.label}
+                      </span>
+                    </TabsTrigger>
+                  )
+                })}
+              </TabsList>
+            </div>
 
             {/* Edit / Save button */}
             {isEditing ? (

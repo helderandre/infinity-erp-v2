@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { AlertCircle, ArrowLeft, Building2, Check, ChevronDown, ExternalLink, FileText, Image as ImageIcon, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Trash2, User, UserCheck, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Award, Building2, Check, ChevronDown, ExternalLink, FileText, Handshake, Image as ImageIcon, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Star, Trash2, User, UserCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -137,10 +137,17 @@ export function AiVoiceAssistant() {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const rafRef = useRef<number | null>(null)
   const intentRef = useRef<Intent | null>(null)
+  const autoSubmitFiredRef = useRef(false)
 
   useEffect(() => {
     intentRef.current = intent
   }, [intent])
+
+  // Reset the auto-submit guard whenever the intent identity changes (a
+  // brand new voice capture). Keeps us from re-firing on every args edit.
+  useEffect(() => {
+    if (!intent) autoSubmitFiredRef.current = false
+  }, [intent?.tool])
 
   const cleanupAudio = useCallback(() => {
     if (rafRef.current) {
@@ -236,7 +243,15 @@ export function AiVoiceAssistant() {
           confirmText: data.confirmText || TOOL_CONFIGS[toolName].title,
           confidence: data.confidence ?? null,
         })
-        setState('reviewing')
+        // Auto-submit tools (search_document, open_link, search_partner)
+        // skip the review screen entirely — jump straight to 'submitting'
+        // so the review panel never paints for a frame.
+        const cfg = TOOL_CONFIGS[toolName]
+        const canSubmitInitial = cfg.canSubmit
+          ? cfg.canSubmit(rawArgs)
+          : getMissingRequired(toolName, rawArgs).length === 0
+        const willAutoSubmit = cfg.autoSubmit && canSubmitInitial
+        setState(willAutoSubmit ? 'submitting' : 'reviewing')
       } catch {
         setState(intentRef.current ? 'reviewing' : 'error')
         if (!intentRef.current) setErrorMessage('Erro ao processar. Tenta novamente.')
@@ -384,6 +399,52 @@ export function AiVoiceAssistant() {
     }
   }, [intent, router, close, user?.id, pathname])
 
+  // Auto-submit for pure search tools (search_document, open_link,
+  // search_partner): skip the review screen and run submit immediately so
+  // the user lands straight in the results with an editable search input.
+  useEffect(() => {
+    if (!intent) return
+    if (autoSubmitFiredRef.current) return
+    // processAudio primes state to 'submitting' for autoSubmit tools; accept
+    // both 'submitting' (fresh voice capture) and 'reviewing' (edge cases).
+    if (state !== 'reviewing' && state !== 'submitting') return
+    const cfg = TOOL_CONFIGS[intent.tool]
+    if (!cfg.autoSubmit) return
+    const canSubmit = cfg.canSubmit
+      ? cfg.canSubmit(intent.args)
+      : getMissingRequired(intent.tool, intent.args).length === 0
+    if (!canSubmit) return
+    autoSubmitFiredRef.current = true
+    void handleSubmit()
+  }, [intent, state, handleSubmit])
+
+  // Inline search refinement from the ResultsPanel — re-runs submit with
+  // the new query value without leaving the results view.
+  const handleInlineSearch = useCallback(
+    async (value: string) => {
+      if (!intent) return
+      const cfg = TOOL_CONFIGS[intent.tool]
+      const key = cfg.searchFieldKey
+      if (!key) return
+      const nextArgs = { ...intent.args, [key]: value }
+      setIntent({ ...intent, args: nextArgs })
+      try {
+        const entity = parseEntityFromPath(pathname)
+        const result = await cfg.submit(nextArgs, {
+          router,
+          userId: user?.id,
+          entity,
+        })
+        if (result.results) {
+          setSearchResults(result.results)
+        }
+      } catch (err) {
+        console.error('[voice inline search]', err)
+      }
+    },
+    [intent, pathname, router, user?.id]
+  )
+
   const handleDraftSave = useCallback(async () => {
     if (!intent) return
     const cfg = TOOL_CONFIGS[intent.tool]
@@ -440,8 +501,14 @@ export function AiVoiceAssistant() {
 
   const showBasket = state === 'results' && basket !== null
   const showResults = state === 'results' && searchResults !== null && !showBasket
-  const showReview = !showResults && !showBasket && intent !== null
-  const showFullMic = !intent && !showResults && !showBasket
+  // Suppress the review screen entirely while an auto-submit tool is racing
+  // to produce results — prevents the old confirmation panel from flashing.
+  const isAutoSubmitting =
+    intent !== null &&
+    TOOL_CONFIGS[intent.tool].autoSubmit === true &&
+    (state === 'submitting' || state === 'processing')
+  const showReview = !showResults && !showBasket && intent !== null && !isAutoSubmitting
+  const showFullMic = !intent && !showResults && !showBasket && !isAutoSubmitting
   const isRecording = state === 'recording'
   const isBusy = state === 'processing' || state === 'requesting_mic' || state === 'submitting'
 
@@ -497,6 +564,20 @@ export function AiVoiceAssistant() {
               onClose={close}
             />
           </>
+        ) : isAutoSubmitting ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-white/60">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              A procurar…
+            </div>
+          </>
         ) : showResults ? (
           <>
             <SmallStatus
@@ -507,13 +588,37 @@ export function AiVoiceAssistant() {
               transcript={transcript}
             />
             <ResultsPanel
-              query={String(intent?.args?.query ?? '')}
+              query={(() => {
+                if (!intent) return ''
+                const cfg = TOOL_CONFIGS[intent.tool]
+                const key = cfg.searchFieldKey || 'query'
+                return String(intent.args?.[key] ?? '')
+              })()}
               results={searchResults!}
+              inlineEditable={
+                intent
+                  ? Boolean(TOOL_CONFIGS[intent.tool].autoSubmit)
+                  : false
+              }
+              onInlineChange={handleInlineSearch}
+              onRestartVoice={() => {
+                // Full restart: drop results + intent, hop back to mic state
+                // so the user can dictate a completely different action.
+                setSearchResults(null)
+                setIntent(null)
+                intentRef.current = null
+                autoSubmitFiredRef.current = false
+                setTranscript('')
+                setErrorMessage('')
+                setState('idle')
+                startRecording()
+              }}
               onNewSearch={() => {
                 setSearchResults(null)
                 setState('reviewing')
               }}
               onClose={close}
+              isRecording={isRecording}
             />
           </>
         ) : (
@@ -818,6 +923,35 @@ function ReviewPanel({
                       }}
                     />
                   )}
+                  {intent.tool === 'create_visit' && field.key === 'property_query' && (
+                    <PropertyMatchHint
+                      query={String(intent.args.property_query ?? '')}
+                      adoptedId={
+                        intent.args.resolved_property_id
+                          ? String(intent.args.resolved_property_id)
+                          : undefined
+                      }
+                      onAdopt={(match) => {
+                        // Replace the free-text query with the real title so
+                        // the green banner is stable even if the user keeps
+                        // speaking and the matches list changes.
+                        onArgChange('property_query', match.title)
+                        onArgChange('resolved_property_id', match.id)
+                      }}
+                      onUnlink={() => onArgChange('resolved_property_id', '')}
+                    />
+                  )}
+                  {intent.tool === 'create_visit' && field.key === 'contact_name' && (
+                    <OwnerMatchHint
+                      name={String(intent.args.contact_name ?? '')}
+                      onAdopt={(match) => {
+                        onArgChange('contact_name', match.nome)
+                        onArgChange('resolved_lead_id', match.id)
+                        if (match.telemovel) onArgChange('client_phone', match.telemovel)
+                        if (match.email) onArgChange('client_email', match.email)
+                      }}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -1092,16 +1226,55 @@ function ResultsPanel({
   results,
   onNewSearch,
   onClose,
+  inlineEditable,
+  onInlineChange,
+  onRestartVoice,
+  isRecording,
 }: {
   query: string
   results: VoiceSearchResult[]
   onNewSearch: () => void
   onClose: () => void
+  /** When true, the query at the top becomes an editable input that debounces
+   *  back to the parent so the search can be refined without leaving the view. */
+  inlineEditable?: boolean
+  onInlineChange?: (value: string) => void | Promise<void>
+  /** Drops the current intent + results and restarts voice capture so the
+   *  user can dictate a new search or a completely different action. */
+  onRestartVoice?: () => void
+  /** Mic state from the parent — used to disable the mic button while a
+   *  capture is already in progress. */
+  isRecording?: boolean
 }) {
   const [showOthers, setShowOthers] = useState(false)
   const [compose, setCompose] = useState<ComposeState>(null)
+  const [inlineValue, setInlineValue] = useState(query)
+  const [refining, setRefining] = useState(false)
   const top = results[0]
   const others = results.slice(1)
+
+  // Sync the input when the parent query changes (e.g. fresh voice capture).
+  useEffect(() => {
+    setInlineValue(query)
+  }, [query])
+
+  // Debounced refine — re-runs submit via the callback 350ms after the user
+  // stops typing, but only when the value actually differs from `query`.
+  useEffect(() => {
+    if (!inlineEditable || !onInlineChange) return
+    if (inlineValue === query) return
+    const trimmed = inlineValue.trim()
+    if (!trimmed) return
+    setRefining(true)
+    const t = setTimeout(async () => {
+      try {
+        await onInlineChange(trimmed)
+      } finally {
+        setRefining(false)
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [inlineValue, query, inlineEditable, onInlineChange])
 
   if (compose) {
     return (
@@ -1123,13 +1296,51 @@ function ResultsPanel({
 
   return (
     <div className="mt-6 space-y-3 text-left">
-      <div className="flex items-center justify-between gap-3 px-1 text-xs text-white/60">
-        <span className="inline-flex items-center gap-1.5">
-          <Search className="h-3.5 w-3.5" />
-          <span>"{query}"</span>
-        </span>
-        <span>{results.length} resultado{results.length !== 1 ? 's' : ''}</span>
-      </div>
+      {inlineEditable ? (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40 pointer-events-none" />
+            <Input
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.target.value)}
+              placeholder="Refinar pesquisa…"
+              className="h-9 pl-8 pr-20 bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] text-white/50">
+              {refining ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <span className="tabular-nums">
+                  {results.length} {results.length === 1 ? 'resultado' : 'resultados'}
+                </span>
+              )}
+            </div>
+          </div>
+          {onRestartVoice && (
+            <button
+              type="button"
+              onClick={onRestartVoice}
+              disabled={isRecording}
+              aria-label="Falar de novo"
+              title="Falar de novo"
+              className={cn(
+                'h-9 w-9 shrink-0 rounded-full inline-flex items-center justify-center transition-colors',
+                'bg-white/10 hover:bg-white/20 text-white disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 px-1 text-xs text-white/60">
+          <span className="inline-flex items-center gap-1.5">
+            <Search className="h-3.5 w-3.5" />
+            <span>"{query}"</span>
+          </span>
+          <span>{results.length} resultado{results.length !== 1 ? 's' : ''}</span>
+        </div>
+      )}
 
       {!top ? (
         <div className="rounded-2xl bg-white/10 border border-white/20 p-5 text-sm text-white/80 text-center">
@@ -1185,7 +1396,12 @@ function ResultCard({
       ? Building2
       : result.kind === 'design'
         ? ImageIcon
-        : FileText
+        : result.kind === 'partner'
+          ? Handshake
+          : result.kind === 'link'
+            ? ExternalLink
+            : FileText
+  const openOnly = result.openOnly === true
 
   if (variant === 'compact') {
     return (
@@ -1199,8 +1415,102 @@ function ResultCard({
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <CardAction href={result.url} icon={<ExternalLink className="h-3.5 w-3.5" />} label="Abrir" />
-          <CardAction onClick={() => onSend(result, 'email')} icon={<Mail className="h-3.5 w-3.5" />} label="Email" />
-          <CardAction onClick={() => onSend(result, 'whatsapp')} icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
+          {!openOnly && (
+            <>
+              <CardAction onClick={() => onSend(result, 'email')} icon={<Mail className="h-3.5 w-3.5" />} label="Email" />
+              <CardAction onClick={() => onSend(result, 'whatsapp')} icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Specialised featured render for partners — mirrors /dashboard/parceiros
+  // grid cards: hero (cover image or category-colored bg + icon), Recomendado
+  // badge, name, contact, category dot + city + rating, action row.
+  if (result.kind === 'partner' && result.partnerCard) {
+    const pc = result.partnerCard
+    const hasCover = Boolean(pc.coverImageUrl)
+    const rating = typeof pc.ratingAvg === 'number' ? pc.ratingAvg : null
+    return (
+      <div className="rounded-2xl bg-white text-neutral-900 overflow-hidden shadow-xl">
+        <a href={result.url} target="_blank" rel="noreferrer" className="block">
+          <div className={cn('relative aspect-[16/9]', hasCover ? 'bg-muted' : pc.categoryColor.bg)}>
+            {hasCover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pc.coverImageUrl!}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Handshake className={cn('h-14 w-14 opacity-80', pc.categoryColor.text)} />
+              </div>
+            )}
+            {pc.isRecommended && (
+              <div className="absolute top-2 left-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/40 text-white border border-white/15 backdrop-blur-md px-2 h-5 text-[10px]">
+                  <Award className="h-2.5 w-2.5" />
+                  Recomendado
+                </span>
+              </div>
+            )}
+          </div>
+        </a>
+        <div className="px-4 pt-3">
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noreferrer"
+            className="block group"
+          >
+            <p className="font-semibold text-sm tracking-tight truncate group-hover:underline">
+              {result.title}
+            </p>
+            {pc.contactPerson && (
+              <p className="text-xs text-neutral-600 truncate mt-0.5">{pc.contactPerson}</p>
+            )}
+          </a>
+          <div className="mt-2 flex items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500 flex-wrap">
+            <span className="inline-flex items-center gap-1.5">
+              <span className={cn('h-1.5 w-1.5 rounded-full', pc.categoryColor.dot)} />
+              {pc.categoryLabel}
+            </span>
+            {pc.city && (
+              <>
+                <span className="text-neutral-400">·</span>
+                <span>{pc.city}</span>
+              </>
+            )}
+            {rating !== null && rating > 0 && (
+              <>
+                <span className="text-neutral-400">·</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  <span className="tabular-nums">{rating.toFixed(1)}</span>
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="px-4 py-3 flex flex-wrap gap-2 mt-1">
+          <Button size="sm" variant="outline" asChild className="gap-1.5">
+            <a href={result.url} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir
+            </a>
+          </Button>
+          {!openOnly && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => onSend(result, 'email')} className="gap-1.5">
+                <Mail className="h-3.5 w-3.5" /> Email
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onSend(result, 'whatsapp')} className="gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+              </Button>
+            </>
+          )}
         </div>
       </div>
     )
@@ -1228,14 +1538,16 @@ function ResultCard({
         </div>
         <ExternalLink className="h-4 w-4 shrink-0 text-neutral-400 mt-1" />
       </a>
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
-        <Button size="sm" variant="outline" onClick={() => onSend(result, 'email')} className="gap-1.5">
-          <Mail className="h-3.5 w-3.5" /> Enviar por email
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onSend(result, 'whatsapp')} className="gap-1.5">
-          <MessageCircle className="h-3.5 w-3.5" /> Enviar por WhatsApp
-        </Button>
-      </div>
+      {!openOnly && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
+          <Button size="sm" variant="outline" onClick={() => onSend(result, 'email')} className="gap-1.5">
+            <Mail className="h-3.5 w-3.5" /> Enviar por email
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onSend(result, 'whatsapp')} className="gap-1.5">
+            <MessageCircle className="h-3.5 w-3.5" /> Enviar por WhatsApp
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -2679,6 +2991,127 @@ function OwnerMatchHint({
             {m.telemovel && <span className="text-white/50">· {m.telemovel}</span>}
           </button>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Property match hint ──────────────────────────────────────────────────
+// Debounced search against /api/properties so the user adopts a real
+// imóvel during the review step instead of having the submit resolve it
+// blindly. Used by create_visit (mirrors OwnerMatchHint for leads).
+
+interface PropertyMatch {
+  id: string
+  title: string
+  city?: string
+  zone?: string
+  external_ref?: string
+  listing_price?: number | null
+}
+
+function PropertyMatchHint({
+  query,
+  adoptedId,
+  onAdopt,
+  onUnlink,
+}: {
+  query: string
+  adoptedId?: string
+  onAdopt: (match: PropertyMatch) => void
+  onUnlink: () => void
+}) {
+  const [matches, setMatches] = useState<PropertyMatch[]>([])
+  const trimmed = (query ?? '').trim()
+  const adopted = adoptedId
+    ? matches.find((m) => m.id === adoptedId) ?? null
+    : null
+
+  useEffect(() => {
+    if (adoptedId) return // already linked — stop searching
+    if (trimmed.length < 2) {
+      setMatches([])
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/properties?search=${encodeURIComponent(trimmed)}&per_page=5`
+        )
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        if (cancelled) return
+        const raw: any[] = Array.isArray(data?.data) ? data.data : []
+        setMatches(
+          raw.slice(0, 4).map((r: any) => ({
+            id: String(r.id),
+            title: String(r.title || 'Imóvel'),
+            city: r.city ? String(r.city) : undefined,
+            zone: r.zone ? String(r.zone) : undefined,
+            external_ref: r.external_ref ? String(r.external_ref) : undefined,
+            listing_price: r.listing_price ?? null,
+          }))
+        )
+      } catch {
+        if (!cancelled) setMatches([])
+      }
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [trimmed, adoptedId])
+
+  if (adoptedId) {
+    // The matches list may have been cleared after adoption — still show the
+    // banner using the raw query when we can't find the full record.
+    const label = adopted?.title || trimmed
+    return (
+      <div className="mt-1.5 rounded-md bg-emerald-500/15 ring-1 ring-emerald-500/30 px-2.5 py-2 text-xs text-left flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-emerald-100 min-w-0">
+          <Building2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            Ligado ao imóvel <span className="font-medium">{label}</span>
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={onUnlink}
+          className="text-emerald-200/80 hover:text-white text-[11px] shrink-0"
+        >
+          Mudar
+        </button>
+      </div>
+    )
+  }
+
+  if (!trimmed || matches.length === 0) return null
+
+  return (
+    <div className="mt-1.5 rounded-md bg-sky-500/15 ring-1 ring-sky-500/30 px-2.5 py-2 text-xs text-left">
+      <p className="flex items-center gap-1.5 text-sky-200/90 mb-1.5">
+        <Building2 className="h-3.5 w-3.5" />
+        Imóveis encontrados — toca para escolher:
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {matches.map((m) => {
+          const meta = [m.city, m.external_ref].filter(Boolean).join(' · ')
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onAdopt(m)}
+              className="text-left rounded-md bg-white/10 hover:bg-white/20 px-2.5 py-1.5 text-white transition-colors"
+            >
+              <div className="flex items-center gap-1.5 text-[11px] font-medium truncate">
+                <Building2 className="h-3 w-3 shrink-0" />
+                {m.title}
+              </div>
+              {meta && <p className="ml-4 text-[10px] text-white/50 truncate">{meta}</p>}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

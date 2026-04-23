@@ -2,18 +2,12 @@ import { z } from 'zod'
 
 const UUID_REGEX = /^[0-9a-f-]{36}$/
 
-const CATEGORIES = [
-  'lawyer', 'notary', 'bank', 'photographer', 'constructor',
-  'insurance', 'energy_cert', 'cleaning', 'moving', 'appraiser',
-  'architect', 'home_staging', 'credit_broker', 'interior_design',
-  'marketing', 'other',
-] as const
-
 export const createPartnerSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(200),
   person_type: z.enum(['singular', 'coletiva']).default('coletiva'),
   nif: z.string().max(20).optional().nullable().or(z.literal('')),
-  category: z.enum(CATEGORIES, { message: 'Categoria é obrigatória' }),
+  // Category slug validated server-side against partner_categories
+  category: z.string().min(1, 'Categoria é obrigatória').max(64).regex(/^[a-z0-9_-]+$/, 'Categoria inválida'),
   visibility: z.enum(['public', 'private']).default('public'),
 
   email: z.string().email('Email inválido').optional().nullable().or(z.literal('')),
@@ -32,6 +26,9 @@ export const createPartnerSchema = z.object({
 
   is_recommended: z.boolean().default(false),
   internal_notes: z.string().max(2000).optional().nullable(),
+
+  cover_image_url: z.string().max(500).optional().nullable().or(z.literal('')),
+  description: z.string().max(4000).optional().nullable(),
 })
 
 export const updatePartnerSchema = createPartnerSchema.partial()
@@ -41,6 +38,11 @@ export const ratePartnerSchema = z.object({
   comment: z.string().max(500).optional().nullable(),
 })
 
+export const rejectPartnerSchema = z.object({
+  reason: z.string().min(1, 'Motivo é obrigatório').max(1000),
+})
+
 export type CreatePartnerInput = z.infer<typeof createPartnerSchema>
 export type UpdatePartnerInput = z.infer<typeof updatePartnerSchema>
 export type RatePartnerInput = z.infer<typeof ratePartnerSchema>
+export type RejectPartnerInput = z.infer<typeof rejectPartnerSchema>

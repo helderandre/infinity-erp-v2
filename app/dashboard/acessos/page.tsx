@@ -71,7 +71,7 @@ const ATALHOS = {
     { title: 'MaxWork', icon: Laptop, url: 'https://app.maxwork.pt/home', color: 'from-white/15 to-white/5' },
     { title: 'Contactos', icon: Users, url: 'https://app.maxwork.pt/contact/list', color: 'from-white/15 to-white/5' },
     { title: 'Imóveis RE/MAX', icon: Building2, url: 'https://remax.pt/pt', color: 'from-white/15 to-white/5' },
-    { title: 'Convictus', icon: Home, url: 'https://remax.pt/pt/comprar/imoveis/h/r/r/r/t?s=%7B%22of%22%3A%2212149%22%2C%22nm%22%3A%22RE%2FMAX%20ConviCtus%22%2C%22os%22%3A%22false%22%7D&p=1&o=-PublishDate', color: 'from-white/15 to-white/5' },
+    { title: 'Imóveis Convictus', icon: Home, url: 'https://remax.pt/pt/comprar/imoveis/h/r/r/r/t?s=%7B%22of%22%3A%2212149%22%2C%22nm%22%3A%22RE%2FMAX%20ConviCtus%22%2C%22os%22%3A%22false%22%7D&p=1&o=-PublishDate', color: 'from-white/15 to-white/5' },
   ],
   motores: [
     { portal: 'Idealista', site: 'https://www.idealista.pt/', pesquisas: 'https://www.idealista.pt/utilizador/favoritos/', imoveis: 'https://www.idealista.pt/tools/listadostarter' },
@@ -130,7 +130,7 @@ function PillTabs<T extends string>({
   tabs, active, onChange,
 }: { tabs: { key: T; label: string }[]; active: T; onChange: (k: T) => void }) {
   return (
-    <div className="flex gap-1 p-0.5 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit">
+    <div className="flex gap-1 p-0.5 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit mx-auto sm:mx-0">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -188,10 +188,10 @@ function InfoRow({ label, value, copyKey, copiedKey, onCopy, actions }: {
 
 function GlassCard({ children, className, header }: { children: React.ReactNode; className?: string; header?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm shadow-sm overflow-hidden', className)}>
+    <div className={cn('rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden', className)}>
       {header && (
-        <div className="px-5 py-3.5 bg-neutral-900 dark:bg-neutral-800">
-          <p className="text-xs font-semibold text-white tracking-tight">{header}</p>
+        <div className="px-5 py-3.5 border-b border-border/40">
+          <p className="text-xs font-semibold text-foreground tracking-tight">{header}</p>
         </div>
       )}
       {children}
@@ -436,95 +436,119 @@ function EstruturaContent() {
 
 // ─── Tab: Atalhos ───────────────────────────────────────
 
+function SectionCard({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <section className={cn('rounded-2xl border border-border/40 bg-card shadow-sm p-5 sm:p-6', className)}>
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function AtalhosContent() {
   return (
-    <div className="space-y-5">
-      {/* RE/MAX shortcuts */}
-      <div className="rounded-2xl overflow-hidden shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-4">
+    <div className="space-y-4">
+      <SectionCard
+        title="Atalhos RE/MAX"
+        description="Ferramentas e plataformas internas da rede."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {ATALHOS.remax.map((item) => (
             <a
               key={item.title}
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative flex flex-col items-center gap-3.5 p-7 bg-neutral-900 dark:bg-neutral-800 transition-all duration-300 hover:bg-neutral-800 dark:hover:bg-neutral-700 border-r border-b border-white/5 last:border-r-0 md:[&:nth-child(4)]:border-r-0 md:border-b-0"
+              className="group flex items-center gap-3.5 rounded-2xl border border-border/40 bg-background p-3.5 transition-colors hover:bg-muted/40"
             >
-              <div className={cn('flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-inner transition-all duration-300 group-hover:scale-110', item.color)}>
-                <item.icon className="size-6 text-white/70 group-hover:text-white transition-colors" />
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted/60 transition-colors group-hover:bg-muted">
+                <item.icon className="size-5 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
-              <span className="text-sm font-semibold text-white/90">{item.title}</span>
-              <ExternalLink className="absolute top-3.5 right-3.5 size-3 text-white/15 group-hover:text-white/40 transition-colors" />
+              <span className="text-sm font-medium flex-1 truncate">{item.title}</span>
+              <ExternalLink className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
             </a>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Motores de Pesquisa */}
-      <div className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm overflow-hidden shadow-sm">
-        <div className="px-5 py-3.5 bg-neutral-900 dark:bg-neutral-800">
-          <p className="text-xs font-semibold text-white tracking-tight">Motores de Pesquisa</p>
-        </div>
-        <div className="divide-y divide-border/30">
+      <SectionCard
+        title="Motores de Pesquisa"
+        description="Portais imobiliários para publicação e acompanhamento."
+      >
+        <div className="space-y-2">
           {ATALHOS.motores.map((motor) => (
-            <div key={motor.portal} className="flex items-center">
+            <div key={motor.portal} className="flex items-center gap-1 rounded-2xl border border-border/40 bg-background overflow-hidden">
               <a
                 href={motor.site}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 px-5 py-4 hover:bg-muted/30 transition-colors"
+                className="flex-1 px-4 py-3 hover:bg-muted/40 transition-colors text-sm font-medium truncate"
               >
-                <span className="text-sm font-semibold">{motor.portal}</span>
+                {motor.portal}
               </a>
-              <div className="flex divide-x divide-border/30 border-l border-border/30">
+              <div className="flex items-center pr-1.5">
                 <a
                   href={motor.pesquisas}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-4 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                  title="Pesquisas guardadas"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                 >
                   <Search className="size-3.5" />
-                  <span className="hidden sm:inline text-xs font-medium">Pesquisas</span>
+                  <span className="hidden sm:inline text-[11px] font-medium">Pesquisas</span>
                 </a>
                 {motor.imoveis && (
                   <a
                     href={motor.imoveis}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-4 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                    title="Os meus imóveis"
+                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                   >
                     <Home className="size-3.5" />
-                    <span className="hidden sm:inline text-xs font-medium">Imóveis</span>
+                    <span className="hidden sm:inline text-[11px] font-medium">Imóveis</span>
                   </a>
                 )}
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Notícias */}
-      <div className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm overflow-hidden shadow-sm">
-        <div className="px-5 py-3.5 bg-neutral-900 dark:bg-neutral-800">
-          <p className="text-xs font-semibold text-white tracking-tight">Notícias</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/30">
+      <SectionCard
+        title="Notícias"
+        description="Fontes de actualização do sector."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           {ATALHOS.noticias.map((item) => (
             <a
               key={item.title}
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
+              className="group flex items-center gap-3 rounded-2xl border border-border/40 bg-background p-3.5 hover:bg-muted/40 transition-colors"
             >
-              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/30 group-hover:from-primary/10 group-hover:to-primary/5 transition-all shrink-0">
-                <FileText className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/60 group-hover:bg-muted transition-colors">
+                <FileText className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
-              <span className="text-sm font-semibold">{item.title}</span>
+              <span className="text-sm font-medium truncate">{item.title}</span>
             </a>
           ))}
         </div>
-      </div>
+      </SectionCard>
     </div>
   )
 }
@@ -918,40 +942,29 @@ function AcessosPageContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('atalhos')
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl bg-neutral-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Acessos</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Links rápidos, credenciais e informações da empresa.
-          </p>
-        </div>
-      </div>
-
+    <div className="-m-4 md:-m-6 p-4 md:p-6 min-h-full bg-[oklch(0.96_0_0)] space-y-6">
       {/* Tabs */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit">
-          {TABS.map((tab) => (
+      <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit mx-auto sm:mx-0">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key
+          return (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200',
-                activeTab === tab.key
-                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                  : 'text-muted-foreground hover:text-foreground'
+                'inline-flex items-center gap-1.5 rounded-full h-8 text-sm font-medium transition-all duration-200',
+                isActive
+                  ? 'px-4 bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                  : 'w-8 sm:w-auto sm:px-4 justify-center sm:justify-start text-muted-foreground hover:text-foreground',
               )}
+              aria-label={tab.label}
+              title={tab.label}
             >
-              <tab.icon className="size-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              <tab.icon className="size-4 shrink-0" />
+              <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{tab.label}</span>
             </button>
-          ))}
-        </div>
-        <span className="sm:hidden text-xs font-medium text-muted-foreground bg-muted/40 backdrop-blur-sm border border-border/30 rounded-full px-3 py-1.5">
-          {TABS.find((t) => t.key === activeTab)?.label}
-        </span>
+          )
+        })}
       </div>
 
       {/* Content */}

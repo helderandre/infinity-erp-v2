@@ -43,9 +43,28 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (search) {
-      query = query.or(
-        `title.ilike.%${search}%,city.ilike.%${search}%,zone.ilike.%${search}%,external_ref.ilike.%${search}%`
-      )
+      // Also match properties by the owning consultant's commercial_name —
+      // two-step because .or() can't span tables. We resolve consultant IDs
+      // by name first, then fold them into the main search disjunction.
+      const { data: consultantMatches } = await supabase
+        .from('dev_users')
+        .select('id')
+        .ilike('commercial_name', `%${search}%`)
+        .limit(20)
+      const consultantIds = (consultantMatches ?? [])
+        .map((c: any) => String(c.id))
+        .filter(Boolean)
+
+      const conditions = [
+        `title.ilike.%${search}%`,
+        `city.ilike.%${search}%`,
+        `zone.ilike.%${search}%`,
+        `external_ref.ilike.%${search}%`,
+      ]
+      if (consultantIds.length > 0) {
+        conditions.push(`consultant_id.in.(${consultantIds.join(',')})`)
+      }
+      query = query.or(conditions.join(','))
     }
     if (status) {
       const statuses = status.split(',').filter(Boolean)

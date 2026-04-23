@@ -57,8 +57,13 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
   const [partner, setPartner] = useState<(Partner & { ratings?: PartnerRating[] }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [canSeePrivate, setCanSeePrivate] = useState(false)
+  const [canEdit, setCanEdit] = useState(false)
+  const [isStaff, setIsStaff] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('sobre')
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [isReviewing, setIsReviewing] = useState(false)
 
   // Rating state
   const [ratingValue, setRatingValue] = useState(0)
@@ -72,12 +77,9 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
       if (!res.ok) throw new Error('Erro ao carregar')
       const json = await res.json()
       setPartner(json.data)
-
-      const listRes = await fetch('/api/partners?limit=1')
-      if (listRes.ok) {
-        const listJson = await listRes.json()
-        setCanSeePrivate(listJson.canSeePrivate || false)
-      }
+      setIsStaff(!!json.isStaff)
+      setCanEdit(!!json.canEdit)
+      setCanSeePrivate(!!json.isStaff)
     } catch {
       toast.error('Erro ao carregar parceiro')
     } finally {
@@ -218,8 +220,111 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
   const ratings = partner.ratings || []
   const initials = partner.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 
+  const isPending = partner.status === 'pending'
+  const isRejected = partner.status === 'rejected'
+
+  const handleApprove = async () => {
+    if (!partner) return
+    setIsReviewing(true)
+    try {
+      const res = await fetch(`/api/partners/${id}/approve`, { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao aprovar')
+      }
+      toast.success('Proposta aprovada')
+      fetchPartner()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao aprovar')
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!partner || !rejectReason.trim()) return
+    setIsReviewing(true)
+    try {
+      const res = await fetch(`/api/partners/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao rejeitar')
+      }
+      toast.success('Proposta rejeitada')
+      setRejectOpen(false)
+      setRejectReason('')
+      fetchPartner()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao rejeitar')
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
   return (
     <div className="space-y-6 pb-12">
+      {/* Proposal status banner */}
+      {isPending && (
+        <div className="rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 h-8 w-8 rounded-full bg-amber-500/15 flex items-center justify-center">
+              <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">Proposta pendente de aprovação</p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                {isStaff
+                  ? 'Aprova ou rejeita esta proposta para que fique visível para todos os consultores.'
+                  : 'A staff está a rever a tua proposta. Até ser aprovada, apenas tu a consegues ver.'}
+              </p>
+            </div>
+          </div>
+          {isStaff && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/40"
+                disabled={isReviewing}
+                onClick={() => setRejectOpen(true)}
+              >
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                Rejeitar
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isReviewing}
+                onClick={handleApprove}
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                Aprovar
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isRejected && (
+        <div className="rounded-2xl border border-red-400/40 bg-red-50/60 dark:bg-red-950/20 px-4 py-3 flex items-start gap-3">
+          <div className="mt-0.5 h-8 w-8 rounded-full bg-red-500/15 flex items-center justify-center shrink-0">
+            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-red-900 dark:text-red-200">Proposta rejeitada</p>
+            {partner.rejection_reason && (
+              <p className="text-xs text-red-800/80 dark:text-red-300/80 mt-0.5">
+                {partner.rejection_reason}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ HERO ═══ */}
       <div className="relative overflow-hidden rounded-2xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/95 via-neutral-900/60 to-neutral-900/30" />
@@ -240,7 +345,7 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
               {!partner.is_active && (
                 <Badge className="rounded-full text-[10px] bg-red-500/20 text-red-400 border-0">Inactivo</Badge>
               )}
-              {canSeePrivate && (
+              {canEdit && (
                 <button
                   onClick={() => setShowEditDialog(true)}
                   className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white hover:bg-white/25 transition-all"
@@ -746,9 +851,54 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
             <PartnerForm
               partner={partner}
               canSeePrivate={canSeePrivate}
+              isProposal={!isStaff && isPending}
               onSubmit={handleUpdate}
               onCancel={() => setShowEditDialog(false)}
             />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Reject proposal dialog (staff only) */}
+      <Sheet open={rejectOpen} onOpenChange={(open) => { setRejectOpen(open); if (!open) setRejectReason('') }}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 flex flex-col border-border/40 shadow-2xl bg-background',
+            isMobile ? 'data-[side=bottom]:h-[55dvh] rounded-t-3xl' : 'w-full data-[side=right]:sm:max-w-[480px] sm:rounded-l-3xl',
+          )}
+        >
+          <div className="px-6 pt-8 pb-4 sm:pt-10">
+            <SheetHeader className="p-0 gap-0">
+              <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight">
+                Rejeitar proposta
+              </SheetTitle>
+              <SheetDescription className="text-xs text-muted-foreground mt-1">
+                Indica o motivo — será visível para o consultor.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+          <div className="flex-1 px-6 space-y-3">
+            <Textarea
+              rows={5}
+              className="rounded-xl"
+              placeholder="Ex: parceiro duplicado, dados incompletos..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </div>
+          <div className="px-6 py-4 flex justify-end gap-2 border-t border-border/40">
+            <Button variant="outline" className="rounded-full" onClick={() => { setRejectOpen(false); setRejectReason('') }}>
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleReject}
+              disabled={!rejectReason.trim() || isReviewing}
+            >
+              {isReviewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Rejeitar
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

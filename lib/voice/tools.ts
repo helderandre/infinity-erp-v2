@@ -11,6 +11,8 @@ export type VoiceToolName =
   | 'create_visit'
   | 'send_property'
   | 'search_document'
+  | 'search_partner'
+  | 'open_link'
 
 export type VoiceConfidence = 'alta' | 'media' | 'baixa'
 
@@ -279,7 +281,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_visit',
       description:
-        'Marcar/agendar uma visita a um imóvel. Usar para "marcar visita", "agendar visita", "combinar visita ao imóvel X com o cliente Y amanhã às 15h". Interpreta datas e horas relativas ("amanhã", "sexta", "às 15h").',
+        'Marcar/agendar uma visita a um imóvel. Usar para "marcar visita", "agendar visita", "combinar visita ao imóvel X com o cliente Y amanhã às 15h". Interpreta datas e horas relativas ("amanhã", "sexta", "às 15h"). Preenche todos os campos que o utilizador referir — campos em falta ficam vermelhos no ecrã de confirmação para o utilizador completar (por voz ou texto). NÃO peças clarificação em texto por faltar informação; chama sempre a tool com o que tens.',
       parameters: withConfidence(
         {
           property_query: {
@@ -294,7 +296,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
           client_email: { type: 'string' },
           visit_datetime: {
             type: 'string',
-            description: 'Data e hora ISO 8601 (ex: 2026-04-21T15:00:00). Usa o contexto temporal para converter "amanhã", "sexta", "às 15h".',
+            description: 'Data e hora ISO 8601 (ex: 2026-04-21T15:00:00). Usa o contexto temporal para converter "amanhã", "sexta", "às 15h". Omite se o utilizador não referiu — o utilizador completa no ecrã de confirmação.',
           },
           duration_minutes: {
             type: 'integer',
@@ -303,8 +305,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
             description: 'Duração da visita em minutos. Por defeito 30.',
           },
           notes: { type: 'string' },
-        },
-        ['property_query', 'contact_name', 'visit_datetime']
+        }
       ),
     },
   },
@@ -367,6 +368,63 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
       ),
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'open_link',
+      description:
+        'Abrir um link/site rápido da página de Acessos: atalhos RE/MAX (MaxWork, Contactos, Convictus), portais (Idealista, Imovirtual, Casa Sapo, CasaYes), notícias imobiliárias, Casafari, MicroSIR, sites de trabalho (Canva, ChatGPT, WhatsApp Web, Monday, etc.) ou links pessoais do utilizador. Usar para "abre o canva", "abre o idealista", "mostra-me o MaxWork", "vai ao ChatGPT", "onde está o link do Casafari".',
+      parameters: withConfidence(
+        {
+          query: {
+            type: 'string',
+            description:
+              'Nome do site/link a abrir (ex: "canva", "chatgpt", "idealista", "maxwork", "casafari").',
+          },
+        },
+        ['query']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_partner',
+      description:
+        'Procurar parceiros/fornecedores na base de dados (advogados, notários, fotógrafos, empreiteiros, etc.). Usar para "procura um advogado", "preciso de um fotógrafo em Lisboa", "onde está o contacto do empreiteiro", "parceiro Silva & Associados", "tens um notário?". Pelo menos UM entre name_query e category deve ser preenchido.',
+      parameters: withConfidence({
+        name_query: {
+          type: 'string',
+          description:
+            'Termo livre para pesquisar por nome do parceiro ou cidade (ex: "Silva & Associados", "Lisboa"). Omitir se o utilizador só mencionou o tipo de serviço.',
+        },
+        category: {
+          type: 'string',
+          enum: [
+            'supplier',
+            'lawyer',
+            'notary',
+            'bank',
+            'photographer',
+            'constructor',
+            'insurance',
+            'energy_cert',
+            'cleaning',
+            'moving',
+            'appraiser',
+            'architect',
+            'home_staging',
+            'credit_broker',
+            'interior_design',
+            'marketing',
+            'other',
+          ],
+          description:
+            'Tipo/serviço do parceiro. Mapeamento PT→slug: advogado/jurista→lawyer; notário→notary; banco→bank; fotógrafo→photographer; empreiteiro/construtor/obra→constructor; seguro/seguros/seguradora→insurance; certificado energético/energia/CE→energy_cert; limpeza/limpezas/faxina→cleaning; mudanças/transporte→moving; avaliador/perito→appraiser; arquitecto→architect; home staging/decoração de venda→home_staging; intermediário de crédito/credit broker→credit_broker; design de interiores/decorador→interior_design; marketing/publicidade→marketing; fornecedor/material→supplier; qualquer outro→other.',
+        },
+      }),
+    },
+  },
 ]
 
 export function buildConfirmText(tool: string, args: Record<string, any>): string {
@@ -408,6 +466,14 @@ export function buildConfirmText(tool: string, args: Record<string, any>): strin
     }
     case 'search_document':
       return `Procurar documentos: "${args.query}"`
+    case 'open_link':
+      return args.query ? `Abrir "${args.query}"` : 'Abrir link'
+    case 'search_partner': {
+      const cat = args.category ? ` ${String(args.category).replace(/_/g, ' ')}` : ''
+      const name = args.name_query ? ` "${args.name_query}"` : ''
+      const body = (cat + name).trim()
+      return body ? `Procurar parceiro:${cat}${name}` : 'Procurar parceiro'
+    }
     default:
       return 'Executar'
   }

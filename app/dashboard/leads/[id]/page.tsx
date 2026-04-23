@@ -43,6 +43,9 @@ import {
   MessageCircle,
   CalendarDays,
   Zap,
+  Database,
+  Workflow,
+  Clock,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -282,138 +285,209 @@ export default function LeadDetailPage() {
     'Perdido': 'bg-red-500', 'Inactivo': 'bg-slate-400',
   }
 
-  const TEMP_STYLES: Record<string, { emoji: string; label: string; active: string }> = {
-    Frio: { emoji: '❄️', label: 'Fria', active: 'bg-blue-400/20 text-blue-300 ring-1 ring-blue-400/40' },
-    Morno: { emoji: '☀️', label: 'Morna', active: 'bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40' },
-    Quente: { emoji: '🔥', label: 'Quente', active: 'bg-red-400/20 text-red-300 ring-1 ring-red-400/40' },
+  const TEMP_STYLES: Record<string, { emoji: string; label: string; active: string; accent: string }> = {
+    Frio:   { emoji: '❄️', label: 'Fria',   active: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30',    accent: 'bg-blue-500' },
+    Morno:  { emoji: '☀️', label: 'Morna',  active: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30', accent: 'bg-amber-500' },
+    Quente: { emoji: '🔥', label: 'Quente', active: 'bg-red-500/15 text-red-600 dark:text-red-400 ring-1 ring-red-500/30',        accent: 'bg-red-500' },
   }
+  const accentBar = TEMP_STYLES[temperaturaValue]?.accent ?? 'bg-muted-foreground/30'
 
   return (
-    <div className="space-y-6">
-      {/* Hero header with contact actions, estado, temperatura */}
-      <div className="relative overflow-hidden rounded-xl bg-neutral-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-8 sm:px-10">
-          {/* Back */}
+    <>
+    <div
+      className={cn(
+        // Mobile: horizontal snap carousel, one card at a time.
+        'flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-2 h-[calc(100svh-8rem)]',
+        // Desktop: one continuous rounded shell, natural height.
+        'lg:overflow-x-visible lg:snap-none lg:gap-0 lg:mx-0 lg:px-0 lg:pb-0 lg:h-auto',
+        'lg:rounded-3xl lg:overflow-hidden lg:border lg:border-border/40 lg:shadow-sm lg:bg-card',
+      )}
+    >
+      {/* ─── LEFT: profile sidebar / Card 1 in mobile carousel ─── */}
+      <aside
+        className={cn(
+          'relative',
+          // Mobile: carousel card — full-width snap, scrolls internally
+          'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
+          'rounded-3xl border border-border/40 bg-card shadow-sm',
+          // Desktop: merged into the outer card
+          'lg:w-[320px] lg:h-auto lg:overflow-hidden',
+          'lg:rounded-none lg:border-0 lg:shadow-none lg:border-r lg:border-border/40',
+        )}
+      >
+        <div className="relative px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+          {/* Voltar */}
           <Button
             variant="ghost"
             size="sm"
-            className="mb-4 -ml-1 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
+            className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
             onClick={() => router.push('/dashboard/leads')}
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
             Voltar
           </Button>
 
-          {/* Top section: name + contact actions */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{lead.nome}</h2>
-              {lead.agent?.commercial_name && (
-                <p className="text-sm text-neutral-400 mt-1">Consultor: {lead.agent.commercial_name}</p>
+          {/* Identity — centered avatar + name + subtitle + estado badge */}
+          <div className="flex flex-col items-center text-center gap-1.5 pt-2">
+            {/* Initials circle (no photo for leads) */}
+            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground">
+              {(lead.nome || '?').split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase()}
+            </div>
+            <h2 className="mt-1 text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
+              {lead.nome}
+            </h2>
+            <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
+              {lead.origem && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                  <span>{lead.origem}</span>
+                  <span className="text-muted-foreground/40">·</span>
+                </>
               )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm text-neutral-500">
-                {lead.origem && <span>{lead.origem}</span>}
-                {lead.origem && <span className="hidden sm:inline text-neutral-700">·</span>}
-                <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(lead.created_at)}</span>
-              </div>
-            </div>
-
-            {/* Contact action buttons */}
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <Button
-                size="sm"
-                disabled={!lead.telemovel}
-                onClick={() => {
-                  if (!lead.telemovel) return
-                  window.location.href = `tel:${lead.telemovel}`
-                  setTimeout(() => setCallOutcomeOpen(true), 500)
-                }}
-                className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-              >
-                <Phone className="mr-1.5 h-3.5 w-3.5" />
-                Ligar
-              </Button>
-              <Button
-                size="sm"
-                disabled={!lead.telemovel}
-                onClick={() => lead.telemovel && window.open(`https://wa.me/${lead.telemovel.replace(/\D/g, '')}`, '_blank')}
-                className="rounded-full bg-emerald-500/20 backdrop-blur-sm text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
-              >
-                <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
-                WhatsApp
-              </Button>
-              <Button
-                size="sm"
-                disabled={!lead.email}
-                onClick={() => lead.email && (window.location.href = `mailto:${lead.email}`)}
-                className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-              >
-                <Mail className="mr-1.5 h-3.5 w-3.5" />
-                Email
-              </Button>
-            </div>
+              <CalendarDays className="h-3 w-3" />
+              <span>{formatDate(lead.created_at)}</span>
+            </p>
+            {estadoValue && (
+              <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium">
+                {estadoValue === 'Cliente Premium' ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
+                ) : (
+                  <span className={cn('h-1.5 w-1.5 rounded-full', ESTADO_COLORS[estadoValue] || 'bg-slate-400')} />
+                )}
+                {estadoValue}
+              </span>
+            )}
           </div>
 
-          {/* Bottom section: estado + temperatura */}
-          <div className="flex flex-wrap items-center gap-4 mt-5 pt-5 border-t border-white/10">
-            {/* Estado */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Estado</span>
-              <Select value={estadoValue} onValueChange={(v) => saveSidebarField('estado', v)}>
-                <SelectTrigger className="h-7 w-auto min-w-[140px] rounded-full bg-white/10 border-white/20 text-white text-xs [&>svg]:text-white/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEAD_ESTADOS.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      <div className="flex items-center gap-2">
-                        {e === 'Cliente Premium' ? (
-                          <span className="h-2 w-2 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
-                        ) : (
-                          <span className={cn('h-2 w-2 rounded-full', ESTADO_COLORS[e] || 'bg-slate-400')} />
-                        )}
-                        {e}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Contact action buttons */}
+          <div className="grid grid-cols-3 gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!lead.telemovel}
+              onClick={() => {
+                if (!lead.telemovel) return
+                window.location.href = `tel:${lead.telemovel}`
+                setTimeout(() => setCallOutcomeOpen(true), 500)
+              }}
+              className="rounded-full border-border/60 h-8 text-[11px] px-2"
+            >
+              <Phone className="mr-1 h-3 w-3" />
+              Ligar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!lead.telemovel}
+              onClick={() => lead.telemovel && window.open(`https://wa.me/${lead.telemovel.replace(/\D/g, '')}`, '_blank')}
+              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 shadow-none h-8 text-[11px] px-2"
+            >
+              <MessageCircle className="mr-1 h-3 w-3" />
+              WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!lead.email}
+              onClick={() => lead.email && (window.location.href = `mailto:${lead.email}`)}
+              className="rounded-full border-border/60 h-8 text-[11px] px-2"
+            >
+              <Mail className="mr-1 h-3 w-3" />
+              Email
+            </Button>
+          </div>
+
+          {/* Contact details card */}
+          {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
+            <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 space-y-2.5">
+              <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
+              {lead.telemovel && (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-[11px] text-muted-foreground">Telemóvel</span>
+                  <a href={`tel:${lead.telemovel}`} className="font-medium text-foreground truncate hover:text-primary transition-colors">
+                    {lead.telemovel}
+                  </a>
+                </div>
+              )}
+              {lead.email && (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-[11px] text-muted-foreground">Email</span>
+                  <a href={`mailto:${lead.email}`} className="font-medium text-foreground truncate max-w-[180px] hover:text-primary transition-colors">
+                    {lead.email}
+                  </a>
+                </div>
+              )}
+              {lead.agent?.commercial_name && (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-[11px] text-muted-foreground">Consultor</span>
+                  <span className="font-medium text-foreground truncate">{lead.agent.commercial_name}</span>
+                </div>
+              )}
             </div>
+          )}
 
-            <span className="h-4 w-px bg-white/10" />
-
-            {/* Temperatura */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Temperatura</span>
-              <div className="flex gap-1">
-                {LEAD_TEMPERATURAS.map((t) => {
-                  const info = TEMP_STYLES[t.value]
-                  const isActive = temperaturaValue === t.value
-                  return (
-                    <button
-                      key={t.value}
-                      onClick={() => saveSidebarField('temperatura', t.value)}
-                      className={cn(
-                        'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all',
-                        isActive
-                          ? (info?.active || 'bg-white/15 text-white ring-1 ring-white/30')
-                          : 'bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-neutral-300'
+          {/* Estado (editable) */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground/80">Estado</p>
+            <Select value={estadoValue} onValueChange={(v) => saveSidebarField('estado', v)}>
+              <SelectTrigger className="w-full rounded-xl text-xs h-9">
+                <SelectValue placeholder="Sem estado" />
+              </SelectTrigger>
+              <SelectContent>
+                {LEAD_ESTADOS.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    <div className="flex items-center gap-2">
+                      {e === 'Cliente Premium' ? (
+                        <span className="h-2 w-2 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
+                      ) : (
+                        <span className={cn('h-2 w-2 rounded-full', ESTADO_COLORS[e] || 'bg-slate-400')} />
                       )}
-                    >
-                      <span className="text-xs">{info?.emoji}</span>
-                      {info?.label || t.label}
-                    </button>
-                  )
-                })}
-              </div>
+                      {e}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Temperatura */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground/80">Temperatura</p>
+            <div className="grid grid-cols-3 gap-1">
+              {LEAD_TEMPERATURAS.map((t) => {
+                const info = TEMP_STYLES[t.value]
+                const isActive = temperaturaValue === t.value
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => saveSidebarField('temperatura', t.value)}
+                    className={cn(
+                      'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium transition-all border',
+                      isActive
+                        ? (info?.active ?? 'bg-muted text-foreground border-border/60')
+                        : 'border-border/40 bg-background text-muted-foreground hover:text-foreground hover:border-border/70',
+                    )}
+                  >
+                    <span className="text-xs">{info?.emoji}</span>
+                    {info?.label || t.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Full-width main content (no sidebar) */}
-      <div>
+      {/* ─── RIGHT: tabs + content / Card 2 in mobile carousel ─── */}
+      <div
+        className={cn(
+          // Mobile: second carousel card — own styling, scrolls internally
+          'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
+          'rounded-3xl border border-border/40 bg-card shadow-sm p-5',
+          // Desktop: merges into the outer card
+          'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
+          'lg:rounded-none lg:border-0 lg:shadow-none lg:p-6',
+        )}
+      >
           <Tabs
             defaultValue={tabFromUrl || (pendingLeads.length > 0 ? 'leads' : 'dados')}
             onValueChange={(tab) => {
@@ -423,34 +497,50 @@ export default function LeadDetailPage() {
               if (tab === 'historico') { loadAttachments(); loadActivities(); loadEntries() }
             }}
           >
-            {/* Pill tabs */}
-            <TabsList className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm mb-4 h-auto">
-              {[
-                { key: 'leads', label: 'Leads', count: pendingLeads.length || undefined },
-                { key: 'negocios', label: 'Negócios' },
-                { key: 'dados', label: 'Dados' },
-                { key: 'automatismos', label: 'Automatismos' },
-                { key: 'historico', label: 'Histórico' },
-              ].map((tab) => (
-                <TabsTrigger
-                  key={tab.key}
-                  value={tab.key}
-                  className={cn(
-                    'px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 gap-1.5',
-                    'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
-                    'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
-                    'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900'
-                  )}
-                >
-                  {tab.label}
-                  {'count' in tab && tab.count ? (
-                    <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
-                      {tab.count}
-                    </span>
-                  ) : null}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            {/* Pill tabs — responsive: icon-only on narrow containers,
+                active-only label at md, all labels at lg (container queries). */}
+            <div className="@container mb-4">
+              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30 shadow-sm h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
+                {[
+                  { key: 'leads', label: 'Leads', icon: Zap, count: pendingLeads.length || undefined },
+                  { key: 'negocios', label: 'Negócios', icon: Briefcase },
+                  { key: 'dados', label: 'Dados', icon: Database },
+                  { key: 'automatismos', label: 'Automatismos', icon: Workflow },
+                  { key: 'historico', label: 'Histórico', icon: Clock },
+                ].map((tab) => {
+                  const Icon = tab.icon
+                  return (
+                    <TabsTrigger
+                      key={tab.key}
+                      value={tab.key}
+                      className={cn(
+                        'group inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
+                        'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
+                        'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
+                        'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      {/* Label: always visible for the active tab; others reveal at @lg. */}
+                      <span
+                        className={cn(
+                          'hidden truncate',
+                          'group-data-[state=active]:inline',
+                          '@lg:inline',
+                        )}
+                      >
+                        {tab.label}
+                      </span>
+                      {'count' in tab && tab.count ? (
+                        <span className="inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
+                          {tab.count}
+                        </span>
+                      ) : null}
+                    </TabsTrigger>
+                  )
+                })}
+              </TabsList>
+            </div>
 
             {/* Leads Tab */}
             <TabsContent value="leads" className="mt-0 space-y-4">
@@ -505,7 +595,7 @@ export default function LeadDetailPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   {negocios.map((neg, idx) => {
                     const tipo = neg.tipo as string
 
@@ -513,7 +603,7 @@ export default function LeadDetailPage() {
                       'Compra':         { color: '#3b82f6', label: 'Compra' },
                       'Venda':          { color: '#10b981', label: 'Venda' },
                       'Compra e Venda': { color: '#8b5cf6', label: 'C+V' },
-                      'Arrendatário':   { color: '#f59e0b', label: 'Arrendat.' },
+                      'Arrendatário':   { color: '#f59e0b', label: 'Arrendatário' },
                       'Arrendador':     { color: '#fb923c', label: 'Senhorio' },
                     }
                     const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo }
@@ -525,108 +615,96 @@ export default function LeadDetailPage() {
                     }
                     const tempTag = neg.temperatura ? TEMP_TAG[neg.temperatura as string] : null
 
-                    // Pipeline stage join (may come back as `leads_pipeline_stages` from the join)
+                    // Pipeline stage
                     const stage = (neg as any).leads_pipeline_stages || (neg as any).pipeline_stage
                     const stageName = (stage?.name as string) || (neg.estado as string) || 'Contactado'
                     const stageColor = (stage?.color as string) || '#64748b'
 
+                    // Build title: "Compra — T2 em Lisboa" style
+                    const subjectBits: string[] = []
+                    if (neg.tipo_imovel) subjectBits.push(neg.tipo_imovel as string)
+                    if (neg.quartos_min) subjectBits.push(`T${neg.quartos_min}+`)
+                    const subject = subjectBits.join(' ')
+                    const location = neg.localizacao as string | undefined
+                    const titleParts: string[] = [tipoTag.label]
+                    if (subject) titleParts.push(subject)
+                    const title = titleParts.join(' · ')
+
+                    // Price range
+                    const minPrice = (neg.orcamento as number | undefined) ?? (neg.preco_venda as number | undefined)
+                    const maxPrice = (neg.orcamento_max as number | undefined)
+                    const priceStr =
+                      minPrice && maxPrice && maxPrice !== minPrice
+                        ? `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`
+                        : minPrice
+                        ? formatCurrency(minPrice)
+                        : null
+
                     return (
-                      <div
+                      <button
                         key={neg.id as string}
+                        type="button"
                         onClick={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
                         className={cn(
-                          'group relative rounded-2xl border-2 border-border bg-card cursor-pointer p-5',
-                          'transition-all duration-300 hover:shadow-md hover:border-foreground/20',
-                          'animate-in fade-in slide-in-from-bottom-2',
+                          'group w-full flex items-start gap-3 rounded-2xl border border-border/40 bg-card p-3.5 text-left',
+                          'transition-colors hover:bg-muted/40 hover:border-border/70',
+                          'animate-in fade-in slide-in-from-bottom-1',
                         )}
-                        style={{ animationDelay: `${idx * 50}ms`, animationFillMode: 'backwards' }}
+                        style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
                       >
-                        {/* Top: tipo + temperatura + estado + delete */}
-                        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
-                              style={{
-                                backgroundColor: `${tipoTag.color}26`,
-                                color: tipoTag.color,
-                                ['--tw-ring-color' as any]: `${tipoTag.color}55`,
-                              }}
+                        {/* Thumbnail icon */}
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                          style={{ backgroundColor: `${tipoTag.color}1a`, color: tipoTag.color }}
+                        >
+                          <Briefcase className="h-4 w-4" />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-foreground truncate">
+                                {title}
+                                {location && (
+                                  <span className="text-muted-foreground font-normal"> em {location}</span>
+                                )}
+                              </p>
+                              {priceStr ? (
+                                <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{priceStr}</p>
+                              ) : (
+                                <p className="text-[12px] text-muted-foreground/70 italic mt-0.5">Sem valor definido</p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
+                              className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
                             >
-                              <Briefcase className="h-3 w-3" />
-                              {tipoTag.label}
-                            </span>
-                            {tempTag && (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
-                                style={{
-                                  backgroundColor: `${tempTag.color}26`,
-                                  color: tempTag.color,
-                                  ['--tw-ring-color' as any]: `${tempTag.color}55`,
-                                }}
-                              >
-                                <span aria-hidden className="text-xs leading-none">{tempTag.emoji}</span>
-                                {tempTag.label}
-                              </span>
-                            )}
-                            <span
-                              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1"
-                              style={{
-                                backgroundColor: `${stageColor}26`,
-                                color: stageColor,
-                                ['--tw-ring-color' as any]: `${stageColor}55`,
-                              }}
-                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Meta row */}
+                          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
                               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
                               {stageName}
                             </span>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
-                            className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 shrink-0"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Middle: criteria pills */}
-                        <div className="flex flex-wrap gap-1.5 mb-4">
-                          {!!neg.tipo_imovel && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full">
-                              {neg.tipo_imovel as string}
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarDays className="h-3 w-3" />
+                              {formatDate(neg.created_at as string)}
                             </span>
-                          )}
-                          {!!neg.quartos_min && (
-                            <span className="text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full">T{neg.quartos_min as number}+</span>
-                          )}
-                          {!!neg.localizacao && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted/60 text-foreground px-2.5 py-1 rounded-full truncate max-w-[160px]">
-                              {neg.localizacao as string}
-                            </span>
-                          )}
-                          {!neg.tipo_imovel && !neg.quartos_min && !neg.localizacao && (
-                            <span className="text-[11px] text-muted-foreground italic">Sem critérios definidos</span>
-                          )}
-                        </div>
-
-                        {/* Bottom: value + date */}
-                        <div className="flex items-center justify-between pt-3 border-t border-border/40">
-                          <div className="flex items-center gap-2">
-                            {!!neg.orcamento && (
-                              <span className="text-lg font-bold text-foreground">{formatCurrency(neg.orcamento as number)}</span>
-                            )}
-                            {!!neg.orcamento_max && neg.orcamento_max !== neg.orcamento && (
-                              <span className="text-xs text-muted-foreground">— {formatCurrency(neg.orcamento_max as number)}</span>
-                            )}
-                            {!!neg.preco_venda && !neg.orcamento && (
-                              <span className="text-lg font-bold text-foreground">{formatCurrency(neg.preco_venda as number)}</span>
-                            )}
-                            {!neg.orcamento && !neg.preco_venda && (
-                              <span className="text-xs text-muted-foreground italic">Sem valor</span>
+                            {tempTag && (
+                              <>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span aria-hidden>{tempTag.emoji}</span>
+                              </>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatDate(neg.created_at as string)}</span>
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -821,9 +899,10 @@ export default function LeadDetailPage() {
 
             </TabsContent>
           </Tabs>
+        </div>
       </div>
 
-      {/* Call outcome dialog */}
+      {/* Call outcome dialog, WhatsApp + email bubbles (overlays, out of flow) */}
       {lead && (
         <CallOutcomeDialog
           open={callOutcomeOpen}
@@ -851,6 +930,6 @@ export default function LeadDetailPage() {
           contactName={lead.nome || 'Contacto'}
         />
       )}
-    </div>
+    </>
   )
 }

@@ -628,22 +628,26 @@ export default function CandidateDetailPage() {
     </div>
 
     {/* ═══ Mobile ═══ */}
-    <div className="md:hidden flex items-center h-[calc(100vh-4rem)] px-4 py-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-4">
-      {/* Card 1: Dark profile */}
-      <div className="w-[80vw] h-[80vh] shrink-0 snap-center rounded-2xl bg-neutral-900 text-white shadow-2xl overflow-hidden">
+    <div className="md:hidden flex h-[calc(100svh-8rem)] px-4 py-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4">
+      {/* Card 1: Light profile */}
+      <div className="w-[calc(100vw-2rem)] shrink-0 snap-center rounded-3xl border border-border/40 bg-card shadow-sm overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-5 space-y-4">
-            <button onClick={() => router.push('/dashboard/recrutamento/candidatos')}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-3 py-1.5 text-[11px] font-medium text-neutral-300">
-              <ArrowLeft className="h-3 w-3" />Voltar
-            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => router.push('/dashboard/recrutamento/candidatos')}
+            >
+              <ArrowLeft className="mr-1.5 h-3 w-3" />Voltar
+            </Button>
             <div className="text-center pt-1">
-              <label className="relative mx-auto block h-16 w-16 cursor-pointer group">
-                <Avatar className="h-16 w-16 rounded-2xl">
+              <label className="relative mx-auto block h-20 w-20 cursor-pointer group">
+                <Avatar className="h-20 w-20 rounded-2xl">
                   {candidate.photo_url ? (
                     <img src={candidate.photo_url} alt="" className="h-full w-full rounded-2xl object-cover" />
                   ) : (
-                    <AvatarFallback className="text-xl font-bold rounded-2xl bg-white/10 text-white">{getInitials(candidate.full_name)}</AvatarFallback>
+                    <AvatarFallback className="text-2xl font-semibold rounded-2xl bg-muted text-foreground">{getInitials(candidate.full_name)}</AvatarFallback>
                   )}
                 </Avatar>
                 <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -662,21 +666,21 @@ export default function CandidateDetailPage() {
                   } catch { toast.error('Erro', { id: 'photo-upload' }) }
                 }} />
               </label>
-              <h2 className="text-base font-bold mt-2 text-white">{candidate.full_name}</h2>
-              <p className="text-[10px] text-neutral-400">{CANDIDATE_SOURCES[candidate.source]}</p>
-              <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium bg-white/10 border border-white/10"
+              <h2 className="text-lg font-semibold tracking-tight mt-2.5 text-foreground">{candidate.full_name}</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{CANDIDATE_SOURCES[candidate.source]}</p>
+              <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60 border border-border/40"
                   style={{ color: getStatusColor(candidate.status) }}>
                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getStatusColor(candidate.status) }} />
                   {CANDIDATE_STATUSES[candidate.status].label}
                 </span>
                 {candidate.cv_url ? (
                   <button type="button" onClick={() => setCvDialogOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors">
                     <FileText className="h-2.5 w-2.5" />CV
                   </button>
                 ) : (
-                  <label className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium bg-white/10 text-neutral-500 border border-white/10 cursor-pointer">
+                  <label className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-background text-muted-foreground border border-border/40 hover:border-border/70 cursor-pointer transition-colors">
                     <FileText className="h-2.5 w-2.5" />CV
                     <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0]
@@ -694,50 +698,53 @@ export default function CandidateDetailPage() {
                 )}
               </div>
               {/* Fit Score stars — interactive */}
-              <div className="flex items-center justify-center gap-0.5 mt-1.5">
+              <div className="flex items-center justify-center gap-0.5 mt-2">
                 {[1, 2, 3, 4, 5].map(s => {
                   const filled = s <= fitScore
                   return (
                     <button key={s} type="button" onClick={() => handleFitScoreChange(s)} className="p-0.5">
-                      <Star className={cn('h-3.5 w-3.5', filled ? 'fill-amber-400 text-amber-400' : 'text-neutral-700')} />
+                      <Star className={cn('h-4 w-4', filled ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
                     </button>
                   )
                 })}
-                {fitScore > 0 && <span className="text-[9px] text-neutral-500 ml-1">{fitScore}/5</span>}
+                {fitScore > 0 && <span className="text-[10px] text-muted-foreground ml-1">{fitScore}/5</span>}
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/[0.07] p-3 space-y-2.5">
-              <h3 className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold">Contacto</h3>
-              <a href={candidate.phone ? `tel:${candidate.phone}` : '#'} className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-blue-500/20 flex items-center justify-center"><Phone className="h-3 w-3 text-blue-400" /></div>
-                <div><p className="text-[9px] text-neutral-500">Telemóvel</p><p className="text-xs font-medium text-neutral-200">{candidate.phone || '—'}</p></div>
+            {/* Contacto */}
+            <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 space-y-2.5">
+              <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
+              <a href={candidate.phone ? `tel:${candidate.phone}` : '#'} className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0"><Phone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /></div>
+                <div className="min-w-0"><p className="text-[10px] text-muted-foreground">Telemóvel</p><p className="text-xs font-medium text-foreground truncate">{candidate.phone || '—'}</p></div>
               </a>
-              <a href={candidate.email ? `mailto:${candidate.email}` : '#'} className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-emerald-500/20 flex items-center justify-center"><Mail className="h-3 w-3 text-emerald-400" /></div>
-                <div className="min-w-0"><p className="text-[9px] text-neutral-500">Email</p><p className="text-xs font-medium text-neutral-200 truncate">{candidate.email || '—'}</p></div>
+              <a href={candidate.email ? `mailto:${candidate.email}` : '#'} className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0"><Mail className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /></div>
+                <div className="min-w-0"><p className="text-[10px] text-muted-foreground">Email</p><p className="text-xs font-medium text-foreground truncate">{candidate.email || '—'}</p></div>
               </a>
             </div>
 
-            <div className="rounded-xl bg-white/[0.07] p-3 space-y-1.5">
-              <h3 className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold">Detalhes</h3>
-              <DarkDetailRow label="Recrutador" value={recruiter?.commercial_name || '—'} />
-              <DarkDetailRow label="Criado" value={format(new Date(candidate.created_at), 'dd/MM/yyyy', { locale: pt })} />
-              {candidate.last_interaction_date && <DarkDetailRow label="Último Contacto" value={formatDistanceToNow(new Date(candidate.last_interaction_date), { locale: pt, addSuffix: true }).replace('aproximadamente ', '')} warn={slaOverdue} />}
+            {/* Detalhes */}
+            <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground/80">Detalhes</p>
+              <LightDetailRow label="Recrutador" value={recruiter?.commercial_name || '—'} />
+              <LightDetailRow label="Criado" value={format(new Date(candidate.created_at), 'dd/MM/yyyy', { locale: pt })} />
+              {candidate.last_interaction_date && <LightDetailRow label="Último Contacto" value={formatDistanceToNow(new Date(candidate.last_interaction_date), { locale: pt, addSuffix: true }).replace('aproximadamente ', '')} warn={slaOverdue} />}
             </div>
 
-            <button type="button" className="w-full text-left rounded-xl bg-white/[0.07] p-3 space-y-1"
+            {/* Notas */}
+            <button type="button" className="w-full text-left rounded-2xl border border-border/40 bg-muted/30 p-3 space-y-1 hover:bg-muted/50 transition-colors"
               onClick={() => { setPopupNotes(candidate.notes || ''); setNotesPopupOpen(true) }}>
-              <h3 className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold">Notas</h3>
-              <p className="text-[10px] text-neutral-400 line-clamp-3">{candidate.notes || 'Sem notas.'}</p>
+              <p className="text-xs font-medium text-muted-foreground/80">Notas</p>
+              <p className="text-[11px] text-muted-foreground line-clamp-3">{candidate.notes || 'Sem notas.'}</p>
             </button>
           </div>
         </ScrollArea>
       </div>
 
-      {/* Card 2: White tabs */}
-      <div className="w-[80vw] h-[80vh] shrink-0 snap-center rounded-2xl border bg-card shadow-2xl overflow-hidden flex flex-col">
-        <div className="shrink-0 px-3 py-2.5 border-b flex items-center justify-between">
+      {/* Card 2: Tabs */}
+      <div className="w-[calc(100vw-2rem)] shrink-0 snap-center rounded-3xl border border-border/40 bg-card shadow-sm overflow-hidden flex flex-col">
+        <div className="shrink-0 px-3 py-2.5 border-b border-border/40 flex items-center justify-between">
           <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/30">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -935,6 +942,16 @@ function DarkDetailRow({ label, value, warn }: { label: string; value: string; w
     <div className="flex items-center justify-between py-1">
       <span className="text-neutral-500 text-xs">{label}</span>
       <span className={cn('font-medium text-xs text-neutral-300', warn && 'text-red-400')}>{value}</span>
+    </div>
+  )
+}
+
+// Light dashboard-style variant used inside the mobile carousel cards.
+function LightDetailRow({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className={cn('font-medium text-xs text-foreground', warn && 'text-red-600 dark:text-red-400')}>{value}</span>
     </div>
   )
 }

@@ -63,3 +63,31 @@ export function formatDateTime(date: string | Date | null | undefined): string {
     minute: '2-digit',
   }).format(d)
 }
+
+/**
+ * Ensure a website URL has a protocol. `example.com` → `https://example.com`,
+ * `http://...` and `https://...` are returned unchanged. Empty / nullish → null.
+ */
+export function normalizeWebsiteUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
+/**
+ * Build a Google Maps "search by query" URL from address parts. Returns null
+ * when there's nothing more than a country to search for.
+ */
+export function buildGoogleMapsUrl(parts: {
+  address?: string | null
+  city?: string | null
+  postalCode?: string | null
+  country?: string | null
+}): string | null {
+  const core = [parts.address, parts.city, parts.postalCode].filter(Boolean) as string[]
+  if (core.length === 0) return null
+  const query = [...core, parts.country || 'Portugal'].join(', ')
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}

@@ -6,11 +6,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createPartnerSchema, type CreatePartnerInput } from '@/lib/validations/partner'
 import {
-  PARTNER_CATEGORY_OPTIONS,
   PARTNER_VISIBILITY_OPTIONS,
   PARTNER_PAYMENT_OPTIONS,
 } from '@/lib/constants'
-import { Loader2, X, Plus } from 'lucide-react'
+import { usePartnerCategories } from '@/hooks/use-partner-categories'
+import { Loader2, X, Plus, ImageIcon, Sparkles, Upload, Trash2 } from 'lucide-react'
+import { useRef } from 'react'
+import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,14 +36,16 @@ interface PartnerFormProps {
   onSubmit: (data: any) => Promise<any>
   onCancel?: () => void
   canSeePrivate?: boolean
+  isProposal?: boolean
 }
 
-export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: PartnerFormProps) {
+export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate, isProposal }: PartnerFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [specialtyInput, setSpecialtyInput] = useState('')
   const [areaInput, setAreaInput] = useState('')
 
   const isEditing = !!partner
+  const { categories } = usePartnerCategories()
 
   const {
     register,
@@ -71,11 +75,68 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: Part
       payment_method: partner?.payment_method || null,
       is_recommended: partner?.is_recommended || false,
       internal_notes: partner?.internal_notes || '',
+      cover_image_url: partner?.cover_image_url || '',
+      description: partner?.description || '',
     },
   })
 
   const specialties = watch('specialties') || []
   const serviceAreas = watch('service_areas') || []
+  const coverImageUrl = watch('cover_image_url') || ''
+  const description = watch('description') || ''
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const [isImprovingDescription, setIsImprovingDescription] = useState(false)
+
+  const handleCoverUpload = async (file: File) => {
+    setIsUploadingCover(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/partners/upload-cover', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao fazer upload')
+      }
+      const { url } = await res.json()
+      setValue('cover_image_url', url, { shouldDirty: true })
+      toast.success('Imagem de capa carregada')
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao fazer upload')
+    } finally {
+      setIsUploadingCover(false)
+    }
+  }
+
+  const handleImproveDescription = async () => {
+    setIsImprovingDescription(true)
+    try {
+      const res = await fetch('/api/partners/improve-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: description,
+          name: watch('name'),
+          category: watch('category'),
+          specialties: watch('specialties') || [],
+          service_areas: watch('service_areas') || [],
+          city: watch('city'),
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Erro ao melhorar texto')
+      }
+      const { text } = await res.json()
+      setValue('description', text, { shouldDirty: true })
+      toast.success(description.trim() ? 'Descrição melhorada' : 'Descrição gerada')
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao melhorar texto')
+    } finally {
+      setIsImprovingDescription(false)
+    }
+  }
 
   const addSpecialty = () => {
     const val = specialtyInput.trim()
@@ -146,6 +207,101 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: Part
         }}
       />
 
+      {/* Capa + Descrição */}
+      <div className="rounded-xl border bg-card/50 p-4 space-y-4">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Apresentação
+        </h4>
+
+        {/* Cover image */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Imagem de capa</Label>
+          <div className="relative rounded-2xl overflow-hidden border bg-muted/40 aspect-[16/7] group">
+            {coverImageUrl ? (
+              <Image
+                src={coverImageUrl}
+                alt="Capa"
+                fill
+                sizes="560px"
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                <ImageIcon className="h-8 w-8 mb-2 opacity-40" />
+                <p className="text-xs">Sem imagem de capa</p>
+              </div>
+            )}
+
+            {coverImageUrl && (
+              <button
+                type="button"
+                onClick={() => setValue('cover_image_url', '', { shouldDirty: true })}
+                className="absolute top-2 right-2 h-8 w-8 inline-flex items-center justify-center rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-sm hover:bg-background transition-colors"
+                title="Remover imagem"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) handleCoverUpload(f)
+              e.target.value = ''
+            }}
+          />
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              disabled={isUploadingCover}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploadingCover ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+              {coverImageUrl ? 'Substituir imagem' : 'Carregar imagem'}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">PNG, JPG ou WebP até 4MB.</p>
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Descrição</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-full text-xs text-violet-600 hover:text-violet-700 hover:bg-violet-500/10"
+              disabled={isImprovingDescription}
+              onClick={handleImproveDescription}
+            >
+              {isImprovingDescription ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1 h-3 w-3" />
+              )}
+              {description.trim() ? 'Melhorar com IA' : 'Gerar com IA'}
+            </Button>
+          </div>
+          <Textarea
+            className="rounded-xl"
+            rows={5}
+            placeholder="Breve apresentação do parceiro — serviços, história, diferenciais..."
+            {...register('description')}
+          />
+        </div>
+      </div>
+
       {/* Identificação */}
       <div className="rounded-xl border bg-card/50 p-4 space-y-4">
         <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -176,8 +332,8 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: Part
             <Select value={watch('category')} onValueChange={(v) => setValue('category', v as any)}>
               <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {PARTNER_CATEGORY_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                {categories.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.slug}>{opt.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -349,7 +505,7 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: Part
         )}
         <Button type="submit" className="rounded-full px-6" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEditing ? 'Guardar' : 'Criar Parceiro'}
+          {isEditing ? 'Guardar' : (isProposal ? 'Propor Parceiro' : 'Criar Parceiro')}
         </Button>
       </div>
     </form>
