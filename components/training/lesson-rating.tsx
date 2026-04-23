@@ -4,9 +4,15 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Star, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Star, ChevronLeft, ChevronRight, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/use-permissions'
+import type { LessonContentType } from '@/types/training'
+
+const WATCH_GATE_PERCENT = 90
 
 interface LessonRatingProps {
   lessonId: string
@@ -17,6 +23,10 @@ interface LessonRatingProps {
   isCompleted?: boolean
   onMarkCompleted?: () => void
   isSaving?: boolean
+  /** Content type of this lesson — gate only applies to 'video'. */
+  contentType?: LessonContentType
+  /** Current watch percentage from the player (0-100). */
+  watchPercent?: number
 }
 
 export function LessonRating({
@@ -28,7 +38,16 @@ export function LessonRating({
   isCompleted,
   onMarkCompleted,
   isSaving,
+  contentType,
+  watchPercent = 0,
 }: LessonRatingProps) {
+  const { hasPermission } = usePermissions()
+  const isTrainingAdmin = hasPermission('training')
+
+  const isVideoLesson = contentType === 'video'
+  const gateApplies = isVideoLesson && !isTrainingAdmin
+  const belowGate = gateApplies && watchPercent < WATCH_GATE_PERCENT
+  const completeButtonDisabled = Boolean(isSaving) || belowGate
   const [userRating, setUserRating] = useState<number | null>(null)
   const [averageRating, setAverageRating] = useState(0)
   const [totalRatings, setTotalRatings] = useState(0)
@@ -130,14 +149,37 @@ export function LessonRating({
         <div className="mx-auto" />
 
         {!isCompleted && onMarkCompleted ? (
-          <Button size="sm" onClick={onMarkCompleted} disabled={isSaving} className="shrink-0">
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="shrink-0 inline-flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={onMarkCompleted}
+                  disabled={completeButtonDisabled}
+                  aria-disabled={completeButtonDisabled}
+                  className="shrink-0"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                  )}
+                  Concluir
+                </Button>
+                {isTrainingAdmin && isVideoLesson && watchPercent < WATCH_GATE_PERCENT && (
+                  <Badge variant="outline" className="gap-1 border-amber-400/60 text-amber-600 text-[10px] px-1.5 py-0">
+                    <ShieldCheck className="h-3 w-3" />
+                    override
+                  </Badge>
+                )}
+              </span>
+            </TooltipTrigger>
+            {belowGate && (
+              <TooltipContent>
+                Assista a pelo menos {WATCH_GATE_PERCENT}% do vídeo para concluir (actualmente {Math.round(watchPercent)}%)
+              </TooltipContent>
             )}
-            Concluir
-          </Button>
+          </Tooltip>
         ) : isCompleted ? (
           <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium shrink-0">
             <CheckCircle2 className="h-4 w-4" />

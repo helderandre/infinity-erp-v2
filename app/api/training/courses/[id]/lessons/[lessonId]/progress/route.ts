@@ -1,8 +1,11 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { updateLessonProgressSchema } from '@/lib/validations/training'
+
+const WATCH_GATE_PERCENT = 90
 
 export async function PUT(
   request: Request,
@@ -26,10 +29,17 @@ export async function PUT(
     }
 
     const input = validation.data
+    const hasTrainingPermission = Boolean(auth.permissions?.training)
 
-    // Auto-complete if video watched >= 90%
-    if (input.video_watch_percent && input.video_watch_percent >= 90) {
-      input.status = 'completed'
+    // Load lesson metadata — needed for content_type (determines gate behaviour)
+    const { data: lesson, error: lessonError } = await supabase
+      .from('forma_training_lessons')
+      .select('id, content_type')
+      .eq('id', lessonId)
+      .single()
+
+    if (lessonError || !lesson) {
+      return NextResponse.json({ error: 'Lição não encontrada' }, { status: 404 })
     }
 
     // Find enrollment for this user + course
@@ -48,17 +58,78 @@ export async function PUT(
     }
 
     const enrollmentId = enrollment.id
+    const now = new Date().toISOString()
+
+    // Load existing lesson_progress row (needed for gate decision + completion_source)
+    const { data: existing } = await supabase
+      .from('forma_training_lesson_progress')
+      .select('id, status, video_watch_percent, completion_source')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .maybeSingle()
+
+    // ─── Determine incoming percent: prefer body, fall back to stored ──
+    const incomingPercent =
+      typeof input.video_watch_percent === 'number'
+        ? input.video_watch_percent
+        : existing?.video_watch_percent ?? 0
+
+    // ─── Decide final status + completion_source ─────────────────────
+    let finalStatus: 'in_progress' | 'completed' | undefined = input.status
+    let completionSource: 'auto_watch' | 'manual' | 'admin_override' | 'quiz_pass' | null = null
+    let isAdminOverride = false
+
+    // Auto-complete when percent ≥ threshold (video only)
+    const isVideo = lesson.content_type === 'video'
+    const isQuiz = lesson.content_type === 'quiz'
+
+    if (finalStatus === 'completed') {
+      if (isVideo) {
+        // Gate applies to video lessons only
+        if (incomingPercent < WATCH_GATE_PERCENT) {
+          if (!hasTrainingPermission) {
+            return NextResponse.json(
+              {
+                error: `Assista a pelo menos ${WATCH_GATE_PERCENT}% do vídeo para concluir`,
+                current_percent: incomingPercent,
+                required_percent: WATCH_GATE_PERCENT,
+              },
+              { status: 403 }
+            )
+          }
+          // Broker override path
+          completionSource = 'admin_override'
+          isAdminOverride = true
+        } else {
+          completionSource = 'manual'
+        }
+      } else if (isQuiz) {
+        // Quiz lesson reaching "completed" means it was passed
+        completionSource = 'quiz_pass'
+      } else {
+        // pdf, text, external_link — manual click
+        completionSource = 'manual'
+      }
+    } else if (
+      isVideo
+      && typeof input.video_watch_percent === 'number'
+      && input.video_watch_percent >= WATCH_GATE_PERCENT
+      && existing?.status !== 'completed'
+    ) {
+      // Auto-complete from progress ping (no explicit status in body)
+      finalStatus = 'completed'
+      completionSource = 'auto_watch'
+    }
 
     // Set started_at on enrollment if not yet set
     if (!enrollment.started_at) {
       await supabase
         .from('forma_training_enrollments')
-        .update({ started_at: new Date().toISOString(), status: 'in_progress' })
+        .update({ started_at: now, status: 'in_progress' })
         .eq('id', enrollmentId)
     }
 
-    // Upsert lesson progress
-    const now = new Date().toISOString()
+    // ─── Build upsert payload ────────────────────────────────────────
     const upsertData: Record<string, unknown> = {
       user_id: userId,
       lesson_id: lessonId,
@@ -67,25 +138,18 @@ export async function PUT(
       updated_at: now,
     }
 
-    if (input.status) upsertData.status = input.status
+    if (finalStatus) upsertData.status = finalStatus
     if (input.video_watched_seconds !== undefined) upsertData.video_watched_seconds = input.video_watched_seconds
     if (input.video_watch_percent !== undefined) upsertData.video_watch_percent = input.video_watch_percent
     if (input.time_spent_seconds !== undefined) upsertData.time_spent_seconds = input.time_spent_seconds
 
-    if (input.status === 'in_progress') {
+    if (finalStatus === 'in_progress' && !existing) {
       upsertData.started_at = now
     }
-    if (input.status === 'completed') {
+    if (finalStatus === 'completed') {
       upsertData.completed_at = now
+      if (completionSource) upsertData.completion_source = completionSource
     }
-
-    // Check if record exists
-    const { data: existing } = await supabase
-      .from('forma_training_lesson_progress')
-      .select('id, status')
-      .eq('user_id', userId)
-      .eq('lesson_id', lessonId)
-      .single()
 
     let progressRecord
     if (existing) {
@@ -93,6 +157,8 @@ export async function PUT(
       if (existing.status === 'completed') {
         delete upsertData.status
         delete upsertData.completed_at
+        // Preserve existing completion_source if any
+        delete upsertData.completion_source
       }
 
       const { data, error } = await supabase
@@ -107,7 +173,7 @@ export async function PUT(
       }
       progressRecord = data
     } else {
-      upsertData.status = upsertData.status || 'in_progress'
+      if (!upsertData.status) upsertData.status = 'in_progress'
       upsertData.started_at = now
 
       const { data, error } = await supabase
@@ -122,8 +188,29 @@ export async function PUT(
       progressRecord = data
     }
 
-    // Recalculate enrollment progress
-    // Get total lessons for this course (across all modules)
+    // ─── Admin override audit log ────────────────────────────────────
+    if (isAdminOverride && progressRecord) {
+      try {
+        const admin = createAdminClient()
+        await admin.from('log_audit').insert({
+          user_id: userId,
+          entity_type: 'training_completion_override',
+          entity_id: progressRecord.id,
+          action: 'force_complete',
+          new_data: {
+            course_id: courseId,
+            lesson_id: lessonId,
+            target_user_id: progressRecord.user_id,
+            forced_percent: incomingPercent,
+            by_user_id: userId,
+          },
+        })
+      } catch (err) {
+        console.error('Falha ao registar audit log do override:', err)
+      }
+    }
+
+    // ─── Recalculate enrollment progress ─────────────────────────────
     const { data: modules } = await supabase
       .from('forma_training_modules')
       .select('id')

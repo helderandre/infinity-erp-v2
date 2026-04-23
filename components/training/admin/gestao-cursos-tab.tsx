@@ -5,8 +5,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, ChevronLeft, ChevronRight, Search, MoreHorizontal,
-  Pencil, Globe, Archive, Eye, X, GraduationCap, LayoutGrid, List,
+  Pencil, Globe, Archive, Eye, X, GraduationCap, LayoutGrid, List, BarChart3,
 } from 'lucide-react'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,6 +41,8 @@ interface GestaoCursosTabProps {
 
 export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canSeeActivity = hasPermission('training')
   const [courses, setCourses] = useState<TrainingCourse[]>([])
   const [categories, setCategories] = useState<TrainingCategory[]>([])
   const [total, setTotal] = useState(0)
@@ -332,6 +335,11 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
                           <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/gestao/${course.id}/editar`)}>
                             <Pencil className="h-4 w-4 mr-2" />Editar
                           </DropdownMenuItem>
+                          {canSeeActivity && (
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/gestao/${course.id}/actividade`)}>
+                              <BarChart3 className="h-4 w-4 mr-2" />Actividade
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/cursos/${course.id}`)}>
                             <Eye className="h-4 w-4 mr-2" />Pré-visualizar
                           </DropdownMenuItem>

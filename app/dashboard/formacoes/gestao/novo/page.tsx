@@ -4,7 +4,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Loader2, GraduationCap } from 'lucide-react'
+import { ChevronLeft, Loader2, GraduationCap, Sparkles } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,9 @@ import {
 import { createCourseSchema, type CreateCourseInput } from '@/lib/validations/training'
 import { TRAINING_DIFFICULTY_OPTIONS } from '@/lib/constants'
 import { toast } from 'sonner'
-import type { TrainingCategory } from '@/types/training'
+import type { TrainingCategory, VoiceFillResponse } from '@/types/training'
+import { DictateCourseDialog } from '@/components/training/dictate-course-dialog'
+import { VoiceInputButton } from '@/components/shared/voice-input-button'
 
 export default function NovoCursoPage() {
   return (
@@ -52,6 +54,7 @@ function NovoCursoContent() {
   const router = useRouter()
   const [categories, setCategories] = useState<TrainingCategory[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [dictateOpen, setDictateOpen] = useState(false)
 
   const form = useForm<CreateCourseInput>({
     resolver: zodResolver(createCourseSchema),
@@ -76,6 +79,29 @@ function NovoCursoContent() {
       .then(d => setCategories(d.data || []))
       .catch(() => {})
   }, [])
+
+  const handleVoiceApply = (
+    fields: Partial<VoiceFillResponse['fields']>,
+    categoryMatch: VoiceFillResponse['category_match'],
+  ) => {
+    // Apply each non-null, non-empty field to the form. Backend already stripped nulls.
+    const fieldKeys = [
+      'title', 'summary', 'description', 'difficulty_level',
+      'instructor_name', 'estimated_duration_minutes',
+      'is_mandatory', 'has_certificate', 'passing_score', 'tags',
+    ] as const
+    for (const key of fieldKeys) {
+      const value = (fields as Record<string, unknown>)[key]
+      if (value === undefined || value === null) continue
+      if (typeof value === 'string' && value.trim() === '') continue
+      // @ts-ignore — keys match CreateCourseInput
+      form.setValue(key, value, { shouldDirty: true, shouldValidate: false })
+    }
+    if (categoryMatch) {
+      form.setValue('category_id', categoryMatch.id, { shouldDirty: true, shouldValidate: true })
+    }
+    toast.success('Campos preenchidos a partir da gravação')
+  }
 
   const onSubmit = async (data: CreateCourseInput) => {
     setIsSaving(true)
@@ -128,7 +154,25 @@ function NovoCursoContent() {
             Preencha os dados para criar um novo curso de formação
           </p>
         </div>
+        <div className="absolute top-6 right-6 z-20">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDictateOpen(true)}
+            className="rounded-full bg-white/10 backdrop-blur-sm text-white border-white/20 hover:bg-white/20 hover:text-white"
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
+            Ditar tudo
+          </Button>
+        </div>
       </div>
+
+      <DictateCourseDialog
+        open={dictateOpen}
+        onOpenChange={setDictateOpen}
+        onApply={handleVoiceApply}
+      />
 
       {/* ─── Form ─── */}
       <div className="mt-8 max-w-3xl mx-auto pb-6">
@@ -137,7 +181,13 @@ function NovoCursoContent() {
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
                 <FormLabel>Título *</FormLabel>
-                <FormControl><Input placeholder="Ex: Qualificação de Compradores" {...field} /></FormControl>
+                <div className="flex items-center gap-2">
+                  <FormControl><Input placeholder="Ex: Qualificação de Compradores" {...field} /></FormControl>
+                  <VoiceInputButton
+                    label="Ditar título"
+                    onTranscribe={(text) => form.setValue('title', text.trim(), { shouldValidate: true, shouldDirty: true })}
+                  />
+                </div>
                 <FormMessage />
               </FormItem>
             )} />
@@ -145,14 +195,33 @@ function NovoCursoContent() {
             <FormField control={form.control} name="summary" render={({ field }) => (
               <FormItem>
                 <FormLabel>Resumo</FormLabel>
-                <FormControl><Input placeholder="Resumo curto (até 300 caracteres)" {...field} /></FormControl>
+                <div className="flex items-center gap-2">
+                  <FormControl><Input placeholder="Resumo curto (até 300 caracteres)" {...field} /></FormControl>
+                  <VoiceInputButton
+                    label="Ditar resumo"
+                    onTranscribe={(text) => form.setValue('summary', text.trim(), { shouldDirty: true })}
+                  />
+                </div>
                 <FormMessage />
               </FormItem>
             )} />
 
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem>
-                <FormLabel>Descrição</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Descrição</FormLabel>
+                  <VoiceInputButton
+                    label="Ditar descrição"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 rounded-full px-2.5 text-xs"
+                    onTranscribe={(text) => {
+                      const current = (field.value ?? '').toString()
+                      const next = current ? `${current}\n${text.trim()}` : text.trim()
+                      form.setValue('description', next, { shouldDirty: true })
+                    }}
+                  />
+                </div>
                 <FormControl><Textarea rows={5} placeholder="Descrição detalhada do curso..." {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -194,7 +263,13 @@ function NovoCursoContent() {
               <FormField control={form.control} name="instructor_name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nome do Formador</FormLabel>
-                  <FormControl><Input placeholder="Ex: Isabel Silva" {...field} /></FormControl>
+                  <div className="flex items-center gap-2">
+                    <FormControl><Input placeholder="Ex: Isabel Silva" {...field} /></FormControl>
+                    <VoiceInputButton
+                      label="Ditar formador"
+                      onTranscribe={(text) => form.setValue('instructor_name', text.trim(), { shouldDirty: true })}
+                    />
+                  </div>
                   <FormMessage />
                 </FormItem>
               )} />

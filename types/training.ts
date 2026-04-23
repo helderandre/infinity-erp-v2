@@ -197,6 +197,8 @@ export interface TrainingEnrollment {
 
 // ─── Lesson Progress ─────────────────────────────────────
 
+export type CompletionSource = 'auto_watch' | 'manual' | 'admin_override' | 'quiz_pass'
+
 export interface TrainingLessonProgress {
   id: string
   user_id: string
@@ -205,6 +207,8 @@ export interface TrainingLessonProgress {
   status: LessonProgressStatus
   video_watched_seconds: number
   video_watch_percent: number
+  last_video_position_seconds: number
+  completion_source: CompletionSource | null
   started_at?: string | null
   completed_at?: string | null
   last_accessed_at?: string | null
@@ -485,4 +489,133 @@ export interface AdminOverviewStats {
   total_comments_unresolved: number
   avg_completion_rate: number
   total_downloads: number
+}
+
+// === COURSE ACTIVITY DASHBOARD ===
+
+export interface CourseActivityLessonRow {
+  lesson_id: string
+  title: string
+  module_id: string
+  module_title: string
+  order_index: number
+  content_type: LessonContentType
+  total_viewed: number
+  avg_watch_percent: number
+  avg_time_spent_seconds: number
+  completed_count: number
+  completion_by_source: {
+    auto_watch: number
+    manual: number
+    admin_override: number
+    quiz_pass: number
+    unknown: number
+  }
+  reports_count: number
+}
+
+export interface CourseActivityQuizRow {
+  quiz_id: string
+  title: string
+  lesson_id: string | null
+  module_id: string | null
+  attempts_count: number
+  unique_attempters: number
+  pass_rate: number
+  avg_score: number
+}
+
+export interface CourseActivitySummary {
+  total_enrolled: number
+  in_progress: number
+  completed: number
+  avg_progress_percent: number
+  avg_time_spent_seconds: number
+  certificates_issued: number
+  open_reports: number
+}
+
+export interface CourseActivityPayload {
+  course: {
+    id: string
+    title: string
+    total_modules: number
+    total_lessons: number
+    total_quizzes: number
+  }
+  summary: CourseActivitySummary
+  lessons: CourseActivityLessonRow[]
+  quizzes: CourseActivityQuizRow[]
+}
+
+export interface CourseEnrollmentLessonDetail {
+  lesson_id: string
+  title: string
+  module_id: string
+  module_title: string
+  order_index: number
+  content_type: LessonContentType
+  status: LessonProgressStatus
+  completion_source: CompletionSource | null
+  time_spent_seconds: number
+  video_watch_percent: number
+  last_video_position_seconds: number
+  completed_at: string | null
+  last_accessed_at: string | null
+}
+
+export interface CourseEnrollmentQuizDetail {
+  quiz_id: string
+  quiz_title: string
+  attempt_id: string
+  score: number
+  passed: boolean
+  attempt_number: number
+  completed_at: string | null
+}
+
+export interface CourseEnrollmentDetail {
+  id: string
+  user_id: string
+  user_name: string | null
+  user_email: string | null
+  profile_photo_url: string | null
+  enrolled_at: string
+  status: EnrollmentStatus
+  progress_percent: number
+  completed_at: string | null
+  last_activity_at: string | null
+  total_time_spent_seconds: number
+  lessons_total: number
+  lessons_completed: number
+  lessons: CourseEnrollmentLessonDetail[]
+  quiz_attempts: CourseEnrollmentQuizDetail[]
+}
+
+export interface CourseEnrollmentsResponse {
+  data: CourseEnrollmentDetail[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+// === VOICE FILL ===
+
+export interface VoiceFillResponse {
+  transcription: string
+  fields: Partial<{
+    title: string
+    summary: string
+    description: string
+    difficulty_level: CourseDifficulty
+    instructor_name: string
+    estimated_duration_minutes: number
+    is_mandatory: boolean
+    has_certificate: boolean
+    passing_score: number
+    tags: string[]
+    category_name: string
+  }>
+  category_match: { id: string; name: string } | null
 }

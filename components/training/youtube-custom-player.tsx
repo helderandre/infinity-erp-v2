@@ -12,6 +12,7 @@ interface YouTubeCustomPlayerProps {
   videoUrl: string
   lesson: TrainingLesson
   progress?: TrainingLessonProgress | null
+  startAt?: number
   onProgressUpdate: (data: {
     video_watched_seconds?: number
     video_watch_percent?: number
@@ -36,6 +37,7 @@ export function extractYouTubeId(url: string): string | null {
 export function YouTubeCustomPlayer({
   videoUrl,
   progress,
+  startAt,
   onProgressUpdate,
   onTimeUpdate,
 }: YouTubeCustomPlayerProps) {
@@ -129,10 +131,18 @@ export function YouTubeCustomPlayer({
   // ─── YouTube callbacks ───
   const onReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target
-    setDuration(event.target.getDuration())
-    // Restore previous position
-    if (progress?.video_watched_seconds && progress.video_watched_seconds > 0) {
-      event.target.seekTo(progress.video_watched_seconds, true)
+    const dur = event.target.getDuration()
+    setDuration(dur)
+
+    // Preferred seek: explicit startAt prop > last_video_position_seconds > video_watched_seconds
+    const resume =
+      typeof startAt === 'number' && startAt > 0 ? startAt
+      : (progress?.last_video_position_seconds && progress.last_video_position_seconds > 0) ? progress.last_video_position_seconds
+      : (progress?.video_watched_seconds && progress.video_watched_seconds > 0) ? progress.video_watched_seconds
+      : 0
+
+    if (resume > 0 && (dur <= 0 || resume < dur - 5)) {
+      event.target.seekTo(resume, true)
     }
   }
 

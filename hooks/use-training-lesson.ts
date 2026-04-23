@@ -1,10 +1,24 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { toast } from 'sonner'
 
 interface UseTrainingLessonParams {
   courseId: string
   lessonId: string
+}
+
+interface HeartbeatPayload {
+  delta_seconds: number
+  position_seconds: number
+  percent: number
+}
+
+interface MarkCompletedResult {
+  ok: boolean
+  error?: string
+  currentPercent?: number
+  requiredPercent?: number
 }
 
 interface UseTrainingLessonReturn {
@@ -14,7 +28,8 @@ interface UseTrainingLessonReturn {
     video_watch_percent?: number
     time_spent_seconds?: number
   }) => Promise<void>
-  markCompleted: () => Promise<boolean>
+  sendHeartbeat: (data: HeartbeatPayload) => Promise<void>
+  markCompleted: () => Promise<MarkCompletedResult>
   rateLesson: (rating: number) => Promise<boolean>
   reportIssue: (reason: string, comment?: string) => Promise<boolean>
   isSaving: boolean
@@ -55,7 +70,20 @@ export function useTrainingLesson({
     }, 5000)
   }, [courseId, lessonId])
 
-  const markCompleted = useCallback(async (): Promise<boolean> => {
+  const sendHeartbeat = useCallback(async (data: HeartbeatPayload) => {
+    try {
+      await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+    } catch (err) {
+      // Heartbeat failures are non-fatal — just log
+      console.debug('Heartbeat falhou (não crítico):', err)
+    }
+  }, [courseId, lessonId])
+
+  const markCompleted = useCallback(async (): Promise<MarkCompletedResult> => {
     setIsSaving(true)
     try {
       // Cancel any pending debounced update
@@ -66,10 +94,26 @@ export function useTrainingLesson({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed' }),
       })
-      return res.ok
+      if (res.ok) return { ok: true }
+
+      const err = await res.json().catch(() => ({}))
+      if (res.status === 403 && typeof err?.current_percent === 'number') {
+        toast.error(
+          err.error || 'Assista a pelo menos 90% do vídeo para concluir',
+        )
+        return {
+          ok: false,
+          error: err.error,
+          currentPercent: err.current_percent,
+          requiredPercent: err.required_percent,
+        }
+      }
+      toast.error(err?.error || 'Erro ao marcar como concluída')
+      return { ok: false, error: err?.error }
     } catch (err) {
       console.error('Erro ao marcar como concluído:', err)
-      return false
+      toast.error('Erro ao marcar como concluída')
+      return { ok: false }
     } finally {
       setIsSaving(false)
     }
@@ -103,5 +147,5 @@ export function useTrainingLesson({
     }
   }, [lessonId])
 
-  return { updateProgress, markCompleted, rateLesson, reportIssue, isSaving }
+  return { updateProgress, sendHeartbeat, markCompleted, rateLesson, reportIssue, isSaving }
 }

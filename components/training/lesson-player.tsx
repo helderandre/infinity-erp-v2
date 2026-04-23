@@ -17,6 +17,7 @@ interface LessonPlayerProps {
     status?: 'in_progress' | 'completed'
   }) => void
   onWatchPercentChange?: (percent: number) => void
+  onHeartbeat?: (data: { delta_seconds: number; position_seconds: number; percent: number }) => void
 }
 
 function extractVimeoId(url: string): string | null {
@@ -31,17 +32,27 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function LessonPlayer({ lesson, progress, onProgressUpdate, onWatchPercentChange }: LessonPlayerProps) {
+const HEARTBEAT_INTERVAL_MS = 10000
+
+export function LessonPlayer({ lesson, progress, onProgressUpdate, onWatchPercentChange, onHeartbeat }: LessonPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const lastSaveRef = useRef<number>(0)
   const timeSpentRef = useRef<number>(progress?.time_spent_seconds ?? 0)
   const timeSpentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const nativeTimeRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastHeartbeatAtRef = useRef<number>(Date.now())
   const [watchPercent, setWatchPercent] = useState(progress?.video_watch_percent ?? 0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isCompleted, setIsCompleted] = useState(progress?.status === 'completed')
   const hasSetInitialTime = useRef(false)
+
+  // Preferred resume position: explicit last_video_position_seconds OR legacy video_watched_seconds
+  const resumeSeconds =
+    (progress?.last_video_position_seconds && progress.last_video_position_seconds > 0)
+      ? progress.last_video_position_seconds
+      : (progress?.video_watched_seconds ?? 0)
 
   const videoUrl = lesson.video_url ?? ''
   const isYouTube = lesson.video_provider === 'youtube' || videoUrl.includes('youtube') || videoUrl.includes('youtu.be')
@@ -107,14 +118,54 @@ export function LessonPlayer({ lesson, progress, onProgressUpdate, onWatchPercen
     const video = videoRef.current
     if (!video || !isNative || hasSetInitialTime.current) return
     const handleLoaded = () => {
-      if (progress?.video_watched_seconds && progress.video_watched_seconds > 0 && !hasSetInitialTime.current) {
-        video.currentTime = progress.video_watched_seconds
+      if (resumeSeconds > 0 && !hasSetInitialTime.current) {
+        // Don't resume if near the end (within last 5s) — let it start fresh
+        const dur = video.duration
+        if (!dur || isFinite(dur) === false || resumeSeconds < dur - 5) {
+          video.currentTime = resumeSeconds
+        }
         hasSetInitialTime.current = true
       }
     }
     video.addEventListener('loadedmetadata', handleLoaded)
     return () => video.removeEventListener('loadedmetadata', handleLoaded)
-  }, [isNative, progress?.video_watched_seconds])
+  }, [isNative, resumeSeconds])
+
+  // ─── Heartbeat: every 10s of playback, send {delta, position, percent} ───
+  // We emit heartbeats regardless of provider; the YouTube player drives
+  // `currentTime`/`duration` through `onTimeUpdate`; native video drives them
+  // from its own events. We just watch the "live" values via refs.
+  const liveCurrentTimeRef = useRef(0)
+  const liveDurationRef = useRef(0)
+  useEffect(() => { liveCurrentTimeRef.current = currentTime }, [currentTime])
+  useEffect(() => { liveDurationRef.current = duration }, [duration])
+
+  useEffect(() => {
+    if (!onHeartbeat) return
+    if (isCompleted) return
+    if (!hasVideo) return
+    heartbeatIntervalRef.current = setInterval(() => {
+      const now = Date.now()
+      const delta = Math.round((now - lastHeartbeatAtRef.current) / 1000)
+      if (delta < 1) return
+      const dur = liveDurationRef.current
+      const pos = liveCurrentTimeRef.current
+      if (dur <= 0 || pos < 0) return
+      // Only emit if actually advancing (native: not paused; YouTube: detected via liveCurrentTime movement)
+      const pct = Math.round((pos / dur) * 100)
+      lastHeartbeatAtRef.current = now
+      onHeartbeat({
+        delta_seconds: Math.min(delta, 20),
+        position_seconds: pos,
+        percent: pct,
+      })
+    }, HEARTBEAT_INTERVAL_MS)
+
+    return () => {
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current)
+      heartbeatIntervalRef.current = null
+    }
+  }, [onHeartbeat, isCompleted, hasVideo])
 
   // ─── Native video: timeupdate + ended + live time tracking ───
   useEffect(() => {
@@ -158,6 +209,7 @@ export function LessonPlayer({ lesson, progress, onProgressUpdate, onWatchPercen
           videoUrl={videoUrl}
           lesson={lesson}
           progress={progress}
+          startAt={resumeSeconds}
           onProgressUpdate={onProgressUpdate}
           onTimeUpdate={handleYouTubeTimeUpdate}
         />

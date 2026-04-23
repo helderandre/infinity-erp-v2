@@ -71,6 +71,7 @@ const segmentTranslations: Record<string, string> = {
   percursos: 'Percursos',
   'meus-cursos': 'Meus Cursos',
   campanhas: 'Campanhas',
+  actividade: 'Actividade',
 }
 
 export function Breadcrumbs() {

@@ -83,7 +83,7 @@ function LessonContent() {
   const [course, setCourse] = useState<TrainingCourse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const { updateProgress, markCompleted, isSaving } = useTrainingLesson({ courseId, lessonId })
+  const { updateProgress, sendHeartbeat, markCompleted, isSaving } = useTrainingLesson({ courseId, lessonId })
 
   const fetchCourse = useCallback(async () => {
     setIsLoading(true)
@@ -122,8 +122,8 @@ function LessonContent() {
   const [liveWatchPercent, setLiveWatchPercent] = useState(0)
 
   const handleMarkCompleted = async () => {
-    const ok = await markCompleted()
-    if (ok) {
+    const result = await markCompleted()
+    if (result.ok) {
       setLocalCompleted(true)
       // Update sidebar progress locally
       setCourse(prev => {
@@ -140,9 +140,8 @@ function LessonContent() {
           })),
         }
       })
-    } else {
-      toast.error('Erro ao marcar como concluída')
     }
+    // Non-ok already toasted inside the hook (handles the 403 gate specifically).
   }
 
   const isLessonCompleted = localCompleted || currentLesson?.progress?.status === 'completed'
@@ -217,6 +216,7 @@ function LessonContent() {
               progress={currentLesson.progress}
               onProgressUpdate={handleProgressUpdate}
               onWatchPercentChange={handleWatchPercentChange}
+              onHeartbeat={sendHeartbeat}
             />
           )}
           {currentLesson.content_type === 'pdf' && currentLesson.pdf_url && (
@@ -266,6 +266,12 @@ function LessonContent() {
             isCompleted={isLessonCompleted}
             onMarkCompleted={handleMarkCompleted}
             isSaving={isSaving}
+            contentType={currentLesson.content_type}
+            watchPercent={
+              currentLesson.content_type === 'video'
+                ? Math.max(liveWatchPercent, currentLesson.progress?.video_watch_percent ?? 0)
+                : 100
+            }
           />
 
           {/* Comments */}

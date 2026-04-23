@@ -4,7 +4,8 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, ArrowLeft, Globe, Loader2, GraduationCap, BookOpen, FileText, Upload, ImageIcon, X } from 'lucide-react'
+import { ChevronLeft, ArrowLeft, Globe, Loader2, GraduationCap, BookOpen, FileText, Upload, ImageIcon, X, Sparkles, BarChart3 } from 'lucide-react'
+import { usePermissions } from '@/hooks/use-permissions'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
@@ -24,8 +25,10 @@ import { updateCourseSchema } from '@/lib/validations/training'
 import { TRAINING_DIFFICULTY_OPTIONS } from '@/lib/constants'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { TrainingCourse, TrainingCategory } from '@/types/training'
+import type { TrainingCourse, TrainingCategory, VoiceFillResponse } from '@/types/training'
 import type { z } from 'zod'
+import { DictateCourseDialog } from '@/components/training/dictate-course-dialog'
+import { VoiceInputButton } from '@/components/shared/voice-input-button'
 
 type UpdateCourseInput = z.infer<typeof updateCourseSchema>
 
@@ -79,6 +82,31 @@ function EditarCursoContent() {
   const [isPublishing, setIsPublishing] = useState(false)
   const [isUploadingCover, setIsUploadingCover] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
+  const [dictateOpen, setDictateOpen] = useState(false)
+  const { hasPermission } = usePermissions()
+  const canSeeActivity = hasPermission('training')
+
+  const handleVoiceApply = (
+    fields: Partial<VoiceFillResponse['fields']>,
+    categoryMatch: VoiceFillResponse['category_match'],
+  ) => {
+    const fieldKeys = [
+      'title', 'summary', 'description', 'difficulty_level',
+      'instructor_name', 'estimated_duration_minutes',
+      'is_mandatory', 'has_certificate', 'passing_score', 'tags',
+    ] as const
+    for (const key of fieldKeys) {
+      const value = (fields as Record<string, unknown>)[key]
+      if (value === undefined || value === null) continue
+      if (typeof value === 'string' && value.trim() === '') continue
+      // @ts-ignore — keys match UpdateCourseInput
+      form.setValue(key, value, { shouldDirty: true, shouldValidate: false })
+    }
+    if (categoryMatch) {
+      form.setValue('category_id', categoryMatch.id, { shouldDirty: true, shouldValidate: true })
+    }
+    toast.success('Campos preenchidos a partir da gravação')
+  }
 
   const form = useForm<UpdateCourseInput>({
     resolver: zodResolver(updateCourseSchema),
@@ -240,6 +268,29 @@ function EditarCursoContent() {
         </div>
         {/* Action buttons */}
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          {canSeeActivity && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="rounded-full bg-white/10 backdrop-blur-sm text-white border-white/20 hover:bg-white/20 hover:text-white"
+            >
+              <Link href={`/dashboard/formacoes/gestao/${courseId}/actividade`}>
+                <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+                Actividade
+              </Link>
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDictateOpen(true)}
+            className="rounded-full bg-white/10 backdrop-blur-sm text-white border-white/20 hover:bg-white/20 hover:text-white"
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
+            Ditar
+          </Button>
           {course.status === 'draft' && (
             <Button
               size="sm"
@@ -253,6 +304,12 @@ function EditarCursoContent() {
           )}
         </div>
       </div>
+
+      <DictateCourseDialog
+        open={dictateOpen}
+        onOpenChange={setDictateOpen}
+        onApply={handleVoiceApply}
+      />
 
       {/* ─── Pill Toggle Navigation (2 tabs) ─── */}
       <div className="mt-6 flex items-center justify-between gap-3">
@@ -371,7 +428,13 @@ function EditarCursoContent() {
                     <FormField control={form.control} name="title" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Título</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormControl><Input {...field} /></FormControl>
+                          <VoiceInputButton
+                            label="Ditar título"
+                            onTranscribe={(text) => form.setValue('title', text.trim(), { shouldDirty: true })}
+                          />
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -379,14 +442,33 @@ function EditarCursoContent() {
                     <FormField control={form.control} name="summary" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Resumo</FormLabel>
-                        <FormControl><Input placeholder="Resumo curto (até 300 caracteres)" {...field} /></FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormControl><Input placeholder="Resumo curto (até 300 caracteres)" {...field} /></FormControl>
+                          <VoiceInputButton
+                            label="Ditar resumo"
+                            onTranscribe={(text) => form.setValue('summary', text.trim(), { shouldDirty: true })}
+                          />
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )} />
 
                     <FormField control={form.control} name="description" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Descrição</FormLabel>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Descrição</FormLabel>
+                          <VoiceInputButton
+                            label="Ditar descrição"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-full px-2.5 text-xs"
+                            onTranscribe={(text) => {
+                              const current = (field.value ?? '').toString()
+                              const next = current ? `${current}\n${text.trim()}` : text.trim()
+                              form.setValue('description', next, { shouldDirty: true })
+                            }}
+                          />
+                        </div>
                         <FormControl><Textarea rows={5} {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -423,7 +505,13 @@ function EditarCursoContent() {
                     <FormField control={form.control} name="instructor_name" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Formador</FormLabel>
-                        <FormControl><Input placeholder="Ex: Isabel Silva" {...field} /></FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormControl><Input placeholder="Ex: Isabel Silva" {...field} /></FormControl>
+                          <VoiceInputButton
+                            label="Ditar formador"
+                            onTranscribe={(text) => form.setValue('instructor_name', text.trim(), { shouldDirty: true })}
+                          />
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )} />

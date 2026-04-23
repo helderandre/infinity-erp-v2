@@ -111,12 +111,37 @@ export type CreateLessonMaterialInput = z.infer<typeof createLessonMaterialSchem
 
 // ─── Progress ────────────────────────────────────────────
 
+export const completionSourceEnum = z.enum([
+  'auto_watch',
+  'manual',
+  'admin_override',
+  'quiz_pass',
+])
+export type CompletionSourceValue = z.infer<typeof completionSourceEnum>
+
 export const updateLessonProgressSchema = z.object({
   status: z.enum(['in_progress', 'completed']).optional(),
   video_watched_seconds: z.number().int().min(0).optional(),
   video_watch_percent: z.number().int().min(0).max(100).optional(),
   time_spent_seconds: z.number().int().min(0).optional(),
 })
+
+// ─── Heartbeat ───────────────────────────────────────────
+// Sent by the lesson player every ~10s while playing.
+export const heartbeatSchema = z.object({
+  delta_seconds: z.number().int().min(1).max(60),
+  position_seconds: z.number().min(0),
+  percent: z.number().int().min(0).max(100),
+})
+export type HeartbeatInput = z.infer<typeof heartbeatSchema>
+
+// ─── Voice fill response (client-side typing aid) ────────
+export const fillFromVoiceResponseSchema = z.object({
+  transcription: z.string(),
+  fields: z.record(z.string(), z.unknown()),
+  category_match: z.object({ id: z.string(), name: z.string() }).nullable(),
+})
+export type FillFromVoiceResponse = z.infer<typeof fillFromVoiceResponseSchema>
 
 // ─── Quiz Attempt ────────────────────────────────────────
 
