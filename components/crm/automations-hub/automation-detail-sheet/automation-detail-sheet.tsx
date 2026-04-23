@@ -111,7 +111,7 @@ export function AutomationDetailSheet({
           side={isMobile ? "bottom" : "right"}
           className={cn(
             "p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl",
-            "bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl",
+            "bg-background/90 supports-[backdrop-filter]:bg-background/90 backdrop-blur-2xl",
             isMobile
               ? "data-[side=bottom]:h-[85dvh] rounded-t-3xl"
               : "w-full data-[side=right]:sm:max-w-[640px] sm:rounded-l-3xl",

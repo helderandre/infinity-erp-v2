@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Check, Eye, ExternalLink, Mail, MessageCircle, Plus, Star } from "lucide-react"
+import { Check, Eye, ExternalLink, Plus, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { AUTOMATION_SHEET_COPY } from "@/lib/constants-automations"
 import { cn } from "@/lib/utils"
+import { SectionCard } from "./section-card"
+import { InlineTemplateEditorDialog } from "../inline-template-editor-dialog"
 
 interface Props {
   eventId: string
@@ -51,6 +53,7 @@ export function AutomationTemplatesSection({ eventId, onRefetch }: Props) {
   const [data, setData] = useState<TemplatesPayload | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [creatingChannel, setCreatingChannel] = useState<"email" | "whatsapp" | null>(null)
   const [previewing, setPreviewing] = useState<
     | { type: "email"; tpl: EmailTemplate }
     | { type: "whatsapp"; tpl: WppTemplate }
@@ -110,125 +113,127 @@ export function AutomationTemplatesSection({ eventId, onRefetch }: Props) {
 
   if (!data) return <p className="text-sm text-muted-foreground">Sem templates disponíveis.</p>
 
-  // Pré-populam o editor: `?scope=consultant&category=<eventId>` — o form ignora outros.
-  const createEmailHref = `/dashboard/templates-email/novo?scope=consultant&category=${eventId}`
-  const createWppHref = `/dashboard/automacao/templates-wpp/editor?scope=consultant&category=${eventId}`
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Email */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">{copy.emailHeading}</h3>
-          </div>
-          <NewTemplateButton href={createEmailHref} />
-        </div>
+      <SectionCard
+        title={copy.emailHeading}
+        action={<NewTemplateButton onClick={() => setCreatingChannel("email")} />}
+      >
+        <div className="space-y-3">
+          <TemplateGroupEmpty show={!data.email.default && data.email.used.length === 0} text={copy.emptyUsed}>
+            {data.email.default && (
+              <EmailTemplateCard
+                tpl={data.email.default}
+                isDefault
+                onPreview={() => setPreviewing({ type: "email", tpl: data.email.default! })}
+              />
+            )}
+            {data.email.used.map((tpl) => (
+              <EmailTemplateCard
+                key={tpl.id}
+                tpl={tpl}
+                onPreview={() => setPreviewing({ type: "email", tpl })}
+                onMakeDefault={() => makeDefault("email", tpl.id)}
+                busy={busyId === tpl.id}
+              />
+            ))}
+          </TemplateGroupEmpty>
 
-        <TemplateGroupEmpty show={!data.email.default && data.email.used.length === 0} text={copy.emptyUsed}>
-          {data.email.default && (
-            <EmailTemplateCard
-              tpl={data.email.default}
-              isDefault
-              onPreview={() => setPreviewing({ type: "email", tpl: data.email.default! })}
-            />
+          {data.email.available.length > 0 && (
+            <>
+              <TemplateSubheading label={copy.availableHeading} />
+              <div className="space-y-2">
+                {data.email.available.map((tpl) => (
+                  <EmailTemplateCard
+                    key={tpl.id}
+                    tpl={tpl}
+                    onPreview={() => setPreviewing({ type: "email", tpl })}
+                    onMakeDefault={() => makeDefault("email", tpl.id)}
+                    busy={busyId === tpl.id}
+                  />
+                ))}
+              </div>
+            </>
           )}
-          {data.email.used.map((tpl) => (
-            <EmailTemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              onPreview={() => setPreviewing({ type: "email", tpl })}
-              onMakeDefault={() => makeDefault("email", tpl.id)}
-              busy={busyId === tpl.id}
-            />
-          ))}
-        </TemplateGroupEmpty>
-
-        {/* "Outros disponíveis" — só aparece quando há templates deste evento não default/used */}
-        {data.email.available.length > 0 && (
-          <>
-            <TemplateSubheading label={copy.availableHeading} />
-            <div className="space-y-2">
-              {data.email.available.map((tpl) => (
-                <EmailTemplateCard
-                  key={tpl.id}
-                  tpl={tpl}
-                  onPreview={() => setPreviewing({ type: "email", tpl })}
-                  onMakeDefault={() => makeDefault("email", tpl.id)}
-                  busy={busyId === tpl.id}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </section>
+        </div>
+      </SectionCard>
 
       {/* WhatsApp */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">{copy.whatsappHeading}</h3>
-          </div>
-          <NewTemplateButton href={createWppHref} />
-        </div>
+      <SectionCard
+        title={copy.whatsappHeading}
+        titleClassName="text-emerald-600"
+        action={<NewTemplateButton onClick={() => setCreatingChannel("whatsapp")} />}
+      >
+        <div className="space-y-3">
+          <TemplateGroupEmpty show={!data.whatsapp.default && data.whatsapp.used.length === 0} text={copy.emptyUsed}>
+            {data.whatsapp.default && (
+              <WppTemplateCard
+                tpl={data.whatsapp.default}
+                isDefault
+                onPreview={() => setPreviewing({ type: "whatsapp", tpl: data.whatsapp.default! })}
+              />
+            )}
+            {data.whatsapp.used.map((tpl) => (
+              <WppTemplateCard
+                key={tpl.id}
+                tpl={tpl}
+                onPreview={() => setPreviewing({ type: "whatsapp", tpl })}
+                onMakeDefault={() => makeDefault("whatsapp", tpl.id)}
+                busy={busyId === tpl.id}
+              />
+            ))}
+          </TemplateGroupEmpty>
 
-        <TemplateGroupEmpty show={!data.whatsapp.default && data.whatsapp.used.length === 0} text={copy.emptyUsed}>
-          {data.whatsapp.default && (
-            <WppTemplateCard
-              tpl={data.whatsapp.default}
-              isDefault
-              onPreview={() => setPreviewing({ type: "whatsapp", tpl: data.whatsapp.default! })}
-            />
+          {data.whatsapp.available.length > 0 && (
+            <>
+              <TemplateSubheading label={copy.availableHeading} />
+              <div className="space-y-2">
+                {data.whatsapp.available.map((tpl) => (
+                  <WppTemplateCard
+                    key={tpl.id}
+                    tpl={tpl}
+                    onPreview={() => setPreviewing({ type: "whatsapp", tpl })}
+                    onMakeDefault={() => makeDefault("whatsapp", tpl.id)}
+                    busy={busyId === tpl.id}
+                  />
+                ))}
+              </div>
+            </>
           )}
-          {data.whatsapp.used.map((tpl) => (
-            <WppTemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              onPreview={() => setPreviewing({ type: "whatsapp", tpl })}
-              onMakeDefault={() => makeDefault("whatsapp", tpl.id)}
-              busy={busyId === tpl.id}
-            />
-          ))}
-        </TemplateGroupEmpty>
-
-        {data.whatsapp.available.length > 0 && (
-          <>
-            <TemplateSubheading label={copy.availableHeading} />
-            <div className="space-y-2">
-              {data.whatsapp.available.map((tpl) => (
-                <WppTemplateCard
-                  key={tpl.id}
-                  tpl={tpl}
-                  onPreview={() => setPreviewing({ type: "whatsapp", tpl })}
-                  onMakeDefault={() => makeDefault("whatsapp", tpl.id)}
-                  busy={busyId === tpl.id}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </section>
+        </div>
+      </SectionCard>
 
       <TemplatePreviewDialog
         preview={previewing}
         onClose={() => setPreviewing(null)}
       />
+
+      <InlineTemplateEditorDialog
+        channel={creatingChannel ?? "email"}
+        scope="consultant"
+        category={eventId}
+        open={creatingChannel !== null}
+        onOpenChange={(o) => !o && setCreatingChannel(null)}
+        onCreated={() => {
+          void fetchIt()
+          onRefetch()
+        }}
+      />
     </div>
   )
 }
 
-function NewTemplateButton({ href }: { href: string }) {
+function NewTemplateButton({ onClick }: { onClick: () => void }) {
   return (
-    <Link
-      href={href}
-      target="_blank"
+    <button
+      type="button"
+      onClick={onClick}
       className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5"
     >
       <Plus className="h-3 w-3" />
       Novo template
-    </Link>
+    </button>
   )
 }
 

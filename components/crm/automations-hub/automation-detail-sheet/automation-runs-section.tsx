@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { AUTOMATION_SHEET_COPY } from "@/lib/constants-automations"
 import type { CustomEventRun } from "@/types/custom-event"
+import { SectionCard } from "./section-card"
 
 interface Props {
   runs: CustomEventRun[]
@@ -99,39 +100,43 @@ export function AutomationRunsSection({ runs, eventDate, onRefetch, initialFilte
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <FilterChip
-          active={!onlyFailed}
-          label={copy.filterAll}
-          count={runs.length}
-          onClick={() => setOnlyFailed(false)}
-        />
-        <FilterChip
-          active={onlyFailed}
-          label={copy.filterFailed}
-          count={failedCount}
-          onClick={() => setOnlyFailed(true)}
-        />
-      </div>
+      <SectionCard title="Filtros">
+        <div className="flex items-center gap-2">
+          <FilterChip
+            active={!onlyFailed}
+            label={copy.filterAll}
+            count={runs.length}
+            onClick={() => setOnlyFailed(false)}
+          />
+          <FilterChip
+            active={onlyFailed}
+            label={copy.filterFailed}
+            count={failedCount}
+            onClick={() => setOnlyFailed(true)}
+          />
+        </div>
+      </SectionCard>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-10 text-center text-sm text-muted-foreground">
-          {copy.emptyFailed}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {groups.map((group) => (
-            <section key={group.key} className="space-y-2">
-              <h4 className="sticky top-0 z-10 bg-background/80 backdrop-blur py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </h4>
-              {group.runs.map((run) => (
-                <RunCard key={run.id} run={run} onRetryDone={onRefetch} />
-              ))}
-            </section>
-          ))}
-        </div>
-      )}
+      <SectionCard title="Histórico">
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-10 text-center text-sm text-muted-foreground">
+            {copy.emptyFailed}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <section key={group.key} className="space-y-2">
+                <h4 className="sticky top-0 z-10 bg-background/80 backdrop-blur py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.label}
+                </h4>
+                {group.runs.map((run) => (
+                  <RunCard key={run.id} run={run} onRetryDone={onRefetch} />
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+      </SectionCard>
     </div>
   )
 }

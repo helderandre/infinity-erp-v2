@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { AUTOMATION_SHEET_COPY } from "@/lib/constants-automations"
 import type { CustomEventDetail } from "@/types/custom-event"
 import { cn } from "@/lib/utils"
+import { SectionCard } from "./section-card"
 
 interface Props {
   event: CustomEventDetail
@@ -108,181 +109,183 @@ export function AutomationInfoSection({ event, onRefetch }: Props) {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Activo / Desactivado — toggle prominente no topo */}
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-          isActive
-            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
-            : "border-border/40 bg-muted/40",
-        )}
-      >
-        <Power
+    <div className="space-y-4">
+      {/* Estado — toggle prominente no topo */}
+      <SectionCard title="Estado">
+        <div
           className={cn(
-            "h-4 w-4 shrink-0",
-            isActive ? "text-emerald-600" : "text-muted-foreground",
+            "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+            isActive
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+              : "border-border/40 bg-muted/40",
           )}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">
-            {isActive ? "Activo" : "Desactivado"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {isActive
-              ? "Vai enviar mensagens conforme agendado."
-              : "Não envia mensagens enquanto estiver desactivado."}
-          </p>
+        >
+          <Power
+            className={cn(
+              "h-4 w-4 shrink-0",
+              isActive ? "text-emerald-600" : "text-muted-foreground",
+            )}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">
+              {isActive ? "Activo" : "Desactivado"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isActive
+                ? "Vai enviar mensagens conforme agendado."
+                : "Não envia mensagens enquanto estiver desactivado."}
+            </p>
+          </div>
+          <Switch
+            checked={isActive}
+            onCheckedChange={toggleStatus}
+            disabled={busy}
+            aria-label={isActive ? "Desactivar automatismo" : "Reactivar automatismo"}
+          />
         </div>
-        <Switch
-          checked={isActive}
-          onCheckedChange={toggleStatus}
-          disabled={busy}
-          aria-label={isActive ? "Desactivar automatismo" : "Reactivar automatismo"}
-        />
-      </div>
+      </SectionCard>
 
-      {/* Nome */}
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">{copy.name}</Label>
-        {editing === "name" ? (
-          <InlineEditRow
-            input={
-              <Input
-                value={String(draft)}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void saveCurrent()
-                  if (e.key === "Escape") cancelEdit()
-                }}
-                autoFocus
+      {/* Detalhes — nome, descrição, data, hora, recorrência */}
+      <SectionCard title="Detalhes">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">{copy.name}</Label>
+            {editing === "name" ? (
+              <InlineEditRow
+                input={
+                  <Input
+                    value={String(draft)}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void saveCurrent()
+                      if (e.key === "Escape") cancelEdit()
+                    }}
+                    autoFocus
+                  />
+                }
+                onSave={saveCurrent}
+                onCancel={cancelEdit}
+                busy={busy}
               />
-            }
-            onSave={saveCurrent}
-            onCancel={cancelEdit}
-            busy={busy}
-          />
-        ) : (
-          <InlineDisplayRow
-            label={event.name}
-            onEdit={() => startEdit("name", event.name)}
-          />
-        )}
-      </div>
-
-      {/* Descrição */}
-      <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          {copy.description}
-        </Label>
-        {editing === "description" ? (
-          <InlineEditRow
-            input={
-              <Textarea
-                value={String(draft)}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") cancelEdit()
-                }}
-                rows={3}
-                autoFocus
+            ) : (
+              <InlineDisplayRow
+                label={event.name}
+                onEdit={() => startEdit("name", event.name)}
               />
-            }
-            onSave={saveCurrent}
-            onCancel={cancelEdit}
-            busy={busy}
-          />
-        ) : (
-          <InlineDisplayRow
-            label={event.description ?? copy.descriptionEmpty}
-            italic={!event.description}
-            onEdit={() => startEdit("description", event.description ?? "")}
-          />
-        )}
-      </div>
+            )}
+          </div>
 
-      {/* Data + Hora — lado a lado em desktop */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            {copy.eventDate}
-          </Label>
-          {editing === "event_date" ? (
-            <InlineEditRow
-              input={
-                <Input
-                  type="date"
-                  value={String(draft)}
-                  onChange={(e) => setDraft(e.target.value)}
-                  autoFocus
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              {copy.description}
+            </Label>
+            {editing === "description" ? (
+              <InlineEditRow
+                input={
+                  <Textarea
+                    value={String(draft)}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") cancelEdit()
+                    }}
+                    rows={3}
+                    autoFocus
+                  />
+                }
+                onSave={saveCurrent}
+                onCancel={cancelEdit}
+                busy={busy}
+              />
+            ) : (
+              <InlineDisplayRow
+                label={event.description ?? copy.descriptionEmpty}
+                italic={!event.description}
+                onEdit={() => startEdit("description", event.description ?? "")}
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                {copy.eventDate}
+              </Label>
+              {editing === "event_date" ? (
+                <InlineEditRow
+                  input={
+                    <Input
+                      type="date"
+                      value={String(draft)}
+                      onChange={(e) => setDraft(e.target.value)}
+                      autoFocus
+                    />
+                  }
+                  onSave={saveCurrent}
+                  onCancel={cancelEdit}
+                  busy={busy}
                 />
-              }
-              onSave={saveCurrent}
-              onCancel={cancelEdit}
-              busy={busy}
-            />
-          ) : (
-            <InlineDisplayRow
-              label={formatDatePt(event.event_date)}
-              onEdit={() => startEdit("event_date", event.event_date)}
-            />
-          )}
-        </div>
+              ) : (
+                <InlineDisplayRow
+                  label={formatDatePt(event.event_date)}
+                  onEdit={() => startEdit("event_date", event.event_date)}
+                />
+              )}
+            </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            {copy.sendHour}
-          </Label>
-          {editing === "send_hour" ? (
-            <InlineEditRow
-              input={
-                <Select
-                  value={String(draft)}
-                  onValueChange={(v) => setDraft(v)}
-                >
-                  <SelectTrigger autoFocus>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {HOURS.map((h) => (
-                      <SelectItem key={h} value={String(h)}>
-                        {pad(h)}:00
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              }
-              onSave={saveCurrent}
-              onCancel={cancelEdit}
-              busy={busy}
-            />
-          ) : (
-            <InlineDisplayRow
-              label={`${pad(event.send_hour)}:00`}
-              onEdit={() => startEdit("send_hour", event.send_hour)}
-            />
-          )}
-        </div>
-      </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                {copy.sendHour}
+              </Label>
+              {editing === "send_hour" ? (
+                <InlineEditRow
+                  input={
+                    <Select
+                      value={String(draft)}
+                      onValueChange={(v) => setDraft(v)}
+                    >
+                      <SelectTrigger autoFocus>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HOURS.map((h) => (
+                          <SelectItem key={h} value={String(h)}>
+                            {pad(h)}:00
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                  onSave={saveCurrent}
+                  onCancel={cancelEdit}
+                  busy={busy}
+                />
+              ) : (
+                <InlineDisplayRow
+                  label={`${pad(event.send_hour)}:00`}
+                  onEdit={() => startEdit("send_hour", event.send_hour)}
+                />
+              )}
+            </div>
+          </div>
 
-      {/* Recurring */}
-      <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-3">
-        <div>
-          <p className="text-sm font-medium">{copy.recurring}</p>
-          <p className="text-xs text-muted-foreground">
-            {event.is_recurring ? "O automatismo repete-se anualmente." : "Dispara apenas uma vez."}
-          </p>
+          <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">{copy.recurring}</p>
+              <p className="text-xs text-muted-foreground">
+                {event.is_recurring ? "O automatismo repete-se anualmente." : "Dispara apenas uma vez."}
+              </p>
+            </div>
+            <Switch
+              checked={event.is_recurring}
+              onCheckedChange={toggleRecurring}
+              disabled={busy}
+            />
+          </div>
         </div>
-        <Switch
-          checked={event.is_recurring}
-          onCheckedChange={toggleRecurring}
-          disabled={busy}
-        />
-      </div>
+      </SectionCard>
 
       {/* Canais */}
-      <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Canais</Label>
+      <SectionCard title="Canais">
         <div className="space-y-2">
           <ChannelToggle
             label="Email"
@@ -301,10 +304,11 @@ export function AutomationInfoSection({ event, onRefetch }: Props) {
             onCheckedChange={(v) => toggleChannel("whatsapp", v)}
           />
         </div>
-      </div>
+      </SectionCard>
     </div>
   )
 }
+
 
 function InlineDisplayRow({
   label,

@@ -44,6 +44,7 @@ import { LEAD_ESTADOS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { usePipelineStages } from "@/hooks/use-pipeline-stages"
 import type { CustomEventDetail } from "@/types/custom-event"
+import { SectionCard } from "./section-card"
 
 interface Props {
   event: CustomEventDetail
@@ -294,60 +295,65 @@ export function AutomationContactsSection({ event, onRefetch }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Sub-tabs */}
-      <div className="flex items-center gap-2">
-        <SubTabButton
-          active={tab === "included"}
-          label={copy.countIncludedCustom(includedLeads.length)}
-          onClick={() => {
-            setTab("included")
-            clearSelection()
-          }}
-          subLabel={subCopy.included}
-        />
-        <SubTabButton
-          active={tab === "toAdd"}
-          label={subCopy.toAdd}
-          onClick={() => {
-            setTab("toAdd")
-            clearSelection()
-          }}
-        />
-      </div>
+      {/* Filtros */}
+      <SectionCard title="Filtros">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <SubTabButton
+              active={tab === "included"}
+              label={copy.countIncludedCustom(includedLeads.length)}
+              onClick={() => {
+                setTab("included")
+                clearSelection()
+              }}
+              subLabel={subCopy.included}
+            />
+            <SubTabButton
+              active={tab === "toAdd"}
+              label={subCopy.toAdd}
+              onClick={() => {
+                setTab("toAdd")
+                clearSelection()
+              }}
+            />
+          </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={copy.searchPlaceholder}
-          className="pl-8 h-9"
-        />
-      </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={copy.searchPlaceholder}
+              className="pl-8 h-9"
+            />
+          </div>
 
-      {/* Filtros (só Por adicionar) */}
-      {tab === "toAdd" && (
-        <div className="flex flex-wrap gap-2">
-          <MultiSelectFilter
-            title="Fase do pipeline"
-            options={pipelineOptions}
-            selected={pipelineStageIds}
-            onSelectedChange={setPipelineStageIds}
-            searchable
-          />
-          <MultiSelectFilter
-            title="Estado do contacto"
-            options={estadoOptions}
-            selected={contactEstados}
-            onSelectedChange={setContactEstados}
-          />
+          {tab === "toAdd" && (
+            <div className="flex flex-wrap gap-2">
+              <MultiSelectFilter
+                title="Fase do pipeline"
+                options={pipelineOptions}
+                selected={pipelineStageIds}
+                onSelectedChange={setPipelineStageIds}
+                searchable
+              />
+              <MultiSelectFilter
+                title="Estado do contacto"
+                options={estadoOptions}
+                selected={contactEstados}
+                onSelectedChange={setContactEstados}
+              />
+            </div>
+          )}
         </div>
-      )}
+      </SectionCard>
 
-      {/* Lista */}
-      <div className="space-y-2 min-h-[100px]">
-        {tab === "included" ? (
+      {/* Lista de contactos */}
+      <SectionCard
+        title={tab === "included" ? "Contactos incluídos" : "Contactos por adicionar"}
+      >
+        <div className="space-y-2 min-h-[100px]">
+          {tab === "included" ? (
           filteredIncluded.length === 0 ? (
             <EmptyState text={includedLeads.length === 0 ? copy.emptyIncludedCustom : "Sem resultados."} />
           ) : (
@@ -397,7 +403,8 @@ export function AutomationContactsSection({ event, onRefetch }: Props) {
             )
           })
         )}
-      </div>
+        </div>
+      </SectionCard>
 
       {/* Batch bar flutuante */}
       {selected.size > 0 && (

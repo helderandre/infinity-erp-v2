@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
 import {
+  Calendar,
   Check,
   ExternalLink,
   Loader2,
@@ -13,16 +14,23 @@ import {
   Pencil,
   Phone,
   Plus,
-  Users,
+  Repeat,
+  Search,
   VolumeX,
   X,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -33,14 +41,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { SectionCard } from "../automation-detail-sheet/section-card"
+import { InlineTemplateEditorDialog } from "../inline-template-editor-dialog"
 
 /**
  * Detalhe para eventos fixos (Aniversário, Natal, Ano Novo).
  *
- * NOTA: durante o redesign `redesign-automation-detail-as-sheet` o
- * detalhe de eventos **custom** migrou para `<AutomationDetailSheet>`.
- * Os fixos ficam neste diálogo legado até que a segunda fase do
- * redesign aterre (feature parity para eventos fixos no novo Sheet).
+ * Migrado para `<Sheet>` partilhando a mesma linguagem visual do
+ * `<AutomationDetailSheet>` (backdrop blur, SectionCards, pill-tabs, footer).
+ * A lógica de dados mantém-se: usa os endpoints legados de mutes +
+ * automation-settings + template-defaults (nada a ver com custom-events).
  */
 
 const FIXED_EVENT_META: Record<
@@ -80,6 +91,7 @@ interface TplOption {
   name: string
   scope: string
   category?: string | null
+  subject?: string | null
 }
 
 interface Props {
@@ -88,7 +100,22 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
+type SubTab = "included" | "excluded"
+type MainTab = "info" | "contacts" | "templates"
+
+const TAB_TRIGGER_CLASS =
+  "rounded-full text-xs h-7 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground text-muted-foreground transition-colors flex items-center justify-center px-3"
+
+function pad(n: number) {
+  return String(n).padStart(2, "0")
+}
+
 export function FixedEventDetailDialog({ eventId, open, onOpenChange }: Props) {
+  const isMobile = useIsMobile()
+  const [tab, setTab] = useState<MainTab>("info")
+  const [subTab, setSubTab] = useState<SubTab>("included")
+  const [search, setSearch] = useState("")
+
   const [leads, setLeads] = useState<FixedLead[]>([])
   const [mutes, setMutes] = useState<MuteEntry[]>([])
   const [settings, setSettings] = useState<Record<string, LeadSetting>>({})
@@ -105,12 +132,20 @@ export function FixedEventDetailDialog({ eventId, open, onOpenChange }: Props) {
   const [globalHour, setGlobalHour] = useState(9)
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null)
   const [editLeadHour, setEditLeadHour] = useState(9)
-  const [, setEditingTplLeadId] = useState<string | null>(null)
+  const [creatingChannel, setCreatingChannel] = useState<"email" | "whatsapp" | null>(null)
 
   const meta = eventId ? FIXED_EVENT_META[eventId] : null
   const eventName = meta?.name ?? "Automatismo"
   const eventType = meta?.eventType ?? ""
   const defaultHour = meta?.defaultHour ?? 9
+
+  useEffect(() => {
+    if (open) {
+      setTab("info")
+      setSubTab("included")
+      setSearch("")
+    }
+  }, [open, eventId])
 
   const fetchAll = useCallback(async () => {
     if (!open || !eventType) return
@@ -195,6 +230,17 @@ export function FixedEventDetailDialog({ eventId, open, onOpenChange }: Props) {
   const activeLeads = leads.filter((l) => !isLeadMuted(l.id))
   const mutedLeads = leads.filter((l) => isLeadMuted(l.id))
 
+  const currentList = subTab === "included" ? activeLeads : mutedLeads
+  const filteredList = currentList.filter((l) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (
+      (l.name ?? "").toLowerCase().includes(q) ||
+      (l.email ?? "").toLowerCase().includes(q) ||
+      (l.telemovel ?? "").toLowerCase().includes(q)
+    )
+  })
+
   async function toggleEventActive() {
     setTogglingEvent(true)
     try {
@@ -274,406 +320,668 @@ export function FixedEventDetailDialog({ eventId, open, onOpenChange }: Props) {
     }
   }
 
+  async function makeDefaultTemplate(channel: "email" | "whatsapp", templateId: string) {
+    setBusyId(templateId)
+    try {
+      const res = await fetch("/api/automacao/template-defaults", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: eventType, channel, template_id: templateId }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success("Template definido como padrão")
+      void fetchAll()
+    } catch {
+      toast.error("Erro ao definir padrão")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const filteredEmailTpls = emailTemplates.filter((t) => t.category === eventType)
+  const filteredWppTpls = wppTemplates.filter((t) => t.category === eventType)
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <DialogTitle className="flex items-center gap-2 flex-wrap">
-                {eventName}
-                <span className="text-sm font-normal text-muted-foreground flex items-center gap-1">
-                  · {meta?.date} ·{" "}
-                  {editingGlobalHour ? (
-                    <span className="inline-flex items-center gap-1">
-                      <select
-                        title="Hora global"
-                        className="h-6 w-[68px] rounded border text-xs px-1 bg-transparent"
-                        value={globalHour}
-                        onChange={(e) => setGlobalHour(parseInt(e.target.value))}
-                      >
-                        {Array.from({ length: 24 }, (_, h) => (
-                          <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
-                        ))}
-                      </select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5"
-                        onClick={() => {
-                          setEditingGlobalHour(false)
-                          toast.success(`Hora global: ${String(globalHour).padStart(2, "0")}:00`)
-                        }}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingGlobalHour(false)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </span>
-                  ) : (
-                    <button
-                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                      onClick={() => { setGlobalHour(defaultHour); setEditingGlobalHour(true) }}
-                    >
-                      {String(defaultHour).padStart(2, "0")}:00
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                  )}
-                </span>
-              </DialogTitle>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {togglingEvent ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Switch checked={!isEventMuted} onCheckedChange={toggleEventActive} />
-              )}
-              <span className="text-xs text-muted-foreground">
-                {isEventMuted ? "Desactivado" : "Activo"}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={cn(
+          "p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl",
+          "bg-background/90 supports-[backdrop-filter]:bg-background/90 backdrop-blur-2xl",
+          isMobile
+            ? "data-[side=bottom]:h-[85dvh] rounded-t-3xl"
+            : "w-full data-[side=right]:sm:max-w-[640px] sm:rounded-l-3xl",
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+        )}
+
+        {/* Header */}
+        <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
+          <SheetHeader className="p-0 gap-0">
+            <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
+              {eventName}
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              Detalhe do automatismo fixo, com estado, contactos e templates.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div
+            className={cn(
+              "mt-3 flex items-center gap-2",
+              isMobile && "overflow-x-auto",
+            )}
+          >
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/60 px-2 py-0.5 text-xs shrink-0">
+              <Calendar className="h-3 w-3" />
+              <span>
+                {meta?.date} · {pad(defaultHour)}:00
               </span>
             </div>
+            <div className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-background/60 px-2 py-0.5 text-xs shrink-0">
+              <Repeat className="h-3 w-3" />
+              <span>Anual</span>
+            </div>
+            <Badge variant="outline" className="gap-1 shrink-0">
+              <Mail className="h-3 w-3" /> Email
+            </Badge>
+            <Badge variant="outline" className="gap-1 shrink-0">
+              <MessageCircle className="h-3 w-3" /> WhatsApp
+            </Badge>
           </div>
-        </DialogHeader>
-
-        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/50 px-4 py-2.5">
-          <Badge variant="secondary">Anual</Badge>
-          <Badge variant="outline" className="gap-0.5"><Mail className="h-3 w-3" /> Email</Badge>
-          <Badge variant="outline" className="gap-0.5"><MessageCircle className="h-3 w-3" /> WPP</Badge>
-          <Link
-            href="/dashboard/automacao/templates-wpp"
-            className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
-          >
-            <ExternalLink className="h-3 w-3" /> Ver templates
-          </Link>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-2 mt-2">
-            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}
+        {/* Tabs */}
+        <div className="shrink-0 px-6">
+          <div className="grid w-full grid-cols-3 h-9 p-0.5 rounded-full bg-muted/50 border border-border/30">
+            <button type="button" onClick={() => setTab("info")} className={cn(TAB_TRIGGER_CLASS, tab === "info" && "bg-background shadow-sm text-foreground")}>
+              Informação
+            </button>
+            <button type="button" onClick={() => setTab("contacts")} className={cn(TAB_TRIGGER_CLASS, tab === "contacts" && "bg-background shadow-sm text-foreground")}>
+              {isMobile ? "Contactos" : "Quem recebe"}
+            </button>
+            <button type="button" onClick={() => setTab("templates")} className={cn(TAB_TRIGGER_CLASS, tab === "templates" && "bg-background shadow-sm text-foreground")}>
+              Templates
+            </button>
           </div>
-        ) : (
-          <Tabs defaultValue="activos" className="mt-2">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="activos" className="gap-1.5">
-                <Users className="h-3.5 w-3.5" />
-                A receber ({activeLeads.length})
-              </TabsTrigger>
-              <TabsTrigger value="excluidos" className="gap-1.5">
-                <VolumeX className="h-3.5 w-3.5" />
-                Não vai receber ({mutedLeads.length})
-              </TabsTrigger>
-            </TabsList>
+        </div>
 
-            <TabsContent value="activos" className="mt-3">
-              {activeLeads.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-muted-foreground">
-                  <Users className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">Ninguém vai receber este automatismo.</p>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-8 w-1/2" />
+              <Skeleton className="h-40" />
+            </div>
+          ) : tab === "info" ? (
+            <div className="space-y-4">
+              <SectionCard title="Estado">
+                <div
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                    !isEventMuted
+                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+                      : "border-border/40 bg-muted/40",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{!isEventMuted ? "Activo" : "Desactivado"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {!isEventMuted
+                        ? "Vai enviar mensagens conforme agendado."
+                        : "Não envia mensagens enquanto estiver desactivado."}
+                    </p>
+                  </div>
+                  {togglingEvent ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Switch checked={!isEventMuted} onCheckedChange={toggleEventActive} />
+                  )}
                 </div>
-              ) : (
-                <div className="rounded-lg border max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Dia e Hora</TableHead>
-                        <TableHead>Template</TableHead>
-                        <TableHead className="w-20 text-right">Acções</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {activeLeads.map((lead) => {
-                        const s = settings[lead.id]
-                        const hour = s?.send_hour ?? defaultHour
-                        const isEditingThis = editingLeadId === lead.id
+              </SectionCard>
 
-                        let dateDisplay = ""
-                        if (eventType === "aniversario_contacto") {
-                          if (lead.data_nascimento) {
-                            const d = new Date(lead.data_nascimento + "T00:00:00")
-                            dateDisplay = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
-                          } else {
-                            dateDisplay = "Sem data"
-                          }
-                        } else if (eventType === "natal") {
-                          dateDisplay = "25/12"
+              <SectionCard title="Detalhes">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Data do evento</p>
+                    <p className="text-sm">{meta?.date}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Hora global</p>
+                    {editingGlobalHour ? (
+                      <div className="flex items-center gap-1.5">
+                        <Select value={String(globalHour)} onValueChange={(v) => setGlobalHour(parseInt(v))}>
+                          <SelectTrigger className="h-8 w-[90px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, h) => (
+                              <SelectItem key={h} value={String(h)}>{pad(h)}:00</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            setEditingGlobalHour(false)
+                            toast.success(`Hora global: ${pad(globalHour)}:00`)
+                          }}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingGlobalHour(false)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="group inline-flex items-center gap-1.5 text-sm hover:text-foreground transition-colors"
+                        onClick={() => {
+                          setGlobalHour(defaultHour)
+                          setEditingGlobalHour(true)
+                        }}
+                      >
+                        {pad(defaultHour)}:00
+                        <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          ) : tab === "contacts" ? (
+            <div className="flex flex-col gap-4">
+              <SectionCard title="Filtros">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <SubTabButton
+                      active={subTab === "included"}
+                      label={`A receber (${activeLeads.length})`}
+                      onClick={() => setSubTab("included")}
+                    />
+                    <SubTabButton
+                      active={subTab === "excluded"}
+                      label={`Não vai receber (${mutedLeads.length})`}
+                      onClick={() => setSubTab("excluded")}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Pesquisar por nome, email ou telemóvel"
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard title={subTab === "included" ? "A receber" : "Não vai receber"}>
+                <div className="space-y-2 min-h-[100px]">
+                  {filteredList.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-8 text-center text-sm text-muted-foreground">
+                      {subTab === "included"
+                        ? activeLeads.length === 0
+                          ? "Ninguém vai receber este automatismo."
+                          : "Sem resultados."
+                        : mutedLeads.length === 0
+                          ? "Ninguém foi removido. Todos os seus contactos recebem."
+                          : "Sem resultados."}
+                    </div>
+                  ) : subTab === "included" ? (
+                    filteredList.map((lead) => {
+                      const s = settings[lead.id]
+                      const hour = s?.send_hour ?? defaultHour
+                      const isEditingThis = editingLeadId === lead.id
+
+                      let dateDisplay = ""
+                      if (eventType === "aniversario_contacto") {
+                        if (lead.data_nascimento) {
+                          const d = new Date(lead.data_nascimento + "T00:00:00")
+                          dateDisplay = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
                         } else {
-                          dateDisplay = "31/12"
+                          dateDisplay = "Sem data"
                         }
+                      } else if (eventType === "natal") {
+                        dateDisplay = "25/12"
+                      } else {
+                        dateDisplay = "31/12"
+                      }
 
-                        return (
-                          <TableRow key={lead.id}>
-                            <TableCell>
-                              <p className="text-sm font-medium">{lead.name ?? "—"}</p>
-                              {lead.email && (
-                                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <Mail className="h-2.5 w-2.5 shrink-0" />
-                                  <span className="truncate">{lead.email}</span>
-                                </p>
-                              )}
-                              {lead.telemovel && (
-                                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <Phone className="h-2.5 w-2.5 shrink-0" />
-                                  <span className="truncate">{lead.telemovel}</span>
-                                </p>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditingThis ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs text-muted-foreground">{dateDisplay} ·</span>
-                                  <Select value={String(editLeadHour)} onValueChange={(v) => setEditLeadHour(parseInt(v))}>
-                                    <SelectTrigger className="h-7 w-[80px] text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Array.from({ length: 24 }, (_, h) => (
-                                        <SelectItem key={h} value={String(h)}>
-                                          {String(h).padStart(2, "0")}:00
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              ) : (
-                                <span className="text-xs">
-                                  {dateDisplay} · {String(hour).padStart(2, "0")}:00
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditingThis ? (() => {
-                                const filteredEmail = emailTemplates.filter((t) => t.category === eventType)
-                                const filteredWpp = wppTemplates.filter((t) => t.category === eventType)
-                                return (
-                                  <div className="flex flex-col gap-1.5">
-                                    {filteredEmail.length > 0 && (
-                                      <div className="flex items-center gap-1.5">
-                                        <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                                        <Select
-                                          value={s?.email_template_id ?? "none"}
-                                          onValueChange={(v) => handleSaveLeadSetting(lead.id, { email_template_id: v === "none" ? null : v })}
-                                          disabled={busyId === lead.id}
-                                        >
-                                          <SelectTrigger className="h-7 flex-1 max-w-[160px] text-[11px]">
-                                            <SelectValue placeholder="Padrão" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="none">
-                                              Padrão{defaultEmailTplId ? ` (${emailTemplates.find((t) => t.id === defaultEmailTplId)?.name ?? "..."})` : ""}
-                                            </SelectItem>
-                                            {filteredEmail.map((t) => (
-                                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    )}
-                                    {filteredWpp.length > 0 && (
-                                      <div className="flex items-center gap-1.5">
-                                        <MessageCircle className="h-3 w-3 text-muted-foreground shrink-0" />
-                                        <Select
-                                          value={s?.wpp_template_id ?? "none"}
-                                          onValueChange={(v) => handleSaveLeadSetting(lead.id, { wpp_template_id: v === "none" ? null : v })}
-                                          disabled={busyId === lead.id}
-                                        >
-                                          <SelectTrigger className="h-7 flex-1 max-w-[160px] text-[11px]">
-                                            <SelectValue placeholder="Padrão" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="none">
-                                              Padrão{defaultWppTplId ? ` (${wppTemplates.find((t) => t.id === defaultWppTplId)?.name ?? "..."})` : ""}
-                                            </SelectItem>
-                                            {filteredWpp.map((t) => (
-                                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    )}
-                                    {filteredEmail.length === 0 && filteredWpp.length === 0 && (
-                                      <span className="text-[10px] text-muted-foreground">Sem templates para este automatismo</span>
-                                    )}
-                                    <div className="flex items-center gap-2 pt-1">
-                                      <Button
-                                        size="sm"
-                                        className="h-7 rounded-full text-xs"
-                                        disabled={busyId === lead.id}
-                                        onClick={() => {
-                                          handleSaveLeadSetting(lead.id, { send_hour: editLeadHour })
-                                          setEditingLeadId(null)
-                                        }}
-                                      >
-                                        {busyId === lead.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                        Guardar
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 rounded-full text-xs"
-                                        onClick={() => setEditingLeadId(null)}
-                                      >
-                                        Cancelar
-                                      </Button>
-                                      <Link
-                                        href={`/dashboard/templates-email/novo?scope=consultant&category=${eventType}`}
-                                        className="text-[10px] text-primary hover:underline ml-auto"
-                                      >
-                                        + Novo template
-                                      </Link>
-                                    </div>
-                                  </div>
-                                )
-                              })() : (
-                                <TemplateNameDisplay
-                                  emailTemplateId={s?.email_template_id ?? null}
-                                  wppTemplateId={s?.wpp_template_id ?? null}
-                                  defaultEmailTplId={defaultEmailTplId}
-                                  defaultWppTplId={defaultWppTplId}
-                                  emailTemplates={emailTemplates}
-                                  wppTemplates={wppTemplates}
-                                />
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-end">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busyId === lead.id}>
-                                      {busyId === lead.id
-                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                        : <MoreHorizontal className="h-3.5 w-3.5" />}
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-36">
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        setEditLeadHour(hour)
-                                        setEditingLeadId(lead.id)
-                                        setEditingTplLeadId(null)
-                                      }}
-                                    >
-                                      <Pencil className="h-3.5 w-3.5 mr-2" />
-                                      Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => handleMute(lead.id)}
-                                    >
-                                      <X className="h-3.5 w-3.5 mr-2" />
-                                      Remover
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+                      return (
+                        <IncludedLeadCard
+                          key={lead.id}
+                          lead={lead}
+                          hour={hour}
+                          dateDisplay={dateDisplay}
+                          setting={s}
+                          isEditing={isEditingThis}
+                          editLeadHour={editLeadHour}
+                          setEditLeadHour={setEditLeadHour}
+                          onStartEdit={() => {
+                            setEditLeadHour(hour)
+                            setEditingLeadId(lead.id)
+                          }}
+                          onCancelEdit={() => setEditingLeadId(null)}
+                          onSaveHour={() => {
+                            handleSaveLeadSetting(lead.id, { send_hour: editLeadHour })
+                            setEditingLeadId(null)
+                          }}
+                          onChangeEmailTpl={(v) =>
+                            handleSaveLeadSetting(lead.id, { email_template_id: v === "none" ? null : v })
+                          }
+                          onChangeWppTpl={(v) =>
+                            handleSaveLeadSetting(lead.id, { wpp_template_id: v === "none" ? null : v })
+                          }
+                          onRemove={() => handleMute(lead.id)}
+                          busy={busyId === lead.id}
+                          eventType={eventType}
+                          emailTemplates={filteredEmailTpls}
+                          wppTemplates={filteredWppTpls}
+                          defaultEmailTplId={defaultEmailTplId}
+                          defaultWppTplId={defaultWppTplId}
+                        />
+                      )
+                    })
+                  ) : (
+                    filteredList.map((lead) => (
+                      <div
+                        key={lead.id}
+                        className="flex items-start gap-3 rounded-xl border border-border/40 bg-background/60 px-3 py-3"
+                      >
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-sm font-medium truncate">{lead.name ?? "—"}</p>
+                          {lead.email && (
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">{lead.email}</span>
+                            </p>
+                          )}
+                          {lead.telemovel && (
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">{lead.telemovel}</span>
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full text-xs"
+                          onClick={() => handleUnmute(lead.id)}
+                          disabled={busyId === lead.id}
+                        >
+                          {busyId === lead.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <Plus className="h-3 w-3 mr-1" />
+                          )}
+                          Adicionar
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
-              )}
-            </TabsContent>
+              </SectionCard>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <SectionCard
+                title="Templates de email"
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setCreatingChannel("email")}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5"
+                  >
+                    <Plus className="h-3 w-3" /> Novo template
+                  </button>
+                }
+              >
+                <div className="space-y-2">
+                  {filteredEmailTpls.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Sem templates para este automatismo.</p>
+                  ) : (
+                    filteredEmailTpls.map((tpl) => (
+                      <TplCard
+                        key={tpl.id}
+                        name={tpl.name}
+                        subtitle={tpl.subject ?? undefined}
+                        isDefault={tpl.id === defaultEmailTplId}
+                        busy={busyId === tpl.id}
+                        editHref={`/dashboard/templates-email/${tpl.id}`}
+                        onMakeDefault={() => makeDefaultTemplate("email", tpl.id)}
+                      />
+                    ))
+                  )}
+                </div>
+              </SectionCard>
 
-            <TabsContent value="excluidos" className="mt-3">
-              {mutedLeads.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-muted-foreground">
-                  <VolumeX className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">Ninguém foi removido.</p>
-                  <p className="text-xs mt-1">Todos os seus contactos recebem este automatismo.</p>
+              <SectionCard
+                title="Templates de WhatsApp"
+                titleClassName="text-emerald-600"
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setCreatingChannel("whatsapp")}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5"
+                  >
+                    <Plus className="h-3 w-3" /> Novo template
+                  </button>
+                }
+              >
+                <div className="space-y-2">
+                  {filteredWppTpls.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Sem templates para este automatismo.</p>
+                  ) : (
+                    filteredWppTpls.map((tpl) => (
+                      <TplCard
+                        key={tpl.id}
+                        name={tpl.name}
+                        isDefault={tpl.id === defaultWppTplId}
+                        busy={busyId === tpl.id}
+                        editHref="/dashboard/automacao/templates-wpp"
+                        onMakeDefault={() => makeDefaultTemplate("whatsapp", tpl.id)}
+                      />
+                    ))
+                  )}
                 </div>
-              ) : (
-                <div className="rounded-lg border max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Telemóvel</TableHead>
-                        <TableHead className="w-10" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mutedLeads.map((lead) => (
-                        <TableRow key={lead.id}>
-                          <TableCell className="text-sm font-medium">{lead.name ?? "—"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{lead.email ?? "—"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{lead.telemovel ?? "—"}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 rounded-full text-xs"
-                              onClick={() => handleUnmute(lead.id)}
-                              disabled={busyId === lead.id}
-                            >
-                              {busyId === lead.id
-                                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                : <Plus className="h-3 w-3 mr-1" />}
-                              Adicionar
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
-      </DialogContent>
-    </Dialog>
+              </SectionCard>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md">
+          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </SheetFooter>
+
+        <InlineTemplateEditorDialog
+          channel={creatingChannel ?? "email"}
+          scope="consultant"
+          category={eventType}
+          open={creatingChannel !== null}
+          onOpenChange={(o) => !o && setCreatingChannel(null)}
+          onCreated={() => {
+            void fetchAll()
+          }}
+        />
+      </SheetContent>
+    </Sheet>
   )
 }
 
-function TemplateNameDisplay({
-  emailTemplateId,
-  wppTemplateId,
-  defaultEmailTplId,
-  defaultWppTplId,
+function SubTabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-3 py-1 text-xs transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+          : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border",
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
+function TplCard({
+  name,
+  subtitle,
+  isDefault,
+  busy,
+  editHref,
+  onMakeDefault,
+}: {
+  name: string
+  subtitle?: string
+  isDefault: boolean
+  busy: boolean
+  editHref: string
+  onMakeDefault: () => void
+}) {
+  return (
+    <article
+      className={cn(
+        "flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+        isDefault ? "border-primary/40 bg-primary/5" : "border-border/40 bg-background/60",
+      )}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium truncate">{name}</p>
+          {isDefault && (
+            <Badge variant="default" className="h-5 text-[10px]">Padrão</Badge>
+          )}
+        </div>
+        {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {!isDefault && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 rounded-full text-xs"
+            onClick={onMakeDefault}
+            disabled={busy}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Tornar padrão
+          </Button>
+        )}
+        <Link
+          href={editHref}
+          target="_blank"
+          className="inline-flex items-center h-7 px-2 rounded-full text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ExternalLink className="h-3 w-3" />
+        </Link>
+      </div>
+    </article>
+  )
+}
+
+function IncludedLeadCard({
+  lead,
+  hour,
+  dateDisplay,
+  setting,
+  isEditing,
+  editLeadHour,
+  setEditLeadHour,
+  onStartEdit,
+  onCancelEdit,
+  onSaveHour,
+  onChangeEmailTpl,
+  onChangeWppTpl,
+  onRemove,
+  busy,
+  eventType,
   emailTemplates,
   wppTemplates,
+  defaultEmailTplId,
+  defaultWppTplId,
 }: {
-  emailTemplateId: string | null
-  wppTemplateId: string | null
-  defaultEmailTplId: string | null
-  defaultWppTplId: string | null
+  lead: FixedLead
+  hour: number
+  dateDisplay: string
+  setting: LeadSetting | undefined
+  isEditing: boolean
+  editLeadHour: number
+  setEditLeadHour: (h: number) => void
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSaveHour: () => void
+  onChangeEmailTpl: (v: string) => void
+  onChangeWppTpl: (v: string) => void
+  onRemove: () => void
+  busy: boolean
+  eventType: string
   emailTemplates: TplOption[]
   wppTemplates: TplOption[]
+  defaultEmailTplId: string | null
+  defaultWppTplId: string | null
 }) {
-  const resolvedEmailId = emailTemplateId ?? defaultEmailTplId
-  const resolvedWppId = wppTemplateId ?? defaultWppTplId
-  const emailTpl = resolvedEmailId ? emailTemplates.find((t) => t.id === resolvedEmailId) : null
-  const wppTpl = resolvedWppId ? wppTemplates.find((t) => t.id === resolvedWppId) : null
-  const isEmailCustom = !!emailTemplateId
-  const isWppCustom = !!wppTemplateId
+  const defaultEmailName = defaultEmailTplId
+    ? emailTemplates.find((t) => t.id === defaultEmailTplId)?.name
+    : undefined
+  const defaultWppName = defaultWppTplId
+    ? wppTemplates.find((t) => t.id === defaultWppTplId)?.name
+    : undefined
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5">
-        <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-        <span
-          className={cn("text-[11px] truncate max-w-[130px]", isEmailCustom && "font-medium")}
-          title={emailTpl?.name ?? "Sem template"}
-        >
-          {emailTpl?.name ?? "Sem template"}
-        </span>
-        {isEmailCustom && <span className="text-[9px] text-primary">●</span>}
+    <div className="flex items-start gap-3 rounded-xl border border-border/40 bg-background/60 px-3 py-3">
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="text-sm font-medium truncate">{lead.name ?? "—"}</p>
+        {lead.email && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Mail className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{lead.email}</span>
+          </p>
+        )}
+        {lead.telemovel && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Phone className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{lead.telemovel}</span>
+          </p>
+        )}
+
+        {isEditing ? (
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{dateDisplay} ·</span>
+              <Select value={String(editLeadHour)} onValueChange={(v) => setEditLeadHour(parseInt(v))}>
+                <SelectTrigger className="h-7 w-[88px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <SelectItem key={h} value={String(h)}>{pad(h)}:00</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {emailTemplates.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Select
+                  value={setting?.email_template_id ?? "none"}
+                  onValueChange={onChangeEmailTpl}
+                  disabled={busy}
+                >
+                  <SelectTrigger className="h-7 flex-1 max-w-[220px] text-[11px]">
+                    <SelectValue placeholder="Padrão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      Padrão{defaultEmailName ? ` (${defaultEmailName})` : ""}
+                    </SelectItem>
+                    {emailTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {wppTemplates.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <MessageCircle className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Select
+                  value={setting?.wpp_template_id ?? "none"}
+                  onValueChange={onChangeWppTpl}
+                  disabled={busy}
+                >
+                  <SelectTrigger className="h-7 flex-1 max-w-[220px] text-[11px]">
+                    <SelectValue placeholder="Padrão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      Padrão{defaultWppName ? ` (${defaultWppName})` : ""}
+                    </SelectItem>
+                    {wppTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" className="h-7 rounded-full text-xs" disabled={busy} onClick={onSaveHour}>
+                {busy ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                Guardar
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 rounded-full text-xs" onClick={onCancelEdit}>
+                Cancelar
+              </Button>
+              <Link
+                href={`/dashboard/templates-email/novo?scope=consultant&category=${eventType}`}
+                target="_blank"
+                className="text-[10px] text-primary hover:underline ml-auto"
+              >
+                + Novo template
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1 flex flex-wrap gap-1">
+            <Badge variant="secondary" className="text-[10px] gap-0.5 py-0 px-1.5">
+              {dateDisplay} · {pad(hour)}:00
+            </Badge>
+            {setting?.email_template_id && (
+              <Badge variant="secondary" className="text-[10px] gap-0.5 py-0 px-1.5">
+                <Mail className="h-2.5 w-2.5" /> Email personalizado
+              </Badge>
+            )}
+            {setting?.wpp_template_id && (
+              <Badge variant="secondary" className="text-[10px] gap-0.5 py-0 px-1.5">
+                <MessageCircle className="h-2.5 w-2.5" /> WhatsApp personalizado
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-1.5">
-        <MessageCircle className="h-3 w-3 text-muted-foreground shrink-0" />
-        <span
-          className={cn("text-[11px] truncate max-w-[130px]", isWppCustom && "font-medium")}
-          title={wppTpl?.name ?? "Sem template"}
-        >
-          {wppTpl?.name ?? "Sem template"}
-        </span>
-        {isWppCustom && <span className="text-[9px] text-primary">●</span>}
-      </div>
+
+      {!isEditing && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busy}>
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreHorizontal className="h-3.5 w-3.5" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={onStartEdit}>
+              <Pencil className="h-3.5 w-3.5 mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={onRemove}
+            >
+              <VolumeX className="h-3.5 w-3.5 mr-2" />
+              Remover
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   )
 }

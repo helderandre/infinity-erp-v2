@@ -115,6 +115,8 @@ interface WppTemplateBuilderProps {
   saving: boolean
   isEditing?: boolean
   scope?: 'consultant' | 'global'
+  /** Overrides the back button (default is `router.back()`). */
+  onBack?: () => void
 }
 
 export function WppTemplateBuilder({
@@ -132,6 +134,7 @@ export function WppTemplateBuilder({
   saving,
   isEditing,
   scope,
+  onBack,
 }: WppTemplateBuilderProps) {
   const router = useRouter()
   const [editorOpen, setEditorOpen] = useState(false)
@@ -272,9 +275,7 @@ export function WppTemplateBuilder({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() =>
-                router.back()
-              }
+              onClick={() => (onBack ? onBack() : router.back())}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>

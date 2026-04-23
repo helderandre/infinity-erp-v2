@@ -34,6 +34,8 @@ interface EmailTopbarProps {
   isSaving: boolean
   onAiGenerate?: () => void
   isAiGenerating?: boolean
+  /** Override the default back button behaviour (router.back). */
+  onBack?: () => void
 }
 
 export function EmailTopbar({
@@ -51,6 +53,7 @@ export function EmailTopbar({
   isSaving,
   onAiGenerate,
   isAiGenerating,
+  onBack,
 }: EmailTopbarProps) {
   const router = useRouter()
   const { actions, query, canUndo, canRedo } = useEditor((state, query) => ({
@@ -74,7 +77,7 @@ export function EmailTopbar({
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => router.back()}
+        onClick={() => (onBack ? onBack() : router.back())}
       >
         <ArrowLeft className="h-4 w-4" />
       </Button>

@@ -87,6 +87,18 @@ interface EmailEditorProps {
   initialStandardHtml?: string
   /** Consultant id for signature preview in standard mode. */
   initialSignatureConsultantId?: string | null
+  /**
+   * Called after a successful create/update. When provided, suppresses the
+   * default router.push to `/dashboard/templates-email/[id]`, allowing the
+   * editor to be embedded inline (e.g. in a Dialog) without navigation.
+   */
+  onAfterSave?: (id: string) => void
+  /**
+   * Overrides the back button (default is `router.back()`). Used when the
+   * editor is rendered inside a Dialog to close the dialog instead of
+   * navigating.
+   */
+  onBack?: () => void
 }
 
 /**
@@ -229,6 +241,7 @@ interface EditorShellProps {
   initialStandardHtml: string
   initialSignatureConsultantId?: string | null
   sanitizedData?: string
+  onBack?: () => void
 }
 
 function EditorShell({
@@ -255,6 +268,7 @@ function EditorShell({
   initialStandardHtml,
   initialSignatureConsultantId,
   sanitizedData,
+  onBack,
 }: EditorShellProps) {
   const { actions, query } = useEditor()
   const standardHandleRef = useRef<EmailStandardCanvasHandle>(null)
@@ -519,6 +533,7 @@ function EditorShell({
         isSaving={isSaving}
         onAiGenerate={() => setAiPanelOpen(true)}
         isAiGenerating={isAiGenerating}
+        onBack={onBack}
       />
 
       {/* Standard mode canvas */}
@@ -653,6 +668,8 @@ export function EmailEditorComponent({
   initialMode,
   initialStandardHtml,
   initialSignatureConsultantId,
+  onAfterSave,
+  onBack,
 }: EmailEditorProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
@@ -721,6 +738,7 @@ export function EmailEditorComponent({
           })
           if (!res.ok) throw new Error('Erro ao guardar template')
           toast.success('Template guardado com sucesso')
+          onAfterSave?.(templateId)
         } else {
           const res = await fetch('/api/libraries/emails', {
             method: 'POST',
@@ -730,7 +748,11 @@ export function EmailEditorComponent({
           if (!res.ok) throw new Error('Erro ao criar template')
           const data = await res.json()
           toast.success('Template criado com sucesso')
-          router.push(`/dashboard/templates-email/${data.id}`)
+          if (onAfterSave) {
+            onAfterSave(data.id)
+          } else {
+            router.push(`/dashboard/templates-email/${data.id}`)
+          }
         }
       } catch (error) {
         console.error('Erro ao guardar template:', error)
@@ -739,7 +761,7 @@ export function EmailEditorComponent({
         setIsSaving(false)
       }
     },
-    [category, description, name, router, signatureMode, subject, templateId]
+    [category, description, name, onAfterSave, router, signatureMode, subject, templateId]
   )
 
   return (
@@ -770,6 +792,7 @@ export function EmailEditorComponent({
           initialStandardHtml={seededStandardHtml}
           initialSignatureConsultantId={initialSignatureConsultantId}
           sanitizedData={sanitizedData}
+          onBack={onBack}
         />
       </Editor>
     </div>
