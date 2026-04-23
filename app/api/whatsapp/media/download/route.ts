@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -8,7 +9,6 @@ const UAZAPI_URL = (process.env.UAZAPI_URL ?? "").replace(/\/$/, "")
 
 export async function POST(request: Request) {
   try {
-    const supabase = createAdminClient() as SupabaseAny
     const body = await request.json()
     const { instance_id, wa_message_id, generate_mp3 } = body
 
@@ -18,6 +18,11 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const auth = await assertInstanceOwner(instance_id)
+    if (!auth.ok) return auth.response
+
+    const supabase = createAdminClient() as SupabaseAny
 
     const { data: inst } = await supabase
       .from("auto_wpp_instances")

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertMessageOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -13,8 +14,11 @@ export async function GET(
 ) {
   try {
     const { messageId } = await params
-    const supabase = createAdminClient() as SupabaseAny
 
+    const auth = await assertMessageOwner(messageId)
+    if (!auth.ok) return auth.response
+
+    const supabase = createAdminClient() as SupabaseAny
     const { data, error } = await supabase
       .from("wpp_messages")
       .select("*")
@@ -38,23 +42,15 @@ export async function PUT(
 ) {
   try {
     const { messageId } = await params
-    const supabase = createAdminClient() as SupabaseAny
+
+    const auth = await assertMessageOwner(messageId)
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const { new_text } = body
 
     if (!new_text) {
       return NextResponse.json({ error: "new_text é obrigatório" }, { status: 400 })
-    }
-
-    // Fetch message to get instance_id and wa_message_id
-    const { data: message, error: msgError } = await supabase
-      .from("wpp_messages")
-      .select("instance_id, wa_message_id")
-      .eq("id", messageId)
-      .single()
-
-    if (msgError || !message) {
-      return NextResponse.json({ error: "Mensagem não encontrada" }, { status: 404 })
     }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-messaging`, {
@@ -65,8 +61,8 @@ export async function PUT(
       },
       body: JSON.stringify({
         action: "edit_message",
-        instance_id: message.instance_id,
-        wa_message_id: message.wa_message_id,
+        instance_id: auth.data.instanceId,
+        wa_message_id: auth.data.waMessageId,
         new_text,
       }),
     })
@@ -90,19 +86,12 @@ export async function DELETE(
 ) {
   try {
     const { messageId } = await params
-    const supabase = createAdminClient() as SupabaseAny
+
+    const auth = await assertMessageOwner(messageId)
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const { for_everyone } = body
-
-    const { data: message, error: msgError } = await supabase
-      .from("wpp_messages")
-      .select("instance_id, wa_message_id")
-      .eq("id", messageId)
-      .single()
-
-    if (msgError || !message) {
-      return NextResponse.json({ error: "Mensagem não encontrada" }, { status: 404 })
-    }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-messaging`, {
       method: "POST",
@@ -112,8 +101,8 @@ export async function DELETE(
       },
       body: JSON.stringify({
         action: "delete_message",
-        instance_id: message.instance_id,
-        wa_message_id: message.wa_message_id,
+        instance_id: auth.data.instanceId,
+        wa_message_id: auth.data.waMessageId,
         for_everyone,
       }),
     })

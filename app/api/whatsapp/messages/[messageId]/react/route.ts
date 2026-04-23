@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertMessageOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -13,7 +14,10 @@ export async function POST(
 ) {
   try {
     const { messageId } = await params
-    const supabase = createAdminClient() as SupabaseAny
+
+    const auth = await assertMessageOwner(messageId)
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const { emoji } = body
 
@@ -21,22 +25,13 @@ export async function POST(
       return NextResponse.json({ error: "emoji é obrigatório" }, { status: 400 })
     }
 
-    // Fetch message to get instance_id, wa_message_id, chat_id
-    const { data: message, error: msgError } = await supabase
-      .from("wpp_messages")
-      .select("instance_id, wa_message_id, chat_id")
-      .eq("id", messageId)
-      .single()
+    const supabase = createAdminClient() as SupabaseAny
 
-    if (msgError || !message) {
-      return NextResponse.json({ error: "Mensagem não encontrada" }, { status: 404 })
-    }
-
-    // Fetch chat to get wa_chat_id
+    // Fetch chat wa_chat_id (already know ownership via message → instance)
     const { data: chat, error: chatError } = await supabase
       .from("wpp_chats")
       .select("wa_chat_id")
-      .eq("id", message.chat_id)
+      .eq("id", auth.data.chatId)
       .single()
 
     if (chatError || !chat) {
@@ -51,9 +46,9 @@ export async function POST(
       },
       body: JSON.stringify({
         action: "react",
-        instance_id: message.instance_id,
+        instance_id: auth.data.instanceId,
         wa_chat_id: chat.wa_chat_id,
-        wa_message_id: message.wa_message_id,
+        wa_message_id: auth.data.waMessageId,
         emoji,
       }),
     })

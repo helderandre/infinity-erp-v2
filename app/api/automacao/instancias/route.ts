@@ -238,10 +238,10 @@ export async function GET(request: Request) {
 // ── POST: Acções ──
 
 /** Actions that require admin role */
-const ADMIN_ONLY_ACTIONS = new Set(["sync", "create", "delete", "assign_user"])
+const ADMIN_ONLY_ACTIONS = new Set(["sync", "assign_user"])
 
 /** Actions that non-admin users can perform on their own instances */
-const USER_ACTIONS = new Set(["connect", "disconnect", "status", "rename"])
+const USER_ACTIONS = new Set(["connect", "disconnect", "status", "rename", "delete"])
 
 export async function POST(request: Request) {
   try {
@@ -263,6 +263,11 @@ export async function POST(request: Request) {
         { error: "Sem permissão para esta acção" },
         { status: 403 }
       )
+    }
+
+    // Non-admin creating an instance: always scope to self.
+    if (action === "create" && !isAdmin) {
+      params.user_id = auth.user.id
     }
 
     // For user-level actions, verify ownership (non-admin only)

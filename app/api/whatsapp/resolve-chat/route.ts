@@ -35,27 +35,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
     }
 
-    // Get user instances (admin sees all)
-    const { data: devUser } = await supabase
-      .from("dev_users")
-      .select("id, role_id, roles:role_id(name)")
-      .eq("id", user.id)
-      .single()
-
-    const roleName = (devUser?.roles as any)?.name || ""
-    const adminRoles = ["broker/ceo", "office manager"]
-    const isAdmin = adminRoles.some((r) => r === roleName.toLowerCase())
-
-    let instanceQuery = supabase
+    // Always scope to instances owned by the caller — admins must not resolve
+    // chats from other users' instances, otherwise they would gain a path to
+    // view conversation content.
+    const { data: instances } = await supabase
       .from("auto_wpp_instances")
       .select("id, uazapi_token")
       .eq("status", "active")
-
-    if (!isAdmin) {
-      instanceQuery = instanceQuery.eq("user_id", user.id)
-    }
-
-    const { data: instances } = await instanceQuery
+      .eq("user_id", user.id)
     if (!instances?.length) {
       return NextResponse.json({ found: false, reason: "no_instances" })
     }

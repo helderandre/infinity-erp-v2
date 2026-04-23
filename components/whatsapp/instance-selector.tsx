@@ -48,10 +48,9 @@ export function InstanceSelector({ instances, value, onChange }: InstanceSelecto
                       : 'bg-slate-400'
                 }`}
               />
-              <span className="text-sm font-medium truncate">{inst.name}</span>
-              {inst.phone && (
-                <span className="text-xs text-muted-foreground truncate">{inst.phone}</span>
-              )}
+              <span className="text-sm font-medium truncate">
+                {inst.phone || inst.name}
+              </span>
             </div>
           </SelectItem>
         ))}

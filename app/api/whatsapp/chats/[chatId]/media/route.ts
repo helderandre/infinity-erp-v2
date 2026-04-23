@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertChatOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -10,6 +11,10 @@ export async function GET(
 ) {
   try {
     const { chatId } = await params
+
+    const auth = await assertChatOwner(chatId)
+    if (!auth.ok) return auth.response
+
     const supabase = createAdminClient() as SupabaseAny
     const { searchParams } = new URL(request.url)
 

@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import {
+  assertChatOwner,
+  assertInstanceOwner,
+} from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -12,8 +16,11 @@ export async function GET(request: Request) {
     const instanceId = searchParams.get("instance_id")
     const chatId = searchParams.get("chat_id")
 
-    // Fetch single chat by ID
+    // Fetch single chat by ID — requires ownership of its instance.
     if (chatId) {
+      const auth = await assertChatOwner(chatId)
+      if (!auth.ok) return auth.response
+
       const { data, error } = await supabase
         .from("wpp_chats")
         .select(
@@ -31,6 +38,9 @@ export async function GET(request: Request) {
     if (!instanceId) {
       return NextResponse.json({ error: "instance_id é obrigatório" }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
 
     // Search by phone number (for participant click-to-chat)
     const phoneSearch = searchParams.get("phone")

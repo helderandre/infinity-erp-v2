@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -9,13 +10,17 @@ const UAZAPI_URL = (process.env.UAZAPI_URL ?? "").replace(/\/$/, "")
 // ── POST: fetch raw data from UAZAPI and store in wpp_debug_log ──
 export async function POST(request: Request) {
   try {
-    const supabase = createAdminClient() as SupabaseAny
     const body = await request.json()
     const { action, instance_id } = body
 
     if (!instance_id) {
       return NextResponse.json({ error: "instance_id é obrigatório" }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instance_id)
+    if (!auth.ok) return auth.response
+
+    const supabase = createAdminClient() as SupabaseAny
 
     // Get instance token
     const { data: inst, error: instErr } = await supabase
@@ -43,19 +48,29 @@ export async function POST(request: Request) {
 // ── GET: list debug logs ──
 export async function GET(request: Request) {
   try {
-    const supabase = createAdminClient() as SupabaseAny
     const { searchParams } = new URL(request.url)
     const instanceId = searchParams.get("instance_id")
     const endpoint = searchParams.get("endpoint")
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
+    if (!instanceId) {
+      return NextResponse.json(
+        { error: "instance_id é obrigatório" },
+        { status: 400 }
+      )
+    }
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
+
+    const supabase = createAdminClient() as SupabaseAny
     let query = supabase
       .from("wpp_debug_log")
       .select("*")
+      .eq("instance_id", instanceId)
       .order("created_at", { ascending: false })
       .limit(limit)
 
-    if (instanceId) query = query.eq("instance_id", instanceId)
     if (endpoint) query = query.eq("endpoint", endpoint)
 
     const { data, error } = await query

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const auth = await assertInstanceOwner(instance_id)
+    if (!auth.ok) return auth.response
 
     const action = TYPE_TO_ACTION[type]
     if (!action) {

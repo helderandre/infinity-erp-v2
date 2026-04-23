@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { phoneVariants } from "@/lib/phone"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -12,6 +13,9 @@ export async function POST(request: Request) {
     if (!instance_id) {
       return NextResponse.json({ error: "instance_id é obrigatório" }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instance_id)
+    if (!auth.ok) return auth.response
 
     const supabase = createAdminClient() as SupabaseAny
 

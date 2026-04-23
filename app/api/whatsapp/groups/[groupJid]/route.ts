@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -16,6 +17,9 @@ export async function GET(
     if (!instanceId || !groupJid) {
       return NextResponse.json({ error: "Missing instance_id or groupJid" }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
 
     const supabase = createAdminClient() as SupabaseAny
 

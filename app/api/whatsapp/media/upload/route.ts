@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getR2Client, R2_BUCKET, R2_PUBLIC_DOMAIN } from "@/lib/r2/client"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest) {
     if (!instanceId) {
       return NextResponse.json({ error: "instance_id é obrigatório" }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")

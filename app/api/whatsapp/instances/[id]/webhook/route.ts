@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertInstanceOwnerOrAdmin } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -7,12 +8,19 @@ type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string
 const UAZAPI_URL = (process.env.UAZAPI_URL ?? "").replace(/\/$/, "")
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+// Webhook registration is a management action that does not expose conversation
+// content, so admins are allowed to register webhooks on instances they don't
+// personally own.
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: instanceId } = await params
+
+    const auth = await assertInstanceOwnerOrAdmin(instanceId)
+    if (!auth.ok) return auth.response
+
     const supabase = createAdminClient() as SupabaseAny
 
     // Fetch instance to get uazapi_token

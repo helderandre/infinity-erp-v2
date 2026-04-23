@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { assertContactOwner } from '@/lib/whatsapp/authorize'
 
 /**
  * Link a wpp_contact directly to a lead (or owner). Used when the agent creates
@@ -14,6 +15,10 @@ export async function POST(
 ) {
   try {
     const { contactId } = await params
+
+    const auth = await assertContactOwner(contactId)
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const { lead_id, owner_id } = body as { lead_id?: string; owner_id?: string }
 
@@ -41,6 +46,7 @@ export async function POST(
       .from('wpp_contacts')
       .update(patch)
       .eq('id', contactId)
+      .eq('instance_id', auth.data.instanceId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

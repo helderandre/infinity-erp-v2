@@ -1,8 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
+import { assertChatOwner } from "@/lib/whatsapp/authorize"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,17 +10,9 @@ export async function POST(
 ) {
   try {
     const { chatId } = await params
-    const supabase = createAdminClient() as SupabaseAny
 
-    const { data: chat, error: chatError } = await supabase
-      .from("wpp_chats")
-      .select("instance_id, wa_chat_id")
-      .eq("id", chatId)
-      .single()
-
-    if (chatError || !chat) {
-      return NextResponse.json({ error: "Chat não encontrado" }, { status: 404 })
-    }
+    const auth = await assertChatOwner(chatId)
+    if (!auth.ok) return auth.response
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-messaging`, {
       method: "POST",
@@ -33,8 +22,8 @@ export async function POST(
       },
       body: JSON.stringify({
         action: "mark_read",
-        instance_id: chat.instance_id,
-        wa_chat_id: chat.wa_chat_id,
+        instance_id: auth.data.instanceId,
+        wa_chat_id: auth.data.waChatId,
       }),
     })
 

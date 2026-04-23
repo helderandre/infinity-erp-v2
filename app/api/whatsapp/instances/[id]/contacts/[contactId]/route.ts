@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { assertInstanceOwner } from "@/lib/whatsapp/authorize"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -9,13 +10,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string; contactId: string }> }
 ) {
   try {
-    const { contactId } = await params
+    const { id: instanceId, contactId } = await params
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
+
     const supabase = createAdminClient() as SupabaseAny
 
     const { data, error } = await supabase
       .from("wpp_contacts")
       .select(`*, owner:owners(id, name, phone, email), lead:leads(id, nome, email, telemovel)`)
       .eq("id", contactId)
+      .eq("instance_id", instanceId)
       .single()
 
     if (error || !data) {
@@ -34,7 +40,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; contactId: string }> }
 ) {
   try {
-    const { contactId } = await params
+    const { id: instanceId, contactId } = await params
+
+    const auth = await assertInstanceOwner(instanceId)
+    if (!auth.ok) return auth.response
+
     const supabase = createAdminClient() as SupabaseAny
     const body = await request.json()
     const { owner_id, lead_id } = body
@@ -50,6 +60,7 @@ export async function PUT(
       .from("wpp_contacts")
       .update(updateData)
       .eq("id", contactId)
+      .eq("instance_id", instanceId)
       .select(`*, owner:owners(id, name, phone, email), lead:leads(id, nome, email, telemovel)`)
       .single()
 

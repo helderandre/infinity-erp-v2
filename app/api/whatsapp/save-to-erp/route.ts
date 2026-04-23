@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { uploadDocumentToR2, type DocumentContext } from '@/lib/r2/documents'
 import { recalculateProgress } from '@/lib/process-engine'
+import { assertInstanceOwner } from '@/lib/whatsapp/authorize'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
@@ -53,6 +54,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const ownership = await assertInstanceOwner(instance_id)
+    if (!ownership.ok) return ownership.response
     if (!doc_type_id) {
       return NextResponse.json(
         { error: 'Tipo de documento obrigatório' },

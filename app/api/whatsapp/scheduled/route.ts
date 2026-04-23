@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { assertChatOwner } from '@/lib/whatsapp/authorize'
 
 export async function GET(request: Request) {
   try {
@@ -50,6 +51,17 @@ export async function POST(request: Request) {
 
     if (!text && !media_url) {
       return NextResponse.json({ error: 'Mensagem ou media obrigatório' }, { status: 400 })
+    }
+
+    // Ownership of the chat implies ownership of the underlying instance.
+    const chatAuth = await assertChatOwner(chat_id)
+    if (!chatAuth.ok) return chatAuth.response
+
+    if (chatAuth.data.instanceId !== instance_id) {
+      return NextResponse.json(
+        { error: 'chat_id não pertence à instância indicada' },
+        { status: 400 }
+      )
     }
 
     const scheduledDate = new Date(scheduled_at)

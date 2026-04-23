@@ -27,7 +27,6 @@ interface WppInstance {
 interface ChatLayoutProps {
   instances: WppInstance[]
   userId: string
-  isAdmin: boolean
   initialChatId?: string
 }
 
@@ -44,7 +43,7 @@ async function postAction(action: string, params: Record<string, unknown> = {}) 
   return data
 }
 
-export function ChatLayout({ instances: initialInstances, userId, isAdmin, initialChatId }: ChatLayoutProps) {
+export function ChatLayout({ instances: initialInstances, userId, initialChatId }: ChatLayoutProps) {
   const [instances, setInstances] = useState(initialInstances)
   const [selectedInstance, setSelectedInstance] = useState(instances[0]?.id || '')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(initialChatId || null)
@@ -57,15 +56,18 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
     try {
       const res = await fetch(API_URL)
       const data = await res.json()
+      // Enforce per-user scope: on the WhatsApp simulation page every user
+      // (including admins) sees only their own instances. Admin management of
+      // other users' instances lives elsewhere.
       const filtered = (data.instances ?? []).filter(
-        (i: WppInstance) => isAdmin || i.user_id === userId
+        (i: WppInstance) => i.user_id === userId
       )
       setInstances(filtered)
       return filtered as WppInstance[]
     } catch {
       return instances
     }
-  }, [isAdmin, userId, instances])
+  }, [userId, instances])
 
   const handleRenameInstance = useCallback(async (id: string, name: string) => {
     await postAction('rename', { instance_id: id, name })
@@ -128,6 +130,11 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
     return data.instance
   }, [refetchInstances, userId])
 
+  const handleBack = useCallback(() => {
+    setSelectedChatId(null)
+    setShowInfo(false)
+  }, [])
+
   const connectingInstance = instances.find((i) => i.id === connectId)
 
   // No instances available — show setup
@@ -142,11 +149,6 @@ export function ChatLayout({ instances: initialInstances, userId, isAdmin, initi
       />
     )
   }
-
-  const handleBack = useCallback(() => {
-    setSelectedChatId(null)
-    setShowInfo(false)
-  }, [])
 
   // Mobile: full-screen views that switch between sidebar ↔ thread
   if (isMobile) {

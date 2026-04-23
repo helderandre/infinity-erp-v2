@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertInstanceOwner } from '@/lib/whatsapp/authorize'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +11,9 @@ export async function POST(request: Request) {
     if (!chat_id || !instance_id || !contact_id || !lead_id) {
       return NextResponse.json({ error: 'Campos obrigatórios em falta' }, { status: 400 })
     }
+
+    const auth = await assertInstanceOwner(instance_id)
+    if (!auth.ok) return auth.response
 
     const supabase = createAdminClient()
 
@@ -82,6 +87,13 @@ export async function POST(request: Request) {
 // GET: fetch activity sessions for a lead
 export async function GET(request: Request) {
   try {
+    // Require auth — activity sessions expose conversation traces.
+    const authSupabase = await createClient()
+    const { data: { user } } = await authSupabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const leadId = searchParams.get('lead_id')
 

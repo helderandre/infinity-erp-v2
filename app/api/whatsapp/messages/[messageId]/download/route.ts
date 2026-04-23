@@ -1,8 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseAny = ReturnType<typeof createAdminClient> & { from: (table: string) => any }
+import { assertMessageOwner } from "@/lib/whatsapp/authorize"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,19 +10,12 @@ export async function POST(
 ) {
   try {
     const { messageId } = await params
-    const supabase = createAdminClient() as SupabaseAny
+
+    const auth = await assertMessageOwner(messageId)
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const { transcribe, generate_mp3 } = body
-
-    const { data: message, error: msgError } = await supabase
-      .from("wpp_messages")
-      .select("instance_id, wa_message_id")
-      .eq("id", messageId)
-      .single()
-
-    if (msgError || !message) {
-      return NextResponse.json({ error: "Mensagem não encontrada" }, { status: 404 })
-    }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-messaging`, {
       method: "POST",
@@ -35,8 +25,8 @@ export async function POST(
       },
       body: JSON.stringify({
         action: "download_media",
-        instance_id: message.instance_id,
-        wa_message_id: message.wa_message_id,
+        instance_id: auth.data.instanceId,
+        wa_message_id: auth.data.waMessageId,
         transcribe,
         generate_mp3,
       }),
