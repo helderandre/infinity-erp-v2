@@ -7,6 +7,11 @@ export interface ResolveAccountArgs {
   leadId: string
   agentId: string | null
   eventType: string
+  /**
+   * Quando presente limita a pesquisa a uma row scoped a um evento custom.
+   * Null/undefined = busca scope fixo (custom_event_id IS NULL).
+   */
+  customEventId?: string | null
 }
 
 export interface ResolvedAccount {
@@ -19,13 +24,17 @@ async function getOverrideId(
   leadId: string,
   eventType: string,
   column: "smtp_account_id" | "wpp_instance_id",
+  customEventId?: string | null,
 ): Promise<string | null> {
-  const { data } = await supabase
+  let query = supabase
     .from("contact_automation_lead_settings")
     .select(column)
     .eq("lead_id", leadId)
     .eq("event_type", eventType)
-    .maybeSingle()
+  query = customEventId
+    ? query.eq("custom_event_id", customEventId)
+    : query.is("custom_event_id", null)
+  const { data } = await query.maybeSingle()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return ((data as any)?.[column] as string | null) ?? null
 }
@@ -34,10 +43,10 @@ export async function resolveSmtpAccountForLead(
   supabase: AnySupabase,
   args: ResolveAccountArgs,
 ): Promise<ResolvedAccount | null> {
-  const { leadId, agentId, eventType } = args
+  const { leadId, agentId, eventType, customEventId } = args
   if (!agentId) return null
 
-  const overrideId = await getOverrideId(supabase, leadId, eventType, "smtp_account_id")
+  const overrideId = await getOverrideId(supabase, leadId, eventType, "smtp_account_id", customEventId)
   if (overrideId) {
     const { data } = await supabase
       .from("consultant_email_accounts")
@@ -82,10 +91,10 @@ export async function resolveWppInstanceForLead(
   supabase: AnySupabase,
   args: ResolveAccountArgs,
 ): Promise<ResolvedAccount | null> {
-  const { leadId, agentId, eventType } = args
+  const { leadId, agentId, eventType, customEventId } = args
   if (!agentId) return null
 
-  const overrideId = await getOverrideId(supabase, leadId, eventType, "wpp_instance_id")
+  const overrideId = await getOverrideId(supabase, leadId, eventType, "wpp_instance_id", customEventId)
   if (overrideId) {
     const { data } = await supabase
       .from("auto_wpp_instances")

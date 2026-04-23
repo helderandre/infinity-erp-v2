@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/auth/permissions"
 import { computeNextFixedOccurrence, type FixedEventType } from "@/lib/automacao/next-fixed-occurrence"
+import { resolveChannels } from "@/lib/automacao/resolve-channels-for-event-consultant"
+
+const FIXED_EVENT_CHANNELS = ["email", "whatsapp"] as const
 
 const FIXED_EVENTS: FixedEventType[] = ["aniversario_contacto", "natal", "ano_novo"]
 
@@ -141,12 +144,15 @@ export async function GET(request: Request) {
     manualByKey.set(`${m.contact_id}|${m.event_type}`, m)
   }
 
-  // 3) Batch — all lead settings (send_hour overrides)
+  // 3) Batch — all lead settings (send_hour overrides) para eventos FIXOS
+  //    (custom_event_id IS NULL). Overrides custom não afectam esta vista
+  //    porque a coluna next_at para custom usa evt.send_hour directo.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: settingsRows } = await (supabase as any)
     .from("contact_automation_lead_settings")
     .select("lead_id, event_type, send_hour")
     .in("lead_id", leadIds)
+    .is("custom_event_id", null)
 
   const settingsByKey = new Map<string, number | null>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -194,8 +200,14 @@ export async function GET(request: Request) {
 
   for (const lead of leads) {
     const agentId = (lead.agent_id as string | null) ?? null
-    const hasSmtp = agentId ? smtpByAgent.has(agentId) : false
-    const hasWpp = agentId ? wppByAgent.has(agentId) : false
+    const accounts = {
+      email_count: agentId && smtpByAgent.has(agentId) ? 1 : 0,
+      wpp_count: agentId && wppByAgent.has(agentId) ? 1 : 0,
+    }
+    const fixedResolved = resolveChannels(
+      { channels: [...FIXED_EVENT_CHANNELS] },
+      accounts,
+    )
 
     for (const eventType of FIXED_EVENTS) {
       if (eventFilter && eventType !== eventFilter) continue
@@ -234,13 +246,13 @@ export async function GET(request: Request) {
       const activeChannels: Channel[] = []
       const mutedChannels: Channel[] = []
 
-      if (lead.email) {
+      if (lead.email && fixedResolved.email === "active") {
         if (matchesMute(mutes, lead.id, agentId, eventType, "email")) mutedChannels.push("email")
-        else if (hasSmtp) activeChannels.push("email")
+        else activeChannels.push("email")
       }
-      if (lead.telemovel) {
+      if (lead.telemovel && fixedResolved.whatsapp === "active") {
         if (matchesMute(mutes, lead.id, agentId, eventType, "whatsapp")) mutedChannels.push("whatsapp")
-        else if (hasWpp) activeChannels.push("whatsapp")
+        else activeChannels.push("whatsapp")
       }
 
       let state: State = "active"
@@ -328,19 +340,24 @@ export async function GET(request: Request) {
         if (!lead) continue
 
         const agentId = (lead.agent_id as string | null) ?? null
-        const hasSmtp = agentId ? smtpByAgent.has(agentId) : false
-        const hasWpp = agentId ? wppByAgent.has(agentId) : false
+        const customResolved = resolveChannels(
+          { channels: evtChannels },
+          {
+            email_count: agentId && smtpByAgent.has(agentId) ? 1 : 0,
+            wpp_count: agentId && wppByAgent.has(agentId) ? 1 : 0,
+          },
+        )
 
         const activeChannels: Channel[] = []
         const mutedChannels: Channel[] = []
 
-        if (evtChannels.includes("email") && lead.email) {
+        if (customResolved.email === "active" && lead.email) {
           if (matchesMute(mutes, leadId, agentId, evt.name, "email")) mutedChannels.push("email")
-          else if (hasSmtp) activeChannels.push("email")
+          else activeChannels.push("email")
         }
-        if (evtChannels.includes("whatsapp") && lead.telemovel) {
+        if (customResolved.whatsapp === "active" && lead.telemovel) {
           if (matchesMute(mutes, leadId, agentId, evt.name, "whatsapp")) mutedChannels.push("whatsapp")
-          else if (hasWpp) activeChannels.push("whatsapp")
+          else activeChannels.push("whatsapp")
         }
 
         let state: State = "active"

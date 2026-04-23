@@ -283,3 +283,149 @@ export function getOperationLabel(operation: SupabaseQueryOperation): string {
   const op = OPERATION_OPTIONS.find((o) => o.value === operation)
   return op?.label ?? operation
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTOMATION_SHEET_COPY — copy centralizado do <AutomationDetailSheet>
+//
+// Todo o texto visível do novo Sheet de detalhe de automatismos vive aqui.
+// PT-PT sem jargão técnico: nenhum uso visível de "mute", "schedule",
+// "spawn", "virtual", "cron", "RPC", "upsert", "payload" ou "template id".
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const AUTOMATION_SHEET_COPY = {
+  tabsLong: {
+    info: "Informação",
+    contacts: "Quem recebe",
+    templates: "Templates",
+    runs: "Envios feitos",
+  },
+  tabsShort: {
+    info: "Info",
+    contacts: "Contactos",
+    templates: "Templates",
+    runs: "Envios",
+  },
+  subTabs: {
+    custom: {
+      included: "Incluídos",
+      toAdd: "Por adicionar",
+    },
+    fixed: {
+      included: "A receber",
+      excluded: "Não vai receber",
+    },
+  },
+  channels: {
+    email: "Email",
+    whatsapp: "WhatsApp",
+    emailActive: "A enviar por email",
+    whatsappActive: "A enviar por WhatsApp",
+    emailOff: "Email desligado",
+    whatsappOff: "WhatsApp desligado",
+    emailUnavailable:
+      "Não tem uma conta de email configurada. Adicionar em Definições → Contas.",
+    whatsappUnavailable:
+      "Não tem uma instância WhatsApp ligada. Configurar em Definições → WhatsApp.",
+  },
+  info: {
+    name: "Nome",
+    description: "Descrição",
+    descriptionEmpty: "Sem descrição",
+    eventDate: "Data do evento",
+    sendHour: "Hora de envio",
+    recurring: "Repete-se todos os anos",
+    editHint: "Clique para editar",
+    saveSuccess: "Alteração guardada",
+    saveError: "Não foi possível guardar. Tente novamente.",
+  },
+  contactsSection: {
+    searchPlaceholder: "Pesquisar por nome, email ou telemóvel",
+    addSelected: "Adicionar seleccionados",
+    removeSelected: "Remover seleccionados",
+    addOne: "Adicionar",
+    removeOne: "Remover",
+    countIncludedCustom: (n: number) => `Incluídos (${n})`,
+    countToAddCustom: (n: number) => `Por adicionar (${n})`,
+    countIncludedFixed: (n: number) => `A receber (${n})`,
+    countExcludedFixed: (n: number) => `Não vai receber (${n})`,
+    emptyIncludedCustom: "Ainda não adicionou contactos a este automatismo.",
+    emptyToAddCustom: "Todos os seus contactos já estão neste automatismo.",
+    emptyIncludedFixed: "Nenhum contacto vai receber.",
+    emptyExcludedFixed: "Nenhum contacto foi removido.",
+    confirmRemoveTitle: "Remover do automatismo?",
+    confirmRemoveDescription: (name: string) =>
+      `${name} deixa de receber a mensagem deste automatismo. Pode voltar a adicionar mais tarde.`,
+    menuAlterHour: "Alterar hora",
+    menuAlterEmailTemplate: "Alterar template de email",
+    menuAlterWppTemplate: "Alterar template de WhatsApp",
+    menuRemove: "Remover da automação",
+    pillHourOverride: (hour: string) => `⏰ ${hour}`,
+    pillEmailOverride: "Email personalizado",
+    pillWppOverride: "WhatsApp personalizado",
+    toastAdded: (n: number) => `${n} ${n === 1 ? "contacto adicionado" : "contactos adicionados"}`,
+    toastRemoved: (n: number) => `${n} ${n === 1 ? "contacto removido" : "contactos removidos"}`,
+    toastRemovedFromFixed: (name: string) => `${name} deixa de receber este automatismo`,
+    toastRestored: (name: string) => `${name} volta a receber este automatismo`,
+    toastError: "Algo falhou. Tente novamente.",
+    toastPartialError: (done: number, failed: number) =>
+      `${done} aplicados, ${failed} falharam`,
+  },
+  overridePopover: {
+    hourLabel: "Hora de envio",
+    hourUseDefault: (hour: string) => `Usar hora do evento (${hour})`,
+    hourRemove: "Voltar à hora do evento",
+    emailTemplateLabel: "Template de email",
+    emailTemplateDefault: "Usar template do evento",
+    wppTemplateLabel: "Template de WhatsApp",
+    wppTemplateDefault: "Usar template do evento",
+    save: "Guardar",
+    cancel: "Cancelar",
+    removeOverride: "Remover personalização",
+  },
+  templatesSection: {
+    emailHeading: "Templates de email",
+    whatsappHeading: "Templates de WhatsApp",
+    usedHeading: "Em uso",
+    availableHeading: "Outros disponíveis",
+    defaultBadge: "Padrão",
+    previewButton: "Ver preview",
+    makeDefaultButton: "Tornar padrão",
+    editButton: "Editar",
+    emptyUsed: "Nenhum template em uso.",
+    emptyAvailable: "Sem outros templates disponíveis.",
+    madeDefaultToast: "Template definido como padrão",
+    madeDefaultError: "Não foi possível tornar padrão.",
+  },
+  runsSection: {
+    title: "Histórico de envios",
+    filterAll: "Todos",
+    filterFailed: "Só falhados",
+    statusSent: "Enviado",
+    statusPending: "Agendado",
+    statusFailed: "Falhado",
+    statusSkipped: "Ignorado",
+    retryButton: "Tentar novamente",
+    retryToast: "Envio reagendado",
+    retryError: "Não foi possível reagendar.",
+    expandError: "Ver detalhe",
+    collapseError: "Esconder detalhe",
+    emptyAll: "Ainda não foram enviadas mensagens.",
+    emptyAllWithDate: (date: string) =>
+      `Ainda não foram enviadas mensagens. O primeiro envio está agendado para ${date}.`,
+    emptyFailed: "Não há envios falhados.",
+    groupToday: "Hoje",
+    groupYesterday: "Ontem",
+  },
+  footer: {
+    close: "Fechar",
+    deleteCustom: "Eliminar automatismo",
+    confirmDeleteTitle: "Eliminar automatismo?",
+    confirmDeleteDescription:
+      "Esta acção não pode ser revertida. Todos os contactos deste automatismo deixam de receber mensagens.",
+    confirmDeleteCta: "Eliminar",
+    deleteToast: "Automatismo eliminado",
+    deleteError: "Não foi possível eliminar.",
+  },
+  loading: "A carregar…",
+} as const
+

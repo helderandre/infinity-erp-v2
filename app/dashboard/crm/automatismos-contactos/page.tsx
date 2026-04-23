@@ -15,7 +15,7 @@ export default async function AutomationsHubPage() {
   const canSeeAll = isBroker || auth.roles.length > 1
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-6">
       <AutomationsHub userId={auth.user.id} isBroker={isBroker} canSeeAll={canSeeAll} />
     </div>
   )

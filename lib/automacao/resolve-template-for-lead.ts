@@ -7,7 +7,12 @@ export type TemplateCascadeLayer = "lead" | "consultant" | "global"
 export interface ResolveTemplateArgs {
   leadId: string
   agentId: string | null
-  eventType: ContactAutomationEventType
+  eventType: ContactAutomationEventType | "custom_event"
+  /**
+   * Quando presente restringe o lookup de lead_settings ao scope do evento
+   * custom (FK → custom_commemorative_events.id). Null/undefined = fixos.
+   */
+  customEventId?: string | null
   channel: ContactAutomationChannel
   categoryOverride?: string
 }
@@ -24,18 +29,25 @@ export async function resolveTemplateForLead(
   supabase: AnySupabase,
   args: ResolveTemplateArgs,
 ): Promise<ResolvedTemplate | null> {
-  const { leadId, agentId, eventType, channel, categoryOverride } = args
+  const { leadId, agentId, eventType, customEventId, channel, categoryOverride } = args
   const table = channel === "email" ? "tpl_email_library" : "auto_wpp_templates"
-  const category = categoryOverride ?? EVENT_TYPE_TO_CATEGORY[eventType]
+  const category =
+    categoryOverride ??
+    (eventType === "custom_event"
+      ? undefined
+      : EVENT_TYPE_TO_CATEGORY[eventType as ContactAutomationEventType])
 
-  // Layer 1: lead assignment
+  // Layer 1: lead assignment — scoped to (lead_id, event_type, custom_event_id).
   const assignmentCol = channel === "email" ? "email_template_id" : "wpp_template_id"
-  const { data: assignment } = await supabase
+  let assignmentQuery = supabase
     .from("contact_automation_lead_settings")
     .select(assignmentCol)
     .eq("lead_id", leadId)
     .eq("event_type", eventType)
-    .maybeSingle()
+  assignmentQuery = customEventId
+    ? assignmentQuery.eq("custom_event_id", customEventId)
+    : assignmentQuery.is("custom_event_id", null)
+  const { data: assignment } = await assignmentQuery.maybeSingle()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const assignedId = (assignment as any)?.[assignmentCol] as string | null | undefined
@@ -54,6 +66,10 @@ export async function resolveTemplateForLead(
     }
     // fall through to cascade if assignment is no longer valid
   }
+
+  // Layers 2 e 3 dependem de uma categoria — se o caller não deu uma
+  // para um custom_event, não há cascade baseada em category.
+  if (!category) return null
 
   // Layer 2: consultant-scoped
   if (agentId) {

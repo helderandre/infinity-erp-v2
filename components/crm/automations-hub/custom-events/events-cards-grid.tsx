@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
@@ -16,8 +15,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useCustomEvents } from "@/hooks/use-custom-events"
+import { useAutomationHealth } from "@/hooks/use-automation-health"
 import type { CustomEventWithCounts } from "@/types/custom-event"
 import { AutomationEventCard } from "./automation-event-card"
+
+const FIXED_KEY_BY_ID: Record<string, string> = {
+  "fixed-aniversario": "aniversario_contacto",
+  "fixed-natal": "natal",
+  "fixed-ano-novo": "ano_novo",
+}
 
 // Fixed events definition (lead_count filled dynamically)
 function buildFixedEvents(leadCount: number): Array<CustomEventWithCounts & { isFixed: boolean }> {
@@ -89,30 +95,35 @@ function buildFixedEvents(leadCount: number): Array<CustomEventWithCounts & { is
 }
 
 interface EventsCardsGridProps {
-  onEventClick: (eventId: string, isFixed: boolean) => void
+  consultantId?: string
+  onEventClick: (eventId: string, isFixed: boolean, opts?: { initialRunsFilter?: "all" | "failed" }) => void
   onCreateClick: () => void
 }
 
-export function EventsCardsGrid({ onEventClick, onCreateClick }: EventsCardsGridProps) {
-  const { events, isLoading, refetch } = useCustomEvents()
+export function EventsCardsGrid({ consultantId, onEventClick, onCreateClick }: EventsCardsGridProps) {
+  const { events, isLoading, refetch } = useCustomEvents({ consultantId })
+  const { byKey: healthByKey } = useAutomationHealth({ consultantId })
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [fixedLeadCount, setFixedLeadCount] = useState(0)
 
   const fetchFixedCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/automacao/custom-events/eligible-leads?limit=1")
+      const params = new URLSearchParams({ limit: "1" })
+      if (consultantId) params.set("consultant_id", consultantId)
+      const res = await fetch(`/api/automacao/custom-events/eligible-leads?${params}`)
       if (res.ok) {
         const data = await res.json()
         setFixedLeadCount(data.total ?? 0)
       }
     } catch { /* ignore */ }
-  }, [])
+  }, [consultantId])
 
   useEffect(() => { fetchFixedCount() }, [fetchFixedCount])
 
   async function handleTogglePause(evt: CustomEventWithCounts) {
-    const newStatus = evt.status === "paused" ? "active" : "paused"
+    // active → paused (desactivar) ; paused|archived → active (reactivar)
+    const newStatus = evt.status === "active" ? "paused" : "active"
     try {
       const res = await fetch(`/api/automacao/custom-events/${evt.id}`, {
         method: "PUT",
@@ -120,7 +131,7 @@ export function EventsCardsGrid({ onEventClick, onCreateClick }: EventsCardsGrid
         body: JSON.stringify({ status: newStatus }),
       })
       if (!res.ok) throw new Error()
-      toast.success(newStatus === "paused" ? "Automatismo pausado" : "Automatismo reactivado")
+      toast.success(newStatus === "active" ? "Automatismo reactivado" : "Automatismo desactivado")
       refetch()
     } catch {
       toast.error("Erro ao alterar estado do automatismo")
@@ -147,7 +158,7 @@ export function EventsCardsGrid({ onEventClick, onCreateClick }: EventsCardsGrid
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-36 rounded-xl" />
+          <Skeleton key={i} className="h-44 rounded-xl" />
         ))}
       </div>
     )
@@ -161,21 +172,31 @@ export function EventsCardsGrid({ onEventClick, onCreateClick }: EventsCardsGrid
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {allEvents.map((evt) => (
-          <AutomationEventCard
-            key={evt.id}
-            event={evt}
-            onClick={() => onEventClick(evt.id, evt.isFixed)}
-            onPause={evt.isFixed ? undefined : () => handleTogglePause(evt as CustomEventWithCounts)}
-            onDelete={evt.isFixed ? undefined : () => setDeleteTarget(evt.id)}
-          />
-        ))}
+        {allEvents.map((evt) => {
+          const healthKey = evt.isFixed
+            ? FIXED_KEY_BY_ID[evt.id]
+            : `custom:${evt.id}`
+          const health = healthKey ? healthByKey[healthKey] : undefined
+          return (
+            <AutomationEventCard
+              key={evt.id}
+              event={evt}
+              health={health}
+              onClick={() => onEventClick(evt.id, evt.isFixed)}
+              onFailuresClick={() =>
+                onEventClick(evt.id, evt.isFixed, { initialRunsFilter: "failed" })
+              }
+              onPause={evt.isFixed ? undefined : () => handleTogglePause(evt as CustomEventWithCounts)}
+              onDelete={evt.isFixed ? undefined : () => setDeleteTarget(evt.id)}
+            />
+          )
+        })}
 
         {/* Add new card */}
         <button
           type="button"
           onClick={onCreateClick}
-          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 min-h-[136px] cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5"
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 min-h-[176px] cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Plus className="h-4.5 w-4.5" />

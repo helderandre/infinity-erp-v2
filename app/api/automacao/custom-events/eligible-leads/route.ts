@@ -18,6 +18,10 @@ function parseCsvParam(raw: string | null): string[] {
     .filter((s) => s.length > 0)
 }
 
+function canSeeAll(roles: string[]) {
+  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+}
+
 // GET /api/automacao/custom-events/eligible-leads — leads do consultor para selecção
 export async function GET(request: Request) {
   try {
@@ -32,6 +36,18 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50")))
     const offset = (page - 1) * limit
     const eventId = searchParams.get("event_id")
+    const consultantParam = searchParams.get("consultant_id")
+
+    let targetConsultantId = auth.user.id
+    if (consultantParam && consultantParam !== auth.user.id) {
+      if (!canSeeAll(auth.roles)) {
+        return NextResponse.json(
+          { error: "Sem permissão para consultar outro consultor" },
+          { status: 403 },
+        )
+      }
+      targetConsultantId = consultantParam
+    }
 
     // Raw arrays from query string (CSV)
     const rawPipelineStageIds = parseCsvParam(searchParams.get("pipeline_stage_ids"))
@@ -55,7 +71,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from("leads")
       .select("id, nome, email, telemovel, estado, origem, data_nascimento, created_at", { count: "exact" })
-      .eq("agent_id", auth.user.id)
+      .eq("agent_id", targetConsultantId)
       .order("nome", { ascending: true })
       .range(offset, offset + limit - 1)
 

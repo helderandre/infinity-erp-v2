@@ -2,9 +2,10 @@
 
 import { Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Bell, Calendar, History, FileCode2, Settings } from "lucide-react"
+import { AlertTriangle, ArrowRight, Bell, Calendar, History, FileCode2, Settings } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { useChannelAvailability } from "@/hooks/use-automation-detail"
 import { ScheduledTab } from "./scheduled-tab"
 import { RunsTab } from "./runs-tab"
 import { MyTemplatesTab } from "./my-templates-tab"
@@ -77,6 +78,11 @@ export function AutomationsHub({ userId, isBroker, canSeeAll }: AutomationsHubPr
         </div>
       </div>
 
+      {/* ═══ Aviso: canais sem conta/instância ═══ */}
+      {activeTab !== "configuracoes" && (
+        <ChannelAvailabilityBanner onGoToChannels={() => setTab("configuracoes")} />
+      )}
+
       {/* ═══ Tab content ═══ */}
       <div className="animate-in fade-in duration-300">
         {activeTab === "automatismos" && (
@@ -101,5 +107,47 @@ export function AutomationsHub({ userId, isBroker, canSeeAll }: AutomationsHubPr
         )}
       </div>
     </div>
+  )
+}
+
+function ChannelAvailabilityBanner({ onGoToChannels }: { onGoToChannels: () => void }) {
+  const { availability } = useChannelAvailability()
+  if (!availability) return null
+
+  const emailMissing = !availability.email.available
+  const wppMissing = !availability.whatsapp.available
+  if (!emailMissing && !wppMissing) return null
+
+  const missing: string[] = []
+  if (emailMissing) missing.push("conta de email")
+  if (wppMissing) missing.push("instância WhatsApp")
+  const missingText = missing.join(" e ")
+
+  return (
+    <button
+      type="button"
+      onClick={onGoToChannels}
+      className={cn(
+        "group flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left transition-colors",
+        "hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50",
+      )}
+    >
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-200/60 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+        <AlertTriangle className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+          Faltam canais de envio configurados
+        </p>
+        <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+          Os seus automatismos não vão enviar nada enquanto não tiver {missingText}.
+          Configure em Canais de Envio.
+        </p>
+      </div>
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/70 px-3 py-1 text-xs font-medium text-amber-900 transition-transform group-hover:translate-x-0.5 dark:bg-amber-900/50 dark:text-amber-200">
+        Configurar
+        <ArrowRight className="h-3 w-3" />
+      </span>
+    </button>
   )
 }

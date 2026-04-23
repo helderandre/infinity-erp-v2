@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/permissions"
 import { customEventUpdateSchema } from "@/lib/validations/custom-event"
+import { resolveChannels } from "@/lib/automacao/resolve-channels-for-event-consultant"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SA = any
@@ -70,12 +71,37 @@ export async function GET(_request: Request, ctx: Ctx) {
       lead_email: leadMap[r.lead_id]?.email ?? null,
     }))
 
-    return NextResponse.json({
-      ...evt,
-      lead_count: leads.length,
-      leads,
-      runs: enrichedRuns,
-    })
+    // Channel availability cross-referenced com o consultor do evento.
+    const [{ count: emailCount }, { count: wppCount }] = await Promise.all([
+      supabase
+        .from("consultant_email_accounts")
+        .select("id", { count: "exact", head: true })
+        .eq("consultant_id", evt.consultant_id)
+        .eq("is_active", true),
+      supabase
+        .from("auto_wpp_instances")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", evt.consultant_id)
+        .eq("connection_status", "connected"),
+    ])
+
+    const effective_channels = resolveChannels(
+      { channels: (evt.channels ?? []) as string[] },
+      { email_count: emailCount ?? 0, wpp_count: wppCount ?? 0 },
+    )
+
+    return NextResponse.json(
+      {
+        ...evt,
+        lead_count: leads.length,
+        leads,
+        runs: enrichedRuns,
+        effective_channels,
+      },
+      {
+        headers: { "Cache-Control": "private, max-age=30" },
+      },
+    )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro interno"
     return NextResponse.json({ error: message }, { status: 500 })
@@ -103,7 +129,7 @@ export async function PUT(request: Request, ctx: Ctx) {
     // Ownership check
     const { data: existing } = await supabase
       .from("custom_commemorative_events")
-      .select("consultant_id")
+      .select("consultant_id, status, is_recurring")
       .eq("id", id)
       .maybeSingle()
     if (!existing) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 })
@@ -111,9 +137,18 @@ export async function PUT(request: Request, ctx: Ctx) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
     }
 
+    // Quando o consultor reactiva um automatismo arquivado, limpamos
+    // `last_triggered_year` para que o spawner possa disparar de novo:
+    //   - Não-recorrente: deixa de estar "queimado" (já tinha disparado uma vez).
+    //   - Recorrente: permite o disparo deste ano se ainda não ocorreu.
+    const patch: Record<string, unknown> = { ...parsed.data }
+    if (parsed.data.status === "active" && existing.status !== "active") {
+      patch.last_triggered_year = null
+    }
+
     const { data, error } = await supabase
       .from("custom_commemorative_events")
-      .update(parsed.data)
+      .update(patch)
       .eq("id", id)
       .select("*")
       .single()

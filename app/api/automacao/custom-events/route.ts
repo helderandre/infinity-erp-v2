@@ -6,7 +6,12 @@ import { customEventCreateSchema } from "@/lib/validations/custom-event"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SA = any
 
+function canSeeAll(roles: string[]) {
+  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+}
+
 // GET /api/automacao/custom-events — listar eventos do consultor autenticado
+// Broker/admin pode passar ?consultant_id=X para consultar outro consultor.
 export async function GET(request: Request) {
   try {
     const auth = await requireAuth()
@@ -15,11 +20,23 @@ export async function GET(request: Request) {
     const supabase = createAdminClient() as SA
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get("status")
+    const consultantParam = searchParams.get("consultant_id")
+
+    let targetConsultantId = auth.user.id
+    if (consultantParam && consultantParam !== auth.user.id) {
+      if (!canSeeAll(auth.roles)) {
+        return NextResponse.json(
+          { error: "Sem permissão para consultar outro consultor" },
+          { status: 403 },
+        )
+      }
+      targetConsultantId = consultantParam
+    }
 
     let query = supabase
       .from("custom_commemorative_events")
       .select("*")
-      .eq("consultant_id", auth.user.id)
+      .eq("consultant_id", targetConsultantId)
       .order("event_date", { ascending: true })
 
     if (statusFilter && statusFilter !== "all") {

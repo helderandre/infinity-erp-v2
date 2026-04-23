@@ -60,6 +60,8 @@ export interface CustomEventRun {
   wpp_instance_name?: string | null
 }
 
+export type ChannelEffectiveState = "active" | "unavailable" | "off"
+
 export interface CustomEventDetail extends CustomEvent {
   lead_count: number
   leads: Array<{
@@ -71,6 +73,34 @@ export interface CustomEventDetail extends CustomEvent {
     status: string | null
   }>
   runs: CustomEventRun[]
+  /**
+   * Computado server-side a partir de event.channels + contas do consultor.
+   * Única fonte de verdade para os chips visuais.
+   */
+  effective_channels: {
+    email: ChannelEffectiveState
+    whatsapp: ChannelEffectiveState
+  }
+}
+
+export interface HealthSummaryFailedItem {
+  run_id: string
+  lead_id: string
+  lead_name: string | null
+  error_short: string | null
+}
+
+export interface HealthSummaryRow {
+  /** 'aniversario_contacto' | 'natal' | 'ano_novo' | `custom:<uuid>` */
+  event_key: string
+  last_run_at: string | null
+  last_run_status: "sent" | "failed" | "skipped" | "pending" | null
+  runs_last_30d: { sent: number; failed: number; skipped: number; pending: number }
+  failed_unresolved: HealthSummaryFailedItem[]
+  /** Pode exceder failed_unresolved.length (cap de 5 no payload). */
+  failed_unresolved_count: number
+  /** true apenas se custom event com is_recurring=false e ≥1 sent. */
+  completed_one_shot: boolean
 }
 
 export type CustomEventFormData = {

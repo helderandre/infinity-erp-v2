@@ -295,12 +295,14 @@ async function runVirtualPhase(supabase: any, now: Date) {
         evaluated++
 
         try {
-          // Override de send_hour (e template/account) via contact_automation_lead_settings
+          // Override de send_hour (e template/account) via contact_automation_lead_settings.
+          // Scope a fixos: custom_event_id IS NULL (evita match acidental em overrides de eventos custom).
           const { data: settings } = await supabase
             .from("contact_automation_lead_settings")
             .select("send_hour")
             .eq("lead_id", lead.id)
             .eq("event_type", eventType)
+            .is("custom_event_id", null)
             .maybeSingle()
 
           const nextAt = computeNextFixedOccurrence({
@@ -551,9 +553,20 @@ async function runCustomEventsPhase(supabase: any, now: Date) {
         if (!lead) continue
 
         try {
-          // Build scheduled_for from today + send_hour in Europe/Lisbon
+          // Per-lead overrides para ESTE evento custom (scope: event_type='custom_event', custom_event_id=evt.id)
+          const { data: perLeadOverride } = await supabase
+            .from("contact_automation_lead_settings")
+            .select("send_hour, email_template_id, wpp_template_id, smtp_account_id, wpp_instance_id")
+            .eq("lead_id", lead.id)
+            .eq("event_type", "custom_event")
+            .eq("custom_event_id", evt.id)
+            .maybeSingle()
+
+          // Build scheduled_for — prefere override.send_hour se presente
+          const effectiveSendHour =
+            perLeadOverride?.send_hour ?? evt.send_hour
           const scheduledDate = new Date(now)
-          scheduledDate.setHours(evt.send_hour, 0, 0, 0)
+          scheduledDate.setHours(effectiveSendHour, 0, 0, 0)
           const scheduledForIso = scheduledDate.toISOString()
 
           // Check mutes per channel
@@ -578,32 +591,42 @@ async function runCustomEventsPhase(supabase: any, now: Date) {
               continue
             }
 
-            // Use directly configured template/account from the event
-            const templateId = channel === "email" ? evt.email_template_id : evt.wpp_template_id
-            const accountId = channel === "email" ? evt.smtp_account_id : evt.wpp_instance_id
+            // Override > evento > cascade por categoria (evt.id)
+            const overrideTemplateId =
+              channel === "email" ? perLeadOverride?.email_template_id : perLeadOverride?.wpp_template_id
+            const overrideAccountId =
+              channel === "email" ? perLeadOverride?.smtp_account_id : perLeadOverride?.wpp_instance_id
+
+            const templateId =
+              overrideTemplateId ??
+              (channel === "email" ? evt.email_template_id : evt.wpp_template_id)
+            const accountId =
+              overrideAccountId ??
+              (channel === "email" ? evt.smtp_account_id : evt.wpp_instance_id)
 
             if (!templateId) {
-              // Fallback: cascade by custom-event UUID (templates are scoped by event id, not name)
+              // Fallback: cascade por custom-event UUID (template category = evt.id)
               const tpl = await resolveTemplateForLead(supabase, {
                 leadId: lead.id,
                 agentId: evt.consultant_id,
-                eventType: evt.name,
+                eventType: "custom_event",
+                customEventId: evt.id,
                 channel,
                 categoryOverride: evt.id,
               })
               if (!tpl) continue
 
               const acct = channel === "email"
-                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
-                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: "custom_event", customEventId: evt.id })
+                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: "custom_event", customEventId: evt.id })
               if (!acct) continue
 
               activeChannels.push({ channel, templateId: tpl.templateId, accountId: acct.id })
             } else if (!accountId) {
-              // Template exists but no account — try cascade for account
+              // Template existe mas não há conta — tenta cascade só para conta
               const acct = channel === "email"
-                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
-                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: evt.name })
+                ? await resolveSmtpAccountForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: "custom_event", customEventId: evt.id })
+                : await resolveWppInstanceForLead(supabase, { leadId: lead.id, agentId: evt.consultant_id, eventType: "custom_event", customEventId: evt.id })
               if (!acct) continue
               activeChannels.push({ channel, templateId, accountId: acct.id })
             } else {
