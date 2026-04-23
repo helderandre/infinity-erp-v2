@@ -18,6 +18,10 @@ import {
   DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle,
@@ -714,6 +718,7 @@ function OutrosContent() {
 // ─── Tab: Links ─────────────────────────────────────────
 
 function LinksContent() {
+  const isMobile = useIsMobile()
   const [links, setLinks] = useState<UserLink[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -790,49 +795,69 @@ function LinksContent() {
     <div className="space-y-5">
       {/* Add button */}
       <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200">
-              <Plus className="size-3.5" />
-              Adicionar Link
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Novo Link</DialogTitle>
-              <DialogDescription>Adiciona um link rápido ao teu espaço pessoal</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="link-title" className="text-xs">Título</Label>
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200"
+        >
+          <Plus className="size-3.5" />
+          Adicionar Link
+        </button>
+        <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+          <SheetContent
+            side={isMobile ? 'bottom' : 'right'}
+            className={cn(
+              'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+              'bg-background',
+              isMobile
+                ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+                : 'w-full data-[side=right]:sm:max-w-[468px] sm:rounded-l-3xl',
+            )}
+          >
+            {isMobile && (
+              <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+            )}
+            <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
+              <SheetHeader className="p-0 gap-0">
+                <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
+                  Novo link
+                </SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground mt-0.5">
+                  Adiciona um link rápido ao teu espaço pessoal.
+                </SheetDescription>
+              </SheetHeader>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-1 pb-8 space-y-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="link-title" className="text-xs font-medium text-muted-foreground">Título</Label>
                 <Input
                   id="link-title"
                   placeholder="Ex: Notion, Trello, ..."
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="rounded-xl h-9"
+                  className="rounded-xl"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="link-url" className="text-xs">URL</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="link-url" className="text-xs font-medium text-muted-foreground">URL</Label>
                 <Input
                   id="link-url"
                   placeholder="https://..."
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
-                  className="rounded-xl h-9"
+                  className="rounded-xl"
                 />
               </div>
             </div>
-            <DialogFooter>
-              <button onClick={() => setDialogOpen(false)} className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-              <button onClick={handleCreate} disabled={saving || !newTitle.trim() || !newUrl.trim()} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200 disabled:opacity-50">
-                {saving && <Loader2 className="size-3.5 animate-spin" />}
+            <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background border-t border-border/50">
+              <Button type="button" variant="outline" size="sm" className="rounded-full flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="button" size="sm" className="rounded-full flex-1" onClick={handleCreate} disabled={saving || !newTitle.trim() || !newUrl.trim()}>
+                {saving && <Loader2 className="size-3.5 mr-1.5 animate-spin" />}
                 Guardar
-              </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {links.length === 0 ? (

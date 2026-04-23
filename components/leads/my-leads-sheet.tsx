@@ -22,6 +22,7 @@ import { LeadEntryDetailView } from '@/components/leads/lead-entry-sheet'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import type { LeadEntry } from '@/types/lead-entry'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const SOURCE_LABELS: Record<string, string> = {
   meta_ads: 'Meta Ads',
@@ -77,6 +78,7 @@ interface MyLeadsSheetProps {
 }
 
 export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
+  const isMobile = useIsMobile()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -116,10 +118,22 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="sm:max-w-[520px] p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 flex flex-col gap-0 overflow-hidden border-border/40 shadow-2xl',
+            'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+            isMobile
+              ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+              : 'w-full data-[side=right]:sm:max-w-[520px] sm:rounded-l-3xl',
+          )}
+        >
           <VisuallyHidden>
             <SheetTitle>Os meus leads</SheetTitle>
           </VisuallyHidden>
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+          )}
           <div className="relative flex-1 flex flex-col min-h-0">
             {selectedEntryId ? (
               <LeadEntryDetailView
@@ -194,19 +208,19 @@ function ListView({
 }) {
   return (
     <>
-      {/* Dark header */}
-      <div className="bg-neutral-900 px-6 pt-6 pb-5 shrink-0">
+      {/* Header */}
+      <div className="px-6 pt-8 pb-4 shrink-0">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase">Leads</p>
-            <h2 className="text-white font-bold text-xl tracking-tight mt-0.5">
+            <p className="text-muted-foreground text-[10px] font-medium tracking-widest uppercase">Leads</p>
+            <h2 className="font-semibold text-[22px] leading-tight tracking-tight mt-0.5">
               {loading ? 'A carregar...' : `${total} ${statusFilter === 'new' ? 'por contactar' : 'no total'}`}
             </h2>
           </div>
           <button
             type="button"
             onClick={onCreate}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white text-neutral-900 px-3 py-1.5 text-[11px] font-semibold shadow-md ring-1 ring-black/5 hover:bg-white/90 transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-[11px] font-semibold shadow-sm hover:bg-primary/90 transition-colors shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             Novo lead
@@ -223,10 +237,10 @@ function ListView({
                 type="button"
                 onClick={() => setStatusFilter(tab.value)}
                 className={cn(
-                  'inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium transition-colors',
+                  'inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium transition-colors border',
                   isActive
-                    ? 'bg-white text-neutral-900 shadow-sm'
-                    : 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white',
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background/60 text-foreground/80 border-border/40 hover:bg-muted/60',
                 )}
               >
                 {tab.label}
@@ -240,10 +254,10 @@ function ListView({
               <button
                 type="button"
                 className={cn(
-                  'relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-colors',
+                  'relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-colors border',
                   STATUS_SECONDARY.some((s) => s.value === statusFilter) || sourceFilter !== 'all'
-                    ? 'bg-white text-neutral-900 shadow-sm'
-                    : 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white',
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background/60 text-foreground/80 border-border/40 hover:bg-muted/60',
                 )}
                 aria-label="Filtros"
               >

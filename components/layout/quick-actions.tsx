@@ -65,7 +65,7 @@ export function QuickActions() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-muted/50 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
           >
             <Plus className="size-4" />
             <span className="sr-only">Acções rápidas</span>

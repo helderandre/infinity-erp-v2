@@ -135,21 +135,23 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
   custom: 'Outros',
 }
 
+// Mature palette — muted, earthy, sophisticated.
+// company_event → gold (amber-500) per product decision.
 export const CALENDAR_CATEGORY_COLORS: Record<CalendarCategory, { bg: string; text: string; dot: string }> = {
-  contract_expiry:   { bg: 'bg-amber-500/15',    text: 'text-amber-600',    dot: 'bg-amber-500' },
-  lead_expiry:       { bg: 'bg-red-500/15',      text: 'text-red-600',      dot: 'bg-red-500' },
-  lead_followup:     { bg: 'bg-yellow-500/15',   text: 'text-yellow-600',   dot: 'bg-yellow-500' },
-  process_task:      { bg: 'bg-violet-500/15',   text: 'text-violet-600',   dot: 'bg-violet-500' },
-  process_subtask:   { bg: 'bg-teal-500/15',     text: 'text-teal-600',     dot: 'bg-teal-500' },
-  process_event:     { bg: 'bg-cyan-500/15',     text: 'text-cyan-600',     dot: 'bg-cyan-500' },
-  birthday:          { bg: 'bg-pink-500/15',     text: 'text-pink-600',     dot: 'bg-pink-500' },
-  vacation:          { bg: 'bg-slate-500/15',    text: 'text-slate-600',    dot: 'bg-slate-400' },
-  company_event:     { bg: 'bg-emerald-500/15',  text: 'text-emerald-600',  dot: 'bg-emerald-500' },
-  marketing_event:   { bg: 'bg-orange-500/15',   text: 'text-orange-600',   dot: 'bg-orange-500' },
-  meeting:           { bg: 'bg-indigo-500/15',   text: 'text-indigo-600',   dot: 'bg-indigo-500' },
-  visit:             { bg: 'bg-rose-500/15',     text: 'text-rose-600',     dot: 'bg-rose-500' },
-  reminder:          { bg: 'bg-sky-500/15',      text: 'text-sky-600',      dot: 'bg-sky-500' },
-  custom:            { bg: 'bg-stone-500/15',    text: 'text-stone-600',    dot: 'bg-stone-500' },
+  contract_expiry:   { bg: 'bg-stone-500/15',   text: 'text-stone-700',    dot: 'bg-stone-500' },
+  lead_expiry:       { bg: 'bg-red-700/15',     text: 'text-red-700',      dot: 'bg-red-700' },
+  lead_followup:     { bg: 'bg-yellow-600/15',  text: 'text-yellow-700',   dot: 'bg-yellow-600' },
+  process_task:      { bg: 'bg-violet-600/15',  text: 'text-violet-700',   dot: 'bg-violet-600' },
+  process_subtask:   { bg: 'bg-teal-600/15',    text: 'text-teal-700',     dot: 'bg-teal-600' },
+  process_event:     { bg: 'bg-sky-700/15',     text: 'text-sky-700',      dot: 'bg-sky-700' },
+  birthday:          { bg: 'bg-rose-500/15',    text: 'text-rose-700',     dot: 'bg-rose-500' },
+  vacation:          { bg: 'bg-slate-500/15',   text: 'text-slate-700',    dot: 'bg-slate-500' },
+  company_event:     { bg: 'bg-yellow-400/25',  text: 'text-yellow-800',   dot: 'bg-yellow-500' },
+  marketing_event:   { bg: 'bg-orange-600/15',  text: 'text-orange-700',   dot: 'bg-orange-600' },
+  meeting:           { bg: 'bg-indigo-700/15',  text: 'text-indigo-700',   dot: 'bg-indigo-700' },
+  visit:             { bg: 'bg-fuchsia-600/15', text: 'text-fuchsia-700',  dot: 'bg-fuchsia-600' },
+  reminder:          { bg: 'bg-blue-600/15',    text: 'text-blue-700',     dot: 'bg-blue-600' },
+  custom:            { bg: 'bg-neutral-500/15', text: 'text-neutral-700',  dot: 'bg-neutral-500' },
 }
 
 // Presets por role — categorias activas por defeito

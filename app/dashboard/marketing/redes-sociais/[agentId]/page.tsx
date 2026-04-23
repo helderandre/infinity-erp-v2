@@ -48,12 +48,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormSheet } from '@/components/shared/form-sheet'
 import {
   Table,
   TableBody,
@@ -580,51 +575,52 @@ function AssetsTab({
         </div>
       )}
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Asset</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Categoria *</Label>
-              <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as AssetCategory }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(ASSET_CATEGORIES) as [AssetCategory, string][]).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>URL do Ficheiro *</Label>
-              <Input placeholder="https://..." value={form.file_url} onChange={(e) => setForm((f) => ({ ...f, file_url: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome do Ficheiro *</Label>
-              <Input placeholder="ficheiro.png" value={form.file_name} onChange={(e) => setForm((f) => ({ ...f, file_name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo MIME</Label>
-              <Input placeholder="image/png" value={form.file_type} onChange={(e) => setForm((f) => ({ ...f, file_type: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Descricao</Label>
-              <Input placeholder="Descricao do asset..." value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
+      {/* Create Sheet */}
+      <FormSheet
+        open={createOpen}
+        onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}
+        title="Adicionar Asset"
+        footer={
+          <>
             <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm() }}>Cancelar</Button>
             <Button onClick={handleCreate} disabled={submitting}>
               {submitting ? 'A guardar...' : 'Adicionar'}
             </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Categoria *</Label>
+            <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as AssetCategory }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(ASSET_CATEGORIES) as [AssetCategory, string][]).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label>URL do Ficheiro *</Label>
+            <Input placeholder="https://..." value={form.file_url} onChange={(e) => setForm((f) => ({ ...f, file_url: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Nome do Ficheiro *</Label>
+            <Input placeholder="ficheiro.png" value={form.file_name} onChange={(e) => setForm((f) => ({ ...f, file_name: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo MIME</Label>
+            <Input placeholder="image/png" value={form.file_type} onChange={(e) => setForm((f) => ({ ...f, file_type: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Descricao</Label>
+            <Input placeholder="Descricao do asset..." value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+          </div>
+        </div>
+      </FormSheet>
     </div>
   )
 }
@@ -1021,12 +1017,37 @@ function EditProfileDialog({
   }, [open, profile])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Editar Perfil</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-2">
+    <FormSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Editar Perfil"
+      footer={
+        <>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button
+            onClick={() => onSave({
+              instagram_url: form.instagram_url.trim() || null,
+              facebook_url: form.facebook_url.trim() || null,
+              linkedin_url: form.linkedin_url.trim() || null,
+              tiktok_url: form.tiktok_url.trim() || null,
+              canva_workspace_url: form.canva_workspace_url.trim() || null,
+              google_drive_url: form.google_drive_url.trim() || null,
+              other_links: profile.other_links ?? [],
+              notes: form.notes.trim() || null,
+              brand_voice_notes: form.brand_voice_notes.trim() || null,
+            })}
+            disabled={saving}
+          >
+            {saving ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />A guardar...</>
+            ) : (
+              'Guardar'
+            )}
+          </Button>
+        </>
+      }
+    >
+        <div className="space-y-4">
           <div className="space-y-3">
             <h4 className="text-sm font-medium">Redes Sociais</h4>
             <div className="grid gap-3">
@@ -1078,32 +1099,8 @@ function EditProfileDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button
-              onClick={() => onSave({
-                instagram_url: form.instagram_url.trim() || null,
-                facebook_url: form.facebook_url.trim() || null,
-                linkedin_url: form.linkedin_url.trim() || null,
-                tiktok_url: form.tiktok_url.trim() || null,
-                canva_workspace_url: form.canva_workspace_url.trim() || null,
-                google_drive_url: form.google_drive_url.trim() || null,
-                other_links: profile.other_links ?? [],
-                notes: form.notes.trim() || null,
-                brand_voice_notes: form.brand_voice_notes.trim() || null,
-              })}
-              disabled={saving}
-            >
-              {saving ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />A guardar...</>
-              ) : (
-                'Guardar'
-              )}
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormSheet>
   )
 }
 

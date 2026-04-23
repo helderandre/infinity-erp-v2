@@ -14,6 +14,7 @@ export interface Task {
   is_completed: boolean
   completed_at: string | null
   completed_by: string | null
+  reminders: { minutes_before: number }[]
   entity_type: TaskEntityType | null
   entity_id: string | null
   order_index: number

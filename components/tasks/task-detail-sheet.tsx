@@ -18,6 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { TASK_ENTITY_LABELS } from '@/types/task'
 import type { TaskWithRelations, TaskComment, TaskAttachment, TaskEntityType } from '@/types/task'
 import { useTaskMutations } from '@/hooks/use-tasks'
@@ -165,42 +166,46 @@ export function TaskDetailContent({
   const subTasks = (task?.sub_tasks || []) as TaskWithRelations[]
 
   const header = (
-    <div className="flex items-center justify-between px-5 py-3 border-b">
-      <h3 className="text-[13px] font-semibold tracking-tight text-muted-foreground uppercase">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-border/40">
+      <h3 className="text-xs font-medium text-muted-foreground/80">
         Tarefa
       </h3>
-      <div className="flex items-center gap-0.5">
-        {task && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Eliminar tarefa</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Tem a certeza de que pretende eliminar esta tarefa? Esta acção é irreversível.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-        {variant === 'inline' && onClose && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
+      {variant === 'inline' && onClose && (
+        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={onClose}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </div>
   )
+
+  const deleteAction = task ? (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Eliminar tarefa
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminar tarefa</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem a certeza de que pretende eliminar esta tarefa? Esta acção é irreversível.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Eliminar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  ) : null
 
   const body = (
     <>
@@ -242,9 +247,16 @@ export function TaskDetailContent({
                 )}
               </div>
               {task.description && (
-                <p className="text-[13px] text-muted-foreground/90 mt-1.5 whitespace-pre-wrap leading-relaxed">
-                  {task.description}
-                </p>
+                task.description.includes('<') ? (
+                  <div
+                    className="prose prose-sm max-w-none text-[13px] text-muted-foreground/90 mt-1.5 leading-relaxed [&_p]:my-0.5 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_strong]:font-semibold [&_em]:italic [&_a]:text-primary [&_a]:underline break-words"
+                    dangerouslySetInnerHTML={{ __html: task.description }}
+                  />
+                ) : (
+                  <p className="text-[13px] text-muted-foreground/90 mt-1.5 whitespace-pre-wrap leading-relaxed">
+                    {task.description}
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -274,7 +286,7 @@ export function TaskDetailContent({
           {/* Sub-tarefas — rows estilo Todoist com connector line à esquerda */}
           <section>
             <div className="flex items-center justify-between mb-1 px-1">
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <h4 className="text-xs font-medium text-muted-foreground/80">
                 Sub-tarefas {subTasks.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {subTasks.length}</span>}
               </h4>
               <Button
@@ -326,7 +338,7 @@ export function TaskDetailContent({
           {/* Anexos */}
           <section>
             <div className="flex items-center justify-between mb-1 px-1">
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <h4 className="text-xs font-medium text-muted-foreground/80">
                 Anexos {attachments.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {attachments.length}</span>}
               </h4>
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground" asChild disabled={isUploading}>
@@ -372,7 +384,7 @@ export function TaskDetailContent({
 
           {/* Comentários */}
           <section>
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+            <h4 className="text-xs font-medium text-muted-foreground/80 mb-2 px-1">
               Comentários {comments.length > 0 && <span className="text-muted-foreground/60 font-normal normal-case">· {comments.length}</span>}
             </h4>
 
@@ -400,7 +412,7 @@ export function TaskDetailContent({
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Escrever comentário..."
                 rows={2}
-                className="flex-1 text-[13px] rounded-lg resize-none min-h-0"
+                className="flex-1 text-[13px] rounded-xl resize-none min-h-0 bg-background/40 border-border/40 backdrop-blur-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     handleSendComment()
@@ -417,6 +429,12 @@ export function TaskDetailContent({
               </Button>
             </div>
           </section>
+
+          {deleteAction && (
+            <div className="pt-2 flex justify-center">
+              {deleteAction}
+            </div>
+          )}
         </div>
       ) : (
         <div className="p-6 text-sm text-muted-foreground">
@@ -454,9 +472,22 @@ interface TaskDetailSheetProps {
 }
 
 export function TaskDetailSheet({ taskId, open, onOpenChange, onRefresh, onCreateSubTask }: TaskDetailSheetProps) {
+  const isMobile = useIsMobile()
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+          'bg-background',
+          isMobile
+            ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[520px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+        )}
         <SheetHeader className="sr-only">
           <SheetTitle>Detalhe da Tarefa</SheetTitle>
         </SheetHeader>

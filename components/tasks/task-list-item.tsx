@@ -94,7 +94,8 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
             {(task.description || task.property_title || task.stage_name) && (
               <span className="text-muted-foreground/80 truncate">
                 {task.description
-                  || (task.property_title && task.stage_name
+                  ? task.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+                  : (task.property_title && task.stage_name
                       ? `${task.property_title} · ${task.stage_name}`
                       : task.property_title || task.stage_name)}
               </span>

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
+import type { TaskWithRelations } from '@/types/task'
 import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
 import {
   startOfWeek,
@@ -21,6 +22,7 @@ import { CheckCircle2 } from 'lucide-react'
 interface CalendarWeekViewProps {
   currentDate: Date
   events: CalendarEvent[]
+  tasks?: TaskWithRelations[]
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
 }
@@ -44,6 +46,7 @@ function isTaskEvent(event: CalendarEvent): boolean {
 export function CalendarWeekView({
   currentDate,
   events,
+  tasks,
   onEventClick,
   onDayClick,
 }: CalendarWeekViewProps) {
@@ -85,6 +88,20 @@ export function CalendarWeekView({
   const getTimedEventsForDay = (day: Date) =>
     timedEvents.filter((event) => isSameDay(parseISO(event.start_date), day))
 
+  const getTaskCountForDay = (day: Date) => {
+    if (!tasks?.length) return 0
+    let n = 0
+    for (const t of tasks) {
+      if (!t.due_date || t.is_completed) continue
+      try {
+        if (isSameDay(parseISO(t.due_date), day)) n++
+      } catch {
+        // skip
+      }
+    }
+    return n
+  }
+
   return (
     <div className="flex flex-col border rounded-lg overflow-hidden h-full">
       {/* Header with day names and dates */}
@@ -119,6 +136,14 @@ export function CalendarWeekView({
                   {format(day, 'd')}
                 </span>
               </div>
+              {getTaskCountForDay(day) > 0 && (
+                <div className="mt-1 flex justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-muted-foreground tabular-nums">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    {getTaskCountForDay(day)}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}

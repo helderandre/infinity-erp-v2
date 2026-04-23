@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+const remindersSchema = z.array(
+  z.object({ minutes_before: z.number().int().min(0) }),
+).default([])
+
 // ─── Create Task ─────────────────────────────────────────────
 export const createTaskSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').trim(),
@@ -10,6 +14,7 @@ export const createTaskSchema = z.object({
   due_date: z.string().optional().nullable(), // ISO string
   is_recurring: z.boolean().default(false),
   recurrence_rule: z.string().optional().nullable(),
+  reminders: remindersSchema,
   entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   task_list_id: z.string().uuid().optional().nullable(),
@@ -26,6 +31,7 @@ export const updateTaskSchema = z.object({
   is_recurring: z.boolean().optional(),
   recurrence_rule: z.string().optional().nullable(),
   is_completed: z.boolean().optional(),
+  reminders: z.array(z.object({ minutes_before: z.number().int().min(0) })).optional(),
   entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   order_index: z.number().int().optional(),
@@ -55,6 +61,10 @@ export const taskQuerySchema = z.object({
   // - undefined  = todas (back-compat)
   source_filter: z.enum(['personal', 'process']).optional(),
   task_list_id: z.string().uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  // Filter by due_date window (ISO strings). Used by the calendar to scope
+  // the feed to the visible month without paging through completed history.
+  due_from: z.string().optional(),
+  due_to: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })

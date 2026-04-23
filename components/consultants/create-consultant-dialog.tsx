@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +47,7 @@ interface CreateConsultantDialogProps {
 
 export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleName }: CreateConsultantDialogProps) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
 
@@ -160,17 +168,36 @@ export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleN
   const isLast = step === STEPS.length - 1
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 sm:p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl gap-0',
+          'bg-background',
+          isMobile
+            ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+        )}
+
         {/* Header */}
-        <div className="shrink-0 bg-neutral-900 px-6 py-5">
+        <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
-              {(() => { const Icon = STEPS[step].icon; return <Icon className="h-5 w-5 text-white" /> })()}
+            <div className="h-10 w-10 rounded-xl bg-foreground/10 flex items-center justify-center">
+              {(() => { const Icon = STEPS[step].icon; return <Icon className="h-5 w-5 text-foreground" /> })()}
             </div>
             <div>
-              <h3 className="text-white font-semibold">Novo Membro</h3>
-              <p className="text-neutral-400 text-xs mt-0.5">{STEPS[step].label}</p>
+              <SheetHeader className="p-0 gap-0">
+                <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight">
+                  Novo membro
+                </SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground mt-0.5">
+                  {STEPS[step].label}
+                </SheetDescription>
+              </SheetHeader>
             </div>
           </div>
 
@@ -181,7 +208,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleN
                 key={s.key}
                 className={cn(
                   'h-1 flex-1 rounded-full transition-all duration-300',
-                  i < step ? 'bg-emerald-400' : i === step ? 'bg-white' : 'bg-white/20'
+                  i < step ? 'bg-emerald-500' : i === step ? 'bg-foreground' : 'bg-muted-foreground/25'
                 )}
               />
             ))}
@@ -346,7 +373,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleN
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 px-6 py-4 border-t flex items-center justify-between gap-3">
+        <div className="shrink-0 px-6 py-4 flex items-center justify-between gap-3 bg-background border-t border-border/50">
           {step > 0 ? (
             <Button variant="outline" className="rounded-full" onClick={() => setStep(s => s - 1)}>
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
@@ -370,7 +397,7 @@ export function CreateConsultantDialog({ open, onOpenChange, roles, defaultRoleN
             </Button>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

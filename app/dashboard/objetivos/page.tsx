@@ -10,12 +10,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Target, Eye, TrendingUp, Users, FileText, UsersRound } from 'lucide-react'
 import { useGoals } from '@/hooks/use-goals'
 import { GoalCompareTable } from '@/components/goals/goal-compare-table'
+import { GoalConfigSheet } from '@/components/goals/goal-config-sheet'
 import { formatCurrency } from '@/lib/constants'
 
 function ObjetivosPageInner() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
-  const { goals, isLoading } = useGoals({ year })
+  const [newSheetOpen, setNewSheetOpen] = useState(false)
+  const { goals, isLoading, refetch } = useGoals({ year })
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 
@@ -56,11 +58,9 @@ function ObjetivosPageInner() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" asChild className="rounded-full h-8 text-xs">
-            <Link href="/dashboard/objetivos/novo">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Novo
-            </Link>
+          <Button size="sm" className="rounded-full h-8 text-xs" onClick={() => setNewSheetOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Novo
           </Button>
         </div>
       </div>
@@ -123,11 +123,9 @@ function ObjetivosPageInner() {
             <p className="text-xs text-muted-foreground/60 mb-4">
               Crie objetivos para acompanhar o desempenho dos consultores.
             </p>
-            <Button asChild size="sm" className="rounded-full">
-              <Link href="/dashboard/objetivos/novo">
-                <Plus className="mr-2 h-4 w-4" />
-                Criar Objetivo
-              </Link>
+            <Button size="sm" className="rounded-full" onClick={() => setNewSheetOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Criar Objetivo
             </Button>
           </div>
         ) : (
@@ -179,6 +177,12 @@ function ObjetivosPageInner() {
 
       {/* Compare Table */}
       <GoalCompareTable year={year} />
+
+      <GoalConfigSheet
+        open={newSheetOpen}
+        onOpenChange={setNewSheetOpen}
+        onSuccess={() => refetch()}
+      />
     </div>
   )
 }

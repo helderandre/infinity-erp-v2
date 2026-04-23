@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import type { Partner } from '@/types/partner'
+import { AIQuickFillBar } from '@/components/shared/ai-quick-fill-bar'
+import { toast } from 'sonner'
 
 interface PartnerFormProps {
   partner?: Partner | null
@@ -110,6 +112,40 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate }: Part
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {/* AI Quick Fill */}
+      <AIQuickFillBar
+        placeholder="Descreve o parceiro por texto ou voz..."
+        onFill={async (text) => {
+          try {
+            const res = await fetch('/api/partners/fill-from-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text }),
+            })
+            if (!res.ok) {
+              toast.error('Erro ao interpretar texto')
+              return
+            }
+            const { data } = await res.json()
+            const fields = [
+              'name', 'person_type', 'nif', 'category', 'email', 'phone',
+              'phone_secondary', 'website', 'address', 'city', 'postal_code',
+              'contact_person', 'specialties', 'service_areas',
+              'commercial_conditions', 'payment_method', 'is_recommended',
+              'internal_notes',
+            ]
+            for (const key of fields) {
+              if (data[key] !== undefined && data[key] !== null) {
+                setValue(key as any, data[key], { shouldValidate: true })
+              }
+            }
+            toast.success('Dados preenchidos com IA')
+          } catch {
+            toast.error('Erro ao interpretar texto')
+          }
+        }}
+      />
+
       {/* Identificação */}
       <div className="rounded-xl border bg-card/50 p-4 space-y-4">
         <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

@@ -40,6 +40,7 @@ export async function GET(request: Request) {
       assigned_to, created_by, priority, is_completed, overdue,
       entity_type, entity_id, parent_task_id, search,
       source_filter, task_list_id,
+      due_from, due_to,
       limit, offset,
     } = params.data
 
@@ -101,6 +102,8 @@ export async function GET(request: Request) {
     if (entity_id) tasksQuery = tasksQuery.eq('entity_id', entity_id)
     if (task_list_id) tasksQuery = tasksQuery.eq('task_list_id', task_list_id)
     if (search) tasksQuery = tasksQuery.ilike('title', `%${search}%`)
+    if (due_from) tasksQuery = tasksQuery.gte('due_date', due_from)
+    if (due_to) tasksQuery = tasksQuery.lte('due_date', due_to)
 
     // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───
     // Proc tasks/subtasks are intrinsically tied to a 'process' entity.
@@ -137,6 +140,8 @@ export async function GET(request: Request) {
       }
       if (entity_id) q = q.eq('proc_instance_id', entity_id)
       if (search) q = q.ilike('title', `%${search}%`)
+      if (due_from) q = q.gte('due_date', due_from)
+      if (due_to) q = q.lte('due_date', due_to)
 
       procTasksPromise = q as any
     }
@@ -171,6 +176,8 @@ export async function GET(request: Request) {
       }
       if (entity_id) q = q.eq('proc_tasks.proc_instance_id', entity_id)
       if (search) q = q.ilike('title', `%${search}%`)
+      if (due_from) q = q.gte('due_date', due_from)
+      if (due_to) q = q.lte('due_date', due_to)
 
       procSubtasksPromise = q as any
     }
@@ -419,6 +426,7 @@ export async function POST(request: Request) {
         due_date: data.due_date || null,
         is_recurring: data.is_recurring,
         recurrence_rule: data.recurrence_rule || null,
+        reminders: data.reminders ?? [],
         entity_type: data.entity_type || null,
         entity_id: data.entity_id || null,
         task_list_id: data.task_list_id || null,

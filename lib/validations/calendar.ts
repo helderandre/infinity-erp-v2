@@ -39,6 +39,8 @@ export const calendarEventSchema = z.object({
   reminders: z.array(z.object({
     minutes_before: z.number().min(0),
   })).default([]),
+  // Task-only: priority 1=Urgente … 4=Normal. Default 4.
+  priority: z.number().int().min(1).max(4).default(4),
 })
 
 export type CalendarEventFormData = z.infer<typeof calendarEventSchema>

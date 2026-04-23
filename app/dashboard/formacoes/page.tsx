@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
 import { TrainingFilters } from '@/components/training/training-filters'
 import { CourseCard } from '@/components/training/course-card'
+import { CourseCreateDialog } from '@/components/training/admin/course-create-dialog'
 import {
   GraduationCap,
   BookOpen,
@@ -80,6 +81,7 @@ function FormacoesPageSkeleton() {
 function FormacoesPageContent() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('catalogo')
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const [categories, setCategories] = useState<Category[]>([])
   const [mandatoryCourses, setMandatoryCourses] = useState<number>(0)
@@ -226,7 +228,7 @@ function FormacoesPageContent() {
           <Button
             size="sm"
             className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-            onClick={() => router.push('/dashboard/formacoes/gestao/novo')}
+            onClick={() => setCreateDialogOpen(true)}
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Nova Formação
@@ -385,6 +387,9 @@ function FormacoesPageContent() {
           )}
         </div>
       </div>
+
+      {/* Shared Nova Formação sheet (same used in gestão page) */}
+      <CourseCreateDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
     </div>
   )
 }

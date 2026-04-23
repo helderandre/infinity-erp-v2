@@ -4,14 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormSheet } from '@/components/shared/form-sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -78,20 +71,45 @@ export function CompanyCategoryFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === 'edit' ? 'Editar categoria' : 'Nova categoria'}
-          </DialogTitle>
-          <DialogDescription>
-            {mode === 'edit'
-              ? 'O identificador interno (slug) é imutável. Apenas o nome e metadados podem ser alterados.'
-              : 'Organize os documentos da empresa por categoria.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-5 pt-2">
+    <FormSheet
+      open={open}
+      onOpenChange={(next) => !saving && onOpenChange(next)}
+      title={mode === 'edit' ? 'Editar categoria' : 'Nova categoria'}
+      description={
+        mode === 'edit'
+          ? 'O identificador interno (slug) é imutável. Apenas o nome e metadados podem ser alterados.'
+          : 'Organize os documentos da empresa por categoria.'
+      }
+      footer={
+        <>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="rounded-full"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                A guardar…
+              </>
+            ) : mode === 'edit' ? (
+              'Guardar'
+            ) : (
+              'Criar'
+            )}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
           <div className="space-y-1.5">
             <Label>Nome</Label>
             <Input
@@ -165,35 +183,7 @@ export function CompanyCategoryFormDialog({
               )}
             </div>
           </div>
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            className="rounded-full"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                A guardar…
-              </>
-            ) : mode === 'edit' ? (
-              'Guardar'
-            ) : (
-              'Criar'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormSheet>
   )
 }

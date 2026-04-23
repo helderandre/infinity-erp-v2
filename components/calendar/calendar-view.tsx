@@ -1,21 +1,30 @@
 'use client'
 
 import type { CalendarEvent } from '@/types/calendar'
+import type { TaskWithRelations } from '@/types/task'
 import { CalendarMonthGrid } from './calendar-month-grid'
 import { CalendarWeekView } from './calendar-week-view'
 import { CalendarAgendaView } from './calendar-agenda-view'
+import { CalendarDayView } from './calendar-day-view'
 import { Skeleton } from '@/components/ui/skeleton'
+
+export type CalendarViewMode = 'month' | 'week' | 'agenda' | 'day'
 
 interface CalendarViewProps {
   events: CalendarEvent[]
+  tasks?: TaskWithRelations[]
   isLoading: boolean
   currentDate: Date
-  view: 'month' | 'week' | 'agenda'
+  view: CalendarViewMode
   onDateChange: (date: Date) => void
-  onViewChange: (view: 'month' | 'week' | 'agenda') => void
+  onViewChange: (view: CalendarViewMode) => void
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
   onDayNumberClick?: (date: Date) => void
+  onDayBack?: () => void
+  dayBackLabel?: string
+  onTaskSelect?: (task: TaskWithRelations) => void
+  onTaskToggleComplete?: (id: string, isCompleted: boolean) => void
 }
 
 function CalendarSkeleton({ view }: { view: 'month' | 'week' }) {
@@ -90,6 +99,7 @@ function CalendarSkeleton({ view }: { view: 'month' | 'week' }) {
 
 export function CalendarView({
   events,
+  tasks,
   isLoading,
   currentDate,
   view,
@@ -98,9 +108,29 @@ export function CalendarView({
   onEventClick,
   onDayClick,
   onDayNumberClick,
+  onDayBack,
+  dayBackLabel,
+  onTaskSelect,
+  onTaskToggleComplete,
 }: CalendarViewProps) {
   if (isLoading) {
-    return <CalendarSkeleton view={view} />
+    const skeletonView = view === 'week' ? 'week' : 'month'
+    return <CalendarSkeleton view={skeletonView} />
+  }
+
+  if (view === 'day') {
+    return (
+      <CalendarDayView
+        date={currentDate}
+        events={events}
+        tasks={tasks ?? []}
+        onEventClick={onEventClick}
+        onTaskSelect={onTaskSelect}
+        onTaskToggleComplete={onTaskToggleComplete}
+        onBack={onDayBack ?? (() => onViewChange('month'))}
+        backLabel={dayBackLabel}
+      />
+    )
   }
 
   if (view === 'agenda') {
@@ -108,7 +138,10 @@ export function CalendarView({
       <CalendarAgendaView
         currentDate={currentDate}
         events={events}
+        tasks={tasks ?? []}
         onEventClick={onEventClick}
+        onTaskSelect={onTaskSelect}
+        onTaskToggleComplete={onTaskToggleComplete}
       />
     )
   }
@@ -118,6 +151,7 @@ export function CalendarView({
       <CalendarWeekView
         currentDate={currentDate}
         events={events}
+        tasks={tasks ?? []}
         onEventClick={onEventClick}
         onDayClick={onDayClick}
       />
@@ -128,6 +162,7 @@ export function CalendarView({
     <CalendarMonthGrid
       currentDate={currentDate}
       events={events}
+      tasks={tasks ?? []}
       onEventClick={onEventClick}
       onDayClick={onDayClick}
       onDayNumberClick={onDayNumberClick}

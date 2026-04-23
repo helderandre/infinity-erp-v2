@@ -26,6 +26,23 @@ const CONFIDENCE_PARAM = {
     'Autoavaliação obrigatória da confiança na interpretação. "alta" = tens a certeza e os parâmetros-chave foram referidos; "media" = intenção clara mas faltam detalhes úteis; "baixa" = a mensagem é ambígua — neste caso preferes NÃO chamar esta tool e pedir clarificação em texto.',
 } as const
 
+// Shared vocabulary for lead origin. Used by both create_lead and
+// create_leads_batch so the assistant speaks a single language about sources.
+const LEAD_SOURCE_ENUM = [
+  'social_media',
+  'website',
+  'landing_page',
+  'meta_ads',
+  'google_ads',
+  'partner',
+  'organic',
+  'walk_in',
+  'phone_call',
+  'other',
+] as const
+const LEAD_SOURCE_DESC =
+  'Origem do contacto. Mapeia: Instagram/Facebook/TikTok orgânico → social_media; anúncio Meta/Facebook/Instagram → meta_ads; anúncio Google → google_ads; Idealista/Imovirtual/Casa Sapo/site/portal → website; landing page → landing_page; parceiro/agência amiga → partner; entrou na loja → walk_in; telefonou → phone_call; indicação/referência/SEO → organic; outros casos → other.'
+
 function withConfidence(
   props: Record<string, unknown>,
   required: string[] = []
@@ -43,13 +60,23 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_lead',
       description:
-        'Criar UM contacto individual (opcionalmente com um negócio associado). Usar quando o utilizador quer adicionar uma única pessoa. Para múltiplas pessoas numa só frase (ex: "adiciona leads João, Maria e Pedro"), usa create_leads_batch. Preenche também os campos do negócio se o utilizador mencionar intenção de compra/venda/arrendamento.',
+        'Criar UM contacto individual (opcionalmente com um negócio associado). Usar quando o utilizador quer adicionar uma única pessoa. Para múltiplas pessoas numa só frase (ex: "adiciona leads João, Maria e Pedro"), usa create_leads_batch. Preenche também os campos do negócio se o utilizador mencionar intenção de compra/venda/arrendamento. Extrai origem e consultor atribuído se forem referidos.',
       parameters: withConfidence({
         // Dados do contacto
         nome: { type: 'string', description: 'Nome completo' },
         email: { type: 'string' },
         telemovel: { type: 'string', description: 'Telemóvel (formato PT aceitável, ex: 912345678)' },
         observacoes: { type: 'string', description: 'Notas livres sobre o contacto' },
+        origem: {
+          type: 'string',
+          enum: [...LEAD_SOURCE_ENUM],
+          description: LEAD_SOURCE_DESC,
+        },
+        assigned_consultant_name: {
+          type: 'string',
+          description:
+            'Nome do consultor a quem atribuir o contacto. Preenche apenas se o utilizador referir explicitamente (ex: "para o João", "atribui à Maria").',
+        },
         // Negócio (opcional — inclui apenas se o utilizador referir intenção de negócio)
         negocio_tipo: {
           type: 'string',
@@ -72,7 +99,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_leads_batch',
       description:
-        'Criar VÁRIOS leads em lote. Usar quando o utilizador menciona múltiplas pessoas numa só instrução (ex: "adiciona leads João Silva, Maria Pereira 913123456, e Pedro"). Se o utilizador disser "para o [consultor]" ou "atribui ao [consultor]", extrai também assigned_consultant_name — todos os leads ficam atribuídos ao mesmo consultor.',
+        'Criar VÁRIOS leads em lote. Usar quando o utilizador menciona múltiplas pessoas numa só instrução (ex: "adiciona leads João Silva, Maria Pereira 913123456, e Pedro"). Se o utilizador referir um consultor ou origem partilhados ("todos do Instagram", "para o Pedro"), preenche default_source e/ou assigned_consultant_name — aplicam-se a todos. Se o utilizador atribuir individualmente ("João do Idealista para a Ana, Maria do Instagram"), usa os campos source e assigned_consultant_name dentro de cada lead (sobrepõem-se aos defaults).',
       parameters: withConfidence(
         {
           leads: {
@@ -84,10 +111,28 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
                 nome: { type: 'string', description: 'Nome completo' },
                 telemovel: { type: 'string' },
                 email: { type: 'string' },
+                source: {
+                  type: 'string',
+                  enum: [...LEAD_SOURCE_ENUM],
+                  description:
+                    'Origem individual deste lead, se diferente do grupo. Mesma vocabulário que default_source.',
+                },
+                assigned_consultant_name: {
+                  type: 'string',
+                  description:
+                    'Consultor a quem atribuir este lead específico, se diferente do grupo.',
+                },
               },
               required: ['nome'],
             },
             minItems: 1,
+          },
+          default_source: {
+            type: 'string',
+            enum: [...LEAD_SOURCE_ENUM],
+            description:
+              'Origem partilhada por todo o lote (ex: "todos do Instagram"). ' +
+              LEAD_SOURCE_DESC,
           },
           assigned_consultant_name: {
             type: 'string',
@@ -283,12 +328,15 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'send_property',
       description:
-        'Enviar um imóvel (partilhar link do anúncio + mensagem) a um ou mais contactos por email e/ou WhatsApp. Usar para "enviar imóvel X ao João", "manda o apartamento da Rua Y à Maria por whatsapp", "partilhar esta casa com o Pedro e a Ana por email". O utilizador pode depois editar/escolher destinatários no ecrã de composição.',
+        'Enviar UM OU VÁRIOS imóveis (partilha link do anúncio + mensagem) a um ou mais contactos por email e/ou WhatsApp. Usar para "enviar imóvel X ao João", "manda o apartamento da Rua Y à Maria por whatsapp", "partilhar esta casa com o Pedro e a Ana por email", "envia à Ana o T3 de Cascais, o apartamento da Avenida e o 1234". O utilizador depois confirma/adiciona imóveis e escolhe destinatários no ecrã seguinte.',
       parameters: withConfidence(
         {
-          property_query: {
-            type: 'string',
-            description: 'Termo para encontrar o imóvel (título, referência, zona, cidade)',
+          property_queries: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description:
+              'Lista de termos de pesquisa, UM POR IMÓVEL. Cada termo pode ser título, morada, zona, cidade, referência completa ou só os últimos dígitos da referência externa (ex: "1234" procura por referências que terminem/contenham 1234). Se o utilizador mencionar vários imóveis numa só frase, cria um termo por cada um.',
           },
           contact_names: {
             type: 'array',
@@ -301,7 +349,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
             description: 'Mensagem/intro personalizada (opcional)',
           },
         },
-        ['property_query']
+        ['property_queries']
       ),
     },
   },
@@ -349,7 +397,14 @@ export function buildConfirmText(tool: string, args: Record<string, any>): strin
     case 'send_property': {
       const names = Array.isArray(args.contact_names) ? args.contact_names : []
       const to = names.length > 0 ? ` a ${names.join(', ')}` : ''
-      return args.property_query ? `Enviar imóvel "${args.property_query}"${to}` : 'Enviar imóvel'
+      const queries = Array.isArray(args.property_queries)
+        ? args.property_queries.filter(Boolean)
+        : args.property_query
+          ? [args.property_query]
+          : []
+      if (queries.length === 0) return 'Enviar imóvel'
+      if (queries.length === 1) return `Enviar imóvel "${queries[0]}"${to}`
+      return `Enviar ${queries.length} imóveis${to}`
     }
     case 'search_document':
       return `Procurar documentos: "${args.query}"`

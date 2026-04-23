@@ -30,6 +30,8 @@ import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
+import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
   meta_ads:     { label: 'Meta Ads',      class: 'bg-blue-500/10 text-blue-600' },
@@ -70,12 +72,25 @@ interface LeadEntrySheetProps {
 }
 
 export function LeadEntrySheet({ entryId, open, onOpenChange, onQualify, onStatusChange }: LeadEntrySheetProps) {
+  const isMobile = useIsMobile()
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-hidden">
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 flex flex-col gap-0 overflow-hidden border-border/40 shadow-2xl',
+          'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[480px] sm:rounded-l-3xl',
+        )}
+      >
         <VisuallyHidden>
           <SheetTitle>Detalhe do Lead</SheetTitle>
         </VisuallyHidden>
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-10" />
+        )}
         <LeadEntryDetailView
           entryId={entryId}
           isOpen={open}
@@ -103,6 +118,21 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [loading, setLoading] = useState(false)
   const [contactHistory, setContactHistory] = useState<any[] | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [outcomeOpen, setOutcomeOpen] = useState(false)
+  const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
+
+  const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
+    setContactMethod(method)
+    if (method === 'phone') {
+      window.open(`tel:${value}`, '_self')
+    } else if (method === 'email') {
+      window.open(`mailto:${value}`, '_self')
+    } else if (method === 'whatsapp') {
+      const cleaned = value.replace(/[^0-9+]/g, '')
+      window.open(`https://wa.me/${cleaned}`, '_blank')
+    }
+    setTimeout(() => setOutcomeOpen(true), 500)
+  }, [])
 
   const loadEntry = useCallback(async () => {
     if (!entryId) return
@@ -185,19 +215,19 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
             <button
               type="button"
               onClick={onBack}
-              className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-1 text-[11px] font-medium hover:bg-white/25 transition-colors"
+              className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-background/70 backdrop-blur-md border border-border/40 px-3 py-1 text-[11px] font-medium hover:bg-background transition-colors"
             >
               ← Voltar
             </button>
           )}
-          <div className="bg-neutral-900 px-6 pt-6 pb-5">
+          <div className="px-6 pt-8 pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase">Lead</p>
-                  <h2 className="text-white font-bold text-xl tracking-tight truncate mt-0.5">{name}</h2>
+                  <p className="text-muted-foreground text-[10px] font-medium tracking-widest uppercase">Lead</p>
+                  <h2 className="font-semibold text-[22px] leading-tight tracking-tight truncate mt-0.5">{name}</h2>
                 </div>
                 {statusInfo && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium text-white/70 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 border border-border/40 px-2.5 py-1 text-[10px] font-medium text-muted-foreground shrink-0">
                     <span className={cn('h-1.5 w-1.5 rounded-full', statusInfo.dot)} />
                     {statusInfo.label}
                   </span>
@@ -207,55 +237,55 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
               {/* Chips */}
               <div className="flex flex-wrap items-center gap-1.5 mt-3">
                 {sectorInfo && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 text-white/80 px-3 py-1 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-[11px] font-semibold">
                     <sectorInfo.icon className="h-3 w-3" />
                     {sectorInfo.label}
                   </span>
                 )}
                 {srcInfo && (
-                  <span className="inline-flex items-center rounded-full bg-white/10 text-white/70 px-2 py-0.5 text-[10px] font-medium">
+                  <span className="inline-flex items-center rounded-full bg-muted/60 border border-border/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
                     {srcInfo.label}
                   </span>
                 )}
                 {entry.campaign?.name && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/10 text-white/70 px-2 py-0.5 text-[10px] font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 border border-border/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
                     <Megaphone className="h-2.5 w-2.5" />
                     {entry.campaign.name}
                   </span>
                 )}
-                <span className="text-[10px] text-white/30">{timeAgo}</span>
+                <span className="text-[10px] text-muted-foreground/60">{timeAgo}</span>
               </div>
             </div>
 
-            {/* ─── Quick actions (icon-only, white shadowed pills, centered) ─── */}
-            <div className="px-6 py-4 border-b">
+            {/* ─── Quick actions (icon-only, shadowed pills, centered) ─── */}
+            <div className="px-6 py-4 border-b border-border/40">
               <div className="flex items-center justify-center gap-3">
                 <TooltipProvider delayDuration={200}>
                   {phone && (
                     <>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <a
-                            href={`tel:${phone}`}
+                          <button
+                            type="button"
+                            onClick={() => triggerContact('phone', phone)}
                             aria-label="Ligar"
-                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 hover:shadow-lg hover:bg-white/90 transition-all"
+                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-background border border-border/40 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all"
                           >
                             <Phone className="h-4 w-4" />
-                          </a>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>Ligar — {phone}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <a
-                            href={`https://wa.me/${phone.replace(/[^0-9+]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => triggerContact('whatsapp', phone)}
                             aria-label="WhatsApp"
-                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 hover:shadow-lg hover:bg-white/90 transition-all"
+                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-background border border-border/40 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all"
                           >
                             <WhatsAppIcon className="h-4 w-4" />
-                          </a>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>Abrir no WhatsApp</TooltipContent>
                       </Tooltip>
@@ -264,7 +294,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                           <a
                             href={`sms:${phone}`}
                             aria-label="SMS"
-                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 hover:shadow-lg hover:bg-white/90 transition-all"
+                            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-background border border-border/40 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all"
                           >
                             <MessageSquare className="h-4 w-4" />
                           </a>
@@ -276,13 +306,14 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                   {email && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <a
-                          href={`mailto:${email}`}
+                        <button
+                          type="button"
+                          onClick={() => triggerContact('email', email)}
                           aria-label="Email"
-                          className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-neutral-900 shadow-md ring-1 ring-black/5 hover:shadow-lg hover:bg-white/90 transition-all"
+                          className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-background border border-border/40 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all"
                         >
                           <Mail className="h-4 w-4" />
-                        </a>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent>Email — {email}</TooltipContent>
                     </Tooltip>
@@ -484,7 +515,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
 
             {/* ─── Bottom bar ─── */}
             {isActionable && (
-              <div className="px-6 py-4 border-t flex items-center gap-3">
+              <div className="shrink-0 px-6 py-4 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md flex items-center gap-3">
                 <button
                   onClick={() => updateStatus('discarded')}
                   className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -494,7 +525,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                 <div className="flex-1" />
                 <button
                   onClick={() => { onQualify(entry); onClose() }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all duration-200"
                 >
                   Qualificar
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -502,6 +533,15 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
               </div>
             )}
         </>
+      )}
+      {entry?.contact?.id && (
+        <CallOutcomeModal
+          open={outcomeOpen}
+          onOpenChange={setOutcomeOpen}
+          contactId={entry.contact.id}
+          contactName={entry.raw_name || entry.contact?.nome}
+          contactMethod={contactMethod}
+        />
       )}
     </>
   )

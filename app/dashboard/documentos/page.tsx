@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogTitle,
 } from '@/components/ui/dialog'
+import { FormSheet } from '@/components/shared/form-sheet'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -482,14 +483,14 @@ function DocumentosTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Upload Dialog */}
-      <Dialog open={uploadOpen} onOpenChange={(open) => { if (!open) { setUploadOpen(false); setUploadFiles([]) } }}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Carregar Documentos</DialogTitle>
-            <DialogDescription>Seleccione a categoria e os ficheiros para carregar.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
+      {/* Upload Sheet */}
+      <FormSheet
+        open={uploadOpen}
+        onOpenChange={(open) => { if (!open) { setUploadOpen(false); setUploadFiles([]) } else { setUploadOpen(true) } }}
+        title="Carregar Documentos"
+        description="Seleccione a categoria e os ficheiros para carregar."
+      >
+        <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Categoria</label>
               <div className="flex items-center gap-2">
@@ -552,14 +553,15 @@ function DocumentosTab() {
               {uploading ? <><Loader2 className="h-4 w-4 animate-spin" />A carregar...</> : <><Upload className="h-4 w-4" />Carregar {uploadFiles.length} ficheiro{uploadFiles.length !== 1 ? 's' : ''}</>}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormSheet>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editDoc} onOpenChange={(open) => { if (!open) { setEditDoc(null); setEditFile(null) } }}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader><DialogTitle>Editar Documento</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
+      {/* Edit Sheet */}
+      <FormSheet
+        open={!!editDoc}
+        onOpenChange={(open) => { if (!open) { setEditDoc(null); setEditFile(null) } }}
+        title="Editar Documento"
+      >
+          <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nome</label>
               <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-full" />
@@ -623,8 +625,7 @@ function DocumentosTab() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormSheet>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteDoc} onOpenChange={(open) => !open && setDeleteDoc(null)}>
@@ -1031,16 +1032,14 @@ function TeamDesignsTab() {
         </div>
       )}
 
-      {/* Form Dialog */}
-      <Dialog open={formOpen} onOpenChange={(open) => { if (!open) setFormOpen(false) }}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{form.id ? 'Editar Design' : 'Adicionar Design'}</DialogTitle>
-            <DialogDescription>
-              Adicione o link Canva e a imagem de capa do design.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
+      {/* Form Sheet */}
+      <FormSheet
+        open={formOpen}
+        onOpenChange={(open) => { if (!open) setFormOpen(false) }}
+        title={form.id ? 'Editar Design' : 'Adicionar Design'}
+        description="Adicione o link Canva e a imagem de capa do design."
+      >
+          <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nome</label>
               <Input
@@ -1128,8 +1127,7 @@ function TeamDesignsTab() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : (form.id ? 'Guardar' : 'Adicionar')}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormSheet>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteDesign} onOpenChange={(open) => !open && setDeleteDesign(null)}>

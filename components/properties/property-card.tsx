@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatCurrency } from '@/lib/constants'
 import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
-import { MapPin, Maximize, User } from 'lucide-react'
+import { Hash, MapPin, Maximize, User } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
 
 interface PropertyCardProps {
@@ -66,10 +66,22 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
           <span className="text-xs text-muted-foreground">{propertyTypeLabel}</span>
         </div>
 
-        {property.consultant?.commercial_name && (
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-1.5 border-t">
-            <User className="h-3 w-3 shrink-0" />
-            <span className="truncate">{property.consultant.commercial_name}</span>
+        {(property.consultant?.commercial_name || property.external_ref) && (
+          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1.5 border-t">
+            {property.consultant?.commercial_name ? (
+              <div className="flex items-center gap-1 min-w-0">
+                <User className="h-3 w-3 shrink-0" />
+                <span className="truncate">{property.consultant.commercial_name}</span>
+              </div>
+            ) : (
+              <span />
+            )}
+            {property.external_ref && (
+              <div className="flex items-center gap-1 min-w-0 shrink-0">
+                <Hash className="h-3 w-3 shrink-0" />
+                <span className="truncate">{property.external_ref}</span>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

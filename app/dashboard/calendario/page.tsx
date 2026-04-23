@@ -8,16 +8,18 @@ import { ptBR } from 'date-fns/locale'
 import { useCalendarEvents } from '@/hooks/use-calendar-events'
 import { useCalendarFilters } from '@/hooks/use-calendar-filters'
 import { CalendarToolbar } from '@/components/calendar/calendar-toolbar'
-import { CalendarFilters } from '@/components/calendar/calendar-filters'
+import { CalendarFilterChips } from '@/components/calendar/calendar-filter-chips'
 import { CalendarView } from '@/components/calendar/calendar-view'
 import { CalendarSidebar } from '@/components/calendar/calendar-sidebar'
 import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
+import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
+import type { TaskWithRelations } from '@/types/task'
 import { CalendarEventForm } from '@/components/calendar/calendar-event-form'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CALENDAR_CATEGORY_COLORS, CALENDAR_CATEGORY_LABELS } from '@/types/calendar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useCalendarReminders } from '@/hooks/use-calendar-reminders'
-import { Megaphone, MapPin, BarChart3, Video } from 'lucide-react'
+import { Infinity as InfinityIcon, MapPin, BarChart3, Video } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -27,7 +29,11 @@ import type { CalendarEventFormData } from '@/lib/validations/calendar'
 
 function CalendarioPageInner() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<'month' | 'week' | 'agenda'>('month')
+  const [view, setView] = useState<'month' | 'week' | 'agenda' | 'day'>('month')
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false)
+  const [previousView, setPreviousView] = useState<'month' | 'week' | 'agenda'>('month')
+  const [showTasks, setShowTasks] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
@@ -71,11 +77,13 @@ function CalendarioPageInner() {
 
   const {
     events,
+    tasks,
     isLoading,
     refetch,
     createEvent,
     updateEvent,
     deleteEvent,
+    toggleTaskComplete,
   } = useCalendarEvents({
     start: rangeStart,
     end: rangeEnd,
@@ -149,15 +157,47 @@ function CalendarioPageInner() {
     setDetailOpen(true)
   }, [])
 
-  const handleDayClick = useCallback((date: Date) => {
-    setCurrentDate(date)
-    setView('week')
+  const handleDayClick = useCallback(
+    (date: Date) => {
+      // Remember the current (non-day) view so the back button can restore it.
+      setView((v) => {
+        if (v !== 'day') setPreviousView(v)
+        return 'day'
+      })
+      setCurrentDate(date)
+    },
+    [],
+  )
+
+  const handleDayNumberClick = useCallback(
+    (date: Date) => {
+      setView((v) => {
+        if (v !== 'day') setPreviousView(v)
+        return 'day'
+      })
+      setCurrentDate(date)
+    },
+    [],
+  )
+
+  const handleDayBack = useCallback(() => {
+    setView(previousView)
+  }, [previousView])
+
+  const handleTaskSelect = useCallback((task: TaskWithRelations) => {
+    setSelectedTaskId(task.id)
+    setTaskDetailOpen(true)
   }, [])
 
-  const handleDayNumberClick = useCallback((date: Date) => {
-    setSelectedDay(date)
-    setDaySheetOpen(true)
-  }, [])
+  // Wrapper around the toolbar's view changer so that picking a tab from
+  // within day view exits day view cleanly.
+  const handleViewChange = useCallback(
+    (next: 'month' | 'week' | 'agenda' | 'day') => {
+      if (next !== 'day') setPreviousView(next)
+      setView(next)
+    },
+    [],
+  )
 
   const handleCreateEvent = useCallback(() => {
     setEditingEvent(undefined)
@@ -221,7 +261,36 @@ function CalendarioPageInner() {
   }, [deleteEvent])
 
   const handleFormSubmit = useCallback(async (data: CalendarEventFormData) => {
-    if (editingEventId) {
+    // Nova Tarefa → /api/tasks (separate module). Legacy edits of task-events
+    // continue to go to /api/calendar/events so back-compat is preserved.
+    if (data.item_type === 'task' && !editingEventId) {
+      const payload = {
+        title: data.title,
+        description: data.description || null,
+        priority: data.priority ?? 4,
+        due_date: data.start_date || null,
+        assigned_to: data.user_id || null,
+        is_recurring: data.is_recurring,
+        recurrence_rule: data.recurrence_rule || null,
+        reminders: data.reminders ?? [],
+      }
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || 'Erro ao criar tarefa')
+        }
+        // Refetch so the new task shows up in the calendar.
+        refetch()
+      } catch {
+        // Toast handled by the form's own try/catch — keep sheet open on error.
+        throw new Error('Erro ao criar tarefa')
+      }
+    } else if (editingEventId) {
       await updateEvent(editingEventId, data)
     } else {
       await createEvent(data)
@@ -229,15 +298,16 @@ function CalendarioPageInner() {
     setFormOpen(false)
     setEditingEvent(undefined)
     setEditingEventId(null)
-  }, [editingEventId, createEvent, updateEvent])
+  }, [editingEventId, createEvent, updateEvent, refetch])
 
   return (
     <div className="flex h-full flex-col gap-1 sm:gap-4 -m-4 p-2 sm:p-4 md:-m-6 md:p-6">
       <CalendarToolbar
         currentDate={currentDate}
         view={view}
+        parentView={previousView}
         onDateChange={handleDateChange}
-        onViewChange={setView}
+        onViewChange={handleViewChange}
         onCreateEvent={handleCreateEvent}
         onToggleFilters={() => setFiltersOpen(true)}
         onShowCompanyEvents={() => setCompanyEventsOpen(true)}
@@ -246,36 +316,48 @@ function CalendarioPageInner() {
         hasActiveFilters={!!filterUserId || filterSelf}
       />
 
-      <div className="flex flex-1 gap-4 overflow-hidden">
-        {/* Left sidebar — filters */}
-        <div className="hidden w-64 shrink-0 lg:block">
-          <CalendarFilters
-            categories={categories}
-            onToggleCategory={toggleCategory}
-            onSetCategories={setCategories}
-            users={users}
-            selectedUserId={filterUserId}
-            onUserChange={setFilterUserId}
-            filterSelf={filterSelf}
-            onToggleFilterSelf={toggleFilterSelf}
-          />
-        </div>
+      {/* Horizontal filter chip row — desktop/tablet only; mobile uses
+          the sheet that opens from the toolbar filter icon. */}
+      <div className="hidden md:block">
+        <CalendarFilterChips
+          categories={categories}
+          onToggleCategory={toggleCategory}
+          onSetCategories={setCategories}
+          users={users}
+          selectedUserId={filterUserId}
+          onUserChange={setFilterUserId}
+          filterSelf={filterSelf}
+          onToggleFilterSelf={toggleFilterSelf}
+          showTasks={showTasks}
+          onToggleShowTasks={() => setShowTasks((v) => !v)}
+          taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
+        />
+      </div>
 
-        {/* Main calendar area */}
-        <div className="flex-1 overflow-auto">
-          <CalendarView
-            events={events}
-            isLoading={isLoading}
-            currentDate={currentDate}
-            view={view}
-            onDateChange={handleDateChange}
-            onViewChange={setView}
-            onEventClick={handleEventClick}
-            onDayClick={handleDayClick}
-            onDayNumberClick={handleDayNumberClick}
-          />
-        </div>
-
+      {/* Main calendar area — full width, no sidebar */}
+      <div className="flex-1 overflow-auto rounded-2xl bg-card/40 ring-1 ring-border/60">
+        <CalendarView
+          events={events}
+          tasks={showTasks ? tasks : []}
+          isLoading={isLoading}
+          currentDate={currentDate}
+          view={view}
+          onDateChange={handleDateChange}
+          onViewChange={handleViewChange}
+          onEventClick={handleEventClick}
+          onDayClick={handleDayClick}
+          onDayNumberClick={handleDayNumberClick}
+          onDayBack={handleDayBack}
+          dayBackLabel={
+            previousView === 'week'
+              ? 'Semana'
+              : previousView === 'agenda'
+              ? 'Agenda'
+              : 'Mês'
+          }
+          onTaskSelect={handleTaskSelect}
+          onTaskToggleComplete={toggleTaskComplete}
+        />
       </div>
 
       {/* Event detail sheet */}
@@ -292,6 +374,20 @@ function CalendarioPageInner() {
         onRefresh={refetch}
       />
 
+      {/* Task detail sheet (from tasks module) */}
+      <TaskDetailSheet
+        taskId={selectedTaskId}
+        open={taskDetailOpen}
+        onOpenChange={(open) => {
+          setTaskDetailOpen(open)
+          if (!open) setSelectedTaskId(null)
+        }}
+        onRefresh={refetch}
+        onCreateSubTask={() => {
+          // Sub-task creation lives in the tasks module; no-op here.
+        }}
+      />
+
       {/* Event create/edit form dialog */}
       <CalendarEventForm
         open={formOpen}
@@ -305,13 +401,13 @@ function CalendarioPageInner() {
         users={users}
       />
 
-      {/* Mobile filters sheet */}
+      {/* Mobile filters sheet — same chip UI, just in a wrap-friendly layout */}
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-72 p-4">
+        <SheetContent side="right" className="w-80 p-4">
           <SheetHeader className="pb-4">
             <SheetTitle>Filtros</SheetTitle>
           </SheetHeader>
-          <CalendarFilters
+          <CalendarFilterChips
             categories={categories}
             onToggleCategory={toggleCategory}
             onSetCategories={setCategories}
@@ -320,6 +416,10 @@ function CalendarioPageInner() {
             onUserChange={setFilterUserId}
             filterSelf={filterSelf}
             onToggleFilterSelf={toggleFilterSelf}
+            showTasks={showTasks}
+            onToggleShowTasks={() => setShowTasks((v) => !v)}
+            taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
+            className="flex-wrap overflow-visible"
           />
         </SheetContent>
       </Sheet>
@@ -387,11 +487,11 @@ function CalendarioPageInner() {
           'p-0 flex flex-col',
           isMobile ? 'h-[85dvh] rounded-t-2xl' : 'w-full sm:max-w-[440px]',
         )}>
-          <div className="px-5 pt-5 pb-3 sm:px-6 shrink-0 border-b bg-emerald-500/5">
+          <div className="px-5 pt-5 pb-3 sm:px-6 shrink-0 border-b bg-yellow-400/10">
             <SheetHeader className="p-0">
               <SheetTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600">
-                  <Megaphone className="h-4 w-4" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/25 text-yellow-800 dark:text-yellow-300">
+                  <InfinityIcon className="h-4 w-4" strokeWidth={2.25} />
                 </span>
                 Eventos de Empresa
               </SheetTitle>
@@ -438,7 +538,7 @@ function CalendarioPageInner() {
                         key={event.id}
                         className={cn(
                           'flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30 transition-colors relative overflow-hidden',
-                          isLive && 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/30',
+                          isLive && 'border-yellow-500/50 bg-yellow-400/10 ring-1 ring-yellow-500/30',
                         )}
                         onClick={() => {
                           setCompanyEventsOpen(false)
@@ -448,19 +548,19 @@ function CalendarioPageInner() {
                         {/* Live animation border */}
                         {isLive && (
                           <div className="absolute inset-0 rounded-lg pointer-events-none">
-                            <div className="absolute inset-0 rounded-lg animate-pulse ring-2 ring-emerald-500/20" />
+                            <div className="absolute inset-0 rounded-lg animate-pulse ring-2 ring-yellow-500/20" />
                           </div>
                         )}
 
-                        <div className={cn('w-1 self-stretch rounded-full shrink-0 relative z-10', isLive ? 'bg-emerald-500' : (colors?.dot || 'bg-primary'))} />
+                        <div className={cn('w-1 self-stretch rounded-full shrink-0 relative z-10', isLive ? 'bg-yellow-500' : (colors?.dot || 'bg-primary'))} />
                         <div className="flex-1 min-w-0 relative z-10">
                           {isLive && (
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className="flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-yellow-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500" />
                               </span>
-                              <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Em directo</span>
+                              <span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wider">Em directo</span>
                             </div>
                           )}
                           <p className="text-sm font-medium truncate">{event.title}</p>

@@ -5,15 +5,23 @@ import { ptBR } from 'date-fns/locale'
 import { addMonths, subMonths, addWeeks, subWeeks } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, List, SlidersHorizontal, Megaphone, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, List, SlidersHorizontal, Infinity as InfinityIcon, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
+type ToolbarView = 'month' | 'week' | 'agenda' | 'day'
+
 interface CalendarToolbarProps {
   currentDate: Date
-  view: 'month' | 'week' | 'agenda'
+  view: ToolbarView
+  /**
+   * When in 'day' view, this is the view we'd return to. The tab selector
+   * keeps that value highlighted so the user knows which parent view is "in
+   * focus" behind the current day.
+   */
+  parentView?: 'month' | 'week' | 'agenda'
   onDateChange: (date: Date) => void
-  onViewChange: (view: 'month' | 'week' | 'agenda') => void
+  onViewChange: (view: ToolbarView) => void
   onCreateEvent: () => void
   onToggleFilters?: () => void
   hasActiveFilters?: boolean
@@ -25,6 +33,7 @@ interface CalendarToolbarProps {
 export function CalendarToolbar({
   currentDate,
   view,
+  parentView,
   onDateChange,
   onViewChange,
   onCreateEvent,
@@ -34,6 +43,8 @@ export function CalendarToolbar({
   isManager,
   hasLiveEvent,
 }: CalendarToolbarProps) {
+  const displayView: 'month' | 'week' | 'agenda' =
+    view === 'day' ? parentView ?? 'month' : view
   const handlePrev = () => {
     onDateChange(view === 'week' ? subWeeks(currentDate, 1) : subMonths(currentDate, 1))
   }
@@ -99,7 +110,7 @@ export function CalendarToolbar({
         )}
 
         <Tabs
-          value={view}
+          value={displayView}
           onValueChange={(v) => onViewChange(v as 'month' | 'week' | 'agenda')}
         >
           <TabsList className="h-7 sm:h-9">
@@ -120,11 +131,11 @@ export function CalendarToolbar({
             onClick={onShowCompanyEvents}
             aria-label="Eventos de empresa"
           >
-            <Megaphone className="h-4 w-4" />
+            <InfinityIcon className="h-4 w-4" strokeWidth={2.25} />
             {hasLiveEvent && (
               <span className="absolute top-1 right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500" />
               </span>
             )}
           </Button>

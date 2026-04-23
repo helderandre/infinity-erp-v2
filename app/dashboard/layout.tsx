@@ -55,10 +55,6 @@ const AiBatchNotification = dynamic(
   () => import('@/components/shared/ai-batch-notification').then((m) => m.AiBatchNotification),
   { ssr: false }
 )
-const CommunicationMenu = dynamic(
-  () => import('@/components/layout/communication-menu').then((m) => m.CommunicationMenu),
-  { ssr: false }
-)
 const EmailComposerPopup = dynamic(
   () => import('@/components/email/composer/composer-popup').then((m) => m.EmailComposerPopup),
   { ssr: false }
@@ -140,7 +136,7 @@ export default function DashboardLayout({
       <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
         <AppSidebar />
         <SidebarInset className={cn("min-w-0", isFullBleed && "overflow-hidden")}>
-          <header className="sticky top-0 z-40 flex py-2 shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <header className="sticky top-0 z-40 flex py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
             <SidebarTrigger className="-ml-1" />
             <Separator
               orientation="vertical"
@@ -151,8 +147,9 @@ export default function DashboardLayout({
             </div>
             <div className="ml-auto flex items-center gap-2">
               <AiAgentChat />
-              <CommunicationMenu />
-              <SearchCommand />
+              <div className="hidden sm:block">
+                <SearchCommand />
+              </div>
               <QuickActions />
               <NotificationPopover />
             </div>
@@ -160,11 +157,11 @@ export default function DashboardLayout({
           <main
             ref={mainRef}
             className={cn(
-              "flex flex-1 flex-col overflow-x-hidden",
+              "flex flex-1 flex-col overflow-x-hidden min-h-0",
               isFullBleed
-                ? "min-h-0 overflow-hidden overscroll-none"
+                ? "overflow-hidden overscroll-none"
                 : isSidebarPage
-                  ? "min-h-0 overflow-y-auto"
+                  ? "overflow-y-auto"
                   : isCompactPadding
                     ? "p-2 overflow-y-auto"
                     : "gap-4 p-4 md:gap-6 md:p-6 overflow-y-auto"

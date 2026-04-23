@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { FileText, Loader2, Trash2, Upload } from 'lucide-react'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormSheet } from '@/components/shared/form-sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -172,20 +166,17 @@ export function PersonalDesignFormDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {mode === 'edit' ? 'Editar design' : 'Novo design pessoal'}
-            </DialogTitle>
-            <DialogDescription>
-              {mode === 'edit'
-                ? 'Actualize os dados do design.'
-                : 'Carregue um ficheiro (PNG, JPG, WebP, PDF) ou adicione um link Canva.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-2">
+      <FormSheet
+        open={open}
+        onOpenChange={(next) => !saving && onOpenChange(next)}
+        title={mode === 'edit' ? 'Editar design' : 'Novo design pessoal'}
+        description={
+          mode === 'edit'
+            ? 'Actualize os dados do design.'
+            : 'Carregue um ficheiro (PNG, JPG, WebP, PDF) ou adicione um link Canva.'
+        }
+      >
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Nome</Label>
               <Input
@@ -331,8 +322,7 @@ export function PersonalDesignFormDialog({
               )}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormSheet>
 
       <MarketingDesignCategoryFormDialog
         open={categoryDialogOpen}

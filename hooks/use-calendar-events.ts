@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
+import type { TaskWithRelations } from '@/types/task'
 
 interface UseCalendarEventsParams {
   start: Date
@@ -13,12 +14,14 @@ interface UseCalendarEventsParams {
 
 interface UseCalendarEventsReturn {
   events: CalendarEvent[]
+  tasks: TaskWithRelations[]
   isLoading: boolean
   error: string | null
   refetch: () => void
   createEvent: (data: any) => Promise<boolean>
   updateEvent: (id: string, data: any) => Promise<boolean>
   deleteEvent: (id: string) => Promise<boolean>
+  toggleTaskComplete: (taskId: string, isCompleted: boolean) => Promise<void>
 }
 
 export function useCalendarEvents({
@@ -28,6 +31,7 @@ export function useCalendarEvents({
   userId,
 }: UseCalendarEventsParams): UseCalendarEventsReturn {
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [tasks, setTasks] = useState<TaskWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,18 +65,49 @@ export function useCalendarEvents({
         params.set('user_id', userId)
       }
 
-      const res = await fetch(`/api/calendar/events?${params.toString()}`, {
-        signal: controller.signal,
+      // Fetch events + tasks in parallel. Tasks come from the dedicated
+      // /api/tasks feed (personal tasks + proc_task/proc_subtask + visit_proposal).
+      // Scope to the visible range + hide completed so a large process backlog
+      // never pages out today's tasks. We apply the user filter client-side so
+      // unassigned tasks the user created still show up under "Apenas os meus".
+      const taskParams = new URLSearchParams({
+        limit: '500',
+        is_completed: 'false',
+        due_from: startISO,
+        due_to: endISO,
       })
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Erro ${res.status}`)
+      const [eventsRes, tasksRes] = await Promise.all([
+        fetch(`/api/calendar/events?${params.toString()}`, { signal: controller.signal }),
+        fetch(`/api/tasks?${taskParams.toString()}`, { signal: controller.signal }),
+      ])
+
+      if (!eventsRes.ok) {
+        const body = await eventsRes.json().catch(() => ({}))
+        throw new Error(body.error || `Erro ${eventsRes.status}`)
       }
 
-      const json = await res.json()
+      const json = await eventsRes.json()
       const data: CalendarEvent[] = Array.isArray(json) ? json : (json.data ?? [])
-      setEvents(data)
+      // Tasks from /api/tasks now render in the calendar's task channel.
+      // Hide the event-flavoured process_task/process_subtask duplicates so
+      // process tasks only show up once (through the tasks pipe).
+      setEvents(data.filter((e) => e.category !== 'process_task' && e.category !== 'process_subtask'))
+
+      if (tasksRes.ok) {
+        const tJson = await tasksRes.json()
+        let tData: TaskWithRelations[] = tJson.data ?? []
+        // Apply the user filter client-side: include tasks the user owns
+        // (assigned_to === userId) OR created (created_by === userId).
+        if (userId) {
+          tData = tData.filter(
+            (t) => t.assigned_to === userId || t.created_by === userId,
+          )
+        }
+        setTasks(tData)
+      } else {
+        setTasks([])
+      }
     } catch (err: any) {
       if (err?.name === 'AbortError') return
       const message = err?.message || 'Erro ao carregar eventos'
@@ -168,13 +203,39 @@ export function useCalendarEvents({
     [fetchEvents]
   )
 
+  const toggleTaskComplete = useCallback(
+    async (taskId: string, isCompleted: boolean) => {
+      // Optimistic flip.
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, is_completed: !isCompleted } : t)),
+      )
+      try {
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_completed: !isCompleted }),
+        })
+        if (!res.ok) throw new Error()
+      } catch {
+        // Revert on failure.
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, is_completed: isCompleted } : t)),
+        )
+        toast.error('Não foi possível actualizar a tarefa')
+      }
+    },
+    [],
+  )
+
   return {
     events,
+    tasks,
     isLoading,
     error,
     refetch: fetchEvents,
     createEvent,
     updateEvent,
     deleteEvent,
+    toggleTaskComplete,
   }
 }

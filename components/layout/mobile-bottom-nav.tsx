@@ -27,18 +27,29 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: ['/dashboard/calendario', '/dashboard/objetivos'] },
-  { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: ['/dashboard/comunicacao', '/dashboard/whatsapp', '/dashboard/email'] },
-  { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: ['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos'] },
-  { key: 'crm', label: 'CRM', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/crm', '/dashboard/leads', '/dashboard/acompanhamentos'] },
-  { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: ['/dashboard/imoveis', '/dashboard/processos'] },
-  { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: ['/dashboard/comissoes'] },
-  { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: ['/dashboard/credito'] },
-  { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: ['/dashboard/recrutamento'] },
-  { key: 'loja', label: 'Loja', icon: Store, items: lojaItems, prefixes: ['/dashboard/marketing', '/dashboard/encomendas'] },
-  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: ['/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais'] },
-  { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: ['/dashboard/automacao'] },
+  { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: [] },
+  { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: [] },
+  { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: [] },
+  { key: 'crm', label: 'CRM', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/acompanhamentos'] },
+  { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: [] },
+  { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: [] },
+  { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: [] },
+  { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: [] },
+  { key: 'loja', label: 'Loja', icon: Store, items: lojaItems, prefixes: [] },
+  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: [] },
+  { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: [] },
 ]
+
+// Longest-prefix match across all sections. Items in different sections can
+// share URL prefixes (e.g. Marketing's `/dashboard/crm/analytics` lives under
+// CRM's `/dashboard/crm`), so scoring by match length picks the true owner.
+function pathMatchLen(href: string, path: string): number {
+  const clean = href.split('?')[0]
+  if (clean === '/dashboard') return path === '/dashboard' ? clean.length : 0
+  if (path === clean) return clean.length
+  if (path.startsWith(clean + '/')) return clean.length
+  return 0
+}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -71,10 +82,22 @@ export function MobileBottomNav() {
 
   const currentSectionKey = useMemo(() => {
     if (!pathname) return 'meu_espaco'
+    let best: { key: string; len: number } | null = null
     for (const section of SECTIONS) {
-      if (section.prefixes.some(p => pathname.startsWith(p))) return section.key
+      let sectionBest = 0
+      for (const it of section.items) {
+        const l = pathMatchLen(it.href, pathname)
+        if (l > sectionBest) sectionBest = l
+      }
+      for (const p of section.prefixes) {
+        const l = pathMatchLen(p, pathname)
+        if (l > sectionBest) sectionBest = l
+      }
+      if (sectionBest > 0 && (!best || sectionBest > best.len)) {
+        best = { key: section.key, len: sectionBest }
+      }
     }
-    return 'meu_espaco'
+    return best?.key ?? 'meu_espaco'
   }, [pathname])
 
   const [selectedSectionKey, setSelectedSectionKey] = useState(currentSectionKey)
@@ -84,16 +107,16 @@ export function MobileBottomNav() {
   const SectionIcon = currentSection.icon
 
   const activeItemIndex = useMemo(() => {
+    if (!pathname) return -1
     let bestIdx = -1
     let bestLen = 0
     currentSection.items.forEach((item, idx) => {
-      const href = item.href.split('?')[0]
-      if (pathname?.startsWith(href) && href.length > bestLen) {
-        bestLen = href.length
+      const l = pathMatchLen(item.href, pathname)
+      if (l > bestLen) {
+        bestLen = l
         bestIdx = idx
       }
     })
-    if (currentSection.key === 'meu_espaco' && pathname === '/dashboard') bestIdx = 0
     return bestIdx
   }, [pathname, currentSection])
 
@@ -156,21 +179,19 @@ export function MobileBottomNav() {
               const isSelected = s.key === selectedSectionKey
               const handleTap = () => {
                 if (s.key === selectedSectionKey) {
-                  // Tapped the already-selected section → just close; bubble
-                  // flies back to the left with current icon.
                   setSectionPopupOpen(false)
                   return
                 }
-                // Two-phase update: first let the bubble become the tapped
-                // section's pill (via layoutId transfer within the open strip),
-                // then close the picker on the next frame so the bubble flies
-                // from the tapped position to the left.
+                // Single batched update. The old selected pill holds the
+                // `layoutId="section-bubble"` and is scrolled to the centre of
+                // the open strip (via stripRefCallback). When the popup closes
+                // in the same render, Framer transfers the layoutId straight
+                // to the compact bubble on the left — animation arc is a clean
+                // centre → left, no detour to the tapped pill.
                 setSelectedSectionKey(s.key)
-                requestAnimationFrame(() => {
-                  setSectionPopupOpen(false)
-                  const href = s.items[0]?.href
-                  if (href) router.push(href)
-                })
+                setSectionPopupOpen(false)
+                const href = s.items[0]?.href
+                if (href) router.push(href)
               }
               const commonClass = cn(
                 'shrink-0 snap-center inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-xs font-medium whitespace-nowrap',

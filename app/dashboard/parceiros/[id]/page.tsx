@@ -27,11 +27,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { PartnerForm } from '@/components/partners/partner-form'
 
 // ─── Tab config ────────────────────────────────────────────────
@@ -48,6 +50,7 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 export default function PartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const isMobile = useIsMobile()
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
 
@@ -714,20 +717,41 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ═══ EDIT DIALOG ═══ */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar Parceiro</DialogTitle>
-          </DialogHeader>
-          <PartnerForm
-            partner={partner}
-            canSeePrivate={canSeePrivate}
-            onSubmit={handleUpdate}
-            onCancel={() => setShowEditDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* ═══ EDIT SHEET ═══ */}
+      <Sheet open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+            'bg-background',
+            isMobile
+              ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+              : 'w-full data-[side=right]:sm:max-w-[640px] sm:rounded-l-3xl',
+          )}
+        >
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+          )}
+          <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
+            <SheetHeader className="p-0 gap-0">
+              <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
+                Editar parceiro
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Edita os detalhes do parceiro.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pb-6">
+            <PartnerForm
+              partner={partner}
+              canSeePrivate={canSeePrivate}
+              onSubmit={handleUpdate}
+              onCancel={() => setShowEditDialog(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

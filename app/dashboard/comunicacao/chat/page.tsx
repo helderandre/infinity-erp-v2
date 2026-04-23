@@ -62,7 +62,10 @@ export default function ChatPage() {
 
   if (userLoading) {
     return (
-      <div className="flex h-full bg-background overflow-hidden">
+      <div
+      className="flex bg-background overflow-hidden"
+      style={{ height: 'calc(100% - var(--mobile-nav-height, 0px))' }}
+    >
         <div className="w-80 border-r p-4 space-y-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3">
@@ -82,7 +85,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-full bg-background overflow-hidden">
+    <div
+      className="flex bg-background overflow-hidden"
+      style={{ height: 'calc(100% - var(--mobile-nav-height, 0px))' }}
+    >
       {/* Desktop: persistent left sidebar with the conversation list */}
       <div className="hidden md:flex md:w-80 md:border-r shrink-0 flex-col">
         <ConversationList

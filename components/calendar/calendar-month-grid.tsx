@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { CalendarEvent } from '@/types/calendar'
+import type { TaskWithRelations } from '@/types/task'
 import {
   startOfMonth,
   endOfMonth,
@@ -14,13 +15,15 @@ import {
   format,
   parseISO,
 } from 'date-fns'
-import { CalendarEventCard } from './calendar-event-card'
+import { CalendarEventCard, CALENDAR_EVENT_BORDER_L } from './calendar-event-card'
 import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
+import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface CalendarMonthGridProps {
   currentDate: Date
   events: CalendarEvent[]
+  tasks?: TaskWithRelations[]
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
   onDayNumberClick?: (date: Date) => void
@@ -33,6 +36,7 @@ const MAX_VISIBLE_EVENTS = 3
 export function CalendarMonthGrid({
   currentDate,
   events,
+  tasks,
   onEventClick,
   onDayClick,
   onDayNumberClick,
@@ -62,6 +66,23 @@ export function CalendarMonthGrid({
     return map
   }, [events])
 
+  // Count active (non-completed) tasks per day so each cell can show a
+  // compact "X tarefas" pill without listing each one individually.
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!tasks?.length) return map
+    for (const t of tasks) {
+      if (!t.due_date || t.is_completed) continue
+      try {
+        const key = format(parseISO(t.due_date), 'yyyy-MM-dd')
+        map.set(key, (map.get(key) ?? 0) + 1)
+      } catch {
+        // ignore bad dates
+      }
+    }
+    return map
+  }, [tasks])
+
   const weeks = useMemo(() => {
     const result: Date[][] = []
     for (let i = 0; i < days.length; i += 7) {
@@ -73,13 +94,13 @@ export function CalendarMonthGrid({
   const MAX_MOBILE_EVENTS = 2
 
   return (
-    <div className="flex flex-col rounded-lg border overflow-hidden h-full">
-      {/* Header row */}
-      <div className="grid grid-cols-7 border-b bg-muted/40">
+    <div className="flex flex-col rounded-3xl border border-border/40 overflow-hidden h-full bg-background/50 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md shadow-sm">
+      {/* Header row — translucent, minimal */}
+      <div className="grid grid-cols-7 border-b border-border/30 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-sm">
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className="px-1 py-1 sm:py-2 text-center text-[10px] sm:text-xs font-medium text-muted-foreground sm:px-2"
+            className="px-1 py-2 sm:py-2.5 text-center text-[10px] sm:text-[11px] font-medium text-muted-foreground/80 tracking-wide sm:px-2"
           >
             <span className="hidden sm:inline">{label}</span>
             <span className="sm:hidden">{WEEKDAY_LABELS_SHORT[i]}</span>
@@ -87,12 +108,19 @@ export function CalendarMonthGrid({
         ))}
       </div>
 
-      {/* Weeks */}
+      {/* Weeks — soft dividers, no outer border */}
       {weeks.map((week, weekIdx) => (
-        <div key={weekIdx} className="grid grid-cols-7 flex-1 min-h-0">
-          {week.map((day) => {
+        <div
+          key={weekIdx}
+          className={cn(
+            'grid grid-cols-7 flex-1 min-h-0',
+            weekIdx > 0 && 'border-t border-border/50',
+          )}
+        >
+          {week.map((day, dayIdx) => {
             const key = format(day, 'yyyy-MM-dd')
             const dayEvents = eventsByDay.get(key) ?? []
+            const dayTaskCount = tasksByDay.get(key) ?? 0
             const isCurrentMonth = isSameMonth(day, currentDate)
             const today = isToday(day)
             const extraCount = dayEvents.length - MAX_VISIBLE_EVENTS
@@ -102,8 +130,11 @@ export function CalendarMonthGrid({
               <div
                 key={key}
                 className={cn(
-                  'border-b border-r p-0.5 sm:p-1.5 transition-colors cursor-pointer hover:bg-muted/20 overflow-hidden flex flex-col',
-                  !isCurrentMonth && 'bg-muted/5 opacity-40',
+                  'p-1 sm:p-1.5 transition-colors cursor-pointer overflow-hidden flex flex-col',
+                  'hover:bg-muted/30',
+                  dayIdx > 0 && 'border-l border-border/50',
+                  !isCurrentMonth && 'opacity-35',
+                  today && 'bg-primary/[0.04]',
                 )}
                 onClick={() => onDayClick(day)}
               >
@@ -112,12 +143,11 @@ export function CalendarMonthGrid({
                   <button
                     type="button"
                     className={cn(
-                      'flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-md text-[10px] sm:text-xs font-medium transition-colors',
-                      today && 'bg-primary text-primary-foreground font-bold',
-                      !today && dayEvents.length > 0 && isCurrentMonth && 'bg-muted/80 font-semibold',
-                      !today && dayEvents.length === 0 && isCurrentMonth && 'text-foreground',
-                      !today && !isCurrentMonth && 'text-muted-foreground',
-                      'hover:ring-1 hover:ring-primary/40',
+                      'flex h-6 w-6 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[11px] sm:text-xs font-medium transition-all',
+                      today && 'bg-foreground text-background font-semibold shadow-sm',
+                      !today && dayEvents.length > 0 && isCurrentMonth && 'text-foreground font-semibold hover:bg-muted/60',
+                      !today && dayEvents.length === 0 && isCurrentMonth && 'text-foreground/70 hover:bg-muted/60',
+                      !today && !isCurrentMonth && 'text-muted-foreground/50 hover:bg-muted/40',
                     )}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -145,7 +175,7 @@ export function CalendarMonthGrid({
                     ))}
                     {extraCount > 0 && (
                       <button
-                        className="w-full text-left px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        className="w-full text-left px-2 py-0.5 text-[10.5px] text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
                         onClick={(e) => {
                           e.stopPropagation()
                           onDayClick(day)
@@ -155,7 +185,7 @@ export function CalendarMonthGrid({
                       </button>
                     )}
                   </div>
-                  {/* Mobile: colored bars with text */}
+                  {/* Mobile: tinted pills with solid colored left strip */}
                   <div className="sm:hidden space-y-0.5">
                     {dayEvents.slice(0, MAX_MOBILE_EVENTS).map((event) => {
                       const colors = CALENDAR_CATEGORY_COLORS[event.category]
@@ -163,7 +193,7 @@ export function CalendarMonthGrid({
                         <div
                           key={event.id}
                           className={cn(
-                            'flex items-center gap-0.5 rounded-sm px-1 py-[2px] text-[9px] leading-tight truncate cursor-pointer',
+                            'flex items-stretch rounded-md overflow-hidden cursor-pointer transition-opacity hover:opacity-80',
                             colors?.bg || 'bg-primary/15',
                             colors?.text || 'text-primary',
                           )}
@@ -172,18 +202,38 @@ export function CalendarMonthGrid({
                             onEventClick(event)
                           }}
                         >
-                          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', colors?.dot || 'bg-primary')} />
-                          <span className="truncate font-medium">{event.title}</span>
+                          <span className={cn('w-[2px] shrink-0', colors?.dot || 'bg-primary')} />
+                          <span className="flex-1 min-w-0 truncate font-medium px-1 py-[2px] text-[9px] leading-tight">
+                            {event.title}
+                          </span>
                         </div>
                       )
                     })}
                     {mobileExtra > 0 && (
-                      <p className="text-[8px] text-muted-foreground text-center leading-none">
+                      <p className="text-[8px] text-muted-foreground/70 text-center leading-none">
                         +{mobileExtra}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Tasks count pill — anchored at bottom */}
+                {dayTaskCount > 0 && (
+                  <button
+                    type="button"
+                    className="mt-1 shrink-0 inline-flex items-center gap-1 self-start rounded-full bg-muted/60 hover:bg-muted px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[10.5px] font-medium text-muted-foreground transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDayClick(day)
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span className="tabular-nums">{dayTaskCount}</span>
+                    <span className="hidden sm:inline">
+                      {dayTaskCount === 1 ? 'tarefa' : 'tarefas'}
+                    </span>
+                  </button>
+                )}
               </div>
             )
           })}

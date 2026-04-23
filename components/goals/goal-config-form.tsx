@@ -35,6 +35,7 @@ import { toast } from 'sonner'
 import { goalBaseSchema, type CreateGoalInput } from '@/lib/validations/goal'
 import { formatCurrency } from '@/lib/constants'
 import type { ConsultantGoal } from '@/types/goal'
+import { GoalQuickFill } from './goal-quick-fill'
 
 interface Suggestion {
   value: number
@@ -64,9 +65,33 @@ interface GoalConfigFormProps {
   consultants: { id: string; commercial_name: string }[]
   initialData?: ConsultantGoal
   goalId?: string
+  onSuccess?: (id: string) => void
+  onCancel?: () => void
+  enableQuickFill?: boolean
 }
 
-export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigFormProps) {
+const QUICK_FILL_KEYS = new Set<keyof CreateGoalInput>([
+  'consultant_id',
+  'year',
+  'annual_revenue_target',
+  'pct_sellers',
+  'pct_buyers',
+  'working_weeks_year',
+  'working_days_week',
+  'sellers_avg_sale_value',
+  'sellers_avg_commission_pct',
+  'sellers_pct_listings_sold',
+  'sellers_pct_visit_to_listing',
+  'sellers_pct_lead_to_visit',
+  'sellers_avg_calls_per_lead',
+  'buyers_avg_purchase_value',
+  'buyers_avg_commission_pct',
+  'buyers_close_rate',
+  'buyers_pct_lead_to_qualified',
+  'buyers_avg_calls_per_lead',
+])
+
+export function GoalConfigForm({ consultants, initialData, goalId, onSuccess, onCancel, enableQuickFill }: GoalConfigFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null)
@@ -189,7 +214,12 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
 
       const json = await res.json()
       toast.success(isEdit ? 'Objetivo atualizado com sucesso' : 'Objetivo criado com sucesso')
-      router.push(`/dashboard/objetivos/${isEdit ? goalId : json.id}`)
+      const resolvedId = isEdit ? goalId! : json.id
+      if (onSuccess) {
+        onSuccess(resolvedId)
+      } else {
+        router.push(`/dashboard/objetivos/${resolvedId}`)
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao guardar objetivo')
     } finally {
@@ -286,9 +316,32 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
     )
   }
 
+  const applyAiFields = (fields: Record<string, unknown>) => {
+    for (const [rawKey, rawValue] of Object.entries(fields)) {
+      if (rawValue === null || rawValue === undefined || rawValue === '') continue
+      const key = rawKey as keyof CreateGoalInput
+      if (!QUICK_FILL_KEYS.has(key)) continue
+
+      if (key === 'consultant_id') {
+        if (isEdit) continue
+        const match = consultants.find((c) => c.id === rawValue)
+        if (!match) continue
+        form.setValue('consultant_id', match.id, { shouldValidate: true, shouldDirty: true })
+        continue
+      }
+
+      const numeric = typeof rawValue === 'number' ? rawValue : Number(rawValue)
+      if (Number.isFinite(numeric)) {
+        form.setValue(key as any, numeric as any, { shouldValidate: true, shouldDirty: true })
+      }
+    }
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {enableQuickFill && <GoalQuickFill onApply={applyAiFields} />}
+
         {/* Base Config */}
         <Card>
           <CardHeader>
@@ -481,7 +534,7 @@ export function GoalConfigForm({ consultants, initialData, goalId }: GoalConfigF
         )}
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button type="button" variant="outline" onClick={() => (onCancel ? onCancel() : router.back())}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isSubmitting}>

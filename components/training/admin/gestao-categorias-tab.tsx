@@ -12,13 +12,16 @@ import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from '@/components/ui/table'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import type { TrainingCategory } from '@/types/training'
 
 export function GestaoCategoriasTab() {
+  const isMobile = useIsMobile()
   const [categories, setCategories] = useState<TrainingCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -127,30 +130,51 @@ export function GestaoCategoriasTab() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome</Label>
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+            'bg-background',
+            isMobile
+              ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+              : 'w-full data-[side=right]:sm:max-w-[468px] sm:rounded-l-3xl',
+          )}
+        >
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+          )}
+          <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
+            <SheetHeader className="p-0 gap-0">
+              <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
+                {editingId ? 'Editar categoria' : 'Nova categoria'}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Detalhes da categoria.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-1 pb-8 space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
               <Input
                 value={formData.name}
                 onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
                 placeholder="Ex: Comercial"
+                className="rounded-xl"
               />
             </div>
-            <div>
-              <Label>Descrição</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Descrição</Label>
               <Textarea
                 value={formData.description}
                 onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
                 rows={3}
+                className="rounded-xl"
               />
             </div>
-            <div>
-              <Label>Cor</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Cor</Label>
               <div className="flex gap-2 mt-2">
                 {colorOptions.map(color => (
                   <button
@@ -163,15 +187,15 @@ export function GestaoCategoriasTab() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+          <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background border-t border-border/50">
+            <Button variant="outline" size="sm" className="rounded-full flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" className="rounded-full flex-1" onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Guardar
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

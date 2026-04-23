@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -244,6 +245,7 @@ function DataCards({ data, onNavigate }: { data: ToolResult[]; onNavigate: (path
 export function AiAgentChat() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -346,16 +348,29 @@ export function AiAgentChat() {
       <SheetTrigger asChild>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-muted/50 transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
         >
           <Infinity className="size-4" />
           <span className="sr-only">Assistente IA</span>
         </button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[80vh] max-h-[700px] flex flex-col p-0 !rounded-t-3xl">
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        style={{ '--muted-foreground': 'oklch(0.32 0 0)' } as React.CSSProperties}
+        className={cn(
+          'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+          'bg-background supports-[backdrop-filter]:bg-background/90 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+        )}
+
         {/* Header */}
-        <SheetHeader className="shrink-0 px-5 pt-3 pb-4">
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/20 mx-auto mb-3" />
+        <SheetHeader className="shrink-0 px-6 pt-8 pb-4 sm:pt-10 gap-1">
           <SheetTitle className="text-center text-sm font-medium italic text-muted-foreground">
             Infinitas possibilidades, basta perguntar
           </SheetTitle>

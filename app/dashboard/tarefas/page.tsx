@@ -3,7 +3,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { CheckSquare, AlertTriangle, Clock, Zap, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
+import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -90,7 +90,7 @@ function TarefasPageInner() {
   const refetch = listId
     ? listTab.refetch
     : activeTab === 'personal' ? personalTab.refetch : processTab.refetch
-  const { stats, isLoading: statsLoading, refetch: refetchStats } = useTaskStats()
+  const { refetch: refetchStats } = useTaskStats()
   const { toggleComplete } = useTaskMutations()
 
   useEffect(() => {
@@ -218,14 +218,6 @@ function TarefasPageInner() {
 
   return (
     <div className="space-y-4">
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <StatsCard icon={<Clock className="size-4" strokeWidth={1.75} />} label="Pendentes" value={stats?.pending} isLoading={statsLoading} color="neutral" />
-        <StatsCard icon={<AlertTriangle className="size-4" strokeWidth={1.75} />} label="Em atraso" value={stats?.overdue} isLoading={statsLoading} color="red" />
-        <StatsCard icon={<CheckSquare className="size-4" strokeWidth={1.75} />} label="Hoje" value={stats?.completed_today} isLoading={statsLoading} color="emerald" />
-        <StatsCard icon={<Zap className="size-4" strokeWidth={1.75} />} label="Urgentes" value={stats?.urgent} isLoading={statsLoading} color="orange" />
-      </div>
-
       {/* Single header row: switcher + tabs + list actions (when in a list) */}
       <div className="flex items-center gap-2 flex-wrap">
         <TaskListSwitcher
@@ -672,57 +664,6 @@ function ListInlineActions({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
-}
-
-// ─── Stats Card ──────────────────────────────────────────────
-
-const STAT_COLORS = {
-  neutral: { iconBg: 'bg-muted/70 dark:bg-neutral-800/60', icon: 'text-foreground/65', value: '' },
-  red: { iconBg: 'bg-red-50 dark:bg-red-950/30', icon: 'text-red-600 dark:text-red-400', value: 'text-red-600 dark:text-red-400' },
-  emerald: { iconBg: 'bg-emerald-50 dark:bg-emerald-950/30', icon: 'text-emerald-600 dark:text-emerald-400', value: 'text-emerald-600 dark:text-emerald-400' },
-  orange: { iconBg: 'bg-orange-50 dark:bg-orange-950/30', icon: 'text-orange-600 dark:text-orange-400', value: 'text-orange-600 dark:text-orange-400' },
-} as const
-
-function StatsCard({
-  icon,
-  label,
-  value,
-  isLoading,
-  color = 'neutral',
-}: {
-  icon: React.ReactNode
-  label: string
-  value?: number
-  isLoading: boolean
-  color?: keyof typeof STAT_COLORS
-}) {
-  const c = STAT_COLORS[color]
-  const hasValue = (value ?? 0) > 0
-
-  return (
-    <div
-      className={cn(
-        'group rounded-2xl bg-card px-3.5 py-3 flex items-center gap-2.5 transition-all duration-200',
-        'shadow-[0_2px_10px_-2px_rgba(15,23,42,0.06),0_1px_3px_-1px_rgba(15,23,42,0.04)]',
-        'hover:shadow-[0_6px_20px_-4px_rgba(15,23,42,0.1),0_2px_6px_-2px_rgba(15,23,42,0.05)]',
-        'hover:-translate-y-[1px]',
-      )}
-    >
-      <div className={cn('size-8 rounded-full flex items-center justify-center shrink-0 transition-colors', c.iconBg, c.icon)}>
-        {icon}
-      </div>
-      <div className="flex flex-col min-w-0 leading-tight">
-        {isLoading ? (
-          <Skeleton className="h-4 w-6" />
-        ) : (
-          <span className={cn('text-base font-semibold tabular-nums tracking-tight', hasValue ? c.value : 'text-muted-foreground/50')}>
-            {value ?? 0}
-          </span>
-        )}
-        <span className="text-[0.65rem] text-muted-foreground truncate">{label}</span>
-      </div>
-    </div>
   )
 }
 

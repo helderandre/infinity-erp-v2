@@ -19,12 +19,84 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import type { VoiceToolName } from '@/lib/voice/tools'
 import {
+  LEAD_SOURCE_OPTIONS,
   TOOL_CONFIGS,
   getMissingRequired,
   isRequiredField,
+  parseEntityFromPath,
+  propertyRowToResult,
+  type EntityContext,
   type FieldConfig,
+  type PropertyBasket,
+  type VoiceSearchRecipient,
   type VoiceSearchResult,
 } from '@/lib/voice/tool-configs'
+import { renderPropertyGrid } from '@/lib/email/property-card-html'
+import { wrapEmailHtml } from '@/lib/email-renderer'
+
+// ── Shared consultants cache ──────────────────────────────────────────────
+// Module-level so mounting multiple overlays / batch rows reuses the same
+// fetch; one-time warm load per session.
+type Consultant = { id: string; commercial_name: string }
+let consultantsCache: Consultant[] | null = null
+let consultantsPromise: Promise<Consultant[]> | null = null
+
+function loadConsultants(): Promise<Consultant[]> {
+  if (consultantsCache) return Promise.resolve(consultantsCache)
+  if (consultantsPromise) return consultantsPromise
+  consultantsPromise = fetch('/api/users/consultants')
+    .then((r) => (r.ok ? r.json() : []))
+    .then((data) => {
+      const list = Array.isArray(data) ? data : data?.data || []
+      const normalized: Consultant[] = list.map((c: any) => ({
+        id: String(c.id),
+        commercial_name: String(c.commercial_name ?? ''),
+      }))
+      consultantsCache = normalized
+      return normalized
+    })
+    .catch(() => {
+      consultantsCache = []
+      return [] as Consultant[]
+    })
+  return consultantsPromise
+}
+
+function useConsultants(): { consultants: Consultant[]; loaded: boolean } {
+  const [consultants, setConsultants] = useState<Consultant[]>(consultantsCache ?? [])
+  const [loaded, setLoaded] = useState<boolean>(consultantsCache !== null)
+  useEffect(() => {
+    if (consultantsCache) return
+    let cancelled = false
+    loadConsultants().then((list) => {
+      if (cancelled) return
+      setConsultants(list)
+      setLoaded(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return { consultants, loaded }
+}
+
+/** Fuzzy-match a free-form consultant name (from voice) to a known consultant. */
+function resolveConsultantByName(
+  name: string | undefined | null,
+  list: Consultant[]
+): Consultant | null {
+  const needle = String(name ?? '').toLowerCase().trim()
+  if (!needle || list.length === 0) return null
+  return (
+    list.find((c) => c.commercial_name.toLowerCase() === needle) ||
+    list.find((c) => c.commercial_name.toLowerCase().includes(needle)) ||
+    list.find((c) => {
+      const first = c.commercial_name.toLowerCase().split(' ')[0]
+      return first ? needle.includes(first) : false
+    }) ||
+    null
+  )
+}
 
 type VoiceState =
   | 'idle'
@@ -52,6 +124,7 @@ export function AiVoiceAssistant() {
   const [errorMessage, setErrorMessage] = useState('')
   const [amplitude, setAmplitude] = useState(0)
   const [searchResults, setSearchResults] = useState<VoiceSearchResult[] | null>(null)
+  const [basket, setBasket] = useState<PropertyBasket | null>(null)
 
   const router = useRouter()
   const pathname = usePathname()
@@ -140,9 +213,26 @@ export function AiVoiceAssistant() {
           return
         }
 
+        // Normalise tool-specific shortcuts the model may use. The textarea
+        // expects a newline-joined string — voice returns an array.
+        const rawArgs = { ...(data.args || {}) }
+        if (toolName === 'send_property') {
+          const existingText = String(rawArgs.property_queries_text ?? '').trim()
+          const queries = Array.isArray(rawArgs.property_queries)
+            ? rawArgs.property_queries.map((q: unknown) => String(q).trim()).filter(Boolean)
+            : []
+          if (!existingText && queries.length > 0) {
+            rawArgs.property_queries_text = queries.join('\n')
+          }
+          // Keep legacy property_query working: fold it into queries_text.
+          if (!existingText && queries.length === 0 && rawArgs.property_query) {
+            rawArgs.property_queries_text = String(rawArgs.property_query)
+          }
+        }
+
         setIntent({
           tool: toolName,
-          args: data.args || {},
+          args: rawArgs,
           confirmText: data.confirmText || TOOL_CONFIGS[toolName].title,
           confidence: data.confidence ?? null,
         })
@@ -225,6 +315,7 @@ export function AiVoiceAssistant() {
     setErrorMessage('')
     setAmplitude(0)
     setSearchResults(null)
+    setBasket(null)
   }, [cleanupAudio])
 
   const close = useCallback(() => {
@@ -238,6 +329,25 @@ export function AiVoiceAssistant() {
     setErrorMessage('')
   }, [])
 
+  // Resolve a voice-captured consultant name to an id for create_lead once
+  // the consultants list is warm. Batch-row resolution happens inside
+  // BatchLeadsList itself, close to where the rows live.
+  useEffect(() => {
+    if (!intent || intent.tool !== 'create_lead') return
+    const name = intent.args.assigned_consultant_name
+    const id = intent.args.assigned_consultant_id
+    if (!name || id) return
+    let cancelled = false
+    loadConsultants().then((list) => {
+      if (cancelled) return
+      const match = resolveConsultantByName(String(name), list)
+      if (match) handleArgChange('assigned_consultant_id', match.id)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [intent, handleArgChange])
+
   const handleSubmit = useCallback(async () => {
     if (!intent) return
     const cfg = TOOL_CONFIGS[intent.tool]
@@ -249,7 +359,17 @@ export function AiVoiceAssistant() {
     setErrorMessage('')
     setState('submitting')
     try {
-      const result = await cfg.submit(intent.args, { router, userId: user?.id })
+      const entity = parseEntityFromPath(pathname)
+      const result = await cfg.submit(intent.args, {
+        router,
+        userId: user?.id,
+        entity,
+      })
+      if (result.basket) {
+        setBasket(result.basket)
+        setState('results')
+        return
+      }
       if (result.results) {
         setSearchResults(result.results)
         setState('results')
@@ -262,7 +382,7 @@ export function AiVoiceAssistant() {
       setState('reviewing')
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao submeter. Corrige ou continua a falar.')
     }
-  }, [intent, router, close, user?.id])
+  }, [intent, router, close, user?.id, pathname])
 
   const handleDraftSave = useCallback(async () => {
     if (!intent) return
@@ -272,7 +392,12 @@ export function AiVoiceAssistant() {
     setErrorMessage('')
     setState('submitting')
     try {
-      const result = await cfg.draft.submit(intent.args, { router, userId: user?.id })
+      const entity = parseEntityFromPath(pathname)
+      const result = await cfg.draft.submit(intent.args, {
+        router,
+        userId: user?.id,
+        entity,
+      })
       toast.success(result.message || 'Rascunho guardado')
       setState('done')
       setTimeout(close, 450)
@@ -280,7 +405,7 @@ export function AiVoiceAssistant() {
       setState('reviewing')
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao guardar rascunho.')
     }
-  }, [intent, router, close, user?.id])
+  }, [intent, router, close, user?.id, pathname])
 
   // Global trigger
   useEffect(() => {
@@ -313,9 +438,10 @@ export function AiVoiceAssistant() {
 
   if (!open) return null
 
-  const showResults = state === 'results' && searchResults !== null
-  const showReview = !showResults && intent !== null
-  const showFullMic = !intent && !showResults
+  const showBasket = state === 'results' && basket !== null
+  const showResults = state === 'results' && searchResults !== null && !showBasket
+  const showReview = !showResults && !showBasket && intent !== null
+  const showFullMic = !intent && !showResults && !showBasket
   const isRecording = state === 'recording'
   const isBusy = state === 'processing' || state === 'requesting_mic' || state === 'submitting'
 
@@ -352,6 +478,25 @@ export function AiVoiceAssistant() {
               <p className="mt-4 text-sm text-white/70 italic">"{transcript}"</p>
             )}
           </>
+        ) : showBasket ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <BasketPanel
+              basket={basket!}
+              defaultMessage={basket!.defaultMessage ?? ''}
+              onBack={() => {
+                setBasket(null)
+                setState('reviewing')
+              }}
+              onClose={close}
+            />
+          </>
         ) : showResults ? (
           <>
             <SmallStatus
@@ -382,6 +527,7 @@ export function AiVoiceAssistant() {
             />
             <ReviewPanel
               intent={intent!}
+              entity={parseEntityFromPath(pathname)}
               isRecording={isRecording}
               isBusy={isBusy}
               errorMessage={errorMessage}
@@ -549,8 +695,15 @@ function StateLabel({ state, errorMessage }: { state: VoiceState; errorMessage: 
   )
 }
 
+const ENTITY_LINKED_TOOLS: VoiceToolName[] = [
+  'create_todo',
+  'create_reminder',
+  'create_call_log',
+]
+
 function ReviewPanel({
   intent,
+  entity,
   isRecording,
   isBusy,
   errorMessage,
@@ -560,6 +713,7 @@ function ReviewPanel({
   onArgChange,
 }: {
   intent: Intent
+  entity: EntityContext | null
   isRecording: boolean
   isBusy: boolean
   errorMessage: string
@@ -591,6 +745,14 @@ function ReviewPanel({
       }[intent.confidence]
     : null
 
+  const showEntityHint = entity && ENTITY_LINKED_TOOLS.includes(intent.tool)
+  const entityTypeLabel: Record<EntityContext['type'], string> = {
+    lead: 'este contacto',
+    negocio: 'este negócio',
+    property: 'este imóvel',
+    process: 'este processo',
+  }
+
   return (
     <div className="mt-6 rounded-2xl bg-white/10 border border-white/20 p-5 text-left backdrop-blur">
       <div className="flex items-start justify-between gap-3">
@@ -601,6 +763,13 @@ function ReviewPanel({
           </span>
         )}
       </div>
+
+      {showEntityHint && entity && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 ring-1 ring-sky-500/30 px-2.5 py-1 text-[11px] text-sky-100">
+          <User className="h-3 w-3" />
+          Será associado a {entityTypeLabel[entity.type]}
+        </div>
+      )}
 
       {errorMessage && (
         <div className="mt-4 rounded-lg bg-red-500/20 ring-1 ring-red-500/40 px-3 py-2.5 text-xs text-red-100 flex items-start gap-2">
@@ -685,6 +854,15 @@ function ReviewPanel({
 
 // ── Batch leads list ──────────────────────────────────────────────────────
 
+type BatchLeadRow = {
+  nome?: string
+  telemovel?: string
+  email?: string
+  source?: string
+  assigned_consultant_id?: string
+  assigned_consultant_name?: string
+}
+
 function BatchLeadsList({
   args,
   onArgChange,
@@ -692,48 +870,43 @@ function BatchLeadsList({
   args: Record<string, any>
   onArgChange: (key: string, value: unknown) => void
 }) {
-  const leads: Array<{ nome?: string; telemovel?: string; email?: string }> =
-    Array.isArray(args.leads) ? args.leads : []
+  const leads: BatchLeadRow[] = Array.isArray(args.leads) ? args.leads : []
+  const { consultants } = useConsultants()
 
-  const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
-  const consultantsLoadedRef = useRef(false)
-
-  // Fetch consultants once on mount
-  useEffect(() => {
-    fetch('/api/users/consultants')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data?.data || []
-        setConsultants(
-          list.map((c: any) => ({ id: String(c.id), commercial_name: String(c.commercial_name ?? '') }))
-        )
-      })
-      .catch(() => {})
-      .finally(() => {
-        consultantsLoadedRef.current = true
-      })
-  }, [])
-
-  // Fuzzy-match the voice-provided consultant name to a real consultant ID once
-  // the consultant list loads.
+  // Fuzzy-match the batch-level consultant name → id once the list loads.
   useEffect(() => {
     if (args.assigned_consultant_id) return
     if (!args.assigned_consultant_name) return
     if (consultants.length === 0) return
-    const needle = String(args.assigned_consultant_name).toLowerCase().trim()
-    if (!needle) return
-    const match =
-      consultants.find((c) => c.commercial_name.toLowerCase() === needle) ||
-      consultants.find((c) => c.commercial_name.toLowerCase().includes(needle)) ||
-      consultants.find((c) => needle.includes(c.commercial_name.toLowerCase().split(' ')[0] || ''))
-    if (match) {
-      onArgChange('assigned_consultant_id', match.id)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const match = resolveConsultantByName(args.assigned_consultant_name, consultants)
+    if (match) onArgChange('assigned_consultant_id', match.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultants, args.assigned_consultant_name])
 
-  const update = (idx: number, field: 'nome' | 'telemovel' | 'email', value: string) => {
-    const next = leads.map((l, i) => (i === idx ? { ...l, [field]: value } : l))
+  // Fuzzy-match per-row consultant names → ids (for when GPT placed the
+  // name directly on the lead entry rather than at the batch level).
+  useEffect(() => {
+    if (consultants.length === 0) return
+    let changed = false
+    const next = leads.map((l) => {
+      if (l.assigned_consultant_id || !l.assigned_consultant_name) return l
+      const match = resolveConsultantByName(l.assigned_consultant_name, consultants)
+      if (!match) return l
+      changed = true
+      return { ...l, assigned_consultant_id: match.id }
+    })
+    if (changed) onArgChange('leads', next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultants, leads.length])
+
+  const update = (
+    idx: number,
+    field: keyof BatchLeadRow,
+    value: string | undefined
+  ) => {
+    const next = leads.map((l, i) =>
+      i === idx ? { ...l, [field]: value === '' ? undefined : value } : l
+    )
     onArgChange('leads', next)
   }
   const remove = (idx: number) => {
@@ -747,35 +920,57 @@ function BatchLeadsList({
     'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-8 text-sm'
 
   const assignedId = args.assigned_consultant_id ? String(args.assigned_consultant_id) : ''
+  const defaultSource = args.default_source ? String(args.default_source) : ''
+  const defaultSourceLabel =
+    LEAD_SOURCE_OPTIONS.find((o) => o.value === defaultSource)?.label || 'igual ao grupo'
+  const defaultAssigneeLabel = assignedId
+    ? consultants.find((c) => c.id === assignedId)?.commercial_name || 'igual ao grupo'
+    : 'igual ao grupo'
 
   return (
     <div className="space-y-3">
-      {/* Shared assignee for the whole batch */}
-      <div className="flex items-center gap-3 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
-        <label className="w-[110px] shrink-0 text-xs text-white/60">Atribuir a</label>
-        <div className="flex-1 min-w-0" data-no-long-press>
-          <Select
-            value={assignedId}
-            onValueChange={(v) => onArgChange('assigned_consultant_id', v)}
-          >
-            <SelectTrigger className={cn(inputCls, 'w-full')} data-no-long-press>
-              <SelectValue placeholder="—" />
-            </SelectTrigger>
-            <SelectContent
-              position="popper"
-              sideOffset={4}
-              className="z-[300] max-h-[min(18rem,60vh)]"
-              data-no-long-press
+      {/* Shared defaults for the whole batch */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
+          <label className="w-[72px] shrink-0 text-xs text-white/60">Atribuir a</label>
+          <div className="flex-1 min-w-0" data-no-long-press>
+            <ConsultantSelect
+              value={assignedId}
+              onChange={(v) => onArgChange('assigned_consultant_id', v)}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
+          <label className="w-[72px] shrink-0 text-xs text-white/60">Origem</label>
+          <div className="flex-1 min-w-0" data-no-long-press>
+            <Select
+              value={defaultSource}
+              onValueChange={(v) => onArgChange('default_source', v)}
             >
-              {consultants.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.commercial_name || c.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger className={cn(inputCls, 'w-full')} data-no-long-press>
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                sideOffset={4}
+                className="z-[300] max-h-[min(18rem,60vh)]"
+                data-no-long-press
+              >
+                {LEAD_SOURCE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
+
+      <p className="text-[11px] text-white/40 px-1">
+        Os valores acima aplicam-se a todos os leads. Podes sobrepor individualmente em cada linha abaixo.
+      </p>
 
       {leads.length === 0 && (
         <div className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/25 px-3 py-3 text-xs text-amber-200/80">
@@ -785,6 +980,10 @@ function BatchLeadsList({
 
       {leads.map((lead, i) => {
         const missing = !lead.nome || !String(lead.nome).trim()
+        const rowSource = lead.source ? String(lead.source) : ''
+        const rowAssignee = lead.assigned_consultant_id
+          ? String(lead.assigned_consultant_id)
+          : ''
         return (
           <div
             key={i}
@@ -794,20 +993,68 @@ function BatchLeadsList({
             )}
           >
             <span className="w-5 shrink-0 pt-2 text-center text-xs text-white/40">{i + 1}</span>
-            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <Input
-                value={lead.nome ?? ''}
-                onChange={(e) => update(i, 'nome', e.target.value)}
-                placeholder="Nome *"
-                className={inputCls}
-              />
-              <Input
-                value={lead.telemovel ?? ''}
-                onChange={(e) => update(i, 'telemovel', e.target.value)}
-                placeholder="Telemóvel"
-                inputMode="tel"
-                className={inputCls}
-              />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <Input
+                  value={lead.nome ?? ''}
+                  onChange={(e) => update(i, 'nome', e.target.value)}
+                  placeholder="Nome *"
+                  className={inputCls}
+                />
+                <Input
+                  value={lead.telemovel ?? ''}
+                  onChange={(e) => update(i, 'telemovel', e.target.value)}
+                  placeholder="Telemóvel"
+                  inputMode="tel"
+                  className={inputCls}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <div data-no-long-press>
+                  <Select
+                    value={rowSource}
+                    onValueChange={(v) => update(i, 'source', v)}
+                  >
+                    <SelectTrigger className={cn(inputCls, 'w-full')} data-no-long-press>
+                      <SelectValue placeholder={`Origem (${defaultSourceLabel})`} />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={4}
+                      className="z-[300] max-h-[min(18rem,60vh)]"
+                      data-no-long-press
+                    >
+                      {LEAD_SOURCE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div data-no-long-press>
+                  <Select
+                    value={rowAssignee}
+                    onValueChange={(v) => update(i, 'assigned_consultant_id', v)}
+                  >
+                    <SelectTrigger className={cn(inputCls, 'w-full')} data-no-long-press>
+                      <SelectValue placeholder={`Consultor (${defaultAssigneeLabel})`} />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={4}
+                      className="z-[300] max-h-[min(18rem,60vh)]"
+                      data-no-long-press
+                    >
+                      {consultants.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.commercial_name || c.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             <button
               type="button"
@@ -1022,6 +1269,582 @@ function CardAction({
   )
 }
 
+// ── Basket panel (multi-property send) ───────────────────────────────────
+//
+// Opens after send_property returns with a list of properties already
+// pre-selected (best match per voice query). User can:
+//  - remove properties from the basket
+//  - add more via text search or voice (mic → transcribe → best match)
+//  - pick suggestions surfaced from the initial searches
+//  - manage recipients (chips)
+//  - hit "Enviar por WhatsApp" → one text per property per recipient, so
+//    each URL gets its own OG preview in WhatsApp
+//  - hit "Enviar por Email" → single email per recipient with the Outlook-
+//    safe grid rendered by renderPropertyGrid()
+
+function BasketPanel({
+  basket,
+  defaultMessage,
+  onBack,
+  onClose,
+}: {
+  basket: PropertyBasket
+  defaultMessage: string
+  onBack: () => void
+  onClose: () => void
+}) {
+  const [selected, setSelected] = useState<VoiceSearchResult[]>(basket.selected)
+  const [suggestions, setSuggestions] = useState<VoiceSearchResult[]>(basket.suggestions)
+  const [recipients, setRecipients] = useState<ContactMatch[]>(
+    (basket.recipients as ContactMatch[]) ?? []
+  )
+  const [recipientQuery, setRecipientQuery] = useState('')
+  const [recipientMatches, setRecipientMatches] = useState<ContactMatch[]>([])
+  const [propertyQuery, setPropertyQuery] = useState('')
+  const [propertyMatches, setPropertyMatches] = useState<VoiceSearchResult[]>([])
+  const [searchingProps, setSearchingProps] = useState(false)
+  const [message, setMessage] = useState(defaultMessage)
+  const [subject, setSubject] = useState('Imóveis que podem interessar')
+  const [channel, setChannel] = useState<'whatsapp' | 'email'>('whatsapp')
+  const [sending, setSending] = useState(false)
+
+  // Voice refinement inside the basket.
+  const [voiceState, setVoiceState] = useState<
+    'idle' | 'recording' | 'processing'
+  >('idle')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  // Recipient autocomplete (debounced).
+  useEffect(() => {
+    const q = recipientQuery.trim()
+    if (q.length < 2) {
+      setRecipientMatches([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/leads?nome=${encodeURIComponent(q)}&limit=8`)
+        if (!r.ok) return
+        const d = await r.json()
+        const arr: any[] = Array.isArray(d) ? d : d?.data || []
+        setRecipientMatches(
+          arr.map((l: any) => ({
+            id: String(l.id),
+            nome: String(l.nome ?? ''),
+            telemovel: l.telemovel ? String(l.telemovel) : undefined,
+            email: l.email ? String(l.email) : undefined,
+            nif: l.nif ? String(l.nif) : undefined,
+          }))
+        )
+      } catch {
+        // ignore
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [recipientQuery])
+
+  // Property search (debounced).
+  useEffect(() => {
+    const q = propertyQuery.trim()
+    if (q.length < 2) {
+      setPropertyMatches([])
+      return
+    }
+    setSearchingProps(true)
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(
+          `/api/properties?search=${encodeURIComponent(q)}&per_page=5`
+        )
+        if (!r.ok) return
+        const d = await r.json()
+        const arr: any[] = Array.isArray(d?.data) ? d.data : []
+        setPropertyMatches(arr.map(propertyRowToResult))
+      } catch {
+        // ignore
+      } finally {
+        setSearchingProps(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [propertyQuery])
+
+  const addProperty = (r: VoiceSearchResult) => {
+    setSelected((prev) => (prev.some((p) => p.id === r.id) ? prev : [...prev, r]))
+    setSuggestions((prev) => prev.filter((p) => p.id !== r.id))
+    setPropertyQuery('')
+    setPropertyMatches([])
+  }
+  const removeProperty = (id: string) => {
+    setSelected((prev) => prev.filter((p) => p.id !== id))
+  }
+  const addRecipient = (c: ContactMatch) => {
+    setRecipients((prev) => (prev.some((p) => p.id === c.id) ? prev : [...prev, c]))
+    setRecipientQuery('')
+    setRecipientMatches([])
+  }
+  const removeRecipient = (id: string) => {
+    setRecipients((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  const cleanupVoice = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const startVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        cleanupVoice()
+        setVoiceState('processing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob, 'voice.webm')
+          const tRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          if (!tRes.ok) throw new Error('Falha na transcrição')
+          const { transcript: t } = await tRes.json()
+          const phrase = (t as string).trim()
+          if (phrase) {
+            // Use the transcript as a search query. Add the best match.
+            const r = await fetch(
+              `/api/properties?search=${encodeURIComponent(phrase)}&per_page=1`
+            )
+            if (r.ok) {
+              const d = await r.json()
+              const arr: any[] = Array.isArray(d?.data) ? d.data : []
+              if (arr.length > 0) {
+                addProperty(propertyRowToResult(arr[0]))
+              } else {
+                toast.warning(`Nenhum imóvel para "${phrase}"`)
+              }
+            }
+          }
+        } catch {
+          toast.error('Não consegui perceber. Tenta de novo.')
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      setVoiceState('recording')
+    } catch {
+      toast.error('Não foi possível aceder ao microfone.')
+      setVoiceState('idle')
+    }
+  }, [cleanupVoice])
+
+  const stopVoice = useCallback(() => {
+    if (recorderRef.current && voiceState === 'recording') {
+      recorderRef.current.stop()
+      setVoiceState('processing')
+    }
+  }, [voiceState])
+
+  useEffect(() => () => cleanupVoice(), [cleanupVoice])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  const validRecipients = recipients.filter((r) =>
+    channel === 'email' ? Boolean(r.email) : Boolean(r.telemovel)
+  )
+  const canSend =
+    selected.length > 0 && validRecipients.length > 0 && !sending
+
+  const doSend = useCallback(async () => {
+    if (!canSend) return
+    setSending(true)
+    try {
+      if (channel === 'whatsapp') {
+        const phones = validRecipients.map((r) => r.telemovel!).filter(Boolean)
+        // Optional intro as first message, then one message per property so
+        // each URL yields its own OG preview in WhatsApp.
+        const intro = message.trim()
+        const sequence: string[] = []
+        if (intro) sequence.push(intro)
+        for (const p of selected) {
+          const line = [p.title, p.meta, p.url].filter(Boolean).join('\n')
+          sequence.push(line)
+        }
+        let totalSent = 0
+        let firstErr = ''
+        for (const text of sequence) {
+          const res = await fetch('/api/voice/whatsapp-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones, text }),
+          })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            if (!firstErr) firstErr = body?.error || `HTTP ${res.status}`
+            continue
+          }
+          const out = await res.json()
+          totalSent += out.sent || 0
+          if (!firstErr && Array.isArray(out.details)) {
+            const d = out.details.find((d: any) => !d.ok)
+            if (d?.error) firstErr = d.error
+          }
+        }
+        if (totalSent === 0) throw new Error(firstErr || 'Nenhuma mensagem enviada')
+        if (firstErr) {
+          toast.warning(`${totalSent} mensagens enviadas, alguns erros: ${firstErr}`)
+        } else {
+          toast.success(
+            `${selected.length} imóv${selected.length !== 1 ? 'eis' : 'el'} enviado${selected.length !== 1 ? 's' : ''} por WhatsApp`
+          )
+        }
+      } else {
+        // Email: one per recipient with full HTML grid.
+        const cards = selected.map((s) => s.card).filter(Boolean) as NonNullable<VoiceSearchResult['card']>[]
+        const intro = message.trim()
+        const introHtml = intro
+          ? `<p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#262626;">${intro.replace(/\n/g, '<br>')}</p>`
+          : ''
+        const gridHtml = cards.length > 0 ? renderPropertyGrid(cards) : ''
+        const fullHtml = wrapEmailHtml(`${introHtml}${gridHtml}`)
+        const textFallback = [intro, ...selected.map((s) => `• ${s.title}\n  ${s.url}`)]
+          .filter(Boolean)
+          .join('\n\n')
+
+        let ok = 0
+        let fail = 0
+        let lastError = ''
+        for (const r of validRecipients) {
+          try {
+            const res = await fetch('/api/email/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: [r.email],
+                subject,
+                body_html: fullHtml,
+                body_text: textFallback,
+              }),
+            })
+            if (res.ok) ok += 1
+            else {
+              fail += 1
+              const body = await res.json().catch(() => ({}))
+              if (!lastError) lastError = body?.error || `HTTP ${res.status}`
+            }
+          } catch (e) {
+            fail += 1
+            if (!lastError) lastError = e instanceof Error ? e.message : 'Erro de rede'
+          }
+        }
+        if (ok === 0) throw new Error(lastError || 'Nenhum email enviado')
+        if (fail === 0) {
+          toast.success(
+            `${ok} email${ok !== 1 ? 's' : ''} com ${selected.length} imóv${selected.length !== 1 ? 'eis' : 'el'} enviado${ok !== 1 ? 's' : ''}`
+          )
+        } else {
+          toast.warning(`${ok} enviado${ok !== 1 ? 's' : ''}, ${fail} com erro: ${lastError}`)
+        }
+      }
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+      console.error('[voice basket] send failed:', err)
+    } finally {
+      setSending(false)
+    }
+  }, [canSend, channel, validRecipients, selected, message, subject, onClose])
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        {/* Selected properties */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-white/60">
+              Imóveis seleccionados ({selected.length})
+            </label>
+            <VoiceMicButton
+              state={voiceState === 'recording' ? 'recording' : voiceState === 'processing' ? 'processing' : 'idle'}
+              onStart={startVoice}
+              onStop={stopVoice}
+            />
+          </div>
+          {selected.length === 0 ? (
+            <p className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/25 px-3 py-2.5 text-xs text-amber-200/80">
+              Nenhum imóvel. Procura abaixo ou fala para adicionar.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {selected.map((p) => (
+                <BasketPropertyRow
+                  key={p.id}
+                  result={p}
+                  onRemove={() => removeProperty(p.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add more (search) */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Adicionar imóvel</label>
+          <Input
+            value={propertyQuery}
+            onChange={(e) => setPropertyQuery(e.target.value)}
+            placeholder="Procurar por título, referência, zona…"
+            className={inputCls}
+          />
+          {searchingProps && (
+            <p className="mt-1 text-[11px] text-white/40 flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              A procurar…
+            </p>
+          )}
+          {propertyMatches.length > 0 && (
+            <div className="mt-1.5 space-y-1.5">
+              {propertyMatches
+                .filter((m) => !selected.some((s) => s.id === m.id))
+                .map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => addProperty(m)}
+                    className="w-full text-left rounded-lg bg-white/5 ring-1 ring-white/10 hover:bg-white/10 px-3 py-2 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-white">
+                      <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                      <span className="truncate font-medium">{m.title}</span>
+                    </div>
+                    {m.meta && <p className="ml-5 text-[11px] text-white/50">{m.meta}</p>}
+                  </button>
+                ))}
+            </div>
+          )}
+          {suggestions.length > 0 && propertyQuery.trim().length < 2 && (
+            <div className="mt-2">
+              <p className="text-[11px] text-white/40 mb-1">Sugestões das tuas pesquisas:</p>
+              <div className="space-y-1.5">
+                {suggestions.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => addProperty(m)}
+                    className="w-full text-left rounded-lg bg-white/5 ring-1 ring-white/10 hover:bg-white/10 px-3 py-2 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-white">
+                      <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                      <span className="truncate font-medium">{m.title}</span>
+                    </div>
+                    {m.meta && <p className="ml-5 text-[11px] text-white/50">{m.meta}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recipients */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">
+            Destinatários {recipients.length > 0 && <span className="text-white/40">({recipients.length})</span>}
+          </label>
+          {recipients.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {recipients.map((r) => {
+                const hasChannel = channel === 'email' ? Boolean(r.email) : Boolean(r.telemovel)
+                return (
+                  <span
+                    key={r.id}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]',
+                      hasChannel
+                        ? 'bg-emerald-500/15 ring-1 ring-emerald-500/30 text-white'
+                        : 'bg-red-500/15 ring-1 ring-red-500/40 text-red-100'
+                    )}
+                  >
+                    <User className="h-3 w-3" />
+                    <span className="font-medium">{r.nome}</span>
+                    {!hasChannel && (
+                      <span className="text-red-200/80">
+                        sem {channel === 'email' ? 'email' : 'telemóvel'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeRecipient(r.id)}
+                      className="text-white/50 hover:text-white ml-0.5"
+                      aria-label="Remover"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <Input
+            value={recipientQuery}
+            onChange={(e) => setRecipientQuery(e.target.value)}
+            placeholder="Procurar contacto…"
+            className={inputCls}
+          />
+          {recipientMatches.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {recipientMatches
+                .filter((m) => !recipients.some((r) => r.id === m.id))
+                .map((m) => (
+                  <ContactChip key={m.id} contact={m} channel={channel} onPick={addRecipient} />
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Channel toggle */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-white/60">Canal:</label>
+          <div className="inline-flex rounded-lg bg-white/5 ring-1 ring-white/10 p-0.5" data-no-long-press>
+            <button
+              type="button"
+              onClick={() => setChannel('whatsapp')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5',
+                channel === 'whatsapp'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel('email')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5',
+                channel === 'email'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Email
+            </button>
+          </div>
+        </div>
+
+        {channel === 'email' && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Assunto</label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">
+            Mensagem {channel === 'whatsapp' ? '(enviada como primeira mensagem)' : '(antes dos cartões)'}
+          </label>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+            placeholder="Olá, partilho alguns imóveis que podem interessar."
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          {!canSend && !sending && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {selected.length === 0
+                ? 'Basket vazio.'
+                : recipients.length === 0
+                  ? 'Adiciona um destinatário.'
+                  : validRecipients.length === 0
+                    ? `Nenhum destinatário tem ${channel === 'email' ? 'email' : 'telemóvel'}.`
+                    : 'Preenche os campos em falta.'}
+            </span>
+          )}
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doSend} disabled={!canSend}>
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A enviar…
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-1.5" />
+                Enviar {selected.length > 0 && `${selected.length} imóv${selected.length !== 1 ? 'eis' : 'el'}`}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BasketPropertyRow({
+  result,
+  onRemove,
+}: {
+  result: VoiceSearchResult
+  onRemove: () => void
+}) {
+  const image = result.card?.imageUrl
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-2">
+      <div className="h-10 w-14 shrink-0 rounded bg-white/10 overflow-hidden flex items-center justify-center">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Building2 className="h-4 w-4 text-white/40" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate">{result.title}</p>
+        {result.meta && <p className="text-[11px] text-white/50 truncate">{result.meta}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="p-1.5 text-white/40 hover:text-red-300 transition-colors shrink-0"
+        aria-label="Remover"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 // ── Compose panel (email / WhatsApp send) ────────────────────────────────
 //
 // Flow:
@@ -1148,9 +1971,12 @@ function ComposePanel({
     setSending(true)
     try {
       if (channel === 'email') {
-        // Individual emails — one POST per recipient.
+        // Individual emails — one POST per recipient. Capture the first real
+        // error so the user can tell WHY a send failed (e.g. no SMTP account
+        // configured, invalid recipient, etc.).
         let ok = 0
         let fail = 0
+        let lastError = ''
         for (const r of validRecipients) {
           try {
             const res = await fetch('/api/email/send', {
@@ -1163,17 +1989,26 @@ function ComposePanel({
                 body_text: message,
               }),
             })
-            if (res.ok) ok += 1
-            else fail += 1
-          } catch {
+            if (res.ok) {
+              ok += 1
+            } else {
+              fail += 1
+              const body = await res.json().catch(() => ({}))
+              if (!lastError) lastError = body?.error || body?.message || `HTTP ${res.status}`
+            }
+          } catch (e) {
             fail += 1
+            if (!lastError) lastError = e instanceof Error ? e.message : 'Erro de rede'
           }
         }
-        toast.success(
-          fail === 0
-            ? `${ok} email${ok !== 1 ? 's' : ''} enviado${ok !== 1 ? 's' : ''}`
-            : `${ok} enviados, ${fail} com erro`
-        )
+        if (ok === 0) {
+          throw new Error(lastError || 'Não foi possível enviar o email.')
+        }
+        if (fail === 0) {
+          toast.success(`${ok} email${ok !== 1 ? 's' : ''} enviado${ok !== 1 ? 's' : ''}`)
+        } else {
+          toast.warning(`${ok} enviado${ok !== 1 ? 's' : ''}, ${fail} com erro: ${lastError}`)
+        }
       } else {
         const phones = validRecipients.map((r) => r.telemovel!).filter(Boolean)
         const res = await fetch('/api/voice/whatsapp-send', {
@@ -1183,18 +2018,24 @@ function ComposePanel({
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          throw new Error(err?.error || 'Falha ao enviar WhatsApp')
+          throw new Error(err?.error || `Falha ao enviar WhatsApp (HTTP ${res.status})`)
         }
         const out = await res.json()
-        toast.success(
-          out.failed === 0
-            ? `${out.sent} WhatsApp enviado${out.sent !== 1 ? 's' : ''}`
-            : `${out.sent} enviados, ${out.failed} com erro`
-        )
+        if (out.failed === 0) {
+          toast.success(`${out.sent} WhatsApp enviado${out.sent !== 1 ? 's' : ''}`)
+        } else {
+          const firstErr: string | undefined = Array.isArray(out.details)
+            ? out.details.find((d: any) => !d.ok)?.error
+            : undefined
+          toast.warning(
+            `${out.sent} enviado${out.sent !== 1 ? 's' : ''}, ${out.failed} com erro${firstErr ? `: ${firstErr}` : ''}`
+          )
+        }
       }
       onSent()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+      console.error('[voice compose] send failed:', err)
     } finally {
       setSending(false)
     }
@@ -1446,6 +2287,18 @@ function ComposePanel({
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          {!canSend && !sending && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {message.trim().length === 0
+                ? 'Mensagem vazia.'
+                : recipients.length === 0
+                  ? 'Adiciona pelo menos um destinatário.'
+                  : validRecipients.length === 0
+                    ? `Nenhum destinatário tem ${channel === 'email' ? 'email' : 'telemóvel'}.`
+                    : 'Preenche os campos em falta.'}
+            </span>
+          )}
           <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
             Cancelar
           </Button>
@@ -1651,6 +2504,16 @@ function FieldInput({
     )
   }
 
+  if (type === 'consultant-select') {
+    return (
+      <ConsultantSelect
+        value={value == null ? '' : String(value)}
+        onChange={(v) => onChange(v)}
+        placeholder="—"
+      />
+    )
+  }
+
   return (
     <Input
       type={type}
@@ -1667,6 +2530,43 @@ function FieldInput({
       inputMode={type === 'number' ? 'decimal' : type === 'tel' ? 'tel' : undefined}
       className={inputCls}
     />
+  )
+}
+
+// ── Consultant select (shared) ────────────────────────────────────────────
+
+function ConsultantSelect({
+  value,
+  onChange,
+  placeholder = '—',
+  className,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  className?: string
+}) {
+  const { consultants } = useConsultants()
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-8 text-sm'
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={cn(inputCls, 'w-full', className)} data-no-long-press>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent
+        position="popper"
+        sideOffset={4}
+        className="z-[300] max-h-[min(18rem,60vh)]"
+        data-no-long-press
+      >
+        {consultants.map((c) => (
+          <SelectItem key={c.id} value={c.id}>
+            {c.commercial_name || c.id}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

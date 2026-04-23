@@ -1,29 +1,33 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { format, parseISO, isSameDay } from 'date-fns'
+import { format, parseISO, isSameDay, isToday, isPast } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ListTodo, Calendar, CalendarX } from 'lucide-react'
+import {
+  ListTodo,
+  Calendar,
+  CalendarX,
+  CheckCircle2,
+  Hourglass,
+  AlertCircle,
+} from 'lucide-react'
 import { useCalendarEvents } from '@/hooks/use-calendar-events'
+import { CalendarTaskRow } from '@/components/calendar/calendar-task-row'
 import type { CalendarEvent } from '@/types/calendar'
 import type { TaskWithRelations } from '@/types/task'
 import { cn } from '@/lib/utils'
+import { TasksBucketSheet, type TaskBucket } from './tasks-bucket-sheet'
 
 interface TodayCardProps {
   userId: string
   fillViewport?: boolean
 }
 
-const PRIORITY_STYLES: Record<number, string> = {
-  1: 'bg-red-500',
-  2: 'bg-orange-500',
-  3: 'bg-blue-500',
-  4: 'bg-muted-foreground/40',
-}
+const SOON_DAYS = 7
 
 export function TodayCard({ userId, fillViewport }: TodayCardProps) {
   const { start, end } = useMemo(() => {
@@ -33,7 +37,66 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
     return { start: s, end: e }
   }, [])
 
-  const { events, tasks, isLoading } = useCalendarEvents({ start, end, userId })
+  const { events, tasks, isLoading, toggleTaskComplete } = useCalendarEvents({
+    start,
+    end,
+    userId,
+  })
+
+  // Separate fetch for counts across full range (past-due + today + soon)
+  const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([])
+  const [allLoading, setAllLoading] = useState(true)
+  const [bucketOpen, setBucketOpen] = useState<TaskBucket | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setAllLoading(true)
+    const params = new URLSearchParams({
+      is_completed: 'false',
+      limit: '500',
+    })
+    fetch(`/api/tasks?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((json) => {
+        if (cancelled) return
+        let data: TaskWithRelations[] = json.data ?? []
+        data = data.filter(
+          (t) => t.assigned_to === userId || t.created_by === userId,
+        )
+        setAllTasks(data)
+      })
+      .catch(() => {
+        if (!cancelled) setAllTasks([])
+      })
+      .finally(() => {
+        if (!cancelled) setAllLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId, tasks])
+
+  const { dueToday, dueSoon, pastDue } = useMemo(() => {
+    const now = new Date()
+    const soonEnd = new Date(now)
+    soonEnd.setDate(soonEnd.getDate() + SOON_DAYS)
+    let today = 0
+    let soon = 0
+    let past = 0
+    for (const t of allTasks) {
+      if (!t.due_date) continue
+      let d: Date
+      try {
+        d = parseISO(t.due_date)
+      } catch {
+        continue
+      }
+      if (isToday(d)) today++
+      else if (isPast(d)) past++
+      else if (d <= soonEnd) soon++
+    }
+    return { dueToday: today, dueSoon: soon, pastDue: past }
+  }, [allTasks])
 
   const today = new Date()
   const weekday = format(today, 'EEEE', { locale: ptBR })
@@ -49,7 +112,8 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
       }
     })
     .sort(
-      (a, b) => parseISO(a.start_date).getTime() - parseISO(b.start_date).getTime(),
+      (a, b) =>
+        parseISO(a.start_date).getTime() - parseISO(b.start_date).getTime(),
     )
 
   const dayTasks = (tasks ?? [])
@@ -74,7 +138,7 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
   return (
     <Card
       className={cn(
-        'rounded-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] p-4 gap-3 flex flex-col',
+        'rounded-3xl border-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] p-4 gap-3 flex flex-col',
         fillViewport && 'h-[calc(100dvh-11rem)] min-h-[30rem]',
       )}
     >
@@ -116,6 +180,34 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
         </div>
       </div>
 
+      {/* Task summary stat cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard
+          label="Por fazer hoje"
+          count={dueToday}
+          icon={CheckCircle2}
+          tone="blue"
+          loading={allLoading}
+          onClick={() => setBucketOpen('today')}
+        />
+        <StatCard
+          label="Em breve"
+          count={dueSoon}
+          icon={Hourglass}
+          tone="amber"
+          loading={allLoading}
+          onClick={() => setBucketOpen('soon')}
+        />
+        <StatCard
+          label="Em atraso"
+          count={pastDue}
+          icon={AlertCircle}
+          tone="red"
+          loading={allLoading}
+          onClick={() => setBucketOpen('overdue')}
+        />
+      </div>
+
       <div className="flex-1 min-h-0">
         {isLoading ? (
           <div className="space-y-2">
@@ -142,19 +234,78 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
             )}
 
             {dayTasks.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <p className="px-1 text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider">
                   Tarefas ({dayTasks.length})
                 </p>
                 {dayTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} />
+                  <CalendarTaskRow
+                    key={task.id}
+                    task={task}
+                    onSelect={() => {
+                      window.location.href = '/dashboard/tarefas'
+                    }}
+                    onToggleComplete={toggleTaskComplete}
+                  />
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
+
+      <TasksBucketSheet
+        userId={userId}
+        bucket={bucketOpen}
+        onOpenChange={(o) => !o && setBucketOpen(null)}
+      />
     </Card>
+  )
+}
+
+function StatCard({
+  label,
+  count,
+  icon: Icon,
+  tone,
+  loading,
+  onClick,
+}: {
+  label: string
+  count: number
+  icon: React.ElementType
+  tone: 'blue' | 'amber' | 'red'
+  loading: boolean
+  onClick: () => void
+}) {
+  const toneClasses = {
+    blue: 'bg-sky-50 dark:bg-sky-500/10 border-sky-200/60 dark:border-sky-400/20 text-sky-700 dark:text-sky-300',
+    amber:
+      'bg-amber-50 dark:bg-amber-500/10 border-amber-200/60 dark:border-amber-400/20 text-amber-700 dark:text-amber-300',
+    red: 'bg-red-50 dark:bg-red-500/10 border-red-200/60 dark:border-red-400/20 text-red-700 dark:text-red-300',
+  }[tone]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full text-left relative rounded-2xl border p-2.5 flex flex-col transition-colors hover:brightness-95',
+        toneClasses,
+      )}
+    >
+      <div className="flex items-start justify-between gap-1">
+        <p className="text-[10px] font-semibold leading-tight">{label}</p>
+        <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+      </div>
+      <div className="mt-auto pt-3 text-2xl font-bold tabular-nums leading-none">
+        {loading ? (
+          <Skeleton className="h-6 w-8 bg-current/10" />
+        ) : (
+          count
+        )}
+      </div>
+    </button>
   )
 }
 
@@ -186,36 +337,6 @@ function EventRow({ event }: { event: CalendarEvent }) {
           </p>
         )}
       </div>
-    </Link>
-  )
-}
-
-function TaskRow({ task }: { task: TaskWithRelations }) {
-  const dot = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES[4]
-  return (
-    <Link
-      href="/dashboard/tarefas"
-      className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors"
-    >
-      <span
-        className={cn('h-2 w-2 rounded-full shrink-0', dot)}
-        aria-hidden
-      />
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            'text-sm font-medium truncate',
-            task.is_completed && 'line-through text-muted-foreground',
-          )}
-        >
-          {task.title}
-        </p>
-      </div>
-      {task.due_date && (
-        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-          {format(parseISO(task.due_date), 'HH:mm')}
-        </span>
-      )}
     </Link>
   )
 }

@@ -1,5 +1,6 @@
 import type { useRouter } from 'next/navigation'
 import type { VoiceToolName } from './tools'
+import type { PropertyCardInput } from '@/lib/email/property-card-html'
 import { setPrefill } from './prefill'
 
 type Router = ReturnType<typeof useRouter>
@@ -12,6 +13,26 @@ export type FieldInputType =
   | 'textarea'
   | 'select'
   | 'datetime-local'
+  /** Dynamic select that fetches the active consultants from /api/users/consultants. */
+  | 'consultant-select'
+
+/**
+ * Shared vocabulary for lead origin. Keeps UI labels aligned between
+ * single-lead and batch flows. Values match the leads_entries.source enum
+ * so batch creation is valid server-side without translation.
+ */
+export const LEAD_SOURCE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'social_media', label: 'Redes Sociais' },
+  { value: 'website', label: 'Website / Portal' },
+  { value: 'landing_page', label: 'Landing Page' },
+  { value: 'meta_ads', label: 'Meta Ads' },
+  { value: 'google_ads', label: 'Google Ads' },
+  { value: 'partner', label: 'Parceiro' },
+  { value: 'organic', label: 'Orgânico' },
+  { value: 'walk_in', label: 'Walk-in' },
+  { value: 'phone_call', label: 'Chamada Telefónica' },
+  { value: 'other', label: 'Outro' },
+]
 
 export interface FieldConfig {
   key: string
@@ -32,10 +53,44 @@ export interface FieldConfig {
   placeholder?: string
 }
 
+/**
+ * Entity context derived from the current pathname at invocation time.
+ * Tools that accept an `entity_type`/`entity_id` link use this to auto-
+ * attach notes, tasks, reminders and call logs without the user having
+ * to name the entity by voice.
+ */
+export interface EntityContext {
+  type: 'lead' | 'negocio' | 'property' | 'process'
+  id: string
+  /** Optional display label ("Lead: João Silva") — used for the hint chip. */
+  label?: string
+}
+
+/** Parse `/dashboard/<module>/<id>` paths into an entity hint. */
+export function parseEntityFromPath(pathname: string): EntityContext | null {
+  if (!pathname) return null
+  const m = pathname.match(
+    /^\/dashboard\/(leads|negocios|imoveis|processos)\/([^/?#]+)/
+  )
+  if (!m) return null
+  const [, slug, id] = m
+  // Reject "novo" / "templates" / other non-UUID segments.
+  if (id === 'novo' || id === 'templates' || id === 'importar') return null
+  const map: Record<string, EntityContext['type']> = {
+    leads: 'lead',
+    negocios: 'negocio',
+    imoveis: 'property',
+    processos: 'process',
+  }
+  return { type: map[slug], id }
+}
+
 export interface SubmitContext {
   router: Router
   /** Current auth user's ID — filled by the overlay from useUser(). */
   userId?: string
+  /** Entity derived from the current URL at submit time, if any. */
+  entity?: EntityContext | null
 }
 
 export interface VoiceSearchRecipient {
@@ -63,6 +118,23 @@ export interface VoiceSearchResult {
   initialRecipients?: VoiceSearchRecipient[]
   /** Optional intro message captured by voice; used as default in Compose. */
   defaultMessage?: string
+  /**
+   * Rich property-card data (cover image, price, specs). Present only on
+   * results of kind 'property' so the multi-send flow can render the
+   * Outlook-safe grid via renderPropertyGrid().
+   */
+  card?: PropertyCardInput
+}
+
+export interface PropertyBasket {
+  /** Properties currently in the basket (will all be sent). */
+  selected: VoiceSearchResult[]
+  /** Alternative matches surfaced from the initial searches. */
+  suggestions: VoiceSearchResult[]
+  /** Recipients pre-resolved from voice. */
+  recipients: VoiceSearchRecipient[]
+  /** Optional custom intro/message captured by voice. */
+  defaultMessage?: string
 }
 
 export interface SubmitResult {
@@ -73,6 +145,11 @@ export interface SubmitResult {
    * or closing. Used for search tools like `search_document`.
    */
   results?: VoiceSearchResult[]
+  /**
+   * If present, the overlay switches to a multi-property basket view.
+   * Used by `send_property` when the user wants to send several imóveis.
+   */
+  basket?: PropertyBasket
 }
 
 export interface ToolConfig {
@@ -152,6 +229,9 @@ const createLead: ToolConfig = {
     { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro },
     { key: 'orcamento_max', label: 'Orçamento máx.', inputType: 'number', format: formatEuro },
     { key: 'quartos_min', label: 'Quartos mín.', inputType: 'number' },
+    // Atribuição / origem (opcionais — o GPT extrai quando referidos)
+    { key: 'origem', label: 'Origem', inputType: 'select', options: LEAD_SOURCE_OPTIONS },
+    { key: 'assigned_consultant_id', label: 'Atribuir a', inputType: 'consultant-select' },
   ],
   submit: async (args, { router }) => {
     // 1) Create lead
@@ -159,6 +239,8 @@ const createLead: ToolConfig = {
     if (args.email) leadPayload.email = args.email
     if (args.telemovel) leadPayload.telemovel = args.telemovel
     if (args.observacoes) leadPayload.observacoes = args.observacoes
+    if (args.origem) leadPayload.origem = args.origem
+    if (args.assigned_consultant_id) leadPayload.agent_id = args.assigned_consultant_id
 
     const leadRes = await fetch('/api/leads', {
       method: 'POST',
@@ -231,11 +313,17 @@ const createTodo: ToolConfig = {
     },
     { key: 'due_date', label: 'Prazo', inputType: 'datetime-local', format: formatDate },
   ],
-  submit: async (args, { router }) => {
+  submit: async (args, { router, entity }) => {
     const payload: Record<string, unknown> = { title: args.title }
     if (args.description) payload.description = args.description
     if (args.priority !== undefined && args.priority !== '') payload.priority = Number(args.priority)
     if (args.due_date) payload.due_date = args.due_date
+    // Auto-link to the entity surfaced by the current URL (e.g. /leads/[id])
+    // so "lembra-me de ligar amanhã" said on a lead page attaches to that lead.
+    if (entity) {
+      payload.entity_type = entity.type
+      payload.entity_id = entity.id
+    }
 
     const res = await fetch('/api/tasks', {
       method: 'POST',
@@ -258,9 +346,13 @@ const createReminder: ToolConfig = {
     { key: 'title', label: 'Título', required: true },
     { key: 'due_date', label: 'Quando', required: true, inputType: 'datetime-local', format: formatDate },
   ],
-  submit: async (args, { router }) => {
+  submit: async (args, { router, entity }) => {
     const payload: Record<string, unknown> = { title: args.title }
     if (args.due_date) payload.due_date = args.due_date
+    if (entity) {
+      payload.entity_type = entity.type
+      payload.entity_id = entity.id
+    }
 
     const res = await fetch('/api/tasks', {
       method: 'POST',
@@ -585,22 +677,40 @@ const createCallLog: ToolConfig = {
     },
     { key: 'notes', label: 'Notas', inputType: 'textarea' },
   ],
-  submit: async (args, { router }) => {
+  canSubmit: (args) => {
+    // contact_name is only strictly required when we have no entity context —
+    // the overlay injects entity={type:'lead',id} when invoked on /leads/[id],
+    // so the submit can short-circuit by id and skip the name lookup.
+    if (!args.direction || !args.outcome) return false
+    return true
+  },
+  submit: async (args, { router, entity }) => {
     const name = String(args.contact_name ?? '').trim()
-    if (!name) throw new Error('Contacto em falta')
 
-    const lookup = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=3`)
-    if (!lookup.ok) throw new Error('Falha ao procurar contacto')
-    const ldata = await lookup.json()
-    const list: any[] = Array.isArray(ldata) ? ldata : ldata?.data || []
-    if (list.length === 0) {
-      throw new Error(`Contacto "${name}" não encontrado. Cria-o primeiro.`)
+    let contactId: string | null = null
+    let displayName = name
+    let exact = true
+
+    if (entity?.type === 'lead') {
+      // On a lead page → use the entity directly, skip the name lookup.
+      contactId = entity.id
+    } else {
+      if (!name) throw new Error('Contacto em falta')
+      const lookup = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=3`)
+      if (!lookup.ok) throw new Error('Falha ao procurar contacto')
+      const ldata = await lookup.json()
+      const list: any[] = Array.isArray(ldata) ? ldata : ldata?.data || []
+      if (list.length === 0) {
+        throw new Error(`Contacto "${name}" não encontrado. Cria-o primeiro.`)
+      }
+      const exactMatch = list.find(
+        (l) => String(l.nome ?? '').trim().toLowerCase() === name.toLowerCase()
+      )
+      const match = exactMatch || list[0]
+      contactId = String(match.id)
+      displayName = match.nome
+      exact = Boolean(exactMatch)
     }
-    const exact = list.find(
-      (l) => String(l.nome ?? '').trim().toLowerCase() === name.toLowerCase()
-    )
-    const match = exact || list[0]
-    const contactId = String(match.id)
 
     const res = await fetch(`/api/crm/contacts/${contactId}/call-outcome`, {
       method: 'POST',
@@ -620,7 +730,7 @@ const createCallLog: ToolConfig = {
     router.push(path)
     return {
       detailPath: path,
-      message: `Chamada registada${exact ? '' : ` (${match.nome})`}`,
+      message: `Chamada registada${exact || entity?.type === 'lead' ? '' : ` (${displayName})`}`,
     }
   },
 }
@@ -748,11 +858,72 @@ function buildPublicPropertyUrl(slug: string): string {
   return `${PUBLIC_WEBSITE_URL}/property/${slug}`
 }
 
+// Shared helper so UI code can format prices without duplicating Intl config.
+export function formatEuroPt(v: unknown): string {
+  const n = Number(v)
+  if (isNaN(n)) return ''
+  return new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
+/** Build a single basket-ready property card from a /api/properties row. */
+export function propertyRowToResult(p: any): VoiceSearchResult {
+  const slug = String(p.slug || p.id)
+  const url = buildPublicPropertyUrl(slug)
+  const metaParts = [
+    formatEuroPt(p.listing_price),
+    p.city || p.zone,
+    p.external_ref,
+  ].filter(Boolean)
+
+  // Rich card for renderPropertyGrid — cover image + primary specs.
+  const specs = Array.isArray(p.dev_property_specifications)
+    ? p.dev_property_specifications[0]
+    : p.dev_property_specifications
+  const mediaList = Array.isArray(p.dev_property_media)
+    ? [...p.dev_property_media].sort(
+        (a, b) => (a.order_index ?? 999) - (b.order_index ?? 999)
+      )
+    : []
+  const cover = mediaList.find((m) => m.is_cover) ?? mediaList[0]
+  const specParts: string[] = []
+  if (specs?.bedrooms) specParts.push(`${specs.bedrooms} quartos`)
+  if (specs?.area_util) specParts.push(`${specs.area_util} m²`)
+  const location = [p.city, p.zone].filter(Boolean).join(' · ')
+
+  return {
+    id: `property:${p.id}`,
+    title: String(p.title || 'Imóvel'),
+    subtitle: p.address_street ? String(p.address_street) : undefined,
+    url,
+    meta: metaParts.join(' · ') || undefined,
+    kind: 'property',
+    card: {
+      title: String(p.title || 'Imóvel'),
+      priceLabel: formatEuroPt(p.listing_price),
+      location,
+      specs: specParts.join(' · '),
+      imageUrl: cover?.url ?? null,
+      href: url,
+      reference: p.external_ref ?? null,
+    },
+  }
+}
+
 const sendProperty: ToolConfig = {
-  title: 'Enviar imóvel',
+  title: 'Enviar imóveis',
   submitLabel: 'Procurar e preparar envio',
   fields: [
-    { key: 'property_query', label: 'Imóvel', required: true, placeholder: 'Título, referência, zona…' },
+    {
+      key: 'property_queries_text',
+      label: 'Imóveis',
+      required: true,
+      inputType: 'textarea',
+      placeholder: 'Um por linha — título, referência ou últimos dígitos',
+    },
     {
       key: 'contact_names_text',
       label: 'Destinatários',
@@ -761,21 +932,69 @@ const sendProperty: ToolConfig = {
     { key: 'message', label: 'Mensagem', inputType: 'textarea' },
   ],
   submit: async (args) => {
-    const q = String(args.property_query ?? '').trim()
-    if (!q) throw new Error('Imóvel em falta')
+    // Normalise queries: voice array > textarea > legacy single field.
+    const queriesFromArray: string[] = Array.isArray(args.property_queries)
+      ? args.property_queries.map((q: unknown) => String(q).trim()).filter(Boolean)
+      : []
+    const queriesFromText: string[] = String(args.property_queries_text ?? '')
+      .split(/\n|[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const legacy = args.property_query ? [String(args.property_query).trim()] : []
+    // Text-area value is authoritative once the user has edited it; fall back
+    // to the voice-provided array and finally to the legacy single field.
+    const queries = queriesFromText.length > 0
+      ? queriesFromText
+      : queriesFromArray.length > 0
+        ? queriesFromArray
+        : legacy
+    if (queries.length === 0) throw new Error('Indica pelo menos um imóvel')
 
-    const propsRes = await fetch(
-      `/api/properties?search=${encodeURIComponent(q)}&per_page=5`
-    )
-    if (!propsRes.ok) throw new Error('Falha ao procurar imóvel')
-    const pdata = await propsRes.json()
-    const plist: any[] = Array.isArray(pdata?.data) ? pdata.data : []
-    if (plist.length === 0) {
-      throw new Error(`Imóvel "${q}" não encontrado`)
+    // One search per query. Pick best match per query, accumulate alternatives
+    // from the other matches as "suggestions" the basket can offer.
+    const selected: VoiceSearchResult[] = []
+    const suggestions: VoiceSearchResult[] = []
+    const seen = new Set<string>()
+    const notFound: string[] = []
+
+    for (const q of queries) {
+      try {
+        const r = await fetch(
+          `/api/properties?search=${encodeURIComponent(q)}&per_page=5`
+        )
+        if (!r.ok) continue
+        const d = await r.json()
+        const arr: any[] = Array.isArray(d?.data) ? d.data : []
+        if (arr.length === 0) {
+          notFound.push(q)
+          continue
+        }
+        const [best, ...rest] = arr
+        if (best && !seen.has(best.id)) {
+          seen.add(best.id)
+          selected.push(propertyRowToResult(best))
+        }
+        for (const alt of rest.slice(0, 2)) {
+          if (!seen.has(alt.id)) {
+            seen.add(alt.id)
+            suggestions.push(propertyRowToResult(alt))
+          }
+        }
+      } catch {
+        notFound.push(q)
+      }
     }
 
-    // Resolve recipient names (accept either voice-provided array or a
-    // comma-separated string edited in the overlay).
+    if (selected.length === 0) {
+      throw new Error(
+        notFound.length > 0
+          ? `Nenhum imóvel encontrado para: ${notFound.join(', ')}`
+          : 'Nenhum imóvel encontrado'
+      )
+    }
+
+    // Recipient resolution (unchanged behaviour — accepts voice array or
+    // comma-separated text).
     const rawNames: string[] = Array.isArray(args.contact_names)
       ? args.contact_names.map((n: unknown) => String(n).trim()).filter(Boolean)
       : String(args.contact_names_text ?? '')
@@ -783,8 +1002,8 @@ const sendProperty: ToolConfig = {
           .map((s) => s.trim())
           .filter(Boolean)
 
-    const seen = new Set<string>()
-    const initialRecipients: VoiceSearchRecipient[] = []
+    const recSeen = new Set<string>()
+    const recipients: VoiceSearchRecipient[] = []
     for (const name of rawNames) {
       try {
         const r = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=3`)
@@ -795,9 +1014,9 @@ const sendProperty: ToolConfig = {
           arr.find(
             (l) => String(l.nome ?? '').trim().toLowerCase() === name.toLowerCase()
           ) || arr[0]
-        if (pick && !seen.has(String(pick.id))) {
-          seen.add(String(pick.id))
-          initialRecipients.push({
+        if (pick && !recSeen.has(String(pick.id))) {
+          recSeen.add(String(pick.id))
+          recipients.push({
             id: String(pick.id),
             nome: String(pick.nome ?? ''),
             telemovel: pick.telemovel ? String(pick.telemovel) : undefined,
@@ -810,45 +1029,19 @@ const sendProperty: ToolConfig = {
       }
     }
 
-    // Build a result card per property (top match + up to 3 alternatives).
-    const priceFmt = (v: unknown) => {
-      const n = Number(v)
-      if (isNaN(n)) return ''
-      return new Intl.NumberFormat('pt-PT', {
-        style: 'currency',
-        currency: 'EUR',
-        maximumFractionDigits: 0,
-      }).format(n)
-    }
-
-    const results: VoiceSearchResult[] = plist.slice(0, 4).map((p: any, idx: number) => {
-      const slug = String(p.slug || p.id)
-      const url = buildPublicPropertyUrl(slug)
-      const metaParts = [
-        priceFmt(p.listing_price),
-        p.city || p.zone,
-        p.external_ref,
-      ].filter(Boolean)
-      return {
-        id: `property:${p.id}`,
-        title: String(p.title || 'Imóvel'),
-        subtitle: p.address_street ? String(p.address_street) : undefined,
-        url,
-        meta: metaParts.join(' · ') || undefined,
-        kind: 'property',
-        // Only the top match inherits the voice-resolved recipients and custom
-        // message — alternatives are just for picking a different property.
-        initialRecipients: idx === 0 ? initialRecipients : undefined,
-        defaultMessage:
-          idx === 0 && args.message
-            ? String(args.message).trim() || undefined
-            : undefined,
-      }
-    })
+    const parts: string[] = [
+      `${selected.length} imóv${selected.length !== 1 ? 'eis' : 'el'} encontrado${selected.length !== 1 ? 's' : ''}`,
+    ]
+    if (notFound.length > 0) parts.push(`sem resultado: ${notFound.join(', ')}`)
 
     return {
-      results,
-      message: `${results.length} imóvel${results.length !== 1 ? 'is' : ''} encontrado${results.length !== 1 ? 's' : ''}`,
+      basket: {
+        selected,
+        suggestions,
+        recipients,
+        defaultMessage: args.message ? String(args.message).trim() || undefined : undefined,
+      },
+      message: parts.join(' · '),
     }
   },
 }
@@ -943,23 +1136,36 @@ const createLeadsBatch: ToolConfig = {
     return list.length > 0 && list.every((l: any) => l?.nome && String(l.nome).trim())
   },
   submit: async (args, { router }) => {
-    const list: Array<{ nome?: string; telemovel?: string; email?: string }> =
-      Array.isArray(args.leads) ? args.leads : []
-    const assignedTo: string | undefined = args.assigned_consultant_id
+    type BatchEntry = {
+      nome?: string
+      telemovel?: string
+      email?: string
+      source?: string
+      assigned_consultant_id?: string
+    }
+    const list: BatchEntry[] = Array.isArray(args.leads) ? args.leads : []
+    const defaultAssignee: string | undefined = args.assigned_consultant_id
       ? String(args.assigned_consultant_id)
+      : undefined
+    const defaultSource: string | undefined = args.default_source
+      ? String(args.default_source)
       : undefined
     let created = 0
     let failed = 0
     for (const lead of list) {
       const nome = (lead?.nome || '').toString().trim()
       if (!nome) continue
+      // Per-row overrides take precedence; fall back to batch defaults; finally
+      // to 'voice' so the row is always a valid lead_entries insertion.
+      const source = lead.source || defaultSource || 'voice'
+      const assignee = lead.assigned_consultant_id || defaultAssignee
       const payload: Record<string, unknown> = {
-        source: 'voice',
+        source,
         raw_name: nome,
       }
       if (lead.telemovel) payload.raw_phone = String(lead.telemovel).trim()
       if (lead.email) payload.raw_email = String(lead.email).trim()
-      if (assignedTo) payload.assigned_consultant_id = assignedTo
+      if (assignee) payload.assigned_consultant_id = assignee
       try {
         const res = await fetch('/api/lead-entries', {
           method: 'POST',

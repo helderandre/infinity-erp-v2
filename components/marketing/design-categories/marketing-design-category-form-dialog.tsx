@@ -4,14 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormSheet } from '@/components/shared/form-sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -78,90 +71,17 @@ export function MarketingDesignCategoryFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === 'edit' ? 'Editar categoria' : 'Nova categoria'}
-          </DialogTitle>
-          <DialogDescription>
-            {mode === 'edit'
-              ? 'O identificador interno (slug) é imutável. Apenas o nome e metadados podem ser alterados.'
-              : 'Organize os designs da equipa e pessoais por categoria.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-5 pt-2">
-          <div className="space-y-1.5">
-            <Label>Nome</Label>
-            <Input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Ex.: Flyers"
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Ícone</Label>
-            <div className="grid grid-cols-5 gap-2">
-              {CATEGORY_ICON_PRESETS.map(({ name, Icon, label: iconLabel }) => {
-                const selected = icon === name
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    title={iconLabel}
-                    onClick={() => setIcon(name)}
-                    className={cn(
-                      'aspect-square rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all',
-                      'hover:bg-muted/60',
-                      selected
-                        ? 'border-primary ring-2 ring-primary/20 bg-primary/5'
-                        : 'border-border bg-transparent'
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'h-5 w-5',
-                        selected ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                      style={color ? { color } : undefined}
-                    />
-                    <span className="text-[9px] text-muted-foreground leading-none">
-                      {iconLabel}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Cor</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                title="Cor do ícone"
-                aria-label="Cor do ícone"
-                value={color || '#64748b'}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-9 w-12 rounded-md border cursor-pointer bg-transparent"
-              />
-              {color && (
-                <button
-                  type="button"
-                  className="text-[11px] text-muted-foreground hover:underline"
-                  onClick={() => setColor('')}
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-2">
+    <FormSheet
+      open={open}
+      onOpenChange={(next) => !saving && onOpenChange(next)}
+      title={mode === 'edit' ? 'Editar categoria' : 'Nova categoria'}
+      description={
+        mode === 'edit'
+          ? 'O identificador interno (slug) é imutável. Apenas o nome e metadados podem ser alterados.'
+          : 'Organize os designs da equipa e pessoais por categoria.'
+      }
+      footer={
+        <>
           <Button
             variant="outline"
             className="rounded-full"
@@ -186,8 +106,78 @@ export function MarketingDesignCategoryFormDialog({
               'Criar'
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-1.5">
+          <Label>Nome</Label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Ex.: Flyers"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Ícone</Label>
+          <div className="grid grid-cols-5 gap-2">
+            {CATEGORY_ICON_PRESETS.map(({ name, Icon, label: iconLabel }) => {
+              const selected = icon === name
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  title={iconLabel}
+                  onClick={() => setIcon(name)}
+                  className={cn(
+                    'aspect-square rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all',
+                    'hover:bg-muted/60',
+                    selected
+                      ? 'border-primary ring-2 ring-primary/20 bg-primary/5'
+                      : 'border-border bg-transparent'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-5 w-5',
+                      selected ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                    style={color ? { color } : undefined}
+                  />
+                  <span className="text-[9px] text-muted-foreground leading-none">
+                    {iconLabel}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Cor</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              title="Cor do ícone"
+              aria-label="Cor do ícone"
+              value={color || '#64748b'}
+              onChange={(e) => setColor(e.target.value)}
+              className="h-9 w-12 rounded-md border cursor-pointer bg-transparent"
+            />
+            {color && (
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground hover:underline"
+                onClick={() => setColor('')}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </FormSheet>
   )
 }
