@@ -17,6 +17,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useEmailStatus } from '@/hooks/use-email-status'
+import { Badge } from '@/components/ui/badge'
+import { getComponentForSubtaskKey } from '@/lib/processes/subtasks/components-registry'
+import { GroupedSubtasksView } from './grouped-subtasks-view'
 import { SubtaskCardChecklist } from './subtask-card-checklist'
 import { SubtaskCardEmail } from './subtask-card-email'
 import { SubtaskCardDoc } from './subtask-card-doc'
@@ -190,27 +193,103 @@ export function SubtaskCardList({
   const mainOwnerId = owners.find(o => o.is_main_contact)?.id || owners[0]?.id
 
   const renderCard = (subtask: ProcSubtask) => {
+    // Hardcoded rules (add-hardcoded-process-subtasks): resolve componente
+    // do registry via `subtask_key`. Fallback silencioso para o switch
+    // legacy em linhas `legacy_*` ou keys não registadas.
+    const HardcodedComponent = subtask.subtask_key
+      ? getComponentForSubtaskKey(subtask.subtask_key)
+      : null
+    if (HardcodedComponent) {
+      return (
+        <HardcodedComponent
+          key={subtask.id}
+          subtask={subtask as unknown as import('@/lib/processes/subtasks/types').ProcSubtaskRow}
+          processId={processId}
+          onComplete={async (body) => {
+            const res = await fetch(
+              `/api/processes/${processId}/subtasks/${subtask.id}/complete`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined,
+              }
+            )
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}))
+              toast.error(err?.error || 'Erro ao concluir subtarefa')
+              return
+            }
+            onTaskUpdate()
+          }}
+        />
+      )
+    }
+
     const type = getSubtaskType(subtask)
 
     switch (type) {
-      case 'email':
+      case 'email': {
+        // Rules hardcoded hybrid (config.hardcoded=true) mostram o title
+        // completo ("Email - Mariano") + badge de person_type para manter
+        // contexto visual em linhas per-owner. Default ("Email", sem badge)
+        // preserva a UX original de subtasks legacy one-shot.
+        const isHardcoded = Boolean((subtask.config as Record<string, unknown>)?.hardcoded)
+        const ownerPersonType = subtask.owner?.person_type
+        const label = isHardcoded ? subtask.title : undefined
+        const badge = isHardcoded && ownerPersonType ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] font-medium px-1.5 py-0 h-5',
+              ownerPersonType === 'singular'
+                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900'
+                : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900'
+            )}
+          >
+            {ownerPersonType === 'singular' ? 'Singular' : 'Coletivo'}
+          </Badge>
+        ) : undefined
         return (
           <SubtaskCardEmail
             key={subtask.id}
             subtask={subtask}
             ownerEmail={owners.find(o => o.id === subtask.owner_id)?.email || ''}
             emails={emails}
+            label={label}
+            badge={badge}
             onOpenSheet={handleOpenEmailSheet}
             onRevert={(id) => setRevertTarget(id)}
             onResend={handleResend}
             onResetTemplate={(id) => setResetTemplateTarget(id)}
           />
         )
-      case 'generate_doc':
+      }
+      case 'generate_doc': {
+        // Rules hardcoded hybrid → variante compacta (estilo SubtaskCardEmail)
+        // com ícone FileSignature + label custom + badge de person_type.
+        const isHardcoded = Boolean((subtask.config as Record<string, unknown>)?.hardcoded)
+        const ownerPersonType = subtask.owner?.person_type
+        const docLabel = isHardcoded ? subtask.title : undefined
+        const docBadge = isHardcoded && ownerPersonType ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] font-medium px-1.5 py-0 h-5',
+              ownerPersonType === 'singular'
+                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900'
+                : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900'
+            )}
+          >
+            {ownerPersonType === 'singular' ? 'Singular' : 'Coletivo'}
+          </Badge>
+        ) : undefined
         return (
           <SubtaskCardDoc
             key={subtask.id}
             subtask={subtask}
+            compact={isHardcoded}
+            label={docLabel}
+            badge={docBadge}
             onOpenSheet={async (s) => {
               // Check template_type to decide which sheet to open
               const c = s.config as Record<string, unknown>
@@ -237,6 +316,7 @@ export function SubtaskCardList({
             onRevert={(id) => setRevertTarget(id)}
           />
         )
+      }
       case 'upload':
         return (
           <SubtaskCardUpload
@@ -320,10 +400,26 @@ export function SubtaskCardList({
     }
   }
 
+  // Tasks hardcoded (add-hardcoded-process-subtasks + split 2026-05-02)
+  // usam vista agrupada com grupos por entidade (Imóvel / Pessoa Colectiva /
+  // Pessoa Singular). Resto continua flat.
+  const GROUPED_TASK_TITLES = new Set([
+    'Documentos do Imóvel',
+    'Documentos Pessoa Colectiva',
+    'Documentos Pessoa Singular',
+  ])
+  const useGroupedView = GROUPED_TASK_TITLES.has(task.title)
+
   return (
     <>
       <div className="space-y-3">
-        {/* Cards — inside a unified card */}
+        {useGroupedView ? (
+          <GroupedSubtasksView
+            subtasks={subtasks}
+            owners={owners}
+            renderCard={renderCard}
+          />
+        ) : (
         <div className="rounded-xl border bg-card/50 overflow-hidden divide-y">
           {subtasks.map((subtask, idx) => {
             const isAdhocSubtask = !subtask.tpl_subtask_id
@@ -362,6 +458,7 @@ export function SubtaskCardList({
             )
           })}
         </div>
+        )}
 
         {/* Link para proprietário */}
         {task.owner?.id && (

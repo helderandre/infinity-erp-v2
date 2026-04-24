@@ -133,6 +133,13 @@ export function SubtaskCardBase({
         )}
       </div>
 
+      {/* Hint auxiliar (subtasks hardcoded — ver SubtaskRule.hint) */}
+      {typeof subtask.config?.hint === 'string' && subtask.config.hint.length > 0 && (
+        <p className="text-[11px] leading-snug text-muted-foreground pl-6">
+          {subtask.config.hint as string}
+        </p>
+      )}
+
       {/* Conteúdo específico do tipo */}
       {children}
 

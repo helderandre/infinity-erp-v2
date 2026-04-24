@@ -580,7 +580,20 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   event_scheduled:         { icon: 'CalendarPlus',    label: 'Evento agendado',            color: 'text-indigo-500' },
   event_updated:           { icon: 'CalendarClock',   label: 'Evento actualizado',         color: 'text-indigo-500' },
   event_cancelled:         { icon: 'CalendarX',       label: 'Evento cancelado',           color: 'text-red-500' },
+  // Subtarefas hardcoded (add-hardcoded-process-subtasks)
+  subtasks_populated:      { icon: 'Sparkles',        label: 'Subtarefas preparadas',      color: 'text-violet-500' },
+  subtask_completed:       { icon: 'CheckSquare',     label: 'Subtarefa concluída',        color: 'text-emerald-500' },
+  due_date_set:            { icon: 'Clock',           label: 'Prazo atribuído',            color: 'text-muted-foreground' },
 }
+
+/**
+ * Activity types que devem ser escondidos na timeline por defeito —
+ * ruidosos para o utilizador final mas valiosos para auditoria. O
+ * toggle "Mostrar eventos do sistema" desafixa-os.
+ */
+export const SYSTEM_EVENT_ACTIVITY_TYPES: ReadonlySet<string> = new Set([
+  'due_date_set',
+])
 
 export const EMAIL_STATUS_CONFIG: Record<string, {
   label: string

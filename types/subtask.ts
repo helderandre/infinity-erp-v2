@@ -172,6 +172,13 @@ export interface ProcSubtask {
   id: string
   proc_task_id: string
   tpl_subtask_id: string | null
+  /**
+   * Chave estável do registry hardcoded (ou `legacy_*` para linhas
+   * pré-migration). Adicionada via `20260501_proc_subtasks_hardcoded.sql`.
+   * Usada pelo UI para resolver o componente a renderizar quando a linha
+   * é hardcoded — ver `lib/processes/subtasks/components-registry.ts`.
+   */
+  subtask_key: string
   title: string
   is_mandatory: boolean
   is_completed: boolean

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { CheckCircle2, Lock, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProcSubtask } from '@/types/subtask'
@@ -14,6 +15,18 @@ interface SubtaskCardEmailProps {
   onRevert?: (subtaskId: string) => void
   onResend?: (subtask: ProcSubtask) => void
   onResetTemplate?: (subtaskId: string) => void
+  /**
+   * Override do label in-line. Default: "Email". Rules hardcoded hybrid
+   * costumam passar `subtask.title` (ex.: "Email - Mariano") para que o
+   * nome do owner apareça na linha sem abrir o sheet.
+   */
+  label?: string
+  /**
+   * Nó inline à direita do label, antes do ícone de completion. Típico:
+   * `<Badge>Singular</Badge>` / `<Badge>Coletivo</Badge>` em rules
+   * hardcoded per-owner. Mantido visível mesmo depois de concluído.
+   */
+  badge?: ReactNode
 }
 
 /**
@@ -21,8 +34,13 @@ interface SubtaskCardEmailProps {
  * "Ver email" button. All email details (subject, recipients, template,
  * delivery status, resend/revert actions) live in the sheet opened on click.
  */
-export function SubtaskCardEmail({ subtask, onOpenSheet }: SubtaskCardEmailProps) {
-  const isBlocked = !!(subtask as any).is_blocked
+export function SubtaskCardEmail({
+  subtask,
+  onOpenSheet,
+  label,
+  badge,
+}: SubtaskCardEmailProps) {
+  const isBlocked = Boolean(subtask.is_blocked)
   const isCompleted = subtask.is_completed
 
   return (
@@ -48,8 +66,9 @@ export function SubtaskCardEmail({ subtask, onOpenSheet }: SubtaskCardEmailProps
         {isBlocked ? <Lock className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
       </div>
       <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground truncate transition-colors">
-        Email
+        {label ?? 'Email'}
       </span>
+      {badge && <span className="shrink-0">{badge}</span>}
       {isCompleted && (
         <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
       )}

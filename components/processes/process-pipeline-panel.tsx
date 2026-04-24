@@ -406,6 +406,20 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
     setFocusTaskId(id)
   }, [])
 
+  // Registar visualização em `proc_task_activities` sempre que o foco
+  // muda para uma task — alinhado com o `<TaskDetailSheet>` da vista
+  // dashboard/processos/[id]. Anti-spam do endpoint suprime duplicados
+  // do mesmo utilizador nos últimos 5min, pelo que auto-focos na mesma
+  // task (ex.: refetch após acção) não poluem a timeline.
+  useEffect(() => {
+    if (!focusTaskId || !processId) return
+    fetch(`/api/processes/${processId}/tasks/${focusTaskId}/activities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activity_type: 'viewed' }),
+    }).catch(() => {})
+  }, [focusTaskId, processId])
+
   const activeFiltersCount =
     (filterStatus !== 'all' ? 1 : 0) +
     (filterPriority !== 'all' ? 1 : 0) +

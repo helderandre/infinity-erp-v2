@@ -5,6 +5,9 @@ import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { requireRoles } from '@/lib/auth/permissions'
 import { PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { populateSubtasks } from '@/lib/processes/subtasks/populate'
+import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 const approveSchema = z.object({
   // Optional — when absent, server auto-resolves the matching active template
@@ -221,6 +224,45 @@ export async function POST(
       console.log('[APPROVE] Progress result:', progressResult)
     } catch (progressError) {
       console.error('[APPROVE] Erro ao recalcular progresso:', progressError)
+    }
+
+    // Popular subtarefas hardcoded (apenas para angariação nesta change).
+    // Idempotente via `proc_subtasks_dedup`; erros parciais não revertem
+    // a aprovação — o caller pode retomar manualmente via
+    // `POST /api/processes/[id]/subtasks/populate-angariacao`.
+    if (procType === 'angariacao') {
+      console.log('[APPROVE] A popular subtarefas hardcoded de angariação...')
+      try {
+        const admin = createAdminClient()
+        const result = await populateSubtasks(admin, id, 'angariacao')
+        console.log('[APPROVE] Subtarefas hardcoded populadas:', result)
+        if (result.inserted > 0) {
+          const { data: firstTask } = await admin
+            .from('proc_tasks')
+            .select('id')
+            .eq('proc_instance_id', id)
+            .order('order_index', { ascending: true })
+            .limit(1)
+            .single()
+          if (firstTask?.id) {
+            await logTaskActivity(
+              admin,
+              firstTask.id,
+              user.id,
+              'subtasks_populated' as never,
+              `Subtarefas hardcoded materializadas (${result.inserted})`,
+              {
+                count: result.inserted,
+                skipped: result.skipped,
+                failed: result.failed,
+                process_type: 'angariacao',
+              }
+            )
+          }
+        }
+      } catch (populateErr) {
+        console.error('[APPROVE] Erro ao popular subtarefas hardcoded:', populateErr)
+      }
     }
 
     // Actualizar status do imóvel para in_process
