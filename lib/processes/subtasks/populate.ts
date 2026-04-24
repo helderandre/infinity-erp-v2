@@ -206,6 +206,8 @@ export async function populateSubtasks(
       expansion = [null as unknown as OwnerRef]
     }
 
+    const includeOwner = scope === 'all' || scope === 'main_contact_only'
+
     for (const task of matchingTasks) {
       for (const owner of expansion) {
         try {
@@ -215,7 +217,7 @@ export async function populateSubtasks(
             procTaskId: task.id,
             propertyId: processCtx.property_id,
             consultantId: processCtx.consultant_id,
-            owner: rule.repeatPerOwner ? owner : null,
+            owner: includeOwner ? owner : null,
             businessDay: (d) => shiftToNextBusinessDay(d, supabase),
           }
 
@@ -242,7 +244,7 @@ export async function populateSubtasks(
             title,
             is_mandatory: rule.isMandatory !== false,
             is_completed: false,
-            owner_id: rule.repeatPerOwner ? owner.owner_id : null,
+            owner_id: includeOwner && owner ? owner.owner_id : null,
             assigned_to: assignedTo ?? null,
             order_index: orderCursor++,
             priority: 'normal',
