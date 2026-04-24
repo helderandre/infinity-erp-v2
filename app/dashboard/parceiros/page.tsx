@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { usePartners } from '@/hooks/use-partners'
 import { useUser } from '@/hooks/use-user'
 import { PartnerCard } from '@/components/partners/partner-card'
@@ -77,6 +78,31 @@ export default function ParceirosPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [compareOpen, setCompareOpen] = useState(false)
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false)
+
+  // Sync `?partner=<id>` with the detail sheet so voice results + deep
+  // links open directly on the partner. Stripped on close so refreshing
+  // without the id stays consistent.
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const partnerParam = searchParams?.get('partner') || null
+  useEffect(() => {
+    if (partnerParam && partnerParam !== detailPartnerId) {
+      setDetailPartnerId(partnerParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnerParam])
+
+  const handleSheetOpenChange = (open: boolean) => {
+    if (open) return
+    setDetailPartnerId(null)
+    if (partnerParam) {
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      params.delete('partner')
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    }
+  }
 
   const { categories } = usePartnerCategories()
   const categoryMap = Object.fromEntries(categories.map((c) => [c.slug, c]))
@@ -460,7 +486,7 @@ export default function ParceirosPage() {
       <PartnerDetailSheet
         partnerId={detailPartnerId}
         open={!!detailPartnerId}
-        onOpenChange={(open) => { if (!open) setDetailPartnerId(null) }}
+        onOpenChange={handleSheetOpenChange}
         onRate={ratePartner}
         onApprove={approvePartner}
         onReject={rejectPartnerMutate}

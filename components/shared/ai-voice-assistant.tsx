@@ -2708,6 +2708,25 @@ function defaultMessage(result: VoiceSearchResult, channel: 'email' | 'whatsapp'
     }
     return `Olá! Partilho este imóvel:\n${result.title}${metaLine}\n${result.url}`
   }
+  if (result.kind === 'partner') {
+    const pc = result.partnerCard
+    const catLabel = pc?.categoryLabel || 'parceiro'
+    const contactLines = [
+      `Nome: ${result.title}`,
+      pc?.contactPerson ? `Contacto: ${pc.contactPerson}` : null,
+      pc?.phone ? `Telemóvel: ${pc.phone}` : null,
+      pc?.phoneSecondary ? `Telemóvel alternativo: ${pc.phoneSecondary}` : null,
+      pc?.email ? `Email: ${pc.email}` : null,
+      pc?.city ? `Cidade: ${pc.city}` : null,
+      pc?.website ? `Website: ${pc.website}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    if (channel === 'email') {
+      return `Olá,\n\nSegue o contacto do nosso parceiro de ${catLabel}:\n\n${contactLines}\n\nCumprimentos`
+    }
+    return `Olá! Segue o contacto do nosso parceiro de ${catLabel}:\n\n${contactLines}`
+  }
   if (channel === 'email') {
     return `Olá,\n\nSegue o ficheiro que pediste: "${result.title}".\n\n${result.url}\n\nCumprimentos`
   }

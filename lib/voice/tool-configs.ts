@@ -148,6 +148,12 @@ export interface VoicePartnerCardData {
   city?: string
   ratingAvg?: number | null
   contactPerson?: string
+  /** Partner's own contact info — used by defaultMessage() to compose
+   *  "Segue o contacto do nosso parceiro..." when sharing by email/WhatsApp. */
+  phone?: string
+  phoneSecondary?: string
+  email?: string
+  website?: string
 }
 
 export interface PropertyBasket {
@@ -1301,7 +1307,9 @@ const searchPartner: ToolConfig = {
         id: `partner:${p.id}`,
         title: String(p.name || 'Parceiro'),
         subtitle: p.contact_person ? `Contacto: ${p.contact_person}` : undefined,
-        url: `/dashboard/parceiros/${p.id}`,
+        // Opens the listing page with the detail sheet auto-expanded via
+        // the ?partner= query param (replaces the old /[id] page).
+        url: `/dashboard/parceiros?partner=${p.id}`,
         meta: metaParts.join(' · ') || undefined,
         kind: 'partner',
         partnerCard: {
@@ -1312,6 +1320,10 @@ const searchPartner: ToolConfig = {
           city: p.city ? String(p.city) : undefined,
           ratingAvg: typeof p.rating_avg === 'number' ? p.rating_avg : null,
           contactPerson: p.contact_person ? String(p.contact_person) : undefined,
+          phone: p.phone ? String(p.phone) : undefined,
+          phoneSecondary: p.phone_secondary ? String(p.phone_secondary) : undefined,
+          email: p.email ? String(p.email) : undefined,
+          website: p.website ? String(p.website) : undefined,
         },
         initialRecipients: hasContact
           ? [
