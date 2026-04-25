@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import OpenAI from 'openai'
+import { computeFlexibleBadges, computeHardMismatches } from '@/lib/matching'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -93,7 +94,7 @@ export async function GET(
       .from('dev_properties')
       .select(`
         id, title, external_ref, listing_price, property_type, status, city, zone, slug, description, property_condition,
-        dev_property_specifications(bedrooms, bathrooms, area_gross, area_util, parking_spaces, has_elevator, features, construction_year, solar_orientation, views, equipment),
+        dev_property_specifications(bedrooms, bathrooms, area_gross, area_util, parking_spaces, garage_spaces, has_elevator, features, construction_year, solar_orientation, views, equipment, balcony_area, pool_area, attic_area, pantry_area),
         dev_property_media(url, is_cover)
       `)
       .neq('status', 'cancelled')
@@ -123,6 +124,10 @@ export async function GET(
       }
     }
 
+    // Nota: `quartos_min` / `wc_min` não são aplicados aqui em SQL porque
+    // estão na tabela `dev_property_specifications` (1:1 join). O filtro
+    // é feito a seguir, junto com a remoção de mismatches em modo estrito.
+
     // Exclude already-added
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`)
@@ -139,7 +144,28 @@ export async function GET(
       return NextResponse.json({ data: [] })
     }
 
-    // ── Price + off-market flags (deterministic) ──
+    // ── Price + off-market flags + mismatch badges (determinístico) ──
+    const negocioFlex = {
+      area_min_m2: neg.area_min_m2 ?? null,
+      estado_imovel: neg.estado_imovel ?? null,
+      tem_garagem: neg.tem_garagem ?? null,
+      tem_estacionamento: neg.tem_estacionamento ?? null,
+      tem_elevador: neg.tem_elevador ?? null,
+      tem_piscina: neg.tem_piscina ?? null,
+      tem_varanda: neg.tem_varanda ?? null,
+      tem_arrumos: neg.tem_arrumos ?? null,
+      tem_exterior: neg.tem_exterior ?? null,
+      tem_porteiro: neg.tem_porteiro ?? null,
+    }
+    const negocioHard = {
+      tipo_imovel: neg.tipo_imovel ?? null,
+      localizacao: neg.localizacao ?? null,
+      orcamento: neg.orcamento ?? null,
+      orcamento_max: neg.orcamento_max ?? null,
+      quartos_min: neg.quartos_min ?? null,
+      wc_min: neg.wc_min ?? null,
+    }
+
     const withFlags = data.map((p: any) => {
       let price_flag: string | null = null
       if (budget && p.listing_price) {
@@ -153,8 +179,58 @@ export async function GET(
       // (fresh angariação), but this is the single source of truth so it's
       // easy to broaden later (e.g. pending_approval).
       const off_market = p.status === 'draft'
-      return { ...p, price_flag, off_market }
+
+      const specs = p.dev_property_specifications ?? null
+      const hard = computeHardMismatches(negocioHard, {
+        property_type: p.property_type ?? null,
+        city: p.city ?? null,
+        zone: p.zone ?? null,
+        listing_price: p.listing_price ?? null,
+        bedrooms: specs?.bedrooms ?? null,
+        bathrooms: specs?.bathrooms ?? null,
+      })
+      const soft = computeFlexibleBadges(
+        negocioFlex,
+        {
+          property_condition: p.property_condition ?? null,
+          specifications: specs
+            ? {
+                area_util: specs.area_util ?? null,
+                area_gross: specs.area_gross ?? null,
+                bedrooms: specs.bedrooms ?? null,
+                bathrooms: specs.bathrooms ?? null,
+                has_elevator: specs.has_elevator ?? null,
+                garage_spaces: specs.garage_spaces ?? null,
+                parking_spaces: specs.parking_spaces ?? null,
+                balcony_area: specs.balcony_area ?? null,
+                pool_area: specs.pool_area ?? null,
+                attic_area: specs.attic_area ?? null,
+                pantry_area: specs.pantry_area ?? null,
+                features: specs.features ?? null,
+                equipment: specs.equipment ?? null,
+              }
+            : null,
+        },
+        'no_filter',
+      )
+      // Em modo ESTRITO, hard mismatches devem EXCLUIR a propriedade (não
+      // aparecer com badge). Em modo SOLTO, mostram-se como aviso.
+      // Só queremos negativos (warning) e info — escondemos positives nesta vista densa.
+      const badges = strict
+        ? soft.filter((b) => b.type !== 'positive')
+        : [...hard, ...soft].filter((b) => b.type !== 'positive')
+
+      const hasHardMismatch = hard.length > 0
+
+      return { ...p, price_flag, off_market, badges, _hasHardMismatch: hasHardMismatch }
     })
+      // Em modo estrito: descartar quaisquer propriedades com hard mismatch
+      // (cobre os casos que o SQL não filtra — quartos_min/wc_min em specs).
+      .filter((p: any) => !strict || !p._hasHardMismatch)
+      .map((p: any) => {
+        const { _hasHardMismatch, ...rest } = p
+        return rest
+      })
 
     // ── AI Scoring (soft criteria) — only when ?score=true ──
     if (!withAiScore) {
