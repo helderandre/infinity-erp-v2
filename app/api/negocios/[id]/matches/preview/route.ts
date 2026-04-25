@@ -27,6 +27,8 @@ const previewBodySchema = z.object({
     )
     .default([]),
   strict: z.boolean().optional(),
+  /** Texto de localização ainda não persistido (form em memória) */
+  localizacao_override: z.string().optional().nullable(),
 })
 
 /**
@@ -57,7 +59,7 @@ export async function POST(
         { status: 400 }
       )
     }
-    const { zonas, strict = false } = parsed.data
+    const { zonas, strict = false, localizacao_override } = parsed.data
 
     // 1. Critérios flexíveis do negócio
     const { data: negocio, error: negError } = await supabase
@@ -79,7 +81,11 @@ export async function POST(
       supabase as unknown as {
         rpc: (
           fn: 'match_properties_preview',
-          args: { p_negocio_id: string; p_zonas: unknown }
+          args: {
+            p_negocio_id: string
+            p_zonas: unknown
+            p_localizacao_override?: string | null
+          }
         ) => Promise<{
           data: Array<{ property_id: string; geo_source: GeoSource }> | null
           error: { message: string } | null
@@ -88,6 +94,7 @@ export async function POST(
     ).rpc('match_properties_preview', {
       p_negocio_id: id,
       p_zonas: zonas,
+      p_localizacao_override: localizacao_override ?? null,
     })
 
     if (rpcError) {

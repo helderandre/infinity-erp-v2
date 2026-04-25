@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
+  AlertTriangle,
   ArrowUpRight,
   Briefcase,
   Building2,
@@ -181,6 +182,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [aiFillOpen, setAiFillOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
+  const [editInitialForm, setEditInitialForm] = useState<Record<string, unknown> | null>(null)
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
@@ -351,7 +354,11 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                 size="sm"
                 variant="outline"
                 className="rounded-full h-8 text-xs gap-1.5"
-                onClick={() => setEditOpen(true)}
+                onClick={() => {
+                  // Snapshot do form actual para detectar dirty depois
+                  setEditInitialForm({ ...form })
+                  setEditOpen(true)
+                }}
                 title="Editar dados do negócio"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -454,60 +461,151 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
 
         {/* Editar dados do negócio — replica o que existia na página dedicada */}
         {negocio?.id && (
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogContent className="max-w-3xl w-[95vw] sm:w-full p-0 max-h-[90vh] overflow-hidden flex flex-col">
-              <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <DialogTitle>Editar negócio</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Editar dados do negócio.
-                    </DialogDescription>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full h-8 text-xs gap-1.5 shrink-0"
-                    onClick={() => setAiFillOpen(true)}
-                    title="Preencher campos com IA"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Preencher com IA
-                  </Button>
-                </div>
-              </DialogHeader>
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
-                <NegocioDataCard
-                  tipo={tipo}
-                  negocioId={negocio.id}
-                  form={form}
-                  onFieldChange={updateField}
-                  isSaving={editSaving}
-                  onAiFillClick={() => setAiFillOpen(true)}
-                  onSave={async () => {
-                    if (!negocio?.id) return
-                    setEditSaving(true)
-                    try {
-                      const res = await fetch(`/api/negocios/${negocio.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(form),
-                      })
-                      if (!res.ok) throw new Error()
-                      toast.success('Negócio actualizado')
-                      await loadNegocio()
+          <>
+            {(() => {
+              const isDirty =
+                editInitialForm != null &&
+                JSON.stringify(form) !== JSON.stringify(editInitialForm)
+
+              const attemptClose = (next: boolean) => {
+                if (next) {
+                  setEditOpen(true)
+                  return
+                }
+                if (isDirty) {
+                  setConfirmDiscardOpen(true)
+                  return
+                }
+                setEditOpen(false)
+                setEditInitialForm(null)
+              }
+
+              const doSave = async () => {
+                if (!negocio?.id) return
+                setEditSaving(true)
+                try {
+                  const res = await fetch(`/api/negocios/${negocio.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(form),
+                  })
+                  if (!res.ok) throw new Error()
+                  toast.success('Negócio actualizado')
+                  await loadNegocio()
+                  setEditOpen(false)
+                  setEditInitialForm(null)
+                } catch {
+                  toast.error('Erro ao guardar')
+                } finally {
+                  setEditSaving(false)
+                }
+              }
+
+              return (
+                <Dialog open={editOpen} onOpenChange={attemptClose}>
+                  <DialogContent className="max-w-3xl w-[95vw] sm:w-full p-0 max-h-[90vh] overflow-hidden flex flex-col gap-0">
+                    <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <DialogTitle className="flex items-center gap-2">
+                            Editar negócio
+                            {isDirty && (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
+                                Alterações não guardadas
+                              </span>
+                            )}
+                          </DialogTitle>
+                          <DialogDescription className="sr-only">
+                            Editar dados do negócio.
+                          </DialogDescription>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full h-8 text-xs gap-1.5 shrink-0"
+                          onClick={() => setAiFillOpen(true)}
+                          title="Preencher campos com IA"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Preencher com IA
+                        </Button>
+                      </div>
+                    </DialogHeader>
+                    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+                      <NegocioDataCard
+                        tipo={tipo}
+                        negocioId={negocio.id}
+                        form={form}
+                        onFieldChange={updateField}
+                        isSaving={editSaving}
+                        forceEditing
+                        hideEditButton
+                        onAiFillClick={() => setAiFillOpen(true)}
+                        onSave={doSave}
+                      />
+                    </div>
+                    {/* Footer proeminente — Cancelar + Guardar sempre visíveis */}
+                    <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">
+                        {isDirty
+                          ? 'Tens alterações por guardar.'
+                          : 'Sem alterações por guardar.'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => attemptClose(false)}
+                          disabled={editSaving}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={doSave}
+                          disabled={editSaving || !isDirty}
+                          className="min-w-[120px]"
+                        >
+                          {editSaving ? 'A guardar...' : 'Guardar'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )
+            })()}
+
+            {/* Confirmação ao tentar sair com alterações não guardadas */}
+            <AlertDialog open={confirmDiscardOpen} onOpenChange={setConfirmDiscardOpen}>
+              <AlertDialogContent className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tens alterações por guardar neste negócio. Se saíres agora,{' '}
+                    <strong>perdes tudo o que ainda não foi guardado</strong>.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Continuar a editar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => {
+                      // Reverte form para o snapshot antes da edição
+                      if (editInitialForm) setForm(editInitialForm)
+                      setEditInitialForm(null)
+                      setConfirmDiscardOpen(false)
                       setEditOpen(false)
-                    } catch {
-                      toast.error('Erro ao guardar')
-                    } finally {
-                      setEditSaving(false)
-                    }
-                  }}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
+                    }}
+                  >
+                    Descartar e sair
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
         )}
 
         {/* Eliminar negócio — confirmação com aviso forte */}
@@ -1209,6 +1307,9 @@ function MatchingTab({
                       <p className="text-[10px] text-muted-foreground/70 mt-1 italic truncate">
                         {p.match_reason}
                       </p>
+                    )}
+                    {Array.isArray(p.badges) && p.badges.length > 0 && (
+                      <MismatchBadgesRow badges={p.badges} />
                     )}
                     <Button
                       variant="outline"

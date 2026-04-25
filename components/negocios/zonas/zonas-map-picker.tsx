@@ -66,6 +66,13 @@ interface ZonasMapPickerProps {
   onSave: (zones: NegocioZone[]) => void
   initialZones: NegocioZone[]
   negocioId: string
+  /**
+   * Texto de localização ainda não persistido — quando presente, é
+   * enviado ao endpoint preview para o ramo de texto contar imediatamente
+   * (evita o sintoma "texto + área cancelam-se" enquanto a UI está em
+   * modo de edição com alterações pendentes).
+   */
+  localizacaoOverride?: string | null
 }
 
 export function ZonasMapPicker({
@@ -74,6 +81,7 @@ export function ZonasMapPicker({
   onSave,
   initialZones,
   negocioId,
+  localizacaoOverride,
 }: ZonasMapPickerProps) {
   const isMobile = useIsMobile()
   const isTouchRef = useRef(false)
@@ -145,7 +153,10 @@ export function ZonasMapPicker({
     fetch(`/api/negocios/${negocioId}/matches/preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zonas: zones }),
+      body: JSON.stringify({
+        zonas: zones,
+        localizacao_override: localizacaoOverride ?? null,
+      }),
       signal: ctrl.signal,
     })
       .then((r) => (r.ok ? r.json() : { data: [] }))
@@ -153,7 +164,7 @@ export function ZonasMapPicker({
       .catch(() => setProperties([]))
       .finally(() => setIsLoading(false))
     return () => ctrl.abort()
-  }, [zones, open, negocioId])
+  }, [zones, open, negocioId, localizacaoOverride])
 
   // Initialize map when picker opens
   useEffect(() => {

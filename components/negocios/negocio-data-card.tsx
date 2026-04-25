@@ -297,6 +297,14 @@ interface NegocioDataCardProps {
   refreshKey?: number
   extraTabs?: ExtraTab[]
   onAiFillClick?: () => void
+  /**
+   * Quando true, força modo de edição e esconde o botão Pencil/Check
+   * interno. Usado pelo dialog de "Editar negócio" que tem o seu próprio
+   * footer com botão Guardar mais proeminente.
+   */
+  forceEditing?: boolean
+  /** Esconde o botão Pencil/Check interno (independente de forceEditing) */
+  hideEditButton?: boolean
 }
 
 export function NegocioDataCard({
@@ -309,8 +317,11 @@ export function NegocioDataCard({
   refreshKey,
   extraTabs = [],
   onAiFillClick,
+  forceEditing,
+  hideEditButton,
 }: NegocioDataCardProps) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditingState, setIsEditing] = useState(false)
+  const isEditing = forceEditing ? true : isEditingState
   const [activeTab, setActiveTab] = useState('dados')
   const showEditButton = activeTab === 'dados'
 
@@ -363,6 +374,7 @@ export function NegocioDataCard({
                 value={(form.zonas as NegocioZone[] | null) ?? []}
                 onChange={(zonas) => onFieldChange('zonas', zonas)}
                 negocioId={negocioId}
+                localizacao={(form.localizacao as string | null) ?? null}
               />
             </div>
           </div>
@@ -574,6 +586,7 @@ export function NegocioDataCard({
                       value={(form.zonas as NegocioZone[] | null) ?? []}
                       onChange={(zonas) => onFieldChange('zonas', zonas)}
                       negocioId={negocioId}
+                      localizacao={(form.localizacao as string | null) ?? null}
                     />
                   </div>
                 </div>
@@ -668,8 +681,8 @@ export function NegocioDataCard({
               ))}
             </TabsList>
 
-            {/* Edit / Save (only for dados/financiamento tabs) */}
-            {showEditButton && (isEditing ? (
+            {/* Edit / Save interno (suprimido quando o pai já oferece footer próprio) */}
+            {!hideEditButton && showEditButton && (isEditing ? (
               <button
                 onClick={handleSaveAndExit}
                 disabled={isSaving}

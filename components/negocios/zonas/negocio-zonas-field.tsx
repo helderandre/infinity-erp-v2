@@ -16,9 +16,14 @@ interface NegocioZonasFieldProps {
    * persistir), cai no `<ZonasSheet>` clássico.
    */
   negocioId?: string
+  /**
+   * Texto de localização ainda não persistido — propagado ao picker
+   * para o ramo de texto contar imediatamente, mesmo antes de guardar.
+   */
+  localizacao?: string | null
 }
 
-export function NegocioZonasField({ value, onChange, negocioId }: NegocioZonasFieldProps) {
+export function NegocioZonasField({ value, onChange, negocioId, localizacao }: NegocioZonasFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const excludeAdminIds = useMemo(
@@ -101,6 +106,7 @@ export function NegocioZonasField({ value, onChange, negocioId }: NegocioZonasFi
           onSave={(zones) => onChange(zones)}
           initialZones={value}
           negocioId={negocioId}
+          localizacaoOverride={localizacao ?? null}
         />
       ) : (
         <ZonasSheet
