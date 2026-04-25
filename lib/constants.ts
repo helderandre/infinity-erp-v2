@@ -1098,6 +1098,21 @@ export const NEGOCIO_TIPOS = [
   'Outro',
 ] as const
 
+/**
+ * Tipos disponíveis para criar novos negócios na UI.
+ * "Compra e Venda" foi deprecado — clientes que vendem e compram em
+ * simultâneo devem ter dois negócios separados.
+ * Os negócios existentes com tipo='Compra e Venda' continuam a funcionar
+ * (não há migração automática).
+ */
+export const NEGOCIO_TIPOS_PICKER = [
+  'Compra',
+  'Venda',
+  'Arrendatário',
+  'Arrendador',
+  'Outro',
+] as const
+
 export const NEGOCIO_ESTADOS = [
   'Aberto',
   'Em Acompanhamento',
