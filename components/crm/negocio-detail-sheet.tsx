@@ -121,6 +121,8 @@ import {
   type PropertyToSend,
 } from '@/lib/negocios/send-properties-whatsapp'
 import { MessageSquare } from 'lucide-react'
+import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
+import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 
 interface NegocioDetailSheetProps {
   negocioId: string | null
@@ -320,14 +322,15 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
             ? 'data-[side=bottom]:h-[85dvh] rounded-t-3xl'
             : 'h-full w-full data-[side=right]:sm:max-w-[820px] sm:rounded-l-3xl',
         )}
+        data-no-long-press
       >
         {isMobile && (
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
         )}
 
-        <SheetHeader className="shrink-0 px-6 pt-8 pb-3 sm:pt-10 gap-0 flex-row items-start justify-between">
-          <div className="min-w-0">
-            <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight truncate">
+        <SheetHeader className="shrink-0 px-6 pt-8 pb-3 sm:pt-10 gap-2 sm:gap-0 flex-col sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 pr-10 sm:pr-0">
+            <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight break-words sm:truncate">
               {clientName}
             </SheetTitle>
             <SheetDescription className="sr-only">
@@ -335,7 +338,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
             </SheetDescription>
           </div>
           {negocio?.id && (
-            <div className="flex items-center gap-1.5 mr-10 shrink-0">
+            <div className="flex items-center gap-1.5 sm:mr-10 shrink-0 flex-wrap">
               {leadId && (
                 <Button
                   asChild
@@ -382,7 +385,9 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
           <DetailSkeleton />
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <div className="px-6 space-y-4 pb-10">
+            {/* pb extra à direita/baixo para o utilizador conseguir fazer scroll
+                além das bubbles WhatsApp/Email que ficam fixas no canto. */}
+            <div className="px-6 space-y-4 pb-40 sm:pb-24">
               {/* Tab selector — centered pills */}
               <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-fit max-w-full mx-auto overflow-x-auto">
                 {tabs.map((t) => {
@@ -656,6 +661,24 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        )}
+
+        {/* Floating WhatsApp + Email chat bubbles — replicam o que existia
+            na página dedicada do negócio antes desta ser substituída pela sheet.
+            Bubble buttons usam `position: fixed` ancorado ao viewport mas só
+            renderizam enquanto o sheet está aberto. */}
+        {(lead?.telemovel || lead?.telefone) && (
+          <WhatsAppChatBubble
+            contactPhone={lead?.telemovel || lead?.telefone || null}
+            contactName={clientName}
+            contactLeadId={leadId}
+          />
+        )}
+        {lead?.email && (
+          <EmailChatBubble
+            contactEmail={lead.email}
+            contactName={clientName}
+          />
         )}
       </SheetContent>
     </Sheet>

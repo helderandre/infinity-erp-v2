@@ -136,6 +136,14 @@ export interface NegocioInteressado {
   colleague: string
   phone: string | null
   email: string | null
+  /** Tags explicando onde o imóvel não corresponde ao que o comprador pede.
+   * Em modo estrito só aparecem mismatches "soft" (área, estado, amenidades);
+   * em modo solto também aparecem mismatches "hard" (preço, tipo, zona, quartos). */
+  badges?: {
+    type: 'positive' | 'warning' | 'info'
+    key: string
+    label: string
+  }[]
 }
 
 // Resposta do chat IA

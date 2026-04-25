@@ -223,6 +223,29 @@ export function QualifyEntryDialog({
       return
     }
 
+    // Mandatory negócio fields — same rule as the CRM "Novo negócio" dialog.
+    if (!form.localizacao.trim()) {
+      toast.error('Localização é obrigatória')
+      return
+    }
+    const orcMin = parseFloat(form.orcamento)
+    const orcMax = parseFloat(form.orcamento_max)
+    const isBuyerLike = pipelineType === 'comprador'
+    if (!form.orcamento || !Number.isFinite(orcMin) || orcMin <= 0) {
+      toast.error(isBuyerLike ? 'Orçamento mínimo é obrigatório' : 'Valor é obrigatório')
+      return
+    }
+    if (isBuyerLike) {
+      if (!form.orcamento_max || !Number.isFinite(orcMax) || orcMax <= 0) {
+        toast.error('Orçamento máximo é obrigatório')
+        return
+      }
+      if (orcMax < orcMin) {
+        toast.error('O máximo tem de ser ≥ ao mínimo')
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
       const stageId = targetStageId || stages[0]?.id

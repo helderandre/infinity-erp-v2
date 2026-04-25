@@ -261,12 +261,13 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.eyJ1...
 ```
 dev_users (utilizadores do ERP — ligada a auth.users)
 ├── id (UUID, PK, FK → auth.users.id)
-├── role_id (UUID, FK → roles.id)
 ├── commercial_name (text)
 ├── professional_email (text, unique)
 ├── is_active (boolean, default true)
 ├── display_website (boolean, default false)
+├── active_lead_count (int, default 0)
 ├── created_at (timestamptz)
+NOTA: a associação a roles é M:N via user_roles (ver secção seguinte). Não existe coluna role_id em dev_users.
 
 dev_consultant_profiles (perfil público do consultor)
 ├── user_id (UUID, PK, FK → dev_users.id)
@@ -299,6 +300,17 @@ roles
 ├── description (text)
 ├── permissions (jsonb — objeto com booleanos por módulo)
 ├── created_at, updated_at
+
+user_roles (junction M:N — um utilizador pode ter múltiplos roles)
+├── user_id (UUID, PK, FK → dev_users.id)
+├── role_id (UUID, PK, FK → roles.id)
+├── assigned_by (UUID, FK → dev_users.id)
+├── assigned_at (timestamptz)
+
+Resolução de permissões:
+- lib/auth/permissions.ts faz JOIN dev_users → user_roles → roles e funde permissões com OR lógico entre todos os roles do utilizador.
+- Roles 'admin' e 'Broker/CEO' recebem todas as permissões (ALL_PERMISSION_MODULES).
+- A maioria da UI lê apenas user_roles[0] (primeiro role) para mostrar etiqueta — mas a autorização real merge-a todas.
 
 Roles existentes:
 - Broker/CEO (todas as permissões)

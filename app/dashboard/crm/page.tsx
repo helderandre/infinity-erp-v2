@@ -45,6 +45,7 @@ import type { PipelineType } from '@/types/leads-crm'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
+import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Inbox, Plus } from 'lucide-react'
@@ -628,6 +629,7 @@ export default function CRMPage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
   const [myLeadsOpen, setMyLeadsOpen] = useState(false)
+  const [newNegocioOpen, setNewNegocioOpen] = useState(false)
   const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null)
   const [detailNegocioId, setDetailNegocioId] = useState<string | null>(null)
   // Bumped whenever a lead is qualified / added — KanbanBoard listens for the
@@ -755,22 +757,22 @@ export default function CRMPage() {
   const hasActiveFilters = !!(filters.search || filters.pipelineStageId || filters.temperatura || filters.consultantId)
   const clearFilters = () => setFilters({ search: '', pipelineStageId: '', temperatura: '', consultantId: '' })
 
-  // Filter row JSX — extracted so we can render it once, in different positions
-  // depending on viewport (inside the hero on desktop, below on mobile).
+  // Filter row JSX — extracted so we can render it once. Lives outside the
+  // hero on desktop (top-right of the kanban) and outside on mobile too.
   const filterRow = (
-    <div className="flex items-center gap-2 w-full md:w-auto">
+    <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap sm:flex-nowrap sm:justify-end">
       {/* Search */}
-      <div className="relative flex-1 min-w-0 md:flex-initial md:w-[280px]">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div className="relative flex-1 min-w-[140px] sm:flex-initial sm:w-[200px] lg:w-[220px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
         <Input
           placeholder="Pesquisar por nome..."
-          className="pl-9 pr-8 rounded-full h-9 text-xs bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
+          className="pl-8 pr-7 rounded-full h-8 text-xs bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm focus-visible:ring-1 focus-visible:ring-border focus-visible:border-border"
           value={filters.search}
           onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
         />
         {filters.search && (
-          <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            <X className="h-3.5 w-3.5" />
+          <button onClick={() => setFilters((f) => ({ ...f, search: '' }))} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-3 w-3" />
           </button>
         )}
       </div>
@@ -779,13 +781,13 @@ export default function CRMPage() {
       <Popover>
         <PopoverTrigger asChild>
           <button
-            className="relative shrink-0 inline-flex items-center justify-center md:gap-1.5 h-9 w-9 md:w-auto md:px-3.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
+            className="relative shrink-0 inline-flex items-center justify-center sm:gap-1.5 h-8 w-8 sm:w-auto sm:px-3 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
             aria-label="Filtros"
           >
-            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="hidden md:inline">Filtros</span>
+            <SlidersHorizontal className="h-3 w-3 text-muted-foreground" />
+            <span className="hidden sm:inline">Filtros</span>
             {hasActiveFilters && (
-              <span className="absolute md:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background md:ring-0" />
+              <span className="absolute sm:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background sm:ring-0" />
             )}
           </button>
         </PopoverTrigger>
@@ -861,34 +863,45 @@ export default function CRMPage() {
       </Popover>
 
       {/* View mode toggle */}
-      <div className="inline-flex shrink-0 items-center gap-1 px-1 md:px-1.5 py-1 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm">
+      <div className="inline-flex shrink-0 items-center gap-0.5 p-0.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm">
         <button
           onClick={() => setViewMode('kanban')}
           aria-label="Kanban"
           className={cn(
-            'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
+            'inline-flex items-center justify-center sm:gap-1 h-7 w-7 sm:w-auto sm:px-2.5 rounded-full text-[11px] font-medium transition-colors duration-300',
             viewMode === 'kanban'
               ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
               : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
-          <KanbanIcon className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">Kanban</span>
+          <KanbanIcon className="h-3 w-3" />
+          <span className="hidden sm:inline">Kanban</span>
         </button>
         <button
           onClick={() => setViewMode('list')}
           aria-label="Lista"
           className={cn(
-            'inline-flex items-center justify-center md:gap-1.5 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
+            'inline-flex items-center justify-center sm:gap-1 h-7 w-7 sm:w-auto sm:px-2.5 rounded-full text-[11px] font-medium transition-colors duration-300',
             viewMode === 'list'
               ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
               : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
-          <List className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">Lista</span>
+          <List className="h-3 w-3" />
+          <span className="hidden sm:inline">Lista</span>
         </button>
       </div>
+
+      {/* + Novo Negócio */}
+      <button
+        type="button"
+        onClick={() => setNewNegocioOpen(true)}
+        className="shrink-0 inline-flex items-center justify-center gap-1 h-8 px-2.5 sm:px-3 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[11px] font-semibold shadow-md ring-1 ring-black/5 hover:bg-neutral-800 dark:hover:bg-white/90 transition-colors"
+        aria-label="Novo Negócio"
+      >
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+        <span className="hidden sm:inline">Novo</span>
+      </button>
     </div>
   )
 
@@ -971,15 +984,9 @@ export default function CRMPage() {
             })}
           </div>
 
-          {/* Data points + (desktop only) filter row inside the black card. */}
-          <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            {/* Data points */}
-            <div className="flex justify-center md:justify-start">
-              <SummaryBar pipelineType={activeTab} inHero />
-            </div>
-
-            {/* Desktop: filter row inside the hero, on the right */}
-            {!isMobile && filterRow}
+          {/* Data points only — filter row moved out of the hero. */}
+          <div className="mt-4 flex justify-center lg:justify-start">
+            <SummaryBar pipelineType={activeTab} inHero />
           </div>
         </div>
         <Button
@@ -992,8 +999,13 @@ export default function CRMPage() {
         </Button>
       </div>
 
-      {/* Mobile: filter row outside (below) the hero */}
-      {isMobile && filterRow}
+      {/* Active pipeline title (desktop only) + filter row — outside the hero. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="hidden md:block text-2xl font-bold tracking-tight">
+          {PIPELINE_TYPE_LABELS_PLURAL[activeTab]}
+        </h2>
+        {filterRow}
+      </div>
 
       {/* Content */}
       {viewMode === 'kanban' ? (
@@ -1027,6 +1039,15 @@ export default function CRMPage() {
         onOpenChange={setMyLeadsOpen}
         consultantId={user?.id ?? null}
         onNegocioCreated={() => setKanbanRefreshKey((k) => k + 1)}
+      />
+
+      <NewNegocioDialog
+        open={newNegocioOpen}
+        onOpenChange={setNewNegocioOpen}
+        onCreated={(id) => {
+          setKanbanRefreshKey((k) => k + 1)
+          if (id) openNegocioSheet(id)
+        }}
       />
 
       <NegocioDetailSheet

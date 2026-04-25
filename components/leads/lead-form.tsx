@@ -217,6 +217,26 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return }
     if (!negocioTipo) { toast.error('Seleccione o tipo de negócio (compra, venda, etc.)'); return }
 
+    // Mandatory negócio fields — same rule as the CRM "Novo negócio" dialog.
+    if (!negocioFields.localizacao.trim()) { toast.error('Localização é obrigatória'); return }
+    const orcMin = parseFloat(negocioFields.orcamento)
+    const orcMax = parseFloat(negocioFields.orcamento_max)
+    const isBuyer = negocioTipo === 'Compra' || negocioTipo === 'Outro'
+    if (!negocioFields.orcamento || !Number.isFinite(orcMin) || orcMin <= 0) {
+      toast.error(isBuyer ? 'Orçamento mínimo é obrigatório' : 'Valor é obrigatório')
+      return
+    }
+    if (isBuyer) {
+      if (!negocioFields.orcamento_max || !Number.isFinite(orcMax) || orcMax <= 0) {
+        toast.error('Orçamento máximo é obrigatório')
+        return
+      }
+      if (orcMax < orcMin) {
+        toast.error('O máximo tem de ser ≥ ao mínimo')
+        return
+      }
+    }
+
     setIsSubmitting(true)
     try {
       // 1. Create contact

@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import OpenAI from 'openai'
+import { computeBuyerMismatches } from '@/lib/matching'
+import type { SellerProfile, BuyerProfile } from '@/lib/matching'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -65,6 +67,29 @@ export async function GET(
     const sellerLocation = isCompraEVenda ? (negocio.localizacao_venda || negocio.localizacao) : negocio.localizacao
     const sellerRooms = negocio.quartos || null
     const sellerAmenities = extractAmenities(negocio, isCompraEVenda ? '_venda' : '')
+
+    // Perfil estruturado do imóvel à venda — usado para computar mismatches
+    // por comprador. Lê os mesmos campos `tem_*[_venda]` que o resto do flow.
+    const amenitySuffix = isCompraEVenda ? '_venda' : ''
+    const sellerProfileForBadges: SellerProfile = {
+      preco_venda: sellerPrice,
+      tipo_imovel: sellerType ?? null,
+      localizacao: sellerLocation ?? null,
+      quartos: sellerRooms,
+      casas_banho: negocio.casas_banho ?? null,
+      area_m2: negocio.area_m2 ?? null,
+      estado_imovel: negocio.estado_imovel ?? null,
+      amenities: {
+        tem_garagem: negocio[`tem_garagem${amenitySuffix}`] ?? null,
+        tem_estacionamento: negocio[`tem_estacionamento${amenitySuffix}`] ?? null,
+        tem_elevador: negocio[`tem_elevador${amenitySuffix}`] ?? null,
+        tem_piscina: negocio[`tem_piscina${amenitySuffix}`] ?? null,
+        tem_varanda: negocio[`tem_varanda${amenitySuffix}`] ?? null,
+        tem_arrumos: negocio[`tem_arrumos${amenitySuffix}`] ?? null,
+        tem_exterior: negocio[`tem_exterior${amenitySuffix}`] ?? null,
+        tem_porteiro: negocio[`tem_porteiro${amenitySuffix}`] ?? null,
+      },
+    }
 
     // ── Fetch buyer negócios with pipeline stage ──
     const { data: buyerNegocios, error } = await admin
@@ -152,6 +177,28 @@ export async function GET(
       const stageName = n.leads_pipeline_stages?.name || n.estado || null
       const stageColor = n.leads_pipeline_stages?.color || null
 
+      const buyerProfileForBadges: BuyerProfile = {
+        orcamento: n.orcamento ?? null,
+        orcamento_max: n.orcamento_max ?? null,
+        tipo_imovel: n.tipo_imovel ?? null,
+        localizacao: n.localizacao ?? null,
+        quartos_min: n.quartos_min ?? null,
+        wc_min: n.wc_min ?? null,
+        area_min_m2: n.area_min_m2 ?? null,
+        estado_imovel: n.estado_imovel ?? null,
+        amenities: {
+          tem_garagem: n.tem_garagem ?? null,
+          tem_estacionamento: n.tem_estacionamento ?? null,
+          tem_elevador: n.tem_elevador ?? null,
+          tem_piscina: n.tem_piscina ?? null,
+          tem_varanda: n.tem_varanda ?? null,
+          tem_arrumos: n.tem_arrumos ?? null,
+          tem_exterior: n.tem_exterior ?? null,
+          tem_porteiro: n.tem_porteiro ?? null,
+        },
+      }
+      const badges = computeBuyerMismatches(sellerProfileForBadges, buyerProfileForBadges)
+
       return {
         negocioId: n.id,
         firstName,
@@ -164,6 +211,7 @@ export async function GET(
         email: contactSource.professional_email || null,
         stageName,
         stageColor,
+        badges,
         // For AI scoring
         _buyerProfile: {
           tipo_imovel: n.tipo_imovel,

@@ -3,7 +3,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
-import { Users, Phone, MessageSquare, RefreshCw } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import {
+  Users,
+  Phone,
+  MessageSquare,
+  RefreshCw,
+  AlertTriangle,
+  Info,
+} from 'lucide-react'
 import type { NegocioInteressado } from '@/types/lead'
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -22,11 +31,13 @@ interface NegocioInteressadosProps {
 export function NegocioInteressados({ negocioId, refreshKey }: NegocioInteressadosProps) {
   const [interessados, setInteressados] = useState<NegocioInteressado[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [strict, setStrict] = useState(true)
 
   const load = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/negocios/${negocioId}/interessados`)
+      const qs = strict ? '' : '?strict=false'
+      const res = await fetch(`/api/negocios/${negocioId}/interessados${qs}`)
       if (res.ok) {
         const data = await res.json()
         setInteressados(data.data || [])
@@ -36,98 +47,153 @@ export function NegocioInteressados({ negocioId, refreshKey }: NegocioInteressad
     } finally {
       setIsLoading(false)
     }
-  }, [negocioId, refreshKey])
+  }, [negocioId, refreshKey, strict])
 
   useEffect(() => {
     load()
   }, [load])
 
+  const Header = (
+    <div className="flex items-center justify-between">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        Compradores interessados
+      </p>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="interessados-strict" className="text-xs text-muted-foreground cursor-pointer">
+            Match estrito
+          </Label>
+          <Switch
+            id="interessados-strict"
+            checked={strict}
+            onCheckedChange={setStrict}
+            aria-label="Modo estrito (filtros apertados; desligar mostra mais compradores com tags de discrepância)"
+          />
+        </div>
+        <button
+          onClick={load}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors"
+          aria-label="Recarregar"
+        >
+          <RefreshCw className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </div>
+    </div>
+  )
+
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 w-full rounded-xl" />
-        ))}
+      <div className="space-y-4">
+        {Header}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     )
   }
 
   if (interessados.length === 0) {
     return (
-      <EmptyState
-        icon={Users}
-        title="Nenhum interessado encontrado"
-        description="Não existem compradores potenciais registados no sistema"
-      />
+      <div className="space-y-4">
+        {Header}
+        <EmptyState
+          icon={Users}
+          title={strict ? 'Nenhum interessado encontrado' : 'Sem compradores no sistema'}
+          description={
+            strict
+              ? 'Active o modo solto para alargar a pesquisa a compradores fora dos critérios apertados.'
+              : 'Não existem compradores potenciais registados no sistema.'
+          }
+        />
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Compradores interessados
-        </p>
-        <button
-          onClick={load}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors"
-        >
-          <RefreshCw className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </div>
+      {Header}
 
       {/* List */}
       <div className="space-y-2">
         {interessados.map((int) => {
           const hasContact = !!(int.phone || int.email)
+          const badges = int.badges ?? []
 
           return (
             <div
               key={int.negocioId}
-              className="rounded-xl border px-4 py-3 flex items-center justify-between"
+              className="rounded-xl border px-4 py-3 space-y-2"
             >
-              <div>
-                <p className="font-medium text-sm">{int.firstName}</p>
-                <p className="text-xs text-muted-foreground">{int.colleague}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{int.firstName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{int.colleague}</p>
+                </div>
+
+                {hasContact ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {int.phone && (
+                      <a
+                        href={`https://wa.me/${int.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900 flex items-center justify-center transition-colors"
+                      >
+                        <WhatsAppIcon className="h-4 w-4" />
+                      </a>
+                    )}
+                    {int.phone && (
+                      <a
+                        href={`tel:${int.phone}`}
+                        className="w-9 h-9 rounded-full bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-950 dark:text-green-400 dark:hover:bg-green-900 flex items-center justify-center transition-colors"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    )}
+                    {int.phone && (
+                      <a
+                        href={`sms:${int.phone}`}
+                        className="w-9 h-9 rounded-full border text-muted-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-sm italic text-muted-foreground shrink-0">sem contacto</span>
+                )}
               </div>
 
-              {hasContact ? (
-                <div className="flex items-center gap-2">
-                  {int.phone && (
-                    <a
-                      href={`https://wa.me/${int.phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900 flex items-center justify-center transition-colors"
-                    >
-                      <WhatsAppIcon className="h-4 w-4" />
-                    </a>
-                  )}
-                  {int.phone && (
-                    <a
-                      href={`tel:${int.phone}`}
-                      className="w-9 h-9 rounded-full bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-950 dark:text-green-400 dark:hover:bg-green-900 flex items-center justify-center transition-colors"
-                    >
-                      <Phone className="h-4 w-4" />
-                    </a>
-                  )}
-                  {int.phone && (
-                    <a
-                      href={`sms:${int.phone}`}
-                      className="w-9 h-9 rounded-full border text-muted-foreground hover:bg-muted flex items-center justify-center transition-colors"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-              ) : (
-                <span className="text-sm italic text-muted-foreground">sem contacto</span>
-              )}
+              {badges.length > 0 && <MismatchBadgesRow badges={badges} />}
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function MismatchBadgesRow({ badges }: { badges: NonNullable<NegocioInteressado['badges']> }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map((b) => {
+        const Icon = b.type === 'warning' ? AlertTriangle : Info
+        const cls =
+          b.type === 'warning'
+            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900'
+            : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+        return (
+          <span
+            key={b.key}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}
+          >
+            <Icon className="h-2.5 w-2.5" />
+            {b.label}
+          </span>
+        )
+      })}
     </div>
   )
 }
