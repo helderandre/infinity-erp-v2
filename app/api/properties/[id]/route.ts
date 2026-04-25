@@ -141,6 +141,11 @@ export async function PUT(
       }
     }
 
+    // Background geocoding se a row ficou sem lat/lng mas tem morada
+    import('@/lib/geocoding/property-hook').then(({ geocodeInBackground }) => {
+      geocodeInBackground(supabase as unknown as { from: (t: string) => any }, id)
+    }).catch(() => {})
+
     return NextResponse.json({ id })
   } catch (error) {
     console.error('Erro ao actualizar imóvel:', error)

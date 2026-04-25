@@ -144,6 +144,10 @@ export async function POST(request: Request) {
       consultant_id: validation.data.consultant_id || auth.user.id,
     }
 
+    // Geocodifica antes de inserir se o user não preencheu o mapa picker
+    const { fillCoordsIfMissing } = await import('@/lib/geocoding/property-hook')
+    await fillCoordsIfMissing(insertData)
+
     const { data: property, error } = await supabase
       .from('dev_properties')
       .insert(insertData)
