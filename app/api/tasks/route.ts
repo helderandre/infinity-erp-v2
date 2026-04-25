@@ -77,7 +77,12 @@ export async function GET(request: Request) {
     const listScoped = !!task_list_id
     const includeGeneralTasks = source_filter !== 'process'
     const includeProcSourcesByFilter = !listScoped && source_filter !== 'personal'
-    const includeVisitProposals = !listScoped && source_filter !== 'process'
+    // Visit proposals are tied to a `property` (entity_type='property', entity_id=property_id).
+    // When the caller scopes by a different entity_type (negocio, lead, process), they
+    // shouldn't bleed in.
+    const entityScopeIncompatibleWithVisits = !!entity_type && entity_type !== 'property'
+    const includeVisitProposals =
+      !listScoped && source_filter !== 'process' && !entityScopeIncompatibleWithVisits
 
     // ─── 1. General tasks query ───
     let tasksQuery = supabase
