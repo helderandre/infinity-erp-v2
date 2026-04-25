@@ -362,6 +362,7 @@ export function NegocioDataCard({
               <NegocioZonasField
                 value={(form.zonas as NegocioZone[] | null) ?? []}
                 onChange={(zonas) => onFieldChange('zonas', zonas)}
+                negocioId={negocioId}
               />
             </div>
           </div>
@@ -572,6 +573,7 @@ export function NegocioDataCard({
                     <NegocioZonasField
                       value={(form.zonas as NegocioZone[] | null) ?? []}
                       onChange={(zonas) => onFieldChange('zonas', zonas)}
+                      negocioId={negocioId}
                     />
                   </div>
                 </div>

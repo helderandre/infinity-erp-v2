@@ -66,7 +66,7 @@ export async function GET(
       supabase
         .from('dev_properties')
         .select(
-          'id, title, slug, listing_price, property_type, status, city, zone, description, energy_certificate, property_condition, consultant_id'
+          'id, title, slug, listing_price, property_type, business_type, status, city, zone, description, energy_certificate, property_condition, latitude, longitude, consultant_id'
         )
         .in('id', propertyIds),
       supabase
@@ -74,7 +74,7 @@ export async function GET(
         .select(
           `property_id, bedrooms, bathrooms, area_gross, area_util, parking_spaces,
            garage_spaces, construction_year, has_elevator, balcony_area, pool_area,
-           attic_area, pantry_area, features, equipment`
+           attic_area, pantry_area, features, equipment, typology`
         )
         .in('property_id', propertyIds),
       supabase
@@ -197,12 +197,15 @@ export async function GET(
         slug: p.slug ?? '',
         listing_price: p.listing_price,
         property_type: p.property_type,
+        business_type: p.business_type,
         status: p.status,
         city: p.city,
         zone: p.zone,
         description: p.description,
         energy_certificate: p.energy_certificate,
         property_condition: p.property_condition,
+        latitude: p.latitude,
+        longitude: p.longitude,
         specs: specs
           ? {
               bedrooms: specs.bedrooms,
@@ -213,6 +216,7 @@ export async function GET(
               construction_year: specs.construction_year,
               has_elevator: specs.has_elevator,
               features: specs.features,
+              typology: specs.typology,
             }
           : null,
         media,

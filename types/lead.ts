@@ -93,12 +93,16 @@ export interface PropertyMatch {
   slug: string
   listing_price: number | null
   property_type: string | null
+  business_type: string | null
   status: string | null
   city: string | null
   zone: string | null
   description: string | null
   energy_certificate: string | null
   property_condition: string | null
+  /** Coordenadas usadas pelos markers do mapa de selecção de zonas */
+  latitude: number | null
+  longitude: number | null
   specs: {
     bedrooms: number | null
     bathrooms: number | null
@@ -108,6 +112,7 @@ export interface PropertyMatch {
     construction_year: number | null
     has_elevator: boolean | null
     features: string[] | null
+    typology?: string | null
   } | null
   media: { url: string; is_cover: boolean }[]
   cover_url: string | null
