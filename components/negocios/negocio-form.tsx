@@ -23,6 +23,8 @@ import {
   NEGOCIO_DURACOES_CONTRATO,
   LOCALIZACOES_PT,
 } from '@/lib/constants'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching'
 
 interface NegocioFormProps {
   tipo: string
@@ -191,6 +193,12 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
             <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
             <LocationTagsField label="Localização" field="localizacao" form={form} updateField={updateField} />
           </div>
+          {(isCompra || isArrendatario) && (
+            <NegocioZonasField
+              value={(form.zonas as NegocioZone[] | null) ?? []}
+              onChange={(zonas) => updateField('zonas', zonas)}
+            />
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
             <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />

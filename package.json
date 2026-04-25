@@ -79,6 +79,7 @@
     "mailparser": "^3.9.4",
     "mammoth": "^1.6.0",
     "mapbox-gl": "^3.18.1",
+    "maplibre-gl": "^5.24.0",
     "motion": "^12.38.0",
     "nanoid": "^5.1.9",
     "next": "16.1.6",

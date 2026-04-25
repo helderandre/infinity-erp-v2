@@ -26,6 +26,52 @@ import {
   LOCALIZACOES_PT,
 } from '@/lib/constants'
 import { TagsInput, TagsDisplay } from '@/components/ui/tags-input'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching'
+import { MapPin, Pencil as PencilIcon, Building2, Map as MapIcon } from 'lucide-react'
+
+/* ─── Zonas (read-only display) ─── */
+function ZonasDisplay({ zonas, legacyValue }: { zonas: NegocioZone[]; legacyValue?: string }) {
+  const hasText = !!legacyValue && legacyValue.trim() !== ''
+  const hasZonas = zonas && zonas.length > 0
+  if (!hasText && !hasZonas) return null
+  return (
+    <div className="col-span-full rounded-xl border px-4 py-3 space-y-3">
+      {hasText && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Localização (texto)</p>
+          <TagsDisplay value={legacyValue!} />
+        </div>
+      )}
+      {hasZonas && (
+        <div className={hasText ? 'border-t pt-3' : ''}>
+          <p className="text-xs text-muted-foreground mb-2">Zonas de interesse</p>
+          <div className="flex flex-wrap gap-1.5">
+            {zonas.map((zone, i) => {
+              const Icon =
+                zone.kind === 'polygon'
+                  ? PencilIcon
+                  : zone.label.includes('Distrito')
+                    ? MapIcon
+                    : zone.label.includes('Concelho')
+                      ? Building2
+                      : MapPin
+              return (
+                <span
+                  key={zone.kind === 'polygon' ? zone.id : `admin-${zone.area_id}-${i}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 border border-border/40 px-2.5 py-1 text-xs"
+                >
+                  <Icon className="h-3 w-3 text-muted-foreground" />
+                  <span className="font-medium">{zone.label}</span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ─── Display Field ─── */
 function DisplayField({
@@ -307,9 +353,17 @@ export function NegocioDataCard({
       <SectionHeader title="O que procura" />
       {isEditing ? (
         <>
-          <div className="col-span-full rounded-xl border px-4 py-3">
-            <p className="text-xs text-muted-foreground mb-1">Zonas pretendidas</p>
-            <TagsInput value={val('localizacao')} onChange={(v) => onFieldChange('localizacao', v)} placeholder="Lisboa, Cascais..." suggestions={LOCALIZACOES_PT} />
+          <div className="col-span-full rounded-xl border px-4 py-3 space-y-3">
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">Localização (texto)</p>
+              <TagsInput value={val('localizacao')} onChange={(v) => onFieldChange('localizacao', v)} placeholder="Lisboa, Cascais..." suggestions={LOCALIZACOES_PT} />
+            </div>
+            <div className="border-t pt-3">
+              <NegocioZonasField
+                value={(form.zonas as NegocioZone[] | null) ?? []}
+                onChange={(zonas) => onFieldChange('zonas', zonas)}
+              />
+            </div>
           </div>
           <SelectDisplayField label="Tipo de imóvel" value={val('tipo_imovel')} options={NEGOCIO_TIPOS_IMOVEL} onChange={(v) => onFieldChange('tipo_imovel', v)} isEditing />
           <EditField label="Quartos mínimos" value={numVal('quartos_min')} type="number" onChange={(v) => onFieldChange('quartos_min', v ? Number(v) : null)} />
@@ -319,10 +373,7 @@ export function NegocioDataCard({
         </>
       ) : (
         <>
-          <div className="col-span-full rounded-xl border px-4 py-3">
-            <p className="text-xs text-muted-foreground mb-0.5">Zonas pretendidas</p>
-            <TagsDisplay value={val('localizacao')} />
-          </div>
+          <ZonasDisplay zonas={(form.zonas as NegocioZone[] | null) ?? []} legacyValue={val('localizacao')} />
           <DisplayField label="Tipo de imóvel" value={val('tipo_imovel')} />
           <DisplayField label="Quartos mínimos" value={numVal('quartos_min')} />
           <DisplayField label="Nº de WC" value={numVal('num_wc')} />
@@ -512,9 +563,17 @@ export function NegocioDataCard({
                 <EditField label="Área mínima" value={numVal('area_min_m2')} type="number" suffix="m²" onChange={(v) => onFieldChange('area_min_m2', v ? Number(v) : null)} />
                 <SelectDisplayField label="Situação profissional" value={val('situacao_profissional')} options={NEGOCIO_SITUACOES_PROFISSIONAIS} onChange={(v) => onFieldChange('situacao_profissional', v)} isEditing />
                 <EditField label="Rendimento mensal" value={numVal('rendimento_mensal')} type="number" suffix="€" onChange={(v) => onFieldChange('rendimento_mensal', v ? Number(v) : null)} />
-                <div className="col-span-full rounded-xl border px-4 py-3">
-                  <p className="text-xs text-muted-foreground mb-1">Zonas pretendidas</p>
-                  <TagsInput value={val('localizacao')} onChange={(v) => onFieldChange('localizacao', v)} placeholder="Lisboa, Porto..." suggestions={LOCALIZACOES_PT} />
+                <div className="col-span-full rounded-xl border px-4 py-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Localização (texto)</p>
+                    <TagsInput value={val('localizacao')} onChange={(v) => onFieldChange('localizacao', v)} placeholder="Lisboa, Porto..." suggestions={LOCALIZACOES_PT} />
+                  </div>
+                  <div className="border-t pt-3">
+                    <NegocioZonasField
+                      value={(form.zonas as NegocioZone[] | null) ?? []}
+                      onChange={(zonas) => onFieldChange('zonas', zonas)}
+                    />
+                  </div>
                 </div>
               </>
             ) : (
@@ -524,10 +583,7 @@ export function NegocioDataCard({
                 <DisplayField label="Área mínima" value={numVal('area_min_m2')} suffix="m²" />
                 <DisplayField label="Situação profissional" value={val('situacao_profissional')} />
                 <DisplayField label="Rendimento mensal" value={formatCurrency(numVal('rendimento_mensal'))} />
-                <div className="col-span-full rounded-xl border px-4 py-3">
-                  <p className="text-xs text-muted-foreground mb-0.5">Zonas pretendidas</p>
-                  <TagsDisplay value={val('localizacao')} />
-                </div>
+                <ZonasDisplay zonas={(form.zonas as NegocioZone[] | null) ?? []} legacyValue={val('localizacao')} />
               </>
             )}
             <ToggleRow label="Tem fiador" checked={boolVal('tem_fiador')} onChange={(v) => onFieldChange('tem_fiador', v)} isEditing={isEditing} />
