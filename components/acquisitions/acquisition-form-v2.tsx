@@ -11,7 +11,7 @@ import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Check, Sparkles, Save, X, AlertCircle } from 'lucide-react'
+import { Check, Sparkles, Save, X, AlertCircle, Briefcase, Link2 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StepProperty } from './step-1-property'
 import { StepLocation } from './step-2-location'
@@ -19,6 +19,8 @@ import { StepOwners } from './step-3-owners'
 import { StepContract } from './step-4-contract'
 import { StepDocuments } from './step-5-documents'
 import { AcquisitionQuickFill } from './acquisition-quick-fill'
+import { NegocioPickerDialog, type NegocioPickerItem } from '@/components/negocios/negocio-picker-dialog'
+import { buildAcquisitionPrefillFromNegocio } from '@/lib/negocios/prefill-from-negocio'
 
 type AcquisitionFormData = z.infer<typeof acquisitionSchema>
 
@@ -98,6 +100,17 @@ export function AcquisitionFormV2({
   const [propertyId, setPropertyId] = useState<string | null>(null)
   const draftCreated = useRef(false)
 
+  // Picker "É de um negócio existente?" — só em standalone (sem prop negocioId,
+  // sem draft a retomar). O pick override fica em estado interno e é usado nas
+  // chamadas de API em vez do prop.
+  const [effectiveNegocioId, setEffectiveNegocioId] = useState<string | undefined>(negocioId)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickedNegocio, setPickedNegocio] = useState<NegocioPickerItem | null>(null)
+  const isStandaloneCtx = !negocioId && !draftId
+  const linkedLabel = pickedNegocio
+    ? `${pickedNegocio.lead?.full_name || pickedNegocio.lead?.nome || 'Lead'} · ${pickedNegocio.tipo}`
+    : null
+
   const form = useForm({
     resolver: zodResolver(acquisitionSchema) as any,
     defaultValues: {
@@ -139,6 +152,24 @@ export function AcquisitionFormV2({
       },
     },
   })
+
+  const applyPickedNegocio = useCallback(
+    (n: NegocioPickerItem) => {
+      setPickedNegocio(n)
+      setEffectiveNegocioId(n.id)
+      // Reusa o helper partilhado entre tab Angariação e picker standalone.
+      const prefill = buildAcquisitionPrefillFromNegocio(n as any)
+      const current = form.getValues()
+      form.reset({ ...current, ...prefill } as any)
+      toast.success('Pré-preenchido a partir do negócio')
+    },
+    [form],
+  )
+
+  const clearPickedNegocio = useCallback(() => {
+    setPickedNegocio(null)
+    setEffectiveNegocioId(negocioId)
+  }, [negocioId])
 
   // Watch required fields for submit button state
   const title = form.watch('title')
@@ -237,7 +268,7 @@ export function AcquisitionFormV2({
           zone: values.zone || prefillData?.zone,
           specifications: values.specifications || prefillData?.specifications,
         },
-        negocioId: negocioId || null,
+        negocioId: effectiveNegocioId || null,
       }),
     })
     if (!res.ok) throw new Error('Erro ao criar rascunho')
@@ -246,7 +277,7 @@ export function AcquisitionFormV2({
     setProcInstanceId(data.proc_instance_id)
     setPropertyId(data.property_id)
     return { procId: data.proc_instance_id, propId: data.property_id }
-  }, [procInstanceId, propertyId, form, prefillData, negocioId])
+  }, [procInstanceId, propertyId, form, prefillData, effectiveNegocioId])
 
   // Save step data to API
   const saveStep = useCallback(
@@ -441,6 +472,40 @@ export function AcquisitionFormV2({
     )
   }
 
+  // Banner reutilizado entre standalone e dialog modes.
+  const linkBanner = isStandaloneCtx ? (
+    <div className="rounded-2xl px-4 py-2.5 border border-border/50 bg-muted/30 flex items-center gap-2 flex-wrap">
+      <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      {pickedNegocio ? (
+        <>
+          <span className="text-xs text-muted-foreground">Vinculado a</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border/60 px-2.5 py-1 text-xs font-medium">
+            <Link2 className="h-3 w-3 text-muted-foreground" />
+            {linkedLabel}
+          </span>
+          <button
+            type="button"
+            onClick={clearPickedNegocio}
+            className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
+          >
+            Limpar
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="text-xs font-medium text-primary hover:underline ml-auto"
+          >
+            Escolher negócio
+          </button>
+        </>
+      )}
+    </div>
+  ) : null
+
   // Standalone mode (full page)
   if (mode === 'standalone') {
     return (
@@ -448,6 +513,7 @@ export function AcquisitionFormV2({
         <Form {...form}>
           <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
+            {linkBanner}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList variant="line" className="w-full justify-start">
                 {TABS.map((tab) => (
@@ -479,6 +545,14 @@ export function AcquisitionFormV2({
             </div>
           </form>
         </Form>
+        <NegocioPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          title="Escolher negócio existente"
+          description="Pré-preenche tipo, valor e tipo de imóvel a partir do negócio."
+          filterTipos={['Venda', 'Arrendador']}
+          onSelect={applyPickedNegocio}
+        />
       </div>
     )
   }
@@ -527,6 +601,40 @@ export function AcquisitionFormV2({
             </div>
           </div>
         </div>
+
+        {/* Banner: associar a negócio existente (só em modo standalone-ctx) */}
+        {isStandaloneCtx && (
+          <div className="flex-shrink-0 px-5 py-2.5 border-b bg-muted/30 flex items-center gap-2 flex-wrap">
+            <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {pickedNegocio ? (
+              <>
+                <span className="text-xs text-muted-foreground">Vinculado a</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border/60 px-2.5 py-1 text-xs font-medium">
+                  <Link2 className="h-3 w-3 text-muted-foreground" />
+                  {linkedLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={clearPickedNegocio}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
+                >
+                  Limpar
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="text-xs font-medium text-primary hover:underline ml-auto"
+                >
+                  Escolher negócio
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Content with Tabs */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -579,6 +687,14 @@ export function AcquisitionFormV2({
           </Button>
         </div>
       </form>
+      <NegocioPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="Escolher negócio existente"
+        description="Pré-preenche tipo, valor e tipo de imóvel a partir do negócio."
+        filterTipos={['Venda', 'Arrendador']}
+        onSelect={applyPickedNegocio}
+      />
     </Form>
   )
 }

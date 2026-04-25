@@ -36,7 +36,7 @@ import { WhatsAppActivitySettings } from '@/components/leads/whatsapp-activity-s
 import {
   getAgencySettings, updateAgencySetting,
   getCommissionTiers, upsertCommissionTier, deleteCommissionTier,
-} from '@/app/dashboard/comissoes/actions'
+} from '@/app/dashboard/financeiro/actions'
 import type { AgencySetting, CommissionTier } from '@/types/financial'
 
 // ─── Financial constants ─────────────────────────────────────────────────────

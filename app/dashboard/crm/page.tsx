@@ -21,6 +21,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -219,16 +220,21 @@ interface CrmFilters {
 function NegociosListView({
   pipelineType,
   filters,
+  stages,
+  onStageChange,
   onOpenNegocio,
 }: {
   pipelineType: PipelineType
   filters: CrmFilters
+  stages: PipelineStageOption[]
+  onStageChange: (stageId: string | null) => void
   onOpenNegocio: (id: string) => void
 }) {
   const [negocios, setNegocios] = useState<NegocioRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [stageCounts, setStageCounts] = useState<Record<string, number>>({})
   const limit = 30
 
   // Reset to first page when pipeline type or any filter changes
@@ -258,6 +264,30 @@ function NegociosListView({
   }, [page, pipelineType, filters.search, filters.pipelineStageId, filters.temperatura, filters.consultantId])
 
   useEffect(() => { fetchNegocios() }, [fetchNegocios])
+
+  // Counts per stage — usados pelo selector mobile no topo. Refetch quando
+  // muda o pipeline ou quando alguma operação (criar/eliminar) é provável.
+  // Para já refetch apenas em mudança de pipeline + reset de página.
+  useEffect(() => {
+    let cancelled = false
+    async function loadCounts() {
+      try {
+        const res = await fetch(`/api/crm/kanban/${pipelineType}`)
+        if (!res.ok) return
+        const json = await res.json()
+        const cols: Array<{ stage: { id: string }; items: any[] }> = json?.columns || []
+        const map: Record<string, number> = {}
+        for (const c of cols) {
+          if (c?.stage?.id) map[c.stage.id] = (c.items || []).length
+        }
+        if (!cancelled) setStageCounts(map)
+      } catch {
+        /* silent */
+      }
+    }
+    loadCounts()
+    return () => { cancelled = true }
+  }, [pipelineType, page])
 
   const totalPages = Math.ceil(total / limit)
 
@@ -369,8 +399,14 @@ function NegociosListView({
             </Table>
           </div>
 
-          {/* ── Mobile: card list ── */}
+          {/* ── Mobile: stage selector + card list ── */}
           <div className="md:hidden space-y-2">
+            <MobileStageSelector
+              stages={stages}
+              counts={stageCounts}
+              activeStageId={filters.pipelineStageId || null}
+              onChange={onStageChange}
+            />
             {negocios.map((n) => {
               const clientName = n.lead?.nome || n.lead?.full_name || '—'
               const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
@@ -454,6 +490,97 @@ function NegociosListView({
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Mobile stage selector ────────────────────────────────────────────────
+
+function MobileStageSelector({
+  stages,
+  counts,
+  activeStageId,
+  onChange,
+}: {
+  stages: PipelineStageOption[]
+  counts: Record<string, number>
+  activeStageId: string | null
+  onChange: (stageId: string | null) => void
+}) {
+  const active = activeStageId ? stages.find((s) => s.id === activeStageId) : null
+  const totalAll = Object.values(counts).reduce((a, b) => a + b, 0)
+  const activeCount = active ? counts[active.id] ?? 0 : totalAll
+  const activeName = active?.name || 'Todas as fases'
+  const activeColor = active?.color || '#94a3b8'
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between gap-2 rounded-2xl bg-card/80 supports-[backdrop-filter]:bg-card/60 backdrop-blur-md border border-border/40 shadow-sm px-4 py-3 hover:bg-card transition-colors"
+        >
+          <span className="flex items-center gap-2.5 min-w-0">
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: activeColor }} />
+            <span className="text-sm font-semibold truncate">{activeName}</span>
+            <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-muted text-[11px] font-semibold text-foreground/80 tabular-nums">
+              {activeCount}
+            </span>
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-1.5 max-h-[60vh] overflow-y-auto"
+      >
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className={cn(
+            'w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors',
+            activeStageId === null ? 'bg-muted font-medium' : 'hover:bg-muted/60',
+          )}
+        >
+          <span className="flex items-center gap-2.5 min-w-0">
+            <span className="h-2 w-2 rounded-full shrink-0 bg-muted-foreground/40" />
+            <span className="truncate">Todas as fases</span>
+          </span>
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-muted text-[11px] font-semibold tabular-nums text-foreground/70">
+            {totalAll}
+          </span>
+        </button>
+        {stages.map((s) => {
+          const count = counts[s.id] ?? 0
+          const isActive = activeStageId === s.id
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onChange(s.id)}
+              className={cn(
+                'w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors',
+                isActive ? 'bg-muted font-medium' : 'hover:bg-muted/60',
+              )}
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                <span className="truncate">{s.name}</span>
+              </span>
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-semibold tabular-nums',
+                  count > 0
+                    ? 'bg-foreground/[0.08] text-foreground/80'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -880,6 +1007,10 @@ export default function CRMPage() {
         <NegociosListView
           pipelineType={activeTab}
           filters={filters}
+          stages={stages}
+          onStageChange={(stageId) =>
+            setFilters((f) => ({ ...f, pipelineStageId: stageId || '' }))
+          }
           onOpenNegocio={openNegocioSheet}
         />
       )}

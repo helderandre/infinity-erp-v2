@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye, Map,
+  ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye,
+  Wallet, Network, Building, ListOrdered,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -23,8 +26,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 import { PaymentStatusDot } from '@/components/financial/payment-status-dot'
-import { updatePaymentStatus } from '@/app/dashboard/comissoes/deals/actions'
+import { updatePaymentStatus } from '@/app/dashboard/financeiro/deals/actions'
 import type { MapaGestaoRow, MapaGestaoTotals } from '@/types/financial'
+import { MapaGestaoFunnel } from './mapa-gestao-funnel'
+import { MapaRowSheet } from './sheets/mapa-row-sheet'
 import { DEAL_SCENARIOS, PAYMENT_MOMENTS } from '@/types/deal'
 import type { PaymentMoment } from '@/types/deal'
 
@@ -55,6 +60,7 @@ export function MapaGestaoTab() {
   const [dealType, setDealType] = useState<string>('all')
 
   const [rows, setRows] = useState<MapaGestaoRow[]>([])
+  const [selectedRow, setSelectedRow] = useState<MapaGestaoRow | null>(null)
   const [totals, setTotals] = useState<MapaGestaoTotals>({
     split_total: 0, network_total: 0, agency_total: 0, partner_total: 0, row_count: 0,
   })
@@ -114,94 +120,77 @@ export function MapaGestaoTab() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Hero header */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <Map className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Mapa de Gestao</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Mapa de pagamentos e split de comissões em {MONTHS[month - 1]} de {year}.
+    <div className="space-y-5">
+      {/* ─── Sheet 1: Indicadores + filtros + tabela ─────────────────── */}
+      <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 space-y-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+        <div>
+          <h3 className="text-base font-semibold tracking-tight">Mapa de gestão</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Splits de comissões em {MONTHS[month - 1]} de {year}
           </p>
+        </div>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-3 mt-6">
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Comissoes Consultor</p>
-              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.split_total)}</p>
-            </div>
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Rede</p>
-              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.network_total)}</p>
-            </div>
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Agencia</p>
-              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{fmtCurrency(totals.agency_total)}</p>
-            </div>
-            <div>
-              <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">Linhas</p>
-              <p className="text-white text-lg sm:text-xl font-bold tabular-nums">{totals.row_count}</p>
-            </div>
+        {/* KPIs */}
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <KpiTile label="Comissões consultor" value={fmtCurrency(totals.split_total)} icon={Wallet} tone="positive" />
+          <KpiTile label="Rede" value={fmtCurrency(totals.network_total)} icon={Network} tone="info" />
+          <KpiTile label="Agência" value={fmtCurrency(totals.agency_total)} icon={Building} tone="violet" />
+          <KpiTile label="Linhas" value={String(totals.row_count)} icon={ListOrdered} tone="neutral" />
+        </div>
+
+        {/* Filtros */}
+        <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/40 ring-1 ring-border/30">
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={prevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs font-medium px-2 min-w-[120px] text-center">
+              {MONTHS[month - 1]} {year}
+            </span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={nextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
-      </div>
 
-      {/* Filters bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={prevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium px-2 min-w-[120px] text-center">
-            {MONTHS[month - 1]} {year}
-          </span>
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={nextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <Select value={consultantId} onValueChange={setConsultantId}>
+            <SelectTrigger className="h-9 w-[180px] text-sm rounded-full bg-background/60 ring-1 ring-border/40 border-0">
+              <SelectValue placeholder="Consultor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os consultores</SelectItem>
+              {consultants.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={dealType} onValueChange={setDealType}>
+            <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-background/60 ring-1 ring-border/40 border-0">
+              <SelectValue placeholder="Cenário" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {Object.entries(DEAL_SCENARIOS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Select value={consultantId} onValueChange={setConsultantId}>
-          <SelectTrigger className="h-9 w-[180px] text-sm rounded-full bg-muted/50 border-0">
-            <SelectValue placeholder="Consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={dealType} onValueChange={setDealType}>
-          <SelectTrigger className="h-9 w-[160px] text-sm rounded-full bg-muted/50 border-0">
-            <SelectValue placeholder="Cenario" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {Object.entries(DEAL_SCENARIOS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl border bg-card/30 backdrop-blur-sm p-12 text-center">
-          <Banknote className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="font-medium text-muted-foreground">Sem negocios neste periodo</p>
-          <p className="text-xs text-muted-foreground mt-1">Ajuste os filtros ou seleccione outro mes.</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-          <div className="overflow-x-auto">
+        {/* Tabela */}
+        {isLoading ? (
+          <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-12 text-center">
+            <Banknote className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+            <p className="font-medium text-muted-foreground">Sem negócios neste período</p>
+            <p className="text-xs text-muted-foreground mt-1">Ajuste os filtros ou seleccione outro mês.</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 overflow-hidden">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -231,7 +220,7 @@ export function MapaGestaoTab() {
                     <TableRow
                       key={row.split_id}
                       className="transition-colors duration-200 hover:bg-muted/30 cursor-pointer"
-                      onClick={() => router.push(`/dashboard/comissoes/deals/${row.deal_id}`)}
+                      onClick={() => setSelectedRow(row)}
                     >
                       <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
                       <TableCell className="text-sm font-medium">
@@ -275,46 +264,27 @@ export function MapaGestaoTab() {
                         {(row as any).date_type === 'predicted' && <span className="text-[9px] ml-1">(prev.)</span>}
                       </TableCell>
 
-                      {/* Deal-level status dots */}
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      {/* Deal-level status dots — click row para editar no sheet */}
+                      <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={row.is_signed}
-                            label=""
-                            editable={!row.is_signed}
-                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_signed', date)}
-                          />
+                          <PaymentStatusDot checked={row.is_signed} label="" editable={false} />
                         </div>
                       </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={row.is_received}
-                            label=""
-                            editable={row.is_signed && !row.is_received}
-                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_received', date)}
-                          />
+                          <PaymentStatusDot checked={row.is_received} label="" editable={false} />
                         </div>
                       </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={row.is_reported}
-                            label=""
-                            editable={row.is_received && !row.is_reported}
-                            onToggle={(date) => handlePaymentUpdate(row.payment_id, 'is_reported', date)}
-                          />
+                          <PaymentStatusDot checked={row.is_reported} label="" editable={false} />
                         </div>
                       </TableCell>
 
                       {/* Per-agent: consultant paid */}
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <PaymentStatusDot
-                            checked={row.consultant_paid}
-                            label=""
-                            editable={false}
-                          />
+                          <PaymentStatusDot checked={row.consultant_paid} label="" editable={false} />
                         </div>
                       </TableCell>
 
@@ -341,7 +311,7 @@ export function MapaGestaoTab() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/dashboard/comissoes/deals/${row.deal_id}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/financeiro/deals/${row.deal_id}`)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Ver negocio
                             </DropdownMenuItem>
@@ -361,7 +331,65 @@ export function MapaGestaoTab() {
             </Table>
           </div>
         </div>
-      )}
+        )}
+      </Card>
+
+      {/* ─── Sheet 2: Funnel (consultor → rede → agência) ──────────── */}
+      <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+        <div className="mb-5">
+          <h3 className="text-base font-semibold tracking-tight">Distribuição de comissões</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Repartição em três níveis: consultor → rede → agência
+          </p>
+        </div>
+        <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-6">
+          <MapaGestaoFunnel totals={totals} />
+        </div>
+      </Card>
+
+      <MapaRowSheet
+        row={selectedRow}
+        onClose={() => setSelectedRow(null)}
+        onChanged={loadData}
+      />
+    </div>
+  )
+}
+
+// ─── KPI Tile (mesmo padrão do Resumo) ────────────────────────────────────
+
+function KpiTile({
+  label, value, icon: Icon, tone,
+}: {
+  label: string
+  value: string
+  icon: React.ElementType
+  tone: 'positive' | 'negative' | 'warning' | 'info' | 'neutral' | 'violet'
+}) {
+  const toneMap = {
+    neutral: { from: 'from-slate-500/10', icon: 'text-slate-600 dark:text-slate-300', accent: 'bg-slate-400/40' },
+    positive: { from: 'from-emerald-500/15', icon: 'text-emerald-600', accent: 'bg-emerald-500/60' },
+    negative: { from: 'from-red-500/15', icon: 'text-red-600', accent: 'bg-red-500/60' },
+    warning: { from: 'from-amber-500/15', icon: 'text-amber-600', accent: 'bg-amber-500/60' },
+    info: { from: 'from-blue-500/15', icon: 'text-blue-600', accent: 'bg-blue-500/60' },
+    violet: { from: 'from-violet-500/15', icon: 'text-violet-600', accent: 'bg-violet-500/60' },
+  }[tone]
+
+  return (
+    <div className={cn(
+      'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent',
+      'ring-1 ring-border/40 p-4 transition-all duration-300',
+      'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
+      toneMap.from,
+    )}>
+      <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
+      <div className="flex items-center gap-2">
+        <Icon className={cn('h-4 w-4 shrink-0', toneMap.icon)} />
+        <p className="text-[11px] text-muted-foreground font-medium leading-tight">{label}</p>
+      </div>
+      <p className="text-base sm:text-2xl font-semibold tracking-tight tabular-nums mt-2.5 text-foreground break-words">
+        {value}
+      </p>
     </div>
   )
 }

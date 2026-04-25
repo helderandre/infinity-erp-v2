@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
-import { Plus, Trash2, User, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, User, ChevronDown, UserPlus } from 'lucide-react'
+import { ContactPickerDialog, type PickedContact } from '@/components/shared/contact-picker-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import {
@@ -35,6 +36,7 @@ interface StepOwnersProps {
 export function StepOwners({ form }: StepOwnersProps) {
   const owners = form.watch('owners') || []
   const [expandedOwners, setExpandedOwners] = useState<Set<number>>(new Set([0]))
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const toggleExpanded = (index: number) => {
     setExpandedOwners(prev => {
@@ -52,6 +54,21 @@ export function StepOwners({ form }: StepOwnersProps) {
       email: '',
       phone: '',
       nif: '',
+      ownership_percentage: 100,
+      is_main_contact: owners.length === 0,
+    }
+    form.setValue('owners', [...owners, newOwner])
+    setExpandedOwners(prev => new Set([...prev, owners.length]))
+  }
+
+  const addOwnerFromContact = (c: PickedContact) => {
+    const newOwner = {
+      id: c.source === 'owner' ? c.id : undefined, // se for owner existente, reusa o ID
+      person_type: c.person_type || 'singular',
+      name: c.name,
+      email: c.email || '',
+      phone: c.phone || '',
+      nif: c.nif || '',
       ownership_percentage: 100,
       is_main_contact: owners.length === 0,
     }
@@ -85,10 +102,21 @@ export function StepOwners({ form }: StepOwnersProps) {
             Adicione pelo menos um proprietário
           </p>
         </div>
-        <Button type="button" onClick={addOwner} size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Proprietário
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            size="sm"
+            variant="outline"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Importar
+          </Button>
+          <Button type="button" onClick={addOwner} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar
+          </Button>
+        </div>
       </div>
 
       {owners.length === 0 && (
@@ -312,6 +340,15 @@ export function StepOwners({ form }: StepOwnersProps) {
         </Card>
         )
       })}
+
+      <ContactPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        kind="owner"
+        title="Importar proprietário"
+        description="Pesquisa um proprietário já existente para reusar os dados (NIF, morada, etc.)."
+        onSelect={addOwnerFromContact}
+      />
     </div>
   )
 }

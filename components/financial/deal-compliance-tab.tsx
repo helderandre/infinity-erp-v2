@@ -26,7 +26,7 @@ import {
 import { toast } from 'sonner'
 import {
   getCompliance, updateCompliance, markAsReported, generateImpicFormData,
-} from '@/app/dashboard/comissoes/compliance/actions'
+} from '@/app/dashboard/financeiro/compliance/actions'
 import type {
   DealCompliance, ImpicFormData,
 } from '@/types/compliance'

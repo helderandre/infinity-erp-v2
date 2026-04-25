@@ -40,6 +40,7 @@ export async function POST(request: Request) {
         escritura_pct: 100,
         // Pre-fill from body if provided
         property_id: body.property_id || null,
+        negocio_id: body.negocio_id || null,
         share_pct: body.share_pct ?? 50,
         partner_agency_name: body.partner_agency_name || null,
         external_consultant_name: body.external_consultant_name || null,
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const propertyId = searchParams.get('property_id')
+    const negocioId = searchParams.get('negocio_id')
 
     let query = supabase
       .from('deals')
@@ -84,6 +86,7 @@ export async function GET(request: Request) {
 
     if (status) query = query.eq('status', status)
     if (propertyId) query = query.eq('property_id', propertyId)
+    if (negocioId) query = query.eq('negocio_id', negocioId)
 
     const { data, error } = await query
 

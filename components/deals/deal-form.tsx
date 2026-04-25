@@ -18,6 +18,9 @@ import { StepClientes } from './step-2-clientes'
 import { StepCondicoes } from './step-3-condicoes'
 import { StepExtra } from './step-4-extra'
 import { StepReferenciacao } from './step-5-referenciacao'
+import { Briefcase, Link2 } from 'lucide-react'
+import { NegocioPickerDialog, type NegocioPickerItem } from '@/components/negocios/negocio-picker-dialog'
+import { buildDealPropertyContextFromNegocio } from '@/lib/negocios/prefill-from-negocio'
 
 const TABS = [
   { value: 'partilha', label: 'Partilha' },
@@ -50,9 +53,17 @@ export interface DealFormProps {
     city?: string | null
     commission_agreed?: number | null
   }
+  /** When opened from a negocio (e.g. accepting a proposal), pre-fill the
+   *  buyer client info from the lead. */
+  negocioContext?: {
+    id: string
+    leadName?: string | null
+    leadEmail?: string | null
+    leadPhone?: string | null
+  }
 }
 
-export function DealForm({ onComplete, onClose, draftId: initialDraftId, propertyContext }: DealFormProps) {
+export function DealForm({ onComplete, onClose, draftId: initialDraftId, propertyContext, negocioContext }: DealFormProps) {
   const [activeTab, setActiveTab] = useState('partilha')
   const [dealId, setDealId] = useState<string | null>(initialDraftId || null)
   const [submitting, setSubmitting] = useState(false)
@@ -65,13 +76,31 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
 
   const fromProperty = !!propertyContext
 
+  // Picker "É de um negócio existente?" — só aparece em modo standalone
+  // (sem propertyContext, sem negocioContext, sem draft).
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickedNegocio, setPickedNegocio] = useState<NegocioPickerItem | null>(null)
+  const isStandalone = !propertyContext && !negocioContext && !initialDraftId
+  const linkedLabel = pickedNegocio
+    ? `${pickedNegocio.lead?.full_name || pickedNegocio.lead?.nome || 'Lead'} · ${pickedNegocio.tipo}`
+    : null
+
   const form = useForm<DealFormData>({
     resolver: zodResolver(dealFormSchema) as any,
     defaultValues: {
       scenario: 'pleno',
       commission_type: 'percentage',
       person_type: 'singular',
-      clients: [{ person_type: 'singular', name: '', email: '', phone: '', order_index: 0 }],
+      // Pre-fill clients[0] do contexto do negócio (lead = comprador)
+      clients: [
+        {
+          person_type: 'singular',
+          name: negocioContext?.leadName || '',
+          email: negocioContext?.leadEmail || '',
+          phone: negocioContext?.leadPhone || '',
+          order_index: 0,
+        },
+      ],
       share_pct: 50,
       // Prefill from property context
       property_id: propertyContext?.id || undefined,
@@ -80,6 +109,39 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
       commission_pct: propertyContext?.commission_agreed || undefined,
     },
   })
+
+  const applyPickedNegocio = useCallback((n: NegocioPickerItem) => {
+    setPickedNegocio(n)
+    const { businessType } = buildDealPropertyContextFromNegocio(n as any, null)
+    const dealValue =
+      n.preco_venda ??
+      n.orcamento_max ??
+      n.orcamento ??
+      n.renda_pretendida ??
+      n.renda_max_mensal ??
+      undefined
+    const current = form.getValues()
+    form.reset({
+      ...current,
+      clients: [
+        {
+          person_type: 'singular',
+          name: n.lead?.full_name || n.lead?.nome || '',
+          email: n.lead?.email || '',
+          phone: n.lead?.telemovel || '',
+          order_index: 0,
+        },
+      ],
+      business_type: businessType as any,
+      deal_value: dealValue,
+      property_id: n.property_id || current.property_id,
+    } as any)
+    toast.success('Pré-preenchido a partir do negócio')
+  }, [form])
+
+  const clearPickedNegocio = useCallback(() => {
+    setPickedNegocio(null)
+  }, [])
 
   // Load existing draft
   useEffect(() => {
@@ -183,6 +245,9 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
           scenario: form.getValues('scenario'),
           property_id: form.getValues('property_id') || null,
           share_pct: form.getValues('share_pct'),
+          // Liga o deal ao negócio quando há contexto (Aceitar proposta ou
+          // picker "É de um negócio existente?").
+          negocio_id: negocioContext?.id || pickedNegocio?.id || null,
         }),
       })
       const data = await res.json()
@@ -194,7 +259,7 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
       toast.error('Erro ao criar rascunho')
     }
     return null
-  }, [dealId, form])
+  }, [dealId, form, negocioContext, pickedNegocio])
 
   // Save current state
   const saveDraft = useCallback(async (silent = true) => {
@@ -328,6 +393,40 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
           </div>
         </div>
 
+        {/* Banner: associar a negócio existente (só em modo standalone) */}
+        {isStandalone && (
+          <div className="flex-shrink-0 px-4 sm:px-5 py-2.5 border-b bg-muted/30 flex items-center gap-2 flex-wrap">
+            <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {pickedNegocio ? (
+              <>
+                <span className="text-xs text-muted-foreground">Vinculado a</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border/60 px-2.5 py-1 text-xs font-medium">
+                  <Link2 className="h-3 w-3 text-muted-foreground" />
+                  {linkedLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={clearPickedNegocio}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
+                >
+                  Limpar
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="text-xs font-medium text-primary hover:underline ml-auto"
+                >
+                  Escolher negócio
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Content with Tabs */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full gap-0">
@@ -402,6 +501,14 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
           </Button>
         </div>
       </form>
+      <NegocioPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="Escolher negócio existente"
+        description="Pré-preenche o cliente, valor e tipo. Podes ajustar depois."
+        filterTipos={['Compra', 'Venda', 'Arrendatário', 'Arrendador']}
+        onSelect={(n) => applyPickedNegocio(n)}
+      />
     </Form>
   )
 }

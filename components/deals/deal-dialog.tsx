@@ -18,6 +18,13 @@ interface DealDialogProps {
     city?: string | null
     commission_agreed?: number | null
   }
+  /** When opened from a negocio (proposal accept), pre-fill clients from the lead. */
+  negocioContext?: {
+    id: string
+    leadName?: string | null
+    leadEmail?: string | null
+    leadPhone?: string | null
+  }
   onComplete?: (dealId: string) => void
 }
 
@@ -26,6 +33,7 @@ export function DealDialog({
   onOpenChange,
   draftId,
   propertyContext,
+  negocioContext,
   onComplete,
 }: DealDialogProps) {
   return (
@@ -40,6 +48,7 @@ export function DealDialog({
           <DealForm
             draftId={draftId}
             propertyContext={propertyContext}
+            negocioContext={negocioContext}
             onComplete={(id) => {
               onComplete?.(id)
               onOpenChange(false)

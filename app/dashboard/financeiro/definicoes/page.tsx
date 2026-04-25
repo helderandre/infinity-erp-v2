@@ -26,7 +26,7 @@ import {
 import {
   getAgencySettings, updateAgencySetting,
   getCommissionTiers, upsertCommissionTier, deleteCommissionTier,
-} from '@/app/dashboard/comissoes/actions'
+} from '@/app/dashboard/financeiro/actions'
 import type { AgencySetting, CommissionTier } from '@/types/financial'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -167,20 +167,6 @@ export default function DefinicoesPage() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent" />
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
-            <Settings className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Definições Financeiras</h1>
-            <p className="text-sm text-white/60 mt-0.5">Configurações de comissões, escalões e rede</p>
-          </div>
-        </div>
-      </div>
-
       <Tabs defaultValue="geral" className="w-full">
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30">
           <TabsList className="bg-transparent p-0 h-auto">

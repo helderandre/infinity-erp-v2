@@ -60,6 +60,9 @@ export async function GET(
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const withAiScore = searchParams.get('score') === 'true'
+    // strict (default true) — quando false relaxa: banda de preço ±30%
+    // (em vez de ±15%) e dispensa o filtro estrito de tipo + localização.
+    const strict = searchParams.get('strict') !== 'false'
     const admin = createAdminClient() as any
 
     // Get full negocio buyer profile (including amenities)
@@ -97,21 +100,22 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(50)
 
-    // Hard: property type
-    if (neg.tipo_imovel) {
+    // Hard: property type — só enforced em strict
+    if (strict && neg.tipo_imovel) {
       query = query.ilike('property_type', `%${neg.tipo_imovel}%`)
     }
 
-    // Hard: price range (±15% of max budget)
+    // Hard: price range — strict ±15%, loose ±30% (do max budget)
     const budget = neg.orcamento_max || neg.orcamento
     if (budget) {
-      const min = budget * 0.85
-      const max = budget * 1.15
+      const factor = strict ? 0.15 : 0.30
+      const min = budget * (1 - factor)
+      const max = budget * (1 + factor)
       query = query.gte('listing_price', min).lte('listing_price', max)
     }
 
-    // Hard: location
-    if (neg.localizacao) {
+    // Hard: location — só enforced em strict
+    if (strict && neg.localizacao) {
       const zones = neg.localizacao.split(',').map((z: string) => z.trim()).filter(Boolean)
       if (zones.length > 0) {
         const orFilter = zones.map((z: string) => `city.ilike.%${z}%,zone.ilike.%${z}%`).join(',')

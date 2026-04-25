@@ -25,8 +25,20 @@ interface VisitFormProps {
   defaultPropertyId?: string
   defaultLeadId?: string
   defaultConsultantId?: string
+  /** Esconde o selector de consultor — usar quando contexto já o define. */
+  hideConsultant?: boolean
+  /** Esconde o selector de cliente / lead — usar quando contexto já o define. */
+  hideClient?: boolean
+  /** Restringe o selector de imóvel a um conjunto pré-definido (ex.: dossier do negócio). */
+  propertyOptions?: PropertyOption[]
+  /** Texto custom para o botão submit. */
+  submitLabel?: string
   onSubmit: (data: CreateVisitInput) => Promise<any>
   onCancel?: () => void
+  /** Renderiza sem o footer interno (botões) — útil quando o footer fica no Sheet. */
+  hideFooter?: boolean
+  /** Ref opcional para submeter externamente (ex.: do footer do Sheet). */
+  formId?: string
 }
 
 interface PropertyOption {
@@ -50,6 +62,12 @@ export function VisitForm({
   defaultPropertyId,
   defaultLeadId,
   defaultConsultantId,
+  hideConsultant,
+  hideClient,
+  propertyOptions,
+  submitLabel,
+  hideFooter,
+  formId,
   onSubmit,
   onCancel,
 }: VisitFormProps) {
@@ -83,17 +101,22 @@ export function VisitForm({
 
   const selectedLeadId = watch('lead_id')
 
-  // Fetch properties, leads, consultants
+  // Fetch properties, leads, consultants — saltamos os pedidos cujo selector está
+  // escondido para evitar overhead desnecessário.
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [propRes, leadRes, consultRes] = await Promise.all([
-          fetch('/api/properties?limit=200'),
-          fetch('/api/leads?limit=200'),
-          fetch('/api/consultants?per_page=100&status=active'),
-        ])
+        const requests: Array<Promise<Response | null>> = [
+          // Propriedades: se foram fornecidas externamente, não pedimos.
+          propertyOptions ? Promise.resolve(null) : fetch('/api/properties?limit=200'),
+          hideClient ? Promise.resolve(null) : fetch('/api/leads?limit=200'),
+          hideConsultant ? Promise.resolve(null) : fetch('/api/consultants?per_page=100&status=active'),
+        ]
+        const [propRes, leadRes, consultRes] = await Promise.all(requests)
 
-        if (propRes.ok) {
+        if (propertyOptions) {
+          setProperties(propertyOptions)
+        } else if (propRes && propRes.ok) {
           const propJson = await propRes.json()
           setProperties(
             (propJson.data || propJson || []).map((p: any) => ({
@@ -104,7 +127,7 @@ export function VisitForm({
           )
         }
 
-        if (leadRes.ok) {
+        if (leadRes && leadRes.ok) {
           const leadJson = await leadRes.json()
           setLeads(
             (leadJson.data || leadJson || []).map((l: any) => ({
@@ -115,7 +138,7 @@ export function VisitForm({
           )
         }
 
-        if (consultRes.ok) {
+        if (consultRes && consultRes.ok) {
           const consultJson = await consultRes.json()
           setConsultants(
             (consultJson.data || consultJson || []).map((c: any) => ({
@@ -130,7 +153,7 @@ export function VisitForm({
     }
 
     fetchData()
-  }, [])
+  }, [hideClient, hideConsultant, propertyOptions])
 
   const handleFormSubmit = async (data: CreateVisitInput) => {
     setIsSubmitting(true)
@@ -144,7 +167,7 @@ export function VisitForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
       {/* Imóvel */}
       <div className="space-y-2">
         <Label htmlFor="property_id">Imóvel *</Label>
@@ -170,30 +193,33 @@ export function VisitForm({
       </div>
 
       {/* Consultor */}
-      <div className="space-y-2">
-        <Label htmlFor="consultant_id">Consultor *</Label>
-        <Select
-          value={watch('consultant_id')}
-          onValueChange={(v) => setValue('consultant_id', v)}
-          disabled={!!defaultConsultantId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar consultor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {consultants.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.commercial_name || c.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.consultant_id && (
-          <p className="text-sm text-destructive">{errors.consultant_id.message}</p>
-        )}
-      </div>
+      {!hideConsultant && (
+        <div className="space-y-2">
+          <Label htmlFor="consultant_id">Consultor *</Label>
+          <Select
+            value={watch('consultant_id')}
+            onValueChange={(v) => setValue('consultant_id', v)}
+            disabled={!!defaultConsultantId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar consultor..." />
+            </SelectTrigger>
+            <SelectContent>
+              {consultants.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.commercial_name || c.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.consultant_id && (
+            <p className="text-sm text-destructive">{errors.consultant_id.message}</p>
+          )}
+        </div>
+      )}
 
       {/* Lead ou Cliente Manual */}
+      {!hideClient && (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>Cliente *</Label>
@@ -274,6 +300,7 @@ export function VisitForm({
           <p className="text-sm text-destructive">{errors.lead_id.message}</p>
         )}
       </div>
+      )}
 
       {/* Data, Hora, Duração */}
       <div className="grid grid-cols-3 gap-3">
@@ -331,17 +358,19 @@ export function VisitForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
+      {!hideFooter && (
+        <div className="flex justify-end gap-2 pt-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancelar
+            </Button>
+          )}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {submitLabel || 'Agendar Visita'}
           </Button>
-        )}
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Agendar Visita
-        </Button>
-      </div>
+        </div>
+      )}
     </form>
   )
 }

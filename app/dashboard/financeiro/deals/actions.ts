@@ -590,6 +590,32 @@ export async function updateSplitInvoice(
   }
 }
 
+// ─── 7c. updateSplitPaid (per-agent: consultant_paid toggle) ─────────────────
+
+export async function updateSplitPaid(
+  splitId: string,
+  value: boolean,
+  date?: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const admin = createAdminClient()
+
+    const { error } = await (admin as any)
+      .from('deal_payment_splits')
+      .update({
+        consultant_paid: value,
+        consultant_paid_date: value ? (date ?? new Date().toISOString().split('T')[0]) : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', splitId)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, error: null }
+  } catch (err: any) {
+    return { success: false, error: err.message ?? 'Erro ao actualizar estado de pagamento' }
+  }
+}
+
 // ─── 8. getDealStats ────────────────────────────────────────────────────────
 
 export async function getDealStats(): Promise<{

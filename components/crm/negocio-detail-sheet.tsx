@@ -11,6 +11,8 @@ import {
   Building2,
   Calendar as CalendarIcon,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Copy,
   Euro,
@@ -81,6 +83,31 @@ import { VisitForm } from '@/components/visits/visit-form'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
 import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
+import { Calendar } from '@/components/ui/calendar'
+import { CalendarMonthGrid } from '@/components/calendar/calendar-month-grid'
+import type { CalendarEvent } from '@/types/calendar'
+import { addMonths, subMonths, isSameMonth } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
+import { DealDialog } from '@/components/deals/deal-dialog'
+import {
+  buildAcquisitionPrefillFromNegocio,
+  buildDealPropertyContextFromNegocio,
+} from '@/lib/negocios/prefill-from-negocio'
+import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
+import { MarketStudiesCard } from '@/components/crm/market-studies-card'
+import { NegocioProposalsTab } from '@/components/crm/negocio-proposals-tab'
+import {
+  suggestNegocioToColleagueViaWhatsApp,
+  suggestNegocioToColleagueViaInternalChat,
+  buildNegocioSpecs,
+} from '@/lib/negocios/suggest-to-colleague'
+import {
+  resolveLeadChat,
+  sendOneProperty,
+  type PropertyToSend,
+} from '@/lib/negocios/send-properties-whatsapp'
+import { MessageSquare } from 'lucide-react'
 
 interface NegocioDetailSheetProps {
   negocioId: string | null
@@ -88,7 +115,7 @@ interface NegocioDetailSheetProps {
   onOpenChange: (open: boolean) => void
 }
 
-type TabKey = 'detalhes' | 'matching' | 'imoveis' | 'visitas' | 'interessados' | 'documentos'
+type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao'
 
 const TEMP_COLORS: Record<string, string> = {
   Frio: '#3b82f6',
@@ -137,7 +164,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [negocio, setNegocio] = useState<any | null>(null)
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('detalhes')
+  const [activeTab, setActiveTab] = useState<TabKey>('inicio')
   const [aiFillOpen, setAiFillOpen] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
@@ -165,7 +192,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
     if (!open || !negocioId) {
       setNegocio(null)
       setForm({})
-      setActiveTab('detalhes')
+      setActiveTab('inicio')
       return
     }
     loadNegocio()
@@ -237,15 +264,23 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const isSellerType = ['Venda', 'Compra e Venda', 'Arrendador'].includes(tipo)
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
-    const list: { key: TabKey; label: string; icon: React.ElementType }[] = [
-      { key: 'detalhes', label: 'Detalhes', icon: Info },
+    // Angariação (puro vendedor / arrendador) — fluxo focado em interessados + processo
+    if (isSellerType && !isBuyerType) {
+      return [
+        { key: 'inicio', label: 'Início', icon: Info },
+        { key: 'interessados', label: 'Interessados', icon: Users },
+        { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
+        { key: 'angariacao', label: 'Angariação', icon: Briefcase },
+      ]
+    }
+    // Compra / Arrendatário (e Compra-e-Venda — perspectiva de comprador)
+    return [
+      { key: 'inicio', label: 'Início', icon: Info },
+      { key: 'imoveis', label: 'Imóveis', icon: Home },
+      { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
+      { key: 'propostas', label: 'Propostas', icon: FileText },
+      { key: 'fecho', label: 'Fecho', icon: Briefcase },
     ]
-    if (isBuyerType) list.push({ key: 'matching', label: 'Matching', icon: Sparkles })
-    list.push({ key: 'imoveis', label: 'Imóveis', icon: Home })
-    list.push({ key: 'visitas', label: 'Visitas', icon: CalendarIcon })
-    if (isSellerType) list.push({ key: 'interessados', label: 'Interessados', icon: Users })
-    list.push({ key: 'documentos', label: 'Documentos', icon: FileText })
-    return list
   }, [isBuyerType, isSellerType])
 
   const leadId = negocio?.lead_id ?? null
@@ -326,7 +361,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                 })}
               </div>
 
-              {activeTab === 'detalhes' && (
+              {activeTab === 'inicio' && (
                 <DetalhesTab
                   negocio={negocio}
                   form={form}
@@ -338,31 +373,33 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                   onOpenAiFill={() => setAiFillOpen(true)}
                 />
               )}
-              {activeTab === 'matching' && negocio.id && (
-                <MatchingTab
-                  negocioId={negocio.id}
-                  onDossierChanged={loadNegocio}
-                  onPreviewProperty={setPreviewPropertyId}
-                />
-              )}
               {activeTab === 'imoveis' && negocio.id && (
-                <ImoveisTab
+                <ImoveisGroupedTab
                   negocioId={negocio.id}
                   leadId={leadId}
                   userId={user?.id}
+                  onDossierChanged={loadNegocio}
                   onPreviewProperty={setPreviewPropertyId}
                 />
               )}
               {activeTab === 'visitas' && leadId && (
                 <VisitasTab leadId={leadId} userId={user?.id} />
               )}
-              {activeTab === 'interessados' && negocio.id && (
-                <InteressadosTab negocioId={negocio.id} />
+              {activeTab === 'propostas' && negocio.id && (
+                <PropostasTab negocioId={negocio.id} />
               )}
-              {activeTab === 'documentos' && negocio.id && (
-                <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-4">
-                  <NegocioDocumentsFoldersView negocioId={negocio.id} />
-                </div>
+              {activeTab === 'fecho' && negocio.id && (
+                <FechoTab negocioId={negocio.id} negocio={negocio} />
+              )}
+              {activeTab === 'interessados' && negocio.id && (
+                <InteressadosTab
+                  negocioId={negocio.id}
+                  negocio={negocio}
+                  currentUserId={user?.id ?? null}
+                />
+              )}
+              {activeTab === 'angariacao' && negocio.id && (
+                <AngariacaoTab negocioId={negocio.id} negocio={negocio} />
               )}
             </div>
           </div>
@@ -511,210 +548,253 @@ function DetalhesTab({
   const tipoColor = (tipo && TIPO_COLORS[tipo]) || '#64748b'
   const tempEmoji = temperaturaEmoji(temperatura ?? undefined)
 
+  // Pre-compute sections para o novo layout unificado
+  const procuraItems: { label: string; value: string }[] = []
+  if (form.tipo_imovel) procuraItems.push({ label: 'Tipo', value: String(form.tipo_imovel) })
+  if (quartosLabel) procuraItems.push({ label: 'Tipologia', value: quartosLabel })
+  if (wc != null) procuraItems.push({ label: 'WCs', value: `≥ ${wc}` })
+  if (areaLabel) procuraItems.push({ label: 'Área', value: areaLabel })
+  if (estadoImovel) procuraItems.push({ label: 'Estado', value: estadoImovel })
+  if (classeImovel) procuraItems.push({ label: 'Classe', value: classeImovel })
+
+  const contextoItems: { label: string; value: string }[] = []
+  if (motivacao) contextoItems.push({ label: 'Motivação', value: motivacao })
+  if (prazo) contextoItems.push({ label: 'Prazo', value: prazo })
+  if (financiamento !== null) {
+    contextoItems.push({ label: 'Financiamento', value: financiamento ? 'Necessário' : 'Não necessário' })
+  }
+  if (isArrendatario) {
+    if (situacaoProfissional) contextoItems.push({ label: 'Situação', value: situacaoProfissional })
+    if (rendimento != null) contextoItems.push({ label: 'Rendimento', value: `${eur.format(rendimento)}/mês` })
+    if (fiador !== null) contextoItems.push({ label: 'Fiador', value: fiador ? 'Sim' : 'Não' })
+    if (animais !== null) contextoItems.push({ label: 'Aceita animais', value: animais ? 'Sim' : 'Não' })
+  }
+
+  const hasZones = zones.length > 0
+  const hasProcura = procuraItems.length > 0
+  const hasContexto = contextoItems.length > 0
+  const hasImovelSection = hasZones || hasProcura || hasContexto
+
+  const enabledAmenities = AMENITY_ITEMS.filter((a) => !!form[a.field])
+  const enabledAmenitiesVenda = isVendaCompra
+    ? AMENITY_ITEMS.filter((a) => !!form[`${a.field}_venda`])
+    : []
+  const hasFeatures = enabledAmenities.length > 0 || enabledAmenitiesVenda.length > 0
+
+  const sectionLabel = isArrendador || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
+
   return (
     <div className="space-y-3">
-      {/* Editable status strip — same controls as the page hero */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <EstadoPipelineSelector
-          tipo={tipo}
-          pipelineStageId={pipelineStageId}
-          fallbackLabel={estado}
-          onChange={onPipelineStageChange}
-        />
-        {tipo && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-            style={{ backgroundColor: `${tipoColor}22`, color: tipoColor }}
+      {/* MAIN CARD — un único cartão para tudo o que descreve o negócio */}
+      <div className="rounded-3xl bg-background/95 supports-[backdrop-filter]:bg-background/80 backdrop-blur-xl border border-border/50 shadow-sm overflow-hidden">
+        {/* Status pills — centradas, com fundo subtil */}
+        <div className="flex items-center justify-center gap-1.5 flex-wrap px-5 py-3.5 border-b border-border/40 bg-muted/30">
+          <EstadoPipelineSelector
+            tipo={tipo}
+            pipelineStageId={pipelineStageId}
+            fallbackLabel={estado}
+            onChange={onPipelineStageChange}
+          />
+          {tipo && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+              style={{ backgroundColor: `${tipoColor}22`, color: tipoColor }}
+            >
+              <Briefcase className="h-3 w-3" />
+              {tipo}
+            </span>
+          )}
+          <TemperaturaSelector value={temperatura} onChange={onTemperaturaChange} />
+          <ObservationsButton observacoes={observacoes} onSave={onSaveObservations} />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full h-7 text-xs gap-1"
+            onClick={onOpenAiFill}
           >
-            <Briefcase className="h-3 w-3" />
-            {tipo}
-          </span>
-        )}
-        <TemperaturaSelector value={temperatura} onChange={onTemperaturaChange} />
-        <ObservationsButton observacoes={observacoes} onSave={onSaveObservations} />
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full h-7 text-xs gap-1"
-          onClick={onOpenAiFill}
-        >
-          <Sparkles className="h-3 w-3" />
-          IA
-        </Button>
-        {temperatura && tempEmoji && (
-          <span className="text-base ml-auto" aria-hidden>
-            {tempEmoji}
-          </span>
-        )}
+            <Sparkles className="h-3 w-3" />
+            IA
+          </Button>
+        </div>
+
+        {/* Inner content */}
+        <div className="p-5 space-y-5">
+          {/* Preço + Cliente — blocos inset (sem border) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {price ? (
+              <InsetBlock icon={Euro} label={priceLabel}>
+                <p className="text-xl font-bold tabular-nums leading-tight mt-0.5">{price}</p>
+              </InsetBlock>
+            ) : (
+              <InsetBlock icon={Euro} label={priceLabel}>
+                <p className="text-sm text-muted-foreground italic mt-0.5">—</p>
+              </InsetBlock>
+            )}
+            {lead && (
+              <InsetBlock icon={UserIcon} label="Cliente">
+                <p className="text-sm font-semibold truncate mt-0.5">{clientName}</p>
+                {lead.empresa && (
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    {lead.empresa}
+                    {lead.nipc ? ` · ${lead.nipc}` : ''}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {phone && (
+                    <a
+                      href={`tel:${phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      title={phone}
+                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-background border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors max-w-full"
+                    >
+                      <Phone className="h-3 w-3" />
+                      <span className="truncate">{phone}</span>
+                    </a>
+                  )}
+                  {email && (
+                    <button
+                      type="button"
+                      onClick={() => void copyToClipboard(email)}
+                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-background border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors truncate max-w-full"
+                      title="Copiar email"
+                    >
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{email}</span>
+                    </button>
+                  )}
+                </div>
+              </InsetBlock>
+            )}
+          </div>
+
+          {/* Imóvel / O que procura */}
+          {hasImovelSection && (
+            <>
+              <CardDivider />
+              <section>
+                <SectionLabel icon={Home}>{sectionLabel}</SectionLabel>
+                {hasZones && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {zones.map((z) => (
+                      <span
+                        key={z}
+                        className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[11px] text-foreground/80"
+                      >
+                        <MapPin className="h-2.5 w-2.5" />
+                        {z}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {hasProcura && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
+                    {procuraItems.map((it) => (
+                      <SpecItem key={it.label} label={it.label} value={it.value} />
+                    ))}
+                  </div>
+                )}
+                {hasContexto && (
+                  <>
+                    <div className="my-3 h-px bg-border/30" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
+                      {contextoItems.map((it) => (
+                        <SpecItem key={it.label} label={it.label} value={it.value} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* Características */}
+          {hasFeatures && (
+            <>
+              <CardDivider />
+              <section>
+                {enabledAmenities.length > 0 && (
+                  <>
+                    <SectionLabel>Características</SectionLabel>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {enabledAmenities.map((a) => (
+                        <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {enabledAmenitiesVenda.length > 0 && (
+                  <>
+                    {enabledAmenities.length > 0 && <div className="my-3 h-px bg-border/30" />}
+                    <SectionLabel>Características (venda)</SectionLabel>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {enabledAmenitiesVenda.map((a) => (
+                        <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* Observações */}
+          {observacoes && (
+            <>
+              <CardDivider />
+              <section>
+                <SectionLabel icon={StickyNote}>Observações</SectionLabel>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 mt-0.5">
+                  {observacoes}
+                </p>
+              </section>
+            </>
+          )}
+
+          {/* Estudos de mercado — só em angariação (Venda / Arrendador) */}
+          {(tipo === 'Venda' || tipo === 'Arrendador' || tipo === 'Compra e Venda') && negocio.id && (
+            <>
+              <CardDivider />
+              <MarketStudiesCard negocioId={negocio.id} />
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Price + Client — side-by-side on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {price && (
-          <MiniCard>
-            <SectionLabel icon={Euro}>{priceLabel}</SectionLabel>
-            <p className="text-xl font-bold tabular-nums leading-tight">{price}</p>
-          </MiniCard>
-        )}
-        {lead && (
-          <MiniCard>
-            <SectionLabel icon={UserIcon}>Cliente</SectionLabel>
-            <p className="text-sm font-semibold truncate">{clientName}</p>
-            {lead.empresa && (
-              <p className="text-[11px] text-muted-foreground truncate">
-                {lead.empresa}
-                {lead.nipc ? ` · ${lead.nipc}` : ''}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              {phone && (
-                <a
-                  href={`tel:${phone}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                  }}
-                  title={phone}
-                  className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                </a>
-              )}
-              {phone && (
-                <button
-                  type="button"
-                  onClick={() => void copyToClipboard(phone)}
-                  className="h-7 rounded-full bg-muted/60 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors truncate max-w-[140px]"
-                  title="Copiar telemóvel"
-                >
-                  {phone}
-                </button>
-              )}
-              {email && (
-                <button
-                  type="button"
-                  onClick={() => void copyToClipboard(email)}
-                  className="h-7 rounded-full bg-muted/60 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors truncate max-w-[160px]"
-                  title="Copiar email"
-                >
-                  {email}
-                </button>
-              )}
-            </div>
-          </MiniCard>
-        )}
-      </div>
-
-      {/* Resumo (procura + contexto) — only renders fields that are set */}
-      {(() => {
-        const procuraItems: { label: string; value: string }[] = []
-        if (form.tipo_imovel) procuraItems.push({ label: 'Tipo', value: String(form.tipo_imovel) })
-        if (quartosLabel) procuraItems.push({ label: 'Tipologia', value: quartosLabel })
-        if (wc != null) procuraItems.push({ label: 'WCs', value: `≥ ${wc}` })
-        if (areaLabel) procuraItems.push({ label: 'Área', value: areaLabel })
-        if (estadoImovel) procuraItems.push({ label: 'Estado', value: estadoImovel })
-        if (classeImovel) procuraItems.push({ label: 'Classe', value: classeImovel })
-
-        const contextoItems: { label: string; value: string }[] = []
-        if (motivacao) contextoItems.push({ label: 'Motivação', value: motivacao })
-        if (prazo) contextoItems.push({ label: 'Prazo', value: prazo })
-        if (financiamento !== null) {
-          contextoItems.push({ label: 'Financiamento', value: financiamento ? 'Necessário' : 'Não necessário' })
-        }
-        if (isArrendatario) {
-          if (situacaoProfissional) contextoItems.push({ label: 'Situação', value: situacaoProfissional })
-          if (rendimento != null) contextoItems.push({ label: 'Rendimento', value: `${eur.format(rendimento)}/mês` })
-          if (fiador !== null) contextoItems.push({ label: 'Fiador', value: fiador ? 'Sim' : 'Não' })
-          if (animais !== null) contextoItems.push({ label: 'Aceita animais', value: animais ? 'Sim' : 'Não' })
-        }
-
-        const hasZones = zones.length > 0
-        const hasProcura = procuraItems.length > 0
-        const hasContexto = contextoItems.length > 0
-        if (!hasZones && !hasProcura && !hasContexto) return null
-
-        return (
-          <MiniCard>
-            <SectionLabel icon={Home}>
-              {isArrendador || tipo === 'Venda' ? 'Imóvel' : 'O que procura'}
-            </SectionLabel>
-            {hasZones && (
-              <div className="flex flex-wrap gap-1 mb-2.5">
-                {zones.map((z) => (
-                  <span
-                    key={z}
-                    className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-foreground/80"
-                  >
-                    <MapPin className="h-2.5 w-2.5" />
-                    {z}
-                  </span>
-                ))}
-              </div>
-            )}
-            {hasProcura && (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {procuraItems.map((it) => (
-                  <SpecItem key={it.label} label={it.label} value={it.value} />
-                ))}
-              </div>
-            )}
-            {hasContexto && (
-              <>
-                <div className="my-3 h-px bg-border/40" />
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {contextoItems.map((it) => (
-                    <SpecItem key={it.label} label={it.label} value={it.value} />
-                  ))}
-                </div>
-              </>
-            )}
-          </MiniCard>
-        )
-      })()}
-
-      {/* Características — only enabled */}
-      {(() => {
-        const enabled = AMENITY_ITEMS.filter((a) => !!form[a.field])
-        const enabledVenda = isVendaCompra
-          ? AMENITY_ITEMS.filter((a) => !!form[`${a.field}_venda`])
-          : []
-        if (enabled.length === 0 && enabledVenda.length === 0) return null
-        return (
-          <MiniCard>
-            {enabled.length > 0 && (
-              <>
-                <SectionLabel>Características</SectionLabel>
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {enabled.map((a) => (
-                    <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
-                  ))}
-                </div>
-              </>
-            )}
-            {enabledVenda.length > 0 && (
-              <>
-                {enabled.length > 0 && <div className="my-3 h-px bg-border/40" />}
-                <SectionLabel>Características (venda)</SectionLabel>
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {enabledVenda.map((a) => (
-                    <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
-                  ))}
-                </div>
-              </>
-            )}
-          </MiniCard>
-        )
-      })()}
-
-      {observacoes && (
-        <MiniCard>
-          <SectionLabel icon={StickyNote}>Observações</SectionLabel>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-            {observacoes}
-          </p>
-        </MiniCard>
+      {/* Por fazer (tarefas pendentes) + Actividade recente — cartões separados abaixo */}
+      {negocio.id && (
+        <InicioExtras
+          negocioId={negocio.id}
+          leadId={negocio.lead_id ?? null}
+        />
       )}
     </div>
   )
+}
+
+// ─── Mini helpers para o novo layout unificado ─────────────────────────
+
+function InsetBlock({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon?: React.ElementType
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl bg-muted/40 px-4 py-3">
+      <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+        {Icon && <Icon className="h-3 w-3" />}
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function CardDivider() {
+  return <div className="h-px bg-border/40 -mx-5" />
 }
 
 // ─── Compact design primitives ────────────────────────────────────────
@@ -775,14 +855,22 @@ function MatchingTab({
   const [loading, setLoading] = useState(false)
   const [scoring, setScoring] = useState(false)
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set())
+  // Filtros: 'strict' (default) limita por tipo + zona + ±15% preço.
+  // 'loose' relaxa para ±30% e ignora tipo/zona — útil para abrir o leque.
+  const [strict, setStrict] = useState(true)
 
   const fetchMatches = useCallback(
-    async (withScore = false) => {
+    async (withScore = false, strictOverride?: boolean) => {
       if (withScore) setScoring(true)
       else setLoading(true)
       try {
+        const params = new URLSearchParams()
+        if (withScore) params.set('score', 'true')
+        const useStrict = strictOverride ?? strict
+        if (!useStrict) params.set('strict', 'false')
+        const qs = params.toString()
         const res = await fetch(
-          `/api/negocios/${negocioId}/property-matches${withScore ? '?score=true' : ''}`,
+          `/api/negocios/${negocioId}/property-matches${qs ? `?${qs}` : ''}`,
         )
         if (res.ok) {
           const json = await res.json()
@@ -795,12 +883,18 @@ function MatchingTab({
         setScoring(false)
       }
     },
-    [negocioId],
+    [negocioId, strict],
   )
 
   useEffect(() => {
     fetchMatches()
-  }, [fetchMatches])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocioId])
+
+  const handleToggleStrict = (next: boolean) => {
+    setStrict(next)
+    fetchMatches(false, next)
+  }
 
   const handleAdd = async (match: any) => {
     setAddingIds((s) => {
@@ -833,13 +927,40 @@ function MatchingTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] text-muted-foreground">
           {matches.length > 0
             ? `${matches.length} ${matches.length === 1 ? 'compatível' : 'compatíveis'}`
-            : 'Baseado no orçamento, localização e tipo'}
+            : strict
+              ? 'Sem matches estritos. Tente "Solto".'
+              : 'Sem matches mesmo com filtros relaxados.'}
         </p>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 ml-auto">
+          {/* Strict / Solto toggle */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
+            <button
+              type="button"
+              onClick={() => handleToggleStrict(true)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+                strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="Filtros estritos (tipo + zona + preço ±15%)"
+            >
+              Estrito
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleStrict(false)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+                !strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="Filtros relaxados (preço ±30%, sem tipo/zona)"
+            >
+              Solto
+            </button>
+          </div>
           {matches.length > 0 && (
             <Button
               variant="outline"
@@ -993,6 +1114,8 @@ function ImoveisTab({
   const [showVisit, setShowVisit] = useState(false)
   const [visitPropertyId, setVisitPropertyId] = useState<string | null>(null)
   const [showSend, setShowSend] = useState(false)
+  // Sequential WhatsApp send (1 mensagem por imóvel)
+  const [wpProgress, setWpProgress] = useState<{ total: number; sent: number; failed: number } | null>(null)
 
   const fetchProperties = useCallback(async () => {
     setLoading(true)
@@ -1025,6 +1148,90 @@ function ImoveisTab({
     } else {
       toast.error('Erro ao actualizar')
     }
+  }
+
+  // Sequential WhatsApp send — 1 mensagem por imóvel (com foto+caption)
+  // para o telemóvel do lead. Marca status='sent' por imóvel ao sucesso.
+  const handleSendDossierWhatsapp = async () => {
+    const selected = items.filter((p) => selectedIds.has(p.id) && p.property_id && p.property)
+    if (selected.length === 0) {
+      toast.error('Selecciona imóveis do dossier (links externos não suportam envio individual)')
+      return
+    }
+    // Fetch lead info para resolver o chat
+    let leadPhone: string | null = null
+    let leadName = 'Lead'
+    try {
+      const res = await fetch(`/api/negocios/${negocioId}`)
+      if (res.ok) {
+        const data = await res.json()
+        leadPhone = data.lead?.telemovel || data.lead?.telefone || null
+        leadName = data.lead?.nome || data.lead?.full_name || 'Lead'
+      }
+    } catch {
+      /* silent */
+    }
+    if (!leadPhone) {
+      toast.error('Lead sem telemóvel — não é possível enviar pelo WhatsApp')
+      return
+    }
+
+    setWpProgress({ total: selected.length, sent: 0, failed: 0 })
+
+    const chatId = await resolveLeadChat(leadPhone, leadName)
+    if (!chatId) {
+      setWpProgress(null)
+      toast.error('Não foi possível abrir conversa WhatsApp com este contacto')
+      return
+    }
+
+    let sent = 0
+    let failed = 0
+    for (const ap of selected) {
+      const p: any = ap.property
+      const specs = Array.isArray(p?.dev_property_specifications)
+        ? p.dev_property_specifications[0]
+        : p?.dev_property_specifications
+      const cover =
+        p?.dev_property_media?.find((m: any) => m.is_cover)?.url ||
+        p?.dev_property_media?.[0]?.url ||
+        null
+      const item: PropertyToSend = {
+        negocioPropertyId: ap.id,
+        title: p?.title || 'Imóvel',
+        slug: p?.slug || null,
+        listing_price: p?.listing_price ?? null,
+        typology: specs?.typology ?? null,
+        area_util: specs?.area_util ?? null,
+        city: p?.city ?? null,
+        cover_url: cover,
+      }
+      const ok = await sendOneProperty(chatId, item)
+      if (ok) {
+        sent++
+        // marca como enviado no dossier (não bloqueante)
+        fetch(`/api/negocios/${negocioId}/properties/${ap.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'sent' }),
+        }).catch(() => {})
+      } else {
+        failed++
+      }
+      setWpProgress({ total: selected.length, sent, failed })
+    }
+
+    if (failed === 0) {
+      toast.success(`${sent} ${sent === 1 ? 'imóvel enviado' : 'imóveis enviados'}`)
+    } else if (sent > 0) {
+      toast.warning(`${sent} enviado${sent === 1 ? '' : 's'}, ${failed} ${failed === 1 ? 'falhou' : 'falharam'}`)
+    } else {
+      toast.error('Erro ao enviar imóveis pelo WhatsApp')
+    }
+
+    setWpProgress(null)
+    setSelectedIds(new Set())
+    fetchProperties()
   }
 
   const handleRemove = async (propId: string) => {
@@ -1289,18 +1496,44 @@ function ImoveisTab({
           <span className="text-xs">
             <span className="font-semibold">{selectedIds.size}</span> seleccionados
           </span>
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="rounded-full text-xs h-7"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              Limpar
-            </Button>
-            <Button size="sm" className="rounded-full text-xs h-7" onClick={() => setShowSend(true)}>
-              Enviar
-            </Button>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {wpProgress ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>A enviar… <span className="font-semibold">{wpProgress.sent}</span> / {wpProgress.total}{wpProgress.failed > 0 ? ` · ${wpProgress.failed} falhou` : ''}</span>
+              </div>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full text-xs h-7"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Limpar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full text-xs h-7"
+                  onClick={() => setShowSend(true)}
+                  title="Email + WhatsApp em batch (mais opções)"
+                >
+                  Mais opções
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-full text-xs h-7 gap-1.5"
+                  onClick={handleSendDossierWhatsapp}
+                  title="Envia 1 mensagem por imóvel (foto + descrição) ao lead"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  Enviar pelo WhatsApp
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1406,6 +1639,9 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
   const [visits, setVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [showVisit, setShowVisit] = useState(false)
+  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [calDate, setCalDate] = useState<Date | undefined>(undefined)
+  const [calMonth, setCalMonth] = useState<Date>(new Date())
 
   const fetchVisits = useCallback(async () => {
     setLoading(true)
@@ -1446,19 +1682,167 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
 
   if (loading) return <ListSkeleton />
 
+  // Mapas para vista calendário
+  const visitsByDay = new Map<string, any[]>()
+  for (const v of visits) {
+    if (!v.visit_date) continue
+    const key = String(v.visit_date).slice(0, 10)
+    const arr = visitsByDay.get(key) || []
+    arr.push(v)
+    visitsByDay.set(key, arr)
+  }
+  const dayKey = calDate ? calDate.toISOString().slice(0, 10) : null
+  const visitsOfSelected = dayKey ? visitsByDay.get(dayKey) || [] : []
+
+  // Mapeia visitas para o shape CalendarEvent que o CalendarMonthGrid espera.
+  // Cada visita = 1 evento de categoria 'visit'.
+  const calendarEvents: CalendarEvent[] = visits.map((v: any) => {
+    const date = String(v.visit_date).slice(0, 10)
+    const time = (v.visit_time as string | null) || '00:00:00'
+    return {
+      id: `v_${v.id}`,
+      title: v.visit_time
+        ? `${String(v.visit_time).slice(0, 5)} · ${v.property?.title || 'Visita'}`
+        : v.property?.title || 'Visita',
+      category: 'visit',
+      item_type: 'event',
+      start_date: new Date(`${date}T${time}`).toISOString(),
+      all_day: !v.visit_time,
+      color: 'fuchsia',
+      source: 'auto',
+      is_recurring: false,
+      is_overdue: false,
+      status: v.status || undefined,
+      property_id: v.property?.id,
+      property_title: v.property?.title,
+      visit_id: v.id,
+    }
+  })
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-muted-foreground">
-          {visits.length === 0 ? 'Sem visitas agendadas' : `${visits.length} ${visits.length === 1 ? 'visita' : 'visitas'}`}
-        </p>
-        <Button variant="outline" size="sm" className="rounded-full h-7 text-xs" onClick={() => setShowVisit(true)}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={cn(
+              'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+              view === 'list'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('calendar')}
+            className={cn(
+              'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+              view === 'calendar'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Calendário
+          </button>
+        </div>
+        <Button variant="outline" size="sm" className="rounded-full h-7 text-xs ml-auto" onClick={() => setShowVisit(true)}>
           <Plus className="mr-1 h-3 w-3" />
           Nova visita
         </Button>
       </div>
 
-      {visits.length === 0 ? (
+      {view === 'calendar' ? (
+        <div className="space-y-3">
+          {/* Toolbar: prev / mês / next + Hoje */}
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setCalMonth((d) => subMonths(d, 1))}
+              className="h-8 w-8 rounded-full border border-border/50 bg-background hover:bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Mês anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex-1 text-center">
+              <p className="text-sm font-semibold capitalize">
+                {format(calMonth, "MMMM 'de' yyyy", { locale: pt })}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCalMonth(new Date())
+                setCalDate(new Date())
+              }}
+              className="h-8 px-3 rounded-full border border-border/50 bg-background hover:bg-muted/60 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Hoje
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalMonth((d) => addMonths(d, 1))}
+              className="h-8 w-8 rounded-full border border-border/50 bg-background hover:bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Próximo mês"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Grelha mensal — mesmo componente do calendário principal da app */}
+          <div className="h-[460px]">
+            <CalendarMonthGrid
+              currentDate={calMonth}
+              events={calendarEvents}
+              onEventClick={(ev) => {
+                if (ev.visit_id) {
+                  setCalDate(new Date(ev.start_date))
+                }
+              }}
+              onDayClick={(d) => {
+                setCalDate(d)
+                if (!isSameMonth(d, calMonth)) setCalMonth(d)
+              }}
+            />
+          </div>
+
+          {/* Lista de visitas do dia seleccionado */}
+          {dayKey && (
+            <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-4 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                {format(calDate!, "EEEE, d 'de' MMMM yyyy", { locale: pt })}
+              </p>
+              {visitsOfSelected.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem visitas neste dia.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {visitsOfSelected.map((v: any) => {
+                    const vStatus = VISIT_STATUS_COLORS[v.status as keyof typeof VISIT_STATUS_COLORS]
+                    return (
+                      <li key={v.id} className="flex items-center gap-3 rounded-xl bg-muted/30 px-3 py-2">
+                        <span className="text-sm font-medium tabular-nums shrink-0">{v.visit_time?.slice(0, 5) || '—'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{v.property?.title || 'Visita'}</p>
+                          {v.property?.city && (
+                            <p className="text-[11px] text-muted-foreground truncate">{v.property.city}{v.property.zone ? `, ${v.property.zone}` : ''}</p>
+                          )}
+                        </div>
+                        {vStatus && (
+                          <Badge className={cn('shrink-0 rounded-full text-[9px] px-2 border-0', vStatus.bg, vStatus.text)}>
+                            {vStatus.label}
+                          </Badge>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      ) : visits.length === 0 ? (
         <EmptyHint icon={CalendarIcon} message="Sem visitas agendadas." />
       ) : (
         <div className="space-y-2">
@@ -1534,19 +1918,43 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
 
 // ─── Interessados Tab ──────────────────────────────────────────────────
 
-function InteressadosTab({ negocioId }: { negocioId: string }) {
+function InteressadosTab({
+  negocioId,
+  negocio,
+  currentUserId,
+}: {
+  negocioId: string
+  negocio: any
+  currentUserId?: string | null
+}) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [scoring, setScoring] = useState(false)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [showHidden, setShowHidden] = useState(false)
+  // Filtros: 'strict' (default) limita por preço ±15% + tipo + zona + quartos.
+  // 'loose' relaxa para preço ±30% e ignora tipo/zona/quartos.
+  const [strict, setStrict] = useState(true)
+  // Sugestão a colegas (cross-consultor) — só disponível em strict.
+  const [selectedColleagueIds, setSelectedColleagueIds] = useState<Set<string>>(new Set())
+  const [suggestingId, setSuggestingId] = useState<string | null>(null)
+  const [bulkSending, setBulkSending] = useState(false)
+
+  // Specs derivadas do negócio actual — usadas no caption das sugestões.
+  // Sem precisar de imóvel (mensagem é texto puro descrevendo a angariação).
+  const negocioSpecs = useMemo(() => buildNegocioSpecs(negocio), [negocio])
 
   const fetchInteressados = useCallback(
-    async (withScore = false) => {
+    async (withScore = false, strictOverride?: boolean) => {
       if (withScore) setScoring(true)
       else setLoading(true)
       try {
-        const res = await fetch(`/api/negocios/${negocioId}/interessados${withScore ? '?score=true' : ''}`)
+        const params = new URLSearchParams()
+        if (withScore) params.set('score', 'true')
+        const useStrict = strictOverride ?? strict
+        if (!useStrict) params.set('strict', 'false')
+        const qs = params.toString()
+        const res = await fetch(`/api/negocios/${negocioId}/interessados${qs ? `?${qs}` : ''}`)
         if (res.ok) {
           const json = await res.json()
           setItems(json.data || [])
@@ -1558,24 +1966,268 @@ function InteressadosTab({ negocioId }: { negocioId: string }) {
         setScoring(false)
       }
     },
-    [negocioId],
+    [negocioId, strict],
   )
 
   useEffect(() => {
     fetchInteressados()
-  }, [fetchInteressados])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocioId])
+
+  const handleToggleStrict = (next: boolean) => {
+    setStrict(next)
+    fetchInteressados(false, next)
+    // Limpar selecções ao trocar para 'solto' (a sugestão só é permitida em strict)
+    if (!next) setSelectedColleagueIds(new Set())
+  }
+
+  const toggleColleagueSelection = (negId: string) => {
+    setSelectedColleagueIds((prev) => {
+      const n = new Set(prev)
+      if (n.has(negId)) n.delete(negId)
+      else n.add(negId)
+      return n
+    })
+  }
+
+  /** Selecciona (ou desselecciona) todos os leads de um colega em particular. */
+  const toggleSelectAllForColleague = (consultantId: string, leadIds: string[]) => {
+    setSelectedColleagueIds((prev) => {
+      const allSelected = leadIds.every((id) => prev.has(id))
+      const next = new Set(prev)
+      if (allSelected) {
+        // Desseleccionar todos
+        for (const id of leadIds) next.delete(id)
+      } else {
+        // Seleccionar todos
+        for (const id of leadIds) next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleSuggestSingleWA = async (item: any) => {
+    if (!item.phone) {
+      toast.error('Colega sem telemóvel registado')
+      return
+    }
+    setSuggestingId(item.negocioId)
+    try {
+      const res = await suggestNegocioToColleagueViaWhatsApp({
+        specs: negocioSpecs,
+        colleaguePhone: item.phone,
+        colleagueFirstName: (item.colleague || '').split(' ')[0] || null,
+        leadNames: [item.firstName].filter(Boolean),
+      })
+      if (res.ok) {
+        toast.success(`Sugestão enviada a ${(item.colleague || '').split(' ')[0] || 'colega'}`)
+      } else {
+        toast.error(res.error || 'Erro ao enviar sugestão')
+      }
+    } finally {
+      setSuggestingId(null)
+    }
+  }
+
+  const handleBulkInternalChat = async () => {
+    if (!currentUserId) {
+      toast.error('Sessão expirou — recarregue a página')
+      return
+    }
+    const selected = items.filter((i: any) => selectedColleagueIds.has(i.negocioId))
+    if (selected.length === 0) return
+
+    // Agrupar por consultantId (1 mensagem por colega, com lista de todos os
+    // leads desse colega seleccionados).
+    const byColleague = new Map<string, { name: string; firstName: string; leads: string[] }>()
+    for (const i of selected) {
+      if (!i.consultantId) continue
+      const entry = byColleague.get(i.consultantId)
+      if (entry) {
+        entry.leads.push(i.firstName)
+      } else {
+        byColleague.set(i.consultantId, {
+          name: i.colleague || 'Colega',
+          firstName: (i.colleague || '').split(' ')[0] || 'Colega',
+          leads: [i.firstName].filter(Boolean),
+        })
+      }
+    }
+
+    if (byColleague.size === 0) {
+      toast.error('Nenhum colega válido nas selecções')
+      return
+    }
+
+    setBulkSending(true)
+    let sent = 0
+    let failed = 0
+    for (const [colleagueId, data] of byColleague.entries()) {
+      const res = await suggestNegocioToColleagueViaInternalChat({
+        specs: negocioSpecs,
+        currentUserId,
+        colleagueUserId: colleagueId,
+        colleagueFirstName: data.firstName,
+        leadNames: data.leads,
+      })
+      if (res.ok) sent++
+      else failed++
+    }
+    setBulkSending(false)
+
+    if (failed === 0) {
+      toast.success(
+        `Sugestão enviada a ${sent} ${sent === 1 ? 'colega' : 'colegas'} pelo chat interno`,
+      )
+    } else if (sent > 0) {
+      toast.warning(`${sent} enviada${sent === 1 ? '' : 's'}, ${failed} falhou`)
+    } else {
+      toast.error('Erro ao enviar sugestões')
+    }
+
+    setSelectedColleagueIds(new Set())
+  }
 
   if (loading) return <ListSkeleton />
 
   const visible = showHidden ? items : items.filter((i) => !hidden.has(i.negocioId))
 
+  // Render de uma row de interessado (reusado entre "Os meus" e grupos por colega).
+  const renderInteressadoRow = (i: any) => {
+    const isHidden = hidden.has(i.negocioId)
+    const score = i.match_score as number | null
+    const scoreColor =
+      score != null
+        ? score >= 80
+          ? 'bg-emerald-500 text-white'
+          : score >= 60
+            ? 'bg-amber-500 text-white'
+            : score >= 40
+              ? 'bg-orange-500 text-white'
+              : 'bg-red-500 text-white'
+        : ''
+    const canSuggestToColleague = !i.isMine && strict
+    const isSelectedForBulk = selectedColleagueIds.has(i.negocioId)
+    return (
+      <div
+        key={i.negocioId}
+        className={cn(
+          'rounded-2xl border bg-background shadow-sm p-3 flex items-center gap-3 transition-all',
+          isHidden && 'opacity-50',
+          isSelectedForBulk
+            ? 'border-primary/60 ring-1 ring-primary/30 bg-primary/5'
+            : 'border-border/40',
+        )}
+      >
+        {canSuggestToColleague && (
+          <Checkbox
+            checked={isSelectedForBulk}
+            onCheckedChange={() => toggleColleagueSelection(i.negocioId)}
+            className="shrink-0"
+            aria-label="Seleccionar para sugestão em lote"
+          />
+        )}
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <UserIcon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold truncate">{i.firstName || '—'}</p>
+            {score != null && (
+              <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>
+                {score}%
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+            {i.phone && (
+              <a href={`tel:${i.phone}`} className="inline-flex items-center gap-1 hover:text-foreground">
+                <Phone className="h-2.5 w-2.5" />
+                {i.phone}
+              </a>
+            )}
+            {i.email && (
+              <a href={`mailto:${i.email}`} className="inline-flex items-center gap-1 hover:text-foreground truncate">
+                <Mail className="h-2.5 w-2.5" />
+                {i.email}
+              </a>
+            )}
+          </div>
+        </div>
+        {canSuggestToColleague && i.phone && (
+          <button
+            type="button"
+            disabled={suggestingId === i.negocioId}
+            onClick={() => handleSuggestSingleWA(i)}
+            className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors disabled:opacity-50"
+            title="Sugerir ao colega via WhatsApp"
+          >
+            {suggestingId === i.negocioId ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+              </svg>
+            )}
+          </button>
+        )}
+        {!i.isMine && (
+          <button
+            type="button"
+            onClick={() => {
+              setHidden((prev) => {
+                const n = new Set(prev)
+                if (n.has(i.negocioId)) n.delete(i.negocioId)
+                else n.add(i.negocioId)
+                return n
+              })
+            }}
+            className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/60"
+            title={isHidden ? 'Mostrar' : 'Ocultar'}
+          >
+            {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] text-muted-foreground">
-          {items.length === 0 ? 'Sem compradores compatíveis' : `${items.length} ${items.length === 1 ? 'comprador' : 'compradores'}`}
+          {items.length === 0
+            ? strict
+              ? 'Sem matches estritos. Tente "Solto".'
+              : 'Sem matches mesmo com filtros relaxados.'
+            : `${items.length} ${items.length === 1 ? 'comprador' : 'compradores'}`}
         </p>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 ml-auto">
+          {/* Strict / Solto toggle */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
+            <button
+              type="button"
+              onClick={() => handleToggleStrict(true)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+                strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="Filtros estritos (tipo + zona + preço ±15% + quartos)"
+            >
+              Estrito
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleStrict(false)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
+                !strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="Filtros relaxados (preço ±30%, sem tipo/zona/quartos)"
+            >
+              Solto
+            </button>
+          </div>
           {hidden.size > 0 && (
             <Button variant="ghost" size="sm" className="rounded-full h-7 text-xs" onClick={() => setShowHidden((v) => !v)}>
               {showHidden ? <EyeOff className="mr-1 h-3 w-3" /> : <Eye className="mr-1 h-3 w-3" />}
@@ -1594,78 +2246,103 @@ function InteressadosTab({ negocioId }: { negocioId: string }) {
       {visible.length === 0 ? (
         <EmptyHint icon={Users} message="Nenhum comprador compatível." />
       ) : (
-        <div className="space-y-2">
-          {visible.map((i) => {
-            const isHidden = hidden.has(i.negocioId)
-            const score = i.match_score as number | null
-            const scoreColor =
-              score != null
-                ? score >= 80
-                  ? 'bg-emerald-500 text-white'
-                  : score >= 60
-                    ? 'bg-amber-500 text-white'
-                    : score >= 40
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-red-500 text-white'
-                : ''
-            return (
-              <div
-                key={i.negocioId}
-                className={cn(
-                  'rounded-2xl border border-border/40 bg-background shadow-sm p-3 flex items-center gap-3 transition-opacity',
-                  isHidden && 'opacity-50',
-                )}
-              >
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <UserIcon className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold truncate">{i.firstName || '—'}</p>
-                    {score != null && (
-                      <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>
-                        {score}%
-                      </span>
-                    )}
-                  </div>
-                  {!i.isMine && i.colleague && (
-                    <p className="text-[11px] text-muted-foreground truncate">Consultor: {i.colleague}</p>
-                  )}
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                    {i.phone && (
-                      <a href={`tel:${i.phone}`} className="inline-flex items-center gap-1 hover:text-foreground">
-                        <Phone className="h-2.5 w-2.5" />
-                        {i.phone}
-                      </a>
-                    )}
-                    {i.email && (
-                      <a href={`mailto:${i.email}`} className="inline-flex items-center gap-1 hover:text-foreground truncate">
-                        <Mail className="h-2.5 w-2.5" />
-                        {i.email}
-                      </a>
-                    )}
-                  </div>
-                </div>
-                {!i.isMine && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHidden((prev) => {
-                        const n = new Set(prev)
-                        if (n.has(i.negocioId)) n.delete(i.negocioId)
-                        else n.add(i.negocioId)
-                        return n
-                      })
-                    }}
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/60"
-                    title={isHidden ? 'Mostrar' : 'Ocultar'}
-                  >
-                    {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  </button>
-                )}
-              </div>
+        <div className="space-y-3 pb-12">
+          {(() => {
+            // Computa grupos para visual organizado: mine primeiro, depois por colega
+            const mineList = visible.filter((i: any) => i.isMine)
+            const colleagueList = visible.filter((i: any) => !i.isMine)
+            const byColleague = new Map<string, any[]>()
+            for (const i of colleagueList) {
+              const key = i.consultantId || `__name:${i.colleague || 'Sem consultor'}`
+              const arr = byColleague.get(key) || []
+              arr.push(i)
+              byColleague.set(key, arr)
+            }
+            const sortedGroups = Array.from(byColleague.entries()).sort(([, a], [, b]) =>
+              (b.length - a.length) ||
+              ((a[0]?.colleague || '').localeCompare(b[0]?.colleague || '')),
             )
-          })}
+            return (
+              <>
+                {mineList.length > 0 && (
+                  <section className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                      Os meus compradores
+                    </p>
+                    {mineList.map((i: any) => renderInteressadoRow(i))}
+                  </section>
+                )}
+                {sortedGroups.map(([key, group]) => {
+                  const colleagueName = group[0]?.colleague || 'Sem consultor'
+                  const consultantId = group[0]?.consultantId
+                  const groupIds = group.map((g: any) => g.negocioId)
+                  const allSelected = groupIds.every((id: string) => selectedColleagueIds.has(id))
+                  const someSelected = groupIds.some((id: string) => selectedColleagueIds.has(id))
+                  const canBulk = strict && consultantId
+                  return (
+                    <section key={key} className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                          Compradores de {colleagueName}{group.length > 1 ? ` · ${group.length}` : ''}
+                        </p>
+                        {canBulk && group.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectAllForColleague(consultantId, groupIds)}
+                            className="text-[11px] font-medium text-primary hover:underline"
+                          >
+                            {allSelected ? 'Desseleccionar todos' : someSelected ? `Seleccionar restantes` : 'Seleccionar todos'}
+                          </button>
+                        )}
+                      </div>
+                      {group.map((i: any) => renderInteressadoRow(i))}
+                    </section>
+                  )
+                })}
+              </>
+            )
+          })()}
+
+        </div>
+      )}
+
+
+      {/* Hint quando não está em strict — explica porque não há sugestões */}
+      {!strict && items.some((i: any) => !i.isMine) && (
+        <p className="text-[11px] text-muted-foreground italic px-1">
+          Active <span className="font-medium">Estrito</span> para sugerir aos colegas.
+        </p>
+      )}
+
+      {/* Bulk action bar — sticky bottom dentro da tab */}
+      {selectedColleagueIds.size > 0 && (
+        <div className="sticky bottom-0 -mx-2 px-2 py-2 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-xl border-t border-border/40 flex items-center gap-2 flex-wrap">
+          <span className="text-sm">
+            <span className="font-semibold">{selectedColleagueIds.size}</span> seleccionado{selectedColleagueIds.size === 1 ? '' : 's'}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full h-7 text-xs"
+            onClick={() => setSelectedColleagueIds(new Set())}
+            disabled={bulkSending}
+          >
+            Limpar
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full h-7 text-xs gap-1.5 ml-auto"
+            onClick={handleBulkInternalChat}
+            disabled={bulkSending}
+            title="Envia 1 mensagem por colega no chat interno, com a lista dos seus clientes seleccionados"
+          >
+            {bulkSending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <MessageSquare className="h-3 w-3" />
+            )}
+            Sugerir via chat interno
+          </Button>
         </div>
       )}
     </div>
@@ -1790,6 +2467,466 @@ function EmptyHint({ icon: Icon, message }: { icon: React.ElementType; message: 
     <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-8 flex flex-col items-center text-center">
       <Icon className="h-8 w-8 text-muted-foreground/40 mb-2" />
       <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  )
+}
+
+// ─── Imóveis Tab — agrupa Matching + Dossier em sub-tabs internas ──────
+type ImoveisSubTab = 'matching' | 'dossier'
+
+function ImoveisGroupedTab({
+  negocioId,
+  leadId,
+  userId,
+  onDossierChanged,
+  onPreviewProperty,
+}: {
+  negocioId: string
+  leadId: string | null
+  userId: string | undefined
+  onDossierChanged: () => void
+  onPreviewProperty: (id: string | null) => void
+}) {
+  const [sub, setSub] = useState<ImoveisSubTab>('matching')
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-muted/60 border border-border/40">
+          <button
+            type="button"
+            onClick={() => setSub('matching')}
+            className={cn(
+              'px-4 py-1 rounded-full text-xs font-medium transition-all',
+              sub === 'matching'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Matching
+          </button>
+          <button
+            type="button"
+            onClick={() => setSub('dossier')}
+            className={cn(
+              'px-4 py-1 rounded-full text-xs font-medium transition-all',
+              sub === 'dossier'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Dossier
+          </button>
+        </div>
+      </div>
+
+      {sub === 'matching' && (
+        <MatchingTab
+          negocioId={negocioId}
+          onDossierChanged={onDossierChanged}
+          onPreviewProperty={onPreviewProperty}
+        />
+      )}
+      {sub === 'dossier' && (
+        <ImoveisTab
+          negocioId={negocioId}
+          leadId={leadId}
+          userId={userId}
+          onPreviewProperty={onPreviewProperty}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Propostas Tab — wrapper para o componente NegocioProposalsTab ─────
+
+function PropostasTab({ negocioId }: { negocioId: string }) {
+  return <NegocioProposalsTab negocioId={negocioId} />
+}
+
+// ─── Fecho Tab — fechos de negócio ligados a este negócio (Compra side) ──
+
+function FechoTab({
+  negocioId,
+  negocio,
+}: {
+  negocioId: string
+  negocio: any
+}) {
+  const router = useRouter()
+  const [deals, setDeals] = useState<any[]>([])
+  const [dossier, setDossier] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const leadName = negocio?.lead?.full_name || negocio?.lead?.nome || null
+  const leadEmail = negocio?.lead?.email || null
+  const leadPhone = negocio?.lead?.telemovel || negocio?.lead?.telefone || null
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [dealsRes, dossierRes] = await Promise.all([
+        fetch(`/api/deals?negocio_id=${negocioId}`),
+        fetch(`/api/negocios/${negocioId}/properties`),
+      ])
+      if (dealsRes.ok) {
+        const json = await dealsRes.json()
+        setDeals(Array.isArray(json) ? json : json.data || [])
+      }
+      if (dossierRes.ok) {
+        const json = await dossierRes.json()
+        setDossier(json.data || [])
+      }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false)
+    }
+  }, [negocioId])
+
+  useEffect(() => { void refetch() }, [refetch])
+
+  // Identifica o imóvel "óbvio" para o fecho — o que está no dossier marcado
+  // como `interested` ou `proposed`, ou (fallback) o único imóvel do dossier.
+  const obviousProperty = (() => {
+    const ranked = (dossier || [])
+      .filter((d: any) => d.property_id && d.property)
+      .sort((a: any, b: any) => {
+        const order: Record<string, number> = { interested: 0, proposed: 1, visited: 2, sent: 3, pending: 4 }
+        return (order[a.status] ?? 99) - (order[b.status] ?? 99)
+      })
+    return ranked[0]?.property || null
+  })()
+  const dealPrefill = buildDealPropertyContextFromNegocio(negocio, obviousProperty
+    ? {
+        id: obviousProperty.id,
+        title: obviousProperty.title,
+        external_ref: obviousProperty.external_ref,
+        listing_price: obviousProperty.listing_price,
+        city: obviousProperty.city,
+        business_type: null,
+      }
+    : null)
+
+  if (loading) return <ListSkeleton />
+
+  const drafts = deals.filter((d) => d.status === 'draft')
+  const submitted = deals.filter((d) => d.status !== 'draft')
+  const hasAny = deals.length > 0
+
+  return (
+    <div className="space-y-3">
+      {!hasAny ? (
+        <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-6 flex flex-col items-center text-center">
+          <Briefcase className="h-7 w-7 text-muted-foreground/40 mb-2" />
+          <p className="text-sm font-medium">Sem fecho de negócio</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[300px]">
+            O fecho regista o contrato e despacha as comissões. A proposta é opcional — podes criar o fecho directamente.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full mt-4 gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Criar fecho
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Rascunhos */}
+          {drafts.map((d: any) => (
+            <div
+              key={d.id}
+              className="rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 shadow-sm p-4 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+              onClick={() => router.push(`/dashboard/financeiro/deals/${d.id}`)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                  <Briefcase className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold truncate">
+                      {d.property?.title || 'Fecho em curso'}
+                    </p>
+                    <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                      Rascunho
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Criado a {format(new Date(d.created_at || Date.now()), "d 'de' MMM, HH:mm", { locale: pt })} · Continua para finalizar
+                  </p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+              </div>
+            </div>
+          ))}
+
+          {/* Fechos submetidos */}
+          {submitted.map((d: any) => {
+            const status = d.status || 'unknown'
+            const statusMeta: Record<string, { label: string; bg: string; text: string }> = {
+              submitted: { label: 'Submetido', bg: 'bg-blue-500/15', text: 'text-blue-700' },
+              under_review: { label: 'Em revisão', bg: 'bg-amber-500/15', text: 'text-amber-700' },
+              approved: { label: 'Aprovado', bg: 'bg-emerald-500/15', text: 'text-emerald-700' },
+              completed: { label: 'Concluído', bg: 'bg-emerald-600/15', text: 'text-emerald-700' },
+              rejected: { label: 'Rejeitado', bg: 'bg-red-500/15', text: 'text-red-700' },
+              cancelled: { label: 'Cancelado', bg: 'bg-slate-500/15', text: 'text-slate-700' },
+            }
+            const meta = statusMeta[status] || { label: status, bg: 'bg-muted', text: 'text-muted-foreground' }
+            return (
+              <div
+                key={d.id}
+                className="rounded-2xl bg-background border border-border/50 shadow-sm p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => router.push(`/dashboard/financeiro/deals/${d.id}`)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold truncate">
+                        {d.property?.title || 'Fecho de negócio'}
+                      </p>
+                      <span className={cn('inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full', meta.bg, meta.text)}>
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
+                      {d.deal_value != null && (
+                        <span className="font-medium tabular-nums">
+                          {eur.format(d.deal_value)}
+                        </span>
+                      )}
+                      {d.deal_date && (
+                        <span>· {format(new Date(d.deal_date), "d 'de' MMM yyyy", { locale: pt })}</span>
+                      )}
+                      {d.consultant?.commercial_name && (
+                        <span>· {d.consultant.commercial_name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+                </div>
+              </div>
+            )
+          })}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full w-full gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo fecho
+          </Button>
+        </>
+      )}
+
+      {/* DealDialog com contexto do negócio (pré-preenche clientes + property) */}
+      <DealDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        negocioContext={{
+          id: negocioId,
+          leadName,
+          leadEmail,
+          leadPhone,
+        }}
+        propertyContext={dealPrefill.propertyContext}
+        onComplete={() => {
+          setCreateOpen(false)
+          toast.success('Fecho criado')
+          refetch()
+        }}
+      />
+    </div>
+  )
+}
+
+// ─── Angariação Tab — processo de angariação do negócio ─────────────────
+
+function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any }) {
+  const router = useRouter()
+  const [processes, setProcesses] = useState<any[]>([])
+  const [drafts, setDrafts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const acquisitionPrefill = buildAcquisitionPrefillFromNegocio(negocio)
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Processos finalizados (não-rascunho) ligados ao negócio
+      const procRes = await fetch(`/api/processes?negocio_id=${negocioId}`)
+      if (procRes.ok) {
+        const json = await procRes.json()
+        setProcesses(json.data || [])
+      }
+      // Rascunhos pendentes
+      const draftRes = await fetch('/api/acquisitions/drafts')
+      if (draftRes.ok) {
+        const json = await draftRes.json()
+        const filtered = (json.data || json || []).filter(
+          (d: any) => d.negocio_id === negocioId,
+        )
+        setDrafts(filtered)
+      }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false)
+    }
+  }, [negocioId])
+
+  useEffect(() => { void refetch() }, [refetch])
+
+  if (loading) return <ListSkeleton />
+
+  const hasAny = processes.length > 0 || drafts.length > 0
+
+  return (
+    <div className="space-y-3">
+      {!hasAny ? (
+        <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-6 flex flex-col items-center text-center">
+          <Briefcase className="h-7 w-7 text-muted-foreground/40 mb-2" />
+          <p className="text-sm font-medium">Sem processo de angariação</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[300px]">
+            Cria a angariação a partir deste negócio. Quando concluída, o imóvel passa a estar disponível.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full mt-4 gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Criar angariação
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Drafts em curso */}
+          {drafts.map((d: any) => (
+            <div
+              key={d.id}
+              className="rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 shadow-sm p-4 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+              onClick={() => router.push(`/dashboard/processos/novo?draft=${d.id}`)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                  <Briefcase className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold truncate">{d.title || 'Rascunho de angariação'}</p>
+                    <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                      Rascunho
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Criado a {format(new Date(d.created_at || d.updated_at || Date.now()), "d 'de' MMM, HH:mm", { locale: pt })} · Continua para finalizar
+                  </p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+              </div>
+            </div>
+          ))}
+
+          {/* Processos formalizados */}
+          {processes.map((p: any) => {
+            const status = p.current_status || 'unknown'
+            const statusMeta: Record<string, { label: string; bg: string; text: string }> = {
+              draft: { label: 'Rascunho', bg: 'bg-amber-500/15', text: 'text-amber-700' },
+              pending_approval: { label: 'Pendente aprovação', bg: 'bg-amber-500/15', text: 'text-amber-700' },
+              active: { label: 'Activo', bg: 'bg-emerald-500/15', text: 'text-emerald-700' },
+              on_hold: { label: 'Pausado', bg: 'bg-slate-500/15', text: 'text-slate-700' },
+              completed: { label: 'Concluído', bg: 'bg-blue-500/15', text: 'text-blue-700' },
+              cancelled: { label: 'Cancelado', bg: 'bg-red-500/15', text: 'text-red-700' },
+              rejected: { label: 'Rejeitado', bg: 'bg-red-500/15', text: 'text-red-700' },
+            }
+            const meta = statusMeta[status] || { label: status, bg: 'bg-muted', text: 'text-muted-foreground' }
+            const propertyTitle = p.dev_properties?.title || 'Imóvel'
+            const isCompleted = status === 'completed'
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  'rounded-2xl border bg-background shadow-sm p-4 cursor-pointer transition-colors',
+                  'hover:bg-muted/30',
+                  'border-border/50',
+                )}
+                onClick={() => router.push(`/dashboard/processos/${p.id}`)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold truncate">{p.external_ref || 'Processo'}</p>
+                      <span className={cn('inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full', meta.bg, meta.text)}>
+                        {meta.label}
+                      </span>
+                      {p.percent_complete != null && (
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {p.percent_complete}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{propertyTitle}</p>
+                    {isCompleted && p.property_id && (
+                      <Link
+                        href={`/dashboard/imoveis?property=${p.property_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline mt-1.5"
+                      >
+                        Ver imóvel
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </Link>
+                    )}
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
+                </div>
+              </div>
+            )
+          })}
+
+          {/* CTA — criar outra (raro mas possível) */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full w-full gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nova angariação
+          </Button>
+        </>
+      )}
+
+      {/* Dialog de criação — pré-preenchido com o negocioId + specs do imóvel + owner=lead */}
+      <AcquisitionDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        negocioId={negocioId}
+        prefillData={acquisitionPrefill}
+        onComplete={(procInstanceId) => {
+          setCreateOpen(false)
+          toast.success('Angariação criada com sucesso')
+          refetch()
+          router.push(`/dashboard/processos/${procInstanceId}`)
+        }}
+      />
     </div>
   )
 }

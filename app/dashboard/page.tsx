@@ -27,7 +27,7 @@ import {
   getAgentRankings,
   getRevenuePipeline,
   getAgentDashboard,
-} from '@/app/dashboard/comissoes/actions'
+} from '@/app/dashboard/financeiro/actions'
 import {
   getDrillDownProperties,
   getDrillDownTransactions,

@@ -35,6 +35,9 @@ export async function GET(
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const withAiScore = searchParams.get('score') === 'true'
+    // strict (default true) — quando false relaxa: banda de preço ±30% (em vez
+    // de ±15%) e ignora tipo / overlap de zonas / quartos mínimos.
+    const strict = searchParams.get('strict') !== 'false'
     const admin = createAdminClient() as any
 
     // Fetch the seller negócio with all fields
@@ -91,38 +94,43 @@ export async function GET(
     }
 
     // ── Hard filters (keep all non-terminal, including own buyers) ──
+    // Em modo strict, todos os filtros aplicam-se. Em loose: preço ±30% e
+    // resto opcional (tipo, zonas, quartos não filtram).
+    const priceFactor = strict ? 0.15 : 0.30
     const filtered = (buyerNegocios || []).filter((n: any) => {
       // Exclude terminal (won/lost) negócios
       if (n.leads_pipeline_stages?.is_terminal) return false
 
-      // Budget must cover the selling price (±15%)
+      // Budget — strict ±15%, loose ±30%
       if (sellerPrice) {
         const buyerMax = n.orcamento_max || n.orcamento
         const buyerMin = n.orcamento || 0
-        if (buyerMax && buyerMax < sellerPrice * 0.85) return false
-        if (buyerMin && buyerMin > sellerPrice * 1.15) return false
+        if (buyerMax && buyerMax < sellerPrice * (1 - priceFactor)) return false
+        if (buyerMin && buyerMin > sellerPrice * (1 + priceFactor)) return false
       }
 
-      // Property type must match (skip if either is not set)
-      if (sellerType && n.tipo_imovel) {
-        if (!sellerType.toLowerCase().includes(n.tipo_imovel.toLowerCase()) &&
-            !n.tipo_imovel.toLowerCase().includes(sellerType.toLowerCase())) {
-          return false
+      if (strict) {
+        // Property type must match (skip if either is not set)
+        if (sellerType && n.tipo_imovel) {
+          if (!sellerType.toLowerCase().includes(n.tipo_imovel.toLowerCase()) &&
+              !n.tipo_imovel.toLowerCase().includes(sellerType.toLowerCase())) {
+            return false
+          }
         }
-      }
 
-      // Location overlap (skip if either is not set)
-      if (sellerLocation && n.localizacao) {
-        const sellerZones = sellerLocation.split(',').map((z: string) => z.trim().toLowerCase()).filter(Boolean)
-        const buyerZones = n.localizacao.split(',').map((z: string) => z.trim().toLowerCase()).filter(Boolean)
-        const hasOverlap = sellerZones.some((sz: string) =>
-          buyerZones.some((bz: string) => sz.includes(bz) || bz.includes(sz))
-        )
-        if (!hasOverlap) return false
-      }
+        // Location overlap (skip if either is not set)
+        if (sellerLocation && n.localizacao) {
+          const sellerZones = sellerLocation.split(',').map((z: string) => z.trim().toLowerCase()).filter(Boolean)
+          const buyerZones = n.localizacao.split(',').map((z: string) => z.trim().toLowerCase()).filter(Boolean)
+          const hasOverlap = sellerZones.some((sz: string) =>
+            buyerZones.some((bz: string) => sz.includes(bz) || bz.includes(sz))
+          )
+          if (!hasOverlap) return false
+        }
 
-      // Rooms: seller must have >= buyer's minimum
-      if (sellerRooms && n.quartos_min && sellerRooms < n.quartos_min) return false
+        // Rooms: seller must have >= buyer's minimum
+        if (sellerRooms && n.quartos_min && sellerRooms < n.quartos_min) return false
+      }
 
       return true
     })
@@ -148,6 +156,9 @@ export async function GET(
         negocioId: n.id,
         firstName,
         isMine,
+        // user_id do consultor responsável pelo lead — usado para sugerir
+        // ao colega via WA (phone) ou chat interno (DM).
+        consultantId: buyerAgentId || null,
         colleague: contactSource.commercial_name || 'Sem consultor',
         phone: profile.phone_commercial || null,
         email: contactSource.professional_email || null,

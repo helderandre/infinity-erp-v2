@@ -8,7 +8,7 @@ import {
   Briefcase, Activity, CircleDollarSign, AlertCircle, Download,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
-import { MapaGestaoTabs } from '@/components/financial/mapa-gestao-tabs'
+import { EmpresaTabsNav } from '@/components/financial/empresa-tabs-nav'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,9 +32,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import {
   getTransactions, createTransaction, updateTransactionStatus, bulkApproveTransactions,
-} from '@/app/dashboard/comissoes/actions'
+} from '@/app/dashboard/financeiro/actions'
 import { getRecruiters } from '@/app/dashboard/recrutamento/actions'
-import { getDeals, getDealStats, getConsultantsForSelect } from '@/app/dashboard/comissoes/deals/actions'
+import { getDeals, getDealStats, getConsultantsForSelect } from '@/app/dashboard/financeiro/deals/actions'
 import { DealForm } from '@/components/financial/deal-form'
 import type { FinancialTransaction, TransactionStatus } from '@/types/financial'
 import { TRANSACTION_TYPES, TRANSACTION_STATUSES } from '@/types/financial'
@@ -327,23 +327,12 @@ export default function ComissoesPage() {
 
   return (
     <div className="space-y-4">
-      <MapaGestaoTabs active="comissoes" />
-      {/* Hero Header */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <CircleDollarSign className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Comissoes</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Negócios e transacções de comissões dos consultores.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <EmpresaTabsNav active="comissoes" />
         <Button
           size="sm"
-          className="absolute top-6 right-6 z-20 rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+          variant="outline"
+          className="rounded-full shrink-0"
           onClick={() => setExportOpen(true)}
         >
           <Download className="h-3.5 w-3.5 sm:mr-1.5" />
@@ -439,7 +428,7 @@ export default function ComissoesPage() {
                       <TableRow
                         key={d.id}
                         className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
-                        onClick={() => router.push(`/dashboard/comissoes/deals/${d.id}`)}
+                        onClick={() => router.push(`/dashboard/financeiro/deals/${d.id}`)}
                       >
                         <TableCell className="text-sm whitespace-nowrap">{fmtDate(d.deal_date)}</TableCell>
                         <TableCell className="text-sm max-w-[180px] truncate">

@@ -21,9 +21,10 @@ const LEGAL_NATURES = [
 interface OwnerKycColetivaProps {
   form: UseFormReturn<any>
   index: number
+  pathPrefix?: 'owners' | 'clients'
 }
 
-export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
+export function OwnerKycColetiva({ form, index, pathPrefix = 'owners' }: OwnerKycColetivaProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -38,7 +39,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.company_object`}
+            name={`${pathPrefix}.${index}.company_object`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Objecto Social</FormLabel>
@@ -51,7 +52,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.company_branches`}
+            name={`${pathPrefix}.${index}.company_branches`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Estabelecimentos</FormLabel>
@@ -67,7 +68,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.legal_nature`}
+            name={`${pathPrefix}.${index}.legal_nature`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Natureza Juridica</FormLabel>
@@ -89,7 +90,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.country_of_incorporation`}
+            name={`${pathPrefix}.${index}.country_of_incorporation`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Pais de Constituicao</FormLabel>
@@ -105,7 +106,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.cae_code`}
+            name={`${pathPrefix}.${index}.cae_code`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Codigo CAE</FormLabel>
@@ -118,7 +119,7 @@ export function OwnerKycColetiva({ form, index }: OwnerKycColetivaProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.rcbe_code`}
+            name={`${pathPrefix}.${index}.rcbe_code`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Codigo RCBE</FormLabel>

@@ -19,13 +19,14 @@ const ID_DOC_TYPES = [
 interface OwnerBeneficiariesListProps {
   form: UseFormReturn<any>
   ownerIndex: number
+  pathPrefix?: 'owners' | 'clients'
 }
 
-export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesListProps) {
-  const beneficiaries = form.watch(`owners.${ownerIndex}.beneficiaries`) || []
+export function OwnerBeneficiariesList({ form, ownerIndex, pathPrefix = 'owners' }: OwnerBeneficiariesListProps) {
+  const beneficiaries = form.watch(`${pathPrefix}.${ownerIndex}.beneficiaries`) || []
 
   const addBeneficiary = () => {
-    form.setValue(`owners.${ownerIndex}.beneficiaries`, [
+    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries`, [
       ...beneficiaries,
       {
         full_name: '',
@@ -42,7 +43,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
 
   const removeBeneficiary = (index: number) => {
     const updated = beneficiaries.filter((_: any, i: number) => i !== index)
-    form.setValue(`owners.${ownerIndex}.beneficiaries`, updated)
+    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries`, updated)
   }
 
   return (
@@ -79,7 +80,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                   placeholder="Nome..."
                   value={ben.full_name || ''}
                   onChange={(e) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.full_name`, e.target.value)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.full_name`, e.target.value)
                   }
                 />
               </div>
@@ -89,7 +90,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                   placeholder="Cargo..."
                   value={ben.position || ''}
                   onChange={(e) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.position`, e.target.value)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.position`, e.target.value)
                   }
                 />
               </div>
@@ -99,7 +100,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                   placeholder="%"
                   value={ben.share_percentage || ''}
                   onChange={(e) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.share_percentage`, e.target.value)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.share_percentage`, e.target.value)
                   }
                 />
               </div>
@@ -109,7 +110,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                   placeholder="NIF..."
                   value={ben.nif || ''}
                   onChange={(e) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.nif`, e.target.value)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.nif`, e.target.value)
                   }
                 />
               </div>
@@ -118,7 +119,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                 <Select
                   value={ben.id_doc_type || ''}
                   onValueChange={(v) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.id_doc_type`, v)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.id_doc_type`, v)
                   }
                 >
                   <SelectTrigger>
@@ -137,7 +138,7 @@ export function OwnerBeneficiariesList({ form, ownerIndex }: OwnerBeneficiariesL
                   placeholder="Numero..."
                   value={ben.id_doc_number || ''}
                   onChange={(e) =>
-                    form.setValue(`owners.${ownerIndex}.beneficiaries.${bIdx}.id_doc_number`, e.target.value)
+                    form.setValue(`${pathPrefix}.${ownerIndex}.beneficiaries.${bIdx}.id_doc_number`, e.target.value)
                   }
                 />
               </div>

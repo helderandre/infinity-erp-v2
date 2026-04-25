@@ -207,7 +207,7 @@ export async function getDrillDownTransactions(filter: {
           variant: TRANSACTION_STATUS_VARIANTS[t.status] ?? "outline",
         },
         extra: amount != null ? fmtCurrency(amount) : undefined,
-        href: "/dashboard/comissoes",
+        href: "/dashboard/financeiro",
         date: t.transaction_date ? fmtDate(t.transaction_date) : t.created_at ? fmtDate(t.created_at) : undefined,
       }
     })

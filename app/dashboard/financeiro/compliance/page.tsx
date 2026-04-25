@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner'
 import {
   getComplianceOverview, getComplianceAlerts,
-} from '@/app/dashboard/comissoes/compliance/actions'
+} from '@/app/dashboard/financeiro/compliance/actions'
 import {
   RISK_LEVELS, COMPLIANCE_STATUSES, IMPIC_DEADLINES,
 } from '@/types/compliance'
@@ -141,25 +141,18 @@ export default function CompliancePage() {
 
   return (
     <div className="space-y-6">
-      {/* ─── Header ─────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8 sm:px-8">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.06] to-transparent" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Compliance IMPIC</h1>
-            <p className="text-sm text-neutral-400">Prazo de reporte: {deadline}</p>
-          </div>
-          <Select value={quarter} onValueChange={setQuarter}>
-            <SelectTrigger className="w-40 h-9 text-sm rounded-full bg-muted/50 border-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {quarterOpts.map((q) => (
-                <SelectItem key={q} value={q}>{q}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Compliance IMPIC · prazo: {deadline}</p>
+        <Select value={quarter} onValueChange={setQuarter}>
+          <SelectTrigger className="w-40 h-9 text-sm rounded-full bg-muted/50 border-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {quarterOpts.map((q) => (
+              <SelectItem key={q} value={q}>{q}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ─── KPIs ───────────────────────────────────────────────── */}
@@ -184,7 +177,7 @@ export default function CompliancePage() {
             <Card
               key={alert.id}
               className="cursor-pointer rounded-2xl border-amber-200 bg-amber-50/50 backdrop-blur-sm transition-colors hover:bg-amber-50"
-              onClick={() => router.push(`/dashboard/comissoes/deals/${alert.deal_id}`)}
+              onClick={() => router.push(`/dashboard/financeiro/deals/${alert.deal_id}`)}
             >
               <CardContent className="flex items-start gap-3 p-4">
                 {alert.type === 'deadline' && <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />}
@@ -240,7 +233,7 @@ export default function CompliancePage() {
                       <TableRow
                         key={d.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/dashboard/comissoes/deals/${d.id}`)}
+                        onClick={() => router.push(`/dashboard/financeiro/deals/${d.id}`)}
                       >
                         <TableCell className="whitespace-nowrap text-sm">{fmtDate(d.deal_date)}</TableCell>
                         <TableCell className="max-w-[180px] truncate text-sm">{d.property_title}</TableCell>

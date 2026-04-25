@@ -37,18 +37,20 @@ const MARITAL_REGIMES = [
 interface OwnerKycSingularProps {
   form: UseFormReturn<any>
   index: number
+  /** Prefixo do path no formulário — 'owners' (default) ou 'clients'. */
+  pathPrefix?: 'owners' | 'clients'
 }
 
-export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
+export function OwnerKycSingular({ form, index, pathPrefix = 'owners' }: OwnerKycSingularProps) {
   // Auto-open if any KYC field is pre-filled (e.g. from lead data)
   const hasKycData = !!(
-    form.getValues(`owners.${index}.id_doc_type`) ||
-    form.getValues(`owners.${index}.id_doc_number`) ||
-    form.getValues(`owners.${index}.birth_date`)
+    form.getValues(`${pathPrefix}.${index}.id_doc_type`) ||
+    form.getValues(`${pathPrefix}.${index}.id_doc_number`) ||
+    form.getValues(`${pathPrefix}.${index}.birth_date`)
   )
   const [isOpen, setIsOpen] = useState(hasKycData)
-  const isPep = form.watch(`owners.${index}.is_pep`)
-  const isResident = form.watch(`owners.${index}.is_portugal_resident`)
+  const isPep = form.watch(`${pathPrefix}.${index}.is_pep`)
+  const isResident = form.watch(`${pathPrefix}.${index}.is_portugal_resident`)
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -63,7 +65,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.id_doc_type`}
+            name={`${pathPrefix}.${index}.id_doc_type`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de Documento</FormLabel>
@@ -85,7 +87,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.id_doc_number`}
+            name={`${pathPrefix}.${index}.id_doc_number`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Numero do Documento</FormLabel>
@@ -98,7 +100,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.id_doc_expiry`}
+            name={`${pathPrefix}.${index}.id_doc_expiry`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Validade</FormLabel>
@@ -111,7 +113,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.id_doc_issued_by`}
+            name={`${pathPrefix}.${index}.id_doc_issued_by`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Emitido por</FormLabel>
@@ -128,7 +130,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.birth_date`}
+            name={`${pathPrefix}.${index}.birth_date`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Nascimento</FormLabel>
@@ -141,7 +143,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           />
           <FormField
             control={form.control}
-            name={`owners.${index}.profession`}
+            name={`${pathPrefix}.${index}.profession`}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Profissao</FormLabel>
@@ -158,7 +160,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.is_portugal_resident`}
+            name={`${pathPrefix}.${index}.is_portugal_resident`}
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                 <FormLabel>Residente em Portugal</FormLabel>
@@ -171,7 +173,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           {isResident === false && (
             <FormField
               control={form.control}
-              name={`owners.${index}.residence_country`}
+              name={`${pathPrefix}.${index}.residence_country`}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Pais de Residencia</FormLabel>
@@ -188,7 +190,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         {/* Estado Civil / Regime */}
         <FormField
           control={form.control}
-          name={`owners.${index}.marital_regime`}
+          name={`${pathPrefix}.${index}.marital_regime`}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Estado Civil / Regime</FormLabel>
@@ -213,7 +215,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         <div className="space-y-2">
           <FormField
             control={form.control}
-            name={`owners.${index}.is_pep`}
+            name={`${pathPrefix}.${index}.is_pep`}
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                 <FormLabel>Pessoa Politicamente Exposta (PEP)</FormLabel>
@@ -226,7 +228,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
           {isPep && (
             <FormField
               control={form.control}
-              name={`owners.${index}.pep_position`}
+              name={`${pathPrefix}.${index}.pep_position`}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cargo PEP</FormLabel>
@@ -243,7 +245,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
         {/* Origem de Fundos */}
         <FormField
           control={form.control}
-          name={`owners.${index}.funds_origin`}
+          name={`${pathPrefix}.${index}.funds_origin`}
           render={() => (
             <FormItem>
               <FormLabel>Origem dos Fundos</FormLabel>
@@ -252,7 +254,7 @@ export function OwnerKycSingular({ form, index }: OwnerKycSingularProps) {
                   <FormField
                     key={origin}
                     control={form.control}
-                    name={`owners.${index}.funds_origin`}
+                    name={`${pathPrefix}.${index}.funds_origin`}
                     render={({ field }) => {
                       const currentValue = field.value || []
                       return (

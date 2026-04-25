@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { generateAgentReport, getCommissionTiers } from "@/app/dashboard/comissoes/actions"
+import { generateAgentReport, getCommissionTiers } from "@/app/dashboard/financeiro/actions"
 import type { AgentAnalysisReport, CommissionTier, TrendIndicator } from "@/types/financial"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

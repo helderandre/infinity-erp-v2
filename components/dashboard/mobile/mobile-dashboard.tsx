@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { UserWithRole } from '@/hooks/use-user'
 import type { AgentDashboard } from '@/types/financial'
-import { getAgentDashboard } from '@/app/dashboard/comissoes/actions'
+import { getAgentDashboard } from '@/app/dashboard/financeiro/actions'
 import { WelcomeCard } from './welcome-card'
 import { ContactosCard } from './contactos-card'
 import { TodayCard } from './today-card'

@@ -35,7 +35,7 @@ import {
   getDeal,
   updatePaymentStatus,
   updatePaymentInvoice,
-} from '@/app/dashboard/comissoes/deals/actions'
+} from '@/app/dashboard/financeiro/deals/actions'
 import { DealComplianceTab } from '@/components/financial/deal-compliance-tab'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { Workflow, Euro, ShieldCheck } from 'lucide-react'

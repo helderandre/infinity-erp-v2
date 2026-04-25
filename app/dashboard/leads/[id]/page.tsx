@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -64,8 +65,33 @@ import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab')
+  const negocioFromUrl = searchParams.get('negocio')
+
+  // Sheet do negócio — substitui a página dedicada antiga.
+  const [openNegocioId, setOpenNegocioId] = useState<string | null>(negocioFromUrl)
+  useEffect(() => {
+    setOpenNegocioId(negocioFromUrl)
+  }, [negocioFromUrl])
+  const updateNegocioInUrl = useCallback(
+    (next: string | null) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next) params.set('negocio', next)
+      else params.delete('negocio')
+      const qs = params.toString()
+      router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
+    },
+    [pathname, searchParams, router],
+  )
+  const openNegocioSheet = useCallback(
+    (negocioId: string) => {
+      setOpenNegocioId(negocioId)
+      updateNegocioInUrl(negocioId)
+    },
+    [updateNegocioInUrl],
+  )
 
   const [lead, setLead] = useState<LeadWithAgent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -245,7 +271,7 @@ export default function LeadDetailPage() {
       setNewNegocioOpen(false)
       setNewNegocioTipo('')
       loadNegocios()
-      router.push(`/dashboard/leads/${id}/negocios/${data.id}`)
+      openNegocioSheet(data.id)
     } catch { toast.error('Erro ao criar negocio') }
     finally { setCreatingNegocio(false) }
   }
@@ -624,7 +650,7 @@ export default function LeadDetailPage() {
                     >
                       <NegocioListItem
                         negocio={neg as unknown as NegocioListItemData}
-                        onSelect={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
+                        onSelect={() => openNegocioSheet(neg.id as string)}
                         onDelete={() => setNegocioToDelete(neg.id as string)}
                       />
                     </div>
@@ -852,6 +878,18 @@ export default function LeadDetailPage() {
           contactName={lead.nome || 'Contacto'}
         />
       )}
+
+      {/* Sheet do negócio (substitui a página antiga /dashboard/leads/[id]/negocios/[id]) */}
+      <NegocioDetailSheet
+        negocioId={openNegocioId}
+        open={!!openNegocioId}
+        onOpenChange={(o) => {
+          if (!o) {
+            setOpenNegocioId(null)
+            updateNegocioInUrl(null)
+          }
+        }}
+      />
     </>
   )
 }

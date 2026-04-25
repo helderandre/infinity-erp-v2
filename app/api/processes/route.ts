@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || ''
     const processType = searchParams.get('process_type') || ''
     const propertyId = searchParams.get('property_id') || ''
+    const negocioId = searchParams.get('negocio_id') || ''
 
     let query = supabase
       .from('proc_instances')
@@ -54,6 +55,10 @@ export async function GET(request: Request) {
 
     if (propertyId) {
       query = query.eq('property_id', propertyId)
+    }
+
+    if (negocioId) {
+      query = query.eq('negocio_id' as any, negocioId)
     }
 
     const { data, error } = await query

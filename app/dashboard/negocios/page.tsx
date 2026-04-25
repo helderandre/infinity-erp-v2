@@ -57,7 +57,7 @@ import {
   getDeals,
   getConsultantsForSelect,
   cancelDeal,
-} from '@/app/dashboard/comissoes/deals/actions'
+} from '@/app/dashboard/financeiro/deals/actions'
 import type { Deal, DealStatus, DealScenario } from '@/types/deal'
 import { DEAL_SCENARIOS, DEAL_STATUSES } from '@/types/deal'
 
@@ -279,7 +279,7 @@ function NegociosPageContent() {
   }
 
   const openDetail = (d: Deal) => {
-    router.push(`/dashboard/comissoes/deals/${d.id}`)
+    router.push(`/dashboard/financeiro/deals/${d.id}`)
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1

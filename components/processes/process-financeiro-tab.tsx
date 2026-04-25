@@ -120,7 +120,7 @@ export function ProcessFinanceiroTab({ deal, dealId }: ProcessFinanceiroTabProps
       </Card>
 
       {/* Link to full deal detail */}
-      <Link href={`/dashboard/comissoes/deals/${dealId}`}>
+      <Link href={`/dashboard/financeiro/deals/${dealId}`}>
         <Button variant="outline" className="w-full rounded-full">
           <ExternalLink className="mr-2 h-4 w-4" />
           Ver detalhe completo do negocio

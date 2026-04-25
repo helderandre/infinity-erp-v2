@@ -429,6 +429,63 @@ export async function POST(
         .in('id', negocio_property_ids)
     }
 
+    // Activity feed: 1 linha por canal que teve sucesso (aparece em "Actividade recente"
+    // do negócio).
+    if (succeeded > 0) {
+      try {
+        const { data: neg } = await admin
+          .from('negocios')
+          .select('lead_id')
+          .eq('id', negocioId)
+          .single()
+        if (neg?.lead_id) {
+          const titles = cards.map((c) => c.title).slice(0, 8)
+          const summary =
+            titles.join(', ') +
+            (cards.length > 8 ? `, +${cards.length - 8}` : '')
+          const activities: any[] = []
+          const emailSucceeded =
+            !!email &&
+            results.some((r) => r.channel === 'email' && r.status === 'success')
+          const whatsappSucceeded =
+            !!whatsapp &&
+            results.some(
+              (r) => r.channel === 'whatsapp' && r.status === 'success',
+            )
+          const noun = cards.length === 1 ? 'imóvel' : 'imóveis'
+          if (emailSucceeded) {
+            activities.push({
+              contact_id: neg.lead_id,
+              negocio_id: negocioId,
+              activity_type: 'email',
+              direction: 'outbound',
+              subject: `Enviou ${cards.length} ${noun} por email`,
+              description: summary,
+              metadata: { property_count: cards.length, channel: 'email' },
+              created_by: auth.user.id,
+            })
+          }
+          if (whatsappSucceeded) {
+            activities.push({
+              contact_id: neg.lead_id,
+              negocio_id: negocioId,
+              activity_type: 'whatsapp',
+              direction: 'outbound',
+              subject: `Enviou ${cards.length} ${noun} pelo WhatsApp`,
+              description: summary,
+              metadata: { property_count: cards.length, channel: 'whatsapp' },
+              created_by: auth.user.id,
+            })
+          }
+          if (activities.length > 0) {
+            await admin.from('leads_activities').insert(activities)
+          }
+        }
+      } catch (actErr) {
+        console.warn('[negocios/properties/send] activity log failed:', actErr)
+      }
+    }
+
     // Audit
     try {
       await admin.from('log_audit').insert({

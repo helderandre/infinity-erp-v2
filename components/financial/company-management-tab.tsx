@@ -221,26 +221,13 @@ export function CompanyManagementTab() {
 
   return (
     <div className="space-y-6">
-      {/* Hero header — title + actions only */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <Building className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Financeiro</p>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Despesas</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Gastos da empresa por categoria, com digitalização de faturas via QR fiscal AT.
-          </p>
-
-          {/* Controls row: month picker + actions (mobile: 2 rows; desktop: 1 row) */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-6">
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
+      {/* Controls row: month picker + actions (mobile: 2 rows; desktop: 1 row) */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/40 border border-border/30 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 sm:h-6 sm:w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                className="h-6 w-6 rounded-full"
                 onClick={prevMonth}
               >
                 <ChevronLeft className="h-3 w-3" />
@@ -249,7 +236,7 @@ export function CompanyManagementTab() {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 min-w-[100px] sm:min-w-[120px] text-center text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                    className="text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 min-w-[100px] sm:min-w-[120px] text-center hover:bg-muted/60 rounded-full transition-colors cursor-pointer whitespace-nowrap"
                   >
                     {MONTHS[month - 1]} {year}
                   </button>
@@ -319,18 +306,18 @@ export function CompanyManagementTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 sm:h-6 sm:w-6 rounded-full text-white hover:bg-white/20 hover:text-white"
+                className="h-6 w-6 rounded-full"
                 onClick={nextMonth}
               >
                 <ChevronRight className="h-3 w-3" />
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0">
+            <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0 sm:justify-end">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="flex-1 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[11px] gap-1.5"
+                className="h-8 rounded-full text-[11px] gap-1.5"
                 onClick={() => setRecurringOpen(true)}
                 title="Gerir despesas recorrentes"
               >
@@ -338,9 +325,9 @@ export function CompanyManagementTab() {
                 <span className="truncate">Recorrentes</span>
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="flex-1 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[11px] gap-1.5"
+                className="h-8 rounded-full text-[11px] gap-1.5"
                 onClick={() => setScannerOpen(true)}
                 title="Digitalizar recibo / fatura"
               >
@@ -349,7 +336,7 @@ export function CompanyManagementTab() {
               </Button>
               <Button
                 size="sm"
-                className="flex-1 h-8 rounded-full bg-white text-neutral-900 hover:bg-neutral-100 text-[11px] gap-1.5"
+                className="h-8 rounded-full text-[11px] gap-1.5"
                 onClick={() => setAddOpen(true)}
                 title="Adicionar despesa manual"
               >
@@ -358,8 +345,6 @@ export function CompanyManagementTab() {
               </Button>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* White card com tabs Estatísticas / Despesas */}
       <Tabs

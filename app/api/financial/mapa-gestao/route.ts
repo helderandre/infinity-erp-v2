@@ -63,6 +63,7 @@ export async function GET(request: Request) {
           agency_invoice_recipient, agency_invoice_recipient_nif,
           agency_invoice_amount_net, agency_invoice_amount_gross,
           network_invoice_number, network_invoice_date,
+          notes,
           deal_payment_splits(
             id, agent_id, role, split_pct, amount,
             consultant_invoice_number, consultant_invoice_date, consultant_invoice_type,
@@ -176,6 +177,9 @@ export async function GET(request: Request) {
             consultant_invoice_type: split.consultant_invoice_type,
             consultant_paid: split.consultant_paid ?? false,
             consultant_paid_date: split.consultant_paid_date,
+            // Partner / share / notes
+            partner_agency_name: deal.partner_agency_name ?? null,
+            payment_notes: payment.notes ?? null,
           })
         }
       }

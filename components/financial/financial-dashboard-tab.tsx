@@ -4,18 +4,24 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, TrendingUp, TrendingDown,
   Wallet, Building2, FileSignature, FileCheck, CreditCard,
-  Banknote, Target, LayoutDashboard,
+  Banknote, Target,
 } from 'lucide-react'
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, LabelList,
+} from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type { FinancialDashboardData } from '@/types/financial'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
 
 const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
@@ -45,22 +51,7 @@ export function FinancialDashboardTab() {
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear(year + 1) } else setMonth(month + 1) }
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <div className="flex items-center gap-2 mb-2">
-            <LayoutDashboard className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">Visao Geral</p>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Dashboard Financeiro</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Indicadores e evolução financeira da empresa em {MONTHS[month - 1]} de {year}.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {/* Month nav */}
       <div className="flex items-center gap-3">
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
@@ -75,165 +66,238 @@ export function FinancialDashboardTab() {
       </div>
 
       {isLoading || !data ? (
-        <div className="space-y-4">
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
-          </div>
-          <div className="grid gap-3 grid-cols-3">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
-          </div>
-          <Skeleton className="h-64 rounded-2xl" />
+        <div className="space-y-5">
+          <Skeleton className="h-44 rounded-3xl" />
+          <Skeleton className="h-44 rounded-3xl" />
+          <Skeleton className="h-80 rounded-3xl" />
+          <Skeleton className="h-44 rounded-3xl" />
         </div>
       ) : (
         <>
-          {/* Top KPIs */}
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <KpiCard icon={Banknote} label="Facturacao" value={data.revenue_this_month} color="emerald" />
-            <KpiCard icon={TrendingDown} label="Despesas" value={data.expenses_this_month} color="red" />
-            <KpiCard icon={Wallet} label="Resultado" value={data.result_this_month} color={data.result_this_month >= 0 ? 'emerald' : 'red'} />
-            <KpiCard icon={Target} label="Margem Liquida" value={data.margin_pct} color="blue" isCurrency={false} suffix="%" />
-          </div>
-
-          {/* Pipeline */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Pipeline Financeiro</h3>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-              <PipelineCard
-                icon={FileSignature}
-                label="Assinado por receber"
-                value={data.pipeline.signed_pending_receipt}
-                color="amber"
-              />
-              <PipelineCard
-                icon={FileCheck}
-                label="Recebido por reportar"
-                value={data.pipeline.received_pending_report}
-                color="blue"
-              />
-              <PipelineCard
-                icon={CreditCard}
-                label="A pagar consultores"
-                value={data.pipeline.pending_consultant_payment}
-                color="purple"
-              />
+          {/* ─── Sheet 1: Indicadores do mês (KPIs + pipeline) ──────────── */}
+          <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 space-y-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+            <div>
+              <h3 className="text-base font-semibold tracking-tight">Indicadores do mês</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Facturação, despesas e margem em {MONTHS[month - 1]} de {year}
+              </p>
             </div>
-          </div>
 
-          {/* Monthly evolution */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Evolucao Mensal</h3>
-            <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4">
-              <div className="flex items-end gap-1 h-48">
-                {data.monthly_evolution.map((item, idx) => {
-                  const maxVal = Math.max(...data.monthly_evolution.map((i) => i.report), 1)
-                  const barHeight = (item.report / maxVal) * 100
-                  const marginHeight = (item.margin / maxVal) * 100
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+              <KpiCard icon={Banknote} label="Facturação" value={fmtCurrency(data.revenue_this_month)} tone="positive" />
+              <KpiCard icon={TrendingDown} label="Despesas" value={fmtCurrency(data.expenses_this_month)} tone="negative" />
+              <KpiCard icon={Wallet} label="Resultado" value={fmtCurrency(data.result_this_month)} tone={data.result_this_month >= 0 ? 'positive' : 'negative'} />
+              <KpiCard icon={Target} label="Margem líquida" value={`${data.margin_pct}%`} tone="info" />
+            </div>
 
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full flex flex-col items-center justify-end h-40 relative">
-                        {/* Report bar */}
-                        <div
-                          className="w-full rounded-t-md bg-neutral-200 dark:bg-neutral-700 transition-all duration-500"
-                          style={{ height: `${barHeight}%` }}
-                        >
-                          {/* Margin overlay */}
-                          <div
-                            className="w-full rounded-t-md bg-emerald-500/40 absolute bottom-0"
-                            style={{ height: `${marginHeight}%` }}
-                          />
-                        </div>
-                      </div>
-                      <span className="text-[8px] text-muted-foreground truncate w-full text-center">
-                        {item.month.split('/')[0]}
-                      </span>
-                    </div>
-                  )
-                })}
+            <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-5 space-y-3">
+              <p className="text-xs font-semibold tracking-tight">Pipeline financeiro</p>
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                <PipelineCard
+                  icon={FileSignature}
+                  label="Assinado por receber"
+                  value={data.pipeline.signed_pending_receipt}
+                  tone="warning"
+                />
+                <PipelineCard
+                  icon={FileCheck}
+                  label="Recebido por reportar"
+                  value={data.pipeline.received_pending_report}
+                  tone="info"
+                />
+                <PipelineCard
+                  icon={CreditCard}
+                  label="A pagar consultores"
+                  value={data.pipeline.pending_consultant_payment}
+                  tone="purple"
+                />
               </div>
-              <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-600" /> Report
+            </div>
+          </Card>
+
+          {/* ─── Sheet 2: Evolução mensal ──────────────────────────────── */}
+          <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+            <div className="flex items-end justify-between mb-5">
+              <div>
+                <h3 className="text-base font-semibold tracking-tight">Evolução mensal</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Volume reportado vs. margem realizada
+                </p>
+              </div>
+              <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: '#94a3b8' }} /> Reportado
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500/40" /> Margem
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: '#10b981' }} /> Margem
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* Portfolio */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Imoveis em Carteira</h3>
-            <div className="grid gap-3 grid-cols-2">
-              <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-xl p-2.5 bg-blue-500/10">
-                    <Building2 className="h-4 w-4 text-blue-500" />
-                  </div>
-                </div>
-                <p className="text-xl font-bold tabular-nums">{fmtCurrency(data.portfolio.active_volume)}</p>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Volume dos Imoveis Ativos</p>
-              </div>
-              <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-xl p-2.5 bg-emerald-500/10">
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  </div>
-                </div>
-                <p className="text-xl font-bold tabular-nums">{fmtCurrency(data.portfolio.potential_revenue)}</p>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">Facturacao Potencial</p>
-              </div>
+            <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-5">
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart
+                  data={data.monthly_evolution}
+                  margin={{ top: 24, right: 12, bottom: 0, left: -12 }}
+                >
+                  <defs>
+                    <linearGradient id="bar-report" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.45} />
+                    </linearGradient>
+                    <linearGradient id="bar-margin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickFormatter={(v: string) => v.split('/')[0]}
+                    tick={{ fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value: any, name: any) => [fmtCurrency(Number(value)), name === 'report' ? 'Reportado' : 'Margem']}
+                    labelFormatter={(label: string) => `Mês ${label}`}
+                    contentStyle={{
+                      borderRadius: 12, fontSize: 12, border: '1px solid hsl(var(--border))',
+                      backgroundColor: 'hsl(var(--background) / 0.95)', backdropFilter: 'blur(8px)',
+                    }}
+                    cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
+                  />
+                  <Bar dataKey="report" name="Reportado" fill="url(#bar-report)" radius={[6, 6, 0, 0]} maxBarSize={28}>
+                    <LabelList
+                      dataKey="report"
+                      position="top"
+                      fontSize={9}
+                      fill="#64748b"
+                      formatter={(v: number) => v > 0 ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)) : ''}
+                    />
+                  </Bar>
+                  <Bar dataKey="margin" name="Margem" fill="url(#bar-margin)" radius={[6, 6, 0, 0]} maxBarSize={28}>
+                    <LabelList
+                      dataKey="margin"
+                      position="top"
+                      fontSize={9}
+                      fill="#10b981"
+                      formatter={(v: number) => v > 0 ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)) : ''}
+                    />
+                  </Bar>
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-          </div>
+          </Card>
+
+          {/* ─── Sheet 3: Imóveis em carteira ──────────────────────────── */}
+          <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 space-y-5 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+            <div>
+              <h3 className="text-base font-semibold tracking-tight">Imóveis em carteira</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Volume activo e facturação potencial
+              </p>
+            </div>
+
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+              <KpiCard
+                icon={Building2}
+                label="Volume dos imóveis activos"
+                value={fmtCurrency(data.portfolio.active_volume)}
+                tone="info"
+              />
+              <KpiCard
+                icon={TrendingUp}
+                label="Facturação potencial"
+                value={fmtCurrency(data.portfolio.potential_revenue)}
+                tone="positive"
+              />
+            </div>
+          </Card>
         </>
       )}
     </div>
   )
 }
 
-function KpiCard({ icon: Icon, label, value, color, isCurrency = true, suffix }: {
-  icon: React.ElementType; label: string; value: number; color: string; isCurrency?: boolean; suffix?: string
+// ─── KPI Card (mesmo padrão do ConsultorResumo) ───────────────────────────
+
+function KpiCard({
+  icon: Icon, label, value, tone = 'neutral', hint,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+  tone?: 'neutral' | 'positive' | 'negative' | 'warning' | 'info'
+  hint?: React.ReactNode
 }) {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
-    red: { bg: 'bg-red-500/10', text: 'text-red-500' },
-    blue: { bg: 'bg-blue-500/10', text: 'text-blue-500' },
-    amber: { bg: 'bg-amber-500/10', text: 'text-amber-500' },
-    purple: { bg: 'bg-purple-500/10', text: 'text-purple-500' },
-  }
-  const c = colorMap[color] || colorMap.blue
+  const toneMap = {
+    neutral: { from: 'from-slate-500/10', icon: 'text-slate-600 dark:text-slate-300', accent: 'bg-slate-400/40' },
+    positive: { from: 'from-emerald-500/15', icon: 'text-emerald-600', accent: 'bg-emerald-500/60' },
+    negative: { from: 'from-red-500/15', icon: 'text-red-600', accent: 'bg-red-500/60' },
+    warning: { from: 'from-amber-500/15', icon: 'text-amber-600', accent: 'bg-amber-500/60' },
+    info: { from: 'from-blue-500/15', icon: 'text-blue-600', accent: 'bg-blue-500/60' },
+  }[tone]
 
   return (
-    <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4 transition-all duration-300 hover:shadow-md hover:bg-card/80">
-      <div className={`rounded-xl p-2.5 w-fit ${c.bg}`}>
-        <Icon className={`h-4 w-4 ${c.text}`} />
+    <div className={cn(
+      'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent',
+      'ring-1 ring-border/40 p-4 transition-all duration-300',
+      'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
+      toneMap.from,
+    )}>
+      <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
+
+      <div className="flex items-center gap-2">
+        <Icon className={cn('h-4 w-4 shrink-0', toneMap.icon)} />
+        <p className="text-[11px] text-muted-foreground font-medium leading-tight">{label}</p>
       </div>
-      <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-2">{label}</p>
-      <p className={`text-xl font-bold tracking-tight ${c.text}`}>
-        {isCurrency ? fmtCurrency(value) : `${value}${suffix || ''}`}
+      <p className="text-base sm:text-2xl font-semibold tracking-tight tabular-nums mt-2.5 text-foreground break-words">
+        {value}
       </p>
+      {hint && <div className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">{hint}</div>}
     </div>
   )
 }
 
-function PipelineCard({ icon: Icon, label, value, color }: {
-  icon: React.ElementType; label: string; value: number; color: string
+// ─── Pipeline Card ────────────────────────────────────────────────────────
+
+function PipelineCard({
+  icon: Icon, label, value, tone,
+}: {
+  icon: React.ElementType
+  label: string
+  value: number
+  tone: 'warning' | 'info' | 'purple'
 }) {
-  const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-    amber: { bg: 'bg-amber-500/10', text: 'text-amber-600', border: 'border-amber-500/20' },
-    blue: { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/20' },
-    purple: { bg: 'bg-purple-500/10', text: 'text-purple-600', border: 'border-purple-500/20' },
-  }
-  const c = colorMap[color] || colorMap.blue
+  const toneMap = {
+    warning: { from: 'from-amber-500/15', icon: 'text-amber-600', accent: 'bg-amber-500/60' },
+    info: { from: 'from-blue-500/15', icon: 'text-blue-600', accent: 'bg-blue-500/60' },
+    purple: { from: 'from-purple-500/15', icon: 'text-purple-600', accent: 'bg-purple-500/60' },
+  }[tone]
 
   return (
-    <div className={`rounded-2xl border ${c.border} ${c.bg} p-4 transition-all duration-300`}>
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={`h-4 w-4 ${c.text}`} />
-        <span className={`text-xs font-medium ${c.text}`}>{label}</span>
+    <div className={cn(
+      'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent',
+      'ring-1 ring-border/40 p-4 transition-all duration-300',
+      'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
+      toneMap.from,
+    )}>
+      <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
+
+      <div className="flex items-center gap-2">
+        <Icon className={cn('h-4 w-4 shrink-0', toneMap.icon)} />
+        <p className="text-[11px] text-muted-foreground font-medium leading-tight">{label}</p>
       </div>
-      <p className={`text-lg font-bold tabular-nums ${c.text}`}>{fmtCurrency(value)}</p>
+      <p className="text-base sm:text-xl font-semibold tracking-tight tabular-nums mt-2 text-foreground break-words">
+        {fmtCurrency(value)}
+      </p>
     </div>
   )
 }

@@ -89,15 +89,14 @@ export const infinityItems = [
   { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
 ]
 
+// Financeiro: single entry for consultor (collapses to one link), group for
+// gestão (visão geral + relatórios + definições, gated by `users`).
+// The "Visão geral" entry is the role-aware page that adapts itself.
 export const financeiroItems = [
-  { title: 'Dashboard', icon: TrendingUp, href: '/dashboard/comissoes/dashboard', permission: 'commissions' },
-  { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
-  // Comissões merged into Mapa de Gestão as a sibling tab.
-  // { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
-  { title: 'Despesas', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
-  { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
-  { title: 'Relatórios', icon: Briefcase, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },
-  { title: 'IMPIC', icon: ClipboardList, href: '/dashboard/comissoes/compliance', permission: 'commissions' },
+  { title: 'Visão geral', icon: TrendingUp, href: '/dashboard/financeiro', permission: 'commissions' },
+  { title: 'Conta corrente', icon: Wallet, href: '/dashboard/financeiro/conta-corrente', permission: 'commissions' },
+  { title: 'Relatórios', icon: Briefcase, href: '/dashboard/financeiro/relatorios', permission: 'users' },
+  { title: 'Definições', icon: Settings, href: '/dashboard/financeiro/definicoes', permission: 'users' },
 ]
 
 export const recrutamentoItems = [
@@ -147,6 +146,26 @@ export const menuItems = [
   ...financeiroItems, ...creditoItems, ...lojaItems,
   ...digitalItems, ...bottomItems,
 ]
+
+// ─── Active item resolution ──────────────────────────────
+// Longest-prefix-match: if multiple items match the current pathname,
+// the one with the longest href wins. Avoids cases where a "parent" item
+// like /dashboard/financeiro stays active when navigating to a sibling
+// item like /dashboard/financeiro/conta-corrente.
+function getActiveHref(
+  pathname: string | null,
+  items: Array<{ href: string }>,
+): string | null {
+  if (!pathname) return null
+  const candidates = items
+    .filter((item) => {
+      if (item.href === '/dashboard') return pathname === '/dashboard'
+      return pathname === item.href || pathname.startsWith(`${item.href}/`)
+    })
+    .map((item) => item.href)
+  if (candidates.length === 0) return null
+  return candidates.reduce((a, b) => (b.length > a.length ? b : a))
+}
 
 // ─── Hover Group Dropdown (collapsed sidebar) ─────────────
 
@@ -216,15 +235,14 @@ function HoverGroupDropdown({
           {label}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border/30" />
-        {items.map((item) => {
-          const isActive =
-            item.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : pathname === item.href || pathname?.startsWith(`${item.href}/`)
-          return (
-            <DropdownMenuItem
-              key={item.href}
-              asChild
+        {(() => {
+          const activeHref = getActiveHref(pathname, items)
+          return items.map((item) => {
+            const isActive = activeHref === item.href
+            return (
+              <DropdownMenuItem
+                key={item.href}
+                asChild
               className={cn(
                 'rounded-lg mx-1 gap-2 text-[13px]',
                 isActive
@@ -232,15 +250,143 @@ function HoverGroupDropdown({
                   : 'hover:bg-muted/60'
               )}
             >
-              <Link href={item.href}>
-                <item.icon className="size-4" />
-                <span>{item.title}</span>
-              </Link>
-            </DropdownMenuItem>
-          )
-        })}
+                <Link href={item.href}>
+                  <item.icon className="size-4" />
+                  <span>{item.title}</span>
+                </Link>
+              </DropdownMenuItem>
+            )
+          })
+        })()}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+// ─── Solo Sidebar Item ───────────────────────────────────
+// A top-level nav entry that is NOT a collapsible group — just a single
+// link, styled like the SECTION HEADERS so it sits at the same visual level
+// as the other group labels (e.g. "Negócio", "Financeiro").
+
+function SoloSidebarItem({
+  label,
+  icon: Icon,
+  href,
+  permission,
+  pathname,
+  hasPermission,
+}: {
+  label: string
+  icon: any
+  href: string
+  permission?: string
+  pathname: string | null
+  hasPermission: (p: any) => boolean
+}) {
+  const { state, isMobile } = useSidebar()
+  const isIconMode = state === 'collapsed' && !isMobile
+
+  if (permission && !hasPermission(permission as any)) return null
+
+  const isActive = pathname === href || pathname?.startsWith(`${href}/`)
+
+  if (isIconMode) {
+    return (
+      <SidebarGroup className="py-0.5">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={!!isActive}
+                tooltip={label}
+                className={cn(
+                  'rounded-xl transition-all duration-150',
+                  isActive
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'hover:bg-muted/60'
+                )}
+              >
+                <Link href={href}>
+                  <Icon className="size-4" />
+                  <span className="text-[13px]">{label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    )
+  }
+
+  return (
+    <SidebarGroup className="py-1">
+      <SidebarGroupLabel asChild>
+        <Link
+          href={href}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold transition-colors',
+            isActive
+              ? 'border border-border text-foreground/90 bg-muted/40 shadow-sm'
+              : 'text-muted-foreground/70 hover:text-muted-foreground'
+          )}
+        >
+          <Icon className={cn('size-3.5', isActive ? 'opacity-80' : 'opacity-60')} />
+          {label}
+        </Link>
+      </SidebarGroupLabel>
+    </SidebarGroup>
+  )
+}
+
+// ─── Smart Group ─────────────────────────────────────────
+// Renders as a single link when only one item is visible to the user
+// (e.g. consultor sees only "Visão geral" inside Financeiro), or as a
+// CollapsibleGroup when 2+ items are visible (e.g. gestão sees Visão geral
+// + Relatórios + Definições). Avoids the awkward "1-child collapsible"
+// UI for users with limited permissions.
+function SmartGroup({
+  label,
+  icon: Icon,
+  items,
+  pathname,
+  hasPermission,
+  pathPrefixes,
+}: {
+  label: string
+  icon: any
+  items: Array<{ title: string; icon: any; href: string; permission?: string }>
+  pathname: string | null
+  hasPermission: (p: any) => boolean
+  pathPrefixes: string[]
+}) {
+  const visibleItems = items.filter(
+    (item) => !item.permission || hasPermission(item.permission as any)
+  )
+  if (visibleItems.length === 0) return null
+
+  if (visibleItems.length === 1) {
+    const only = visibleItems[0]
+    return (
+      <SoloSidebarItem
+        label={label}
+        icon={Icon}
+        href={only.href}
+        pathname={pathname}
+        hasPermission={() => true}
+      />
+    )
+  }
+
+  return (
+    <CollapsibleGroup
+      label={label}
+      icon={Icon}
+      items={items}
+      pathname={pathname}
+      hasPermission={hasPermission}
+      pathPrefixes={pathPrefixes}
+    />
   )
 }
 
@@ -315,35 +461,33 @@ function CollapsibleGroup({
         <CollapsibleContent>
           <SidebarGroupContent className="mt-0.5">
             <SidebarMenu className="gap-0.5 pl-4 pr-1">
-              {visibleItems.map((item) => {
-                const hasSubItems = visibleItems.some(
-                  (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`)
-                )
-                const isActive = hasSubItems
-                  ? pathname === item.href
-                  : pathname === item.href || pathname?.startsWith(`${item.href}/`)
+              {(() => {
+                const activeHref = getActiveHref(pathname, visibleItems)
+                return visibleItems.map((item) => {
+                  const isActive = activeHref === item.href
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        'rounded-xl transition-all duration-150',
-                        isActive
-                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                          : 'hover:bg-muted/60 hover:backdrop-blur-sm'
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className="size-4" />
-                        <span className="text-[13px]">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                        className={cn(
+                          'rounded-xl transition-all duration-150',
+                          isActive
+                            ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                            : 'hover:bg-muted/60 hover:backdrop-blur-sm'
+                        )}
+                      >
+                        <Link href={item.href}>
+                          <item.icon className="size-4" />
+                          <span className="text-[13px]">{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })
+              })()}
             </SidebarMenu>
           </SidebarGroupContent>
         </CollapsibleContent>
@@ -460,14 +604,15 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos', '/dashboard/negocios']}
         />
 
-        {/* 6. Financeiro */}
-        <CollapsibleGroup
+        {/* 6. Financeiro — single entry for consultor (collapses to one link),
+              group with admin sub-items for gestão. */}
+        <SmartGroup
           label="Financeiro"
           icon={Euro}
           items={financeiroItems}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/comissoes']}
+          pathPrefixes={['/dashboard/financeiro']}
         />
 
         {/* 7. Infinity Store */}

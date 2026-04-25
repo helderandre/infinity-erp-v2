@@ -22,6 +22,20 @@ export async function PUT(
     }
     if (body.notes !== undefined) updateData.notes = body.notes
 
+    if (body.client_reaction !== undefined) {
+      const valid = body.client_reaction === null
+        || body.client_reaction === 'liked'
+        || body.client_reaction === 'disliked'
+      if (!valid) {
+        return NextResponse.json({ error: 'client_reaction inválido' }, { status: 400 })
+      }
+      updateData.client_reaction = body.client_reaction
+      updateData.client_reaction_at = body.client_reaction === null ? null : new Date().toISOString()
+    }
+    if (body.client_reaction_note !== undefined) {
+      updateData.client_reaction_note = body.client_reaction_note || null
+    }
+
     const { data, error } = await admin
       .from('negocio_properties')
       .update(updateData)

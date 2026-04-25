@@ -1,12 +1,12 @@
 'use client'
 
 import { MapaGestaoTab } from '@/components/financial/mapa-gestao-tab'
-import { MapaGestaoTabs } from '@/components/financial/mapa-gestao-tabs'
+import { EmpresaTabsNav } from '@/components/financial/empresa-tabs-nav'
 
 export default function MapaGestaoPage() {
   return (
     <div className="space-y-4">
-      <MapaGestaoTabs active="mapa" />
+      <EmpresaTabsNav active="mapa" />
       <MapaGestaoTab />
     </div>
   )

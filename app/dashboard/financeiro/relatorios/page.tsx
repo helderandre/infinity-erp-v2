@@ -24,7 +24,7 @@ import {
   generateSharesReport,
   generateCustomReport,
   getCommissionTiers,
-} from "@/app/dashboard/comissoes/actions"
+} from "@/app/dashboard/financeiro/actions"
 import { getRecruiters } from "@/app/dashboard/recrutamento/actions"
 import {
   REPORT_DIMENSIONS,
@@ -161,7 +161,7 @@ export default function RelatoriosPage() {
 
   const handleAgentGenerate = useCallback(() => {
     if (!agentConsultant) return toast.error("Seleccione um consultor")
-    router.push(`/dashboard/comissoes/relatorios/agente/${agentConsultant}?year=${agentYear}`)
+    router.push(`/dashboard/financeiro/relatorios/agente/${agentConsultant}?year=${agentYear}`)
     setActiveDialog(null)
   }, [agentConsultant, agentYear, router])
 
@@ -260,12 +260,6 @@ export default function RelatoriosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden bg-neutral-900 rounded-2xl px-6 py-8 sm:px-8">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent" />
-        <h1 className="relative text-2xl font-bold tracking-tight text-white">Relatórios Financeiros</h1>
-        <p className="relative text-sm text-neutral-400 mt-1">Gere e exporte relatórios de comissões e desempenho</p>
-      </div>
-
       {/* Report cards grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {REPORT_CARDS.map((rc) => {

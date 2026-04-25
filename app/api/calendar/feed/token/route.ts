@@ -14,12 +14,22 @@ function generateToken(): string {
   return globalThis.crypto.randomUUID().replace(/-/g, '')
 }
 
+function resolveOrigin(request: Request): string {
+  const isInternalHost = (h: string | null | undefined) =>
+    !h || h.startsWith('0.0.0.0') || h.startsWith('127.0.0.1') || h.startsWith('localhost')
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  const h = request.headers
+  const proto = h.get('x-forwarded-proto') || 'https'
+  const fwd = h.get('x-forwarded-host')
+  if (!isInternalHost(fwd)) return `${proto}://${fwd}`
+  const host = h.get('host')
+  if (!isInternalHost(host)) return `${proto}://${host}`
+  const url = new URL(request.url)
+  return `${url.protocol}//${url.host}`
+}
+
 function buildFeedUrl(request: Request, token: string): string {
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    new URL(request.url).origin
-  ).replace(/\/$/, '')
-  return `${base}/api/calendar/feed/${token}`
+  return `${resolveOrigin(request).replace(/\/$/, '')}/api/calendar/feed/${token}`
 }
 
 async function getOrCreateToken(userId: string): Promise<string> {

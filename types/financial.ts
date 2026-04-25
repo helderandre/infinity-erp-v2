@@ -490,6 +490,9 @@ export interface MapaGestaoRow {
   consultant_invoice_type: string | null
   consultant_paid: boolean
   consultant_paid_date: string | null
+  // Partner agency + payment notes
+  partner_agency_name: string | null
+  payment_notes: string | null
 }
 
 export interface MapaGestaoTotals {
