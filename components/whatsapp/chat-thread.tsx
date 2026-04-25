@@ -198,7 +198,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
   const chatTyping = isTyping(chatId)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-no-long-press>
       {/* Header */}
       <ChatHeader
         chat={chat}

@@ -1878,7 +1878,7 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
       : html
 
     return (
-      <div>
+      <div data-no-long-press>
         <div
           className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none [&_strong]:text-foreground [&_strong]:font-semibold"
           dangerouslySetInnerHTML={{ __html: displayHtml }}
@@ -1894,7 +1894,7 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
 
   const displayText = isLong && !expanded ? text.slice(0, 300).trimEnd() + '…' : text
   return (
-    <div>
+    <div data-no-long-press>
       <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{displayText}</p>
       {isLong && (
         <button onClick={() => setExpanded(!expanded)} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors mt-1">
@@ -1911,7 +1911,10 @@ function DescriptionCard({ text, editing, onChange }: { text: string; editing?: 
   const displayText = isLong && !expanded ? text.slice(0, 300).trimEnd() + '…' : text
 
   return (
-    <div className={cn('rounded-xl border shadow-sm p-5 space-y-3', editing ? 'bg-card ring-1 ring-primary/10' : 'bg-card')}>
+    <div
+      className={cn('rounded-xl border shadow-sm p-5 space-y-3', editing ? 'bg-card ring-1 ring-primary/10' : 'bg-card')}
+      data-no-long-press
+    >
       <SectionTitle>Descrição</SectionTitle>
       {editing && onChange ? (
         <textarea

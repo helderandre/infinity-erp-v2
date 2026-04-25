@@ -541,6 +541,107 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
+  // Long-press 1.5s anywhere → abre o assistente. Convive com selecção
+  // de texto e copy/paste do sistema:
+  //   - Ignora pressões em inputs/textarea/contenteditable, links,
+  //     botões e nodes marcados com `data-no-long-press`.
+  //   - Cancela o temporizador se o ponteiro mexer (>8px), se o
+  //     utilizador soltar, scrollar, abrir context-menu ou começar uma
+  //     selecção de texto. Como o iOS começa a selecção/menu de copy
+  //     em ~500 ms, ainda há 1 s a mais até nós activarmos.
+  //   - Aceita opt-in via evento custom `open-voice-assistant` (botão
+  //     do topbar continua a funcionar).
+  useEffect(() => {
+    if (open) return
+    let timer: number | null = null
+    let startX = 0
+    let startY = 0
+    let armed = false
+
+    const cancel = () => {
+      armed = false
+      if (timer != null) {
+        window.clearTimeout(timer)
+        timer = null
+      }
+    }
+
+    const isOptOut = (target: EventTarget | null): boolean => {
+      const el = target as HTMLElement | null
+      if (!el || !(el instanceof Element)) return false
+      const tag = el.tagName?.toUpperCase()
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        tag === 'BUTTON' ||
+        tag === 'A' ||
+        tag === 'LABEL' ||
+        tag === 'VIDEO' ||
+        tag === 'AUDIO' ||
+        tag === 'IFRAME' ||
+        tag === 'CANVAS'
+      )
+        return true
+      if ((el as HTMLElement).isContentEditable) return true
+      if (el.closest('[data-no-long-press]')) return true
+      // Anything inside a button/anchor/input wrapper.
+      if (el.closest('input, textarea, select, button, a, label, [contenteditable="true"]'))
+        return true
+      return false
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return
+      if (isOptOut(e.target)) return
+      armed = true
+      startX = e.clientX
+      startY = e.clientY
+      cancel()
+      armed = true
+      timer = window.setTimeout(() => {
+        timer = null
+        if (!armed) return
+        const sel = window.getSelection?.()
+        if (sel && !sel.isCollapsed) return
+        try {
+          ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
+        } catch {}
+        window.dispatchEvent(new Event('open-voice-assistant'))
+      }, 1500)
+    }
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (timer == null) return
+      const dx = Math.abs(e.clientX - startX)
+      const dy = Math.abs(e.clientY - startY)
+      if (dx > 8 || dy > 8) cancel()
+    }
+
+    const onSelectionChange = () => {
+      const sel = window.getSelection?.()
+      if (sel && !sel.isCollapsed) cancel()
+    }
+
+    window.addEventListener('pointerdown', onPointerDown, true)
+    window.addEventListener('pointermove', onPointerMove, true)
+    window.addEventListener('pointerup', cancel, true)
+    window.addEventListener('pointercancel', cancel, true)
+    window.addEventListener('scroll', cancel, true)
+    window.addEventListener('contextmenu', cancel, true)
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => {
+      cancel()
+      window.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('pointermove', onPointerMove, true)
+      window.removeEventListener('pointerup', cancel, true)
+      window.removeEventListener('pointercancel', cancel, true)
+      window.removeEventListener('scroll', cancel, true)
+      window.removeEventListener('contextmenu', cancel, true)
+      document.removeEventListener('selectionchange', onSelectionChange)
+    }
+  }, [open])
+
   // Auto-start recording when opened
   useEffect(() => {
     if (open && state === 'idle') {
@@ -645,7 +746,13 @@ export function AiVoiceAssistant() {
       <button
         type="button"
         onClick={close}
-        className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white flex items-center justify-center transition-colors z-10"
+        onPointerDown={(e) => e.stopPropagation()}
+        data-no-long-press
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+          right: 'calc(env(safe-area-inset-right, 0px) + 0.75rem)',
+        }}
+        className="absolute h-12 w-12 md:h-10 md:w-10 rounded-full bg-white/15 text-white hover:bg-white/25 active:bg-white/35 flex items-center justify-center transition-colors z-[110] touch-manipulation ring-1 ring-white/15"
         aria-label="Fechar"
       >
         <X className="h-5 w-5" />

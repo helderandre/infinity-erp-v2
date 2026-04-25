@@ -142,6 +142,7 @@ function ChatPageContent() {
     <div
       className="flex bg-background overflow-hidden"
       style={{ height: 'calc(100% - var(--mobile-nav-height, 0px))' }}
+      data-no-long-press
     >
       {/* Desktop: persistent left sidebar with the conversation list */}
       <div className="hidden md:flex md:w-80 md:border-r shrink-0 flex-col">

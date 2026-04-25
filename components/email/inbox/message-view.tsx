@@ -193,7 +193,7 @@ export function MessageView({
   const nonInlineAttachments = message.attachments.filter((a) => !a.is_inline)
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full" data-no-long-press>
       <div className="p-4 sm:p-6">
         {/* Back button (mobile) */}
         {onBack && (
