@@ -81,6 +81,16 @@ import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-se
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { VisitForm } from '@/components/visits/visit-form'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
@@ -162,6 +172,7 @@ function formatRange(min: number | null, max: number | null, suffix = ''): strin
 export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDetailSheetProps) {
   const isMobile = useIsMobile()
   const { user } = useUser()
+  const router = useRouter()
 
   const [negocio, setNegocio] = useState<any | null>(null)
   const [form, setForm] = useState<Record<string, unknown>>({})
@@ -170,6 +181,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [aiFillOpen, setAiFillOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
@@ -288,8 +301,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   }, [isBuyerType, isSellerType])
 
   const leadId = negocio?.lead_id ?? null
-  const fullPageHref =
-    leadId && negocio?.id ? `/dashboard/leads/${leadId}/negocios/${negocio.id}` : null
 
   const lead = negocio?.lead
   const clientName = lead?.full_name || lead?.nome || 'Negócio'
@@ -320,18 +331,41 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
               Detalhes do negócio.
             </SheetDescription>
           </div>
-          {fullPageHref && (
-            <div className="flex items-center gap-2 mr-10 shrink-0">
+          {negocio?.id && (
+            <div className="flex items-center gap-1.5 mr-10 shrink-0">
+              {leadId && (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full h-8 text-xs gap-1.5"
+                  title="Ver perfil do contacto"
+                >
+                  <Link href={`/dashboard/leads/${leadId}`} onClick={() => onOpenChange(false)}>
+                    <UserIcon className="h-3.5 w-3.5" />
+                    Ver perfil
+                  </Link>
+                </Button>
+              )}
               <Button
-                asChild
                 size="sm"
                 variant="outline"
                 className="rounded-full h-8 text-xs gap-1.5"
+                onClick={() => setEditOpen(true)}
+                title="Editar dados do negócio"
               >
-                <Link href={fullPageHref} onClick={() => onOpenChange(false)}>
-                  Ver tudo
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full h-8 text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+                onClick={() => setDeleteOpen(true)}
+                title="Eliminar negócio"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Eliminar
               </Button>
             </div>
           )}
@@ -375,7 +409,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                   onTemperaturaChange={handleTemperaturaChange}
                   onSaveObservations={handleSaveObservations}
                   onOpenAiFill={() => setAiFillOpen(true)}
-                  onOpenEdit={() => setEditOpen(true)}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -424,10 +457,25 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
           <Dialog open={editOpen} onOpenChange={setEditOpen}>
             <DialogContent className="max-w-3xl w-[95vw] sm:w-full p-0 max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
-                <DialogTitle>Editar negócio</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Editar dados do negócio.
-                </DialogDescription>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <DialogTitle>Editar negócio</DialogTitle>
+                    <DialogDescription className="sr-only">
+                      Editar dados do negócio.
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full h-8 text-xs gap-1.5 shrink-0"
+                    onClick={() => setAiFillOpen(true)}
+                    title="Preencher campos com IA"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Preencher com IA
+                  </Button>
+                </div>
               </DialogHeader>
               <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
                 <NegocioDataCard
@@ -436,6 +484,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                   form={form}
                   onFieldChange={updateField}
                   isSaving={editSaving}
+                  onAiFillClick={() => setAiFillOpen(true)}
                   onSave={async () => {
                     if (!negocio?.id) return
                     setEditSaving(true)
@@ -459,6 +508,56 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
               </div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {/* Eliminar negócio — confirmação com aviso forte */}
+        {negocio?.id && (
+          <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <AlertDialogContent className="rounded-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminar este negócio?</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <span className="block">
+                    Esta acção é <strong>irreversível</strong>. Todos os dados associados ao negócio
+                    (zonas, propriedades anexadas, propostas, comunicações) serão eliminados
+                    permanentemente.
+                  </span>
+                  <span className="block text-amber-700 dark:text-amber-400 font-medium">
+                    Quaisquer alterações não guardadas serão perdidas.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={deleting}
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    if (!negocio?.id) return
+                    setDeleting(true)
+                    try {
+                      const res = await fetch(`/api/negocios/${negocio.id}`, {
+                        method: 'DELETE',
+                      })
+                      if (!res.ok) throw new Error()
+                      toast.success('Negócio eliminado')
+                      setDeleteOpen(false)
+                      onOpenChange(false)
+                      // Refresh the underlying lead page so the negocio disappears
+                      router.refresh()
+                    } catch {
+                      toast.error('Erro ao eliminar')
+                    } finally {
+                      setDeleting(false)
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {deleting ? 'A eliminar...' : 'Eliminar definitivamente'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </SheetContent>
     </Sheet>
@@ -511,7 +610,6 @@ function DetalhesTab({
   onTemperaturaChange,
   onSaveObservations,
   onOpenAiFill,
-  onOpenEdit,
 }: {
   negocio: any
   form: Record<string, unknown>
@@ -521,7 +619,6 @@ function DetalhesTab({
   onTemperaturaChange: (t: Temperatura) => void
   onSaveObservations: (next: string | null) => Promise<void>
   onOpenAiFill: () => void
-  onOpenEdit: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -663,16 +760,6 @@ function DetalhesTab({
           >
             <Sparkles className="h-3 w-3" />
             IA
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full h-7 text-xs gap-1"
-            onClick={onOpenEdit}
-            title="Editar dados do negócio"
-          >
-            <Pencil className="h-3 w-3" />
-            Editar
           </Button>
         </div>
 
