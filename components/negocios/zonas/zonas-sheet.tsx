@@ -53,9 +53,15 @@ export function ZonasSheet({ open, onClose, onAdd, excludeAdminIds = [] }: Zonas
         className={cn(
           'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
           'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          // Wider when on the draw tab so the map has room to breathe
           isMobile
-            ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
-            : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
+            ? tab === 'draw'
+              ? 'data-[side=bottom]:h-[92dvh] rounded-t-3xl'
+              : 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
+            : tab === 'draw'
+              ? 'w-full data-[side=right]:sm:max-w-[920px] sm:rounded-l-3xl'
+              : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
+          'transition-[max-width,height] duration-200 ease-out',
         )}
       >
         {isMobile && (
