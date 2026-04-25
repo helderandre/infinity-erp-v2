@@ -106,10 +106,12 @@ export async function GET(
       query = query.ilike('property_type', `%${neg.tipo_imovel}%`)
     }
 
-    // Hard: price range — strict ±15%, loose ±30% (do max budget)
+    // Hard: price range — limite de ±15% do orçamento máximo, em ambos os
+    // modos. O Solto mantém-se distinto do Estrito por relaxar tipo + zona,
+    // mas nunca devolve imóveis com discrepância de preço superior a 15%.
     const budget = neg.orcamento_max || neg.orcamento
     if (budget) {
-      const factor = strict ? 0.15 : 0.30
+      const factor = 0.15
       const min = budget * (1 - factor)
       const max = budget * (1 + factor)
       query = query.gte('listing_price', min).lte('listing_price', max)

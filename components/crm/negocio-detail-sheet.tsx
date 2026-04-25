@@ -1084,6 +1084,34 @@ function AmenityChip({ emoji, label }: { emoji: string; label: string }) {
   )
 }
 
+function MismatchBadgesRow({
+  badges,
+}: {
+  badges: { type: 'positive' | 'warning' | 'info'; key: string; label: string }[]
+}) {
+  if (!badges || badges.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {badges.map((b) => {
+        const Icon = b.type === 'warning' ? AlertTriangle : Info
+        const cls =
+          b.type === 'warning'
+            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900'
+            : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+        return (
+          <span
+            key={b.key}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${cls}`}
+          >
+            <Icon className="h-2.5 w-2.5" />
+            {b.label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Matching Tab ──────────────────────────────────────────────────────
 
 function MatchingTab({
@@ -1189,7 +1217,7 @@ function MatchingTab({
                 'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
                 strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
-              title="Filtros estritos (tipo + zona + preço ±15%)"
+              title="Filtros estritos (tipo + zona + preço dentro do orçamento)"
             >
               Estrito
             </button>
@@ -1200,7 +1228,7 @@ function MatchingTab({
                 'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all',
                 !strict ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
-              title="Filtros relaxados (preço ±30%, sem tipo/zona)"
+              title="Filtros relaxados (sem tipo/zona; preço continua limitado a ±15%)"
             >
               Solto
             </button>
@@ -2400,6 +2428,9 @@ function InteressadosTab({
               </a>
             )}
           </div>
+          {Array.isArray(i.badges) && i.badges.length > 0 && (
+            <MismatchBadgesRow badges={i.badges} />
+          )}
         </div>
         {canSuggestToColleague && i.phone && (
           <button
