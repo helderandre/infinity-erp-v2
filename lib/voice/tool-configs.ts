@@ -691,6 +691,29 @@ const createAngariacao: ToolConfig = {
     { key: 'commission_agreed', label: 'Comissão (%)', required: true, inputType: 'number' },
   ],
   submit: async (args, { router }) => {
+    // Quando o utilizador escolheu um negócio existente no picker, usamos a
+    // rota de draft (única que aceita `negocioId`) para preservar o link e
+    // mandamos o utilizador para o resume do diálogo, exactamente como o
+    // form-v2 faz no fluxo standalone com picker.
+    if (args.negocio_id) {
+      const prefillData = buildAcquisitionPayload(args, false)
+      const res = await fetch('/api/acquisitions/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefillData, negocioId: args.negocio_id }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || 'Falha ao criar angariação')
+      }
+      const { proc_instance_id } = await res.json()
+      const path = proc_instance_id
+        ? `/dashboard/processos?resume=${proc_instance_id}`
+        : '/dashboard/processos'
+      router.push(path)
+      return { detailPath: path, message: 'Angariação vinculada ao negócio' }
+    }
+
     const payload = buildAcquisitionPayload(args, true)
     const res = await fetch('/api/acquisitions', {
       method: 'POST',
@@ -714,7 +737,10 @@ const createAngariacao: ToolConfig = {
       const res = await fetch('/api/acquisitions/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefillData }),
+        body: JSON.stringify({
+          prefillData,
+          negocioId: args.negocio_id || null,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -735,10 +761,91 @@ const createAngariacao: ToolConfig = {
 //  - Submit: posta para /api/deals (cria deal em estado 'draft') e abre o diálogo
 //    com draftId para o utilizador completar os passos restantes;
 //  - Guardar rascunho: idêntico, mas mantém o utilizador no ecrã de rascunhos.
+/**
+ * Achata o prefill produzido por `buildAcquisitionPrefillFromNegocio` para o
+ * shape de args plano que o overlay de voz usa em `create_angariacao`. Os
+ * campos do owner principal viram `main_owner_*` e as specs sobem ao topo.
+ *
+ * Devolve apenas as chaves preenchidas — o caller faz `{...prev, ...delta}`
+ * para preservar o que o utilizador já tinha ditado.
+ */
+export function buildAngariacaoArgsFromPrefill(
+  prefill: Record<string, any>,
+): Record<string, any> {
+  const out: Record<string, any> = {}
+  const direct = [
+    'title',
+    'property_type',
+    'business_type',
+    'listing_price',
+    'description',
+    'property_condition',
+    'city',
+    'zone',
+  ]
+  for (const k of direct) {
+    if (prefill[k] !== undefined && prefill[k] !== null && prefill[k] !== '') out[k] = prefill[k]
+  }
+  const specs = prefill.specifications || {}
+  const specMap: Record<string, string> = {
+    typology: 'typology',
+    bedrooms: 'bedrooms',
+    bathrooms: 'bathrooms',
+    area_util: 'area_util',
+    area_gross: 'area_gross',
+    parking_spaces: 'parking_spaces',
+  }
+  for (const [src, dst] of Object.entries(specMap)) {
+    const v = specs[src]
+    if (v !== undefined && v !== null && v !== '' && v !== 0) out[dst] = v
+  }
+  const owner = Array.isArray(prefill.owners) && prefill.owners.length > 0 ? prefill.owners[0] : null
+  if (owner) {
+    if (owner.name) out.main_owner_name = owner.name
+    if (owner.phone) out.main_owner_phone = owner.phone
+    if (owner.email) out.main_owner_email = owner.email
+    if (owner.nif) out.main_owner_nif = owner.nif
+  }
+  return out
+}
+
+/** Mapeia um negócio do picker para os args do overlay de `create_fecho`. */
+export function buildFechoArgsFromNegocio(n: {
+  tipo?: string | null
+  preco_venda?: number | null
+  orcamento_max?: number | null
+  orcamento?: number | null
+  renda_pretendida?: number | null
+  renda_max_mensal?: number | null
+  tipo_imovel?: string | null
+  localizacao?: string | null
+  lead?: { full_name?: string | null; nome?: string | null } | null
+}): Record<string, any> {
+  const tipo = n.tipo || ''
+  const isArrendatario = tipo === 'Arrendatário' || tipo === 'Arrendador'
+  const businessType = isArrendatario ? 'arrendamento' : 'venda'
+  const dealValue =
+    n.preco_venda ?? n.orcamento_max ?? n.orcamento ?? n.renda_pretendida ?? n.renda_max_mensal ?? null
+  const out: Record<string, any> = { business_type: businessType }
+  if (typeof dealValue === 'number' && dealValue > 0) out.deal_value = dealValue
+  const clientName = n.lead?.full_name || n.lead?.nome || ''
+  if (clientName) out.client_name = clientName
+  const propertyTitleParts: string[] = []
+  if (n.tipo_imovel) propertyTitleParts.push(n.tipo_imovel)
+  if (n.localizacao) {
+    const firstLoc = n.localizacao.split(',').map((s) => s.trim()).filter(Boolean)[0]
+    if (firstLoc) propertyTitleParts.push(firstLoc)
+  }
+  const propertyTitle = propertyTitleParts.join(' em ')
+  if (propertyTitle) out.property_title = propertyTitle
+  return out
+}
+
 function buildDealPayload(args: Record<string, any>) {
   const payload: Record<string, unknown> = {
     scenario: args.scenario || 'pleno',
   }
+  if (args.negocio_id) payload.negocio_id = args.negocio_id
   if (args.external_consultant_name) payload.external_consultant_name = args.external_consultant_name
   if (args.external_consultant_phone) payload.external_consultant_phone = args.external_consultant_phone
   if (args.external_consultant_email) payload.external_consultant_email = args.external_consultant_email

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { AlertCircle, ArrowLeft, Award, Building2, Check, ChevronDown, ExternalLink, FileText, Handshake, Image as ImageIcon, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Star, Trash2, User, UserCheck, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Award, Briefcase, Building2, Check, ChevronDown, ExternalLink, FileText, Handshake, Image as ImageIcon, Link2, Loader2, Mail, MessageCircle, Mic, Plus, Search, Send, Square, Star, Trash2, User, UserCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -21,6 +21,8 @@ import type { VoiceToolName } from '@/lib/voice/tools'
 import {
   LEAD_SOURCE_OPTIONS,
   TOOL_CONFIGS,
+  buildAngariacaoArgsFromPrefill,
+  buildFechoArgsFromNegocio,
   getMissingRequired,
   isRequiredField,
   parseEntityFromPath,
@@ -39,6 +41,11 @@ import {
   type VoiceSearchRecipient,
   type VoiceSearchResult,
 } from '@/lib/voice/tool-configs'
+import {
+  NegocioPickerDialog,
+  type NegocioPickerItem,
+} from '@/components/negocios/negocio-picker-dialog'
+import { buildAcquisitionPrefillFromNegocio } from '@/lib/negocios/prefill-from-negocio'
 import { renderPropertyGrid } from '@/lib/email/property-card-html'
 import { wrapEmailHtml } from '@/lib/email-renderer'
 
@@ -362,6 +369,11 @@ export function AiVoiceAssistant() {
 
   const handleArgChange = useCallback((key: string, value: unknown) => {
     setIntent((prev) => (prev ? { ...prev, args: { ...prev.args, [key]: value } } : prev))
+    setErrorMessage('')
+  }, [])
+
+  const handleArgsMerge = useCallback((delta: Record<string, unknown>) => {
+    setIntent((prev) => (prev ? { ...prev, args: { ...prev.args, ...delta } } : prev))
     setErrorMessage('')
   }, [])
 
@@ -972,6 +984,7 @@ export function AiVoiceAssistant() {
               onSubmit={handleSubmit}
               onDraftSave={handleDraftSave}
               onArgChange={handleArgChange}
+              onArgsMerge={handleArgsMerge}
             />
           </>
         )}
@@ -1148,6 +1161,7 @@ function ReviewPanel({
   onSubmit,
   onDraftSave,
   onArgChange,
+  onArgsMerge,
 }: {
   intent: Intent
   entity: EntityContext | null
@@ -1158,6 +1172,7 @@ function ReviewPanel({
   onSubmit: () => void
   onDraftSave: () => void
   onArgChange: (key: string, value: unknown) => void
+  onArgsMerge: (delta: Record<string, unknown>) => void
 }) {
   const cfg = TOOL_CONFIGS[intent.tool]
   const isMobile = useIsMobile()
@@ -1206,6 +1221,38 @@ function ReviewPanel({
           <User className="h-3 w-3" />
           Será associado a {entityTypeLabel[entity.type]}
         </div>
+      )}
+
+      {(intent.tool === 'create_angariacao' || intent.tool === 'create_fecho') && (
+        <NegocioLinkBanner
+          tool={intent.tool}
+          args={intent.args}
+          onApply={(n) => {
+            if (intent.tool === 'create_angariacao') {
+              const prefill = buildAcquisitionPrefillFromNegocio(n as any)
+              const delta = buildAngariacaoArgsFromPrefill(prefill)
+              onArgsMerge({
+                ...delta,
+                negocio_id: n.id,
+                negocio_label:
+                  `${n.lead?.full_name || n.lead?.nome || 'Lead'} · ${n.tipo}`,
+              })
+              toast.success('Pré-preenchido a partir do negócio')
+            } else {
+              const delta = buildFechoArgsFromNegocio(n as any)
+              onArgsMerge({
+                ...delta,
+                negocio_id: n.id,
+                negocio_label:
+                  `${n.lead?.full_name || n.lead?.nome || 'Lead'} · ${n.tipo}`,
+              })
+              toast.success('Pré-preenchido a partir do negócio')
+            }
+          }}
+          onClear={() =>
+            onArgsMerge({ negocio_id: '', negocio_label: '' })
+          }
+        />
       )}
 
       {errorMessage && (
@@ -1315,6 +1362,96 @@ function ReviewPanel({
         </Button>
       </div>
     </div>
+  )
+}
+
+// ── Negocio link banner (create_angariacao / create_fecho) ────────────────
+// Espelha o banner "É de um negócio existente?" do AcquisitionFormV2 e do
+// DealForm — restringe `filterTipos` consoante a tool, abre o picker comum,
+// e ao escolher chama `onApply` para pré-preencher os args.
+
+function NegocioLinkBanner({
+  tool,
+  args,
+  onApply,
+  onClear,
+}: {
+  tool: 'create_angariacao' | 'create_fecho'
+  args: Record<string, any>
+  onApply: (n: NegocioPickerItem) => void
+  onClear: () => void
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const linkedId = args.negocio_id ? String(args.negocio_id) : ''
+  const linkedLabel = args.negocio_label ? String(args.negocio_label) : ''
+  const initialQuery =
+    !linkedId && typeof args.existing_negocio_query === 'string'
+      ? args.existing_negocio_query
+      : ''
+  const filterTipos: Array<'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'> =
+    tool === 'create_angariacao'
+      ? ['Venda', 'Arrendador']
+      : ['Compra', 'Venda', 'Arrendatário', 'Arrendador']
+  const description =
+    tool === 'create_angariacao'
+      ? 'Pré-preenche tipo, valor e tipo de imóvel a partir do negócio.'
+      : 'Pré-preenche o cliente, valor e tipo. Podes ajustar depois.'
+  return (
+    <>
+      <div className="mt-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 flex items-center gap-2 flex-wrap">
+        <Briefcase className="h-3.5 w-3.5 text-white/60 shrink-0" />
+        {linkedId ? (
+          <>
+            <span className="text-xs text-white/60">Vinculado a</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 ring-1 ring-white/15 px-2.5 py-1 text-xs font-medium text-white">
+              <Link2 className="h-3 w-3 text-white/60" />
+              {linkedLabel || 'Negócio'}
+            </span>
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-xs text-white/60 hover:text-white underline-offset-4 hover:underline ml-auto"
+            >
+              Limpar
+            </button>
+          </>
+        ) : initialQuery ? (
+          <>
+            <span className="text-xs text-white/70">
+              Mencionaste um negócio existente:{' '}
+              <span className="text-white">"{initialQuery}"</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="text-xs font-medium text-sky-300 hover:text-sky-200 hover:underline ml-auto"
+            >
+              Escolher
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="text-xs text-white/70">É de um negócio existente?</span>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="text-xs font-medium text-sky-300 hover:text-sky-200 hover:underline ml-auto"
+            >
+              Escolher negócio
+            </button>
+          </>
+        )}
+      </div>
+      <NegocioPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="Escolher negócio existente"
+        description={description}
+        filterTipos={filterTipos}
+        initialQuery={initialQuery}
+        onSelect={onApply}
+      />
+    </>
   )
 }
 

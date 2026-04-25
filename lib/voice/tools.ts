@@ -156,8 +156,14 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_angariacao',
       description:
-        'Iniciar um pedido de angariação de imóvel. Usar para "pedido de angariação", "nova angariação", "angariar um imóvel", "criar angariação". Preenche todos os campos que o utilizador referir — qualquer campo obrigatório em falta fica vermelho no ecrã de confirmação para o utilizador completar por voz ou texto.',
+        'Iniciar um pedido de angariação de imóvel. Usar para "pedido de angariação", "nova angariação", "angariar um imóvel", "criar angariação". Preenche todos os campos que o utilizador referir — qualquer campo obrigatório em falta fica vermelho no ecrã de confirmação para o utilizador completar por voz ou texto. Se o utilizador disser que a angariação vem de um negócio existente do pipeline ("a partir do negócio do João", "do negócio da venda da Maria"), preenche `existing_negocio_query` com o nome do contacto/lead — o ecrã de confirmação oferece um picker para escolher e pré-preencher.',
       parameters: withConfidence({
+        // Negócio existente do pipeline (opcional)
+        existing_negocio_query: {
+          type: 'string',
+          description:
+            'Termo livre para procurar um negócio existente do pipeline a partir do qual gerar a angariação (geralmente o nome do lead/contacto). Só preencher se o utilizador mencionar explicitamente que vem de um negócio existente.',
+        },
         // Imóvel
         title: { type: 'string', description: 'Título descritivo (ex: "Apartamento T3 em Lisboa")' },
         property_type: {
@@ -208,8 +214,13 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_fecho',
       description:
-        'Iniciar um novo fecho de negócio (abre o diálogo "Novo Fecho"). Usar para "fecho de negócio", "novo fecho", "fechar negócio", "concretizar venda/arrendamento".',
+        'Iniciar um novo fecho de negócio (abre o diálogo "Novo Fecho"). Usar para "fecho de negócio", "novo fecho", "fechar negócio", "concretizar venda/arrendamento". Se o utilizador disser que o fecho corresponde a um negócio existente do pipeline ("fecho do negócio do João", "fechar o negócio da Maria"), preenche `existing_negocio_query` com o nome do contacto/lead — o ecrã de confirmação oferece um picker para escolher e pré-preencher cliente, valor e tipo.',
       parameters: withConfidence({
+        existing_negocio_query: {
+          type: 'string',
+          description:
+            'Termo livre para procurar um negócio existente do pipeline a partir do qual gerar o fecho (geralmente o nome do lead/contacto). Só preencher se o utilizador mencionar explicitamente que vem de um negócio existente.',
+        },
         business_type: {
           type: 'string',
           enum: ['venda', 'arrendamento', 'trespasse'],
