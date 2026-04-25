@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,9 @@ import {
   ChevronRight,
   ExternalLink,
   User,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/constants'
@@ -211,6 +215,11 @@ function PropertyDetailSheet({
                 <Badge variant="outline" className="text-xs">{property.property_condition}</Badge>
               )}
             </div>
+            {property.badges && property.badges.length > 0 && (
+              <div className="pt-1">
+                <MatchBadgesRow badges={property.badges} />
+              </div>
+            )}
           </div>
 
           {/* Specs in bordered fields (matching the app pattern) */}
@@ -319,6 +328,42 @@ function PropertyDetailSheet({
   )
 }
 
+/* ─── Match Badges Row (shared between card + sheet) ─── */
+function MatchBadgesRow({
+  badges,
+  compact = false,
+}: {
+  badges: PropertyMatch['badges']
+  compact?: boolean
+}) {
+  if (!badges || badges.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map((b) => {
+        const Icon =
+          b.type === 'positive' ? CheckCircle2 : b.type === 'warning' ? AlertTriangle : Info
+        const cls =
+          b.type === 'positive'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
+            : b.type === 'warning'
+              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900'
+              : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+        return (
+          <span
+            key={b.key}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+              compact ? 'text-[10px]' : 'text-xs'
+            } font-medium ${cls}`}
+          >
+            <Icon className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
+            {b.label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─── Main Component ─── */
 interface NegocioMatchesProps {
   negocioId: string
@@ -329,12 +374,14 @@ export function NegocioMatches({ negocioId, refreshKey }: NegocioMatchesProps) {
   const [matches, setMatches] = useState<PropertyMatch[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<PropertyMatch | null>(null)
+  const [strict, setStrict] = useState(false)
 
   useEffect(() => {
     async function loadMatches() {
       setIsLoading(true)
       try {
-        const res = await fetch(`/api/negocios/${negocioId}/matches`)
+        const qs = strict ? '?strict=true' : ''
+        const res = await fetch(`/api/negocios/${negocioId}/matches${qs}`)
         if (res.ok) {
           const data = await res.json()
           setMatches(data.data || [])
@@ -346,25 +393,55 @@ export function NegocioMatches({ negocioId, refreshKey }: NegocioMatchesProps) {
       }
     }
     loadMatches()
-  }, [negocioId, refreshKey])
+  }, [negocioId, refreshKey, strict])
+
+  // Header com toggle estrito
+  const Header = (
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-sm text-muted-foreground">
+        {isLoading ? 'A pesquisar...' : `${matches.length} ${matches.length === 1 ? 'imóvel' : 'imóveis'}`}
+      </p>
+      <div className="flex items-center gap-2">
+        <Label htmlFor="strict-mode" className="text-xs text-muted-foreground cursor-pointer">
+          Match estrito
+        </Label>
+        <Switch
+          id="strict-mode"
+          checked={strict}
+          onCheckedChange={setStrict}
+          aria-label="Modo estrito (esconder imóveis com avisos)"
+        />
+      </div>
+    </div>
+  )
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-56 w-full rounded-xl" />
-        ))}
-      </div>
+      <>
+        {Header}
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-56 w-full rounded-xl" />
+          ))}
+        </div>
+      </>
     )
   }
 
   if (matches.length === 0) {
     return (
-      <EmptyState
-        icon={Home}
-        title="Nenhum imóvel correspondente"
-        description="Não foram encontrados imóveis que correspondam aos critérios deste negócio"
-      />
+      <>
+        {Header}
+        <EmptyState
+          icon={Home}
+          title={strict ? 'Nenhum match perfeito' : 'Nenhum imóvel correspondente'}
+          description={
+            strict
+              ? 'Desligue o modo estrito para ver imóveis com avisos.'
+              : 'Não foram encontrados imóveis que correspondam aos critérios deste negócio.'
+          }
+        />
+      </>
     )
   }
 
@@ -388,6 +465,7 @@ export function NegocioMatches({ negocioId, refreshKey }: NegocioMatchesProps) {
 
   return (
     <>
+      {Header}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {matches.map((match) => (
           <button
@@ -437,6 +515,11 @@ export function NegocioMatches({ negocioId, refreshKey }: NegocioMatchesProps) {
                     )}
                   </div>
                 </div>
+                {match.badges && match.badges.length > 0 && (
+                  <div className="pt-1.5">
+                    <MatchBadgesRow badges={match.badges} compact />
+                  </div>
+                )}
                 {match.consultant && (
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 pt-0.5">
                     <User className="h-3 w-3" />

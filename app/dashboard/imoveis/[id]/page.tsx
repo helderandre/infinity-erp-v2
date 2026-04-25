@@ -6,6 +6,8 @@ import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Copyable } from '@/components/shared/copyable'
@@ -176,6 +178,7 @@ export default function ImovelDetalhePage() {
   const isMobile = useIsMobile()
   const [interessados, setInteressados] = useState<{ linked: any[]; suggestions: any[] }>({ linked: [], suggestions: [] })
   const [interessadosLoading, setInteressadosLoading] = useState(true)
+  const [interessadosStrict, setInteressadosStrict] = useState(false)
   const [interessadosSubTab, setInteressadosSubTab] = useState<InteressadosSubTab>('pipeline')
   const [hiddenInteressados, setHiddenInteressados] = useState<Set<string>>(new Set())
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
@@ -423,12 +426,13 @@ export default function ImovelDetalhePage() {
   const fetchInteressados = useCallback(() => {
     if (!propertyId) return
     setInteressadosLoading(true)
-    fetch(`/api/properties/${propertyId}/interessados`)
+    const qs = interessadosStrict ? '?strict=true' : ''
+    fetch(`/api/properties/${propertyId}/interessados${qs}`)
       .then((r) => r.ok ? r.json() : { linked: [], suggestions: [] })
       .then((d) => setInteressados({ linked: d.linked || [], suggestions: d.suggestions || [] }))
       .catch(() => setInteressados({ linked: [], suggestions: [] }))
       .finally(() => setInteressadosLoading(false))
-  }, [propertyId])
+  }, [propertyId, interessadosStrict])
 
   useEffect(() => { fetchVisits() }, [fetchVisits])
   useEffect(() => { fetchPropostas() }, [fetchPropostas])
@@ -871,14 +875,19 @@ export default function ImovelDetalhePage() {
                     onUseDescription={async (desc) => {
                       updateField('description', desc)
                       try {
-                        await fetch(`/api/properties/${property.id}`, {
+                        const res = await fetch(`/api/properties/${property.id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ description: desc }),
+                          body: JSON.stringify({ property: { description: desc } }),
                         })
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}))
+                          throw new Error(err.error || 'Erro ao guardar descrição')
+                        }
                         await refetch()
-                      } catch {
-                        toast.error('Erro ao guardar descrição')
+                        toast.success('Descrição guardada')
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
                       }
                     }}
                   />
@@ -912,13 +921,28 @@ export default function ImovelDetalhePage() {
       {/* ─── Interessados (pipeline + visitas + propostas) ─── */}
       {activeTab === 'interessados' && (
         <div className="rounded-xl border bg-card shadow-sm animate-in fade-in duration-300 overflow-hidden">
-          {/* Sub-tab selector */}
-          <div className="flex items-center gap-1 p-1 m-4 mb-0 rounded-full bg-muted/50 border border-border/30 w-fit">
-            {INTERESSADOS_SUBTABS.map((st) => (
-              <button key={st.key} onClick={() => setInteressadosSubTab(st.key)} className={cn('px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all', interessadosSubTab === st.key ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
-                {st.label}
-              </button>
-            ))}
+          {/* Sub-tab selector + strict toggle */}
+          <div className="flex items-center justify-between gap-2 p-1 m-4 mb-0">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+              {INTERESSADOS_SUBTABS.map((st) => (
+                <button key={st.key} onClick={() => setInteressadosSubTab(st.key)} className={cn('px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all', interessadosSubTab === st.key ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
+                  {st.label}
+                </button>
+              ))}
+            </div>
+            {interessadosSubTab === 'pipeline' && (
+              <div className="flex items-center gap-2 pr-2">
+                <Label htmlFor="interessados-strict" className="text-[11px] text-muted-foreground cursor-pointer">
+                  Match estrito
+                </Label>
+                <Switch
+                  id="interessados-strict"
+                  checked={interessadosStrict}
+                  onCheckedChange={setInteressadosStrict}
+                  aria-label="Modo estrito (esconder interessados com avisos)"
+                />
+              </div>
+            )}
           </div>
 
           <div className="p-5 pt-4">
@@ -952,6 +976,8 @@ export default function ImovelDetalhePage() {
                       localizacao: neg?.localizacao || null,
                       maxBudget,
                       typeMatch: neg?.type_match || null,
+                      badges: (neg?.badges as Array<{ type: 'positive' | 'warning' | 'info'; key: string; label: string }> | undefined) || [],
+                      geoSource: (neg?.geo_source as string | null) ?? null,
                       // For "my" buyers we want to contact the lead directly; for colleagues we contact the colleague
                       phone: isMine
                         ? (lead?.telemovel || agentProfile?.phone_commercial || null)
@@ -1033,6 +1059,29 @@ export default function ImovelDetalhePage() {
                               </span>
                             )}
                           </div>
+                          {/* Badges flexíveis (amenities, area, estado, geo aproximado) */}
+                          {int.badges && int.badges.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {int.badges.map((b: { type: 'positive' | 'warning' | 'info'; key: string; label: string }) => {
+                                const cls =
+                                  b.type === 'positive'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
+                                    : b.type === 'warning'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'
+                                const symbol = b.type === 'positive' ? '✓' : b.type === 'warning' ? '⚠' : 'ℹ'
+                                return (
+                                  <span
+                                    key={b.key}
+                                    className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
+                                  >
+                                    <span>{symbol}</span>
+                                    {b.label}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
                           {!int.isMine && (
                             <p className="text-xs text-muted-foreground truncate mt-0.5">{int.colleague}</p>
                           )}
