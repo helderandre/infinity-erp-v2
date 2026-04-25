@@ -1,24 +1,53 @@
 'use client'
 
 /**
- * Full-screen experience to add zones to a negocio while seeing properties
- * that already match the negocio's other criteria. Replaces the small
- * <ZonasSheet> for buyer/tenant flows.
+ * Full-screen experience to add zones to a negocio while seeing the
+ * properties that match the rest of the criteria.
  *
  * Layout
- *   • Desktop: 340px sidebar (chips, autocomplete, property cards) +
- *     map filling the rest
- *   • Mobile: header on top, ~40dvh map, scrollable list of cards below
+ *   • Desktop: 360px sidebar (chips + autocomplete + cards) | map.
+ *   • Mobile : map on top (~40dvh), 2-col card grid below.
+ *
+ * Map interactions
+ *   • Custom HTML markers as price pills (black=sale, indigo=rent),
+ *     scale 1.1 + stronger shadow on hover.
+ *   • Hover a card → flyTo at zoom 15 + popup; mouseleave → restore the
+ *     pre-hover view, debounced 100ms so sweeping cards doesn't ping-pong.
+ *   • Hover a marker → popup with image + title + price; popup persists
+ *     300ms after mouseleave so users can move into it. Popup itself is
+ *     clickable and opens the property page.
+ *   • Click suppressed while drawing.
+ *   • Bottom-left: "Encaixar tudo" (fitBounds). Bottom-right: live count.
+ *
+ * Drawing
+ *   • "Desenhar área" button in top-left enters draw mode (dragPan +
+ *     scrollZoom disabled; cursor → crosshair). Each click adds a vertex.
+ *   • Pencil refs (`isDrawingRef`, `drawPointsRef`) mirror the React
+ *     state so MapLibre handlers don't close over stale values.
  *
  * Live updates
- *   • Each change to `zones` triggers POST /api/negocios/[id]/matches/preview
- *     and refreshes both the property list and the map markers.
+ *   • Each `zones` change posts to /api/negocios/[id]/matches/preview.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { ArrowLeft, Pencil, Plus, X, MapPin, Building2, Map as MapIcon, Home, Bed, Maximize, Loader2, Check, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Pencil,
+  Plus,
+  X,
+  MapPin,
+  Building2,
+  Map as MapIcon,
+  Home,
+  Bed,
+  Maximize,
+  Loader2,
+  Check,
+  Trash2,
+  LocateFixed,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -47,6 +76,11 @@ export function ZonasMapPicker({
   negocioId,
 }: ZonasMapPickerProps) {
   const isMobile = useIsMobile()
+  const isTouchRef = useRef(false)
+  useEffect(() => {
+    isTouchRef.current = window.matchMedia('(pointer: coarse)').matches
+  }, [])
+
   const [zones, setZones] = useState<NegocioZone[]>(initialZones)
   const [properties, setProperties] = useState<PropertyMatch[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -61,10 +95,20 @@ export function ZonasMapPicker({
   // Map refs
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  const markersRef = useRef<maplibregl.Marker[]>([])
+  const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>(
+    new Map()
+  )
   const popupRef = useRef<maplibregl.Popup | null>(null)
+  const popupHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onPropertyClickRef = useRef<(p: PropertyMatch) => void>(() => {})
 
-  // Reset state on open/close
+  // Pre-hover view state — saved once per hover-session for restore.
+  const preHoverViewRef = useRef<{ center: [number, number]; zoom: number } | null>(null)
+  const restoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+
+  // Reset state on open
   useEffect(() => {
     if (open) {
       setZones(initialZones)
@@ -72,11 +116,11 @@ export function ZonasMapPicker({
       setIsDrawing(false)
       setDrawPoints([])
       drawPointsRef.current = []
+      preHoverViewRef.current = null
     }
-    // when closed, MapLibre cleanup handled by separate effect
   }, [open, initialZones])
 
-  // Track changes
+  // Track "dirty" state vs initial
   useEffect(() => {
     if (!open) return
     const same =
@@ -119,10 +163,12 @@ export function ZonasMapPicker({
     mapRef.current = map
 
     return () => {
-      markersRef.current.forEach((m) => m.remove())
-      markersRef.current = []
+      markersRef.current.forEach((m) => m.marker.remove())
+      markersRef.current.clear()
       popupRef.current?.remove()
       popupRef.current = null
+      if (restoreTimeoutRef.current) clearTimeout(restoreTimeoutRef.current)
+      if (popupHideTimeoutRef.current) clearTimeout(popupHideTimeoutRef.current)
       map.remove()
       mapRef.current = null
     }
@@ -137,10 +183,12 @@ export function ZonasMapPicker({
       m.getCanvas().style.cursor = 'crosshair'
       m.dragPan.disable()
       m.doubleClickZoom.disable()
+      m.scrollZoom.disable()
     } else {
       m.getCanvas().style.cursor = ''
       m.dragPan.enable()
       m.doubleClickZoom.enable()
+      m.scrollZoom.enable()
     }
   }, [isDrawing])
 
@@ -160,7 +208,7 @@ export function ZonasMapPicker({
     }
   }, [open])
 
-  // Render in-progress draw polygon as the user clicks vertices
+  // Render in-progress polygon as the user clicks vertices
   useEffect(() => {
     const m = mapRef.current
     if (!m) return
@@ -169,14 +217,92 @@ export function ZonasMapPicker({
     else m.once('load', apply)
   }, [drawPoints])
 
-  // Render property markers
+  // ─── Hover popup ───
+  const showPropertyPopup = useCallback((map: maplibregl.Map, p: PropertyMatch) => {
+    if (popupHideTimeoutRef.current) {
+      clearTimeout(popupHideTimeoutRef.current)
+      popupHideTimeoutRef.current = null
+    }
+    if (popupRef.current) popupRef.current.remove()
+
+    const isRent = (p.business_type ?? '').toLowerCase().includes('arrend')
+    const isReserved = p.status === 'reserved'
+    const priceLabel = isReserved
+      ? 'Sob Consulta'
+      : p.listing_price
+        ? isRent
+          ? `${formatCurrency(p.listing_price)}/mês`
+          : formatCurrency(p.listing_price)
+        : 'Sob Consulta'
+    const html = `
+      <div data-property-popup data-property-id="${p.id}"
+           style="font-family:system-ui,-apple-system,sans-serif;width:220px;cursor:pointer;background:white;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.18)">
+        ${p.cover_url ? `<img src="${p.cover_url}" style="width:100%;height:120px;object-fit:cover;display:block" />` : ''}
+        <div style="padding:9px 11px">
+          <p style="margin:0 0 2px;font-size:13px;font-weight:600;line-height:1.3;color:#0a0a0a">${escapeHtml(p.title)}</p>
+          ${p.city ? `<p style="margin:0 0 4px;font-size:11px;color:#6b7280">${escapeHtml(p.city)}${p.zone ? `, ${escapeHtml(p.zone)}` : ''}</p>` : ''}
+          ${
+            isReserved
+              ? `<span style="display:inline-block;background:#f59e0b;color:white;font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;margin-bottom:4px">Reservado</span>`
+              : ''
+          }
+          <p style="margin:0;font-size:13px;font-weight:700;color:#0a0a0a">${priceLabel}</p>
+        </div>
+      </div>
+    `
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: [0, -10],
+      maxWidth: '240px',
+      className: 'zonas-picker-popup',
+    })
+      .setLngLat([p.longitude!, p.latitude!])
+      .setHTML(html)
+      .addTo(map)
+
+    // Make popup itself hover-stable + clickable
+    const el = popup.getElement()
+    el.addEventListener('mouseenter', () => {
+      if (popupHideTimeoutRef.current) {
+        clearTimeout(popupHideTimeoutRef.current)
+        popupHideTimeoutRef.current = null
+      }
+    })
+    el.addEventListener('mouseleave', () => schedulePopupHide())
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation()
+      onPropertyClickRef.current(p)
+    })
+
+    popupRef.current = popup
+  }, [])
+
+  const schedulePopupHide = useCallback(() => {
+    if (popupHideTimeoutRef.current) clearTimeout(popupHideTimeoutRef.current)
+    popupHideTimeoutRef.current = setTimeout(() => {
+      popupRef.current?.remove()
+      popupRef.current = null
+      popupHideTimeoutRef.current = null
+    }, 300)
+  }, [])
+
+  // Open property in new tab — wired into refs that markers / popups read.
+  useEffect(() => {
+    onPropertyClickRef.current = (p) => {
+      const url = `/dashboard/imoveis/${p.slug || p.id}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }, [])
+
+  // Render markers when properties change
   useEffect(() => {
     const m = mapRef.current
     if (!m) return
     const apply = () => {
       // Clear stale
-      markersRef.current.forEach((mk) => mk.remove())
-      markersRef.current = []
+      markersRef.current.forEach(({ marker }) => marker.remove())
+      markersRef.current.clear()
 
       const withCoords = properties.filter(
         (p) => p.latitude != null && p.longitude != null
@@ -184,42 +310,76 @@ export function ZonasMapPicker({
 
       withCoords.forEach((p) => {
         const el = document.createElement('div')
+        el.className = 'zonas-picker-marker'
         const isRent = (p.business_type ?? '').toLowerCase().includes('arrend')
-        const priceLabel = isRent
-          ? `${formatCurrency(p.listing_price)}/mês`
-          : formatCurrency(p.listing_price)
+        const isReserved = p.status === 'reserved'
+        const priceLabel = isReserved
+          ? 'Reservado'
+          : isRent
+            ? `${formatCurrency(p.listing_price)}/mês`
+            : formatCurrency(p.listing_price)
+        const bg = isRent ? '#6366f1' : '#000000'
+        const bgHover = isRent ? '#4f46e5' : '#1f1f1f'
         el.innerHTML = `
-          <div style="
-            background: ${isRent ? '#6366f1' : '#000000'};
+          <div data-pill style="
+            background: ${bg};
             color: white;
             padding: 4px 10px;
-            border-radius: 20px;
+            border-radius: 999px;
             font-size: 11px;
             font-weight: 600;
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
             cursor: pointer;
             border: 2px solid white;
+            transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
           ">${priceLabel}</div>
         `
+        const pill = el.querySelector('[data-pill]') as HTMLDivElement | null
+        const enterStyle = () => {
+          if (!pill) return
+          pill.style.transform = 'scale(1.1)'
+          pill.style.boxShadow = '0 6px 14px rgba(0,0,0,0.35)'
+          pill.style.background = bgHover
+        }
+        const leaveStyle = () => {
+          if (!pill) return
+          pill.style.transform = ''
+          pill.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)'
+          pill.style.background = bg
+        }
+
         el.addEventListener('click', (ev) => {
           if (isDrawingRef.current) return
           ev.stopPropagation()
-          showPropertyPopup(m, p)
+          onPropertyClickRef.current(p)
         })
-        if (!window.matchMedia('(pointer: coarse)').matches) {
-          el.addEventListener('mouseenter', () => showPropertyPopup(m, p))
-          el.addEventListener('mouseleave', () => schedulePopupHide())
+
+        if (!isTouchRef.current) {
+          el.addEventListener('mouseenter', () => {
+            if (isDrawingRef.current) return
+            enterStyle()
+            showPropertyPopup(m, p)
+          })
+          el.addEventListener('mouseleave', () => {
+            leaveStyle()
+            schedulePopupHide()
+          })
         }
 
         const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([p.longitude!, p.latitude!])
           .addTo(m)
-        markersRef.current.push(marker)
+        markersRef.current.set(p.id, { marker, el })
       })
 
-      // Fit bounds when there are properties and we're not actively drawing
-      if (withCoords.length > 0 && !isDrawingRef.current && drawPointsRef.current.length === 0) {
+      // Fit bounds when properties present and no active draw / saved view
+      if (
+        withCoords.length > 0 &&
+        !isDrawingRef.current &&
+        drawPointsRef.current.length === 0 &&
+        !preHoverViewRef.current
+      ) {
         const bounds = new maplibregl.LngLatBounds()
         withCoords.forEach((p) => bounds.extend([p.longitude!, p.latitude!]))
         m.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
@@ -227,56 +387,87 @@ export function ZonasMapPicker({
     }
     if (m.isStyleLoaded()) apply()
     else m.once('load', apply)
-  }, [properties])
+  }, [properties, showPropertyPopup, schedulePopupHide])
 
-  const showPropertyPopup = useCallback(
-    (map: maplibregl.Map, p: PropertyMatch) => {
-      if (popupRef.current) popupRef.current.remove()
-      const isRent = (p.business_type ?? '').toLowerCase().includes('arrend')
-      const priceLabel = isRent
-        ? `${formatCurrency(p.listing_price)}/mês`
-        : formatCurrency(p.listing_price)
-      const html = `
-        <div style="font-family:system-ui,-apple-system,sans-serif;width:200px">
-          ${p.cover_url ? `<img src="${p.cover_url}" style="width:100%;height:100px;object-fit:cover;border-radius:8px 8px 0 0" />` : ''}
-          <div style="padding:8px 10px">
-            <p style="margin:0 0 2px;font-size:13px;font-weight:600;line-height:1.3">${escapeHtml(p.title)}</p>
-            ${p.city ? `<p style="margin:0 0 4px;font-size:11px;color:#6b7280">${escapeHtml(p.city)}${p.zone ? `, ${escapeHtml(p.zone)}` : ''}</p>` : ''}
-            <p style="margin:0;font-size:13px;font-weight:700">${priceLabel}</p>
-          </div>
-        </div>
-      `
-      popupRef.current = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        offset: 18,
-        maxWidth: '220px',
-      })
-        .setLngLat([p.longitude!, p.latitude!])
-        .setHTML(html)
-        .addTo(map)
+  // Highlight hovered card's marker visually
+  useEffect(() => {
+    markersRef.current.forEach(({ el }, id) => {
+      const pill = el.querySelector('[data-pill]') as HTMLDivElement | null
+      if (!pill) return
+      if (id === hoveredId) {
+        pill.style.transform = 'scale(1.1)'
+        pill.style.zIndex = '10'
+      } else {
+        pill.style.transform = ''
+        pill.style.zIndex = ''
+      }
+    })
+  }, [hoveredId])
+
+  // ─── Card hover sync ───
+  const handleCardEnter = useCallback(
+    (p: PropertyMatch) => {
+      if (isTouchRef.current) return
+      if (p.latitude == null || p.longitude == null) return
+      const m = mapRef.current
+      if (!m) return
+      if (restoreTimeoutRef.current) {
+        clearTimeout(restoreTimeoutRef.current)
+        restoreTimeoutRef.current = null
+      }
+      // Save view exactly once per hover-session
+      if (!preHoverViewRef.current) {
+        const c = m.getCenter()
+        preHoverViewRef.current = { center: [c.lng, c.lat], zoom: m.getZoom() }
+      }
+      m.flyTo({ center: [p.longitude, p.latitude], zoom: 15, duration: 800 })
+      showPropertyPopup(m, p)
+      setHoveredId(p.id)
     },
-    []
+    [showPropertyPopup]
   )
 
-  const schedulePopupHide = useCallback(() => {
-    setTimeout(() => {
-      popupRef.current?.remove()
-      popupRef.current = null
-    }, 250)
+  const handleCardLeave = useCallback(() => {
+    if (isTouchRef.current) return
+    setHoveredId(null)
+    if (popupHideTimeoutRef.current) clearTimeout(popupHideTimeoutRef.current)
+    popupRef.current?.remove()
+    popupRef.current = null
+    popupHideTimeoutRef.current = null
+    if (restoreTimeoutRef.current) clearTimeout(restoreTimeoutRef.current)
+    restoreTimeoutRef.current = setTimeout(() => {
+      const m = mapRef.current
+      if (preHoverViewRef.current && m) {
+        m.flyTo({
+          center: preHoverViewRef.current.center,
+          zoom: preHoverViewRef.current.zoom,
+          duration: 800,
+        })
+        preHoverViewRef.current = null
+      }
+    }, 100)
   }, [])
 
   // ─── Zone management ───
 
   const excludeAdminIds = useMemo(
-    () => zones.filter((z): z is Extract<NegocioZone, { kind: 'admin' }> => z.kind === 'admin').map((z) => z.area_id),
+    () =>
+      zones
+        .filter((z): z is Extract<NegocioZone, { kind: 'admin' }> => z.kind === 'admin')
+        .map((z) => z.area_id),
     [zones]
   )
 
-  const handleAddAdmin = useCallback((r: AdminAreaSearchResult) => {
-    if (excludeAdminIds.includes(r.id)) return
-    setZones((prev) => [...prev, { kind: 'admin', area_id: r.id, label: adminAreaLabel(r) }])
-  }, [excludeAdminIds])
+  const handleAddAdmin = useCallback(
+    (r: AdminAreaSearchResult) => {
+      if (excludeAdminIds.includes(r.id)) return
+      setZones((prev) => [
+        ...prev,
+        { kind: 'admin', area_id: r.id, label: adminAreaLabel(r) },
+      ])
+    },
+    [excludeAdminIds]
+  )
 
   const handleRemoveZone = useCallback((index: number) => {
     setZones((prev) => prev.filter((_, i) => i !== index))
@@ -320,7 +511,25 @@ export function ZonasMapPicker({
     onClose()
   }, [zones, onSave, onClose])
 
+  // ─── Fit-to-all ───
+  const handleFitAll = useCallback(() => {
+    const m = mapRef.current
+    if (!m) return
+    const withCoords = properties.filter(
+      (p) => p.latitude != null && p.longitude != null
+    )
+    if (withCoords.length === 0) return
+    const bounds = new maplibregl.LngLatBounds()
+    withCoords.forEach((p) => bounds.extend([p.longitude!, p.latitude!]))
+    m.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
+    preHoverViewRef.current = null
+  }, [properties])
+
   if (!open) return null
+
+  const propertiesWithCoords = properties.filter(
+    (p) => p.latitude != null && p.longitude != null
+  )
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col lg:flex-row">
@@ -343,7 +552,9 @@ export function ZonasMapPicker({
             <ArrowLeft className="h-4 w-4" />
           </button>
           <p className="text-sm text-muted-foreground flex-1 truncate">
-            {isLoading ? 'A pesquisar...' : `${properties.length} ${properties.length === 1 ? 'imóvel' : 'imóveis'}`}
+            {isLoading
+              ? 'A pesquisar...'
+              : `${properties.length} ${properties.length === 1 ? 'imóvel' : 'imóveis'}`}
           </p>
           <Button size="sm" onClick={handleSave} disabled={!hasChanges}>
             <Check className="mr-1.5 h-3.5 w-3.5" />
@@ -405,13 +616,16 @@ export function ZonasMapPicker({
                 : 'Nenhum imóvel cumpre os critérios + estas zonas.'}
             </div>
           ) : (
-            <div
-              className={cn(
-                isMobile ? 'grid grid-cols-2 gap-2 p-3' : 'p-2 space-y-2'
-              )}
-            >
+            <div className={cn(isMobile ? 'grid grid-cols-2 gap-2 p-3' : 'p-2 space-y-2')}>
               {properties.map((p) => (
-                <PropertyMiniCard key={p.id} property={p} compact={isMobile} />
+                <PropertyMiniCard
+                  key={p.id}
+                  property={p}
+                  compact={isMobile}
+                  onEnter={() => handleCardEnter(p)}
+                  onLeave={handleCardLeave}
+                  onClick={() => onPropertyClickRef.current(p)}
+                />
               ))}
             </div>
           )}
@@ -427,7 +641,7 @@ export function ZonasMapPicker({
       >
         <div ref={mapContainerRef} className="w-full h-full" />
 
-        {/* Draw button overlay */}
+        {/* Draw button (top-left) */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
           {!isDrawing ? (
             <Button
@@ -471,6 +685,27 @@ export function ZonasMapPicker({
             </div>
           )}
         </div>
+
+        {/* Fit-to-all (bottom-left, desktop only) */}
+        {!isMobile && propertiesWithCoords.length > 0 && (
+          <button
+            type="button"
+            onClick={handleFitAll}
+            className="absolute bottom-4 left-4 z-10 h-9 w-9 rounded-full bg-background shadow-lg border border-border/60 flex items-center justify-center hover:bg-muted/50 transition-colors"
+            aria-label="Encaixar todos os imóveis"
+          >
+            <LocateFixed className="h-4 w-4 text-foreground" />
+          </button>
+        )}
+
+        {/* Live count pill (bottom-right, desktop only) */}
+        {!isMobile && (
+          <div className="absolute bottom-4 right-4 z-10 rounded-full bg-background/95 backdrop-blur-sm px-3 py-1.5 shadow-lg border border-border/60">
+            <p className="text-xs font-medium">
+              {propertiesWithCoords.length} {propertiesWithCoords.length === 1 ? 'imóvel' : 'imóveis'} no mapa
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -480,27 +715,38 @@ export function ZonasMapPicker({
 function PropertyMiniCard({
   property,
   compact,
+  onEnter,
+  onLeave,
+  onClick,
 }: {
   property: PropertyMatch
   compact?: boolean
+  onEnter: () => void
+  onLeave: () => void
+  onClick: () => void
 }) {
   const isRent = (property.business_type ?? '').toLowerCase().includes('arrend')
   const isReserved = property.status === 'reserved'
-  const priceLabel = property.listing_price
-    ? isRent
-      ? `${formatCurrency(property.listing_price)}/mês`
-      : formatCurrency(property.listing_price)
-    : 'Sob Consulta'
-  const typology = property.specs?.typology || (property.specs?.bedrooms ? `T${property.specs.bedrooms}` : null)
+  const priceLabel = isReserved
+    ? 'Sob Consulta'
+    : property.listing_price
+      ? isRent
+        ? `${formatCurrency(property.listing_price)}/mês`
+        : formatCurrency(property.listing_price)
+      : 'Sob Consulta'
+  const typology =
+    property.specs?.typology ||
+    (property.specs?.bedrooms ? `T${property.specs.bedrooms}` : null)
   const area = property.specs?.area_util ?? property.specs?.area_gross ?? null
 
   return (
-    <a
-      href={`/dashboard/imoveis/${property.slug || property.id}`}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onClick={onClick}
       className={cn(
-        'group block rounded-xl border border-border/50 overflow-hidden hover:shadow-md hover:border-primary/30 transition-all',
+        'group block w-full text-left rounded-xl border border-border/50 overflow-hidden hover:shadow-md hover:border-primary/30 transition-all',
         compact ? '' : 'flex gap-3 p-2 bg-card'
       )}
     >
@@ -571,7 +817,7 @@ function PropertyMiniCard({
           </div>
         </>
       )}
-    </a>
+    </button>
   )
 }
 
@@ -634,13 +880,17 @@ function updateDrawPolygon(map: maplibregl.Map, points: [number, number][]) {
       id: 'draw-polygon-fill',
       type: 'fill',
       source: 'draw-polygon',
-      paint: { 'fill-color': '#000', 'fill-opacity': 0.15 },
+      paint: { 'fill-color': '#000', 'fill-opacity': 0.1 },
     })
     upsertLayer(map, {
       id: 'draw-polygon-border',
       type: 'line',
       source: 'draw-polygon',
-      paint: { 'line-color': '#000', 'line-width': 1.5 },
+      paint: {
+        'line-color': '#000',
+        'line-width': 1.5,
+        'line-dasharray': [3, 2],
+      },
     })
   } else {
     removeIf(map, ['draw-polygon-fill', 'draw-polygon-border'], ['draw-polygon'])
