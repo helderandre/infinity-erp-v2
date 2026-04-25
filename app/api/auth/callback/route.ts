@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -9,17 +10,32 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Se for recovery (magic link de reset password), redirecionar para reset-password
       if (type === 'recovery') {
         return NextResponse.redirect(new URL('/reset-password', request.url))
       }
+
+      if (data.user) {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+          || request.headers.get('x-real-ip')
+          || null
+        const userAgent = request.headers.get('user-agent') || null
+        try {
+          await createCrmAdminClient().from('dev_user_logins').insert({
+            user_id: data.user.id,
+            ip_address: ip,
+            user_agent: userAgent,
+          })
+        } catch (e) {
+          console.error('[auth callback] failed to record login', e)
+        }
+      }
+
       return NextResponse.redirect(new URL(next, request.url))
     }
   }
 
-  // Se houver erro, redirecionar para login
   return NextResponse.redirect(new URL('/login', request.url))
 }

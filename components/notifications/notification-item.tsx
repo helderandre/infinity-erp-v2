@@ -18,6 +18,12 @@ export function NotificationItem({ notification, onRead }: NotificationItemProps
 
   const handleClick = () => {
     if (!notification.is_read) onRead(notification.id)
+    // For DM notifications, always route to the SENDER — action_url may be
+    // stale from an earlier bug where it pointed at the recipient themselves.
+    if (notification.notification_type === 'dm_message' && notification.sender_id) {
+      router.push(`/dashboard/comunicacao/chat?dm=${notification.sender_id}`)
+      return
+    }
     router.push(notification.action_url)
   }
 

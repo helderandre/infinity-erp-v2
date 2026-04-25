@@ -25,9 +25,17 @@ import {
   isRequiredField,
   parseEntityFromPath,
   propertyRowToResult,
+  type ContactPickerRequest,
+  type DirectMessage,
   type EntityContext,
   type FieldConfig,
+  type FollowUp,
+  type FollowUpChannel,
+  type LeadNote,
+  type LeadNoteNegocioOption,
+  type AttachDocumentRequest,
   type PropertyBasket,
+  type PropertyDescriptionRequest,
   type VoiceSearchRecipient,
   type VoiceSearchResult,
 } from '@/lib/voice/tool-configs'
@@ -125,6 +133,13 @@ export function AiVoiceAssistant() {
   const [amplitude, setAmplitude] = useState(0)
   const [searchResults, setSearchResults] = useState<VoiceSearchResult[] | null>(null)
   const [basket, setBasket] = useState<PropertyBasket | null>(null)
+  const [directMessage, setDirectMessage] = useState<DirectMessage | null>(null)
+  const [leadNote, setLeadNote] = useState<LeadNote | null>(null)
+  const [followUp, setFollowUp] = useState<FollowUp | null>(null)
+  const [propertyDescription, setPropertyDescription] =
+    useState<PropertyDescriptionRequest | null>(null)
+  const [attachDocument, setAttachDocument] = useState<AttachDocumentRequest | null>(null)
+  const [contactPicker, setContactPicker] = useState<ContactPickerRequest | null>(null)
 
   const router = useRouter()
   const pathname = usePathname()
@@ -331,6 +346,12 @@ export function AiVoiceAssistant() {
     setAmplitude(0)
     setSearchResults(null)
     setBasket(null)
+    setDirectMessage(null)
+    setLeadNote(null)
+    setFollowUp(null)
+    setPropertyDescription(null)
+    setAttachDocument(null)
+    setContactPicker(null)
   }, [cleanupAudio])
 
   const close = useCallback(() => {
@@ -382,6 +403,36 @@ export function AiVoiceAssistant() {
       })
       if (result.basket) {
         setBasket(result.basket)
+        setState('results')
+        return
+      }
+      if (result.contactPicker) {
+        setContactPicker(result.contactPicker)
+        setState('results')
+        return
+      }
+      if (result.directMessage) {
+        setDirectMessage(result.directMessage)
+        setState('results')
+        return
+      }
+      if (result.leadNote) {
+        setLeadNote(result.leadNote)
+        setState('results')
+        return
+      }
+      if (result.followUp) {
+        setFollowUp(result.followUp)
+        setState('results')
+        return
+      }
+      if (result.propertyDescription) {
+        setPropertyDescription(result.propertyDescription)
+        setState('results')
+        return
+      }
+      if (result.attachDocument) {
+        setAttachDocument(result.attachDocument)
         setState('results')
         return
       }
@@ -500,15 +551,77 @@ export function AiVoiceAssistant() {
   if (!open) return null
 
   const showBasket = state === 'results' && basket !== null
-  const showResults = state === 'results' && searchResults !== null && !showBasket
+  const showDirectMessage = state === 'results' && directMessage !== null && !showBasket
+  const showLeadNote =
+    state === 'results' && leadNote !== null && !showBasket && !showDirectMessage
+  const showFollowUp =
+    state === 'results' &&
+    followUp !== null &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote
+  const showPropertyDescription =
+    state === 'results' &&
+    propertyDescription !== null &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp
+  const showAttachDocument =
+    state === 'results' &&
+    attachDocument !== null &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp &&
+    !showPropertyDescription
+  const showContactPicker =
+    state === 'results' &&
+    contactPicker !== null &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp &&
+    !showPropertyDescription &&
+    !showAttachDocument
+  const showResults =
+    state === 'results' &&
+    searchResults !== null &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp &&
+    !showPropertyDescription &&
+    !showAttachDocument &&
+    !showContactPicker
   // Suppress the review screen entirely while an auto-submit tool is racing
   // to produce results — prevents the old confirmation panel from flashing.
   const isAutoSubmitting =
     intent !== null &&
     TOOL_CONFIGS[intent.tool].autoSubmit === true &&
     (state === 'submitting' || state === 'processing')
-  const showReview = !showResults && !showBasket && intent !== null && !isAutoSubmitting
-  const showFullMic = !intent && !showResults && !showBasket && !isAutoSubmitting
+  const showReview =
+    !showResults &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp &&
+    !showPropertyDescription &&
+    !showAttachDocument &&
+    !showContactPicker &&
+    intent !== null &&
+    !isAutoSubmitting
+  const showFullMic =
+    !intent &&
+    !showResults &&
+    !showBasket &&
+    !showDirectMessage &&
+    !showLeadNote &&
+    !showFollowUp &&
+    !showPropertyDescription &&
+    !showAttachDocument &&
+    !showContactPicker &&
+    !isAutoSubmitting
   const isRecording = state === 'recording'
   const isBusy = state === 'processing' || state === 'requesting_mic' || state === 'submitting'
 
@@ -562,6 +675,225 @@ export function AiVoiceAssistant() {
                 setState('reviewing')
               }}
               onClose={close}
+            />
+          </>
+        ) : showContactPicker ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <ContactPickerPanel
+              request={contactPicker!}
+              onPicked={async (recipient) => {
+                // Resume the follow-up action with the picked contact.
+                const req = contactPicker!
+                if (req.follow.kind === 'directMessage') {
+                  const partial = req.follow.partial
+                  // Re-derive channel preference using the picked recipient
+                  // so "manda ao João por email" still routes correctly
+                  // even if the original voice didn't specify a channel.
+                  const ch: 'whatsapp' | 'email' = partial.initialChannel
+                    ? partial.initialChannel
+                    : recipient.telemovel
+                      ? 'whatsapp'
+                      : 'email'
+                  setDirectMessage({ ...partial, recipient, initialChannel: ch })
+                } else if (req.follow.kind === 'leadNote' || req.follow.kind === 'followUp') {
+                  // Fetch the picked contact's negócios so the scope
+                  // selector is pre-populated.
+                  let negocios: LeadNoteNegocioOption[] = []
+                  try {
+                    const r = await fetch(
+                      `/api/negocios?lead_id=${encodeURIComponent(recipient.id)}&limit=20`
+                    )
+                    if (r.ok) {
+                      const d = await r.json()
+                      const list: any[] = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []
+                      negocios = list.map((n: any) => {
+                        const tipo = n.tipo ? String(n.tipo) : undefined
+                        const loc = n.localizacao ? String(n.localizacao) : undefined
+                        const tipoImovel = n.tipo_imovel ? String(n.tipo_imovel) : undefined
+                        const parts = [tipoImovel || tipo, loc].filter(Boolean)
+                        return {
+                          id: String(n.id),
+                          label: parts.join(' · ') || 'Negócio',
+                          tipo,
+                          localizacao: loc,
+                        }
+                      })
+                    }
+                  } catch {
+                    // ignore — panel will render without the scope selector
+                  }
+                  if (req.follow.kind === 'leadNote') {
+                    setLeadNote({
+                      contact: recipient,
+                      negocios,
+                      initialNote: req.follow.partial.initialNote,
+                    })
+                  } else {
+                    setFollowUp({
+                      contact: recipient,
+                      negocios,
+                      ...req.follow.partial,
+                    })
+                  }
+                }
+                setContactPicker(null)
+              }}
+              onBack={() => {
+                setContactPicker(null)
+                setState('reviewing')
+              }}
+              onClose={close}
+            />
+          </>
+        ) : showDirectMessage ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <DirectMessagePanel
+              data={directMessage!}
+              onBack={() => {
+                setDirectMessage(null)
+                setState('reviewing')
+              }}
+              onSent={close}
+              onChangeRecipient={(fields) => {
+                // Swap to the picker while keeping whatever the user already
+                // typed/edited in the direct-message panel. On pick, the
+                // existing contactPicker handler restores the panel with
+                // the new recipient + preserved fields.
+                setContactPicker({
+                  query: directMessage!.recipient.nome,
+                  candidates: [directMessage!.recipient],
+                  follow: {
+                    kind: 'directMessage',
+                    partial: {
+                      initialChannel: fields.channel,
+                      initialMessage: fields.message,
+                      initialSubject: fields.subject || undefined,
+                      initialScheduledAt: fields.scheduledAt || undefined,
+                    },
+                  },
+                })
+                setDirectMessage(null)
+              }}
+            />
+          </>
+        ) : showLeadNote ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <AddNotePanel
+              data={leadNote!}
+              onBack={() => {
+                setLeadNote(null)
+                setState('reviewing')
+              }}
+              // After saving, jump to the contact's detail page so the user
+              // can SEE the note in the timeline — avoids the perceived
+              // "saved nowhere" problem when multiple leads share a name.
+              onSaved={() => {
+                const id = leadNote?.contact.id
+                if (id) router.push(`/dashboard/leads/${id}?tab=historico`)
+                close()
+              }}
+              onChangeRecipient={(currentNote) => {
+                // Preserve typed note; user re-picks contact.
+                setContactPicker({
+                  query: leadNote!.contact.nome,
+                  candidates: [leadNote!.contact],
+                  follow: {
+                    kind: 'leadNote',
+                    partial: { initialNote: currentNote },
+                  },
+                })
+                setLeadNote(null)
+              }}
+            />
+          </>
+        ) : showPropertyDescription ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <PropertyDescriptionPanel
+              data={propertyDescription!}
+              onBack={() => {
+                setPropertyDescription(null)
+                setState('reviewing')
+              }}
+              onSaved={close}
+            />
+          </>
+        ) : showAttachDocument ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <AttachDocumentPanel
+              data={attachDocument!}
+              onBack={() => {
+                setAttachDocument(null)
+                setState('reviewing')
+              }}
+              onSaved={close}
+            />
+          </>
+        ) : showFollowUp ? (
+          <>
+            <SmallStatus
+              state={state}
+              amplitude={amplitude}
+              onStop={undefined}
+              errorMessage={errorMessage}
+              transcript={transcript}
+            />
+            <FollowUpPanel
+              data={followUp!}
+              onBack={() => {
+                setFollowUp(null)
+                setState('reviewing')
+              }}
+              onSaved={close}
+              onChangeRecipient={(current) => {
+                setContactPicker({
+                  query: followUp!.contact.nome,
+                  candidates: [followUp!.contact],
+                  follow: {
+                    kind: 'followUp',
+                    partial: {
+                      initialDueDate: current.dueDate,
+                      initialChannel: current.channel,
+                      initialNotes: current.notes || undefined,
+                    },
+                  },
+                })
+                setFollowUp(null)
+              }}
             />
           </>
         ) : isAutoSubmitting ? (
@@ -2153,6 +2485,1872 @@ function BasketPropertyRow({
       >
         <Trash2 className="h-4 w-4" />
       </button>
+    </div>
+  )
+}
+
+// ── Contact picker (when voice can't pin the recipient) ─────────────────
+//
+// Opens when send_message (and future contact-bound tools) can't decide on
+// a single recipient. Shows the original voice term, any fuzzy candidates
+// we pre-fetched, and a search input to find someone else entirely.
+// Typing against /api/leads is debounced at 300ms.
+
+function ContactPickerPanel({
+  request,
+  onPicked,
+  onBack,
+  onClose,
+}: {
+  request: ContactPickerRequest
+  onPicked: (recipient: VoiceSearchRecipient) => void
+  onBack: () => void
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState(request.query)
+  const [results, setResults] = useState<VoiceSearchRecipient[]>(request.candidates)
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    // Skip refetch if the user hasn't changed the seeded query — the
+    // `request.candidates` already covers that initial state.
+    if (query.trim() === request.query.trim()) {
+      setResults(request.candidates)
+      return
+    }
+    const needle = query.trim()
+    if (needle.length < 2) {
+      setResults([])
+      return
+    }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/leads?nome=${encodeURIComponent(needle)}&limit=10`)
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        const list: any[] = Array.isArray(data) ? data : data?.data || []
+        setResults(
+          list.map((l: any) => ({
+            id: String(l.id),
+            nome: String(l.nome ?? ''),
+            email: l.email ? String(l.email) : undefined,
+            telemovel: l.telemovel ? String(l.telemovel) : undefined,
+            nif: l.nif ? String(l.nif) : undefined,
+          }))
+        )
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, request.query, request.candidates])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <UserCheck className="h-4 w-4" />
+            Escolhe o destinatário
+          </div>
+          <p className="mt-1 text-xs text-white/60">
+            {request.candidates.length === 0
+              ? `Não encontrei ninguém para "${request.query}". Pesquisa outro nome ou termo.`
+              : `Encontrei ${request.candidates.length} possíveis para "${request.query}". Escolhe um ou pesquisa outro.`}
+          </p>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40 pointer-events-none" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Procurar por nome…"
+            className={cn(inputCls, 'pl-8 pr-10')}
+            autoFocus
+          />
+          {searching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40 animate-spin" />
+          )}
+        </div>
+
+        <div className="space-y-1.5 max-h-[50dvh] overflow-y-auto -mx-1 px-1">
+          {results.length === 0 && !searching && (
+            <div className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/25 px-3 py-3 text-xs text-amber-200/80 text-center">
+              Sem resultados.
+            </div>
+          )}
+          {results.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onPicked(r)}
+              className="w-full text-left rounded-lg bg-white/5 ring-1 ring-white/10 hover:bg-white/15 px-3 py-2 transition-colors"
+            >
+              <div className="flex items-start gap-2">
+                <User className="h-4 w-4 shrink-0 mt-0.5 text-white/60" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate font-medium">{r.nome}</p>
+                  <div className="flex flex-wrap gap-x-2 text-[11px] text-white/50 mt-0.5">
+                    {r.telemovel && <span>📱 {r.telemovel}</span>}
+                    {r.email && <span>✉ {r.email}</span>}
+                    {!r.telemovel && !r.email && <span>sem contactos</span>}
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} className="text-white hover:bg-white/10">
+            Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Add-note panel (add_lead_note tool) ─────────────────────────────────
+//
+// Confirms the contact + scope (Contacto vs Negócio X) + note body before
+// POST /api/crm/contacts/[id]/activities. Includes the same mic-refine
+// flow as DirectMessagePanel so the user can tweak the note by voice.
+
+function AddNotePanel({
+  data,
+  onBack,
+  onSaved,
+  onChangeRecipient,
+}: {
+  data: LeadNote
+  onBack: () => void
+  onSaved: () => void
+  onChangeRecipient?: (currentNote: string) => void
+}) {
+  const [contact, setContact] = useState<VoiceSearchRecipient>(data.contact)
+  const [negocios, setNegocios] = useState<LeadNoteNegocioOption[]>(data.negocios)
+  const [note, setNote] = useState(data.initialNote ?? '')
+  // Scope: '' = contacto-level; otherwise a negócio id.
+  const [scopeNegocioId, setScopeNegocioId] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+
+  // Voice refinement state (mirrors DirectMessagePanel pattern)
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const cleanupVoice = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const applyRefine = useCallback(
+    async (args: Record<string, any>) => {
+      if (typeof args.note === 'string' && args.note.trim()) {
+        setNote(args.note)
+      }
+      const nextName =
+        typeof args.contact_name === 'string' ? args.contact_name.trim() : ''
+      if (nextName && nextName.toLowerCase() !== contact.nome.toLowerCase()) {
+        try {
+          const r = await fetch(`/api/leads?nome=${encodeURIComponent(nextName)}&limit=3`)
+          if (r.ok) {
+            const d = await r.json()
+            const list: any[] = Array.isArray(d) ? d : d?.data || []
+            if (list.length > 0) {
+              const p = list[0]
+              const newContact: VoiceSearchRecipient = {
+                id: String(p.id),
+                nome: String(p.nome ?? ''),
+                email: p.email ? String(p.email) : undefined,
+                telemovel: p.telemovel ? String(p.telemovel) : undefined,
+                nif: p.nif ? String(p.nif) : undefined,
+              }
+              setContact(newContact)
+              setScopeNegocioId('') // reset scope to contact-level for the new lead
+              // Reload the new contact's negócios
+              try {
+                const nr = await fetch(`/api/negocios?lead_id=${encodeURIComponent(newContact.id)}&limit=20`)
+                if (nr.ok) {
+                  const nd = await nr.json()
+                  const nlist: any[] = Array.isArray(nd?.data) ? nd.data : Array.isArray(nd) ? nd : []
+                  setNegocios(
+                    nlist.map((n: any) => {
+                      const tipo = n.tipo ? String(n.tipo) : undefined
+                      const loc = n.localizacao ? String(n.localizacao) : undefined
+                      const tipoImovel = n.tipo_imovel ? String(n.tipo_imovel) : undefined
+                      const parts = [tipoImovel || tipo, loc].filter(Boolean)
+                      return {
+                        id: String(n.id),
+                        label: parts.join(' · ') || 'Negócio',
+                        tipo,
+                        localizacao: loc,
+                      }
+                    })
+                  )
+                }
+              } catch {
+                setNegocios([])
+              }
+            } else {
+              toast.warning(`Não encontrei "${nextName}" — usa Mudar para procurar.`)
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [contact.nome]
+  )
+
+  const startVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        cleanupVoice()
+        setVoiceState('processing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const tRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          if (!tRes.ok) throw new Error('Falha na transcrição')
+          const { text } = await tRes.json()
+          const t = (text || '').trim()
+          if (!t) throw new Error('Não captei nenhum som')
+
+          const existingArgs = {
+            contact_name: contact.nome,
+            note,
+          }
+          const iRes = await fetch('/api/ai/voice-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript: t,
+              context: {
+                existingTool: 'add_lead_note',
+                existingArgs,
+              },
+            }),
+          })
+          if (!iRes.ok) throw new Error('Falha ao refinar')
+          const d = await iRes.json()
+          if (!d?.args) {
+            toast.warning(d?.message || 'Não consegui perceber.')
+            return
+          }
+          await applyRefine(d.args)
+          toast.success('Actualizado.')
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Erro ao refinar.')
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      setVoiceState('recording')
+    } catch {
+      toast.error('Não foi possível aceder ao microfone.')
+      setVoiceState('idle')
+    }
+  }, [cleanupVoice, contact.nome, note, applyRefine])
+
+  const stopVoice = useCallback(() => {
+    if (recorderRef.current && voiceState === 'recording') {
+      recorderRef.current.stop()
+      setVoiceState('processing')
+    }
+  }, [voiceState])
+
+  useEffect(() => () => cleanupVoice(), [cleanupVoice])
+
+  const canSave = note.trim().length > 0 && !saving
+
+  const doSave = useCallback(async () => {
+    if (!canSave) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activity_type: 'note',
+          description: note.trim(),
+          negocio_id: scopeNegocioId || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || `Falha ao guardar (HTTP ${res.status})`)
+      }
+      toast.success('Nota guardada.')
+      onSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao guardar')
+      console.error('[voice add-note] save failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }, [canSave, contact.id, note, scopeNegocioId, onSaved])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <FileText className="h-4 w-4" />
+            Adicionar nota
+          </div>
+          <VoiceMicButton
+            state={voiceState}
+            onStart={startVoice}
+            onStop={stopVoice}
+          />
+        </div>
+
+        {/* Contact chip — clickable to swap */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Contacto</label>
+          <button
+            type="button"
+            onClick={() => onChangeRecipient?.(note)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+              'cursor-pointer hover:ring-2 hover:ring-white/30',
+              'bg-emerald-500/15 ring-1 ring-emerald-500/30 text-white'
+            )}
+            title="Mudar contacto"
+          >
+            <User className="h-3 w-3" />
+            <span className="font-medium">{contact.nome}</span>
+            {contact.telemovel && <span className="text-white/60">· {contact.telemovel}</span>}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </div>
+
+        {/* Scope selector — only when lead has at least one negócio */}
+        {negocios.length > 0 && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Associar a</label>
+            <div className="flex flex-wrap gap-1.5" data-no-long-press>
+              <button
+                type="button"
+                onClick={() => setScopeNegocioId('')}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                  scopeNegocioId === ''
+                    ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                    : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10'
+                )}
+              >
+                <User className="h-3 w-3" />
+                Contacto
+              </button>
+              {negocios.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setScopeNegocioId(n.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                    scopeNegocioId === n.id
+                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                      : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10'
+                  )}
+                >
+                  <Building2 className="h-3 w-3" />
+                  {n.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-white/40">
+              {scopeNegocioId
+                ? 'A nota fica ligada ao negócio escolhido.'
+                : 'A nota fica ao contacto (aplica-se a todos os negócios).'}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Nota</label>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={5}
+            placeholder="O que queres registar?"
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          {!canSave && !saving && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Escreve uma nota.
+            </span>
+          )}
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doSave} disabled={!canSave}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A guardar…
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                Guardar nota
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Attach document panel (attach_document tool) ─────────────────────────
+//
+// Uploads a file (photo from camera on mobile, file picker on desktop) to
+// a resolved imóvel via POST /api/documents/upload (FormData with file +
+// doc_type_id + property_id + valid_until + notes).
+
+function AttachDocumentPanel({
+  data,
+  onBack,
+  onSaved,
+}: {
+  data: AttachDocumentRequest
+  onBack: () => void
+  onSaved: () => void
+}) {
+  const [docTypeId, setDocTypeId] = useState(data.initialDocTypeId ?? '')
+  const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [validUntil, setValidUntil] = useState('')
+  const [notes, setNotes] = useState(data.initialNotes ?? '')
+  const [uploading, setUploading] = useState(false)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Object URL cleanup when a new file is chosen or component unmounts.
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null)
+      return
+    }
+    const isImage = file.type.startsWith('image/')
+    if (!isImage) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  const selectedType = data.docTypes.find((t) => t.id === docTypeId)
+  const acceptAttr = selectedType
+    ? selectedType.allowedExtensions.map((e) => `.${e}`).join(',')
+    : undefined
+
+  const canUpload = Boolean(docTypeId) && Boolean(file) && !uploading
+
+  const doUpload = useCallback(async () => {
+    if (!canUpload || !file) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('doc_type_id', docTypeId)
+      fd.append('property_id', data.propertyId)
+      if (validUntil.trim()) fd.append('valid_until', validUntil)
+      if (notes.trim()) fd.append('notes', notes.trim())
+
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: fd,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || `Falha (HTTP ${res.status})`)
+      }
+      toast.success('Documento anexado.')
+      onSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao anexar')
+      console.error('[voice attach-document] upload failed:', err)
+    } finally {
+      setUploading(false)
+    }
+  }, [canUpload, file, docTypeId, data.propertyId, validUntil, notes, onSaved])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <FileText className="h-4 w-4" />
+          Anexar documento
+        </div>
+
+        {/* Property card */}
+        <div className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <Building2 className="h-4 w-4 shrink-0 mt-0.5 text-white/60" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white font-medium truncate">{data.propertyTitle}</p>
+              {data.propertyMeta && (
+                <p className="text-[11px] text-white/50 truncate">{data.propertyMeta}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Doc type selector */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Tipo de documento</label>
+          <Select value={docTypeId} onValueChange={setDocTypeId}>
+            <SelectTrigger className={cn(inputCls, 'w-full')} data-no-long-press>
+              <SelectValue placeholder="Escolhe o tipo…" />
+            </SelectTrigger>
+            <SelectContent
+              position="popper"
+              sideOffset={4}
+              className="z-[300] max-h-[50vh]"
+              data-no-long-press
+            >
+              {data.docTypes.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* File picker — camera on mobile / file picker for everything */}
+        <div>
+          <label className="text-xs text-white/60 mb-2 block">Ficheiro</label>
+          {file ? (
+            <div className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-3 space-y-2">
+              <div className="flex items-start gap-3">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={previewUrl}
+                    alt="preview"
+                    className="h-14 w-14 rounded object-cover bg-white/10 shrink-0"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded bg-white/10 flex items-center justify-center shrink-0">
+                    <FileText className="h-6 w-6 text-white/50" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{file.name}</p>
+                  <p className="text-[11px] text-white/50">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFile(null)}
+                  className="p-1.5 text-white/40 hover:text-red-300 transition-colors shrink-0"
+                  aria-label="Remover"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-3 text-sm text-white transition-colors"
+              >
+                <ImageIcon className="h-4 w-4" />
+                Fotografar
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-3 text-sm text-white transition-colors"
+              >
+                <FileText className="h-4 w-4" />
+                Escolher ficheiro
+              </button>
+            </div>
+          )}
+          {/* Two hidden inputs so capture=environment targets the back camera
+              on mobile without blocking gallery/file picker on desktop. */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) setFile(f)
+              e.target.value = ''
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={acceptAttr}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) setFile(f)
+              e.target.value = ''
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">
+            Validade <span className="text-white/40">(opcional)</span>
+          </label>
+          <Input
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">
+            Notas <span className="text-white/40">(opcional)</span>
+          </label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Ex: versão assinada, original com o cliente…"
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          {!canUpload && !uploading && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {!docTypeId ? 'Escolhe o tipo.' : 'Adiciona um ficheiro.'}
+            </span>
+          )}
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doUpload} disabled={!canUpload}>
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A enviar…
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                Anexar
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Property description panel (generate_property_description tool) ─────
+//
+// Streams the generated description from
+// /api/properties/[id]/generate-description (SSE) and lets the user edit
+// before saving via PUT /api/properties/[id].
+
+function PropertyDescriptionPanel({
+  data,
+  onBack,
+  onSaved,
+}: {
+  data: PropertyDescriptionRequest
+  onBack: () => void
+  onSaved: () => void
+}) {
+  const [description, setDescription] = useState('')
+  const [generating, setGenerating] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [tone, setTone] = useState<'professional' | 'premium' | 'cozy'>(data.tone ?? 'professional')
+  // Notes accumulate — voice refinements append here and trigger a fresh
+  // generation. Seeded with whatever voice captured on the way in.
+  const [additionalNotes, setAdditionalNotes] = useState(data.additionalNotes ?? '')
+  const abortRef = useRef<AbortController | null>(null)
+  // Track whether the stream has completed at least once to allow regenerate.
+  const startedOnceRef = useRef(false)
+
+  // Voice refine — same recording/transcribe pattern as the other panels.
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const cleanupVoice = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const generate = useCallback(async (overrideNotes?: string) => {
+    // Cancel any in-flight stream.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    setGenerating(true)
+    setDescription('')
+    try {
+      const res = await fetch(`/api/properties/${data.propertyId}/generate-description`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: 'pt',
+          tone,
+          additional_notes: overrideNotes ?? additionalNotes,
+        }),
+        signal: controller.signal,
+      })
+      if (!res.ok || !res.body) {
+        throw new Error(`Falha ao gerar (HTTP ${res.status})`)
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // SSE events separated by blank line.
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+        for (const raw of events) {
+          const line = raw.trim()
+          if (!line.startsWith('data:')) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === '[DONE]') continue
+          try {
+            const j = JSON.parse(payload)
+            if (typeof j?.text === 'string') {
+              setDescription((prev) => prev + j.text)
+            }
+          } catch {
+            // ignore malformed chunk
+          }
+        }
+      }
+      startedOnceRef.current = true
+    } catch (err) {
+      if ((err as any)?.name === 'AbortError') return
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar descrição')
+    } finally {
+      setGenerating(false)
+    }
+  }, [data.propertyId, additionalNotes, tone])
+
+  const startVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        cleanupVoice()
+        setVoiceState('processing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const tRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          if (!tRes.ok) throw new Error('Falha na transcrição')
+          const { text } = await tRes.json()
+          const t = (text || '').trim()
+          if (!t) throw new Error('Não captei nenhum som')
+
+          // Append the transcript to additional_notes + regenerate. GPT will
+          // incorporate the instruction in the next description.
+          const merged = additionalNotes
+            ? `${additionalNotes}\n${t}`
+            : t
+          setAdditionalNotes(merged)
+          toast.success('A regenerar com as tuas notas…')
+          // Pass the merged notes directly — React state update is async and
+          // generate() reads additionalNotes from the outer closure.
+          await generate(merged)
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Erro ao refinar.')
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      setVoiceState('recording')
+    } catch {
+      toast.error('Não foi possível aceder ao microfone.')
+      setVoiceState('idle')
+    }
+  }, [cleanupVoice, additionalNotes, generate])
+
+  const stopVoice = useCallback(() => {
+    if (recorderRef.current && voiceState === 'recording') {
+      recorderRef.current.stop()
+      setVoiceState('processing')
+    }
+  }, [voiceState])
+
+  useEffect(() => () => cleanupVoice(), [cleanupVoice])
+
+  useEffect(() => {
+    if (startedOnceRef.current) return
+    void generate()
+    return () => abortRef.current?.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const canSave = description.trim().length > 0 && !saving && !generating
+
+  const doSave = useCallback(async () => {
+    if (!canSave) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/properties/${data.propertyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        // The PUT handler expects the wrapped shape { property, specifications,
+        // internal }; sending description flat silently no-ops because the
+        // `if (property && …)` gate fails.
+        body: JSON.stringify({ property: { description: description.trim() } }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || `Falha ao guardar (HTTP ${res.status})`)
+      }
+      toast.success('Descrição guardada.')
+      onSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao guardar')
+    } finally {
+      setSaving(false)
+    }
+  }, [canSave, description, data.propertyId, onSaved])
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Building2 className="h-4 w-4" />
+            Descrição do imóvel
+          </div>
+          <VoiceMicButton
+            state={voiceState}
+            onStart={startVoice}
+            onStop={stopVoice}
+          />
+        </div>
+
+        {/* Property card */}
+        <div className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
+          <p className="text-sm text-white font-medium truncate">{data.title}</p>
+          {data.meta && <p className="text-[11px] text-white/50 truncate">{data.meta}</p>}
+        </div>
+
+        {/* Voice-captured notes — shown when there's something to display. */}
+        {additionalNotes.trim() && (
+          <div className="rounded-lg bg-sky-500/10 ring-1 ring-sky-500/25 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-sky-200/80 mb-1">
+              Notas para a IA
+            </p>
+            <p className="text-[11px] text-sky-100/90 whitespace-pre-wrap break-words">
+              {additionalNotes}
+            </p>
+          </div>
+        )}
+
+        {/* Tone toggle */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Tom</label>
+          <div className="inline-flex flex-wrap gap-1.5" data-no-long-press>
+            {(['professional', 'premium', 'cozy'] as const).map((t) => {
+              const labels = { professional: 'Profissional', premium: 'Premium', cozy: 'Acolhedor' }
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTone(t)}
+                  disabled={generating}
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                    tone === t
+                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                      : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10',
+                    generating && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {labels[t]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 flex items-center gap-1.5">
+            Descrição gerada
+            {generating && <Loader2 className="h-3 w-3 animate-spin" />}
+          </label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={10}
+            placeholder={generating ? 'A gerar…' : 'Descrição aparece aqui.'}
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => void generate()}
+            disabled={generating || saving}
+            className="text-white hover:bg-white/10"
+            title="Gerar nova versão"
+          >
+            {generating ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4 mr-1.5 opacity-0" />
+            )}
+            Regenerar
+          </Button>
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doSave} disabled={!canSave}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A guardar…
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                Guardar no imóvel
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Follow-up panel (schedule_follow_up tool) ────────────────────────────
+//
+// Writes to /api/tasks with entity_type='lead'|'negocio' + title prefixed by
+// the channel emoji/label so the task list shows the intent at a glance.
+// Same scope + mic-refine pattern as AddNotePanel.
+
+const FOLLOW_UP_CHANNEL_META: Record<FollowUpChannel, { label: string; icon: string }> = {
+  call: { label: 'Chamada', icon: '📞' },
+  whatsapp: { label: 'WhatsApp', icon: '💬' },
+  email: { label: 'Email', icon: '✉' },
+  meeting: { label: 'Reunião', icon: '🤝' },
+}
+
+function FollowUpPanel({
+  data,
+  onBack,
+  onSaved,
+  onChangeRecipient,
+}: {
+  data: FollowUp
+  onBack: () => void
+  onSaved: () => void
+  onChangeRecipient?: (current: {
+    dueDate: string
+    channel: FollowUpChannel
+    notes: string
+  }) => void
+}) {
+  const [contact, setContact] = useState<VoiceSearchRecipient>(data.contact)
+  const [negocios, setNegocios] = useState<LeadNoteNegocioOption[]>(data.negocios)
+  const [channel, setChannel] = useState<FollowUpChannel>(data.initialChannel ?? 'call')
+  const [dueDate, setDueDate] = useState(data.initialDueDate ?? '')
+  const [notes, setNotes] = useState(data.initialNotes ?? '')
+  const [scopeNegocioId, setScopeNegocioId] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const cleanupVoice = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const applyRefine = useCallback(
+    async (args: Record<string, any>) => {
+      if (typeof args.due_date === 'string' && args.due_date.trim()) {
+        setDueDate(args.due_date)
+      }
+      if (args.channel === 'call' || args.channel === 'whatsapp' || args.channel === 'email' || args.channel === 'meeting') {
+        setChannel(args.channel)
+      }
+      if (typeof args.notes === 'string' && args.notes.trim()) {
+        setNotes(args.notes)
+      }
+      const nextName =
+        typeof args.contact_name === 'string' ? args.contact_name.trim() : ''
+      if (nextName && nextName.toLowerCase() !== contact.nome.toLowerCase()) {
+        try {
+          const r = await fetch(`/api/leads?nome=${encodeURIComponent(nextName)}&limit=3`)
+          if (r.ok) {
+            const d = await r.json()
+            const list: any[] = Array.isArray(d) ? d : d?.data || []
+            if (list.length > 0) {
+              const p = list[0]
+              const newContact: VoiceSearchRecipient = {
+                id: String(p.id),
+                nome: String(p.nome ?? ''),
+                email: p.email ? String(p.email) : undefined,
+                telemovel: p.telemovel ? String(p.telemovel) : undefined,
+                nif: p.nif ? String(p.nif) : undefined,
+              }
+              setContact(newContact)
+              setScopeNegocioId('')
+              try {
+                const nr = await fetch(`/api/negocios?lead_id=${encodeURIComponent(newContact.id)}&limit=20`)
+                if (nr.ok) {
+                  const nd = await nr.json()
+                  const nlist: any[] = Array.isArray(nd?.data) ? nd.data : Array.isArray(nd) ? nd : []
+                  setNegocios(
+                    nlist.map((n: any) => {
+                      const tipo = n.tipo ? String(n.tipo) : undefined
+                      const loc = n.localizacao ? String(n.localizacao) : undefined
+                      const tipoImovel = n.tipo_imovel ? String(n.tipo_imovel) : undefined
+                      const parts = [tipoImovel || tipo, loc].filter(Boolean)
+                      return {
+                        id: String(n.id),
+                        label: parts.join(' · ') || 'Negócio',
+                        tipo,
+                        localizacao: loc,
+                      }
+                    })
+                  )
+                }
+              } catch {
+                setNegocios([])
+              }
+            } else {
+              toast.warning(`Não encontrei "${nextName}" — usa Mudar para procurar.`)
+            }
+          }
+        } catch {}
+      }
+    },
+    [contact.nome]
+  )
+
+  const startVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        cleanupVoice()
+        setVoiceState('processing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const tRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          if (!tRes.ok) throw new Error('Falha na transcrição')
+          const { text } = await tRes.json()
+          const t = (text || '').trim()
+          if (!t) throw new Error('Não captei nenhum som')
+
+          const existingArgs: Record<string, any> = {
+            contact_name: contact.nome,
+            channel,
+          }
+          if (dueDate.trim()) existingArgs.due_date = dueDate
+          if (notes.trim()) existingArgs.notes = notes
+
+          const iRes = await fetch('/api/ai/voice-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript: t,
+              context: {
+                existingTool: 'schedule_follow_up',
+                existingArgs,
+              },
+            }),
+          })
+          if (!iRes.ok) throw new Error('Falha ao refinar')
+          const d = await iRes.json()
+          if (!d?.args) {
+            toast.warning(d?.message || 'Não consegui perceber.')
+            return
+          }
+          await applyRefine(d.args)
+          toast.success('Actualizado.')
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Erro ao refinar.')
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      setVoiceState('recording')
+    } catch {
+      toast.error('Não foi possível aceder ao microfone.')
+      setVoiceState('idle')
+    }
+  }, [cleanupVoice, contact.nome, channel, dueDate, notes, applyRefine])
+
+  const stopVoice = useCallback(() => {
+    if (recorderRef.current && voiceState === 'recording') {
+      recorderRef.current.stop()
+      setVoiceState('processing')
+    }
+  }, [voiceState])
+
+  useEffect(() => () => cleanupVoice(), [cleanupVoice])
+
+  const canSave = Boolean(dueDate.trim()) && !saving
+
+  const doSave = useCallback(async () => {
+    if (!canSave) return
+    setSaving(true)
+    try {
+      const meta = FOLLOW_UP_CHANNEL_META[channel]
+      const actionVerb =
+        channel === 'call' ? 'Ligar' : channel === 'email' ? 'Email' : channel === 'meeting' ? 'Reunir' : 'WhatsApp'
+      const title = `${meta.icon} ${actionVerb} a ${contact.nome}`
+
+      const payload: Record<string, unknown> = {
+        title,
+        due_date: dueDate,
+        entity_type: scopeNegocioId ? 'negocio' : 'lead',
+        entity_id: scopeNegocioId || contact.id,
+      }
+      if (notes.trim()) payload.description = notes.trim()
+
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || `Falha (HTTP ${res.status})`)
+      }
+      toast.success('Follow-up agendado.')
+      onSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao agendar')
+      console.error('[voice follow-up] save failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }, [canSave, channel, contact.id, contact.nome, dueDate, notes, scopeNegocioId, onSaved])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Check className="h-4 w-4" />
+            Agendar follow-up
+          </div>
+          <VoiceMicButton
+            state={voiceState}
+            onStart={startVoice}
+            onStop={stopVoice}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Contacto</label>
+          <button
+            type="button"
+            onClick={() =>
+              onChangeRecipient?.({ dueDate, channel, notes })
+            }
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+              'cursor-pointer hover:ring-2 hover:ring-white/30',
+              'bg-emerald-500/15 ring-1 ring-emerald-500/30 text-white'
+            )}
+            title="Mudar contacto"
+          >
+            <User className="h-3 w-3" />
+            <span className="font-medium">{contact.nome}</span>
+            {contact.telemovel && <span className="text-white/60">· {contact.telemovel}</span>}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </div>
+
+        {negocios.length > 0 && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Associar a</label>
+            <div className="flex flex-wrap gap-1.5" data-no-long-press>
+              <button
+                type="button"
+                onClick={() => setScopeNegocioId('')}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                  scopeNegocioId === ''
+                    ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                    : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10'
+                )}
+              >
+                <User className="h-3 w-3" />
+                Contacto
+              </button>
+              {negocios.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setScopeNegocioId(n.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                    scopeNegocioId === n.id
+                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                      : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10'
+                  )}
+                >
+                  <Building2 className="h-3 w-3" />
+                  {n.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Canal</label>
+          <div className="inline-flex flex-wrap gap-1.5" data-no-long-press>
+            {(['call', 'whatsapp', 'email', 'meeting'] as FollowUpChannel[]).map((c) => {
+              const meta = FOLLOW_UP_CHANNEL_META[c]
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setChannel(c)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                    channel === c
+                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
+                      : 'bg-white/5 ring-1 ring-white/10 text-white/70 hover:bg-white/10'
+                  )}
+                >
+                  <span>{meta.icon}</span>
+                  {meta.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Quando</label>
+          <Input
+            type="datetime-local"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">
+            Notas <span className="text-white/40">(opcional)</span>
+          </label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Contexto do follow-up…"
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          {!canSave && !saving && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Escolhe uma data.
+            </span>
+          )}
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doSave} disabled={!canSave}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A agendar…
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                Agendar
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Direct message panel (send_message tool) ────────────────────────────
+//
+// Minimal compose surface for a single recipient: channel toggle, message,
+// optional subject (email only), optional scheduled_at. Handles both
+// immediate send and WhatsApp scheduling via /api/voice/whatsapp-send
+// (which branches internally when scheduled_at is set). Email scheduling
+// is not yet supported server-side — the panel disables send + shows a
+// hint when the user tries to combine email + a future datetime.
+
+function DirectMessagePanel({
+  data,
+  onBack,
+  onSent,
+  onChangeRecipient,
+}: {
+  data: DirectMessage
+  onBack: () => void
+  onSent: () => void
+  /** Opens the ContactPickerPanel so the user can swap out the recipient.
+   *  The parent is responsible for restoring the DirectMessagePanel with
+   *  the picked recipient + the current panel state preserved. */
+  onChangeRecipient?: (currentFields: {
+    channel: 'whatsapp' | 'email'
+    message: string
+    subject: string
+    scheduledAt: string
+  }) => void
+}) {
+  const [channel, setChannel] = useState<'whatsapp' | 'email'>(data.initialChannel)
+  const [subject, setSubject] = useState(data.initialSubject ?? '')
+  const [message, setMessage] = useState(data.initialMessage ?? '')
+  const [scheduledAt, setScheduledAt] = useState(data.initialScheduledAt ?? '')
+  const [sending, setSending] = useState(false)
+  const [recipient, setRecipient] = useState<VoiceSearchRecipient>(data.recipient)
+  // Mode dropdown — decoupled from scheduledAt so the user can toggle even
+  // if GPT misread "às 18h" from the message body as an agendamento.
+  const [mode, setMode] = useState<'now' | 'schedule'>(
+    data.initialScheduledAt ? 'schedule' : 'now'
+  )
+
+  // Voice refinement — lets the user keep dictating adjustments against
+  // the current state (append to message, switch channel, add schedule,
+  // swap recipient). State hooked straight to GPT via voice-intent's
+  // existingTool/existingArgs refine mode.
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const cleanupVoice = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const applyRefine = useCallback(
+    async (refinedArgs: Record<string, any>) => {
+      // Merge fields the model surfaced. Empty/missing values are ignored —
+      // we never overwrite existing state with ""; the assistant is
+      // instructed to only include fields the user explicitly changed.
+      if (typeof refinedArgs.message === 'string' && refinedArgs.message.trim()) {
+        setMessage(refinedArgs.message)
+      }
+      if (refinedArgs.channel === 'email' || refinedArgs.channel === 'whatsapp') {
+        setChannel(refinedArgs.channel)
+      }
+      if (typeof refinedArgs.subject === 'string' && refinedArgs.subject.trim()) {
+        setSubject(refinedArgs.subject)
+      }
+      if (typeof refinedArgs.scheduled_at === 'string' && refinedArgs.scheduled_at.trim()) {
+        setScheduledAt(refinedArgs.scheduled_at)
+        setMode('schedule')
+      }
+      // Recipient swap — only when the name actually changed. Resolves via
+      // the same /api/leads lookup and adopts the first hit silently; if
+      // ambiguous the user can still hit "Mudar" to open the picker.
+      const nextName =
+        typeof refinedArgs.contact_name === 'string' ? refinedArgs.contact_name.trim() : ''
+      if (nextName && nextName.toLowerCase() !== recipient.nome.toLowerCase()) {
+        try {
+          const r = await fetch(`/api/leads?nome=${encodeURIComponent(nextName)}&limit=3`)
+          if (r.ok) {
+            const d = await r.json()
+            const list: any[] = Array.isArray(d) ? d : d?.data || []
+            if (list.length > 0) {
+              const p = list[0]
+              setRecipient({
+                id: String(p.id),
+                nome: String(p.nome ?? ''),
+                email: p.email ? String(p.email) : undefined,
+                telemovel: p.telemovel ? String(p.telemovel) : undefined,
+                nif: p.nif ? String(p.nif) : undefined,
+              })
+            } else {
+              toast.warning(`Não encontrei "${nextName}" — usa Mudar para procurar.`)
+            }
+          }
+        } catch {
+          // ignore — user can still hit Mudar
+        }
+      }
+    },
+    [recipient.nome]
+  )
+
+  const startVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        cleanupVoice()
+        setVoiceState('processing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const tRes = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          if (!tRes.ok) throw new Error('Falha na transcrição')
+          const { text } = await tRes.json()
+          const t = (text || '').trim()
+          if (!t) throw new Error('Não captei nenhum som')
+
+          // Reconstruct the current state as send_message args so GPT can
+          // diff against them in refine mode.
+          const existingArgs: Record<string, any> = {
+            contact_name: recipient.nome,
+            channel,
+            message,
+          }
+          if (subject.trim()) existingArgs.subject = subject
+          if (mode === 'schedule' && scheduledAt.trim()) {
+            existingArgs.scheduled_at = scheduledAt
+          }
+
+          const iRes = await fetch('/api/ai/voice-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript: t,
+              context: {
+                existingTool: 'send_message',
+                existingArgs,
+              },
+            }),
+          })
+          if (!iRes.ok) throw new Error('Falha ao refinar')
+          const data = await iRes.json()
+          if (!data?.args) {
+            toast.warning(data?.message || 'Não consegui perceber.')
+            return
+          }
+          await applyRefine(data.args)
+          toast.success('Actualizado.')
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Erro ao refinar.')
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      setVoiceState('recording')
+    } catch {
+      toast.error('Não foi possível aceder ao microfone.')
+      setVoiceState('idle')
+    }
+  }, [cleanupVoice, recipient.nome, channel, message, subject, mode, scheduledAt, applyRefine])
+
+  const stopVoice = useCallback(() => {
+    if (recorderRef.current && voiceState === 'recording') {
+      recorderRef.current.stop()
+      setVoiceState('processing')
+    }
+  }, [voiceState])
+
+  useEffect(() => () => cleanupVoice(), [cleanupVoice])
+
+  // Keep mode ↔ scheduledAt in sync: entering "schedule" without a value
+  // defaults to "now + 1h"; switching back to "now" clears the field.
+  const handleModeChange = (next: 'now' | 'schedule') => {
+    setMode(next)
+    if (next === 'now') {
+      setScheduledAt('')
+    } else if (!scheduledAt.trim()) {
+      const d = new Date(Date.now() + 60 * 60 * 1000)
+      // datetime-local format: YYYY-MM-DDTHH:MM (no seconds, no TZ)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      setScheduledAt(local)
+    }
+  }
+
+  const channelAvailable = channel === 'email' ? Boolean(recipient.email) : Boolean(recipient.telemovel)
+  const scheduleActive = mode === 'schedule' && Boolean(scheduledAt.trim())
+  const emailScheduleAttempt = channel === 'email' && scheduleActive
+
+  const canSend =
+    channelAvailable &&
+    message.trim().length > 0 &&
+    !emailScheduleAttempt &&
+    // In schedule mode the datetime must be filled; "now" mode doesn't care.
+    (mode === 'now' || Boolean(scheduledAt.trim())) &&
+    !sending
+
+  const doSend = useCallback(async () => {
+    if (!canSend) return
+    setSending(true)
+    try {
+      if (channel === 'whatsapp') {
+        const body: Record<string, unknown> = {
+          phones: [recipient.telemovel],
+          text: message.trim(),
+        }
+        if (scheduleActive) body.scheduled_at = scheduledAt
+        const res = await fetch('/api/voice/whatsapp-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || `Falha ao enviar (HTTP ${res.status})`)
+        }
+        const out = await res.json()
+        if ((out.sent ?? 0) === 0) {
+          const firstErr: string | undefined = Array.isArray(out.details)
+            ? out.details.find((d: any) => !d.ok)?.error
+            : undefined
+          throw new Error(firstErr || 'Mensagem não entregue')
+        }
+        toast.success(out.scheduled ? 'Mensagem agendada' : 'Mensagem enviada')
+      } else {
+        // Email — immediate only (scheduling not yet supported)
+        const res = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: [recipient.email],
+            subject: subject.trim() || 'Mensagem',
+            body_html: message.trim().replace(/\n/g, '<br>'),
+            body_text: message.trim(),
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || err?.message || `Falha ao enviar (HTTP ${res.status})`)
+        }
+        toast.success('Email enviado')
+      }
+      onSent()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+      console.error('[voice direct message] send failed:', err)
+    } finally {
+      setSending(false)
+    }
+  }, [canSend, channel, message, subject, scheduledAt, recipient, onSent])
+
+  const inputCls =
+    'bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 h-9 text-sm'
+
+  return (
+    <div className="mt-6 text-left">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors mb-3"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar
+      </button>
+
+      <div className="rounded-2xl bg-white/10 border border-white/20 p-5 space-y-4 backdrop-blur">
+        <div className="flex items-center justify-between gap-2" data-no-long-press>
+          <div className="flex items-center gap-2">
+            {channel === 'email' ? <Mail className="h-4 w-4 text-white" /> : <MessageCircle className="h-4 w-4 text-white" />}
+            <Select value={mode} onValueChange={(v) => handleModeChange(v as 'now' | 'schedule')}>
+              <SelectTrigger
+                className="h-auto border-0 bg-transparent hover:bg-white/10 text-sm font-semibold text-white gap-1.5 px-2 py-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 w-auto"
+                data-no-long-press
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                sideOffset={4}
+                align="start"
+                className="z-[300]"
+                data-no-long-press
+              >
+                <SelectItem value="now">Enviar agora</SelectItem>
+                <SelectItem value="schedule">Agendar para…</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <VoiceMicButton
+            state={voiceState}
+            onStart={startVoice}
+            onStop={stopVoice}
+          />
+        </div>
+
+        {/* Recipient — clickable chip opens the picker for a swap */}
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Destinatário</label>
+          <button
+            type="button"
+            onClick={() =>
+              onChangeRecipient?.({ channel, message, subject, scheduledAt })
+            }
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors',
+              'cursor-pointer hover:ring-2 hover:ring-white/30',
+              channelAvailable
+                ? 'bg-emerald-500/15 ring-1 ring-emerald-500/30 text-white'
+                : 'bg-red-500/15 ring-1 ring-red-500/40 text-red-100'
+            )}
+            title="Mudar destinatário"
+          >
+            <User className="h-3 w-3" />
+            <span className="font-medium">{recipient.nome}</span>
+            {channel === 'email' && recipient.email && (
+              <span className="text-white/60">· {recipient.email}</span>
+            )}
+            {channel === 'whatsapp' && recipient.telemovel && (
+              <span className="text-white/60">· {recipient.telemovel}</span>
+            )}
+            {!channelAvailable && (
+              <span className="text-red-200/80">
+                sem {channel === 'email' ? 'email' : 'telemóvel'}
+              </span>
+            )}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </div>
+
+        {/* Channel toggle */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-white/60">Canal:</label>
+          <div className="inline-flex rounded-lg bg-white/5 ring-1 ring-white/10 p-0.5" data-no-long-press>
+            <button
+              type="button"
+              onClick={() => setChannel('whatsapp')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5',
+                channel === 'whatsapp'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel('email')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5',
+                channel === 'email'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Email
+            </button>
+          </div>
+        </div>
+
+        {channel === 'email' && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Assunto</label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="(opcional)"
+              className={inputCls}
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs text-white/60 mb-1 block">Mensagem</label>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={5}
+            placeholder="Escreve a tua mensagem…"
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 text-sm resize-none"
+          />
+        </div>
+
+        {mode === 'schedule' && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Agendar para</label>
+            <Input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className={inputCls}
+            />
+            {emailScheduleAttempt && (
+              <p className="mt-1 text-[11px] text-amber-200/80 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Agendamento de email ainda não disponível. Muda para "Enviar agora" ou escolhe WhatsApp.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          {!canSend && !sending && !emailScheduleAttempt && (
+            <span className="mr-auto text-[11px] text-amber-200/80 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {!channelAvailable
+                ? `Sem ${channel === 'email' ? 'email' : 'telemóvel'} para este contacto.`
+                : message.trim().length === 0
+                  ? 'Escreve uma mensagem.'
+                  : 'Preenche os campos em falta.'}
+            </span>
+          )}
+          <Button variant="ghost" onClick={onBack} className="text-white hover:bg-white/10">
+            Cancelar
+          </Button>
+          <Button onClick={doSend} disabled={!canSend}>
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                A enviar…
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-1.5" />
+                {scheduleActive ? 'Agendar' : 'Enviar'}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

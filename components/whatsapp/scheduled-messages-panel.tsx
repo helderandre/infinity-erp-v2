@@ -5,7 +5,6 @@ import { Clock, Loader2, X, CheckCircle2, XCircle, AlertCircle, Calendar } from 
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
   SheetContent,
@@ -13,10 +12,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 interface ScheduledMessage {
   id: string
@@ -34,6 +35,7 @@ interface ScheduledMessage {
 }
 
 export function ScheduledMessagesPanel() {
+  const isMobile = useIsMobile()
   const [messages, setMessages] = useState<ScheduledMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [pendingCountGlobal, setPendingCountGlobal] = useState(0)
@@ -47,14 +49,22 @@ export function ScheduledMessagesPanel() {
     if (showSpinner) setIsLoading(true)
     try {
       const res = await fetch('/api/whatsapp/scheduled?limit=50')
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Erro ${res.status}`)
+      }
       const data = await res.json()
       setMessages(data.messages || [])
       hasLoadedRef.current = true
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error('[scheduled-panel] fetch failed:', err)
+      if (showSpinner) {
+        toast.error(err instanceof Error ? err.message : 'Erro ao carregar mensagens agendadas')
+      }
     } finally {
-      if (showSpinner) setIsLoading(false)
+      // Always clear the loading flag — guard against stuck spinners when a
+      // previous fetch set it but the current one doesn't own the toggle.
+      setIsLoading(false)
     }
   }, [])
 
@@ -145,33 +155,42 @@ export function ScheduledMessagesPanel() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
-                <Calendar className="h-4 w-4" />
-                {pendingCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
-                    {pendingCount}
-                  </span>
-                )}
-              </Button>
-            </SheetTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
+              <Calendar className="h-4 w-4" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
+                  {pendingCount}
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
+      </Tooltip>
 
-      <SheetContent side="right" className="w-full sm:w-96 p-0">
-        <SheetHeader className="px-4 py-3 border-b">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4" />
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 gap-0 flex flex-col overflow-hidden border-border/40 shadow-2xl bg-background',
+          isMobile
+            ? 'data-[side=bottom]:h-[85dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl'
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+        )}
+        <SheetHeader className={cn('shrink-0 px-6 pb-4 border-b', isMobile ? 'pt-8' : 'pt-6')}>
+          <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
             Mensagens agendadas
           </SheetTitle>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-60px)]">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -183,7 +202,7 @@ export function ScheduledMessagesPanel() {
           ) : (
             <div className="divide-y">
               {messages.map((msg) => (
-                <div key={msg.id} className="px-4 py-3 space-y-1.5">
+                <div key={msg.id} className="px-6 py-3 space-y-1.5">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-1.5">
                       {statusIcon(msg.status)}
@@ -229,7 +248,7 @@ export function ScheduledMessagesPanel() {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </SheetContent>
     </Sheet>
   )

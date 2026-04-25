@@ -78,6 +78,10 @@ function NotificationToastContent({ notification, toastId }: NotificationToastCo
 
   const handleClick = () => {
     toast.dismiss(toastId)
+    if (notification.notification_type === 'dm_message' && notification.sender_id) {
+      router.push(`/dashboard/comunicacao/chat?dm=${notification.sender_id}`)
+      return
+    }
     router.push(notification.action_url)
   }
 

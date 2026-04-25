@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Database } from '@/types/database'
 import { ADMIN_ROLES, ALL_PERMISSION_MODULES } from '@/lib/auth/roles'
 
@@ -23,110 +23,117 @@ export interface UserWithRole extends DevUser {
   profile_photo_url: string | null
 }
 
-export function useUser() {
-  const [user, setUser] = useState<UserWithRole | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const initialLoadDone = useRef(false)
+// ── Module-level fetch dedupe + short cache ─────────────────────────────────
+// When multiple components mount useUser() in the same tick (opening a sheet
+// with several sub-components all calling useUser), we previously fired N
+// concurrent supabase.auth.getUser() calls. Each acquires the
+// `lock:sb-<project>-auth-token` Navigator lock; if any hangs (stuck token
+// refresh, slow network, another tab holding the lock), the rest time out
+// after 10s.
+//
+// This cache returns the same in-flight Promise to all callers and keeps the
+// resolved user warm for 30s so fast remounts don't refetch unnecessarily.
+let inFlight: Promise<UserWithRole | null> | null = null
+let cached: { user: UserWithRole | null; at: number } | null = null
+const CACHE_TTL_MS = 30_000
 
-  const fetchUser = useCallback(async (isInitialLoad: boolean) => {
-    const supabase = createClient()
-    try {
-      // Só mostrar loading no carregamento inicial
-      if (isInitialLoad) {
-        setLoading(true)
-      }
-      setError(null)
+async function doFetchUser(): Promise<UserWithRole | null> {
+  const supabase = createClient()
 
-      // Obter utilizador autenticado
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser()
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser()
 
-      if (authError) throw authError
-      if (!authUser) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
+  if (authError) throw authError
+  if (!authUser) return null
 
-      // Obter dados do dev_users + role (através de user_roles)
-      const { data: devUser, error: devUserError } = await supabase
-        .from('dev_users')
-        .select(
-          `
-          *,
-          user_roles!user_roles_user_id_fkey!inner(
-            role:roles(*)
-          ),
-          dev_consultant_profiles(profile_photo_url)
-        `
-        )
-        .eq('id', authUser.id)
-        .single()
+  const { data: devUser, error: devUserError } = await supabase
+    .from('dev_users')
+    .select(
+      `
+      *,
+      user_roles!user_roles_user_id_fkey!inner(
+        role:roles(*)
+      ),
+      dev_consultant_profiles(profile_photo_url)
+    `
+    )
+    .eq('id', authUser.id)
+    .single()
 
-      if (devUserError) {
-        console.error('Erro na query do Supabase:', devUserError)
-        throw devUserError
-      }
+  if (devUserError) throw devUserError
+  if (!devUser) throw new Error('Utilizador não encontrado')
 
-      if (!devUser) {
-        console.error('devUser é null/undefined')
-        throw new Error('Utilizador não encontrado')
-      }
+  const userData = devUser as unknown as DevUserWithRoles
 
-      // Combinar permissões de todos os roles (OR lógico)
-      const userData = devUser as unknown as DevUserWithRoles
+  const hasAdminRole = userData.user_roles?.some((ur) =>
+    ADMIN_ROLES.some((ar) => ar.toLowerCase() === ur.role.name?.toLowerCase())
+  )
 
-      // Se tiver role admin ou Broker/CEO, dar todas as permissões
-      const hasAdminRole = userData.user_roles?.some(
-        (ur) => ADMIN_ROLES.some((ar) => ar.toLowerCase() === ur.role.name?.toLowerCase())
-      )
-
-      // Combinar permissões de todas as roles (qualquer role que tenha a permissão = true)
-      const mergedPermissions: Record<string, boolean> = {}
-
-      if (hasAdminRole) {
-        // Admin tem todas as permissões
-        ALL_PERMISSION_MODULES.forEach((module) => {
-          mergedPermissions[module] = true
-        })
-      } else {
-        // Combinar permissões de todos os roles
-        userData.user_roles?.forEach((userRole) => {
-          const permissions = userRole.role.permissions as Record<
-            string,
-            boolean
-          >
-          if (permissions) {
-            Object.keys(permissions).forEach((key) => {
-              if (permissions[key] === true) {
-                mergedPermissions[key] = true
-              }
-            })
-          }
+  const mergedPermissions: Record<string, boolean> = {}
+  if (hasAdminRole) {
+    ALL_PERMISSION_MODULES.forEach((module) => {
+      mergedPermissions[module] = true
+    })
+  } else {
+    userData.user_roles?.forEach((userRole) => {
+      const permissions = userRole.role.permissions as Record<string, boolean>
+      if (permissions) {
+        Object.keys(permissions).forEach((key) => {
+          if (permissions[key] === true) mergedPermissions[key] = true
         })
       }
+    })
+  }
 
-      // Usar o primeiro role como base, mas com permissões combinadas
-      const baseRole = userData.user_roles?.[0]?.role || null
-      const combinedRole = baseRole
-        ? {
-            ...baseRole,
-            permissions: mergedPermissions,
-          }
-        : null
+  const baseRole = userData.user_roles?.[0]?.role || null
+  const combinedRole = baseRole
+    ? { ...baseRole, permissions: mergedPermissions }
+    : null
 
-      // Criar objeto sem user_roles e dev_consultant_profiles para o estado
-      const { user_roles, dev_consultant_profiles, ...userDataWithoutRoles } = userData
+  const { user_roles: _ur, dev_consultant_profiles, ...userDataWithoutRoles } = userData
 
-      setUser({
-        ...userDataWithoutRoles,
-        role: combinedRole as Role | null,
-        auth_user: authUser,
-        profile_photo_url: dev_consultant_profiles?.profile_photo_url || null,
+  return {
+    ...userDataWithoutRoles,
+    role: combinedRole as Role | null,
+    auth_user: authUser,
+    profile_photo_url: dev_consultant_profiles?.profile_photo_url || null,
+  }
+}
+
+function fetchUserDeduped(force = false): Promise<UserWithRole | null> {
+  if (!force && cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    return Promise.resolve(cached.user)
+  }
+  if (!inFlight) {
+    inFlight = doFetchUser()
+      .then((user) => {
+        cached = { user, at: Date.now() }
+        return user
       })
+      .finally(() => {
+        inFlight = null
+      })
+  }
+  return inFlight
+}
+
+function invalidateUserCache() {
+  cached = null
+  inFlight = null
+}
+
+export function useUser() {
+  const [user, setUser] = useState<UserWithRole | null>(() => cached?.user ?? null)
+  const [loading, setLoading] = useState(() => !cached)
+  const [error, setError] = useState<Error | null>(null)
+
+  const loadUser = useCallback(async (force: boolean) => {
+    try {
+      setError(null)
+      const resolved = await fetchUserDeduped(force)
+      setUser(resolved)
     } catch (err) {
       console.error('Erro ao carregar utilizador:', err)
       setError(err instanceof Error ? err : new Error('Erro desconhecido'))
@@ -139,34 +146,30 @@ export function useUser() {
   useEffect(() => {
     const supabase = createClient()
 
-    fetchUser(true)
-    initialLoadDone.current = true
+    loadUser(false)
 
-    // Subscrever mudanças de autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Ignorar TOKEN_REFRESHED e INITIAL_SESSION — não precisam de re-fetch completo
-      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-        return
-      }
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
+        invalidateUserCache()
         setUser(null)
         setLoading(false)
         return
       }
 
-      // SIGNED_IN, USER_UPDATED — re-fetch sem loading visual
       if (session?.user) {
-        fetchUser(false)
+        invalidateUserCache()
+        loadUser(true)
       }
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [fetchUser])
+  }, [loadUser])
 
   return { user, loading, error, isAuthenticated: !!user }
 }

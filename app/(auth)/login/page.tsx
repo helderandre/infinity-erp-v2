@@ -43,6 +43,7 @@ export default function LoginPage() {
         toast.success('Bem-vindo!', {
           description: 'A redirecionar para o dashboard...',
         })
+        fetch('/api/auth/record-login', { method: 'POST' }).catch(() => {})
         router.push('/dashboard')
         router.refresh()
       }

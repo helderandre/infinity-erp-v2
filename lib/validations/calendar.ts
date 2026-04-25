@@ -29,6 +29,8 @@ export const calendarEventSchema = z.object({
   color: emptyToNull,
   cover_image_url: emptyToNull,
   location: emptyToNull,
+  location_lat: z.number().min(-90).max(90).nullable().optional().transform((v) => v ?? null),
+  location_lng: z.number().min(-180).max(180).nullable().optional().transform((v) => v ?? null),
   requires_rsvp: z.boolean().default(false),
   livestream_url: urlOrEmpty,
   registration_url: urlOrEmpty,

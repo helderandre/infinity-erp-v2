@@ -111,7 +111,7 @@ function PillTabs<T extends string>({
   tabs, active, onChange,
 }: { tabs: { key: T; label: string }[]; active: T; onChange: (k: T) => void }) {
   return (
-    <div className="flex gap-1 p-0.5 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit mx-auto sm:mx-0">
+    <div className="flex gap-1 p-0.5 rounded-full bg-background border border-border/60 shadow-sm w-fit mx-auto sm:mx-0">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -722,21 +722,14 @@ function OutrosContent() {
 
 // ─── Page ───────────────────────────────────────────────
 
-function AcessosPageInner() {
-  return (
-    <Suspense fallback={<AcessosSkeleton />}>
-      <AcessosPageContent />
-    </Suspense>
-  )
-}
 
 function AcessosPageContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('atalhos')
 
   return (
-    <div className="-m-4 md:-m-6 p-4 md:p-6 min-h-full bg-[oklch(0.96_0_0)] space-y-6">
+    <div data-acessos-page className="space-y-6">
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 w-fit mx-auto sm:mx-0">
+      <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/60 shadow-sm w-fit mx-auto sm:mx-0">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key
           return (
@@ -769,8 +762,8 @@ function AcessosPageContent() {
 
 export default function AcessosPage() {
   return (
-    <Suspense fallback={null}>
-      <AcessosPageInner />
+    <Suspense fallback={<AcessosSkeleton />}>
+      <AcessosPageContent />
     </Suspense>
   )
 }

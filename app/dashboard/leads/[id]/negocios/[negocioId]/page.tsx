@@ -22,6 +22,7 @@ import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { TemperaturaSelector, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
+import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
 import {
   NEGOCIO_ESTADO_COLORS,
   NEGOCIO_ESTADO_OPTIONS,
@@ -270,6 +271,7 @@ export default function NegocioDetailPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [acquisitionDialogOpen, setAcquisitionDialogOpen] = useState(false)
   const [aiFillOpen, setAiFillOpen] = useState(false)
+  const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
 
   // Property tracking
   const [properties, setProperties] = useState<NegocioProperty[]>([])
@@ -788,6 +790,13 @@ export default function NegocioDetailPage() {
                               )}>{(p.listing_price / 1000).toFixed(0)}k €</span>
                             </div>
                           )}
+                          {p.off_market && (
+                            <div className="absolute top-2 left-8">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/90 text-white backdrop-blur-sm">
+                                Off-market
+                              </span>
+                            </div>
+                          )}
                           {score != null && (
                             <div className="absolute top-2 right-2">
                               <span className={cn('inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full', scoreColor)}>{score}%</span>
@@ -808,7 +817,7 @@ export default function NegocioDetailPage() {
                             <Button variant="outline" size="sm" className="h-7 rounded-full text-xs flex-1" disabled={isAdding} onClick={() => handleAddProperty(p.id)}>
                               {isAdding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Adicionar ao dossier
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setPreviewPropertyId(p.id)} title="Pré-visualizar imóvel">
                               <ExternalLink className="h-3 w-3" />
                             </Button>
                           </div>
@@ -963,7 +972,7 @@ export default function NegocioDetailPage() {
                               {isExternal ? (
                                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => window.open(ap.external_url!, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
                               ) : p?.id && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => router.push(`/dashboard/imoveis/${p.slug || p.id}`)}><ExternalLink className="h-3 w-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setPreviewPropertyId(p.id)} title="Pré-visualizar imóvel"><ExternalLink className="h-3 w-3" /></Button>
                               )}
                               <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground/40 hover:text-destructive" onClick={() => handleRemoveProperty(ap.id)}><Trash2 className="h-3 w-3" /></Button>
                             </div>
@@ -1250,6 +1259,17 @@ export default function NegocioDetailPage() {
   // ──── CONVERGED VIEW ────
   return (
     <div className="space-y-6">
+      {/* Banner: Compra e Venda foi deprecado */}
+      {tipo === 'Compra e Venda' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-medium">Tipo &ldquo;Compra e Venda&rdquo; deprecado</p>
+          <p className="text-xs mt-0.5 text-amber-800 dark:text-amber-300/90">
+            Para clientes que vendem e compram em simultâneo, recomendamos criar dois negócios separados.
+            Este negócio continua a funcionar normalmente.
+          </p>
+        </div>
+      )}
+
       {/* Hero header */}
       <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 py-6 sm:px-8 sm:py-8">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
@@ -1348,6 +1368,13 @@ export default function NegocioDetailPage() {
 
       <AcquisitionDialog open={acquisitionDialogOpen} onOpenChange={setAcquisitionDialogOpen} negocioId={negocioId} prefillData={mapNegocioToAcquisition(form)} onComplete={(procInstanceId) => { setAcquisitionDialogOpen(false); toast.success('Angariação criada com sucesso!'); router.push(`/dashboard/processos/${procInstanceId}`) }} />
       <AiFillDialog open={aiFillOpen} onOpenChange={setAiFillOpen} negocioId={negocioId} onApply={handleQuickFillApply} />
+
+      {/* Shared property preview — opens the same sheet as the imóveis page */}
+      <PropertyDetailSheet
+        propertyId={previewPropertyId}
+        open={!!previewPropertyId}
+        onOpenChange={(o) => { if (!o) setPreviewPropertyId(null) }}
+      />
 
       {/* External Link Dialog */}
       <Dialog open={showExternalDialog} onOpenChange={setShowExternalDialog}>

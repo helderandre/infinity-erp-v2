@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
 import { requirePermission } from "@/lib/auth/permissions"
+import { logExportEvent } from "@/lib/audit/export-event"
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const auth = await requirePermission("users")
   if (!auth.authorized) return auth.response
 
@@ -44,6 +45,7 @@ export async function GET(_req: NextRequest) {
     ]
   })
 
+  await logExportEvent(req, auth.user.id, 'consultants', { rowCount: rows.length })
   return csvResponse("consultores", headers, rows)
 }
 

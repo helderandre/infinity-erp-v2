@@ -25,7 +25,7 @@ export function useAcessosCustomSites(): UseAcessosCustomSitesResult {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/acessos/custom-sites', { cache: 'no-store' })
+      const res = await fetch('/api/acessos/custom-sites')
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Erro' }))
         throw new Error(body.error ?? 'Erro ao carregar sites')

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { MessageSquare, ArrowLeft } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
 import { useProcessChannels } from '@/hooks/use-process-channels'
@@ -18,13 +19,66 @@ import { getDmChannelId } from '@/lib/constants'
 import { useChatUnread } from '@/hooks/use-chat-unread'
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
+  )
+}
+
+function ChatPageContent() {
   const { user, loading: userLoading } = useUser()
   const { channels, isLoading: channelsLoading, searchChannels } = useProcessChannels()
   const { counts: unreadCounts, refetch: refetchUnread } = useChatUnread()
-  const [activeConversation, setActiveConversation] = useState<ConversationType | null>({
-    type: 'internal',
-  })
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const dmParam = searchParams.get('dm')
+  const geralParam = searchParams.get('geral')
+  const [activeConversation, setActiveConversation] = useState<ConversationType | null>(
+    dmParam ? null : { type: 'internal' }
+  )
   const [listSheetOpen, setListSheetOpen] = useState(false)
+
+  // Resolve ?dm=<userId> / ?geral=1 params coming from notifications.
+  // Runs whenever the query changes (e.g. user clicks a second notification
+  // while already on the page), and strips the params after consuming so
+  // back/forward navigation doesn't re-trigger.
+  useEffect(() => {
+    if (geralParam) {
+      setActiveConversation({ type: 'internal' })
+      router.replace(pathname, { scroll: false })
+      return
+    }
+    if (!dmParam) return
+    let cancelled = false
+    fetch('/api/users/consultants')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((users: Array<{ id: string; commercial_name: string; dev_consultant_profiles: { profile_photo_url: string | null } | null }>) => {
+        if (cancelled) return
+        const target = users.find((u) => u.id === dmParam)
+        if (target) {
+          setActiveConversation({
+            type: 'dm',
+            userId: target.id,
+            userName: target.commercial_name,
+            avatarUrl: target.dev_consultant_profiles?.profile_photo_url || undefined,
+          })
+        } else {
+          setActiveConversation({ type: 'internal' })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setActiveConversation({ type: 'internal' })
+      })
+      .finally(() => {
+        if (cancelled) return
+        router.replace(pathname, { scroll: false })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [dmParam, geralParam, router, pathname])
 
   const handleSelectConversation = useCallback(
     (conv: ConversationType) => {

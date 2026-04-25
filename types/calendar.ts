@@ -33,6 +33,8 @@ export interface CalendarEvent {
   status?: string
   cover_image_url?: string
   location?: string
+  location_lat?: number | null
+  location_lng?: number | null
   requires_rsvp?: boolean
   visibility_mode?: 'all' | 'include' | 'exclude'
   visibility_user_ids?: string[]

@@ -205,6 +205,22 @@ function CalendarioPageInner() {
     setFormOpen(true)
   }, [])
 
+  // Click on a time slot in the week view → open the event form pre-filled
+  // with the snapped start time + 1h end time. Mirrors Google Calendar UX.
+  const handleCreateAtTime = useCallback((date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const toLocalInput = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    const end = new Date(date)
+    end.setHours(end.getHours() + 1)
+    setEditingEvent({
+      start_date: toLocalInput(date),
+      end_date: toLocalInput(end),
+    })
+    setEditingEventId(null)
+    setFormOpen(true)
+  }, [])
+
   const handleEditEvent = useCallback((event: CalendarEvent) => {
     if (event.source !== 'manual') return
     const realId = event.id.replace('manual:', '')
@@ -346,6 +362,7 @@ function CalendarioPageInner() {
           onViewChange={handleViewChange}
           onEventClick={handleEventClick}
           onDayClick={handleDayClick}
+          onCreateAtTime={handleCreateAtTime}
           onDayNumberClick={handleDayNumberClick}
           onDayBack={handleDayBack}
           dayBackLabel={

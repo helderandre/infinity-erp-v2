@@ -70,9 +70,39 @@ export async function POST(request: Request) {
       )
     }
 
+    // Resolve pipeline_stage_id: if the caller didn't provide one (legacy
+    // call sites like /dashboard/leads/[id]'s "Novo negócio" only send
+    // {lead_id, tipo}), look up the first non-terminal stage of the matching
+    // pipeline. Without this, the negócio lands with stage=null and the
+    // kanban silently filters it out — looking like "lead disappeared".
+    const insertPayload: Record<string, unknown> = { ...validation.data }
+    if (!insertPayload.pipeline_stage_id) {
+      const TIPO_TO_PIPELINE: Record<string, string> = {
+        'Compra': 'comprador',
+        'Compra e Venda': 'comprador',
+        'Venda': 'vendedor',
+        'Arrendatário': 'arrendatario',
+        'Arrendador': 'arrendador',
+      }
+      const pipelineType = TIPO_TO_PIPELINE[validation.data.tipo as string]
+      if (pipelineType) {
+        const { data: firstStage } = await supabase
+          .from('leads_pipeline_stages')
+          .select('id')
+          .eq('pipeline_type', pipelineType)
+          .eq('is_terminal', false)
+          .order('order_index', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (firstStage?.id) {
+          insertPayload.pipeline_stage_id = firstStage.id
+        }
+      }
+    }
+
     const { data: negocio, error } = await supabase
       .from('negocios')
-      .insert(validation.data)
+      .insert(insertPayload as never)
       .select('id')
       .single()
 

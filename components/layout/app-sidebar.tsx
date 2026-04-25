@@ -76,7 +76,8 @@ export const crmItems = [
 
 export const negocioItems = [
   { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
-  { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates', permission: 'processes' },
+  // Template de Processos is hidden from the sidebar for now — route stays live.
+  // { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
   { title: 'Negócios', icon: Briefcase, href: '/dashboard/negocios', permission: 'leads' },
 ]
@@ -91,7 +92,8 @@ export const infinityItems = [
 export const financeiroItems = [
   { title: 'Dashboard', icon: TrendingUp, href: '/dashboard/comissoes/dashboard', permission: 'commissions' },
   { title: 'Conta Corrente', icon: Wallet, href: '/dashboard/comissoes/conta-corrente', permission: 'commissions' },
-  { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
+  // Comissões merged into Mapa de Gestão as a sibling tab.
+  // { title: 'Comissões', icon: Euro, href: '/dashboard/comissoes', permission: 'commissions' },
   { title: 'Despesas', icon: Landmark, href: '/dashboard/comissoes/gestao-empresa', permission: 'commissions' },
   { title: 'Mapa de Gestão', icon: BarChart3, href: '/dashboard/comissoes/mapa-gestao', permission: 'commissions' },
   { title: 'Relatórios', icon: Briefcase, href: '/dashboard/comissoes/relatorios', permission: 'commissions' },

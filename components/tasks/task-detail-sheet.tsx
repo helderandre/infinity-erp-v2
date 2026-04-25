@@ -25,6 +25,7 @@ import { useTaskMutations } from '@/hooks/use-tasks'
 import {
   PriorityCheck, PriorityFlag, DueDateText,
 } from '@/components/tasks/task-primitives'
+import { TaskEntityCard } from '@/components/tasks/task-entity-card'
 
 // ─── Shared content (usado tanto em sheet como inline) ──────────────────────
 
@@ -282,6 +283,17 @@ export function TaskDetailContent({
               </span>
             )}
           </div>
+
+          {/* Linked entity — resolves to the lead/negócio/imóvel/owner with
+              a "Ver" link and (for contact entities) quick-action buttons. */}
+          {task.entity_type && task.entity_id && (
+            <div className="pl-[34px]">
+              <TaskEntityCard
+                entityType={task.entity_type as TaskEntityType}
+                entityId={task.entity_id}
+              />
+            </div>
+          )}
 
           {/* Sub-tarefas — rows estilo Todoist com connector line à esquerda */}
           <section>

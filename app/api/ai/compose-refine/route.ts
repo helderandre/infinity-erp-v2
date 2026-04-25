@@ -15,12 +15,30 @@ Recebes:
 - O corpo actual da mensagem
 - A transcrição do que o utilizador acabou de dizer
 
-Interpreta o pedido e chama SEMPRE a tool "update_compose" com os deltas aplicáveis:
-- Se o utilizador mencionar nomes de pessoas a quem enviar, coloca esses nomes em "recipient_names" (só os nomes, não prefixos tipo "ao", "à").
-- Se o utilizador pedir para mudar o assunto (email), devolve "subject" com o novo assunto completo.
-- Se o utilizador pedir para mudar ou acrescentar ao corpo, devolve "body" com o texto E escolhe "body_action": "replace" (substituir tudo) ou "append" (acrescentar ao fim).
-- Se disser claramente para enviar agora ("envia", "manda", "podes enviar"), devolve "send_now": true.
-- Português de Portugal, nunca inventes nomes ou dados.`
+REGRAS DE INTERPRETAÇÃO (CRÍTICAS):
+- A frase do utilizador é uma INSTRUÇÃO — NÃO é conteúdo para copiar literalmente.
+- Identifica o verbo/intenção:
+  * "diz também que X", "acrescenta que X", "adiciona X" → body_action="append" e body="X" (só o conteúdo, SEM o verbo de instrução). Ou body_action="replace" com a versão COMPLETA já integrada.
+  * "muda o corpo para X", "reescreve como X", "fica assim: X" → body_action="replace" com X.
+  * "muda o assunto para X" → subject="X".
+  * "também manda ao Pedro", "acrescenta a Maria" → recipient_names=["Pedro"] ou ["Maria"].
+  * "envia", "manda", "podes enviar" → send_now=true.
+
+EXEMPLOS:
+- Corpo actual="Chego amanhã às 18h." + utilizador: "Diz também que não estava preparado e vou chegar atrasado"
+  → body="Não estava preparado e vou chegar atrasado.", body_action="append"
+  (NÃO: body="Diz também que não estava preparado...")
+- Corpo actual="Olá João" + utilizador: "acrescenta que a reunião é na sala 3"
+  → body="A reunião é na sala 3.", body_action="append"
+- Corpo actual="..." + utilizador: "muda para 'Confirmamos a visita amanhã às 15h'"
+  → body="Confirmamos a visita amanhã às 15h.", body_action="replace"
+- Corpo actual + utilizador: "também manda ao Pedro"
+  → recipient_names=["Pedro"], sem alterar body.
+
+REGRAS GERAIS:
+- Só devolve os campos que o utilizador explicitamente alterou — nunca os outros.
+- NÃO inventes nomes, assuntos ou conteúdo que não venham da transcrição.
+- Português de Portugal.`
 
 export async function POST(request: Request) {
   try {

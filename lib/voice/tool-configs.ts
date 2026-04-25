@@ -180,6 +180,138 @@ export interface SubmitResult {
    * Used by `send_property` when the user wants to send several imóveis.
    */
   basket?: PropertyBasket
+  /**
+   * If present, the overlay opens the DirectMessagePanel so the user can
+   * confirm/adjust + send (or schedule) a message to a single contact.
+   * Used by `send_message`.
+   */
+  directMessage?: DirectMessage
+  /**
+   * Triggered when the tool can't pin the contact unambiguously (no match
+   * or multiple fuzzy hits). The overlay opens a picker with the
+   * candidates + live search; on pick we resume the original action.
+   */
+  contactPicker?: ContactPickerRequest
+  /**
+   * Opens the AddNotePanel. Resolved contact + the lead's negócios are
+   * pre-loaded so the user can pick the scope (contacto vs negócio X).
+   */
+  leadNote?: LeadNote
+  /**
+   * Opens the FollowUpPanel. Same contact + negócios pre-load as the
+   * note panel; adds channel + due_date + optional description.
+   */
+  followUp?: FollowUp
+  /**
+   * Opens the PropertyDescriptionPanel. The panel streams the generated
+   * description from the server and lets the user edit + save back to the
+   * property. Used by `generate_property_description`.
+   */
+  propertyDescription?: PropertyDescriptionRequest
+  /**
+   * Opens the AttachDocumentPanel so the user can snap a photo (mobile) or
+   * pick a file and attach it to a resolved imóvel's documents. Used by
+   * `attach_document`.
+   */
+  attachDocument?: AttachDocumentRequest
+}
+
+export interface DirectMessage {
+  recipient: VoiceSearchRecipient
+  /** Pre-selected channel; user can toggle in the panel. */
+  initialChannel: 'whatsapp' | 'email'
+  initialMessage: string
+  initialSubject?: string
+  /** ISO string; when present the panel opens in "scheduled" mode. */
+  initialScheduledAt?: string
+}
+
+/**
+ * Request shape returned when a tool can't resolve a contact deterministically.
+ * The overlay renders the picker, and on pick it calls the follow-up flow
+ * embedded in `follow` (currently direct-message or note).
+ */
+export interface ContactPickerRequest {
+  /** The free-text term the user originally said (seeds the search input). */
+  query: string
+  /** Pre-fetched candidates from the initial search. */
+  candidates: VoiceSearchRecipient[]
+  follow:
+    | {
+        kind: 'directMessage'
+        /** Payload to combine with the picked recipient. */
+        partial: Omit<DirectMessage, 'recipient'>
+      }
+    | {
+        kind: 'leadNote'
+        /** Payload to combine with the picked contact (negocios fetched on pick). */
+        partial: Omit<LeadNote, 'contact' | 'negocios'>
+      }
+    | {
+        kind: 'followUp'
+        /** Payload to combine with the picked contact (negocios fetched on pick). */
+        partial: Omit<FollowUp, 'contact' | 'negocios'>
+      }
+}
+
+/** Minimal shape of a negócio surfaced to the scope selector. */
+export interface LeadNoteNegocioOption {
+  id: string
+  label: string
+  tipo?: string
+  localizacao?: string
+}
+
+export interface LeadNote {
+  contact: VoiceSearchRecipient
+  /** Empty array when the contact has no deals — selector is then hidden. */
+  negocios: LeadNoteNegocioOption[]
+  initialNote: string
+}
+
+export type FollowUpChannel = 'call' | 'whatsapp' | 'email' | 'meeting'
+
+export interface FollowUp {
+  contact: VoiceSearchRecipient
+  negocios: LeadNoteNegocioOption[]
+  /** ISO string; empty when GPT didn't capture a date — user fills on the panel. */
+  initialDueDate: string
+  /** Defaults to 'call' on the panel when omitted. */
+  initialChannel?: FollowUpChannel
+  initialNotes?: string
+}
+
+export interface PropertyDescriptionRequest {
+  propertyId: string
+  /** Display info for the card at the top of the panel. */
+  title: string
+  meta?: string
+  /** The existing description stored on the property (to seed the textarea
+   *  AND to be passed as "improve existing" context if the user opts for it). */
+  currentDescription: string
+  /** Tone passed to the generate endpoint on first load. */
+  tone?: 'professional' | 'premium' | 'cozy'
+  /** Optional notes captured by voice, forwarded to the endpoint. */
+  additionalNotes?: string
+}
+
+export interface AttachDocumentDocType {
+  id: string
+  name: string
+  /** comma-separated like "pdf,jpg,png" — the panel turns this into an
+   *  accept="…" attribute on the file input. */
+  allowedExtensions: string[]
+}
+
+export interface AttachDocumentRequest {
+  propertyId: string
+  propertyTitle: string
+  propertyMeta?: string
+  docTypes: AttachDocumentDocType[]
+  /** Pre-selected doc_type.id resolved from the voice hint; empty when no
+   *  hint was given or no match was found. */
+  initialDocTypeId: string
+  initialNotes: string
 }
 
 export interface ToolConfig {
@@ -965,6 +1097,398 @@ export function propertyRowToResult(p: any): VoiceSearchResult {
   }
 }
 
+// Direct message to a contact (WhatsApp or email, immediate or scheduled).
+// Resolves the contact by name and hands off to DirectMessagePanel so the
+// user tweaks + confirms before dispatch.
+const sendMessage: ToolConfig = {
+  title: 'Enviar mensagem',
+  submitLabel: 'Preparar envio',
+  autoSubmit: true,
+  fields: [
+    { key: 'contact_name', label: 'Destinatário', required: true },
+    {
+      key: 'channel',
+      label: 'Canal',
+      inputType: 'select',
+      options: [
+        { value: 'whatsapp', label: 'WhatsApp' },
+        { value: 'email', label: 'Email' },
+      ],
+    },
+    { key: 'subject', label: 'Assunto (email)' },
+    { key: 'message', label: 'Mensagem', inputType: 'textarea' },
+    { key: 'scheduled_at', label: 'Agendar para', inputType: 'datetime-local', format: formatDate },
+  ],
+  canSubmit: (args) => Boolean(String(args.contact_name ?? '').trim()),
+  submit: async (args) => {
+    const name = String(args.contact_name ?? '').trim()
+    if (!name) throw new Error('Indica o destinatário')
+
+    const res = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=10`)
+    if (!res.ok) throw new Error('Falha ao procurar contacto')
+    const data = await res.json()
+    const list: any[] = Array.isArray(data) ? data : data?.data || []
+
+    const candidates: VoiceSearchRecipient[] = list.map((l: any) => ({
+      id: String(l.id),
+      nome: String(l.nome ?? ''),
+      email: l.email ? String(l.email) : undefined,
+      telemovel: l.telemovel ? String(l.telemovel) : undefined,
+      nif: l.nif ? String(l.nif) : undefined,
+    }))
+
+    // Channel resolution (shared by picker + direct path)
+    const voiceChannel = String(args.channel ?? '').trim().toLowerCase()
+    const resolveChannel = (r: VoiceSearchRecipient): 'whatsapp' | 'email' => {
+      if (voiceChannel === 'email' || voiceChannel === 'whatsapp') {
+        return voiceChannel as 'whatsapp' | 'email'
+      }
+      return r.telemovel ? 'whatsapp' : r.email ? 'email' : 'whatsapp'
+    }
+
+    const partial: Omit<DirectMessage, 'recipient'> = {
+      initialChannel: 'whatsapp', // refined below when recipient is known
+      initialMessage: args.message ? String(args.message) : '',
+      initialSubject: args.subject ? String(args.subject) : undefined,
+      initialScheduledAt: args.scheduled_at ? String(args.scheduled_at) : undefined,
+    }
+
+    const needle = name.toLowerCase()
+    const exactMatches = candidates.filter((r) => r.nome.toLowerCase() === needle)
+
+    // Only auto-adopt on an EXACT full-name match. Fuzzy/substring hits
+    // always go through the picker so the user confirms we picked the
+    // right person — "Maria" shouldn't silently bind to "Maria Silva".
+    if (exactMatches.length === 1) {
+      const r = exactMatches[0]
+      return {
+        directMessage: { recipient: r, ...partial, initialChannel: resolveChannel(r) },
+      }
+    }
+
+    // No exact match OR multiple exact matches → picker. If there are
+    // multiple exact matches we surface only those; otherwise show the
+    // fuzzy candidates so the user can confirm.
+    return {
+      contactPicker: {
+        query: name,
+        candidates: exactMatches.length > 1 ? exactMatches : candidates,
+        follow: { kind: 'directMessage', partial },
+      },
+    }
+  },
+}
+
+// Shared helper: fetches the negócios attached to a lead and normalises
+// them into the compact shape the AddNotePanel scope selector expects.
+async function fetchLeadNegocios(leadId: string): Promise<LeadNoteNegocioOption[]> {
+  try {
+    const res = await fetch(`/api/negocios?lead_id=${encodeURIComponent(leadId)}&limit=20`)
+    if (!res.ok) return []
+    const d = await res.json()
+    const list: any[] = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []
+    return list.map((n: any) => {
+      const tipo = n.tipo ? String(n.tipo) : undefined
+      const loc = n.localizacao ? String(n.localizacao) : undefined
+      const tipoImovel = n.tipo_imovel ? String(n.tipo_imovel) : undefined
+      const parts = [tipoImovel || tipo, loc].filter(Boolean)
+      return {
+        id: String(n.id),
+        label: parts.join(' · ') || 'Negócio',
+        tipo,
+        localizacao: loc,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+// Add a note to a lead's activity history. Resolves the contact (with the
+// same fuzzy/picker flow as send_message) and pre-fetches the lead's
+// negócios so the user can optionally scope the note to a specific deal.
+const addLeadNote: ToolConfig = {
+  title: 'Adicionar nota',
+  submitLabel: 'Preparar nota',
+  autoSubmit: true,
+  fields: [
+    { key: 'contact_name', label: 'Contacto', required: true },
+    { key: 'note', label: 'Nota', required: true, inputType: 'textarea' },
+  ],
+  canSubmit: (args) =>
+    Boolean(String(args.contact_name ?? '').trim()) &&
+    Boolean(String(args.note ?? '').trim()),
+  submit: async (args) => {
+    const name = String(args.contact_name ?? '').trim()
+    const note = String(args.note ?? '').trim()
+    if (!name) throw new Error('Indica o contacto')
+    if (!note) throw new Error('Indica o conteúdo da nota')
+
+    const res = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=10`)
+    if (!res.ok) throw new Error('Falha ao procurar contacto')
+    const data = await res.json()
+    const list: any[] = Array.isArray(data) ? data : data?.data || []
+
+    const candidates: VoiceSearchRecipient[] = list.map((l: any) => ({
+      id: String(l.id),
+      nome: String(l.nome ?? ''),
+      email: l.email ? String(l.email) : undefined,
+      telemovel: l.telemovel ? String(l.telemovel) : undefined,
+      nif: l.nif ? String(l.nif) : undefined,
+    }))
+
+    const needle = name.toLowerCase()
+    const exactMatches = candidates.filter((r) => r.nome.toLowerCase() === needle)
+
+    const buildResult = async (contact: VoiceSearchRecipient): Promise<SubmitResult> => {
+      const negocios = await fetchLeadNegocios(contact.id)
+      return { leadNote: { contact, negocios, initialNote: note } }
+    }
+
+    // Only auto-adopt on an EXACT full-name match. Anything else goes to
+    // the picker so the user explicitly confirms which "Maria" or "João".
+    if (exactMatches.length === 1) {
+      return buildResult(exactMatches[0])
+    }
+    return {
+      contactPicker: {
+        query: name,
+        candidates: exactMatches.length > 1 ? exactMatches : candidates,
+        follow: {
+          kind: 'leadNote',
+          partial: { initialNote: note },
+        },
+      },
+    }
+  },
+}
+
+// Attach a document (usually a photo taken on mobile) to a property. The
+// panel handles the actual upload via FormData to /api/documents/upload;
+// this submit just resolves the imóvel + fetches doc types + pre-selects
+// one when the voice hint matches.
+const attachDocument: ToolConfig = {
+  title: 'Anexar documento',
+  submitLabel: 'Preparar upload',
+  autoSubmit: true,
+  fields: [
+    { key: 'property_query', label: 'Imóvel', required: true },
+    { key: 'doc_type_hint', label: 'Tipo' },
+    { key: 'notes', label: 'Notas', inputType: 'textarea' },
+  ],
+  canSubmit: (args) => Boolean(String(args.property_query ?? '').trim()),
+  submit: async (args) => {
+    const q = String(args.property_query ?? '').trim()
+    if (!q) throw new Error('Indica o imóvel')
+
+    const [propRes, typeRes] = await Promise.all([
+      fetch(`/api/properties?search=${encodeURIComponent(q)}&per_page=5`),
+      fetch('/api/libraries/doc-types?applies_to=properties'),
+    ])
+    if (!propRes.ok) throw new Error('Falha ao procurar imóvel')
+    const propData = await propRes.json()
+    const propList: any[] = Array.isArray(propData?.data) ? propData.data : []
+    if (propList.length === 0) {
+      throw new Error(`Imóvel "${q}" não encontrado.`)
+    }
+    const needle = q.toLowerCase()
+    const property =
+      propList.find((p: any) => String(p.external_ref ?? '').toLowerCase() === needle) ||
+      propList.find((p: any) => String(p.title ?? '').toLowerCase() === needle) ||
+      propList[0]
+
+    let docTypes: AttachDocumentDocType[] = []
+    if (typeRes.ok) {
+      const d = await typeRes.json()
+      const raw: any[] = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []
+      docTypes = raw
+        .filter((t: any) => t && t.id && t.name)
+        .map((t: any) => ({
+          id: String(t.id),
+          name: String(t.name),
+          allowedExtensions: Array.isArray(t.allowed_extensions)
+            ? t.allowed_extensions.map((e: unknown) => String(e))
+            : ['pdf', 'jpg', 'jpeg', 'png'],
+        }))
+    }
+
+    // Resolve the voice hint to a docType id via substring match.
+    const hint = String(args.doc_type_hint ?? '').trim().toLowerCase()
+    let initialDocTypeId = ''
+    if (hint) {
+      const hit =
+        docTypes.find((t) => t.name.toLowerCase() === hint) ||
+        docTypes.find((t) => t.name.toLowerCase().includes(hint)) ||
+        docTypes.find((t) => hint.includes(t.name.toLowerCase()))
+      if (hit) initialDocTypeId = hit.id
+    }
+
+    const metaParts = [
+      formatEuroPt(property.listing_price),
+      property.city || property.zone,
+      property.external_ref,
+    ].filter(Boolean)
+
+    return {
+      attachDocument: {
+        propertyId: String(property.id),
+        propertyTitle: String(property.title || 'Imóvel'),
+        propertyMeta: metaParts.join(' · ') || undefined,
+        docTypes,
+        initialDocTypeId,
+        initialNotes: args.notes ? String(args.notes) : '',
+      },
+    }
+  },
+}
+
+// Generate a marketing description for a property from its specs.
+// Resolves the property by search term, then hands off to
+// PropertyDescriptionPanel which streams the GPT output via the existing
+// /api/properties/[id]/generate-description endpoint.
+const generatePropertyDescription: ToolConfig = {
+  title: 'Gerar descrição de imóvel',
+  submitLabel: 'Preparar descrição',
+  autoSubmit: true,
+  fields: [
+    { key: 'property_query', label: 'Imóvel', required: true },
+    {
+      key: 'tone',
+      label: 'Tom',
+      inputType: 'select',
+      options: [
+        { value: 'professional', label: 'Profissional' },
+        { value: 'premium', label: 'Premium' },
+        { value: 'cozy', label: 'Acolhedor' },
+      ],
+    },
+    { key: 'additional_notes', label: 'Notas extra', inputType: 'textarea' },
+  ],
+  canSubmit: (args) => Boolean(String(args.property_query ?? '').trim()),
+  submit: async (args) => {
+    const q = String(args.property_query ?? '').trim()
+    if (!q) throw new Error('Indica o imóvel')
+
+    const res = await fetch(`/api/properties?search=${encodeURIComponent(q)}&per_page=5`)
+    if (!res.ok) throw new Error('Falha ao procurar imóvel')
+    const d = await res.json()
+    const list: any[] = Array.isArray(d?.data) ? d.data : []
+    if (list.length === 0) {
+      throw new Error(`Imóvel "${q}" não encontrado.`)
+    }
+    // Prefer an exact ref match, else first result.
+    const needle = q.toLowerCase()
+    const pick =
+      list.find(
+        (p: any) => String(p.external_ref ?? '').toLowerCase() === needle
+      ) ||
+      list.find(
+        (p: any) => String(p.title ?? '').toLowerCase() === needle
+      ) ||
+      list[0]
+
+    const metaParts = [
+      formatEuroPt(pick.listing_price),
+      pick.city || pick.zone,
+      pick.external_ref,
+    ].filter(Boolean)
+
+    const voiceTone = String(args.tone ?? '').trim().toLowerCase()
+    const tone: PropertyDescriptionRequest['tone'] =
+      voiceTone === 'premium' || voiceTone === 'cozy' || voiceTone === 'professional'
+        ? (voiceTone as 'professional' | 'premium' | 'cozy')
+        : undefined
+
+    return {
+      propertyDescription: {
+        propertyId: String(pick.id),
+        title: String(pick.title || 'Imóvel'),
+        meta: metaParts.join(' · ') || undefined,
+        currentDescription: typeof pick.description === 'string' ? pick.description : '',
+        tone,
+        additionalNotes: args.additional_notes ? String(args.additional_notes) : undefined,
+      },
+    }
+  },
+}
+
+// Schedule a follow-up tied to a contact (optionally scoped to a negócio).
+// Writes to /api/tasks with entity_type='lead'|'negocio' and a channel prefix
+// encoded in the title.
+const scheduleFollowUp: ToolConfig = {
+  title: 'Agendar follow-up',
+  submitLabel: 'Preparar follow-up',
+  autoSubmit: true,
+  fields: [
+    { key: 'contact_name', label: 'Contacto', required: true },
+    { key: 'due_date', label: 'Quando', required: true, inputType: 'datetime-local' },
+    {
+      key: 'channel',
+      label: 'Canal',
+      inputType: 'select',
+      options: [
+        { value: 'call', label: 'Chamada' },
+        { value: 'whatsapp', label: 'WhatsApp' },
+        { value: 'email', label: 'Email' },
+        { value: 'meeting', label: 'Reunião' },
+      ],
+    },
+    { key: 'notes', label: 'Notas', inputType: 'textarea' },
+  ],
+  canSubmit: (args) => Boolean(String(args.contact_name ?? '').trim()),
+  submit: async (args) => {
+    const name = String(args.contact_name ?? '').trim()
+    if (!name) throw new Error('Indica o contacto')
+
+    const res = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=10`)
+    if (!res.ok) throw new Error('Falha ao procurar contacto')
+    const data = await res.json()
+    const list: any[] = Array.isArray(data) ? data : data?.data || []
+
+    const candidates: VoiceSearchRecipient[] = list.map((l: any) => ({
+      id: String(l.id),
+      nome: String(l.nome ?? ''),
+      email: l.email ? String(l.email) : undefined,
+      telemovel: l.telemovel ? String(l.telemovel) : undefined,
+      nif: l.nif ? String(l.nif) : undefined,
+    }))
+
+    const voiceChannel = String(args.channel ?? '').trim().toLowerCase()
+    const ch: FollowUpChannel | undefined =
+      voiceChannel === 'call' ||
+      voiceChannel === 'whatsapp' ||
+      voiceChannel === 'email' ||
+      voiceChannel === 'meeting'
+        ? (voiceChannel as FollowUpChannel)
+        : undefined
+
+    const partial: Omit<FollowUp, 'contact' | 'negocios'> = {
+      initialDueDate: args.due_date ? String(args.due_date) : '',
+      initialChannel: ch,
+      initialNotes: args.notes ? String(args.notes) : undefined,
+    }
+
+    const needle = name.toLowerCase()
+    const exactMatches = candidates.filter((r) => r.nome.toLowerCase() === needle)
+
+    const buildResult = async (contact: VoiceSearchRecipient): Promise<SubmitResult> => {
+      const negocios = await fetchLeadNegocios(contact.id)
+      return { followUp: { contact, negocios, ...partial } }
+    }
+
+    // Only auto-adopt on EXACT full-name match; fuzzy/substring hits go to
+    // the picker so the user confirms.
+    if (exactMatches.length === 1) return buildResult(exactMatches[0])
+    return {
+      contactPicker: {
+        query: name,
+        candidates: exactMatches.length > 1 ? exactMatches : candidates,
+        follow: { kind: 'followUp', partial },
+      },
+    }
+  },
+}
+
 const sendProperty: ToolConfig = {
   title: 'Enviar imóveis',
   submitLabel: 'Procurar e preparar envio',
@@ -1567,6 +2091,11 @@ export const TOOL_CONFIGS: Record<VoiceToolName, ToolConfig> = {
   search_document: searchDocument,
   search_partner: searchPartner,
   open_link: openLink,
+  send_message: sendMessage,
+  add_lead_note: addLeadNote,
+  schedule_follow_up: scheduleFollowUp,
+  generate_property_description: generatePropertyDescription,
+  attach_document: attachDocument,
 }
 
 /**

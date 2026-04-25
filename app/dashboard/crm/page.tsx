@@ -2,9 +2,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { KanbanBoard } from '@/components/crm/kanban-board'
+import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import {
   ShoppingCart,
   Store,
@@ -218,11 +219,12 @@ interface CrmFilters {
 function NegociosListView({
   pipelineType,
   filters,
+  onOpenNegocio,
 }: {
   pipelineType: PipelineType
   filters: CrmFilters
+  onOpenNegocio: (id: string) => void
 }) {
-  const router = useRouter()
   const [negocios, setNegocios] = useState<NegocioRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -260,7 +262,7 @@ function NegociosListView({
   const totalPages = Math.ceil(total / limit)
 
   const navigateToNegocio = (n: NegocioRow) => {
-    router.push(`/dashboard/leads/${n.lead_id}/negocios/${n.id}`)
+    onOpenNegocio(n.id)
   }
 
   const handleSaveObservations = useCallback(async (negocioId: string, next: string | null) => {
@@ -492,17 +494,57 @@ function ObservationsCellInner({
 export default function CRMPage() {
   const { user } = useUser()
   const isMobile = useIsMobile()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
   const [myLeadsOpen, setMyLeadsOpen] = useState(false)
   const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null)
+  const [detailNegocioId, setDetailNegocioId] = useState<string | null>(null)
+  // Bumped whenever a lead is qualified / added — KanbanBoard listens for the
+  // change and silently re-fetches so the new card appears in place.
+  const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0)
   const [pipelineCounts, setPipelineCounts] = useState<Record<PipelineType, number | null>>({
     comprador: null,
     vendedor: null,
     arrendatario: null,
     arrendador: null,
   })
+
+  // Sync ?negocio=<id> with the detail sheet so deep links open directly.
+  const negocioParam = searchParams.get('negocio')
+  useEffect(() => {
+    if (negocioParam && negocioParam !== detailNegocioId) {
+      setDetailNegocioId(negocioParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocioParam])
+
+  const openNegocioSheet = useCallback(
+    (id: string) => {
+      setDetailNegocioId(id)
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      params.set('negocio', id)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [router, pathname, searchParams],
+  )
+
+  const handleSheetOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) return
+      setDetailNegocioId(null)
+      if (negocioParam) {
+        const params = new URLSearchParams(searchParams?.toString() ?? '')
+        params.delete('negocio')
+        const query = params.toString()
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+      }
+    },
+    [router, pathname, searchParams, negocioParam],
+  )
 
   // Fetch the total count of negocios per pipeline (for tab badges)
   useEffect(() => {
@@ -828,9 +870,18 @@ export default function CRMPage() {
 
       {/* Content */}
       {viewMode === 'kanban' ? (
-        <KanbanBoard pipelineType={activeTab} filters={filters} />
+        <KanbanBoard
+          pipelineType={activeTab}
+          filters={filters}
+          onCardClick={(n) => openNegocioSheet(n.id)}
+          refreshKey={kanbanRefreshKey}
+        />
       ) : (
-        <NegociosListView pipelineType={activeTab} filters={filters} />
+        <NegociosListView
+          pipelineType={activeTab}
+          filters={filters}
+          onOpenNegocio={openNegocioSheet}
+        />
       )}
 
       <CsvExportDialog
@@ -844,6 +895,13 @@ export default function CRMPage() {
         open={myLeadsOpen}
         onOpenChange={setMyLeadsOpen}
         consultantId={user?.id ?? null}
+        onNegocioCreated={() => setKanbanRefreshKey((k) => k + 1)}
+      />
+
+      <NegocioDetailSheet
+        negocioId={detailNegocioId}
+        open={!!detailNegocioId}
+        onOpenChange={handleSheetOpenChange}
       />
     </div>
   )

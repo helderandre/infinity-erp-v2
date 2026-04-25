@@ -33,12 +33,14 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Count properties assigned to this consultant
+    // Count properties assigned to this consultant — mirror the filters used
+    // by GET /api/properties so the badge matches the listed rows.
     const { count: propertiesCount } = await supabase
       .from('dev_properties')
       .select('id', { count: 'exact', head: true })
       .eq('consultant_id', id)
       .neq('status', 'cancelled')
+      .neq('status', 'draft')
 
     return NextResponse.json({
       ...data,

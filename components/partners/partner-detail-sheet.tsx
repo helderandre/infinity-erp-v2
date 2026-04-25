@@ -40,9 +40,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn, normalizeWebsiteUrl } from '@/lib/utils'
 
-type TabKey = 'sobre' | 'avaliacoes' | 'morada' | 'fiscal' | 'estado'
+type TabKey = 'perfil' | 'sobre' | 'avaliacoes' | 'morada' | 'fiscal' | 'estado'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: 'perfil', label: 'Perfil', icon: User },
   { key: 'sobre', label: 'Sobre', icon: Info },
   { key: 'avaliacoes', label: 'Avaliações', icon: Star },
   { key: 'morada', label: 'Morada', icon: MapPin },
@@ -79,7 +80,7 @@ export function PartnerDetailSheet({
   const [loading, setLoading] = useState(true)
   const [isStaff, setIsStaff] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('sobre')
+  const [activeTab, setActiveTab] = useState<TabKey>('perfil')
   const [editing, setEditing] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -114,7 +115,7 @@ export function PartnerDetailSheet({
 
   useEffect(() => {
     if (open && partnerId) {
-      setActiveTab('sobre')
+      setActiveTab('perfil')
       setEditing(false)
       setRatingValue(0)
       setRatingComment('')
@@ -383,90 +384,8 @@ export function PartnerDetailSheet({
                 </div>
               )}
 
-              {/* Profile card (with optional cover hero) */}
-              <div className="rounded-2xl bg-background border border-border/50 shadow-sm overflow-hidden">
-                {partner.cover_image_url ? (
-                  <div className="relative aspect-[16/9] bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={partner.cover_image_url}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  </div>
-                ) : null}
-
-                <div
-                  className={cn(
-                    'px-6 pb-7 flex flex-col items-center text-center',
-                    partner.cover_image_url ? 'pt-5' : 'pt-7',
-                  )}
-                >
-                  {!partner.cover_image_url && (
-                    <div
-                      className={cn(
-                        'h-20 w-20 rounded-full flex items-center justify-center shrink-0 ring-4 ring-background shadow-sm',
-                        catColor?.bg ?? 'bg-muted',
-                      )}
-                    >
-                      <span className={cn('text-2xl font-bold', catColor?.text ?? 'text-foreground')}>
-                        {initials || <Building2 className="h-8 w-8" />}
-                      </span>
-                    </div>
-                  )}
-                <h2 className={cn('text-xl font-semibold tracking-tight leading-tight', partner.cover_image_url ? 'mt-0' : 'mt-3')}>
-                  {partner.name}
-                </h2>
-                {partner.email ? (
-                  <a href={`mailto:${partner.email}`} className="text-sm text-muted-foreground hover:text-foreground truncate max-w-full">
-                    {partner.email}
-                  </a>
-                ) : partner.phone ? (
-                  <a href={`tel:${partner.phone}`} className="text-sm text-muted-foreground hover:text-foreground">
-                    {partner.phone}
-                  </a>
-                ) : null}
-
-                <div className="mt-3 flex items-center gap-1.5 flex-wrap justify-center">
-                  {catColor && (
-                    <Badge variant="secondary" className={cn(catColor.bg, catColor.text, 'border-0 rounded-full text-[11px] px-2.5 py-0.5')}>
-                      <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full inline-block', catColor.dot)} />
-                      {catLabel}
-                    </Badge>
-                  )}
-                  {partner.is_recommended && !isPending && !isRejected && (
-                    <Badge className="rounded-full text-[10px] gap-1 bg-black/80 text-white border border-white/15 backdrop-blur-md shadow-sm">
-                      <Award className="h-3 w-3" />
-                      Recomendado
-                    </Badge>
-                  )}
-                  {partner.visibility === 'private' && (
-                    <Badge variant="outline" className="rounded-full text-[10px] gap-1">
-                      <Lock className="h-3 w-3" />
-                      Privado
-                    </Badge>
-                  )}
-                  {!partner.is_active && (
-                    <Badge variant="secondary" className="rounded-full text-[10px] bg-red-500/15 text-red-700 dark:text-red-400 border-0">
-                      Inactivo
-                    </Badge>
-                  )}
-                </div>
-
-                </div>
-              </div>
-
-              {/* Description */}
-              {partner.description && (
-                <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-5">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-                    {partner.description}
-                  </p>
-                </div>
-              )}
-
               {/* Tab selector */}
-              <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-full overflow-x-auto">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-fit max-w-full mx-auto overflow-x-auto">
                 {TABS.map((t) => {
                   const Icon = t.icon
                   const isActive = activeTab === t.key
@@ -488,6 +407,91 @@ export function PartnerDetailSheet({
               </div>
 
               {/* Tab content */}
+              {activeTab === 'perfil' && (
+                <div className="space-y-4">
+                  {/* Profile card (with optional cover hero) */}
+                  <div className="rounded-2xl bg-background border border-border/50 shadow-sm overflow-hidden">
+                    {partner.cover_image_url ? (
+                      <div className="relative aspect-[4/3] sm:aspect-[16/10] bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={partner.cover_image_url}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover object-top"
+                        />
+                      </div>
+                    ) : null}
+
+                    <div
+                      className={cn(
+                        'px-6 pb-8 flex flex-col items-center text-center',
+                        partner.cover_image_url ? 'pt-6' : 'pt-10',
+                      )}
+                    >
+                      {!partner.cover_image_url && (
+                        <div
+                          className={cn(
+                            'h-28 w-28 rounded-full flex items-center justify-center shrink-0 ring-4 ring-background shadow-sm',
+                            catColor?.bg ?? 'bg-muted',
+                          )}
+                        >
+                          <span className={cn('text-3xl font-bold', catColor?.text ?? 'text-foreground')}>
+                            {initials || <Building2 className="h-10 w-10" />}
+                          </span>
+                        </div>
+                      )}
+                      <h2 className={cn('text-xl font-semibold tracking-tight leading-tight', partner.cover_image_url ? 'mt-0' : 'mt-4')}>
+                        {partner.name}
+                      </h2>
+                      {partner.email ? (
+                        <a href={`mailto:${partner.email}`} className="text-sm text-muted-foreground hover:text-foreground truncate max-w-full">
+                          {partner.email}
+                        </a>
+                      ) : partner.phone ? (
+                        <a href={`tel:${partner.phone}`} className="text-sm text-muted-foreground hover:text-foreground">
+                          {partner.phone}
+                        </a>
+                      ) : null}
+
+                      <div className="mt-3 flex items-center gap-1.5 flex-wrap justify-center">
+                        {catColor && (
+                          <Badge variant="secondary" className={cn(catColor.bg, catColor.text, 'border-0 rounded-full text-[11px] px-2.5 py-0.5')}>
+                            <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full inline-block', catColor.dot)} />
+                            {catLabel}
+                          </Badge>
+                        )}
+                        {partner.is_recommended && !isPending && !isRejected && (
+                          <Badge className="rounded-full text-[10px] gap-1 bg-black/80 text-white border border-white/15 backdrop-blur-md shadow-sm">
+                            <Award className="h-3 w-3" />
+                            Recomendado
+                          </Badge>
+                        )}
+                        {partner.visibility === 'private' && (
+                          <Badge variant="outline" className="rounded-full text-[10px] gap-1">
+                            <Lock className="h-3 w-3" />
+                            Privado
+                          </Badge>
+                        )}
+                        {!partner.is_active && (
+                          <Badge variant="secondary" className="rounded-full text-[10px] bg-red-500/15 text-red-700 dark:text-red-400 border-0">
+                            Inactivo
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {partner.description && (
+                    <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-5">
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                        {partner.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'sobre' && (
                 <SectionCard title="Dados Gerais" subtitle="Informação básica do parceiro.">
                   <DetailRow icon={Briefcase} label="Categoria" value={catLabel} />

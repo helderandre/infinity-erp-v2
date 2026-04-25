@@ -106,6 +106,19 @@ export const createNegocioSchema = z.object({
   probability_pct: z.number().min(0).max(100).nullable().optional(),
   expected_close_date: z.string().nullable().optional(),
   observacoes: z.string().nullable().optional(),
+  // Preferences captured during qualification (Compra / Arrendatário side)
+  tipo_imovel: z.string().nullable().optional(),
+  localizacao: z.string().nullable().optional(),
+  quartos_min: z.number().int().min(0).nullable().optional(),
+  area_min_m2: z.number().positive().nullable().optional(),
+  orcamento: z.number().positive().nullable().optional(),
+  orcamento_max: z.number().positive().nullable().optional(),
+  renda_max_mensal: z.number().positive().nullable().optional(),
+  // Listing-side fields (Venda / Arrendador)
+  preco_venda: z.number().positive().nullable().optional(),
+  renda_pretendida: z.number().positive().nullable().optional(),
+  // Lead temperature
+  temperatura: z.enum(['Frio', 'Morno', 'Quente']).nullable().optional(),
   // Source/origin
   origem: z.string().nullable().optional(),
   origem_detalhe: z.string().nullable().optional(),

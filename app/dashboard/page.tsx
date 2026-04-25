@@ -42,6 +42,7 @@ import type {
 } from '@/types/financial'
 import Link from 'next/link'
 import { MobileDashboard } from '@/components/dashboard/mobile/mobile-dashboard'
+import { ConsultantAlertsTab } from '@/components/dashboard/consultant-alerts-tab'
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
@@ -725,37 +726,7 @@ function ManagementDashboard() {
 
         {/* ═══ Tab: Alertas ═══ */}
         <TabsContent value="alerts" className="mt-6">
-          <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
-            {alerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <div className="rounded-full bg-emerald-500/10 p-4 mb-3"><TrendingUp className="h-6 w-6 text-emerald-500" /></div>
-                <h3 className="text-base font-medium">Sem alertas</h3>
-                <p className="text-sm mt-1">Tudo em ordem — nenhum alerta de performance activo.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {alerts.map((a, i) => (
-                  <Link key={i} href={`/dashboard/consultores/${a.consultant_id}`}
-                    className={cn(
-                      'flex items-start gap-3 rounded-xl p-4 transition-colors group',
-                      a.severity === 'urgent' ? 'bg-red-500/10 hover:bg-red-500/15' : 'bg-amber-500/10 hover:bg-amber-500/15'
-                    )}
-                  >
-                    {a.severity === 'urgent'
-                      ? <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                      : <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium group-hover:underline">{a.consultant_name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{a.message}</p>
-                    </div>
-                    <Badge variant={a.severity === 'urgent' ? 'destructive' : 'outline'} className="text-[10px] shrink-0 rounded-full">
-                      {a.severity === 'urgent' ? 'Urgente' : 'Aviso'}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          <ConsultantAlertsTab />
         </TabsContent>
       </Tabs>
     </div>

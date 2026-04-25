@@ -83,6 +83,9 @@ export async function GET(
     const excludeIds = (existing || []).map((e: any) => e.property_id).filter(Boolean)
 
     // ── Hard filters (SQL) ──
+    // Include `draft` (off-market — just created via angariação) so consultors
+    // can match buyers against properties that aren't public yet. Only hide
+    // fully cancelled ones.
     let query = admin
       .from('dev_properties')
       .select(`
@@ -90,7 +93,7 @@ export async function GET(
         dev_property_specifications(bedrooms, bathrooms, area_gross, area_util, parking_spaces, has_elevator, features, construction_year, solar_orientation, views, equipment),
         dev_property_media(url, is_cover)
       `)
-      .not('status', 'in', '(cancelled,draft)')
+      .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
       .limit(50)
 
@@ -132,7 +135,7 @@ export async function GET(
       return NextResponse.json({ data: [] })
     }
 
-    // ── Price flags (deterministic) ──
+    // ── Price + off-market flags (deterministic) ──
     const withFlags = data.map((p: any) => {
       let price_flag: string | null = null
       if (budget && p.listing_price) {
@@ -142,7 +145,11 @@ export async function GET(
         else if (ratio <= 1.10) price_flag = 'orange'
         else price_flag = 'red'
       }
-      return { ...p, price_flag }
+      // `off_market` = property not yet publicly listed. For now only `draft`
+      // (fresh angariação), but this is the single source of truth so it's
+      // easy to broaden later (e.g. pending_approval).
+      const off_market = p.status === 'draft'
+      return { ...p, price_flag, off_market }
     })
 
     // ── AI Scoring (soft criteria) — only when ?score=true ──

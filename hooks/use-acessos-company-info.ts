@@ -27,7 +27,7 @@ export function useAcessosCompanyInfo(): UseAcessosCompanyInfoResult {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/acessos/company-info', { cache: 'no-store' })
+      const res = await fetch('/api/acessos/company-info')
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Erro' }))
         throw new Error(body.error ?? 'Erro ao carregar estrutura')

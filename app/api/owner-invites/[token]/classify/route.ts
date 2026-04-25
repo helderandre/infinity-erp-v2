@@ -5,7 +5,9 @@ import { loadInviteByToken, isInviteUsable } from '@/lib/owner-invites/server'
 import {
   OWNER_DOC_SLOTS,
   type OwnerInviteContext,
+  type OwnerDocSlot,
 } from '@/lib/owner-invites/doc-slots'
+import { PROPERTY_DOC_SLOTS } from '@/lib/owner-invites/property-doc-slots'
 
 const schema = z.object({
   context: z.enum([
@@ -64,11 +66,24 @@ export async function POST(
     )
   }
 
-  const slots = OWNER_DOC_SLOTS[parsed.data.context as OwnerInviteContext]
+  // Classify across BOTH owner-context slots AND property-level slots so
+  // the public form can do a single "carregar tudo" that distributes files
+  // into either bucket. The form decides where the file lands based on the
+  // returned slot slug — we tag each slot with its scope to disambiguate.
+  type ScopedSlot = OwnerDocSlot & { scope: 'owner' | 'property' }
+  const ownerSlots: ScopedSlot[] = OWNER_DOC_SLOTS[
+    parsed.data.context as OwnerInviteContext
+  ].map((s) => ({ ...s, scope: 'owner' }))
+  const propertySlots: ScopedSlot[] = PROPERTY_DOC_SLOTS.map((s) => ({
+    ...s,
+    scope: 'property',
+  }))
+  const slots: ScopedSlot[] = [...ownerSlots, ...propertySlots]
+
   const slotDescriptor = slots
     .map(
       (s) =>
-        `- ${s.slug}: ${s.label}${s.aliases?.length ? ` (também conhecido como ${s.aliases.join(', ')})` : ''}`
+        `- ${s.slug} (${s.scope === 'owner' ? 'do proprietário' : 'do imóvel'}): ${s.label}${s.aliases?.length ? ` (sinónimos: ${s.aliases.join(', ')})` : ''}`
     )
     .join('\n')
 
@@ -77,6 +92,7 @@ export async function POST(
   const results: {
     file_url: string
     suggested_slot: string
+    suggested_scope: 'owner' | 'property' | 'unknown'
     confidence: 'alta' | 'media' | 'baixa'
   }[] = []
 
@@ -111,6 +127,7 @@ export async function POST(
       results.push({
         file_url: f.file_url,
         suggested_slot: 'unknown',
+        suggested_scope: 'unknown',
         confidence: 'baixa',
       })
       continue
@@ -151,10 +168,11 @@ Regras:
         confidence?: string
       }
 
-      const validSlug = slots.some((s) => s.slug === parsedAi.slug)
+      const matched = slots.find((s) => s.slug === parsedAi.slug)
       results.push({
         file_url: f.file_url,
-        suggested_slot: validSlug ? parsedAi.slug! : 'unknown',
+        suggested_slot: matched ? matched.slug : 'unknown',
+        suggested_scope: matched ? matched.scope : 'unknown',
         confidence:
           (parsedAi.confidence as 'alta' | 'media' | 'baixa') || 'baixa',
       })
@@ -163,6 +181,7 @@ Regras:
       results.push({
         file_url: f.file_url,
         suggested_slot: 'unknown',
+        suggested_scope: 'unknown',
         confidence: 'baixa',
       })
     }

@@ -34,6 +34,13 @@ interface KanbanBoardProps {
     temperatura?: string
     consultantId?: string
   }
+  onCardClick?: (negocio: { id: string; lead_id?: string | null; contact_id?: string | null }) => void
+  /**
+   * Bumping this number triggers a silent re-fetch — used by the parent CRM
+   * page after a lead is qualified or added so the new card appears without
+   * the user having to refresh.
+   */
+  refreshKey?: number
 }
 
 const formatEUR = (value: number) =>
@@ -69,6 +76,7 @@ interface ColumnProps {
   onDragLeave: () => void
   onDrop: (e: React.DragEvent<HTMLDivElement>, stage: LeadsPipelineStage) => void
   onCardDragStart: (negocioId: string) => void
+  onCardClick?: (negocio: { id: string; lead_id?: string | null; contact_id?: string | null }) => void
 }
 
 function KanbanColumnView({
@@ -78,6 +86,7 @@ function KanbanColumnView({
   onDragLeave,
   onDrop,
   onCardDragStart,
+  onCardClick,
 }: ColumnProps) {
   const { stage, negocios, count, total_commission } = column
 
@@ -135,6 +144,7 @@ function KanbanColumnView({
             key={negocio.id}
             negocio={negocio}
             onDragStart={onCardDragStart}
+            onClick={onCardClick ? () => onCardClick(negocio) : undefined}
           />
         ))}
 
@@ -150,7 +160,7 @@ function KanbanColumnView({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ pipelineType, filters }: KanbanBoardProps) {
+export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: KanbanBoardProps) {
   const [board, setBoard] = useState<KanbanBoardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -175,8 +185,8 @@ export function KanbanBoard({ pipelineType, filters }: KanbanBoardProps) {
   const filterTemp = filters?.temperatura ?? ''
   const filterConsultant = filters?.consultantId ?? ''
 
-  const fetchBoard = useCallback(async () => {
-    setLoading(true)
+  const fetchBoard = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
@@ -192,13 +202,24 @@ export function KanbanBoard({ pipelineType, filters }: KanbanBoardProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant])
 
   useEffect(() => {
     fetchBoard()
   }, [fetchBoard])
+
+  // Silent refresh when the parent bumps refreshKey — e.g. after qualifying
+  // a lead in MyLeadsSheet. Skips the loading skeleton so the new card just
+  // appears in place without a flash.
+  const refreshKeyRef = useRef(refreshKey)
+  useEffect(() => {
+    if (refreshKey === undefined) return
+    if (refreshKeyRef.current === refreshKey) return
+    refreshKeyRef.current = refreshKey
+    fetchBoard({ silent: true })
+  }, [refreshKey, fetchBoard])
 
   // ── Drag handlers ─────────────────────────────────────────────────────────
 
@@ -330,6 +351,7 @@ export function KanbanBoard({ pipelineType, filters }: KanbanBoardProps) {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onCardDragStart={setDraggedId}
+                onCardClick={onCardClick}
               />
             ))}
           </div>

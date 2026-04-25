@@ -9,6 +9,9 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 const bodySchema = z.object({
   phones: z.array(z.string().min(1)).min(1).max(20),
   text: z.string().min(1),
+  /** ISO 8601 string. If present, insert into wpp_scheduled_messages
+   *  instead of sending immediately. Must be in the future. */
+  scheduled_at: z.string().optional(),
 })
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -43,7 +46,7 @@ function phoneVariants(e164: string): string[] {
 async function resolveChat(
   instanceId: string,
   e164: string
-): Promise<string | null> {
+): Promise<{ id: string; waChatId: string } | null> {
   const admin = createAdminClient()
   const variants = phoneVariants(e164)
 
@@ -62,7 +65,8 @@ async function resolveChat(
     .limit(1)
 
   if (chats?.length) {
-    return (chats[0] as any).wa_chat_id as string
+    const row = chats[0] as any
+    return { id: String(row.id), waChatId: String(row.wa_chat_id) }
   }
 
   // Create a fresh wpp_chats row for this phone.
@@ -79,11 +83,14 @@ async function resolveChat(
       is_archived: false,
       unread_count: 0,
     } as any)
-    .select('wa_chat_id')
+    .select('id, wa_chat_id')
     .single()
 
   if (error || !created) return null
-  return (created as any).wa_chat_id as string
+  return {
+    id: String((created as any).id),
+    waChatId: String((created as any).wa_chat_id),
+  }
 }
 
 async function callEdge(payload: Record<string, unknown>): Promise<void> {
@@ -117,7 +124,24 @@ export async function POST(request: Request) {
       )
     }
 
-    const { phones, text } = parsed.data
+    const { phones, text, scheduled_at } = parsed.data
+
+    // If the caller wants scheduling, validate the datetime up front. An
+    // invalid/past date is rejected once instead of per-phone.
+    let scheduledIso: string | null = null
+    if (scheduled_at) {
+      const d = new Date(scheduled_at)
+      if (isNaN(d.getTime())) {
+        return NextResponse.json({ error: 'Data de agendamento inválida' }, { status: 400 })
+      }
+      if (d.getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: 'A data de agendamento tem de ser no futuro' },
+          { status: 400 }
+        )
+      }
+      scheduledIso = d.toISOString()
+    }
 
     // Auto-resolve the caller's active WhatsApp instance. If the user owns
     // multiple instances we pick the most recently updated active one.
@@ -150,17 +174,34 @@ export async function POST(request: Request) {
         continue
       }
       try {
-        const waChatId = await resolveChat(instance.id, e164)
-        if (!waChatId) {
+        const chat = await resolveChat(instance.id, e164)
+        if (!chat) {
           details.push({ phone: raw, ok: false, error: 'Sem chat resolvido' })
           continue
         }
-        await callEdge({
-          action: 'send_text',
-          instance_id: instance.id,
-          wa_chat_id: waChatId,
-          text,
-        })
+        if (scheduledIso) {
+          // Schedule: insert into wpp_scheduled_messages so the cron worker
+          // picks it up at the right time. Same table the /whatsapp/scheduled
+          // endpoint writes to.
+          const { error: schedErr } = await admin
+            .from('wpp_scheduled_messages')
+            .insert({
+              chat_id: chat.id,
+              instance_id: instance.id,
+              message_type: 'text',
+              text,
+              scheduled_at: scheduledIso,
+              created_by: auth.user.id,
+            } as any)
+          if (schedErr) throw new Error(schedErr.message)
+        } else {
+          await callEdge({
+            action: 'send_text',
+            instance_id: instance.id,
+            wa_chat_id: chat.waChatId,
+            text,
+          })
+        }
         details.push({ phone: raw, ok: true })
       } catch (err) {
         details.push({
@@ -173,7 +214,7 @@ export async function POST(request: Request) {
 
     const sent = details.filter((d) => d.ok).length
     const failed = details.length - sent
-    return NextResponse.json({ sent, failed, details })
+    return NextResponse.json({ sent, failed, details, scheduled: Boolean(scheduledIso) })
   } catch (error) {
     console.error('Erro em voice/whatsapp-send:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

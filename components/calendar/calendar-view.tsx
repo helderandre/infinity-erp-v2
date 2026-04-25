@@ -20,6 +20,7 @@ interface CalendarViewProps {
   onViewChange: (view: CalendarViewMode) => void
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
+  onCreateAtTime?: (date: Date) => void
   onDayNumberClick?: (date: Date) => void
   onDayBack?: () => void
   dayBackLabel?: string
@@ -107,6 +108,7 @@ export function CalendarView({
   onViewChange,
   onEventClick,
   onDayClick,
+  onCreateAtTime,
   onDayNumberClick,
   onDayBack,
   dayBackLabel,
@@ -154,6 +156,7 @@ export function CalendarView({
         tasks={tasks ?? []}
         onEventClick={onEventClick}
         onDayClick={onDayClick}
+        onCreateAtTime={onCreateAtTime}
       />
     )
   }

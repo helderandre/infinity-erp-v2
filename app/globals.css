@@ -440,6 +440,13 @@ body[data-document-selection-active='true'] {
   user-select: none;
 }
 
+/* Acessos page: paint the surrounding <main> a warm neutral grey so the cards
+   pop, without applying the colour via a child div (which broke iOS scroll
+   when combined with negative margins). */
+main:has([data-acessos-page]) {
+  background-color: oklch(0.96 0 0);
+}
+
 @media (pointer: coarse) {
   .selection-area-rect {
     display: none;

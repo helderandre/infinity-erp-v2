@@ -1,11 +1,12 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConsultantCard } from '@/components/consultants/consultant-card'
+import { ConsultantDetailSheet } from '@/components/consultants/consultant-detail-sheet'
 import { ConsultantFilters } from '@/components/consultants/consultant-filters'
 import { CreateConsultantDialog } from '@/components/consultants/create-consultant-dialog'
 import {
@@ -75,7 +76,10 @@ function ConsultoresPageSkeleton() {
 
 function ConsultoresPageContent() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabKey>('equipa')
+  const [detailConsultantId, setDetailConsultantId] = useState<string | null>(null)
 
   const [consultants, setConsultants] = useState<ConsultantWithProfile[]>([])
   const [total, setTotal] = useState(0)
@@ -175,6 +179,33 @@ function ConsultoresPageContent() {
   useEffect(() => { loadRoles() }, [loadRoles])
   useEffect(() => { loadAllMembers() }, [loadAllMembers])
   useEffect(() => { setPage(0) }, [debouncedSearch, status, role])
+
+  // Sync ?consultant=<id> with the detail sheet so deep links open directly.
+  const consultantParam = searchParams.get('consultant')
+  useEffect(() => {
+    if (consultantParam && consultantParam !== detailConsultantId) {
+      setDetailConsultantId(consultantParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultantParam])
+
+  const openConsultantSheet = (id: string) => {
+    setDetailConsultantId(id)
+    const params = new URLSearchParams(searchParams?.toString() ?? '')
+    params.set('consultant', id)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  const handleConsultantSheetOpenChange = (open: boolean) => {
+    if (open) return
+    setDetailConsultantId(null)
+    if (consultantParam) {
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      params.delete('consultant')
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    }
+  }
 
   const clearFilters = () => {
     setSearch('')
@@ -303,7 +334,7 @@ function ConsultoresPageContent() {
                     <div key={member.id} className="relative h-full">
                       <ConsultantCard
                         consultant={member}
-                        onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                        onClick={() => openConsultantSheet(member.id)}
                       />
                       {roleName && (
                         <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
@@ -354,7 +385,7 @@ function ConsultoresPageContent() {
                             <TableRow
                               key={member.id}
                               className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
-                              onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                              onClick={() => openConsultantSheet(member.id)}
                             >
                               <TableCell>
                                 <Avatar className="h-8 w-8">
@@ -456,7 +487,7 @@ function ConsultoresPageContent() {
                       <div key={consultant.id} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
                         <ConsultantCard
                           consultant={consultant}
-                          onClick={() => router.push(`/dashboard/consultores/${consultant.id}`)}
+                          onClick={() => openConsultantSheet(consultant.id)}
                         />
                       </div>
                     ))}
@@ -467,7 +498,7 @@ function ConsultoresPageContent() {
                       <ConsultantCard
                         key={consultant.id}
                         consultant={consultant}
-                        onClick={() => router.push(`/dashboard/consultores/${consultant.id}`)}
+                        onClick={() => openConsultantSheet(consultant.id)}
                       />
                     ))}
                   </div>
@@ -511,7 +542,7 @@ function ConsultoresPageContent() {
                             <TableRow
                               key={consultant.id}
                               className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
-                              onClick={() => router.push(`/dashboard/consultores/${consultant.id}`)}
+                              onClick={() => openConsultantSheet(consultant.id)}
                             >
                               <TableCell>
                                 <Avatar className="h-8 w-8">
@@ -605,7 +636,7 @@ function ConsultoresPageContent() {
                     <div key={member.id} className="relative h-full">
                       <ConsultantCard
                         consultant={member}
-                        onClick={() => router.push(`/dashboard/consultores/${member.id}`)}
+                        onClick={() => openConsultantSheet(member.id)}
                       />
                       {roleName && (
                         <Badge variant="secondary" className="absolute top-3 right-3 rounded-full text-[10px] px-2.5 py-1 bg-black/50 backdrop-blur-md text-white border-0 shadow-lg">
@@ -656,6 +687,12 @@ function ConsultoresPageContent() {
         endpoint="/api/export/consultants"
         title="Consultores"
         showConsultantFilter={false}
+      />
+
+      <ConsultantDetailSheet
+        consultantId={detailConsultantId}
+        open={!!detailConsultantId}
+        onOpenChange={handleConsultantSheetOpenChange}
       />
     </div>
   )

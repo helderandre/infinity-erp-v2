@@ -8,6 +8,7 @@ import {
   AcqTextareaField,
   AcqSelectField,
 } from './acquisition-field'
+import { PropertyVoiceDescription } from './property-voice-description'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -116,12 +117,14 @@ export function StepProperty({ form }: StepPropertyProps) {
           isAiFilled={ai('energy_certificate')}
         />
 
+        <PropertyVoiceDescription form={form} />
+
         <AcqTextareaField
           label="Descrição"
           value={form.watch('description')}
           onChange={(v) => form.setValue('description', v)}
-          placeholder="Descreva as características principais do imóvel..."
-          rows={3}
+          placeholder="Descreva as características principais do imóvel ou utilize a gravação por voz acima..."
+          rows={5}
         />
       </div>
 

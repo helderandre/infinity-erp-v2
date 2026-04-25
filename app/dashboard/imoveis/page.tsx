@@ -2,22 +2,14 @@
 
 
 import { Suspense, useEffect, useState, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
-import { StatusBadge } from '@/components/shared/status-badge'
 import { PropertyFilters } from '@/components/properties/property-filters'
 import { PropertyCard } from '@/components/properties/property-card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
+import { PropertyListItem, type PropertyListItemData } from '@/components/properties/property-list-item'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +45,7 @@ import {
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
-import { formatCurrency, formatDate, PROPERTY_TYPES, PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
+import { PROPERTY_STATUS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { PropertyWithRelations } from '@/types/property'
@@ -81,25 +73,10 @@ function ImoveisPageSkeleton() {
         <Skeleton className="h-10 w-32" />
       </div>
       <Skeleton className="h-10 w-full" />
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <TableHead key={i}><Skeleton className="h-4 w-16" /></TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <TableRow key={i}>
-                {Array.from({ length: 8 }).map((_, j) => (
-                  <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="space-y-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-[104px] w-full rounded-2xl" />
+        ))}
       </div>
     </div>
   )
@@ -107,9 +84,11 @@ function ImoveisPageSkeleton() {
 
 function ImoveisPageContent() {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [properties, setProperties] = useState<PropertyWithRelations[]>([])
+  const [detailPropertyId, setDetailPropertyId] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
@@ -197,6 +176,34 @@ function ImoveisPageContent() {
     loadConsultants()
   }, [loadConsultants])
 
+  // Sync ?property=<slug|id> with the detail sheet so deep links open directly.
+  const propertyParam = searchParams.get('property')
+  useEffect(() => {
+    if (propertyParam && propertyParam !== detailPropertyId) {
+      setDetailPropertyId(propertyParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyParam])
+
+  const openPropertySheet = (p: PropertyWithRelations) => {
+    const key = p.slug || p.id
+    setDetailPropertyId(key)
+    const params = new URLSearchParams(searchParams?.toString() ?? '')
+    params.set('property', key)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  const handleSheetOpenChange = (open: boolean) => {
+    if (open) return
+    setDetailPropertyId(null)
+    if (propertyParam) {
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      params.delete('property')
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    }
+  }
+
   // Reset page when filters change
   useEffect(() => {
     setPage(0)
@@ -241,12 +248,6 @@ function ImoveisPageContent() {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
-
-  const getCoverUrl = (property: PropertyWithRelations) => {
-    const cover = property.dev_property_media?.find((m) => m.is_cover)
-      || property.dev_property_media?.[0]
-    return cover?.url
-  }
 
   const handleSort = (column: string) => (dir: 'asc' | 'desc') => {
     setSortBy(column)
@@ -305,14 +306,9 @@ function ImoveisPageContent() {
       <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 sm:px-8 py-6">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
         <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Imóveis</h1>
-              <p className="text-neutral-400 text-sm">{total} imóve{total !== 1 ? 'is' : 'l'}</p>
-            </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Imóveis</h1>
+            <p className="text-neutral-400 text-sm">{total} imóve{total !== 1 ? 'is' : 'l'}</p>
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle — desktop only (inside card) */}
@@ -367,41 +363,10 @@ function ImoveisPageContent() {
 
       {isLoading ? (
         viewMode === 'table' ? (
-          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]" />
-                  <TableHead><SortableColumnHeader column="title" label="Título" /></TableHead>
-                  <TableHead><SortableColumnHeader column="external_ref" label="Ref. Externa" /></TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Negócio</TableHead>
-                  <TableHead>Cidade</TableHead>
-                  <TableHead><SortableColumnHeader column="listing_price" label="Preço" /></TableHead>
-                  <TableHead><SortableColumnHeader column="status" label="Estado" /></TableHead>
-                  <TableHead>Consultor</TableHead>
-                  <TableHead><SortableColumnHeader column="created_at" label="Data" /></TableHead>
-                  <TableHead className="w-[50px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="rounded-3xl border border-border/40 shadow-sm p-3 sm:p-4 space-y-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-[104px] w-full rounded-2xl" />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -437,109 +402,50 @@ function ImoveisPageContent() {
         />
       ) : viewMode === 'table' ? (
         <>
-          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]" />
-                  <TableHead><SortableColumnHeader column="title" label="Título" /></TableHead>
-                  <TableHead><SortableColumnHeader column="external_ref" label="Ref. Externa" /></TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Negócio</TableHead>
-                  <TableHead>Cidade</TableHead>
-                  <TableHead><SortableColumnHeader column="listing_price" label="Preço" /></TableHead>
-                  <TableHead><SortableColumnHeader column="status" label="Estado" /></TableHead>
-                  <TableHead>Consultor</TableHead>
-                  <TableHead><SortableColumnHeader column="created_at" label="Data" /></TableHead>
-                  <TableHead className="w-[50px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {properties.map((property) => (
-                  <TableRow
-                    key={property.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => router.push(`/dashboard/imoveis/${property.slug || property.id}`)}
-                  >
-                    <TableCell>
-                      {getCoverUrl(property) ? (
-                        <div className="relative h-10 w-10 rounded-lg overflow-hidden bg-muted shrink-0 shadow-sm">
-                          <Image
-                            src={getCoverUrl(property)!}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="40px"
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium max-w-[200px] truncate">
-                      {property.title}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs font-mono">
-                      {property.external_ref || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type || '—'}
-                    </TableCell>
-                    <TableCell>
-                      {property.business_type && (
-                        <span className={cn(
-                          'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap border',
-                          property.business_type === 'venda'
-                            ? 'bg-blue-500/15 text-blue-700 border-blue-400/30 dark:text-blue-300'
-                            : property.business_type === 'arrendamento'
-                              ? 'bg-amber-500/15 text-amber-700 border-amber-400/30 dark:text-amber-300'
-                              : 'bg-muted text-muted-foreground border-border'
-                        )}>
-                          {BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {property.city || '—'}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(property.listing_price)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={property.status || 'pending_approval'} type="property" />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {property.consultant?.commercial_name || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(property.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl">
-                          <DropdownMenuItem className="rounded-lg" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/imoveis/${property.slug || property.id}`) }}>
-                            <Building2 className="mr-2 h-3.5 w-3.5" />
-                            Ver Detalhe
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive rounded-lg" onClick={(e) => { e.stopPropagation(); setDeleteId(property.id) }}>
-                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="rounded-3xl border border-border/40 shadow-sm p-3 sm:p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+              <div className="text-[11px] font-medium text-muted-foreground">
+                {total} imóve{total !== 1 ? 'is' : 'l'}
+              </div>
+              <div className="flex items-center gap-0.5">
+                <span className="text-[11px] text-muted-foreground mr-1">Ordenar:</span>
+                <SortableColumnHeader column="created_at" label="Data" />
+                <SortableColumnHeader column="listing_price" label="Preço" />
+                <SortableColumnHeader column="title" label="Título" />
+                <SortableColumnHeader column="status" label="Estado" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {properties.map((property) => (
+                <PropertyListItem
+                  key={property.id}
+                  property={property as unknown as PropertyListItemData}
+                  onSelect={() => openPropertySheet(property)}
+                  showStatus
+                  actions={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-xl">
+                        <DropdownMenuItem className="rounded-lg" onClick={(e) => { e.stopPropagation(); openPropertySheet(property) }}>
+                          <Building2 className="mr-2 h-3.5 w-3.5" />
+                          Ver Detalhe
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive rounded-lg" onClick={(e) => { e.stopPropagation(); setDeleteId(property.id) }}>
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                />
+              ))}
+            </div>
           </div>
 
           {totalPages > 1 && (
@@ -561,7 +467,7 @@ function ImoveisPageContent() {
               <PropertyCard
                 key={property.id}
                 property={property}
-                onClick={() => router.push(`/dashboard/imoveis/${property.slug || property.id}`)}
+                onClick={() => openPropertySheet(property)}
               />
             ))}
           </div>
@@ -605,6 +511,12 @@ function ImoveisPageContent() {
         onOpenChange={setExportOpen}
         endpoint="/api/export/properties"
         title="Imóveis"
+      />
+
+      <PropertyDetailSheet
+        propertyId={detailPropertyId}
+        open={!!detailPropertyId}
+        onOpenChange={handleSheetOpenChange}
       />
     </div>
   )

@@ -75,9 +75,15 @@ interface MyLeadsSheetProps {
   onOpenChange: (open: boolean) => void
   /** Reserved for future per-consultant filtering — currently unused. */
   consultantId?: string | null
+  /**
+   * Fired whenever an entry is qualified into a negócio or a brand-new entry
+   * is created. The CRM page uses this to silently refresh the kanban so the
+   * new card appears immediately.
+   */
+  onNegocioCreated?: () => void
 }
 
-export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
+export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSheetProps) {
   const isMobile = useIsMobile()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [total, setTotal] = useState(0)
@@ -169,6 +175,7 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
           setQualifyEntry(null)
           setSelectedEntryId(null)
           fetchEntries()
+          onNegocioCreated?.()
         }}
       />
 
@@ -178,6 +185,7 @@ export function MyLeadsSheet({ open, onOpenChange }: MyLeadsSheetProps) {
         onComplete={() => {
           setShowNewDialog(false)
           fetchEntries()
+          onNegocioCreated?.()
         }}
         realEstateOnly
       />

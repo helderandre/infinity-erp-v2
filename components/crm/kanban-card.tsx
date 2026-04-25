@@ -10,6 +10,7 @@ import { parseObservations } from '@/components/crm/observations-dialog'
 interface KanbanCardProps {
   negocio: any
   onDragStart: (negocioId: string) => void
+  onClick?: () => void
 }
 
 const formatEUR = (value: number) =>
@@ -34,7 +35,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 // ─── Negócio Card ──────────────────────────────────────────────────────────
 
-export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
+export function KanbanCard({ negocio, onDragStart, onClick: onClickProp }: KanbanCardProps) {
   const router = useRouter()
 
   const contact = negocio.contact ?? negocio.leads
@@ -73,6 +74,10 @@ export function KanbanCard({ negocio, onDragStart }: KanbanCardProps) {
   }
 
   function handleClick() {
+    if (onClickProp) {
+      onClickProp()
+      return
+    }
     const leadId = negocio.lead_id ?? negocio.contact_id
     router.push(`/dashboard/leads/${leadId}/negocios/${negocio.id}`)
   }

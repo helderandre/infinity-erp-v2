@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast, Toaster } from 'sonner'
 import {
   CheckCircle2,
@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Mail,
   Phone,
+  Home,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +36,18 @@ import {
   type OwnerInviteContext,
   type OwnerDocSlot,
 } from '@/lib/owner-invites/doc-slots'
+import { PROPERTY_DOC_SLOTS } from '@/lib/owner-invites/property-doc-slots'
 import { MARITAL_STATUS, MARITAL_REGIMES } from '@/lib/constants'
+
+interface PropertyDocSlotStatus {
+  slug: string
+  label: string
+  description?: string
+  required: boolean
+  status: 'present' | 'missing'
+  file_name?: string
+  uploaded_at?: string
+}
 
 type Mode = 'singular' | 'coletiva'
 
@@ -109,6 +122,37 @@ export function OwnerInviteForm(props: Props) {
   const [classifying, setClassifying] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [propertyDocs, setPropertyDocs] = useState<PropertyDocSlotStatus[]>(
+    PROPERTY_DOC_SLOTS.map((s) => ({
+      slug: s.slug,
+      label: s.label,
+      description: s.description,
+      required: s.required,
+      status: 'missing' as const,
+    }))
+  )
+  const [propertyDocsLoading, setPropertyDocsLoading] = useState(true)
+
+  const loadPropertyDocs = async () => {
+    try {
+      const res = await fetch(
+        `/api/owner-invites/${props.token}/property-docs`,
+        { cache: 'no-store' }
+      )
+      if (!res.ok) return
+      const data = (await res.json()) as { slots: PropertyDocSlotStatus[] }
+      setPropertyDocs(data.slots)
+    } catch {
+      /* ignore */
+    } finally {
+      setPropertyDocsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPropertyDocs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.token])
 
   const context: OwnerInviteContext = useMemo(() => {
     if (mode === 'coletiva') return 'coletiva'
@@ -172,7 +216,6 @@ export function OwnerInviteForm(props: Props) {
       setFiles((prev) => [...prev, ...uploaded])
       toast.success('Ficheiros carregados. A IA está a identificar...')
 
-      // Classify them.
       setClassifying(true)
       try {
         const res = await fetch(`/api/owner-invites/${props.token}/classify`, {
@@ -187,24 +230,105 @@ export function OwnerInviteForm(props: Props) {
             })),
           }),
         })
-        if (res.ok) {
-          const data = (await res.json()) as {
-            results: { file_url: string; suggested_slot: string }[]
+        if (!res.ok) {
+          toast.error('Não foi possível classificar os documentos')
+          return
+        }
+        const data = (await res.json()) as {
+          results: {
+            file_url: string
+            suggested_slot: string
+            suggested_scope: 'owner' | 'property' | 'unknown'
+          }[]
+        }
+
+        // Persist property-classified files to doc_registry now so the
+        // status indicators flip to "Já carregado" without waiting for submit.
+        const propertyResults = data.results.filter(
+          (r) =>
+            r.suggested_scope === 'property' && r.suggested_slot !== 'unknown'
+        )
+        const registeredUrls = new Set<string>()
+        for (const r of propertyResults) {
+          const f = uploaded.find((u) => u.file_url === r.file_url)
+          if (!f) continue
+          try {
+            const reg = await fetch(
+              `/api/owner-invites/${props.token}/property-docs/register`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  slot_slug: r.suggested_slot,
+                  file_url: f.file_url,
+                  r2_key: f.r2_key,
+                  file_name: f.file_name,
+                  file_size: f.file_size,
+                  mime_type: f.mime_type,
+                }),
+              }
+            )
+            if (reg.ok) registeredUrls.add(f.file_url)
+          } catch {
+            /* ignore — file stays unclassified, user can retry */
           }
-          setFiles((prev) =>
-            prev.map((f) => {
-              const match = data.results.find((r) => r.file_url === f.file_url)
-              if (match && match.suggested_slot !== 'unknown') {
+        }
+
+        // Re-bucket: drop property-registered files, reassign owner files.
+        setFiles((prev) =>
+          prev
+            .filter((f) => !registeredUrls.has(f.file_url))
+            .map((f) => {
+              const match = data.results.find(
+                (r) => r.file_url === f.file_url
+              )
+              if (
+                match &&
+                match.suggested_scope === 'owner' &&
+                match.suggested_slot !== 'unknown'
+              ) {
                 return { ...f, slot_slug: match.suggested_slot }
               }
               return f
             })
-          )
-          toast.success('Documentos classificados — verifique e ajuste se necessário')
-        }
+        )
+
+        if (registeredUrls.size > 0) await loadPropertyDocs()
+        toast.success(
+          'Documentos classificados — verifique e ajuste se necessário'
+        )
       } finally {
         setClassifying(false)
       }
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handlePropertyDocUpload = async (
+    slotSlug: string,
+    fileList: FileList | null
+  ) => {
+    if (!fileList || fileList.length === 0) return
+    setUploading(true)
+    try {
+      for (const f of Array.from(fileList)) {
+        const fd = new FormData()
+        fd.append('file', f)
+        fd.append('slot_slug', slotSlug)
+        const res = await fetch(
+          `/api/owner-invites/${props.token}/property-docs/upload`,
+          { method: 'POST', body: fd }
+        )
+        if (!res.ok) {
+          const { error } = await res.json().catch(() => ({}))
+          throw new Error(error || 'Upload falhou')
+        }
+      }
+      toast.success('Documento carregado')
+      await loadPropertyDocs()
     } catch (err) {
       toast.error((err as Error).message)
     } finally {
@@ -507,27 +631,31 @@ export function OwnerInviteForm(props: Props) {
           title="Documentos"
           description="Carregue cada documento no slot correspondente, ou use o carregamento inteligente e deixe a IA identificar cada um."
         >
-          {/* Smart upload */}
-          <div className="rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 p-4">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                <Sparkles className="h-5 w-5 text-violet-600" />
+          {/* Smart upload — glassmorphic */}
+          <div className="relative rounded-2xl border border-border/40 bg-background/60 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl shadow-sm overflow-hidden">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-foreground/[0.04] via-transparent to-foreground/[0.02]"
+            />
+            <div className="relative flex items-start gap-3 p-4">
+              <div className="h-9 w-9 rounded-xl bg-foreground/[0.04] border border-border/40 flex items-center justify-center shrink-0 backdrop-blur-sm">
+                <Sparkles className="h-4 w-4 text-foreground/70" />
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-2.5">
                 <div>
-                  <p className="text-sm font-semibold text-violet-900">
+                  <p className="text-sm font-semibold tracking-tight">
                     Carregamento inteligente
                   </p>
-                  <p className="text-xs text-violet-800/80">
-                    Envie todos os documentos de uma vez e a IA identifica qual é
-                    cada um. Pode sempre corrigir a seguir.
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Envie todos os documentos — do proprietário e do imóvel — de
+                    uma vez. A IA identifica cada um e coloca-o no sítio certo.
                   </p>
                 </div>
-                <label className="inline-flex items-center gap-2 text-sm font-medium bg-white hover:bg-violet-50 border border-violet-200 text-violet-700 px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
+                <label className="inline-flex items-center gap-2 text-xs font-medium rounded-full border border-border/40 bg-background/60 hover:bg-background/80 px-3.5 py-1.5 backdrop-blur-sm cursor-pointer transition-colors disabled:opacity-50">
                   {classifying ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Upload className="h-4 w-4" />
+                    <Upload className="h-3.5 w-3.5" />
                   )}
                   {classifying ? 'A classificar...' : 'Carregar tudo de uma vez'}
                   <input
@@ -616,6 +744,32 @@ export function OwnerInviteForm(props: Props) {
                     </Button>
                   </div>
                 ))}
+            </div>
+          )}
+        </Section>
+
+        {/* Property docs */}
+        <Section
+          step={mode === 'singular' && isHeranca ? 5 : 4}
+          icon={Home}
+          title="Documentos do imóvel"
+          description="Estes documentos estão associados ao imóvel. Se algum já tiver sido carregado pelo consultor, aparece marcado como concluído — não é necessário voltar a carregar."
+        >
+          {propertyDocsLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> A verificar
+              documentos já carregados...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {propertyDocs.map((slot) => (
+                <PropertySlotUpload
+                  key={slot.slug}
+                  slot={slot}
+                  onUpload={(fl) => handlePropertyDocUpload(slot.slug, fl)}
+                  uploading={uploading}
+                />
+              ))}
             </div>
           )}
         </Section>
@@ -994,6 +1148,77 @@ function SlotUpload({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function PropertySlotUpload({
+  slot,
+  onUpload,
+  uploading,
+}: {
+  slot: PropertyDocSlotStatus
+  onUpload: (fl: FileList | null) => void
+  uploading: boolean
+}) {
+  const isPresent = slot.status === 'present'
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-3 flex flex-col gap-2 transition-colors',
+        isPresent ? 'bg-emerald-50/40 border-emerald-200' : 'bg-white'
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isPresent ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <p className="text-sm font-medium truncate">{slot.label}</p>
+            {slot.required ? (
+              <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                Recomendado
+              </span>
+            ) : (
+              <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                Opcional
+              </span>
+            )}
+          </div>
+          {slot.description ? (
+            <p className="text-xs text-muted-foreground mt-0.5 ml-6">
+              {slot.description}
+            </p>
+          ) : null}
+          {isPresent ? (
+            <p className="text-[11px] text-emerald-700 mt-1 ml-6 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Já carregado{slot.file_name ? ` — ${slot.file_name}` : ''}. Não
+              precisa de carregar novamente.
+            </p>
+          ) : null}
+        </div>
+        {!isPresent && (
+          <label className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium bg-white hover:bg-neutral-50 border px-2.5 py-1.5 rounded-lg cursor-pointer">
+            <Upload className="h-3.5 w-3.5" />
+            Carregar
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                onUpload(e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </label>
+        )}
+      </div>
     </div>
   )
 }

@@ -25,7 +25,16 @@ interface CalendarWeekViewProps {
   tasks?: TaskWithRelations[]
   onEventClick: (event: CalendarEvent) => void
   onDayClick: (date: Date) => void
+  /**
+   * Fired when the user clicks an empty time slot in a day column. Receives
+   * a Date for the clicked day at the snapped time (15-minute increments).
+   * Mirrors Google Calendar's behaviour — clicking the grid opens an event
+   * form pre-filled with that start time.
+   */
+  onCreateAtTime?: (date: Date) => void
 }
+
+const SNAP_MINUTES = 15
 
 const HOUR_START = 0
 const HOUR_END = 23
@@ -49,7 +58,26 @@ export function CalendarWeekView({
   tasks,
   onEventClick,
   onDayClick,
+  onCreateAtTime,
 }: CalendarWeekViewProps) {
+  // Resolve a click on the time-grid column into a Date snapped to 15 min.
+  const handleGridClick = (e: React.MouseEvent<HTMLDivElement>, day: Date) => {
+    if (!onCreateAtTime) {
+      onDayClick(day)
+      return
+    }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const offsetY = Math.max(0, Math.min(e.clientY - rect.top, rect.height - 1))
+    const minutesFromTop = (offsetY / HOUR_HEIGHT) * 60
+    const totalMinutes = HOUR_START * 60 + minutesFromTop
+    const snapped = Math.round(totalMinutes / SNAP_MINUTES) * SNAP_MINUTES
+    const hour = Math.min(HOUR_END, Math.max(HOUR_START, Math.floor(snapped / 60)))
+    const minute = Math.min(45, Math.max(0, snapped % 60))
+    const at = new Date(day)
+    at.setHours(hour, minute, 0, 0)
+    onCreateAtTime(at)
+  }
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -234,7 +262,7 @@ export function CalendarWeekView({
               <div
                 key={day.toISOString()}
                 className={cn(
-                  'absolute border-l cursor-pointer',
+                  'absolute border-l cursor-pointer hover:bg-primary/[0.04] transition-colors',
                   today && 'bg-primary/[0.02]'
                 )}
                 style={{
@@ -243,7 +271,8 @@ export function CalendarWeekView({
                   left: `calc(var(--time-col) + (100% - var(--time-col)) * ${dayIdx} / 7)`,
                   width: `calc((100% - var(--time-col)) / 7)`,
                 }}
-                onClick={() => onDayClick(day)}
+                onClick={(e) => handleGridClick(e, day)}
+                title={onCreateAtTime ? 'Clique para criar evento' : undefined}
               >
                 {(() => {
                   // Compute layout: assign column index to overlapping events

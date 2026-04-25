@@ -82,20 +82,40 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
     markRead()
   }, [chatId, markRead])
 
-  // Scroll to bottom when chat changes (after messages load)
+  // Reset "new chat" marker when the user switches chats — forces the
+  // scroll-to-bottom effect below to treat the next populated render as a
+  // fresh chat open, even if the previous chat had the same id recently.
   const prevChatIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!isLoading && messages.length > 0 && bottomRef.current) {
-      if (prevChatIdRef.current !== chatId) {
-        // New chat opened — instant scroll to bottom
-        prevChatIdRef.current = chatId
-        requestAnimationFrame(() => {
-          bottomRef.current?.scrollIntoView()
-        })
-      } else if (isAtBottomRef.current) {
-        // Same chat, new message — smooth scroll
-        bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    prevChatIdRef.current = null
+    isAtBottomRef.current = true
+  }, [chatId])
+
+  // Scroll to bottom when chat changes (after messages load)
+  useEffect(() => {
+    if (isLoading || messages.length === 0) return
+    const el = scrollRef.current
+    if (!el) return
+
+    if (prevChatIdRef.current !== chatId) {
+      // New chat opened — instant scroll to bottom, retried after a tick so
+      // late-sized content (images, media) doesn't leave us a few pixels short.
+      prevChatIdRef.current = chatId
+      const jumpToBottom = () => {
+        el.scrollTop = el.scrollHeight
       }
+      requestAnimationFrame(jumpToBottom)
+      const t1 = window.setTimeout(jumpToBottom, 50)
+      const t2 = window.setTimeout(jumpToBottom, 250)
+      return () => {
+        window.clearTimeout(t1)
+        window.clearTimeout(t2)
+      }
+    }
+
+    if (isAtBottomRef.current) {
+      // Same chat, new message — smooth scroll
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [isLoading, messages, chatId])
 
@@ -215,8 +235,8 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
               </div>
             )}
 
-            {groupedMessages.map((group) => (
-              <div key={group.date}>
+            {groupedMessages.map((group, groupIdx) => (
+              <div key={`${group.date}-${group.messages[0]?.id ?? groupIdx}`}>
                 {/* Date Separator */}
                 <div className="flex items-center justify-center my-3">
                   <span className="bg-background/80 backdrop-blur-sm text-xs text-muted-foreground px-3 py-1 rounded-full shadow-sm">

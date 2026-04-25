@@ -1,9 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Phone, Mail, MessageSquare, Copy } from 'lucide-react'
+import { Phone, Mail, MessageSquare, MessagesSquare, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ConsultantWithProfile } from '@/types/consultant'
+import { WhatsappChatSheet } from '@/components/whatsapp/whatsapp-chat-sheet'
+import { EmailComposeSheet } from '@/components/email/email-compose-sheet'
+import { InternalChatSheet } from '@/components/consultants/internal-chat-sheet'
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -29,6 +33,9 @@ async function copyToClipboard(text: string) {
 }
 
 export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
+  const [waOpen, setWaOpen] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const profile = consultant.dev_consultant_profiles
   const initials = consultant.commercial_name
     .split(' ')
@@ -42,6 +49,7 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
   const email = consultant.professional_email
 
   return (
+    <>
     <Card
       className="overflow-hidden transition-all shadow-md hover:shadow-xl rounded-2xl cursor-pointer group pt-0"
       onClick={onClick}
@@ -129,31 +137,46 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
               <MessageSquare className="h-4 w-4" />
             </div>
           )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setChatOpen(true)
+            }}
+            title="Chat interno"
+            className="h-9 w-9 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all"
+          >
+            <MessagesSquare className="h-4 w-4" />
+          </button>
           {phone ? (
-            <a
-              href={`https://wa.me/351${phone.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setWaOpen(true)
+              }}
               title="WhatsApp"
               className="h-9 w-9 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all"
             >
               <WhatsAppIcon className="h-4 w-4" />
-            </a>
+            </button>
           ) : (
             <div className="h-9 w-9 rounded-full bg-muted/40 border border-border/50 flex items-center justify-center text-muted-foreground/30" title="Sem telefone">
               <WhatsAppIcon className="h-4 w-4" />
             </div>
           )}
           {email ? (
-            <a
-              href={`mailto:${email}`}
-              onClick={(e) => e.stopPropagation()}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setEmailOpen(true)
+              }}
               title="Email"
               className="h-9 w-9 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all"
             >
               <Mail className="h-4 w-4" />
-            </a>
+            </button>
           ) : (
             <div className="h-9 w-9 rounded-full bg-muted/40 border border-border/50 flex items-center justify-center text-muted-foreground/30" title="Sem email">
               <Mail className="h-4 w-4" />
@@ -162,5 +185,28 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
         </div>
       </div>
     </Card>
+    {phone && (
+      <WhatsappChatSheet
+        open={waOpen}
+        onOpenChange={setWaOpen}
+        phone={phone}
+        contactName={consultant.commercial_name}
+      />
+    )}
+    {email && (
+      <EmailComposeSheet
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        recipientEmail={email}
+        recipientName={consultant.commercial_name}
+      />
+    )}
+    <InternalChatSheet
+      open={chatOpen}
+      onOpenChange={setChatOpen}
+      recipientId={consultant.id}
+      recipientName={consultant.commercial_name}
+    />
+    </>
   )
 }

@@ -566,9 +566,11 @@ export function PropertyMediaGallery({
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const rawMedia = media.length > 0 ? media : initialMedia
-  // Hide plantas from the regular gallery (they live in the Plantas section)
+  // Hide plantas (both regular floor plans and 3D renders) from the gallery —
+  // they live in the Plantas section. Check both media_type (how uploads are
+  // categorized) and ai_room_label (how AI classification tags them).
   const allMedia = [...rawMedia]
-    .filter((m) => m.ai_room_label !== 'planta')
+    .filter((m) => m.media_type !== 'planta' && m.media_type !== 'planta_3d' && m.ai_room_label !== 'planta')
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
   const currentMedia = displayMode === 'original'
     ? allMedia

@@ -81,6 +81,15 @@ export async function GET(
       negociosQuery = negociosQuery.ilike('leads.nome', `%${search}%`)
     }
 
+    // Newest activity at the top of each column. stage_entered_at is set on
+    // creation and refreshed whenever the negócio is dragged to a new stage,
+    // so this orders by "most recent move into this column" — what the user
+    // actually wants when scanning the pipeline. Falls back to created_at for
+    // any legacy rows where stage_entered_at is null.
+    negociosQuery = negociosQuery
+      .order('stage_entered_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+
     const { data: negocios, error: negociosError } = await negociosQuery
     if (negociosError) return NextResponse.json({ error: negociosError.message }, { status: 500 })
 

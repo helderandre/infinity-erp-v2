@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 import { Separator } from '@/components/ui/separator'
+import { Mic } from 'lucide-react'
 import {
   SidebarInset,
   SidebarProvider,
@@ -41,10 +42,6 @@ const MobileBottomNav = dynamic(
 )
 const AiAgentChat = dynamic(
   () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
-  { ssr: false }
-)
-const AiVoiceTrigger = dynamic(
-  () => import('@/components/shared/ai-voice-trigger').then((m) => m.AiVoiceTrigger),
   { ssr: false }
 )
 const AiVoiceAssistant = dynamic(
@@ -149,6 +146,15 @@ export default function DashboardLayout({
               <div className="hidden sm:block">
                 <SearchCommand />
               </div>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event('open-voice-assistant'))}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
+                title="Assistente de voz"
+              >
+                <Mic className="size-4" />
+                <span className="sr-only">Assistente de voz</span>
+              </button>
               <AiAgentChat />
               <QuickActions />
               <NotificationPopover />
@@ -176,7 +182,6 @@ export default function DashboardLayout({
         <GoalDailyPopup />
         <MobileBottomNav />
         <AiBatchNotification />
-        <AiVoiceTrigger />
         <AiVoiceAssistant />
       </SidebarProvider>
       <EmailComposerPopup />

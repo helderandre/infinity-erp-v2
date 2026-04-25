@@ -13,6 +13,11 @@ export type VoiceToolName =
   | 'search_document'
   | 'search_partner'
   | 'open_link'
+  | 'send_message'
+  | 'add_lead_note'
+  | 'schedule_follow_up'
+  | 'generate_property_description'
+  | 'attach_document'
 
 export type VoiceConfidence = 'alta' | 'media' | 'baixa'
 
@@ -406,6 +411,154 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
       }),
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'send_message',
+      description:
+        'Enviar uma mensagem (WhatsApp) ou email a um contacto/lead, com envio imediato OU agendado. Usar para "manda mensagem ao João a dizer X", "envia email à Maria a confirmar Y", "agenda uma mensagem ao Pedro para amanhã às 9h a lembrar Z". Extrai TUDO o que o utilizador disser; o resto é completado visualmente.',
+      parameters: withConfidence(
+        {
+          contact_name: {
+            type: 'string',
+            description: 'Nome do destinatário (contacto/lead). Procura será feita na tabela leads.',
+          },
+          channel: {
+            type: 'string',
+            enum: ['whatsapp', 'email'],
+            description:
+              'Canal de envio — "whatsapp" se o utilizador disse "manda mensagem"/"manda WhatsApp"/"envia sms"; "email" se disse "manda email"/"manda um mail". Omitir se não foi referido (valor por defeito é WhatsApp).',
+          },
+          message: {
+            type: 'string',
+            description:
+              'Corpo da mensagem tal como o utilizador ditar. Mantém tom natural e pontuação adequada em PT-PT.',
+          },
+          subject: {
+            type: 'string',
+            description:
+              'Assunto do email (ignorado no WhatsApp). Só preencher se o utilizador referir explicitamente ou se o canal for email e o contexto o sugerir claramente.',
+          },
+          scheduled_at: {
+            type: 'string',
+            description:
+              'Data/hora ISO 8601 para agendar o ENVIO da mensagem. CRÍTICO: usa APENAS quando o utilizador aplica linguagem imperativa sobre o TIMING DO ENVIO ("agenda para amanhã", "manda sexta às 9h", "envia daqui a 2 horas", "agendar"). NÃO extraias quando a hora/dia aparece DENTRO do conteúdo da mensagem. Exemplos: "envia mensagem ao João a dizer que chego amanhã às 18h" → a hora é CONTEÚDO, NÃO é agendamento (scheduled_at fica vazio, a hora vai no campo message); "agenda mensagem ao João para amanhã às 9h a lembrar da reunião" → aqui sim, scheduled_at=amanhã 09h. Se houver ambiguidade, OMITE — o utilizador pode activar agendamento manualmente no ecrã de confirmação.',
+          },
+        },
+        ['contact_name']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'attach_document',
+      description:
+        'Anexar/guardar um documento a um imóvel — tipicamente usado no mobile para fotografar um documento (contrato, caderneta, licença) e arquivá-lo directamente no dossier do imóvel. Usar para "guarda o contrato no imóvel X", "anexa a caderneta do imóvel Y", "guardar licença". Abre um painel com selector de tipo + botão de câmara/ficheiro.',
+      parameters: withConfidence(
+        {
+          property_query: {
+            type: 'string',
+            description: 'Termo de pesquisa do imóvel: título, morada, zona, cidade, referência.',
+          },
+          doc_type_hint: {
+            type: 'string',
+            description:
+              'Tipo de documento em PT-PT tal como o utilizador o disse (ex: "contrato", "caderneta", "licença", "certificado energético"). Usado para pré-seleccionar o tipo correcto no painel.',
+          },
+          notes: {
+            type: 'string',
+            description: 'Observações sobre o documento (opcional).',
+          },
+        },
+        ['property_query']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generate_property_description',
+      description:
+        'Gerar uma descrição comercial para um imóvel usando IA (a partir das specs). Usar para "gera descrição do imóvel da Avenida de Roma", "escreve-me a descrição do T3 de Cascais", "preciso de uma descrição comercial para o 1234". Pesquisa o imóvel por título, zona, cidade ou últimos dígitos da referência externa.',
+      parameters: withConfidence(
+        {
+          property_query: {
+            type: 'string',
+            description:
+              'Termo de pesquisa do imóvel: título, morada, zona, cidade, referência completa ou últimos dígitos da referência externa.',
+          },
+          tone: {
+            type: 'string',
+            enum: ['professional', 'premium', 'cozy'],
+            description:
+              'Tom da descrição. "premium" para luxo/exclusividade, "cozy" para acolhedor/familiar, "professional" (default) para tom padrão. Omitir se o utilizador não referiu.',
+          },
+          additional_notes: {
+            type: 'string',
+            description:
+              'Notas extra do consultor para enriquecer a descrição (ex: "mencionar que foi remodelado em 2022", "destacar a proximidade ao metro"). Opcional.',
+          },
+        },
+        ['property_query']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'schedule_follow_up',
+      description:
+        'Agendar um follow-up com um contacto/lead (ligação, WhatsApp, email ou reunião). Usar para "follow-up com a Ana terça às 15h", "lembra-me de ligar ao João na sexta", "voltar a falar com o Pedro quarta". Associa ao contacto por defeito; opcionalmente a um negócio específico se o contacto tiver mais de um. Distingue-se de create_todo porque é um follow-up ligado a um CONTACTO conhecido.',
+      parameters: withConfidence(
+        {
+          contact_name: {
+            type: 'string',
+            description: 'Nome do contacto/lead. Procura feita em /api/leads.',
+          },
+          due_date: {
+            type: 'string',
+            description:
+              'Data/hora ISO 8601 do follow-up. Converte "amanhã", "sexta", "quarta às 15h" via o contexto temporal. Omite se o utilizador não referiu — preenche no ecrã.',
+          },
+          channel: {
+            type: 'string',
+            enum: ['call', 'whatsapp', 'email', 'meeting'],
+            description:
+              'Canal do follow-up: "ligar"/"chamar"/"telefonar"→call; "WhatsApp"/"mensagem"→whatsapp; "email"/"mail"→email; "reunião"/"encontro"→meeting. Omite se não referido (default=call no ecrã).',
+          },
+          notes: {
+            type: 'string',
+            description: 'Contexto/motivo livre do follow-up (opcional).',
+          },
+        },
+        ['contact_name']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_lead_note',
+      description:
+        'Adicionar uma nota ao histórico de actividades de um contacto/lead. Usar para "regista no João que está interessado no T3", "adiciona nota à Maria: não responde ao telefone", "aponta no Pedro que o orçamento subiu para 500k". A nota é gravada ao CONTACTO por defeito; se o utilizador pertence a múltiplos negócios, oferecemos no ecrã a opção de associar a um negócio específico.',
+      parameters: withConfidence(
+        {
+          contact_name: {
+            type: 'string',
+            description:
+              'Nome do contacto/lead a que a nota pertence. Procura feita em /api/leads.',
+          },
+          note: {
+            type: 'string',
+            description:
+              'Conteúdo da nota tal como o utilizador ditou, em PT-PT, pontuação adequada. Capture só o conteúdo factual — sem "regista que", "aponta que", etc., que são instruções, não parte da nota.',
+          },
+        },
+        ['contact_name', 'note']
+      ),
+    },
+  },
 ]
 
 export function buildConfirmText(tool: string, args: Record<string, any>): string {
@@ -449,6 +602,27 @@ export function buildConfirmText(tool: string, args: Record<string, any>): strin
       return `Procurar documentos: "${args.query}"`
     case 'open_link':
       return args.query ? `Abrir "${args.query}"` : 'Abrir link'
+    case 'send_message': {
+      const to = args.contact_name ? ` a ${args.contact_name}` : ''
+      const ch = args.channel === 'email' ? 'email' : 'WhatsApp'
+      return args.scheduled_at ? `Agendar ${ch}${to}` : `Enviar ${ch}${to}`
+    }
+    case 'add_lead_note': {
+      const to = args.contact_name ? ` a ${args.contact_name}` : ''
+      return `Adicionar nota${to}`
+    }
+    case 'schedule_follow_up': {
+      const to = args.contact_name ? ` com ${args.contact_name}` : ''
+      return `Follow-up${to}`
+    }
+    case 'generate_property_description': {
+      const q = args.property_query ? ` "${args.property_query}"` : ''
+      return `Gerar descrição${q}`
+    }
+    case 'attach_document': {
+      const q = args.property_query ? ` ao "${args.property_query}"` : ''
+      return `Anexar documento${q}`
+    }
     case 'search_partner': {
       const cat = args.category ? ` ${String(args.category).replace(/_/g, ' ')}` : ''
       const name = args.name_query ? ` "${args.name_query}"` : ''

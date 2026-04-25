@@ -26,9 +26,31 @@ CONFIANÇA (obrigatório):
 
 const REFINE_PROMPT = `És um assistente por voz a REFINAR os argumentos de uma acção já escolhida.
 A tool está fixa — não a mudes. Tens os argumentos actuais e uma nova frase do utilizador.
-Actualiza/completa os argumentos, preservando os existentes excepto quando o utilizador corrigir explicitamente.
-Devolve SEMPRE os args completos (existentes + novos/alterados) numa única chamada à tool, incluindo o campo "confidence".
-Responde em português de Portugal.`
+
+REGRAS DE INTERPRETAÇÃO (CRÍTICAS):
+- A frase do utilizador é uma INSTRUÇÃO de modificação — NÃO é conteúdo para copiar literalmente.
+- Identifica o verbo/intenção e aplica ao campo certo:
+  * "diz também que X", "acrescenta que X", "adiciona X" → MODIFICA o conteúdo (ex: message) para incorporar X; NÃO metas "diz também que X" literalmente no campo.
+  * "remove essa parte", "tira a última frase" → apaga do conteúdo existente.
+  * "muda para email", "afinal por WhatsApp" → altera o canal/metadata; conteúdo inalterado.
+  * "agenda para amanhã às 9h", "manda sexta às 15h" → preenche scheduled_at; message inalterada.
+  * "afinal manda à Maria", "muda o destinatário para o Pedro" → altera contact_name.
+  * "muda o assunto para X" → altera subject (só email).
+
+EXEMPLOS (send_message):
+- args.message="chego amanhã às 18h." + utilizador diz "diz também que não estou preparado e vou chegar atrasado"
+  → message="Chego amanhã às 18h. Não estou preparado e vou chegar atrasado."
+  (NÃO: message="chego amanhã às 18h. Diz também que não estou preparado...")
+- args.message="Olá João" + utilizador diz "acrescenta que a reunião é na sala 3"
+  → message="Olá João. A reunião é na sala 3."
+- args.channel="whatsapp" + utilizador diz "afinal manda por email"
+  → channel="email" (restantes campos preservados)
+
+REGRAS GERAIS:
+- Preserva TODOS os campos que o utilizador não alterou explicitamente.
+- Devolve SEMPRE os args completos (existentes + alterados) numa única chamada à tool, incluindo o campo "confidence".
+- Se a instrução for ambígua, devolve o state actual sem alterações.
+- Responde em português de Portugal.`
 
 export async function POST(request: Request) {
   try {

@@ -144,6 +144,10 @@ export async function POST(request: Request) {
         // Parse the channel to find the other user — we get it from body
         const dmRecipientId = body.dm_recipient_id
         if (dmRecipientId && dmRecipientId !== user.id) {
+          // actionUrl is opened by the RECIPIENT — so `?dm=` must point at
+          // the SENDER (the other side of the conversation), not at the
+          // recipient themselves.
+          const dmUrl = `/dashboard/comunicacao/chat?dm=${user.id}`
           await notificationService.create({
             recipientId: dmRecipientId,
             senderId: user.id,
@@ -152,13 +156,13 @@ export async function POST(request: Request) {
             entityId: responseMessage.id,
             title: `${senderName} enviou-lhe uma mensagem`,
             body: contentPreview,
-            actionUrl: `/dashboard/comunicacao/chat?dm=${dmRecipientId}`,
+            actionUrl: dmUrl,
           })
 
           await sendPushToUser(adminSupabase, dmRecipientId, {
             title: senderName,
             body: contentPreview,
-            url: `/dashboard/comunicacao/chat?dm=${dmRecipientId}`,
+            url: dmUrl,
             tag: `dm-${channelId}`,
           })
         }
@@ -180,6 +184,7 @@ export async function POST(request: Request) {
         for (const recipientId of recipientIds) {
           const isMentioned = mentionedIds.has(recipientId)
 
+          const geralUrl = '/dashboard/comunicacao/chat?geral=1'
           await notificationService.create({
             recipientId,
             senderId: user.id,
@@ -190,13 +195,13 @@ export async function POST(request: Request) {
               ? `${senderName} mencionou-o no Grupo Geral`
               : `${senderName} no Grupo Geral`,
             body: contentPreview,
-            actionUrl: '/dashboard/comunicacao/chat',
+            actionUrl: geralUrl,
           })
 
           await sendPushToUser(adminSupabase, recipientId, {
             title: isMentioned ? `${senderName} mencionou-o` : `Grupo Geral — ${senderName}`,
             body: contentPreview,
-            url: '/dashboard/comunicacao/chat',
+            url: geralUrl,
             tag: 'internal-chat',
           })
         }

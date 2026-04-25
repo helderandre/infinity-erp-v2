@@ -23,8 +23,10 @@ import {
 import {
   ArrowLeft, Pencil, Phone, Mail, Instagram, Linkedin,
   Building2, User, Shield, Briefcase, Upload, Loader2,
-  MessageSquare, Check, X, Settings, Sparkles, FileText, ExternalLink, Trash2,
+  MessagesSquare, Check, X, Settings, Sparkles, FileText, ExternalLink, Trash2,
 } from 'lucide-react'
+import { WhatsappChatSheet } from '@/components/whatsapp/whatsapp-chat-sheet'
+import { EmailComposeSheet } from '@/components/email/email-compose-sheet'
 import { formatCurrency, formatDate, PROPERTY_TYPES } from '@/lib/constants'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -59,6 +61,8 @@ export default function ConsultorDetalhePage() {
   const [properties, setProperties] = useState<any[]>([])
   const [propertiesLoading, setPropertiesLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [waOpen, setWaOpen] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [cropperSrc, setCropperSrc] = useState<string | null>(null)
   const [cropperOpen, setCropperOpen] = useState(false)
@@ -525,9 +529,9 @@ export default function ConsultorDetalhePage() {
             </p>
             <div className="flex gap-2 mt-3">
               {phone && <a href={`tel:${phone}`} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="Ligar"><Phone className="h-3.5 w-3.5" /></a>}
-              {phone && <a href={`sms:${phone}`} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="SMS"><MessageSquare className="h-3.5 w-3.5" /></a>}
-              {phone && <a href={`https://wa.me/351${phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="WhatsApp"><WhatsAppIcon className="h-3.5 w-3.5" /></a>}
-              {consultant.professional_email && <a href={`mailto:${consultant.professional_email}`} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="Email"><Mail className="h-3.5 w-3.5" /></a>}
+              <button type="button" onClick={() => router.push(`/dashboard/comunicacao/chat?dm=${id}`)} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="Chat interno"><MessagesSquare className="h-3.5 w-3.5" /></button>
+              {phone && <button type="button" onClick={() => setWaOpen(true)} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="WhatsApp"><WhatsAppIcon className="h-3.5 w-3.5" /></button>}
+              {consultant.professional_email && <button type="button" onClick={() => setEmailOpen(true)} className="h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all" title="Email"><Mail className="h-3.5 w-3.5" /></button>}
             </div>
           </div>
         </div>
@@ -1357,6 +1361,22 @@ export default function ConsultorDetalhePage() {
           }}
           onCropDone={handleCroppedPhoto}
           consultantName={consultant.commercial_name}
+        />
+      )}
+      {phone && (
+        <WhatsappChatSheet
+          open={waOpen}
+          onOpenChange={setWaOpen}
+          phone={phone}
+          contactName={consultant.commercial_name}
+        />
+      )}
+      {consultant.professional_email && (
+        <EmailComposeSheet
+          open={emailOpen}
+          onOpenChange={setEmailOpen}
+          recipientEmail={consultant.professional_email}
+          recipientName={consultant.commercial_name}
         />
       )}
     </div>

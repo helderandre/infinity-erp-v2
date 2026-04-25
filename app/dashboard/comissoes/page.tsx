@@ -8,6 +8,7 @@ import {
   Briefcase, Activity, CircleDollarSign, AlertCircle, Download,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
+import { MapaGestaoTabs } from '@/components/financial/mapa-gestao-tabs'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -325,7 +326,8 @@ export default function ComissoesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <MapaGestaoTabs active="comissoes" />
       {/* Hero Header */}
       <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />

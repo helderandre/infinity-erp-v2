@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, List, SlidersHorizontal, Infinity as InfinityIcon, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { CalendarSubscribePopover } from './calendar-subscribe-popover'
 
 type ToolbarView = 'month' | 'week' | 'agenda' | 'day'
 
@@ -140,6 +141,8 @@ export function CalendarToolbar({
             )}
           </Button>
         )}
+
+        <CalendarSubscribePopover />
 
         <Button onClick={onCreateEvent} size="icon" className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3">
           <Plus className="h-4 w-4 sm:mr-1.5" />

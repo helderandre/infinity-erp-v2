@@ -1,8 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { WppMessage, QuotedMessageMap } from '@/lib/types/whatsapp-web'
+
+async function extractError(res: Response): Promise<string> {
+  try {
+    const data = await res.json()
+    if (typeof data?.error === 'string') return data.error
+    if (typeof data?.detail === 'string') return data.detail
+  } catch {
+    // not JSON — fall through
+  }
+  return `Erro ${res.status}`
+}
 
 export function useWhatsAppMessages(chatId: string | null) {
   const [messages, setMessages] = useState<WppMessage[]>([])
@@ -179,11 +191,19 @@ export function useWhatsAppMessages(chatId: string | null) {
       setMessages((prev) => [...prev, optimistic])
 
       try {
-        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+        const res = await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'send_text', text, reply_id: replyId }),
         })
+        if (!res.ok) {
+          const msg = await extractError(res)
+          setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+          toast.error(`Mensagem não enviada — ${msg}`)
+        }
+      } catch (err) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+        toast.error(err instanceof Error ? `Mensagem não enviada — ${err.message}` : 'Mensagem não enviada')
       } finally {
         setIsSending(false)
       }
@@ -208,11 +228,13 @@ export function useWhatsAppMessages(chatId: string | null) {
           body: formData,
         })
 
-        if (!uploadRes.ok) throw new Error('Erro ao fazer upload')
+        if (!uploadRes.ok) {
+          throw new Error(await extractError(uploadRes))
+        }
         const uploadData = await uploadRes.json()
 
         // 2. Send via messaging (include file metadata for DB storage)
-        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+        const sendRes = await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -226,6 +248,11 @@ export function useWhatsAppMessages(chatId: string | null) {
             file_size: uploadData.size || file.size,
           }),
         })
+        if (!sendRes.ok) {
+          throw new Error(await extractError(sendRes))
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? `Mensagem não enviada — ${err.message}` : 'Mensagem não enviada')
       } finally {
         setIsSending(false)
       }
@@ -250,11 +277,13 @@ export function useWhatsAppMessages(chatId: string | null) {
           body: formData,
         })
 
-        if (!uploadRes.ok) throw new Error('Erro ao fazer upload')
+        if (!uploadRes.ok) {
+          throw new Error(await extractError(uploadRes))
+        }
         const uploadData = await uploadRes.json()
 
         // 2. Send as PTT (voice note) — uses /send/ptt on UAZAPI
-        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+        const sendRes = await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -264,6 +293,11 @@ export function useWhatsAppMessages(chatId: string | null) {
             reply_id: replyId,
           }),
         })
+        if (!sendRes.ok) {
+          throw new Error(await extractError(sendRes))
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? `Áudio não enviado — ${err.message}` : 'Áudio não enviado')
       } finally {
         setIsSending(false)
       }
@@ -302,7 +336,7 @@ export function useWhatsAppMessages(chatId: string | null) {
         }
         setMessages(prev => [...prev, optimistic])
 
-        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+        const res = await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -313,8 +347,13 @@ export function useWhatsAppMessages(chatId: string | null) {
             reply_id: replyId,
           }),
         })
+        if (!res.ok) {
+          const msg = await extractError(res)
+          setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+          toast.error(`Sondagem não enviada — ${msg}`)
+        }
       } catch (err) {
-        console.error('sendPoll error:', err)
+        toast.error(err instanceof Error ? `Sondagem não enviada — ${err.message}` : 'Sondagem não enviada')
       } finally {
         setIsSending(false)
       }
@@ -357,7 +396,7 @@ export function useWhatsAppMessages(chatId: string | null) {
         }
         setMessages(prev => [...prev, optimistic])
 
-        await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
+        const res = await fetch(`/api/whatsapp/chats/${chatId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -368,8 +407,13 @@ export function useWhatsAppMessages(chatId: string | null) {
             email,
           }),
         })
+        if (!res.ok) {
+          const msg = await extractError(res)
+          setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+          toast.error(`Contacto não enviado — ${msg}`)
+        }
       } catch (err) {
-        console.error('sendContact error:', err)
+        toast.error(err instanceof Error ? `Contacto não enviado — ${err.message}` : 'Contacto não enviado')
       } finally {
         setIsSending(false)
       }

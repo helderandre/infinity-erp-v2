@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
 import { requirePermission } from "@/lib/auth/permissions"
+import { logExportEvent } from "@/lib/audit/export-event"
 
 /**
  * GET /api/export/contacts?consultant_id=xxx
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
   })
 
   const csv = buildCsv(headers, rows)
+  await logExportEvent(req, auth.user.id, 'contacts', { rowCount: rows.length, metadata: consultantId ? { consultant_id: consultantId } : {} })
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

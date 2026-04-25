@@ -31,10 +31,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeft,
   Plus,
-  Trash2,
   ExternalLink,
   Briefcase,
   FileText,
@@ -49,11 +49,12 @@ import {
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
-import { formatDate, formatCurrency, NEGOCIO_TIPOS, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
+import { formatDate, formatCurrency, NEGOCIO_TIPOS_PICKER, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { LeadDataCard } from '@/components/leads/lead-data-card'
 import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-folders-view'
 import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
+import { NegocioListItem, type NegocioListItemData } from '@/components/negocios/negocio-list-item'
 import { ContactAutomationsList } from '@/components/crm/contact-automations-list'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
@@ -474,6 +475,25 @@ export default function LeadDetailPage() {
               })}
             </div>
           </div>
+
+          {/* Observações — notas livres persistentes sobre o contacto,
+              save-on-blur via o mesmo saveSidebarField dos outros campos. */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
+            <Textarea
+              value={(form.observacoes as string) ?? ''}
+              onChange={(e) => updateField('observacoes', e.target.value)}
+              onBlur={(e) => {
+                const next = e.target.value
+                if (next !== (lead?.observacoes ?? '')) {
+                  saveSidebarField('observacoes', next)
+                }
+              }}
+              placeholder="Notas pessoais sobre este contacto…"
+              rows={4}
+              className="text-xs resize-none"
+            />
+          </div>
         </div>
       </aside>
 
@@ -596,117 +616,19 @@ export default function LeadDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {negocios.map((neg, idx) => {
-                    const tipo = neg.tipo as string
-
-                    const TIPO_TAG: Record<string, { color: string; label: string }> = {
-                      'Compra':         { color: '#3b82f6', label: 'Compra' },
-                      'Venda':          { color: '#10b981', label: 'Venda' },
-                      'Compra e Venda': { color: '#8b5cf6', label: 'C+V' },
-                      'Arrendatário':   { color: '#f59e0b', label: 'Arrendatário' },
-                      'Arrendador':     { color: '#fb923c', label: 'Senhorio' },
-                    }
-                    const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo }
-
-                    const TEMP_TAG: Record<string, { color: string; emoji: string; label: string }> = {
-                      'Frio':   { color: '#3b82f6', emoji: '❄️', label: 'Frio' },
-                      'Morno':  { color: '#f59e0b', emoji: '🌤️', label: 'Morno' },
-                      'Quente': { color: '#ef4444', emoji: '🔥', label: 'Quente' },
-                    }
-                    const tempTag = neg.temperatura ? TEMP_TAG[neg.temperatura as string] : null
-
-                    // Pipeline stage
-                    const stage = (neg as any).leads_pipeline_stages || (neg as any).pipeline_stage
-                    const stageName = (stage?.name as string) || (neg.estado as string) || 'Contactado'
-                    const stageColor = (stage?.color as string) || '#64748b'
-
-                    // Build title: "Compra — T2 em Lisboa" style
-                    const subjectBits: string[] = []
-                    if (neg.tipo_imovel) subjectBits.push(neg.tipo_imovel as string)
-                    if (neg.quartos_min) subjectBits.push(`T${neg.quartos_min}+`)
-                    const subject = subjectBits.join(' ')
-                    const location = neg.localizacao as string | undefined
-                    const titleParts: string[] = [tipoTag.label]
-                    if (subject) titleParts.push(subject)
-                    const title = titleParts.join(' · ')
-
-                    // Price range
-                    const minPrice = (neg.orcamento as number | undefined) ?? (neg.preco_venda as number | undefined)
-                    const maxPrice = (neg.orcamento_max as number | undefined)
-                    const priceStr =
-                      minPrice && maxPrice && maxPrice !== minPrice
-                        ? `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`
-                        : minPrice
-                        ? formatCurrency(minPrice)
-                        : null
-
-                    return (
-                      <button
-                        key={neg.id as string}
-                        type="button"
-                        onClick={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
-                        className={cn(
-                          'group w-full flex items-start gap-3 rounded-2xl border border-border/40 bg-card p-3.5 text-left',
-                          'transition-colors hover:bg-muted/40 hover:border-border/70',
-                          'animate-in fade-in slide-in-from-bottom-1',
-                        )}
-                        style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
-                      >
-                        {/* Thumbnail icon */}
-                        <div
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                          style={{ backgroundColor: `${tipoTag.color}1a`, color: tipoTag.color }}
-                        >
-                          <Briefcase className="h-4 w-4" />
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-foreground truncate">
-                                {title}
-                                {location && (
-                                  <span className="text-muted-foreground font-normal"> em {location}</span>
-                                )}
-                              </p>
-                              {priceStr ? (
-                                <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{priceStr}</p>
-                              ) : (
-                                <p className="text-[12px] text-muted-foreground/70 italic mt-0.5">Sem valor definido</p>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setNegocioToDelete(neg.id as string) }}
-                              className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Meta row */}
-                          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
-                              {stageName}
-                            </span>
-                            <span className="text-muted-foreground/40">·</span>
-                            <span className="inline-flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" />
-                              {formatDate(neg.created_at as string)}
-                            </span>
-                            {tempTag && (
-                              <>
-                                <span className="text-muted-foreground/40">·</span>
-                                <span aria-hidden>{tempTag.emoji}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+                  {negocios.map((neg, idx) => (
+                    <div
+                      key={neg.id as string}
+                      className="animate-in fade-in slide-in-from-bottom-1"
+                      style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                    >
+                      <NegocioListItem
+                        negocio={neg as unknown as NegocioListItemData}
+                        onSelect={() => router.push(`/dashboard/leads/${id}/negocios/${neg.id}`)}
+                        onDelete={() => setNegocioToDelete(neg.id as string)}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -724,7 +646,7 @@ export default function LeadDetailPage() {
                           <SelectValue placeholder="Seleccionar tipo" />
                         </SelectTrigger>
                         <SelectContent>
-                          {NEGOCIO_TIPOS.map((t) => (
+                          {NEGOCIO_TIPOS_PICKER.map((t) => (
                             <SelectItem key={t} value={t}>{t}</SelectItem>
                           ))}
                         </SelectContent>

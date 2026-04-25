@@ -243,9 +243,23 @@ export function QualifyEntryDialog({
       if (form.tipo_imovel) payload.tipo_imovel = form.tipo_imovel
       if (form.localizacao) payload.localizacao = form.localizacao
       if (form.quartos_min) payload.quartos_min = parseInt(form.quartos_min)
-      if (form.orcamento) payload.expected_value = parseFloat(form.orcamento)
-      if (form.orcamento_max) payload.orcamento_max = parseFloat(form.orcamento_max)
-      if (form.orcamento) payload.orcamento = parseFloat(form.orcamento)
+
+      // Map the generic "orçamento" field onto the semantically correct
+      // column for each pipeline. expected_value is always set so the kanban
+      // forecast totals work regardless.
+      const orcVal = form.orcamento ? parseFloat(form.orcamento) : null
+      const orcMaxVal = form.orcamento_max ? parseFloat(form.orcamento_max) : null
+      if (orcVal !== null) {
+        payload.expected_value = orcVal
+        payload.orcamento = orcVal
+        if (pipelineType === 'vendedor') payload.preco_venda = orcVal
+        else if (pipelineType === 'arrendador') payload.renda_pretendida = orcVal
+        else if (pipelineType === 'arrendatario') payload.renda_max_mensal = orcVal
+      }
+      if (orcMaxVal !== null) {
+        payload.orcamento_max = orcMaxVal
+        if (pipelineType === 'arrendatario') payload.renda_max_mensal = orcMaxVal
+      }
 
       const res = await fetch('/api/crm/negocios', {
         method: 'POST',

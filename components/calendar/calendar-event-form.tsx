@@ -58,6 +58,7 @@ import { toast } from 'sonner'
 import { useImageCompress } from '@/hooks/use-image-compress'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { CalendarRichEditor } from './calendar-rich-editor'
+import { EventLocationPicker } from './event-location-picker'
 
 interface CalendarEventFormProps {
   open: boolean
@@ -121,6 +122,8 @@ export function CalendarEventForm({
       color: null,
       cover_image_url: null,
       location: null,
+      location_lat: null,
+      location_lng: null,
       requires_rsvp: false,
       priority: 4,
       ...initialData,
@@ -159,7 +162,9 @@ export function CalendarEventForm({
         start_date: '', end_date: '', all_day: false, is_recurring: false,
         recurrence_rule: null, user_id: null, visibility: 'all',
         visibility_mode: 'all', visibility_user_ids: [], visibility_role_names: [],
-        color: null, cover_image_url: null, location: null, requires_rsvp: false,
+        color: null, cover_image_url: null, location: null,
+        location_lat: null, location_lng: null,
+        requires_rsvp: false,
         priority: 4,
         ...initialData,
       })
@@ -832,10 +837,15 @@ export function CalendarEventForm({
                     <MapPin className="inline h-3.5 w-3.5 mr-1" />
                     Localização <span className="text-muted-foreground/60 font-normal">(opcional)</span>
                   </Label>
-                  <Input
-                    placeholder="Ex: Escritório, Sala 2, Online..."
-                    className="rounded-xl"
-                    {...register('location')}
+                  <EventLocationPicker
+                    location={watch('location')}
+                    latitude={watch('location_lat')}
+                    longitude={watch('location_lng')}
+                    onChange={({ location, latitude, longitude }) => {
+                      setValue('location', location, { shouldDirty: true })
+                      setValue('location_lat', latitude, { shouldDirty: true })
+                      setValue('location_lng', longitude, { shouldDirty: true })
+                    }}
                   />
                 </div>
                 )}
