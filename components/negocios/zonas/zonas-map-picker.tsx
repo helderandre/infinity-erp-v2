@@ -91,6 +91,11 @@ export function ZonasMapPicker({
   const isDrawingRef = useRef(false)
   const [drawPoints, setDrawPoints] = useState<[number, number][]>([])
   const drawPointsRef = useRef<[number, number][]>([])
+  const [drawLabel, setDrawLabel] = useState('')
+
+  // Inline rename of an already-saved zone (chip click)
+  const [renamingIndex, setRenamingIndex] = useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
 
   // Map refs
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -116,6 +121,9 @@ export function ZonasMapPicker({
       setIsDrawing(false)
       setDrawPoints([])
       drawPointsRef.current = []
+      setDrawLabel('')
+      setRenamingIndex(null)
+      setRenameDraft('')
       preHoverViewRef.current = null
     }
   }, [open, initialZones])
@@ -478,12 +486,14 @@ export function ZonasMapPicker({
   const startDrawing = useCallback(() => {
     drawPointsRef.current = []
     setDrawPoints([])
+    setDrawLabel('')
     setIsDrawing(true)
   }, [])
 
   const cancelDrawing = useCallback(() => {
     drawPointsRef.current = []
     setDrawPoints([])
+    setDrawLabel('')
     setIsDrawing(false)
     if (mapRef.current) clearDrawPolygon(mapRef.current)
   }, [])
@@ -491,19 +501,50 @@ export function ZonasMapPicker({
   const finishDrawing = useCallback(() => {
     if (drawPointsRef.current.length < 3) return
     const ring = [...drawPointsRef.current, drawPointsRef.current[0]]
-    setZones((prev) => [
-      ...prev,
-      {
-        kind: 'polygon',
-        id: crypto.randomUUID(),
-        label: `Zona desenhada ${prev.filter((z) => z.kind === 'polygon').length + 1}`,
-        geometry: { type: 'Polygon', coordinates: [ring] },
-      },
-    ])
+    setZones((prev) => {
+      const fallback = `Zona desenhada ${prev.filter((z) => z.kind === 'polygon').length + 1}`
+      const label = drawLabel.trim() || fallback
+      return [
+        ...prev,
+        {
+          kind: 'polygon',
+          id: crypto.randomUUID(),
+          label,
+          geometry: { type: 'Polygon', coordinates: [ring] },
+        },
+      ]
+    })
     drawPointsRef.current = []
     setDrawPoints([])
+    setDrawLabel('')
     setIsDrawing(false)
     if (mapRef.current) clearDrawPolygon(mapRef.current)
+  }, [drawLabel])
+
+  // ─── Rename zone (chip click) ───
+  const startRename = useCallback((index: number, currentLabel: string) => {
+    setRenamingIndex(index)
+    setRenameDraft(currentLabel)
+  }, [])
+
+  const commitRename = useCallback(() => {
+    if (renamingIndex === null) return
+    const idx = renamingIndex
+    const newLabel = renameDraft.trim()
+    setZones((prev) => {
+      if (!newLabel) return prev
+      const next = [...prev]
+      const z = next[idx]
+      if (z) next[idx] = { ...z, label: newLabel } as NegocioZone
+      return next
+    })
+    setRenamingIndex(null)
+    setRenameDraft('')
+  }, [renamingIndex, renameDraft])
+
+  const cancelRename = useCallback(() => {
+    setRenamingIndex(null)
+    setRenameDraft('')
   }, [])
 
   const handleSave = useCallback(() => {
@@ -575,13 +616,58 @@ export function ZonasMapPicker({
                       : zone.label.includes('Concelho')
                         ? Building2
                         : MapPin
+                const isRenaming = renamingIndex === i
+                const canRename = zone.kind === 'polygon'
+
+                if (isRenaming) {
+                  return (
+                    <span
+                      key={zone.kind === 'polygon' ? zone.id : `admin-${zone.area_id}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-background border border-primary/40 px-2 py-0.5 text-xs ring-2 ring-primary/20"
+                    >
+                      <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <input
+                        type="text"
+                        value={renameDraft}
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            commitRename()
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault()
+                            cancelRename()
+                          }
+                        }}
+                        onBlur={commitRename}
+                        className="bg-transparent text-xs font-medium outline-none w-[140px]"
+                        autoFocus
+                      />
+                    </span>
+                  )
+                }
+
                 return (
                   <span
                     key={zone.kind === 'polygon' ? zone.id : `admin-${zone.area_id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 border border-border/40 px-2.5 py-1 text-xs"
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full bg-muted/70 border border-border/40 px-2.5 py-1 text-xs',
+                      canRename && 'hover:bg-muted hover:border-border/70 transition-colors'
+                    )}
                   >
                     <Icon className="h-3 w-3 text-muted-foreground" />
-                    <span className="font-medium max-w-[180px] truncate">{zone.label}</span>
+                    {canRename ? (
+                      <button
+                        type="button"
+                        onClick={() => startRename(i, zone.label)}
+                        className="font-medium max-w-[180px] truncate hover:underline cursor-text text-left"
+                        title="Clica para renomear"
+                      >
+                        {zone.label}
+                      </button>
+                    ) : (
+                      <span className="font-medium max-w-[180px] truncate">{zone.label}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveZone(i)}
@@ -641,8 +727,8 @@ export function ZonasMapPicker({
       >
         <div ref={mapContainerRef} className="w-full h-full" />
 
-        {/* Draw button (top-left) */}
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+        {/* Draw button / draw bar (top-left) */}
+        <div className="absolute top-3 left-3 z-10 max-w-[calc(100%-1.5rem)]">
           {!isDrawing ? (
             <Button
               size="sm"
@@ -653,27 +739,12 @@ export function ZonasMapPicker({
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Desenhar área
             </Button>
-          ) : (
+          ) : drawPoints.length < 3 ? (
+            // Compact bar while still placing minimum vertices
             <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm rounded-full pl-3 pr-1 py-1 shadow-lg border border-border/60">
               <span className="text-xs text-muted-foreground">
-                {drawPoints.length < 3
-                  ? `${drawPoints.length} pontos · mín. 3`
-                  : `${drawPoints.length} pontos`}
+                {drawPoints.length} pontos · mín. 3
               </span>
-              <button
-                type="button"
-                onClick={finishDrawing}
-                disabled={drawPoints.length < 3}
-                className={cn(
-                  'h-7 px-3 rounded-full text-xs font-medium flex items-center transition-colors',
-                  drawPoints.length >= 3
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-muted text-muted-foreground cursor-not-allowed'
-                )}
-              >
-                <Check className="mr-1 h-3 w-3" />
-                Concluir
-              </button>
               <button
                 type="button"
                 onClick={cancelDrawing}
@@ -681,6 +752,45 @@ export function ZonasMapPicker({
                 aria-label="Cancelar desenho"
               >
                 <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            // Expanded bar once polygon is closeable: includes the name input
+            <div className="bg-background/95 backdrop-blur-sm rounded-2xl shadow-lg border border-border/60 p-2.5 w-[300px] sm:w-[340px] space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {drawPoints.length} pontos
+                </span>
+                <button
+                  type="button"
+                  onClick={cancelDrawing}
+                  className="h-6 w-6 rounded-full flex items-center justify-center hover:bg-muted/60 text-muted-foreground"
+                  aria-label="Cancelar desenho"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+              <input
+                type="text"
+                value={drawLabel}
+                onChange={(e) => setDrawLabel(e.target.value)}
+                placeholder="Nome da zona (ex.: Almada centro)"
+                className="w-full h-8 rounded-md border border-border/60 bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    finishDrawing()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={finishDrawing}
+                className="w-full h-8 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center justify-center"
+              >
+                <Check className="mr-1 h-3.5 w-3.5" />
+                Concluir
               </button>
             </div>
           )}
