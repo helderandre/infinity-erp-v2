@@ -31,6 +31,7 @@ import {
   Plus,
   Ruler,
   Sparkles,
+  Pencil,
   StickyNote,
   Thermometer,
   Trash2,
@@ -79,6 +80,14 @@ import {
 import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
+import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { VisitForm } from '@/components/visits/visit-form'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
@@ -166,6 +175,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('inicio')
   const [aiFillOpen, setAiFillOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
@@ -371,6 +382,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                   onTemperaturaChange={handleTemperaturaChange}
                   onSaveObservations={handleSaveObservations}
                   onOpenAiFill={() => setAiFillOpen(true)}
+                  onOpenEdit={() => setEditOpen(true)}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -412,6 +424,48 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
             negocioId={negocio.id}
             onApply={handleQuickFillApply}
           />
+        )}
+
+        {/* Editar dados do negócio — replica o que existia na página dedicada */}
+        {negocio?.id && (
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogContent className="max-w-3xl w-[95vw] sm:w-full p-0 max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+                <DialogTitle>Editar negócio</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Editar dados do negócio.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+                <NegocioDataCard
+                  tipo={tipo}
+                  negocioId={negocio.id}
+                  form={form}
+                  onFieldChange={updateField}
+                  isSaving={editSaving}
+                  onSave={async () => {
+                    if (!negocio?.id) return
+                    setEditSaving(true)
+                    try {
+                      const res = await fetch(`/api/negocios/${negocio.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(form),
+                      })
+                      if (!res.ok) throw new Error()
+                      toast.success('Negócio actualizado')
+                      await loadNegocio()
+                      setEditOpen(false)
+                    } catch {
+                      toast.error('Erro ao guardar')
+                    } finally {
+                      setEditSaving(false)
+                    }
+                  }}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </SheetContent>
     </Sheet>
@@ -464,6 +518,7 @@ function DetalhesTab({
   onTemperaturaChange,
   onSaveObservations,
   onOpenAiFill,
+  onOpenEdit,
 }: {
   negocio: any
   form: Record<string, unknown>
@@ -473,6 +528,7 @@ function DetalhesTab({
   onTemperaturaChange: (t: Temperatura) => void
   onSaveObservations: (next: string | null) => Promise<void>
   onOpenAiFill: () => void
+  onOpenEdit: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -614,6 +670,16 @@ function DetalhesTab({
           >
             <Sparkles className="h-3 w-3" />
             IA
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full h-7 text-xs gap-1"
+            onClick={onOpenEdit}
+            title="Editar dados do negócio"
+          >
+            <Pencil className="h-3 w-3" />
+            Editar
           </Button>
         </div>
 
