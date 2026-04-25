@@ -75,6 +75,9 @@ export const updateLeadSchema = z.object({
 export const createNegocioSchema = z.object({
   lead_id: z.string().uuid('Lead ID inválido'),
   tipo: z.enum(['Compra', 'Venda', 'Compra e Venda', 'Arrendatário', 'Arrendador', 'Outro']),
+  // When omitted, the POST handler auto-resolves to the first non-terminal
+  // stage of the matching pipeline so the negócio always lands in the kanban.
+  pipeline_stage_id: z.string().uuid().optional().nullable(),
   estado: z.string().optional(),
   observacoes: z.string().optional(),
   tipo_imovel: z.string().optional(),
@@ -150,6 +153,28 @@ export const updateNegocioSchema = z.object({
   tem_piscina_venda: z.boolean().optional().nullable(),
   tem_porteiro_venda: z.boolean().optional().nullable(),
   tem_arrumos_venda: z.boolean().optional().nullable(),
+  // Zonas de interesse (matching geográfico) — JSONB array
+  zonas: z
+    .array(
+      z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('admin'),
+          area_id: z.string().uuid(),
+          label: z.string(),
+        }),
+        z.object({
+          kind: z.literal('polygon'),
+          id: z.string(),
+          label: z.string(),
+          geometry: z.object({
+            type: z.literal('Polygon'),
+            coordinates: z.array(z.array(z.array(z.number()))),
+          }),
+        }),
+      ])
+    )
+    .optional()
+    .nullable(),
 })
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>

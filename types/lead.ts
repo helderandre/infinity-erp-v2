@@ -112,6 +112,10 @@ export interface PropertyMatch {
   media: { url: string; is_cover: boolean }[]
   cover_url: string | null
   price_flag: 'yellow' | 'orange' | null
+  /** Modo de match geográfico (spatial / fallback / legacy / no_filter) */
+  geo_source: 'spatial' | 'text_fallback' | 'localizacao_legacy' | 'no_filter'
+  /** Badges flexíveis (amenities, área, estado, localização aproximada) */
+  badges: { type: 'positive' | 'warning' | 'info'; key: string; label: string }[]
   consultant: {
     id: string
     commercial_name: string
