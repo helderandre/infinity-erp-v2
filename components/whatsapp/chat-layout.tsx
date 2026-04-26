@@ -159,7 +159,6 @@ export function ChatLayout({ instances: initialInstances, userId, initialChatId 
       <div
         className="flex overflow-hidden"
         style={{ height: 'calc(100% - var(--mobile-nav-height, 56px))' }}
-        data-no-long-press
       >
         {/* Chat list (full-screen when no chat selected) */}
         {!selectedChatId && (
@@ -242,7 +241,7 @@ export function ChatLayout({ instances: initialInstances, userId, initialChatId 
 
   // Desktop: side-by-side layout
   return (
-    <div className="flex h-full overflow-hidden" data-no-long-press>
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
       <div className="w-80 border-r flex-shrink-0 flex flex-col">
         <ChatSidebar

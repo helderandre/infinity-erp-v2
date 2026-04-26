@@ -716,7 +716,7 @@ export default function LeadDetailPage() {
             </TabsContent>
 
             {/* Historico Tab */}
-            <TabsContent value="historico" className="mt-0 space-y-4" data-no-long-press>
+            <TabsContent value="historico" className="mt-0 space-y-4">
               {/* Subtabs */}
               <div className="flex items-center gap-1 rounded-full bg-muted/40 p-1 w-fit border border-border/30">
                 {([

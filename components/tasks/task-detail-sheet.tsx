@@ -496,7 +496,6 @@ export function TaskDetailSheet({ taskId, open, onOpenChange, onRefresh, onCreat
             ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
             : 'w-full data-[side=right]:sm:max-w-[520px] sm:rounded-l-3xl',
         )}
-        data-no-long-press
       >
         {isMobile && (
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />

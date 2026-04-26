@@ -322,7 +322,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
             ? 'data-[side=bottom]:h-[85dvh] rounded-t-3xl'
             : 'h-full w-full data-[side=right]:sm:max-w-[820px] sm:rounded-l-3xl',
         )}
-        data-no-long-press
       >
         {isMobile && (
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />

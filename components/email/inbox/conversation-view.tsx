@@ -424,7 +424,7 @@ export function ConversationView({
   const latestUid = loadedMessages.length > 0 ? loadedMessages[loadedMessages.length - 1].uid : null
 
   return (
-    <ScrollArea className="h-full" data-no-long-press>
+    <ScrollArea className="h-full">
       <div className="p-4 sm:p-6 space-y-3">
         {/* Back button (mobile) */}
         {onBack && (
