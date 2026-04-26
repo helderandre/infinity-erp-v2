@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { AnimatedNumber } from '@/components/shared/animated-number'
 import {
   Building2,
   Handshake,
@@ -78,27 +78,20 @@ export function AngariacoesFaturacaoCard({
       'h-[calc(100dvh-env(safe-area-inset-top,0px)-var(--mobile-nav-height,5rem)-6rem)] min-h-[24rem]',
   )
 
-  if (loading || !data) {
-    return (
-      <Card className={cardClass}>
-        <Skeleton className="h-8 w-40" />
-        <div className="grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
-        </div>
-        <Skeleton className="h-8 w-48 mt-3" />
-        <div className="grid grid-cols-3 gap-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
-        </div>
-      </Card>
-    )
+  // Render the layout immediately with zero defaults; AnimatedNumber tweens
+  // each KPI from 0 → real value when data arrives. This replaces the
+  // skeleton-block flash that made the dashboard feel slow on cold loads.
+  const a = data?.angariacoes ?? {
+    previsoes: { a_entrar: 0 },
+    activas: { ativas: 0, disponiveis: 0, reservadas: 0 },
+    fechadas: { report_mes: 0, report_ano: 0 },
   }
-
-  const a = data.angariacoes
-  const c = data.crm
+  const c = data?.crm ?? {
+    previsoes: { a_fechar_mes: 0, receita_prevista: 0, pipeline_ponderado: 0 },
+    activas: { em_curso: 0, visitas: 0, propostas: 0 },
+    fechadas: { ganhos_mes: 0, ganhos_ano: 0 },
+  }
+  const interactive = !loading && !!data
   const monthFrom = startOfMonthIso()
   const monthTo = endOfMonthIso()
   const yearFrom = startOfYearIso()
@@ -114,8 +107,8 @@ export function AngariacoesFaturacaoCard({
           icon={ArrowRightToLine}
           tone="warning"
           label="A entrar"
-          value={String(a.previsoes.a_entrar)}
-          onClick={() =>
+          numericValue={a.previsoes.a_entrar}
+          onClick={interactive ? () =>
             open({
               title: 'Angariações A Entrar',
               description: 'Negócios com ≥70% probabilidade',
@@ -127,15 +120,15 @@ export function AngariacoesFaturacaoCard({
                   not_terminal: true,
                   min_probability_pct: 70,
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={Building2}
           tone="info"
           label="Activas"
-          value={String(a.activas.ativas)}
-          onClick={() =>
+          numericValue={a.activas.ativas}
+          onClick={interactive ? () =>
             open({
               title: 'Imóveis Activos',
               tone: 'info',
@@ -144,15 +137,15 @@ export function AngariacoesFaturacaoCard({
                   consultant_id: consultantId,
                   status: ['active', 'available'],
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={CircleCheck}
           tone="positive"
           label="Disponíveis"
-          value={String(a.activas.disponiveis)}
-          onClick={() =>
+          numericValue={a.activas.disponiveis}
+          onClick={interactive ? () =>
             open({
               title: 'Imóveis Disponíveis',
               tone: 'positive',
@@ -161,15 +154,15 @@ export function AngariacoesFaturacaoCard({
                   consultant_id: consultantId,
                   status: 'available',
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={Lock}
           tone="purple"
           label="Reservadas"
-          value={String(a.activas.reservadas)}
-          onClick={() =>
+          numericValue={a.activas.reservadas}
+          onClick={interactive ? () =>
             open({
               title: 'Imóveis Reservados',
               tone: 'purple',
@@ -178,7 +171,7 @@ export function AngariacoesFaturacaoCard({
                   consultant_id: consultantId,
                   status: 'reserved',
                 }),
-            })
+            }) : undefined
           }
         />
       </div>
@@ -189,8 +182,9 @@ export function AngariacoesFaturacaoCard({
           icon={Receipt}
           tone="positive"
           label="Report este mês"
-          value={fmtCompact.format(a.fechadas.report_mes)}
-          onClick={() =>
+          numericValue={a.fechadas.report_mes}
+          format={fmtCompact.format}
+          onClick={interactive ? () =>
             open({
               title: 'Report Este Mês',
               tone: 'positive',
@@ -201,15 +195,16 @@ export function AngariacoesFaturacaoCard({
                   date_to: monthTo,
                   status: 'paid',
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={Receipt}
           tone="positive"
           label="Report este ano"
-          value={fmtCompact.format(a.fechadas.report_ano)}
-          onClick={() =>
+          numericValue={a.fechadas.report_ano}
+          format={fmtCompact.format}
+          onClick={interactive ? () =>
             open({
               title: 'Report Este Ano',
               tone: 'positive',
@@ -219,7 +214,7 @@ export function AngariacoesFaturacaoCard({
                   date_from: yearFrom,
                   status: 'paid',
                 }),
-            })
+            }) : undefined
           }
         />
       </div>
@@ -235,8 +230,8 @@ export function AngariacoesFaturacaoCard({
           icon={Target}
           tone="warning"
           label="A fechar este mês"
-          value={String(c.previsoes.a_fechar_mes)}
-          onClick={() =>
+          numericValue={c.previsoes.a_fechar_mes}
+          onClick={interactive ? () =>
             open({
               title: 'Negócios a Fechar Este Mês',
               tone: 'warning',
@@ -248,15 +243,16 @@ export function AngariacoesFaturacaoCard({
                   expected_close_from: monthFrom,
                   expected_close_to: monthTo,
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={Sparkles}
           tone="warning"
           label="Receita prevista"
-          value={fmtCompact.format(c.previsoes.receita_prevista)}
-          onClick={() =>
+          numericValue={c.previsoes.receita_prevista}
+          format={fmtCompact.format}
+          onClick={interactive ? () =>
             open({
               title: 'Receita Prevista',
               description: 'Valor esperado de negócios a fechar este mês',
@@ -269,15 +265,16 @@ export function AngariacoesFaturacaoCard({
                   expected_close_from: monthFrom,
                   expected_close_to: monthTo,
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={TrendingUp}
           tone="info"
           label="Pipeline ponderado"
-          value={fmtCompact.format(c.previsoes.pipeline_ponderado)}
-          onClick={() =>
+          numericValue={c.previsoes.pipeline_ponderado}
+          format={fmtCompact.format}
+          onClick={interactive ? () =>
             open({
               title: 'Pipeline Ponderado',
               description: 'Valor × probabilidade por negócio',
@@ -288,7 +285,7 @@ export function AngariacoesFaturacaoCard({
                   pipeline_types: ['comprador', 'arrendatario'],
                   not_terminal: true,
                 }),
-            })
+            }) : undefined
           }
         />
       </div>
@@ -299,8 +296,8 @@ export function AngariacoesFaturacaoCard({
           icon={Handshake}
           tone="info"
           label="Em curso"
-          value={String(c.activas.em_curso)}
-          onClick={() =>
+          numericValue={c.activas.em_curso}
+          onClick={interactive ? () =>
             open({
               title: 'Negócios em Curso',
               tone: 'info',
@@ -310,15 +307,15 @@ export function AngariacoesFaturacaoCard({
                   pipeline_types: ['comprador', 'arrendatario'],
                   not_terminal: true,
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={MapPin}
           tone="purple"
           label="Visitas"
-          value={String(c.activas.visitas)}
-          onClick={() =>
+          numericValue={c.activas.visitas}
+          onClick={interactive ? () =>
             open({
               title: 'Negócios em Visitas',
               tone: 'purple',
@@ -329,15 +326,15 @@ export function AngariacoesFaturacaoCard({
                   not_terminal: true,
                   stage_names: ['visitas'],
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={FileText}
           tone="warning"
           label="Propostas"
-          value={String(c.activas.propostas)}
-          onClick={() =>
+          numericValue={c.activas.propostas}
+          onClick={interactive ? () =>
             open({
               title: 'Propostas em Curso',
               tone: 'warning',
@@ -348,7 +345,7 @@ export function AngariacoesFaturacaoCard({
                   not_terminal: true,
                   stage_names: ['proposta', 'proposta aceite'],
                 }),
-            })
+            }) : undefined
           }
         />
       </div>
@@ -359,8 +356,8 @@ export function AngariacoesFaturacaoCard({
           icon={Trophy}
           tone="positive"
           label="Ganhos este mês"
-          value={String(c.fechadas.ganhos_mes)}
-          onClick={() =>
+          numericValue={c.fechadas.ganhos_mes}
+          onClick={interactive ? () =>
             open({
               title: 'Negócios Ganhos Este Mês',
               tone: 'positive',
@@ -371,15 +368,15 @@ export function AngariacoesFaturacaoCard({
                   terminal_type: 'won',
                   won_from: monthFrom,
                 }),
-            })
+            }) : undefined
           }
         />
         <KpiTile
           icon={Trophy}
           tone="positive"
           label="Ganhos este ano"
-          value={String(c.fechadas.ganhos_ano)}
-          onClick={() =>
+          numericValue={c.fechadas.ganhos_ano}
+          onClick={interactive ? () =>
             open({
               title: 'Negócios Ganhos Este Ano',
               tone: 'positive',
@@ -390,7 +387,7 @@ export function AngariacoesFaturacaoCard({
                   terminal_type: 'won',
                   won_from: yearFrom,
                 }),
-            })
+            }) : undefined
           }
         />
       </div>
@@ -435,12 +432,16 @@ function KpiTile({
   icon: Icon,
   label,
   value,
+  numericValue,
+  format,
   tone,
   onClick,
 }: {
   icon: React.ElementType
   label: string
-  value: string
+  value?: string
+  numericValue?: number
+  format?: (n: number) => string
   tone: 'positive' | 'negative' | 'info' | 'warning' | 'purple'
   onClick?: () => void
 }) {
@@ -480,7 +481,11 @@ function KpiTile({
         </p>
       </div>
       <p className="text-base sm:text-xl font-semibold tracking-tight tabular-nums mt-2.5 text-foreground break-words">
-        {value}
+        {numericValue !== undefined ? (
+          <AnimatedNumber value={numericValue} format={format} />
+        ) : (
+          value
+        )}
       </p>
     </Component>
   )

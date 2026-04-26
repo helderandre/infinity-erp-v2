@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -51,6 +51,15 @@ export function ChatLayout({ instances: initialInstances, userId, initialChatId 
   const [connectId, setConnectId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const isMobile = useIsMobile()
+
+  // Pull a fresh sync of every instance the user owns the moment the
+  // page mounts — covers the case where conversations changed while
+  // they were elsewhere in the app (especially on mobile, opened from
+  // the bottom nav). Silent: errors fall back to the per-instance
+  // backgroundSync inside ChatSidebar.
+  useEffect(() => {
+    fetch('/api/whatsapp/sync-all', { method: 'POST' }).catch(() => {})
+  }, [])
 
   const refetchInstances = useCallback(async () => {
     try {

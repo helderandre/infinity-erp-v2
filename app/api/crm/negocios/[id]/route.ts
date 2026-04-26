@@ -55,6 +55,23 @@ export async function PUT(
       delete updatePayload.contact_id
     }
 
+    // If the patch touches `temperatura`, capture the previous value + lead_id
+    // so we can append a `temperature_change` activity *after* the update lands.
+    // Lookup is skipped when `temperatura` isn't in the patch — keeps the
+    // common path single-roundtrip.
+    let prevTemperatura: string | null = null
+    let prevLeadId: string | null = null
+    const temperaturaInPatch = (input as { temperatura?: unknown }).temperatura !== undefined
+    if (temperaturaInPatch) {
+      const { data: current } = await supabase
+        .from('negocios')
+        .select('temperatura, lead_id')
+        .eq('id', id)
+        .single()
+      prevTemperatura = ((current as unknown) as { temperatura?: string | null })?.temperatura ?? null
+      prevLeadId = ((current as unknown) as { lead_id?: string | null })?.lead_id ?? null
+    }
+
     if (input.pipeline_stage_id) {
       const { data: stage, error: stageError } = await supabase
         .from('leads_pipeline_stages')
@@ -91,6 +108,30 @@ export async function PUT(
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Log temperature change to leads_activities so it surfaces in the
+    // recent-activity feed alongside stage moves, calls, etc. Best-effort:
+    // an insert failure here doesn't break the update.
+    if (temperaturaInPatch && data) {
+      const newTemperatura = (data as unknown as { temperatura?: string | null }).temperatura ?? null
+      const leadId =
+        prevLeadId ??
+        ((data as unknown as { lead_id?: string | null }).lead_id ?? null)
+      if (leadId && newTemperatura !== prevTemperatura) {
+        await supabase.from('leads_activities').insert({
+          contact_id: leadId,
+          negocio_id: id,
+          activity_type: 'temperature_change',
+          subject: prevTemperatura
+            ? `Temperatura: ${prevTemperatura} → ${newTemperatura ?? '—'}`
+            : `Temperatura definida: ${newTemperatura ?? '—'}`,
+          metadata: {
+            from_temperatura: prevTemperatura,
+            to_temperatura: newTemperatura,
+          },
+        })
+      }
     }
 
     // Log deal won to goals system (only via this route if stage was set to terminal won)

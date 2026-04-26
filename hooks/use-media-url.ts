@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 
 type MediaCacheEntry = {
-  url: string
+  url: string | null
   resolvedAt: number
 }
 
@@ -16,6 +16,11 @@ const pendingRequests = new Map<string, Promise<string | null>>()
 // In practice, they often 404 within minutes / hours (session- or token-bound).
 // Keep the cache short and always re-resolve if a cached URL is missing.
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+// Negative cache: when /api/whatsapp/media/download returns null (media gone
+// from UAZAPI), remember that for a short window so we don't fire the same
+// failing request on every render — those storms steal main-thread time and
+// make page-to-page navigation feel sluggish.
+const NEG_CACHE_TTL_MS = 60 * 1000 // 1 minute
 
 /** Imperatively drop a cached entry (used when an <img> 404s). */
 export function invalidateMediaCache(instanceId: string, waMessageId: string) {
@@ -90,12 +95,15 @@ export function useMediaUrl(
 
     const cacheKey = `${instanceId}:${waMessageId}`
 
-    // Verificar cache
+    // Verificar cache (positive + negative)
     const cached = mediaCache.get(cacheKey)
-    if (cached && Date.now() - cached.resolvedAt < CACHE_TTL_MS) {
-      setResolvedUrl(cached.url)
-      setLoading(false)
-      return
+    if (cached) {
+      const ttl = cached.url ? CACHE_TTL_MS : NEG_CACHE_TTL_MS
+      if (Date.now() - cached.resolvedAt < ttl) {
+        setResolvedUrl(cached.url)
+        setLoading(false)
+        return
+      }
     }
 
     // Verificar se já tem request pendente
@@ -116,9 +124,9 @@ export function useMediaUrl(
 
     request.then((url) => {
       pendingRequests.delete(cacheKey)
-      if (url) {
-        mediaCache.set(cacheKey, { url, resolvedAt: Date.now() })
-      }
+      // Cache the result either way — null entries are treated as
+      // negative cache via NEG_CACHE_TTL_MS in the read path above.
+      mediaCache.set(cacheKey, { url, resolvedAt: Date.now() })
       setResolvedUrl(url)
       setLoading(false)
     })

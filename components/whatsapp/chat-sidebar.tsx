@@ -213,13 +213,13 @@ export function ChatSidebar({
             <TabsTrigger value="all" className="flex-1 text-xs">Todos</TabsTrigger>
             <TabsTrigger value="unread" className="flex-1 text-xs">Não lidos</TabsTrigger>
             <TabsTrigger value="groups" className="flex-1 text-xs">Grupos</TabsTrigger>
-            <TabsTrigger value="professional" className="flex-1 text-xs">Profissionais</TabsTrigger>
+            <TabsTrigger value="professional" className="flex-1 text-xs">Profissional</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         {isLoading ? (
           <div className="space-y-1 p-2">
             {Array.from({ length: 8 }).map((_, i) => (

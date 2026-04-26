@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { KanbanBoard } from '@/components/crm/kanban-board'
+import { StageTag } from '@/components/crm/stage-tag'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import {
   ShoppingCart,
@@ -355,26 +356,28 @@ function NegociosListView({
   return (
     <div className="space-y-4">
       {/* ── Desktop: full table — sempre montada para preservar popovers
-          de filtro durante refetches. ── */}
-      <div className="hidden md:block rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+          de filtro durante refetches. Estilo "pipeline-feel": cantos
+          arredondados maiores, header com tint suave, e cada row leva
+          uma faixa colorida à esquerda com a cor do stage. ── */}
+      <div className="hidden md:block rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
         <Table>
-          <TableHeader>
-                <TableRow>
+          <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent border-b border-border/40">
                   <TableHead>Cliente</TableHead>
-                  <TableHead>
-                    <HeaderWithFilter label="Temperatura" active={!!filters.temperatura}>
-                      <ColumnFilterTemperatura
-                        value={filters.temperatura}
-                        onChange={(v) => onFilterChange({ temperatura: v })}
-                      />
-                    </HeaderWithFilter>
-                  </TableHead>
                   <TableHead>
                     <HeaderWithFilter label="Estado" active={!!filters.pipelineStageId}>
                       <ColumnFilterStage
                         stages={stages}
                         value={filters.pipelineStageId}
                         onChange={(v) => onFilterChange({ pipelineStageId: v })}
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
+                  <TableHead>
+                    <HeaderWithFilter label="Temperatura" active={!!filters.temperatura}>
+                      <ColumnFilterTemperatura
+                        value={filters.temperatura}
+                        onChange={(v) => onFilterChange({ temperatura: v })}
                       />
                     </HeaderWithFilter>
                   </TableHead>
@@ -461,11 +464,38 @@ function NegociosListView({
                   return (
                     <TableRow
                       key={n.id}
-                      className="cursor-pointer hover:bg-muted/30"
+                      className="cursor-pointer hover:bg-muted/30 transition-colors border-b border-border/30"
                       onClick={() => navigateToNegocio(n)}
+                      // Inset 3-px left bar in the stage colour — same accent
+                      // bar style as the kanban column header.
+                      style={{ boxShadow: `inset 3px 0 0 0 ${stageColor}` }}
                     >
-                      <TableCell className="font-medium">{clientName}</TableCell>
-                      <TableCell>
+                      {/* Cliente / Estado / Temperatura / Procura — four
+                          consecutive cells share the financeiro-card pastel
+                          gradient that fades smoothly from strong at the left
+                          to almost transparent by the 4th column. Each cell
+                          picks up where the previous left off so the band
+                          looks continuous across the table. */}
+                      <TableCell
+                        className="font-medium pl-5"
+                        style={{
+                          backgroundImage: `linear-gradient(to right, ${stageColor}33, ${stageColor}28)`,
+                        }}
+                      >
+                        {clientName}
+                      </TableCell>
+                      <TableCell
+                        style={{
+                          backgroundImage: `linear-gradient(to right, ${stageColor}28, ${stageColor}1a)`,
+                        }}
+                      >
+                        <StageTag name={stageName} color={stageColor} size="sm" />
+                      </TableCell>
+                      <TableCell
+                        style={{
+                          backgroundImage: `linear-gradient(to right, ${stageColor}1a, ${stageColor}0d)`,
+                        }}
+                      >
                         {tempBadge ? (
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -478,16 +508,14 @@ function NegociosListView({
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                          style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
-                        >
-                          <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
-                          {stageName}
-                        </span>
+                      <TableCell
+                        className="text-sm"
+                        style={{
+                          backgroundImage: `linear-gradient(to right, ${stageColor}0d, transparent)`,
+                        }}
+                      >
+                        {[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}
                       </TableCell>
-                      <TableCell className="text-sm">{[n.tipo_imovel, n.quartos_min ? `T${n.quartos_min}` : null].filter(Boolean).join(' · ') || '—'}</TableCell>
                       <TableCell className="text-sm tabular-nums">{budget}</TableCell>
                       <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{n.lead?.agent?.commercial_name || '—'}</TableCell>
@@ -544,7 +572,18 @@ function NegociosListView({
                 <div
                   key={n.id}
                   onClick={() => navigateToNegocio(n)}
-                  className="rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm shadow-sm p-3 cursor-pointer transition-all hover:shadow-md hover:bg-card"
+                  // Stage-coloured 3-px left accent + subtle pastel tint
+                  // pulled from the same stage colour, so the card visually
+                  // belongs to its kanban column at a glance.
+                  className="relative overflow-hidden rounded-2xl border border-border/40 backdrop-blur-sm shadow-sm p-3 pl-4 cursor-pointer transition-all hover:shadow-md"
+                  style={{
+                    // Slight uniform tint across the whole card — strong-ish
+                    // at the left next to the accent stripe, fading lightly
+                    // but never reaching transparent so the card stays
+                    // visually anchored to its stage colour edge-to-edge.
+                    backgroundImage: `linear-gradient(to right, ${stageColor}1c, ${stageColor}0a 60%, ${stageColor}06)`,
+                    boxShadow: `inset 3px 0 0 0 ${stageColor}`,
+                  }}
                 >
                   {/* Top: name + obs */}
                   <div className="flex items-start justify-between gap-2">
@@ -562,13 +601,7 @@ function NegociosListView({
 
                   {/* Tags row */}
                   <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                      style={{ backgroundColor: `${stageColor}26`, color: stageColor }}
-                    >
-                      <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
-                      {stageName}
-                    </span>
+                    <StageTag name={stageName} color={stageColor} size="sm" />
                     {tempBadge && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -1431,36 +1464,41 @@ export default function CRMPage() {
         </Button>
       </div>
 
-      {/* Active pipeline title (desktop only) + filter row — outside the hero. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="hidden md:block text-2xl font-bold tracking-tight">
-          {PIPELINE_TYPE_LABELS_PLURAL[activeTab]}
-        </h2>
-        {filterRow}
-      </div>
+      {/* Active pipeline title (desktop only) + filter row + content.
+           Wrapped in a tighter space-y so the title sits close to the
+           kanban / list — the outer space-y-6 only governs spacing
+           between the hero and this group. */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="hidden md:block text-2xl font-bold tracking-tight">
+            {PIPELINE_TYPE_LABELS_PLURAL[activeTab]}
+          </h2>
+          {filterRow}
+        </div>
 
-      {/* Content */}
-      {viewMode === 'kanban' ? (
-        <KanbanBoard
-          pipelineType={activeTab}
-          filters={filters}
-          onCardClick={(n) => openNegocioSheet(n.id)}
-          refreshKey={kanbanRefreshKey}
-          onMutated={bumpRefresh}
-        />
-      ) : (
-        <NegociosListView
-          pipelineType={activeTab}
-          filters={filters}
-          stages={stages}
-          onStageChange={(stageId) =>
-            setFilters((f) => ({ ...f, pipelineStageId: stageId || '' }))
-          }
-          onFilterChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
-          onOpenNegocio={openNegocioSheet}
-          refreshKey={kanbanRefreshKey}
-        />
-      )}
+        {/* Content */}
+        {viewMode === 'kanban' ? (
+          <KanbanBoard
+            pipelineType={activeTab}
+            filters={filters}
+            onCardClick={(n) => openNegocioSheet(n.id)}
+            refreshKey={kanbanRefreshKey}
+            onMutated={bumpRefresh}
+          />
+        ) : (
+          <NegociosListView
+            pipelineType={activeTab}
+            filters={filters}
+            stages={stages}
+            onStageChange={(stageId) =>
+              setFilters((f) => ({ ...f, pipelineStageId: stageId || '' }))
+            }
+            onFilterChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+            onOpenNegocio={openNegocioSheet}
+            refreshKey={kanbanRefreshKey}
+          />
+        )}
+      </div>
 
       <CsvExportDialog
         open={exportOpen}

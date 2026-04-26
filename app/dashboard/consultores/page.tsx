@@ -33,7 +33,7 @@ import {
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePermissions } from '@/hooks/use-permissions'
-import { classifyMember } from '@/lib/auth/roles'
+import { classifyUserMembership } from '@/lib/auth/roles'
 import type { ConsultantWithProfile } from '@/types/consultant'
 import { cn } from '@/lib/utils'
 
@@ -96,20 +96,26 @@ function ConsultoresPageContent() {
   const [allMembers, setAllMembers] = useState<ConsultantWithProfile[]>([])
   const [isLoadingAll, setIsLoadingAll] = useState(true)
 
+  // Classify each user into a single bucket — staff > consultor priority,
+  // so a user with both Consultor AND Office Manager (or Broker/CEO) goes
+  // to staff and never appears in both groups.
+  const memberClassification = useMemo(() => {
+    const map = new Map<string, 'consultor' | 'staff' | 'other'>()
+    for (const m of allMembers) {
+      const roleNames = m.user_roles?.map((ur) => ur.roles?.name) ?? []
+      map.set(m.id, classifyUserMembership(roleNames))
+    }
+    return map
+  }, [allMembers])
+
   const consultantMembers = useMemo(
-    () =>
-      allMembers.filter((m) =>
-        m.user_roles?.some((ur) => classifyMember(ur.roles?.name) === 'consultor')
-      ),
-    [allMembers]
+    () => allMembers.filter((m) => memberClassification.get(m.id) === 'consultor'),
+    [allMembers, memberClassification],
   )
 
   const staffMembers = useMemo(
-    () =>
-      allMembers.filter((m) =>
-        m.user_roles?.some((ur) => classifyMember(ur.roles?.name) === 'staff')
-      ),
-    [allMembers]
+    () => allMembers.filter((m) => memberClassification.get(m.id) === 'staff'),
+    [allMembers, memberClassification],
   )
 
   // Filters
@@ -332,9 +338,11 @@ function ConsultoresPageContent() {
                   action={canManage ? { label: 'Novo Membro', onClick: () => setCreateOpen(true) } : undefined}
                 />
               ) : (() => {
-                const sortedMembers = [...allMembers].sort((a, b) =>
+                const sortByName = (a: ConsultantWithProfile, b: ConsultantWithProfile) =>
                   a.commercial_name.localeCompare(b.commercial_name)
-                )
+                const sortedConsultores = [...consultantMembers].sort(sortByName)
+                const sortedStaff = [...staffMembers].sort(sortByName)
+
                 const renderMemberCard = (member: ConsultantWithProfile) => {
                   const roleName = member.user_roles?.[0]?.roles?.name
                   return (
@@ -352,88 +360,116 @@ function ConsultoresPageContent() {
                   )
                 }
 
-                if (viewMode === 'grid') {
+                const SectionHeader = ({ title, count }: { title: string; count: number }) => (
+                  <div className="flex items-baseline gap-2 px-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {title}
+                    </h3>
+                    <span className="text-xs text-muted-foreground/70 tabular-nums">{count}</span>
+                  </div>
+                )
+
+                const renderGridSection = (
+                  title: string,
+                  members: ConsultantWithProfile[],
+                ) => (
+                  <div className="space-y-3 sm:space-y-4">
+                    <SectionHeader title={title} count={members.length} />
+                    {/* Mobile: horizontal swipe carousel */}
+                    <div className="sm:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2 scrollbar-hide">
+                      {members.map((member) => (
+                        <div key={`${title}-m-${member.id}`} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
+                          {renderMemberCard(member)}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop: grid */}
+                    <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {members.map(renderMemberCard)}
+                    </div>
+                  </div>
+                )
+
+                const renderTableRow = (member: ConsultantWithProfile) => {
+                  const profile = member.dev_consultant_profiles
+                  const roleName = member.user_roles?.[0]?.roles?.name
                   return (
-                    <>
-                      {/* Mobile: horizontal swipe carousel */}
-                      <div className="sm:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2 scrollbar-hide">
-                        {sortedMembers.map((member) => (
-                          <div key={`eq-m-${member.id}`} className="snap-center shrink-0 w-[calc(100vw-3rem)]">
-                            {renderMemberCard(member)}
-                          </div>
-                        ))}
-                      </div>
-                      {/* Desktop: grid */}
-                      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                        {sortedMembers.map(renderMemberCard)}
-                      </div>
-                    </>
+                    <TableRow
+                      key={member.id}
+                      className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
+                      onClick={() => openConsultantSheet(member.id)}
+                    >
+                      <TableCell>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={profile?.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-xs bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-600 dark:to-neutral-700">
+                            {getInitials(member.commercial_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">{member.commercial_name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {member.professional_email || '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {profile?.phone_commercial || '—'}
+                      </TableCell>
+                      <TableCell>
+                        {roleName ? (
+                          <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 bg-muted/50">
+                            {roleName}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {member.is_active ? (
+                          <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                            Ativo
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
+                            Inativo
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   )
                 }
 
+                const renderTableSection = (
+                  title: string,
+                  members: ConsultantWithProfile[],
+                ) => (
+                  <div className="space-y-3 sm:space-y-4">
+                    <SectionHeader title={title} count={members.length} />
+                    <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[50px]" />
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Nome</TableHead>
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Email</TableHead>
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Telemóvel</TableHead>
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Função</TableHead>
+                            <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {members.map(renderTableRow)}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )
+
+                const renderSection = viewMode === 'grid' ? renderGridSection : renderTableSection
+
                 return (
-                  <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-[50px]" />
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Nome</TableHead>
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Email</TableHead>
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Telemóvel</TableHead>
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Função</TableHead>
-                          <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortedMembers.map((member) => {
-                          const profile = member.dev_consultant_profiles
-                          const roleName = member.user_roles?.[0]?.roles?.name
-                          return (
-                            <TableRow
-                              key={member.id}
-                              className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
-                              onClick={() => openConsultantSheet(member.id)}
-                            >
-                              <TableCell>
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={profile?.profile_photo_url || undefined} />
-                                  <AvatarFallback className="text-xs bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-600 dark:to-neutral-700">
-                                    {getInitials(member.commercial_name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                              </TableCell>
-                              <TableCell className="text-sm font-medium">{member.commercial_name}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {member.professional_email || '—'}
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {profile?.phone_commercial || '—'}
-                              </TableCell>
-                              <TableCell>
-                                {roleName ? (
-                                  <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 bg-muted/50">
-                                    {roleName}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {member.is_active ? (
-                                  <Badge className="rounded-full text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                                    Ativo
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5 text-muted-foreground">
-                                    Inativo
-                                  </Badge>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-6 sm:space-y-8">
+                    {sortedConsultores.length > 0 && renderSection('Consultores', sortedConsultores)}
+                    {sortedStaff.length > 0 && renderSection('Staff', sortedStaff)}
                   </div>
                 )
               })()}

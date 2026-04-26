@@ -14,6 +14,14 @@ export function usePermissions() {
   const { user, loading } = useUser()
 
   const hasPermission = (module: PermissionModule): boolean => {
+    // While the user is still loading, return true optimistically so
+    // permission-gated UI (sidebar items, menus) renders the structure
+    // immediately instead of collapsing to an empty shell. Middleware
+    // already verified the user is authenticated; we just don't yet know
+    // which modules they can access — and authorization is enforced
+    // server-side anyway, so the optimistic UI cannot grant real access.
+    if (loading) return true
+
     if (!user?.role?.permissions) return false
 
     const permissions = user.role.permissions as Permissions

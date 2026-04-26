@@ -203,7 +203,7 @@ export default function ImovelDetalhePage() {
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
-  const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas'>('imagens')
+  const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas' | 'descricao'>('imagens')
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
@@ -819,21 +819,27 @@ export default function ImovelDetalhePage() {
                 descriptionExpanded ? 'lg:col-span-1' : 'lg:col-span-2'
               )}
             >
-              <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
-                {([['imagens', 'Imagens'], ['plantas', 'Plantas']] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setMediaSection(key)}
-                    className={cn(
-                      'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
-                      mediaSection === key
-                        ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="flex justify-center lg:justify-start">
+                <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+                  {([
+                    ['imagens', 'Imagens'],
+                    ['plantas', 'Plantas'],
+                    ...(isMobile ? ([['descricao', 'Descrição']] as const) : []),
+                  ] as ReadonlyArray<readonly [typeof mediaSection, string]>).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setMediaSection(key)}
+                      className={cn(
+                        'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
+                        mediaSection === key
+                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {mediaSection === 'imagens' && (
@@ -852,6 +858,56 @@ export default function ImovelDetalhePage() {
                   renders3d={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta_3d')}
                   onMediaChange={refetch}
                 />
+              )}
+
+              {mediaSection === 'descricao' && isMobile && (
+                descriptionExpanded ? (
+                  <PropertyDescriptionGenerator
+                    inline
+                    propertyId={property.id}
+                    property={property}
+                    existingDescription={property.description || ''}
+                    onClose={() => setDescriptionExpanded(false)}
+                    onUseDescription={async (desc) => {
+                      updateField('description', desc)
+                      try {
+                        const res = await fetch(`/api/properties/${property.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ property: { description: desc } }),
+                        })
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}))
+                          throw new Error(err.error || 'Erro ao guardar descrição')
+                        }
+                        await refetch()
+                        toast.success('Descrição guardada')
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold">Descrição</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDescriptionExpanded(true)}
+                        className="h-8 gap-1.5 text-xs"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                        Editar descrição
+                      </Button>
+                    </div>
+                    <DescriptionContent
+                      text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
+                      editing={isEditing}
+                      onChange={(v) => updateField('description', v)}
+                    />
+                  </div>
+                )
               )}
             </motion.div>
 
@@ -900,8 +956,8 @@ export default function ImovelDetalhePage() {
                 </div>
               )}
 
-              {/* Description (read-only or expanded editor) */}
-              <div className="pt-4 border-t">
+              {/* Description (read-only or expanded editor) — hidden on mobile (lives in subtab) */}
+              <div className="pt-4 border-t hidden lg:block">
                 {descriptionExpanded ? (
                   <PropertyDescriptionGenerator
                     inline
@@ -2018,7 +2074,7 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
       : html
 
     return (
-      <div data-no-long-press>
+      <div>
         <div
           className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none [&_strong]:text-foreground [&_strong]:font-semibold"
           dangerouslySetInnerHTML={{ __html: displayHtml }}
@@ -2034,7 +2090,7 @@ function DescriptionContent({ text, editing, onChange }: { text: string; editing
 
   const displayText = isLong && !expanded ? text.slice(0, 300).trimEnd() + '…' : text
   return (
-    <div data-no-long-press>
+    <div>
       <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{displayText}</p>
       {isLong && (
         <button onClick={() => setExpanded(!expanded)} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors mt-1">
@@ -2053,7 +2109,6 @@ function DescriptionCard({ text, editing, onChange }: { text: string; editing?: 
   return (
     <div
       className={cn('rounded-xl border shadow-sm p-5 space-y-3', editing ? 'bg-card ring-1 ring-primary/10' : 'bg-card')}
-      data-no-long-press
     >
       <SectionTitle>Descrição</SectionTitle>
       {editing && onChange ? (

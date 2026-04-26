@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { isToday, isYesterday, format, isSameDay } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import { Forward } from 'lucide-react'
+import { Forward, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useWhatsAppMessages } from '@/hooks/use-whatsapp-messages'
@@ -62,6 +62,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [saveToErpMsg, setSaveToErpMsg] = useState<WppMessage | null>(null)
+  const [showScrollDown, setShowScrollDown] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
@@ -89,6 +90,7 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
   useEffect(() => {
     prevChatIdRef.current = null
     isAtBottomRef.current = true
+    setShowScrollDown(false)
   }, [chatId])
 
   // Scroll to bottom when chat changes (after messages load)
@@ -124,13 +126,19 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
     if (!el) return
 
     // Check if at bottom
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+    isAtBottomRef.current = atBottom
+    setShowScrollDown(!atBottom)
 
     // Load more when scrolled to top
     if (el.scrollTop < 100 && hasMore && !isLoading) {
       loadMore()
     }
   }, [hasMore, isLoading, loadMore])
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
   const handleSendPresence = useCallback(() => {
     sendPresence(chatId, 'composing')
@@ -208,10 +216,11 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
       />
 
       {/* Messages */}
+      <div className="flex-1 relative min-h-0 flex flex-col">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-2 bg-muted/30"
+        className="flex-1 overflow-y-auto overscroll-contain px-4 py-2 bg-muted/30"
       >
         {isLoading ? (
           <div className="space-y-4 py-4">
@@ -306,6 +315,19 @@ export function ChatThread({ chatId, instanceId, onToggleInfo, onBack }: ChatThr
 
             <div ref={bottomRef} />
           </>
+        )}
+      </div>
+
+        {/* Floating scroll-to-bottom button */}
+        {showScrollDown && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label="Ir para a mensagem mais recente"
+            className="absolute bottom-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-lg hover:bg-muted transition-colors"
+          >
+            <ChevronDown className="h-5 w-5 text-foreground" />
+          </button>
         )}
       </div>
 

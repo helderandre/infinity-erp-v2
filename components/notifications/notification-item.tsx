@@ -11,13 +11,15 @@ interface NotificationItemProps {
   notification: Notification
   onRead: (id: string) => void
   onDelete: (id: string) => void
+  onNavigate?: () => void
 }
 
-export function NotificationItem({ notification, onRead }: NotificationItemProps) {
+export function NotificationItem({ notification, onRead, onNavigate }: NotificationItemProps) {
   const router = useRouter()
 
   const handleClick = () => {
     if (!notification.is_read) onRead(notification.id)
+    onNavigate?.()
     // For DM notifications, always route to the SENDER — action_url may be
     // stale from an earlier bug where it pointed at the recipient themselves.
     if (notification.notification_type === 'dm_message' && notification.sender_id) {

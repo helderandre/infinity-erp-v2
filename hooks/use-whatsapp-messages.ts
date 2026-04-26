@@ -25,19 +25,35 @@ export function useWhatsAppMessages(chatId: string | null) {
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const initialLoadRef = useRef(true)
 
+  // AbortController — aborts the in-flight fetch when the chat changes or
+  // the component unmounts. Without this, navigating away from WhatsApp
+  // leaves the request hanging and the eventual setMessages fires after
+  // unmount, which both wastes a network slot and steals main-thread time
+  // from the destination page during the React transition.
+  const abortRef = useRef<AbortController | null>(null)
+
   const fetchMessages = useCallback(
     async (opts?: { append?: boolean; before?: number }) => {
       if (!chatId) return
+
+      // Cancel any previous fetch for this hook instance.
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
 
       if (!opts?.append) setIsLoading(true)
       try {
         const params = new URLSearchParams({ limit: "50" })
         if (opts?.before) params.set("before", String(opts.before))
 
-        const res = await fetch(`/api/whatsapp/chats/${chatId}/messages?${params}`)
+        const res = await fetch(
+          `/api/whatsapp/chats/${chatId}/messages?${params}`,
+          { signal: controller.signal },
+        )
         if (!res.ok) throw new Error("Erro ao carregar mensagens")
 
         const data = await res.json()
+        if (controller.signal.aborted) return
 
         if (opts?.append) {
           // Prepend older messages
@@ -53,10 +69,11 @@ export function useWhatsAppMessages(chatId: string | null) {
         // Merge quoted messages
         setQuotedMessages((prev) => ({ ...prev, ...data.quoted_messages }))
         setHasMore(data.has_more)
-      } catch {
-        // silently fail
+      } catch (err) {
+        // Aborts are expected — silently ignore. Other errors fall through.
+        if (err instanceof DOMException && err.name === 'AbortError') return
       } finally {
-        setIsLoading(false)
+        if (!controller.signal.aborted) setIsLoading(false)
       }
     },
     [chatId]
@@ -140,6 +157,10 @@ export function useWhatsAppMessages(chatId: string | null) {
     channelRef.current = channel
 
     return () => {
+      // Abort any in-flight messages fetch so it doesn't keep React busy
+      // (and the network slot occupied) during the navigation transition.
+      abortRef.current?.abort()
+      abortRef.current = null
       supabase.removeChannel(channel)
       channelRef.current = null
     }

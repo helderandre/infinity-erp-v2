@@ -21,10 +21,19 @@ interface CsvExportDialogProps {
   title: string
   /** Whether to show the consultant filter */
   showConsultantFilter?: boolean
+  /** Extra query-string params merged into the export request — used by
+   *  the kanban bulk export to pass `negocio_ids=…` so only the selected
+   *  cards end up in the CSV. */
+  extraParams?: Record<string, string>
+  /** Optional summary line shown below the title (e.g. "12 negócios
+   *  selecionados"). Helpful when the export is scoped by something
+   *  the consultant did outside this dialog. */
+  scopeLabel?: string
 }
 
 export function CsvExportDialog({
   open, onOpenChange, endpoint, title, showConsultantFilter = true,
+  extraParams, scopeLabel,
 }: CsvExportDialogProps) {
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [selectedConsultant, setSelectedConsultant] = useState('all')
@@ -50,6 +59,11 @@ export function CsvExportDialog({
     try {
       const params = new URLSearchParams()
       if (selectedConsultant !== 'all') params.set('consultant_id', selectedConsultant)
+      if (extraParams) {
+        for (const [k, v] of Object.entries(extraParams)) {
+          if (v) params.set(k, v)
+        }
+      }
 
       const res = await fetch(`${endpoint}?${params}`)
       if (!res.ok) throw new Error()
@@ -83,6 +97,9 @@ export function CsvExportDialog({
             </div>
             <DialogTitle className="text-white text-lg">Exportar {title}</DialogTitle>
           </div>
+          {scopeLabel && (
+            <p className="text-white/70 text-[11px] mt-2">{scopeLabel}</p>
+          )}
         </div>
 
         <div className="space-y-4">

@@ -167,10 +167,9 @@ export function ConsultantDetailSheet({ consultantId, open, onOpenChange }: Cons
             <Skeleton className="h-32 rounded-2xl" />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <div className="px-6 space-y-4 pb-8">
-              {/* Tab selector */}
-              <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-fit mx-auto">
+          <div className="flex-1 min-h-0 flex flex-col overflow-x-hidden">
+            <div className="px-6 pt-1 pb-3 shrink-0 flex justify-center">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-fit">
                 <TabButton
                   active={activeTab === 'contactos'}
                   icon={UserIcon}
@@ -191,10 +190,12 @@ export function ConsultantDetailSheet({ consultantId, open, onOpenChange }: Cons
                   onClick={() => setActiveTab('imoveis')}
                 />
               </div>
+            </div>
 
+            <div className="flex-1 min-h-0 px-6 pb-6 flex flex-col">
               {activeTab === 'contactos' && (
-                <div className="rounded-2xl bg-background border border-border/50 shadow-sm overflow-hidden">
-                  <div className="relative aspect-[4/5] sm:aspect-[3/4] bg-muted">
+                <div className="flex-1 min-h-0 rounded-2xl bg-background border border-border/50 shadow-sm overflow-hidden flex flex-col">
+                  <div className="relative flex-1 min-h-0 bg-muted">
                     {photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -322,11 +323,15 @@ export function ConsultantDetailSheet({ consultantId, open, onOpenChange }: Cons
               )}
 
               {activeTab === 'perfil' && (
-                <ProfileSection consultant={consultant} />
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <ProfileSection consultant={consultant} />
+                </div>
               )}
 
               {activeTab === 'imoveis' && consultantId && (
-                <ConsultantPropertiesSection consultantId={consultantId} />
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <ConsultantPropertiesSection consultantId={consultantId} />
+                </div>
               )}
             </div>
           </div>

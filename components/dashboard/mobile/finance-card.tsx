@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   TrendingUp,
   Receipt,
@@ -16,6 +15,7 @@ import type { AgentMobileDashboard } from '@/app/dashboard/financeiro/actions'
 import type { DrilldownKind } from '@/app/api/financial/dashboard/drilldown/route'
 import { DashboardKpiDrilldownSheet } from '@/components/financial/sheets/dashboard-kpi-drilldown-sheet'
 import { cn } from '@/lib/utils'
+import { AnimatedNumber } from '@/components/shared/animated-number'
 
 const fmt = new Intl.NumberFormat('pt-PT', {
   style: 'currency',
@@ -89,25 +89,21 @@ export function FinanceCard({
     [evolution, now],
   )
 
-  if (loading || !data) {
-    return (
-      <Card className={cardClass}>
-        <Skeleton className="h-8 w-40" />
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-20 rounded-2xl" />
-          <Skeleton className="h-20 rounded-2xl" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-20 rounded-2xl" />
-          <Skeleton className="h-20 rounded-2xl" />
-        </div>
-        <Skeleton className="h-44 w-full rounded-2xl" />
-      </Card>
-    )
+  // Render the layout immediately with zero defaults; AnimatedNumber will
+  // tween each value from 0 → real once `data` arrives. Avoids the skeleton
+  // flash that made the dashboard feel slow on a cold load.
+  const f = data?.financial ?? {
+    report_mes: 0,
+    report_ano: 0,
+    margem_mes: 0,
+    margem_ano: 0,
+    report_previsto_mes: 0,
+    margem_prevista_mes: 0,
+    pct_achieved: 0,
+    monthly_evolution: [],
   }
-
-  const f = data.financial
   const pct = Math.min(f.pct_achieved, 100)
+  const interactive = !loading && !!data
   const pctRingColor =
     pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500'
   const pctTextColor =
@@ -177,7 +173,7 @@ export function FinanceCard({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
-                className={pctRingColor}
+                className={cn(pctRingColor, 'transition-[stroke-dasharray] duration-700 ease-out')}
                 strokeDasharray={`${pct} ${100 - pct}`}
                 strokeLinecap="round"
               />
@@ -188,7 +184,7 @@ export function FinanceCard({
                 pctTextColor,
               )}
             >
-              {Math.round(f.pct_achieved)}%
+              <AnimatedNumber value={f.pct_achieved} format={(n) => `${Math.round(n)}%`} />
             </span>
           </Link>
 
@@ -211,29 +207,33 @@ export function FinanceCard({
           icon={Receipt}
           tone="positive"
           label="Report este mês"
-          value={fmt.format(f.report_mes)}
-          onClick={() => open('revenue', 'month', 'Report este mês')}
+          numericValue={f.report_mes}
+          format={fmt.format}
+          onClick={interactive ? () => open('revenue', 'month', 'Report este mês') : undefined}
         />
         <KpiTile
           icon={Receipt}
           tone="positive"
           label="Report este ano"
-          value={fmt.format(f.report_ano)}
-          onClick={() => open('revenue', 'year', 'Report este ano')}
+          numericValue={f.report_ano}
+          format={fmt.format}
+          onClick={interactive ? () => open('revenue', 'year', 'Report este ano') : undefined}
         />
         <KpiTile
           icon={PiggyBank}
           tone="info"
           label="Margem este mês"
-          value={fmt.format(f.margem_mes)}
-          onClick={() => open('margin', 'month', 'Margem este mês')}
+          numericValue={f.margem_mes}
+          format={fmt.format}
+          onClick={interactive ? () => open('margin', 'month', 'Margem este mês') : undefined}
         />
         <KpiTile
           icon={PiggyBank}
           tone="info"
           label="Margem este ano"
-          value={fmt.format(f.margem_ano)}
-          onClick={() => open('margin', 'year', 'Margem este ano')}
+          numericValue={f.margem_ano}
+          format={fmt.format}
+          onClick={interactive ? () => open('margin', 'year', 'Margem este ano') : undefined}
         />
       </div>
 
@@ -244,18 +244,20 @@ export function FinanceCard({
           icon={Sparkles}
           tone="warning"
           label="Report previsto este mês"
-          value={fmt.format(f.report_previsto_mes)}
-          onClick={() =>
-            open('forecast_revenue', 'month', 'Report previsto este mês')
+          numericValue={f.report_previsto_mes}
+          format={fmt.format}
+          onClick={interactive ? () =>
+            open('forecast_revenue', 'month', 'Report previsto este mês') : undefined
           }
         />
         <KpiTile
           icon={Target}
           tone="warning"
           label="Margem prevista este mês"
-          value={fmt.format(f.margem_prevista_mes)}
-          onClick={() =>
-            open('forecast_margin', 'month', 'Margem prevista este mês')
+          numericValue={f.margem_prevista_mes}
+          format={fmt.format}
+          onClick={interactive ? () =>
+            open('forecast_margin', 'month', 'Margem prevista este mês') : undefined
           }
         />
       </div>
@@ -344,11 +346,11 @@ export function FinanceCard({
                     />
                   )}
                   <div
-                    className="w-full rounded-t-sm bg-gradient-to-t from-blue-500 to-blue-400 opacity-85 absolute bottom-0"
+                    className="w-full rounded-t-sm bg-gradient-to-t from-blue-500 to-blue-400 opacity-85 absolute bottom-0 transition-[height] duration-700 ease-out"
                     style={{ height: `${revH}%` }}
                   />
                   <div
-                    className="w-[55%] rounded-t-sm bg-emerald-500/80 absolute bottom-0 left-1/2 -translate-x-1/2"
+                    className="w-[55%] rounded-t-sm bg-emerald-500/80 absolute bottom-0 left-1/2 -translate-x-1/2 transition-[height] duration-700 ease-out"
                     style={{ height: `${marH}%` }}
                   />
                 </div>
@@ -388,12 +390,16 @@ function KpiTile({
   icon: Icon,
   label,
   value,
+  numericValue,
+  format,
   tone,
   onClick,
 }: {
   icon: React.ElementType
   label: string
-  value: string
+  value?: string
+  numericValue?: number
+  format?: (n: number) => string
   tone: 'positive' | 'negative' | 'info' | 'warning' | 'purple'
   onClick?: () => void
 }) {
@@ -433,7 +439,11 @@ function KpiTile({
         </p>
       </div>
       <p className="text-base sm:text-xl font-semibold tracking-tight tabular-nums mt-2.5 text-foreground break-words">
-        {value}
+        {numericValue !== undefined ? (
+          <AnimatedNumber value={numericValue} format={format} />
+        ) : (
+          value
+        )}
       </p>
     </Component>
   )

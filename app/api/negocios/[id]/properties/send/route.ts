@@ -318,7 +318,8 @@ export async function POST(
 
     const results: SendResult[] = []
     const emailLimit = pLimit(3)
-    const whatsappLimit = pLimit(2)
+    // WhatsApp dispatch is now strictly sequential with a randomised
+    // delay (see the loop below) — no concurrency limiter needed.
 
     // EMAIL — merge intro (body_html) with the rendered grid and wrap
     if (email && resolvedAccount?.ok) {
@@ -383,39 +384,48 @@ export async function POST(
       )
     }
 
-    // WHATSAPP — one text message per recipient with enumerated list
+    // WHATSAPP — one text message per recipient with enumerated list.
+    //
+    // Anti-ban: send strictly SEQUENTIAL with a jittered 8–20 s delay
+    // between each recipient. UazAPI's bot-detection (and WhatsApp's
+    // own) is pattern-based — sub-3 s spacing or pure-concurrent fan-
+    // out is the fastest way to get an instance flagged. Random
+    // 8–20 s pacing keeps the cadence "human enough" while still being
+    // fast enough for typical bulk sends. The first message goes out
+    // immediately; the delay only kicks in between subsequent ones.
     if (whatsapp && whatsappInstance) {
       const defaultMessage = buildDefaultWhatsappText(cards)
       const text = whatsapp.message?.trim() || defaultMessage
 
-      await Promise.all(
-        whatsapp.recipients.map((to) =>
-          whatsappLimit(async () => {
-            try {
-              const chat = await resolveWhatsappChat(whatsappInstance!.id, to)
-              if (!chat) {
-                throw new Error('Não foi possível resolver o chat')
-              }
-              await callWhatsappEdge({
-                action: 'send_text',
-                instance_id: whatsappInstance!.id,
-                wa_chat_id: chat.waChatId,
-                text,
-              })
-              results.push({ channel: 'whatsapp', to, status: 'success' })
-            } catch (err) {
-              const msg =
-                err instanceof Error ? err.message : 'Erro desconhecido'
-              results.push({
-                channel: 'whatsapp',
-                to,
-                status: 'failed',
-                error: msg,
-              })
-            }
+      for (let i = 0; i < whatsapp.recipients.length; i++) {
+        const to = whatsapp.recipients[i]
+        if (i > 0) {
+          const delayMs = 8000 + Math.floor(Math.random() * 12000)
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
+        try {
+          const chat = await resolveWhatsappChat(whatsappInstance!.id, to)
+          if (!chat) {
+            throw new Error('Não foi possível resolver o chat')
+          }
+          await callWhatsappEdge({
+            action: 'send_text',
+            instance_id: whatsappInstance!.id,
+            wa_chat_id: chat.waChatId,
+            text,
           })
-        )
-      )
+          results.push({ channel: 'whatsapp', to, status: 'success' })
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : 'Erro desconhecido'
+          results.push({
+            channel: 'whatsapp',
+            to,
+            status: 'failed',
+            error: msg,
+          })
+        }
+      }
     }
 
     const attempted = results.length
@@ -479,6 +489,43 @@ export async function POST(
           }
           if (activities.length > 0) {
             await admin.from('leads_activities').insert(activities)
+          }
+
+          // Registry — contact_property_sends. One row per (contact,
+          // property, channel). Only real properties (not external URLs)
+          // are tracked here; external entries don't have a stable
+          // property_id to key against. Used by the kanban bulk send +
+          // by the "potenciais interessados" badge on each imóvel.
+          const realPropertyIds = (rows as any[])
+            .map((r) => r.property_id)
+            .filter(Boolean) as string[]
+          if (realPropertyIds.length > 0) {
+            const sentRows: any[] = []
+            if (emailSucceeded) {
+              for (const pid of realPropertyIds) {
+                sentRows.push({
+                  contact_id: neg.lead_id,
+                  property_id: pid,
+                  channel: 'email',
+                  source_negocio_id: negocioId,
+                  sent_by: auth.user.id,
+                })
+              }
+            }
+            if (whatsappSucceeded) {
+              for (const pid of realPropertyIds) {
+                sentRows.push({
+                  contact_id: neg.lead_id,
+                  property_id: pid,
+                  channel: 'whatsapp',
+                  source_negocio_id: negocioId,
+                  sent_by: auth.user.id,
+                })
+              }
+            }
+            if (sentRows.length > 0) {
+              await admin.from('contact_property_sends').insert(sentRows)
+            }
           }
         }
       } catch (actErr) {

@@ -33,25 +33,75 @@ export interface UserWithRole extends DevUser {
 //
 // This cache returns the same in-flight Promise to all callers and keeps the
 // resolved user warm for 30s so fast remounts don't refetch unnecessarily.
+//
+// Additionally, we persist the resolved user to localStorage. On full page
+// reloads (the only time the module-scope cache is lost) we hydrate from
+// localStorage so the dashboard can decide its variant (consultor vs
+// management) on the very first render — the dev_users round-trip becomes
+// a background revalidation instead of a blocking fetch.
 let inFlight: Promise<UserWithRole | null> | null = null
 let cached: { user: UserWithRole | null; at: number } | null = null
 const CACHE_TTL_MS = 30_000
+const PERSIST_KEY = 'infinity-erp-user-cache-v1'
+const PERSIST_TTL_MS = 30 * 60 * 1000 // 30 minutes — UI cap on staleness
+
+function readPersistedCache(): { user: UserWithRole | null; at: number } | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(PERSIST_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { user: UserWithRole | null; at: number }
+    if (!parsed || typeof parsed.at !== 'number') return null
+    if (Date.now() - parsed.at > PERSIST_TTL_MS) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function persistCache(entry: { user: UserWithRole | null; at: number }) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(PERSIST_KEY, JSON.stringify(entry))
+  } catch {
+    // quota errors / private mode etc — silent
+  }
+}
+
+function clearPersistedCache() {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(PERSIST_KEY)
+  } catch {
+    // silent
+  }
+}
+
+// Hydrate the module-scope cache from localStorage at module load.
+// Subsequent useUser() initial renders see `cached` populated and skip the
+// loading state entirely — the in-flight revalidation runs in the background.
+if (typeof window !== 'undefined' && !cached) {
+  cached = readPersistedCache()
+}
 
 async function doFetchUser(): Promise<UserWithRole | null> {
   const supabase = createClient()
 
+  // Use getSession() (sync read from cookies/storage) instead of getUser()
+  // (network round-trip to /auth/v1/user). Middleware already validated the
+  // JWT on this request, and the dev_users query below is protected by RLS
+  // — a forged token would be rejected there. Saves ~200–500ms on every
+  // dashboard load.
   const {
-    data: { user: authUser },
+    data: { session },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getSession()
 
-  // "No session" is not a hard error — the caller (middleware/UI) decides
-  // what to do when the user is unauthenticated. Only propagate genuine
-  // failures (network, server, malformed token).
   if (authError) {
     if (authError.name === 'AuthSessionMissingError') return null
     throw authError
   }
+  const authUser = session?.user
   if (!authUser) return null
 
   const { data: devUser, error: devUserError } = await supabase
@@ -115,7 +165,9 @@ function fetchUserDeduped(force = false): Promise<UserWithRole | null> {
   if (!inFlight) {
     inFlight = doFetchUser()
       .then((user) => {
-        cached = { user, at: Date.now() }
+        const entry = { user, at: Date.now() }
+        cached = entry
+        persistCache(entry)
         return user
       })
       .finally(() => {
@@ -128,6 +180,7 @@ function fetchUserDeduped(force = false): Promise<UserWithRole | null> {
 function invalidateUserCache() {
   cached = null
   inFlight = null
+  clearPersistedCache()
 }
 
 export function useUser() {
@@ -152,7 +205,10 @@ export function useUser() {
           : { value: String(err) }
       console.error('Erro ao carregar utilizador:', detail)
       setError(err instanceof Error ? err : new Error(JSON.stringify(detail)))
-      setUser(null)
+      // Keep whatever user was already in state — if we hydrated from
+      // localStorage and the background revalidation fails (transient
+      // network blip), don't blank out the dashboard. Genuine "no session"
+      // is handled inside doFetchUser and resolves to null (not throw).
     } finally {
       setLoading(false)
     }

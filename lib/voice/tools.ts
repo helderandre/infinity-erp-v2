@@ -112,7 +112,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_leads_batch',
       description:
-        'Criar VÁRIOS leads em lote. Usar quando o utilizador menciona múltiplas pessoas numa só instrução (ex: "adiciona leads João Silva, Maria Pereira 913123456, e Pedro"). Se o utilizador referir um consultor ou origem partilhados ("todos do Instagram", "para o Pedro"), preenche default_source e/ou assigned_consultant_name — aplicam-se a todos. Se o utilizador atribuir individualmente ("João do Idealista para a Ana, Maria do Instagram"), usa os campos source e assigned_consultant_name dentro de cada lead (sobrepõem-se aos defaults).',
+        'Criar VÁRIOS leads em lote. Usar quando o utilizador menciona múltiplas pessoas numa só instrução (ex: "adiciona leads João Silva, Maria Pereira 913123456, e Pedro"). Se o utilizador referir um consultor, origem ou imóvel partilhados ("todos do Instagram", "para o Pedro", "todos interessados no PROP-103"), preenche default_source, assigned_consultant_name e/ou default_property_query — aplicam-se a todos. Se o utilizador atribuir individualmente ("João do Idealista para a Ana interessado no T2 da Av. Liberdade, Maria do Instagram"), usa os campos source, assigned_consultant_name e property_query dentro de cada lead (sobrepõem-se aos defaults).',
       parameters: withConfidence(
         {
           leads: {
@@ -135,6 +135,11 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
                   description:
                     'Consultor a quem atribuir este lead específico, se diferente do grupo.',
                 },
+                property_query: {
+                  type: 'string',
+                  description:
+                    'Imóvel/angariação específico a que este lead está ligado, se diferente do grupo. Pode ser sufixo numérico da referência interna (ex: "103"), título ou zona livre. O ecrã de confirmação oferece um picker para escolher o imóvel real.',
+                },
               },
               required: ['nome'],
             },
@@ -151,6 +156,11 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
             type: 'string',
             description:
               'Nome do consultor a quem atribuir todos os leads do lote. Preenche apenas se o utilizador referir explicitamente (ex: "para o João", "atribui à Maria").',
+          },
+          default_property_query: {
+            type: 'string',
+            description:
+              'Imóvel/angariação partilhado por todos os leads do lote (ex: "todos interessados no PROP-103", "todos do T3 da Av. Liberdade"). Mesmo formato que property_query individual: sufixo numérico, título ou zona livre.',
           },
         },
         ['leads']

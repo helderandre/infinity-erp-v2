@@ -6,10 +6,10 @@
  * 5 management-specific slides:
  *
  *   1. WelcomeCard           (re-used — photo + name + buttons)
- *   2. ManagerAlertasCard    (consultores com red/amber alerts)
- *   3. ManagerRankingsCard   (top consultores por facturação/angariações)
- *   4. ManagerOverviewCard   (KPIs YTD + valores em curso + previsões)
- *   5. ManagerPipelineCard   (pipeline ponderado + angariações)
+ *   2. ManagerOverviewCard   (KPIs YTD + valores em curso + previsões)
+ *   3. ManagerPipelineCard   (pipeline ponderado + angariações)
+ *   4. ManagerRankingsCard   (top consultores por facturação/angariações)
+ *   5. ManagerAlertasCard    (consultores com red/amber alerts)
  *
  * Data is fetched once at this level and passed down so the four data
  * cards share a single round-trip to the management endpoints.
@@ -22,7 +22,8 @@ import {
 import { cn } from '@/lib/utils'
 import type { UserWithRole } from '@/hooks/use-user'
 import {
-  getManagementDashboard, getRevenuePipeline, getAgentRankings,
+  getManagementDashboard, getRevenuePipeline, getBuyerPipeline, getAgentRankings,
+  type BuyerPipelineSummary,
 } from '@/app/dashboard/financeiro/actions'
 import type {
   ManagementDashboard as MgmtData, RevenuePipelineItem, AgentRanking,
@@ -44,6 +45,8 @@ export function ManagerMobileDashboard({ user }: ManagerMobileDashboardProps) {
 
   const [mgmtData, setMgmtData] = useState<MgmtData | null>(null)
   const [pipeline, setPipeline] = useState<RevenuePipelineItem[]>([])
+  const [buyerPipeline, setBuyerPipeline] = useState<RevenuePipelineItem[]>([])
+  const [buyerSummary, setBuyerSummary] = useState<BuyerPipelineSummary | null>(null)
   const [rankingsRevenue, setRankingsRevenue] = useState<AgentRanking[]>([])
   const [rankingsAcq, setRankingsAcq] = useState<AgentRanking[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,16 +65,21 @@ export function ManagerMobileDashboard({ user }: ManagerMobileDashboardProps) {
     Promise.all([
       getManagementDashboard(),
       getRevenuePipeline(),
+      getBuyerPipeline(),
       getAgentRankings('revenue'),
       getAgentRankings('acquisitions'),
     ])
-      .then(([mgmt, pipe, rankRev, rankAcq]) => {
+      .then(([mgmt, pipe, buyerPipe, rankRev, rankAcq]) => {
         if (cancelled) return
         if (!mgmt.error) {
           const { error: _err, ...rest } = mgmt
           setMgmtData(rest as MgmtData)
         }
         if (!pipe.error) setPipeline(pipe.pipeline)
+        if (!buyerPipe.error) {
+          setBuyerPipeline(buyerPipe.pipeline)
+          setBuyerSummary(buyerPipe.summary)
+        }
         if (!rankRev.error) setRankingsRevenue(rankRev.rankings)
         if (!rankAcq.error) setRankingsAcq(rankAcq.rankings)
       })
@@ -96,17 +104,6 @@ export function ManagerMobileDashboard({ user }: ManagerMobileDashboardProps) {
             <WelcomeCard user={user} />
           </CarouselItem>
           <CarouselItem className="basis-full">
-            <ManagerAlertasCard fillViewport />
-          </CarouselItem>
-          <CarouselItem className="basis-full">
-            <ManagerRankingsCard
-              rankingsRevenue={rankingsRevenue}
-              rankingsAcquisitions={rankingsAcq}
-              loading={loading}
-              fillViewport
-            />
-          </CarouselItem>
-          <CarouselItem className="basis-full">
             <ManagerOverviewCard
               data={mgmtData}
               pipeline={pipeline}
@@ -118,9 +115,22 @@ export function ManagerMobileDashboard({ user }: ManagerMobileDashboardProps) {
             <ManagerPipelineCard
               data={mgmtData}
               pipeline={pipeline}
+              buyerPipeline={buyerPipeline}
+              buyerSummary={buyerSummary}
               loading={loading}
               fillViewport
             />
+          </CarouselItem>
+          <CarouselItem className="basis-full">
+            <ManagerRankingsCard
+              rankingsRevenue={rankingsRevenue}
+              rankingsAcquisitions={rankingsAcq}
+              loading={loading}
+              fillViewport
+            />
+          </CarouselItem>
+          <CarouselItem className="basis-full">
+            <ManagerAlertasCard fillViewport />
           </CarouselItem>
         </CarouselContent>
       </Carousel>

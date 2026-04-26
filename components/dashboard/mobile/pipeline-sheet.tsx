@@ -19,6 +19,10 @@ import {
   AlertTriangle,
   Handshake,
   Thermometer,
+  ShoppingBag,
+  Tag,
+  KeyRound,
+  Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -59,6 +63,42 @@ const TEMP_DOT: Record<string, string> = {
   frio: 'bg-blue-500',
 }
 
+// Tipo picker — the four primary deal categories. Negócios with tipo
+// 'Compra e Venda' show in both Compradores AND Vendedores. Anything else
+// (e.g. 'Outro') stays hidden until a category includes it explicitly.
+type TipoKey = 'compra' | 'venda' | 'arrendatario' | 'arrendador'
+const TIPO_PICKER: Array<{
+  key: TipoKey
+  label: string
+  icon: React.ElementType
+  matches: (tipo: string | null) => boolean
+}> = [
+  {
+    key: 'compra',
+    label: 'Compradores',
+    icon: ShoppingBag,
+    matches: (t) => t === 'Compra' || t === 'Compra e Venda',
+  },
+  {
+    key: 'venda',
+    label: 'Vendedores',
+    icon: Tag,
+    matches: (t) => t === 'Venda' || t === 'Compra e Venda',
+  },
+  {
+    key: 'arrendatario',
+    label: 'Arrendatários',
+    icon: KeyRound,
+    matches: (t) => t === 'Arrendatário',
+  },
+  {
+    key: 'arrendador',
+    label: 'Arrendadores',
+    icon: Building2,
+    matches: (t) => t === 'Arrendador',
+  },
+]
+
 const STALE_DAYS = 7
 
 type Destaque = 'new' | 'stale' | null
@@ -83,6 +123,7 @@ export function PipelineSheet({
   const isMobile = useIsMobile()
   const [items, setItems] = useState<NegocioItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [tipoKey, setTipoKey] = useState<TipoKey>('compra')
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
 
@@ -91,6 +132,7 @@ export function PipelineSheet({
     let cancelled = false
     setLoading(true)
     setSelectedStageId(null)
+    setTipoKey('compra')
     fetch(
       `/api/crm/negocios?assigned_consultant_id=${userId}&per_page=100`,
     )
@@ -111,13 +153,41 @@ export function PipelineSheet({
     }
   }, [open, userId])
 
-  // Stage counts (my negócios grouped by stage)
+  // Reset stage filter whenever the user picks a different tipo —
+  // a stage from one category rarely makes sense in another.
+  useEffect(() => {
+    setSelectedStageId(null)
+  }, [tipoKey])
+
+  const tipoMatcher = useMemo(
+    () => TIPO_PICKER.find((t) => t.key === tipoKey)!.matches,
+    [tipoKey],
+  )
+
+  // Items in the selected tipo (e.g. all "Compradores").
+  const tipoItems = useMemo(
+    () => items.filter((n) => tipoMatcher(n.tipo)),
+    [items, tipoMatcher],
+  )
+
+  // Counts per tipo so the picker can show how many deals each has.
+  const tipoCounts = useMemo(() => {
+    const map: Record<TipoKey, number> = {
+      compra: 0, venda: 0, arrendatario: 0, arrendador: 0,
+    }
+    for (const t of TIPO_PICKER) {
+      map[t.key] = items.filter((n) => t.matches(n.tipo)).length
+    }
+    return map
+  }, [items])
+
+  // Stage chips, scoped to the currently-selected tipo.
   const stageChips = useMemo(() => {
     const byStage = new Map<
       string,
       { id: string; name: string; order: number; count: number }
     >()
-    for (const n of items) {
+    for (const n of tipoItems) {
       const s = n.leads_pipeline_stages
       if (!s) continue
       const prev = byStage.get(s.id)
@@ -129,14 +199,14 @@ export function PipelineSheet({
       })
     }
     return Array.from(byStage.values()).sort((a, b) => a.order - b.order)
-  }, [items])
+  }, [tipoItems])
 
   const filtered = useMemo(() => {
-    if (!selectedStageId) return items
-    return items.filter(
+    if (!selectedStageId) return tipoItems
+    return tipoItems.filter(
       (n) => n.leads_pipeline_stages?.id === selectedStageId,
     )
-  }, [items, selectedStageId])
+  }, [tipoItems, selectedStageId])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -184,13 +254,54 @@ export function PipelineSheet({
           </Button>
         </SheetHeader>
 
-        {/* Stage chips */}
+        {/* Tipo picker — sits as a subtitle row below the title.
+             Inactive buttons show only the icon; active shows icon + label. */}
+        <div className="shrink-0 px-6 pb-2 flex justify-center">
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30">
+            {TIPO_PICKER.map((t) => {
+              const active = tipoKey === t.key
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTipoKey(t.key)}
+                  aria-label={t.label}
+                  title={t.label}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-8 rounded-full text-xs font-medium transition-colors duration-200',
+                    active
+                      ? 'bg-foreground text-background shadow-sm px-3.5'
+                      : 'text-muted-foreground hover:text-foreground px-2.5',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {active && <span>{t.label}</span>}
+                  {tipoCounts[t.key] > 0 && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                        active
+                          ? 'bg-background/20 text-background'
+                          : 'bg-foreground/10 text-foreground/70',
+                      )}
+                    >
+                      {tipoCounts[t.key]}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Stage chips, scoped to the picked tipo */}
         {!loading && stageChips.length > 0 && (
           <div className="shrink-0 px-4 pb-2 overflow-x-auto">
             <div className="flex items-center gap-1.5 w-max">
               <StageChip
                 label="Todos"
-                count={items.length}
+                count={tipoItems.length}
                 active={selectedStageId === null}
                 onClick={() => setSelectedStageId(null)}
               />

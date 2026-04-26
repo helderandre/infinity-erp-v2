@@ -1570,6 +1570,8 @@ type BatchLeadRow = {
   source?: string
   assigned_consultant_id?: string
   assigned_consultant_name?: string
+  property_query?: string
+  resolved_property_id?: string
 }
 
 function BatchLeadsList({
@@ -1677,6 +1679,37 @@ function BatchLeadsList({
         </div>
       </div>
 
+      {/* Imóvel relacionado partilhado */}
+      <div className="rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-3">
+          <label className="w-[72px] shrink-0 text-xs text-white/60">Imóvel</label>
+          <Input
+            value={String(args.default_property_query ?? '')}
+            onChange={(e) => {
+              onArgChange('default_property_query', e.target.value)
+              if (args.resolved_default_property_id) {
+                onArgChange('resolved_default_property_id', '')
+              }
+            }}
+            placeholder="Sufixo da ref. (ex: 103) ou título — opcional"
+            className={cn(inputCls, 'flex-1 min-w-0')}
+          />
+        </div>
+        <PropertyMatchHint
+          query={String(args.default_property_query ?? '')}
+          adoptedId={
+            args.resolved_default_property_id
+              ? String(args.resolved_default_property_id)
+              : undefined
+          }
+          onAdopt={(match) => {
+            onArgChange('default_property_query', match.title)
+            onArgChange('resolved_default_property_id', match.id)
+          }}
+          onUnlink={() => onArgChange('resolved_default_property_id', '')}
+        />
+      </div>
+
       <p className="text-[11px] text-white/40 px-1">
         Os valores acima aplicam-se a todos os leads. Podes sobrepor individualmente em cada linha abaixo.
       </p>
@@ -1763,6 +1796,45 @@ function BatchLeadsList({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Input
+                  value={lead.property_query ?? ''}
+                  onChange={(e) => {
+                    const next = leads.map((l, j) =>
+                      j === i
+                        ? {
+                            ...l,
+                            property_query: e.target.value === '' ? undefined : e.target.value,
+                            // Clear the resolved id whenever the query is edited
+                            // so the picker re-runs.
+                            resolved_property_id: undefined,
+                          }
+                        : l
+                    )
+                    onArgChange('leads', next)
+                  }}
+                  placeholder="Imóvel (sobrepõe ao do grupo)"
+                  className={inputCls}
+                />
+                <PropertyMatchHint
+                  query={lead.property_query ?? ''}
+                  adoptedId={lead.resolved_property_id || undefined}
+                  onAdopt={(match) => {
+                    const next = leads.map((l, j) =>
+                      j === i
+                        ? { ...l, property_query: match.title, resolved_property_id: match.id }
+                        : l
+                    )
+                    onArgChange('leads', next)
+                  }}
+                  onUnlink={() => {
+                    const next = leads.map((l, j) =>
+                      j === i ? { ...l, resolved_property_id: undefined } : l
+                    )
+                    onArgChange('leads', next)
+                  }}
+                />
               </div>
             </div>
             <button

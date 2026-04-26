@@ -143,8 +143,9 @@ export async function GET(
     const candidates = (negociosRes.data ?? []) as NegocioCandidate[]
     const propPrice = Number(property?.listing_price) || 0
 
-    // Carregar negocio_properties já existentes para este imóvel + estes negocios,
-    // para podermos surfacear `last_sent_at` em cada cartão (evita reenvios por engano).
+    // Carregar negocio_properties já existentes para este imóvel + estes negocios.
+    // Usado como fallback para o `last_sent_at` quando a tabela contact-level
+    // não tem o registo (ex.: envios anteriores à migration 20260509).
     const { data: existingLinks } = await supabase
       .from('negocio_properties')
       .select('negocio_id, sent_at, status')
@@ -157,6 +158,39 @@ export async function GET(
       status: string | null
     }>) {
       sentMap.set(l.negocio_id, l.sent_at)
+    }
+
+    // Contact-level send registry — fonte de verdade para "já enviei este
+    // imóvel ao contacto X?". Sobrepõe `negocio_properties.sent_at` porque
+    // captura também envios feitos via outro negócio do mesmo contacto
+    // (cenário típico do bulk-send do kanban) e envios "gerais ao
+    // contacto" sem negócio atado.
+    const linkedContactIds = (links ?? [])
+      .map((l: any) => l.negocio?.lead?.id)
+      .filter((x: unknown): x is string => typeof x === 'string')
+    const candidateContactIds = candidates
+      .map((n) => (n.lead as { id?: string } | undefined)?.id)
+      .filter((x: unknown): x is string => typeof x === 'string')
+    const allContactIds = Array.from(
+      new Set([...linkedContactIds, ...candidateContactIds]),
+    )
+
+    const contactSentMap = new Map<string, string>()
+    if (allContactIds.length > 0) {
+      const { data: contactSends } = await supabase
+        .from('contact_property_sends')
+        .select('contact_id, sent_at')
+        .eq('property_id', id)
+        .in('contact_id', allContactIds)
+        .order('sent_at', { ascending: false })
+      for (const s of (contactSends ?? []) as Array<{
+        contact_id: string
+        sent_at: string | null
+      }>) {
+        if (s.sent_at && !contactSentMap.has(s.contact_id)) {
+          contactSentMap.set(s.contact_id, s.sent_at)
+        }
+      }
     }
 
     const enriched = candidates.map((n) => {
@@ -213,12 +247,21 @@ export async function GET(
         })
       }
 
+      const candidateContactId = (n.lead as { id?: string } | undefined)?.id
+      // Prefer the contact-level last-sent (any negócio, any channel);
+      // fall back to the dossier `sent_at` for legacy data without a
+      // contact_property_sends row.
+      const lastSent =
+        (candidateContactId ? contactSentMap.get(candidateContactId) : null) ??
+        sentMap.get(n.id) ??
+        null
+
       return {
         ...n,
         price_flag,
         geo_source: geoSource,
         badges,
-        last_sent_at: sentMap.get(n.id) ?? null,
+        last_sent_at: lastSent,
         // mantém compat com UI antigo:
         type_match: 'exact' as const,
       }
@@ -243,7 +286,15 @@ export async function GET(
       })
       .slice(0, 50)
 
-    return NextResponse.json({ linked: links ?? [], suggestions })
+    // Override the linked rows' sent_at with the contact-level latest so
+    // the dossier badge stays consistent with the suggestions list.
+    const linkedEnriched = (links ?? []).map((l: any) => {
+      const cid = l?.negocio?.lead?.id
+      const contactSent = cid ? contactSentMap.get(cid) : null
+      return contactSent ? { ...l, sent_at: contactSent } : l
+    })
+
+    return NextResponse.json({ linked: linkedEnriched, suggestions })
   } catch (error) {
     console.error('Erro ao listar interessados:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })

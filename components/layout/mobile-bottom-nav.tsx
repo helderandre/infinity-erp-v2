@@ -150,88 +150,75 @@ export function MobileBottomNav() {
         <div className="fixed inset-0 z-40" onClick={() => setSectionPopupOpen(false)} />
       )}
 
-      <motion.div
-        layout
-        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-        className="relative z-50 w-fit max-w-full mx-auto flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
-      >
-        {!sectionPopupOpen && (
-          <motion.button
-            layoutId="section-bubble"
-            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            onClick={() => setSectionPopupOpen(true)}
+      <div className="relative z-50 flex flex-col items-center gap-2">
+        {/* Top pill — sections selector. Only visible when the side logo is
+            tapped. Sits above the main nav pill; tapping a section both
+            navigates and closes the popup (mirrors the older nav UX). */}
+        <AnimatePresence>
+          {sectionPopupOpen && (
+            <motion.div
+              key="sections-pill"
+              initial={{ opacity: 0, y: 8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="w-fit max-w-full mx-auto flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
+            >
+              <div
+                ref={stripRefCallback}
+                className="w-[240px] flex items-center gap-1 overflow-x-auto snap-x snap-mandatory [padding-inline:100px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)]"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                {SECTIONS.map(s => {
+                  const Icon = s.icon
+                  const isSelected = s.key === selectedSectionKey
+                  const handleTap = () => {
+                    if (s.key === selectedSectionKey) {
+                      setSectionPopupOpen(false)
+                      return
+                    }
+                    setSelectedSectionKey(s.key)
+                    setSectionPopupOpen(false)
+                    const href = s.items[0]?.href
+                    if (href) router.push(href)
+                  }
+                  return (
+                    <button
+                      key={s.key}
+                      data-section-key={s.key}
+                      onClick={handleTap}
+                      aria-label={s.label}
+                      title={s.label}
+                      className={cn(
+                        'shrink-0 snap-center inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-xs font-medium whitespace-nowrap',
+                        isSelected
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'bg-white/15 text-white/80 transition-colors duration-200 active:scale-95',
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      <span>{s.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom pill — section icon + that section's items. Always visible. */}
+        <div className="w-fit max-w-full flex items-center gap-1 p-1 rounded-full bg-neutral-900/75 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+          <button
+            type="button"
+            onClick={() => setSectionPopupOpen((v) => !v)}
             aria-label={currentSection.label}
+            aria-expanded={sectionPopupOpen}
             title={currentSection.label}
             className="shrink-0 h-11 w-11 rounded-full bg-white flex items-center justify-center shadow-sm"
           >
             <SectionIcon className="h-[18px] w-[18px] text-neutral-900" />
-          </motion.button>
-        )}
+          </button>
 
-        {sectionPopupOpen ? (
-          <div
-            ref={stripRefCallback}
-            className="w-[240px] flex items-center gap-1 overflow-x-auto snap-x snap-mandatory [padding-inline:100px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)]"
-            style={{ scrollbarWidth: 'none' }}
-          >
-            {SECTIONS.map(s => {
-              const Icon = s.icon
-              const isSelected = s.key === selectedSectionKey
-              const handleTap = () => {
-                if (s.key === selectedSectionKey) {
-                  setSectionPopupOpen(false)
-                  return
-                }
-                // Single batched update. The old selected pill holds the
-                // `layoutId="section-bubble"` and is scrolled to the centre of
-                // the open strip (via stripRefCallback). When the popup closes
-                // in the same render, Framer transfers the layoutId straight
-                // to the compact bubble on the left — animation arc is a clean
-                // centre → left, no detour to the tapped pill.
-                setSelectedSectionKey(s.key)
-                setSectionPopupOpen(false)
-                const href = s.items[0]?.href
-                if (href) router.push(href)
-              }
-              const commonClass = cn(
-                'shrink-0 snap-center inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-xs font-medium whitespace-nowrap',
-                isSelected
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'bg-white/15 text-white/80 transition-colors duration-200 active:scale-95',
-              )
-              if (isSelected) {
-                return (
-                  <motion.button
-                    key={s.key}
-                    layoutId="section-bubble"
-                    transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-                    data-section-key={s.key}
-                    onClick={handleTap}
-                    aria-label={s.label}
-                    title={s.label}
-                    className={commonClass}
-                  >
-                    <Icon className="h-[18px] w-[18px] shrink-0" />
-                    <span>{s.label}</span>
-                  </motion.button>
-                )
-              }
-              return (
-                <button
-                  key={s.key}
-                  data-section-key={s.key}
-                  onClick={handleTap}
-                  aria-label={s.label}
-                  title={s.label}
-                  className={commonClass}
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  <span>{s.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
           <div className="flex items-center gap-1">
             {visibleItems.map((item, idx) => {
               const Icon = item.icon
@@ -255,8 +242,8 @@ export function MobileBottomNav() {
               )
             })}
           </div>
-        )}
-      </motion.div>
+        </div>
+      </div>
     </div>
   )
 }

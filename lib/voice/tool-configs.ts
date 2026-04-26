@@ -2148,6 +2148,7 @@ const createLeadsBatch: ToolConfig = {
       email?: string
       source?: string
       assigned_consultant_id?: string
+      resolved_property_id?: string
     }
     const list: BatchEntry[] = Array.isArray(args.leads) ? args.leads : []
     const defaultAssignee: string | undefined = args.assigned_consultant_id
@@ -2155,6 +2156,9 @@ const createLeadsBatch: ToolConfig = {
       : undefined
     const defaultSource: string | undefined = args.default_source
       ? String(args.default_source)
+      : undefined
+    const defaultPropertyId: string | undefined = args.resolved_default_property_id
+      ? String(args.resolved_default_property_id)
       : undefined
     let created = 0
     let failed = 0
@@ -2165,6 +2169,7 @@ const createLeadsBatch: ToolConfig = {
       // to 'voice' so the row is always a valid lead_entries insertion.
       const source = lead.source || defaultSource || 'voice'
       const assignee = lead.assigned_consultant_id || defaultAssignee
+      const propertyId = lead.resolved_property_id || defaultPropertyId
       const payload: Record<string, unknown> = {
         source,
         raw_name: nome,
@@ -2172,6 +2177,7 @@ const createLeadsBatch: ToolConfig = {
       if (lead.telemovel) payload.raw_phone = String(lead.telemovel).trim()
       if (lead.email) payload.raw_email = String(lead.email).trim()
       if (assignee) payload.assigned_consultant_id = assignee
+      if (propertyId) payload.property_id = propertyId
       try {
         const res = await fetch('/api/lead-entries', {
           method: 'POST',

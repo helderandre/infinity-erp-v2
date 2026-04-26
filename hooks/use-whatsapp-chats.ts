@@ -16,6 +16,10 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
   const [total, setTotal] = useState(0)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const hasLoadedRef = useRef(false)
+  // AbortController for the chat-list fetch — without this, leaving the
+  // WhatsApp page leaves the request in flight and the eventual setChats
+  // fires on an unmounted component, holding state work during navigation.
+  const abortRef = useRef<AbortController | null>(null)
 
   const fetchChats = useCallback(async () => {
     if (!instanceId) {
@@ -23,6 +27,10 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
       setTotal(0)
       return
     }
+
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
     // Only show skeleton on first load
     if (!hasLoadedRef.current) setIsLoading(true)
@@ -34,17 +42,21 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
       })
       if (search) params.set("search", search)
 
-      const res = await fetch(`/api/whatsapp/chats?${params}`)
+      const res = await fetch(`/api/whatsapp/chats?${params}`, {
+        signal: controller.signal,
+      })
       if (!res.ok) throw new Error("Erro ao carregar chats")
 
       const data = await res.json()
+      if (controller.signal.aborted) return
       setChats(data.chats)
       setTotal(data.total)
       hasLoadedRef.current = true
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       // silently fail
     } finally {
-      setIsLoading(false)
+      if (!controller.signal.aborted) setIsLoading(false)
     }
   }, [instanceId, search, archived])
 
@@ -79,6 +91,8 @@ export function useWhatsAppChats({ instanceId, search, archived = false }: UseWh
     channelRef.current = channel
 
     return () => {
+      abortRef.current?.abort()
+      abortRef.current = null
       supabase.removeChannel(channel)
       channelRef.current = null
     }

@@ -10,6 +10,7 @@ import {
   StickyNote,
   ArrowRightLeft,
   RefreshCw,
+  Thermometer,
   Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ const ACTIVITY_META: Record<string, { icon: React.ComponentType<{ className?: st
   visit: { icon: Calendar, label: 'Visita', tone: 'text-amber-600' },
   note: { icon: StickyNote, label: 'Nota', tone: 'text-slate-600' },
   stage_change: { icon: ArrowRightLeft, label: 'Mudança de fase', tone: 'text-indigo-600' },
+  temperature_change: { icon: Thermometer, label: 'Mudança de temperatura', tone: 'text-rose-600' },
   assignment: { icon: ArrowRightLeft, label: 'Atribuição', tone: 'text-slate-600' },
   lifecycle_change: { icon: ArrowRightLeft, label: 'Ciclo', tone: 'text-slate-600' },
   system: { icon: RefreshCw, label: 'Sistema', tone: 'text-slate-500' },

@@ -98,6 +98,7 @@ export function NotificationPopover() {
             notification={notif}
             onRead={markAsRead}
             onDelete={deleteNotification}
+            onNavigate={() => setOpen(false)}
           />
         ))}
       </div>
@@ -190,7 +191,12 @@ export function NotificationPopover() {
         <Separator />
         <div className="p-2">
           <Button variant="ghost" size="sm" className="w-full text-xs h-8" asChild>
-            <Link href="/dashboard/notificacoes">Ver todas as notificações</Link>
+            <Link
+              href="/dashboard/notificacoes"
+              onClick={() => setOpen(false)}
+            >
+              Ver todas as notificações
+            </Link>
           </Button>
         </div>
       </PopoverContent>

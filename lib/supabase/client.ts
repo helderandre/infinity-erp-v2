@@ -1,5 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { processLock, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 // Singleton — every call to createClient() returns the same browser client
@@ -9,6 +9,13 @@ import type { Database } from '@/types/database'
 // useUser()/useSupabase() calls fired at once (e.g. opening a consultant
 // sheet with detail + internal chat + email + WhatsApp sheets), the lock
 // timed out after 10s.
+//
+// Even with the singleton, the default `navigator.locks`-based auth lock is
+// shared across tabs and can wedge for 10s when another tab/window is
+// holding it (slow token refresh, crashed tab not releasing the lock,
+// Chromium private-mode quirks). We swap it for `processLock`: an in-memory
+// lock scoped to this JS process (i.e. this tab), which is sufficient
+// because we already serialise auth ops via the singleton client.
 let browserClient: SupabaseClient<Database> | null = null
 
 export function createClient() {
@@ -22,7 +29,12 @@ export function createClient() {
   if (!browserClient) {
     browserClient = createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          lock: processLock,
+        },
+      }
     )
   }
   return browserClient

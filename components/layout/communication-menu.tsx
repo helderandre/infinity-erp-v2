@@ -105,8 +105,14 @@ export function CommunicationMenu() {
   }, [pathname])
 
   // Dismiss when opening the dropdown (agent has acknowledged the notifications)
+  // and trigger a background sync of every WhatsApp instance the user owns so
+  // the badge — and any subsequent navigation to /dashboard/whatsapp — sees
+  // fresh data. Realtime listeners on wpp_chats then re-bump the badge if
+  // genuinely new messages arrive after the just-written watermark.
   const handleOpenChange = (open: boolean) => {
-    if (open && unreadCount > 0) {
+    if (!open) return
+    fetch('/api/whatsapp/sync-all', { method: 'POST' }).catch(() => {})
+    if (unreadCount > 0) {
       const ts = Math.max(latestTsRef.current, Math.floor(Date.now() / 1000))
       writeSeenAt(ts)
       setUnreadCount(0)

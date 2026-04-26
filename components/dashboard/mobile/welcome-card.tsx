@@ -46,12 +46,13 @@ export function WelcomeCard({ user }: WelcomeCardProps) {
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/55 to-transparent" />
-          {/* Brand logo above the welcome pill */}
+          {/* Brand logo above the welcome pill — gentle pulse so the card
+              doesn't feel frozen while the rest of the carousel data loads. */}
           <div className="absolute inset-x-4 bottom-24 flex justify-center pointer-events-none">
             <img
               src="/icon-512.png"
               alt="Infinity Group"
-              className="h-20 w-20 rounded-2xl mix-blend-screen select-none"
+              className="h-20 w-20 rounded-2xl mix-blend-screen select-none animate-pulse"
               draggable={false}
             />
           </div>

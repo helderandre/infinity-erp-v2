@@ -36,6 +36,7 @@ import { ManagerMobileDashboard } from '@/components/dashboard/mobile/manager-mo
 import { ManagementDashboard } from '@/components/dashboard/management-dashboard'
 import { ConsultorDashboard } from '@/components/dashboard/consultor-dashboard'
 import { DashboardHero } from '@/components/dashboard/dashboard-hero'
+import { WelcomeCard } from '@/components/dashboard/mobile/welcome-card'
 import {
   DrillDownSheet,
   type DrillDownConfig,
@@ -583,7 +584,23 @@ export default function DashboardPage() {
   const { user, loading: userLoading } = useUser()
   const { hasPermission, isBroker, loading: permLoading } = usePermissions()
 
-  if (userLoading || permLoading || !user) return <DashboardSkeleton />
+  // Mobile WelcomeCard only needs `user.commercial_name`, `user.role.name`
+  // and `user.profile_photo_url` — no server-side data. Render it the moment
+  // useUser resolves (which is now ~one DB roundtrip after we swapped to
+  // getSession() in use-user.ts). On PC we still gate on the full skeleton
+  // because the variant decision (consultor vs management) needs permissions.
+  if (userLoading || permLoading || !user) {
+    return (
+      <>
+        <div className="md:hidden">
+          {user ? <WelcomeCard user={user} /> : <DashboardSkeleton />}
+        </div>
+        <div className="hidden md:block">
+          <DashboardSkeleton />
+        </div>
+      </>
+    )
+  }
 
   const isManagement = isBroker() || hasPermission('financial' as any)
 

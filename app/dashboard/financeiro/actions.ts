@@ -656,6 +656,165 @@ export async function getRevenuePipeline(): Promise<{ pipeline: RevenuePipelineI
   }
 }
 
+// ─── 5b. Buyer / Tenant Pipeline (CRM) ──────────────────────────────────────
+// Companion to getRevenuePipeline (which covers angariações via proc_instances).
+// This one walks `negocios` filtered to buyer/tenant pipelines, groups by stage,
+// and computes faturação possível = expected_value × default_commission_rate × 0.5
+// (the 0.5 reflects the buyer's-side share of the total commission).
+//
+// Also returns aggregate counts for the management overview (em curso, a fechar
+// este mês, ganhos / perdidos, receita prevista, pipeline ponderado, total).
+
+export interface BuyerPipelineSummary {
+  em_curso: number
+  visitas: number
+  propostas: number
+  a_fechar_mes: number
+  ganhos_mes: number
+  ganhos_ano: number
+  perdidos_mes: number
+  perdidos_ano: number
+  receita_prevista: number
+  pipeline_ponderado: number
+  total: number
+}
+
+export async function getBuyerPipeline(): Promise<{
+  pipeline: RevenuePipelineItem[]
+  summary: BuyerPipelineSummary
+  error: string | null
+}> {
+  const emptySummary: BuyerPipelineSummary = {
+    em_curso: 0,
+    visitas: 0,
+    propostas: 0,
+    a_fechar_mes: 0,
+    ganhos_mes: 0,
+    ganhos_ano: 0,
+    perdidos_mes: 0,
+    perdidos_ano: 0,
+    receita_prevista: 0,
+    pipeline_ponderado: 0,
+    total: 0,
+  }
+
+  try {
+    const admin = createAdminClient()
+    const now = new Date()
+    const monthStartIso = startOfMonth(now)
+    const monthEndIso = endOfMonth(now)
+    const yearStartIso = `${now.getFullYear()}-01-01`
+
+    const [settingsResult, dealsResult] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (admin as any).from("temp_agency_settings")
+        .select("value")
+        .eq("key", "default_commission_rate")
+        .single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (admin as any).from("negocios")
+        .select(`
+          id, expected_value, expected_close_date, won_date, lost_date, pipeline_stage_id,
+          leads_pipeline_stages!negocios_pipeline_stage_id_fkey(name, pipeline_type, is_terminal, terminal_type, probability_pct, sort_order)
+        `)
+        .not("pipeline_stage_id", "is", null),
+    ])
+
+    const defaultRate = settingsResult.data?.value ? parseFloat(settingsResult.data.value) : 0.05
+    const deals = dealsResult.data ?? []
+
+    type Group = {
+      key: string
+      label: string
+      probability: number
+      sortOrder: number
+      count: number
+      totalValue: number
+    }
+    const stageGroups: Record<string, Group> = {}
+    const summary: BuyerPipelineSummary = { ...emptySummary }
+
+    for (const d of deals) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stage = (d as any).leads_pipeline_stages
+      if (!stage) continue
+      if (!['comprador', 'arrendatario'].includes(stage.pipeline_type)) continue
+
+      summary.total++
+
+      const isTerminal = !!stage.is_terminal
+      const terminalType: string | null = stage.terminal_type ?? null
+      const stageProb = (stage.probability_pct ?? 0) / 100
+      const expectedValue = d.expected_value || 0
+      const closesThisMonth =
+        d.expected_close_date &&
+        d.expected_close_date >= monthStartIso &&
+        d.expected_close_date <= monthEndIso
+      const wonThisMonth = d.won_date && d.won_date >= monthStartIso
+      const wonThisYear = d.won_date && d.won_date >= yearStartIso
+      const lostThisMonth = d.lost_date && d.lost_date >= monthStartIso
+      const lostThisYear = d.lost_date && d.lost_date >= yearStartIso
+
+      if (isTerminal) {
+        if (terminalType === 'won') {
+          if (wonThisMonth) summary.ganhos_mes++
+          if (wonThisYear) summary.ganhos_ano++
+        } else if (terminalType === 'lost') {
+          if (lostThisMonth) summary.perdidos_mes++
+          if (lostThisYear) summary.perdidos_ano++
+        }
+        continue
+      }
+
+      // Active (non-terminal) — feeds pipeline + counts
+      summary.em_curso++
+      summary.pipeline_ponderado += expectedValue * defaultRate * 0.5 * stageProb
+      if (closesThisMonth) {
+        summary.a_fechar_mes++
+        summary.receita_prevista += expectedValue * defaultRate * 0.5
+      }
+      const stageNameLower = (stage.name || '').toLowerCase()
+      if (stageNameLower === 'visitas') summary.visitas++
+      if (stageNameLower === 'proposta' || stageNameLower === 'proposta aceite') summary.propostas++
+
+      const key = stageNameLower.trim()
+      if (!key) continue
+      const sortOrder = stage.sort_order ?? 999
+
+      if (!stageGroups[key]) {
+        stageGroups[key] = {
+          key,
+          label: stage.name,
+          probability: stageProb,
+          sortOrder,
+          count: 0,
+          totalValue: 0,
+        }
+      } else if (sortOrder < stageGroups[key].sortOrder) {
+        stageGroups[key].sortOrder = sortOrder
+      }
+      stageGroups[key].count++
+      stageGroups[key].totalValue += expectedValue * defaultRate * 0.5
+    }
+
+    const pipeline: RevenuePipelineItem[] = Object.values(stageGroups)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((g) => ({
+        stage: g.key,
+        label: g.label,
+        probability: g.probability,
+        total_value: g.totalValue,
+        weighted_value: g.totalValue * g.probability,
+        count: g.count,
+      }))
+
+    return { pipeline, summary, error: null }
+  } catch (err) {
+    console.error("[getBuyerPipeline]", err)
+    return { pipeline: [], summary: emptySummary, error: (err as Error).message }
+  }
+}
+
 // ─── 6. Agent Dashboard ──────────────────────────────────────────────────────
 
 export async function getAgentDashboard(
@@ -681,12 +840,63 @@ export async function getAgentDashboard(
     const yearStart = startOfYear(now)
     const monthStart = startOfMonth(now)
 
-    // ── Revenue YTD & This Month ──
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
-      .select("consultant_id, revenue_amount, activity_date")
-      .gte("activity_date", `${now.getFullYear()}-01-01`)
+    // ── Fire all 7 independent queries in parallel ──
+    // Previously these were sequential (~700-2000ms waterfall on cold load).
+    // The `expiring` query returns all contract expiries and is filtered by
+    // myPropIds in JS — it does not need myProps to issue the query.
+    const [
+      allLogsResult,
+      goalResult,
+      myPropsResult,
+      tasksResult,
+      expiringResult,
+      allConsultantsResult,
+      yearPropsResult,
+    ] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (admin as any).from("temp_goal_activity_log")
+        .select("consultant_id, revenue_amount, activity_date")
+        .gte("activity_date", `${now.getFullYear()}-01-01`),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (admin as any).from("temp_consultant_goals")
+        .select("annual_revenue_target")
+        .eq("consultant_id", consultantId)
+        .eq("year", now.getFullYear())
+        .single(),
+      admin
+        .from("dev_properties")
+        .select("id, status, listing_price, created_at")
+        .eq("consultant_id", consultantId),
+      admin
+        .from("proc_tasks")
+        .select(`
+          title,
+          due_date,
+          proc_instances!inner(property_id)
+        `)
+        .eq("assigned_to", consultantId)
+        .eq("status", "pending")
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true })
+        .limit(10),
+      admin
+        .from("dev_property_internal")
+        .select("property_id, contract_expiry")
+        .not("contract_expiry", "is", null)
+        .gte("contract_expiry", now.toISOString().split("T")[0])
+        .order("contract_expiry", { ascending: true })
+        .limit(5),
+      admin
+        .from("dev_users")
+        .select("id")
+        .eq("is_active", true),
+      admin
+        .from("dev_properties")
+        .select("consultant_id")
+        .gte("created_at", yearStart),
+    ])
 
+    const allLogs = allLogsResult.data
     let revenueYtd = 0
     let revenueThisMonth = 0
     const allConsultantRevenue: Record<string, number> = {}
@@ -700,27 +910,14 @@ export async function getAgentDashboard(
       }
     }
 
-    // ── Target ──
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: goal } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_revenue_target")
-      .eq("consultant_id", consultantId)
-      .eq("year", now.getFullYear())
-      .single()
-
+    const goal = goalResult.data
     const annualTarget = goal?.annual_revenue_target || 0
 
-    // ── Ranking ──
     const sorted = Object.entries(allConsultantRevenue).sort(([, a], [, b]) => b - a)
     const rankIdx = sorted.findIndex(([id]) => id === consultantId)
     const rankingPosition = rankIdx >= 0 ? rankIdx + 1 : sorted.length + 1
 
-    // ── My Properties ──
-    const { data: myProps } = await admin
-      .from("dev_properties")
-      .select("id, status, listing_price, created_at")
-      .eq("consultant_id", consultantId)
-
+    const myProps = myPropsResult.data
     let active = 0
     let reserved = 0
     let soldYear = 0
@@ -732,23 +929,9 @@ export async function getAgentDashboard(
       if (p.status === "sold" && p.created_at >= yearStart) soldYear++
     }
 
-    // ── Upcoming Actions ──
     const upcomingActions: UpcomingAction[] = []
 
-    // Tasks with due dates
-    const { data: tasks } = await admin
-      .from("proc_tasks")
-      .select(`
-        title,
-        due_date,
-        proc_instances!inner(property_id)
-      `)
-      .eq("assigned_to", consultantId)
-      .eq("status", "pending")
-      .not("due_date", "is", null)
-      .order("due_date", { ascending: true })
-      .limit(10)
-
+    const tasks = tasksResult.data
     for (const t of (tasks ?? [])) {
       const title = t.title || "Tarefa"
       const taskType = title.toLowerCase().includes("cpcv") ? "cpcv" as const
@@ -763,15 +946,7 @@ export async function getAgentDashboard(
       })
     }
 
-    // Contract expiries
-    const { data: expiring } = await admin
-      .from("dev_property_internal")
-      .select("property_id, contract_expiry")
-      .not("contract_expiry", "is", null)
-      .gte("contract_expiry", now.toISOString().split("T")[0])
-      .order("contract_expiry", { ascending: true })
-      .limit(5)
-
+    const expiring = expiringResult.data
     const myPropIds = new Set((myProps ?? []).map((p) => p.id))
 
     for (const e of (expiring ?? [])) {
@@ -787,21 +962,12 @@ export async function getAgentDashboard(
 
     upcomingActions.sort((a, b) => a.date.localeCompare(b.date))
 
-    // ── Vs Average ──
-    const { data: allConsultants } = await admin
-      .from("dev_users")
-      .select("id")
-      .eq("is_active", true)
-
+    const allConsultants = allConsultantsResult.data
     const totalAgents = allConsultants?.length || 1
     const totalRevenue = Object.values(allConsultantRevenue).reduce((s, v) => s + v, 0)
     const avgRevenue = totalRevenue / totalAgents
 
-    // Acquisitions this year
-    const { data: yearProps } = await admin
-      .from("dev_properties")
-      .select("consultant_id")
-      .gte("created_at", yearStart)
+    const yearProps = yearPropsResult.data
 
     const acqCountMap: Record<string, number> = {}
     for (const p of (yearProps ?? [])) {
@@ -1970,17 +2136,45 @@ export async function getAgentMobileDashboard(
     const monthEnd = endOfMonth(now)
     const currentMonth = reportingMonth(now)
 
-    // ── Margin rate ──
-    const { data: settings } = await (admin as any).from("temp_agency_settings")
-      .select("value").eq("key", "margin_rate").single()
+    // ── Fire all 5 independent queries in parallel ──
+    // Previously these were sequential (~500–1500ms waterfall on cold load).
+    // None of them depend on each other's results, so Promise.all is safe.
+    const [
+      settingsResult,
+      allLogsResult,
+      myPropsResult,
+      myDealsResult,
+      goalResult,
+    ] = await Promise.all([
+      (admin as any).from("temp_agency_settings")
+        .select("value").eq("key", "margin_rate").single(),
+      (admin as any).from("temp_goal_activity_log")
+        .select("consultant_id, revenue_amount, activity_date")
+        .eq("consultant_id", consultantId)
+        .gte("activity_date", yearStart),
+      admin
+        .from("dev_properties")
+        .select("id, status, created_at")
+        .eq("consultant_id", consultantId)
+        .order("created_at", { ascending: false }),
+      (admin as any).from("negocios")
+        .select(`
+          id, tipo, estado, expected_value, probability_pct, expected_close_date,
+          won_date, lost_date, pipeline_stage_id,
+          leads_pipeline_stages!negocios_pipeline_stage_id_fkey(name, pipeline_type, is_terminal, terminal_type, probability_pct)
+        `)
+        .eq("assigned_consultant_id", consultantId),
+      (admin as any).from("temp_consultant_goals")
+        .select("annual_revenue_target")
+        .eq("consultant_id", consultantId)
+        .eq("year", now.getFullYear())
+        .single(),
+    ])
+
+    const settings = settingsResult.data
     const marginRate = settings?.value ? parseFloat(settings.value) : DEFAULT_MARGIN_RATE
 
-    // ── Revenue (Report) per month from temp_goal_activity_log ──
-    const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
-      .select("consultant_id, revenue_amount, activity_date")
-      .eq("consultant_id", consultantId)
-      .gte("activity_date", yearStart)
-
+    const allLogs = allLogsResult.data
     let reportMes = 0
     let reportAno = 0
     for (const log of (allLogs ?? [])) {
@@ -1989,13 +2183,7 @@ export async function getAgentMobileDashboard(
       if (log.activity_date?.slice(0, 7) === currentMonth) reportMes += amt
     }
 
-    // ── My properties (angariações) ──
-    const { data: myProps } = await admin
-      .from("dev_properties")
-      .select("id, status, created_at")
-      .eq("consultant_id", consultantId)
-      .order("created_at", { ascending: false })
-
+    const myProps = myPropsResult.data
     let activas = 0, disponiveis = 0, reservadas = 0, novasMes = 0
     let lastCreated: Date | null = null
     for (const p of (myProps ?? [])) {
@@ -2009,14 +2197,7 @@ export async function getAgentMobileDashboard(
       ? Math.max(0, Math.floor((now.getTime() - lastCreated.getTime()) / 86400000))
       : 0
 
-    // ── Negócios assigned to me (single fetch, partition in code) ──
-    const { data: myDeals } = await (admin as any).from("negocios")
-      .select(`
-        id, tipo, estado, expected_value, probability_pct, expected_close_date,
-        won_date, lost_date, pipeline_stage_id,
-        leads_pipeline_stages!negocios_pipeline_stage_id_fkey(name, pipeline_type, is_terminal, terminal_type, probability_pct)
-      `)
-      .eq("assigned_consultant_id", consultantId)
+    const myDeals = myDealsResult.data
 
     const sellerPrevistas: any[] = []
     const sellerAEntrar: any[] = []
@@ -2076,12 +2257,8 @@ export async function getAgentMobileDashboard(
     // Use the seller-side weighted forecast for the current month
     const reportPrevistoMes = sellerReportPrevistoMes
 
-    // ── Annual target ──
-    const { data: goal } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_revenue_target")
-      .eq("consultant_id", consultantId)
-      .eq("year", now.getFullYear())
-      .single()
+    // ── Annual target (already fetched in parallel above) ──
+    const goal = goalResult.data
     const annualTarget = goal?.annual_revenue_target || 0
 
     // ── Monthly evolution (12 months) ──

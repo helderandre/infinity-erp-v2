@@ -23,6 +23,7 @@ import {
   ArrowRight,
   UserPlus,
   RefreshCw,
+  Thermometer,
   Cog,
   Plus,
   LucideIcon,
@@ -47,6 +48,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ArrowRight,
   UserPlus,
   RefreshCw,
+  Thermometer,
   Cog,
 }
 
@@ -58,6 +60,7 @@ const ACTIVITY_TYPE_ICON_NAMES: Record<ActivityType, string> = {
   note: 'StickyNote',
   visit: 'MapPin',
   stage_change: 'ArrowRight',
+  temperature_change: 'Thermometer',
   assignment: 'UserPlus',
   lifecycle_change: 'RefreshCw',
   system: 'Cog',
@@ -71,6 +74,7 @@ const ACTIVITY_TYPE_BORDER: Record<ActivityType, string> = {
   note: 'border-l-amber-500',
   visit: 'border-l-rose-500',
   stage_change: 'border-l-indigo-500',
+  temperature_change: 'border-l-rose-500',
   assignment: 'border-l-cyan-500',
   lifecycle_change: 'border-l-orange-500',
   system: 'border-l-slate-400',

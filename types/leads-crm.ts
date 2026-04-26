@@ -28,6 +28,7 @@ export type ActivityType =
   | 'note'
   | 'visit'
   | 'stage_change'
+  | 'temperature_change'
   | 'assignment'
   | 'lifecycle_change'
   | 'system'

@@ -9,6 +9,18 @@ export async function GET(req: NextRequest) {
 
   const db = createCrmAdminClient()
   const consultantId = req.nextUrl.searchParams.get("consultant_id")
+  // Optional CSV scoping by explicit negócio ids — used by the kanban
+  // bulk "Exportar selecção" action so only the picked cards land in
+  // the file. Capped at 500 to keep the URL under typical browser
+  // limits and the query under PostgREST's `.in()` ceiling.
+  const negocioIdsRaw = req.nextUrl.searchParams.get("negocio_ids")
+  const negocioIds = negocioIdsRaw
+    ? negocioIdsRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s))
+        .slice(0, 500)
+    : null
 
   let query = db
     .from("negocios")
@@ -23,6 +35,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
 
   if (consultantId) query = query.eq("assigned_consultant_id", consultantId)
+  if (negocioIds && negocioIds.length > 0) query = query.in("id", negocioIds)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

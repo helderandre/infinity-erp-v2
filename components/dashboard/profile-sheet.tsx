@@ -26,11 +26,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import {
-  Mail, Phone, MessageSquare, Users, UserPen, ArrowRight,
+  Mail, Phone, MessageSquare, MessagesSquare, Users, UserPen, ArrowRight,
+  Pencil, ChevronLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import PerfilPage from '@/app/dashboard/perfil/page'
+import { WhatsappChatSheet } from '@/components/whatsapp/whatsapp-chat-sheet'
+import { EmailComposeSheet } from '@/components/email/email-compose-sheet'
+import { InternalChatSheet } from '@/components/consultants/internal-chat-sheet'
 
 interface TeamMember {
   id: string
@@ -39,6 +43,7 @@ interface TeamMember {
   profile_photo_url: string | null
   phone_commercial: string | null
   role_name: string | null
+  classification: 'consultor' | 'staff' | 'other'
 }
 
 interface ProfileSheetProps {
@@ -61,6 +66,14 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
   const [tab, setTab] = useState<'perfil' | 'equipa'>('perfil')
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Perfil tab has two sub-views: presentation (default) + edit form.
+  const [editing, setEditing] = useState(false)
+
+  // Reset Perfil sub-view to presentation whenever the sheet closes,
+  // so re-opening always starts on the read-only card.
+  useEffect(() => {
+    if (!open) setEditing(false)
+  }, [open])
 
   // Lazy-load the team list when the user picks that tab
   useEffect(() => {
@@ -96,21 +109,26 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
         )}
 
-        <SheetHeader className={cn('shrink-0 px-6 gap-0', isMobile ? 'pt-8 pb-3' : 'pt-6 pb-3')}>
-          <div className="flex items-center justify-between gap-3 pr-8">
+        <SheetHeader
+          className={cn(
+            'shrink-0 px-6 gap-0 flex-row items-center justify-between',
+            isMobile ? 'pt-8 pb-3' : 'pt-6 pb-3',
+          )}
+        >
+          <div>
             <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight">
-              Perfil
+              Equipa
             </SheetTitle>
-            <Button asChild variant="outline" size="sm" className="rounded-full gap-1.5">
-              <Link href="/dashboard/consultores" onClick={() => onOpenChange(false)}>
-                Ver equipa
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
+            <SheetDescription className="sr-only">
+              Editar perfil e ver equipa
+            </SheetDescription>
           </div>
-          <SheetDescription className="sr-only">
-            Editar perfil e ver equipa
-          </SheetDescription>
+          <Button asChild variant="outline" size="sm" className="rounded-full gap-1.5">
+            <Link href="/dashboard/consultores" onClick={() => onOpenChange(false)}>
+              Ver equipa
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
         </SheetHeader>
 
         <Tabs
@@ -150,7 +168,7 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
           </div>
 
           <TabsContent value="perfil" className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 mt-0">
-            <PerfilPage />
+            <PerfilTab editing={editing} onEditingChange={setEditing} />
           </TabsContent>
 
           <TabsContent value="equipa" className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 mt-0">
@@ -192,11 +210,37 @@ function TeamList({
     )
   }
 
+  const consultores = members.filter((m) => m.classification === 'consultor')
+  const staff = members.filter((m) => m.classification === 'staff')
+
   return (
-    <div className="space-y-2 px-2 pt-2">
-      {members.map((m) => (
-        <TeamMemberCard key={m.id} member={m} />
-      ))}
+    <div className="space-y-5 px-2 pt-2">
+      {consultores.length > 0 && (
+        <TeamSection title="Consultores" count={consultores.length} members={consultores} />
+      )}
+      {staff.length > 0 && (
+        <TeamSection title="Staff" count={staff.length} members={staff} />
+      )}
+    </div>
+  )
+}
+
+function TeamSection({
+  title, count, members,
+}: { title: string; count: number; members: TeamMember[] }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline gap-2 px-1">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h4>
+        <span className="text-[11px] text-muted-foreground/70 tabular-nums">{count}</span>
+      </div>
+      <div className="space-y-2">
+        {members.map((m) => (
+          <TeamMemberCard key={m.id} member={m} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -209,107 +253,294 @@ function TeamMemberCard({ member }: { member: TeamMember }) {
     .slice(0, 2)
     .toUpperCase()
 
-  // wa.me requires digits only — strip everything else and any leading zeros.
-  const phoneDigits = member.phone_commercial?.replace(/\D/g, '').replace(/^0+/, '') ?? ''
+  const phone = member.phone_commercial
+  const email = member.professional_email
+
+  // Per-card sheet state — same pattern as components/consultants/consultant-card.tsx
+  const [waOpen, setWaOpen] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+
+  const buttonBase =
+    'h-9 w-9 rounded-full bg-muted/40 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all'
+  const buttonDisabled =
+    'h-9 w-9 rounded-full bg-muted/40 border border-border/50 flex items-center justify-center text-muted-foreground/30'
 
   return (
-    <div className="overflow-hidden rounded-2xl ring-1 ring-border/40 bg-background/60 hover:ring-border/70 transition-all">
-      <div className="flex items-stretch">
-        {/* Square photo flush with edges */}
-        <div className="w-24 shrink-0 relative bg-muted">
-          {member.profile_photo_url ? (
-            <img
-              src={member.profile_photo_url}
-              alt={member.commercial_name}
-              className="absolute inset-0 h-full w-full object-cover [object-position:center_10%]"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-              <span className="text-lg font-semibold text-muted-foreground/60">
-                {initials}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: identity + action buttons */}
-        <div className="flex-1 min-w-0 p-3 flex flex-col justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{member.commercial_name}</p>
-            {member.role_name && (
-              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                {member.role_name}
-              </p>
+    <>
+      <div className="overflow-hidden rounded-2xl ring-1 ring-border/40 bg-background/60 hover:ring-border/70 transition-all">
+        <div className="flex items-stretch">
+          {/* Square photo flush with edges */}
+          <div className="w-24 shrink-0 relative bg-muted">
+            {member.profile_photo_url ? (
+              <img
+                src={member.profile_photo_url}
+                alt={member.commercial_name}
+                className="absolute inset-0 h-full w-full object-cover [object-position:center_10%]"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                <span className="text-lg font-semibold text-muted-foreground/60">
+                  {initials}
+                </span>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <ContactButton
-              available={!!member.phone_commercial}
-              href={member.phone_commercial ? `tel:${member.phone_commercial}` : undefined}
-              icon={Phone}
-              label="Ligar"
-            />
-            <ContactButton
-              available={!!member.phone_commercial}
-              href={member.phone_commercial ? `sms:${member.phone_commercial}` : undefined}
-              icon={MessageSquare}
-              label="SMS"
-            />
-            <ContactButton
-              available={!!phoneDigits}
-              href={phoneDigits ? `https://wa.me/${phoneDigits}` : undefined}
-              external
-              icon={WhatsAppIcon}
-              label="WhatsApp"
-            />
-            <ContactButton
-              available={!!member.professional_email}
-              href={member.professional_email ? `mailto:${member.professional_email}` : undefined}
-              icon={Mail}
-              label="Email"
-            />
+          {/* Right: identity + action buttons */}
+          <div className="flex-1 min-w-0 p-3 flex flex-col justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">{member.commercial_name}</p>
+              {member.role_name && (
+                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {member.role_name}
+                </p>
+              )}
+            </div>
+
+            {/* 5 contact buttons — same set + style as components/consultants/consultant-card.tsx */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {phone ? (
+                <a
+                  href={`tel:${phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Ligar"
+                  className={buttonBase}
+                >
+                  <Phone className="h-4 w-4" />
+                </a>
+              ) : (
+                <div className={buttonDisabled} title="Sem telefone">
+                  <Phone className="h-4 w-4" />
+                </div>
+              )}
+              {phone ? (
+                <a
+                  href={`sms:${phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title="SMS"
+                  className={buttonBase}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </a>
+              ) : (
+                <div className={buttonDisabled} title="Sem telefone">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setChatOpen(true)
+                }}
+                title="Chat interno"
+                className={buttonBase}
+              >
+                <MessagesSquare className="h-4 w-4" />
+              </button>
+              {phone ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setWaOpen(true)
+                  }}
+                  title="WhatsApp"
+                  className={buttonBase}
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className={buttonDisabled} title="Sem telefone">
+                  <WhatsAppIcon className="h-4 w-4" />
+                </div>
+              )}
+              {email ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEmailOpen(true)
+                  }}
+                  title="Email"
+                  className={buttonBase}
+                >
+                  <Mail className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className={buttonDisabled} title="Sem email">
+                  <Mail className="h-4 w-4" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {phone && (
+        <WhatsappChatSheet
+          open={waOpen}
+          onOpenChange={setWaOpen}
+          phone={phone}
+          contactName={member.commercial_name}
+        />
+      )}
+      {email && (
+        <EmailComposeSheet
+          open={emailOpen}
+          onOpenChange={setEmailOpen}
+          recipientEmail={email}
+          recipientName={member.commercial_name}
+        />
+      )}
+      <InternalChatSheet
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        recipientId={member.id}
+        recipientName={member.commercial_name}
+      />
+    </>
   )
 }
 
-function ContactButton({
-  icon: Icon, label, href, external, available,
-}: {
-  icon: React.ElementType
-  label: string
-  href?: string
-  external?: boolean
-  available: boolean
-}) {
-  const baseClass = cn(
-    'h-8 w-8 rounded-full flex items-center justify-center transition-all border',
-    available
-      ? 'bg-muted/40 backdrop-blur-sm border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/70'
-      : 'bg-muted/40 border-border/50 text-muted-foreground/30 pointer-events-none',
-  )
+// ─────────────────────────────────────────────────────────────────────────────
+// Perfil tab — presentation card (read-only) + click-to-edit form
+// ─────────────────────────────────────────────────────────────────────────────
 
-  if (!available || !href) {
+interface SelfProfile {
+  id: string
+  commercial_name: string | null
+  professional_email: string | null
+  dev_consultant_profiles: {
+    profile_photo_url: string | null
+    phone_commercial: string | null
+  } | null
+  user_roles: Array<{ roles: { name: string | null } | null }> | null
+}
+
+function PerfilTab({
+  editing, onEditingChange,
+}: {
+  editing: boolean
+  onEditingChange: (editing: boolean) => void
+}) {
+  if (editing) {
     return (
-      <div className={baseClass} title={`Sem ${label.toLowerCase()}`}>
-        <Icon className="h-3.5 w-3.5" />
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => onEditingChange(false)}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted/40 ring-1 ring-border/40 text-muted-foreground hover:text-foreground hover:ring-border/70 hover:bg-muted/60 transition-all text-[11px] font-medium"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Voltar à apresentação
+        </button>
+        <PerfilPage />
       </div>
     )
   }
 
+  return <PerfilPresentation onEdit={() => onEditingChange(true)} />
+}
+
+function PerfilPresentation({ onEdit }: { onEdit: () => void }) {
+  const [profile, setProfile] = useState<SelfProfile | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/perfil', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then((data: SelfProfile) => { if (!cancelled) setProfile(data) })
+      .catch(() => { if (!cancelled) setLoadError(true) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400 mx-2 mt-2">
+        Erro a carregar o perfil.
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="px-2 pt-2">
+        <Skeleton className="h-44 rounded-2xl" />
+      </div>
+    )
+  }
+
+  const consultantProfile = Array.isArray(profile.dev_consultant_profiles)
+    ? profile.dev_consultant_profiles[0]
+    : profile.dev_consultant_profiles
+  const photoUrl = consultantProfile?.profile_photo_url ?? null
+  const phone = consultantProfile?.phone_commercial ?? null
+  const email = profile.professional_email ?? null
+  const name = profile.commercial_name ?? 'Utilizador'
+  const roleName = profile.user_roles?.[0]?.roles?.name ?? null
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
   return (
-    <a
-      href={href}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noopener noreferrer' : undefined}
-      onClick={(e) => e.stopPropagation()}
-      title={label}
-      className={baseClass}
+    <button
+      type="button"
+      onClick={onEdit}
+      className="w-full text-left rounded-2xl bg-background border border-border/50 shadow-sm overflow-hidden hover:shadow-md hover:border-border/80 transition-all group"
     >
-      <Icon className="h-3.5 w-3.5" />
-    </a>
+      <div className="relative h-[44dvh] sm:h-[48dvh] max-h-[460px] bg-muted">
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={name}
+            className="absolute inset-0 h-full w-full object-cover [object-position:center_10%]"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-muted to-muted-foreground/10">
+            <span className="text-5xl font-semibold text-muted-foreground/40">{initials}</span>
+          </div>
+        )}
+        {/* Edit pencil pill, top-right of the photo */}
+        <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-black/55 backdrop-blur-md text-white text-[11px] font-medium shadow-sm group-hover:bg-black/70 transition-colors">
+          <Pencil className="h-3.5 w-3.5" />
+          Editar
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+          <h2 className="text-white text-xl font-semibold drop-shadow-sm truncate">
+            {name}
+          </h2>
+          {roleName && (
+            <span className="inline-flex items-center rounded-full text-[10px] bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm px-2 py-0.5 shrink-0">
+              {roleName}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {(email || phone) && (
+        <div className="px-4 py-3 space-y-1.5">
+          {email && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40">
+              <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate text-[12px] text-foreground/80 flex-1">{email}</span>
+            </div>
+          )}
+          {phone && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40">
+              <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-[12px] text-foreground/80 flex-1">{phone}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </button>
   )
 }

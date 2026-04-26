@@ -27,6 +27,8 @@ export const STAFF_ROLE_NAMES = [
   'Recrutador',
   'Intermediário de Crédito',
   'Staff',
+  'Broker/CEO',
+  'admin',
 ] as const
 
 /** Classifica um role pelo bucket da UI de Equipa. */
@@ -36,6 +38,23 @@ export function classifyMember(
   if (!roleName) return 'other'
   if ((CONSULTANT_ROLE_NAMES as readonly string[]).includes(roleName)) return 'consultor'
   if ((STAFF_ROLE_NAMES as readonly string[]).includes(roleName)) return 'staff'
+  return 'other'
+}
+
+/**
+ * Classifica um utilizador (com possivelmente múltiplos roles) num único bucket.
+ *
+ * Prioridade: staff > consultor > other. Um utilizador que tenha um role staff
+ * (ex: Broker/CEO ou Office Manager) é considerado staff, mesmo que também tenha
+ * o role Consultor — porque "primariamente" não é consultor.
+ */
+export function classifyUserMembership(
+  roleNames: ReadonlyArray<string | null | undefined>,
+): 'consultor' | 'staff' | 'other' {
+  const valid = roleNames.filter((r): r is string => !!r)
+  if (valid.length === 0) return 'other'
+  if (valid.some((r) => (STAFF_ROLE_NAMES as readonly string[]).includes(r))) return 'staff'
+  if (valid.some((r) => (CONSULTANT_ROLE_NAMES as readonly string[]).includes(r))) return 'consultor'
   return 'other'
 }
 

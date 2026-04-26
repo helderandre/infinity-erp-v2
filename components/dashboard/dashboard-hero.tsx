@@ -18,7 +18,7 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { UserPen, Building2, Kanban } from 'lucide-react'
+import { Users, Building2, Kanban, UserPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UserWithRole } from '@/hooks/use-user'
 import { PropertiesSheet } from '@/components/dashboard/mobile/properties-sheet'
@@ -86,8 +86,8 @@ export function DashboardHero({ user }: DashboardHeroProps) {
 
             <div className="flex items-center gap-2 shrink-0">
               <HeroButton
-                icon={UserPen}
-                label="Perfil"
+                icon={Users}
+                label="Equipa"
                 onClick={() => setProfileOpen(true)}
               />
               <HeroButton

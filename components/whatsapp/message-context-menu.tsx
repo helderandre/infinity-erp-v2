@@ -54,14 +54,19 @@ export function MessageContextMenu({
         <Button
           variant="ghost"
           size="icon"
-          className={`absolute -top-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm shadow-sm ${
-            isMe ? '-left-8' : '-right-8'
+          className={`absolute -top-0.5 h-4 w-4 max-md:h-5 max-md:w-5 opacity-0 max-md:opacity-100 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm shadow-sm rounded-full ${
+            isMe ? '-left-6' : '-right-6'
           }`}
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-2.5 w-2.5 max-md:h-3 max-md:w-3" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={isMe ? 'start' : 'end'} className="w-44">
+      <DropdownMenuContent
+        align={isMe ? 'start' : 'end'}
+        sideOffset={4}
+        collisionPadding={8}
+        className="w-44 max-w-[calc(100vw-1rem)]"
+      >
         <DropdownMenuItem onClick={onReply}>
           <Reply className="mr-2 h-4 w-4" />
           Responder
@@ -69,8 +74,12 @@ export function MessageContextMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>Reagir</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <div className="flex gap-1 p-1">
+          <DropdownMenuSubContent
+            sideOffset={4}
+            collisionPadding={8}
+            className="max-w-[calc(100vw-1rem)]"
+          >
+            <div className="flex flex-wrap gap-1 p-1">
               {QUICK_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
