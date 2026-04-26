@@ -175,8 +175,14 @@ export default function DashboardLayout({
           >
             <PushBanner />
             {children}
-            {/* Spacer for mobile bottom nav */}
-            <div className="h-16 sm:hidden shrink-0" />
+            {/* Spacer for mobile bottom nav — usa a altura real publicada
+                pelo MobileBottomNav (inclui safe-area-inset-bottom do iPhone
+                com home indicator). O fallback de 4rem cobre o caso em que
+                o nav ainda não montou. */}
+            <div
+              className="sm:hidden shrink-0"
+              style={{ height: 'var(--mobile-nav-height, 4rem)' }}
+            />
           </main>
         </SidebarInset>
         <GoalDailyPopup />

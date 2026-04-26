@@ -37,7 +37,7 @@ export function WelcomeCard({ user }: WelcomeCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden rounded-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] pt-0 gap-0 h-[calc(100dvh-11rem)] min-h-[30rem] flex flex-col border-0 bg-black">
+      <Card className="overflow-hidden rounded-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] pt-0 gap-0 h-[calc(100dvh-env(safe-area-inset-top,0px)-var(--mobile-nav-height,5rem)-6rem)] min-h-[24rem] flex flex-col border-0 bg-black">
         <div className="relative flex-1 min-h-0 bg-muted">
           {photoUrl ? (
             <img
