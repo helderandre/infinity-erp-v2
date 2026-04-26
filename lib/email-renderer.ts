@@ -9,6 +9,12 @@
  */
 
 import { renderPropertyGrid as renderPropertyGridHtml } from './email/property-card-html'
+import {
+  AGENCY_FOOTER_LINE,
+  AGENCY_INDEPENDENCE_NOTICE,
+  REMAX_LOGO_URL,
+  REMAX_COLLECTION_CONVICTUS_LOGO_URL,
+} from './constants'
 
 const PROPERTY_PORTALS: Record<string, { name: string; color: string; icon: string }> = {
   idealista: { name: 'Idealista', color: '#1DBF73', icon: '🏠' },
@@ -700,7 +706,10 @@ function renderFooter(props: Record<string, unknown>): string {
   const textColor = String(props.textColor || '#999999')
   const logoWidth = Number(props.logoWidth) || 120
   const py = Number(props.paddingY) || 32
-  const activityText = String(props.activityText || 'Atividade exercida ao abrigo da Licença AMI 4719 - Convictus Mediação Imobiliária, Lda')
+  const activityText = String(
+    props.activityText ||
+      `${AGENCY_INDEPENDENCE_NOTICE} · ${AGENCY_FOOTER_LINE}`,
+  )
   const infinitySvg = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>')}`
   const houseSvg = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>')}`
   const socials: { url: string; icon: string; label: string; isLogo?: boolean }[] = []
@@ -723,11 +732,37 @@ function renderFooter(props: Record<string, unknown>): string {
 
   const footerLogoUrl = 'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/landing-page/43f87d7c-92b5-4403-b7bb-618c8d4a2b9e.png'
 
+  // Single row: [RE/MAX]  [Infinity Group — centred]  [Collection Convictus]
+  // Sized ~30% smaller than the original spec so the logo strip doesn't
+  // dominate the footer.
+  const infinityW = Math.max(98, Math.round(logoWidth * 0.7))
+  const remaxBalloonH = Math.round(infinityW * 0.7)
+  const collectionH = Math.round(infinityW * 0.7)
+
+  const logosRowHtml = `<tr><td align="center" style="padding:8px 24px 12px;">
+    <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;">
+      <tr>
+        <td style="padding:0 14px;vertical-align:middle;">
+          <img src="${REMAX_LOGO_URL}" alt="RE/MAX" height="${remaxBalloonH}" style="display:block;height:${remaxBalloonH}px;width:auto;background:#ffffff;border-radius:8px;padding:6px;" />
+        </td>
+        <td style="padding:0 14px;vertical-align:middle;">
+          <img src="${footerLogoUrl}" alt="Infinity Group" width="${infinityW}" style="display:block;width:${infinityW}px;height:auto;" />
+        </td>
+        <td style="padding:0 14px;vertical-align:middle;">
+          <img src="${REMAX_COLLECTION_CONVICTUS_LOGO_URL}" alt="RE/MAX Collection Convictus" height="${collectionH}" style="display:block;height:${collectionH}px;width:auto;background:#ffffff;border-radius:8px;padding:6px;" />
+        </td>
+      </tr>
+    </table>
+  </td></tr>`
+
+  // Order: social icons → logos → activity text
+  const socialAtTop = socialHtml
+    ? socialHtml.replace('padding-bottom:16px;', `padding:${py}px 24px 8px;`)
+    : `<tr><td style="height:${py}px;">&nbsp;</td></tr>`
+
   return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
-  <tr><td align="center" style="padding:${py}px 24px 16px;">
-    <img src="${footerLogoUrl}" alt="Infinity Group" width="${logoWidth}" style="display:block;width:${logoWidth}px;height:auto;" />
-  </td></tr>
-  ${socialHtml}
+  ${socialAtTop}
+  ${logosRowHtml}
   ${activityHtml}
   <tr><td style="height:${py - 16}px;">&nbsp;</td></tr>
   </table>`

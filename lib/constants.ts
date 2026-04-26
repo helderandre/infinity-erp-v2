@@ -2014,3 +2014,33 @@ export const PUBLIC_WEBSITE_URL =
 export function buildPublicPropertyUrl(slug: string): string {
   return `${PUBLIC_WEBSITE_URL}/property/${slug}`
 }
+
+// ─── Compliance / branding (Remax franchise) ──────────────────────────────
+//
+// Required by Remax franchise rules: every external communication (presentations,
+// PDF documents, emails) must carry the AMI licence reference and the disclaimer
+// "Cada agência é de propriedade e gestão independente", together with the
+// Remax + Remax Collection Convictus logos.
+//
+// Logo files live in /public so they are served from the same origin as the
+// app, which means they also work as absolute URLs when emails are rendered
+// (NEXT_PUBLIC_APP_URL + path).
+
+export const AMI_LICENCE_NUMBER = '4719'
+export const AGENCY_LEGAL_NAME = 'Convictus Mediação Imobiliária, Lda'
+export const AGENCY_INDEPENDENCE_NOTICE =
+  'Cada agência é de propriedade e gestão independente'
+export const AGENCY_FOOTER_LINE = `AMI ${AMI_LICENCE_NUMBER} · ${AGENCY_LEGAL_NAME}`
+
+// Public R2 URLs (uploaded via /dashboard/marketing/recursos). Both PATH and
+// URL constants now point at the same absolute R2 URL — kept as two exports
+// so existing imports keep working. Next.js <Image> components that consume
+// these set `unoptimized` so the absolute URL is passed through as-is.
+
+export const REMAX_LOGO_URL =
+  'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/marketing-recursos/decd91a9-3fbd-4c04-b33b-1a75257f6ea0-logo-balao-remax.png'
+export const REMAX_COLLECTION_CONVICTUS_LOGO_URL =
+  'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/marketing-recursos/5dc7a699-9555-441b-a0b2-c2628cdb7dfd-grupo-convictus-marcas-2021_prancheta-1-c-pia-7.png'
+
+export const REMAX_LOGO_PATH = REMAX_LOGO_URL
+export const REMAX_COLLECTION_CONVICTUS_LOGO_PATH = REMAX_COLLECTION_CONVICTUS_LOGO_URL

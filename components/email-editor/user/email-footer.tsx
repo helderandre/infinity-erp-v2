@@ -4,8 +4,15 @@ import { useNode } from '@craftjs/core'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import {
+  AGENCY_FOOTER_LINE,
+  AGENCY_INDEPENDENCE_NOTICE,
+  REMAX_LOGO_URL,
+  REMAX_COLLECTION_CONVICTUS_LOGO_URL,
+} from '@/lib/constants'
 
 const LOGO_URL = 'https://pub-bef71a0a79874613a953a43eb1ba58be.r2.dev/landing-page/43f87d7c-92b5-4403-b7bb-618c8d4a2b9e.png'
+const DEFAULT_ACTIVITY_TEXT = `${AGENCY_INDEPENDENCE_NOTICE} · ${AGENCY_FOOTER_LINE}`
 
 interface EmailFooterProps {
   backgroundColor?: string
@@ -30,7 +37,7 @@ export const EmailFooter = ({
   logoWidth = 60,
   paddingY = 20,
   companyName = 'Infinity Group',
-  activityText = 'Atividade exercida ao abrigo da Licença AMI 4719 - Convictus Mediação Imobiliária, Lda',
+  activityText = DEFAULT_ACTIVITY_TEXT,
   showInstagram = true,
   showFacebook = true,
   showLinkedin = true,
@@ -61,21 +68,9 @@ export const EmailFooter = ({
         width: '100%',
       }}
     >
-      {/* Logo */}
-      <img
-        src={LOGO_URL}
-        alt={companyName}
-        style={{
-          width: `${logoWidth}px`,
-          height: 'auto',
-          display: 'inline-block',
-          marginBottom: '10px',
-        }}
-      />
-
       {/* Social icons */}
       {socialLinks.length > 0 && (
-        <div style={{ marginBottom: '10px' }}>
+        <div style={{ marginBottom: '12px' }}>
           {socialLinks.map((s, i) => (
             <a
               key={i}
@@ -104,6 +99,49 @@ export const EmailFooter = ({
           ))}
         </div>
       )}
+
+      {/* Logos row: [RE/MAX] [Infinity Group] [Convictus] — ~30% smaller */}
+      <div style={{ marginBottom: '12px', lineHeight: 0 }}>
+        <img
+          src={REMAX_LOGO_URL}
+          alt="RE/MAX"
+          style={{
+            height: `${Math.round(Math.max(98, Math.round(logoWidth * 0.7)) * 0.7)}px`,
+            width: 'auto',
+            display: 'inline-block',
+            margin: '0 10px',
+            verticalAlign: 'middle',
+            background: '#ffffff',
+            borderRadius: '8px',
+            padding: '6px',
+          }}
+        />
+        <img
+          src={LOGO_URL}
+          alt={companyName}
+          style={{
+            width: `${Math.max(98, Math.round(logoWidth * 0.7))}px`,
+            height: 'auto',
+            display: 'inline-block',
+            margin: '0 10px',
+            verticalAlign: 'middle',
+          }}
+        />
+        <img
+          src={REMAX_COLLECTION_CONVICTUS_LOGO_URL}
+          alt="RE/MAX Collection Convictus"
+          style={{
+            height: `${Math.round(Math.max(98, Math.round(logoWidth * 0.7)) * 0.7)}px`,
+            width: 'auto',
+            display: 'inline-block',
+            margin: '0 10px',
+            verticalAlign: 'middle',
+            background: '#ffffff',
+            borderRadius: '8px',
+            padding: '6px',
+          }}
+        />
+      </div>
 
       {/* Activity text */}
       <p style={{
@@ -246,7 +284,7 @@ EmailFooter.craft = {
     logoWidth: 60,
     paddingY: 20,
     companyName: 'Infinity Group',
-    activityText: 'Atividade exercida ao abrigo da Licença AMI 4719 - Convictus Mediação Imobiliária, Lda',
+    activityText: DEFAULT_ACTIVITY_TEXT,
     showInstagram: true,
     showFacebook: true,
     showLinkedin: true,
