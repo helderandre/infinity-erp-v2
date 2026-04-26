@@ -14,6 +14,8 @@ import {
   Calendar,
   Sparkles,
   Building2,
+  Instagram,
+  MessageCircle,
 } from 'lucide-react'
 import {
   formatArea,
@@ -21,6 +23,10 @@ import {
   BUSINESS_TYPES,
   ENERGY_CERTIFICATES,
   PROPERTY_CONDITIONS,
+  AGENCY_FOOTER_LINE,
+  AGENCY_INDEPENDENCE_NOTICE,
+  REMAX_LOGO_PATH,
+  REMAX_COLLECTION_CONVICTUS_LOGO_PATH,
 } from '@/lib/constants'
 
 interface PresentationViewProps {
@@ -29,7 +35,46 @@ interface PresentationViewProps {
   isPrint: boolean
 }
 
+/**
+ * Measures the first .slide-wrap's actual rendered width and writes the scale
+ * factor (width/1280) onto the .presentation-root as the CSS variable
+ * `--slide-scale`. Runs on mount + on every resize / orientation change. This
+ * sidesteps cross-browser quirks with length/length math inside transforms.
+ */
+function useSlideScale(isPrint: boolean) {
+  useEffect(() => {
+    if (isPrint) return
+    if (typeof window === 'undefined') return
+
+    const update = () => {
+      const root = document.querySelector('.presentation-root') as HTMLElement | null
+      const wrap = document.querySelector('.slide-wrap') as HTMLElement | null
+      if (!root || !wrap) return
+      const w = wrap.getBoundingClientRect().width
+      if (w > 0) {
+        const scale = Math.min(1, w / 1280)
+        root.style.setProperty('--slide-scale', String(scale))
+      }
+    }
+
+    update()
+    let raf = 0
+    const onResize = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(update)
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [isPrint])
+}
+
 export function PresentationView({ property, sections, isPrint }: PresentationViewProps) {
+  useSlideScale(isPrint)
   const specs = property.dev_property_specifications
   const internal = property.dev_property_internal
   const consultant = property.consultant
@@ -43,8 +88,13 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
     [allMedia],
   )
+  const showStaging = property.presentation_show_staging !== false
+  const showAiPlantas = property.presentation_show_ai_plantas !== false
+
   const plantas = allMedia.filter((m) => m.media_type === 'planta')
-  const renders3d = allMedia.filter((m) => m.media_type === 'planta_3d')
+  const renders3d = showAiPlantas
+    ? allMedia.filter((m) => m.media_type === 'planta_3d')
+    : []
   const rendersByPlanta = new Map<string, any[]>()
   for (const r of renders3d) {
     if (!r.source_media_id) continue
@@ -52,16 +102,29 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
     list.push(r)
     rendersByPlanta.set(r.source_media_id, list)
   }
-  const stagedImages = images.filter((m) => m.ai_staged_url)
+  const stagedImages = showStaging ? images.filter((m) => m.ai_staged_url) : []
 
   const cover = images.find((m) => m.is_cover) ?? images[0]
 
   const has = (key: string) => sections.includes(key)
   const activeSlides: { key: string; label: string }[] = []
 
+  // Split long descriptions across multiple slides so nothing gets clipped.
+  const descriptionChunks = useMemo(
+    () => (property.description ? chunkDescription(property.description, 1200) : []),
+    [property.description],
+  )
+
   if (has('cover')) activeSlides.push({ key: 'cover', label: 'Capa' })
   if (has('resumo')) activeSlides.push({ key: 'resumo', label: 'Resumo' })
-  if (has('descricao') && property.description) activeSlides.push({ key: 'descricao', label: 'Descrição' })
+  if (has('descricao') && descriptionChunks.length > 0) {
+    descriptionChunks.forEach((_, i) =>
+      activeSlides.push({
+        key: `descricao-${i}`,
+        label: descriptionChunks.length > 1 ? `Descrição ${i + 1}` : 'Descrição',
+      }),
+    )
+  }
   // Cap gallery to at most 2 slides of 6 images (12 images total)
   const galleryImages = images.slice(0, 12)
   const galleryChunks = Math.ceil(galleryImages.length / 6)
@@ -96,28 +159,69 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
   return (
     <div className={cn('presentation-root bg-neutral-100 min-h-screen', isPrint && 'print-mode')}>
       <style>{`
+        /* Re-enable pinch-zoom on the public presentation route. The global
+           html { touch-action: manipulation } in globals.css is for the ERP
+           dashboard; here viewers should be free to zoom into a slide. */
+        .presentation-root, .presentation-root * { touch-action: auto; }
+
         .slide {
           width: 1280px;
           height: 720px;
           position: relative;
-          overflow: hidden;
           background: white;
           color: #0a0a0a;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+          overflow: hidden;
         }
-        .presentation-root:not(.print-mode) .slide {
-          margin: 16px auto;
-          box-shadow: 0 20px 40px -20px rgba(0,0,0,0.25);
+        /* Each slide is laid out at its native 1280x720, then scaled down to
+           fit the viewport via the legacy padding-bottom + transform technique.
+           A wrapper with padding-bottom: 56.25% reserves a 16:9 box; the slide
+           inside is positioned absolutely at native size and uses
+           transform: scale() to fit. This pattern works reliably across iOS
+           Safari, Chromium and Firefox without aspect-ratio quirks. */
+        .slide-wrap {
+          position: relative;
+          width: 100%;
+          max-width: 1280px;
+          margin: 12px auto;
+          overflow: hidden;
           border-radius: 12px;
+          box-shadow: 0 20px 40px -20px rgba(0,0,0,0.25);
+          background: white;
         }
-        .print-mode .slide {
+        .slide-wrap::before {
+          content: '';
+          display: block;
+          padding-bottom: 56.25%;
+        }
+        .slide-wrap > .slide {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 1280px;
+          height: 720px;
+          transform-origin: top left;
+          border-radius: 0;
+          box-shadow: none;
+          margin: 0;
+          /* --slide-scale is set by JS on the .presentation-root for accurate
+             scaling on every viewport (incl. iOS Safari where length/length
+             calc inside transform has historically been unreliable). The
+             CSS fallback covers the moments before JS hydrates. */
+          transform: scale(var(--slide-scale, min(1, calc((100vw - 16px) / 1280px))));
+        }
+        .print-mode .slide-wrap {
+          --slide-scale: 1 !important;
+          max-width: 1280px;
+          width: 1280px;
+          margin: 0;
+          border-radius: 0;
+          box-shadow: none;
           page-break-after: always;
           break-after: page;
-          box-shadow: none;
-          border-radius: 0;
-          margin: 0;
         }
-        .print-mode .slide:last-child {
+        .print-mode .slide-wrap::before { padding-bottom: 0; height: 720px; }
+        .print-mode .slide-wrap:last-child {
           page-break-after: auto;
           break-after: auto;
         }
@@ -126,6 +230,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
           margin: 0;
         }
         .print-mode .presentation-nav { display: none; }
+        .presentation-nav { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
         .serif { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; }
       `}</style>
 
@@ -146,6 +251,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
 
       {/* Slide 1: Cover */}
       {has('cover') && (
+        <div className="slide-wrap">
         <section id="slide-cover" className="slide">
           <div className="absolute inset-0 bg-neutral-900">
             {cover && (
@@ -194,10 +300,12 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             </div>
           </div>
         </section>
+        </div>
       )}
 
       {/* Slide 2: Resumo */}
       {has('resumo') && (
+        <div className="slide-wrap">
         <section id="slide-resumo" className="slide flex">
           <div className="w-1/2 relative bg-neutral-200">
             {cover && (
@@ -285,31 +393,42 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             </div>
           </div>
         </section>
+        </div>
       )}
 
-      {/* Descrição */}
-      {has('descricao') && property.description && (
-        <section id="slide-descricao" className="slide flex flex-col px-24 py-16">
-          <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-3">Descrição</div>
-          <h2 className="serif text-5xl font-medium text-neutral-900 mb-8 leading-[1.1]">
-            Sobre este imóvel
-          </h2>
-          <div className="flex-1 overflow-hidden">
-            <RichDescription text={property.description} />
+      {/* Descrição — split into multiple slides if too long */}
+      {has('descricao') &&
+        descriptionChunks.map((chunk, idx) => (
+          <div key={`descricao-${idx}`} className="slide-wrap">
+            <section
+              id={`slide-descricao-${idx}`}
+              className="slide flex flex-col px-24 py-16"
+            >
+              <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-3">
+                Descrição
+                {descriptionChunks.length > 1 &&
+                  ` · ${idx + 1} / ${descriptionChunks.length}`}
+              </div>
+              <h2 className="serif text-5xl font-medium text-neutral-900 mb-8 leading-[1.1]">
+                {idx === 0 ? 'Sobre este imóvel' : 'Sobre este imóvel (cont.)'}
+              </h2>
+              <div className="flex-1 overflow-hidden">
+                <RichDescription text={chunk} />
+              </div>
+              <div className="pt-6 text-xs text-neutral-500 tracking-wider uppercase">
+                Infinity Group · {property.external_ref || ''}
+              </div>
+            </section>
           </div>
-          <div className="pt-6 text-xs text-neutral-500 tracking-wider uppercase">
-            Infinity Group · {property.external_ref || ''}
-          </div>
-        </section>
-      )}
+        ))}
 
       {/* Galeria — up to 2 slides of 6 */}
       {has('galeria') &&
         Array.from({ length: galleryChunks }).map((_, chunkIdx) => {
           const chunk = galleryImages.slice(chunkIdx * 6, chunkIdx * 6 + 6)
           return (
+            <div key={`galeria-${chunkIdx}`} className="slide-wrap">
             <section
-              key={`galeria-${chunkIdx}`}
               id={`slide-galeria-${chunkIdx}`}
               className="slide flex flex-col bg-neutral-50 px-14 py-12"
             >
@@ -350,6 +469,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                 ))}
               </div>
             </section>
+            </div>
           )
         })}
 
@@ -358,8 +478,8 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
         plantas.map((planta, idx) => {
           const render = rendersByPlanta.get(planta.id)?.[0]
           return (
+            <div key={`planta-${idx}`} className="slide-wrap">
             <section
-              key={`planta-${idx}`}
               id={`slide-planta-${idx}`}
               className="slide flex flex-col px-14 py-12 bg-white"
             >
@@ -408,14 +528,15 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                 )}
               </div>
             </section>
+            </div>
           )
         })}
 
       {/* Virtual Staging */}
       {has('staging') &&
         stagedImages.map((img, idx) => (
+          <div key={`staging-${idx}`} className="slide-wrap">
           <section
-            key={`staging-${idx}`}
             id={`slide-staging-${idx}`}
             className="slide flex flex-col px-14 py-12 bg-white"
           >
@@ -459,10 +580,12 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
               </div>
             </div>
           </section>
+          </div>
         ))}
 
       {/* Localização */}
       {has('localizacao') && property.latitude && property.longitude && (
+        <div className="slide-wrap">
         <section id="slide-localizacao" className="slide flex">
           <div className="w-1/2 flex flex-col px-14 py-14">
             <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-3">
@@ -510,63 +633,120 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             <StaticMap lat={property.latitude} lng={property.longitude} />
           </div>
         </section>
+        </div>
       )}
 
       {/* Consultor */}
-      {has('consultor') && consultant && (
-        <section id="slide-consultor" className="slide flex items-center justify-center bg-neutral-900 text-white px-20">
-          <div className="max-w-3xl w-full">
-            <div className="text-xs tracking-[0.3em] uppercase opacity-70 mb-4 text-center">
-              O seu consultor
-            </div>
-            <div className="flex flex-col items-center gap-6">
-              {consultantProfile?.profile_photo_url ? (
-                <div className="relative h-40 w-40 rounded-full overflow-hidden border-4 border-white/10">
+      {has('consultor') && consultant && (() => {
+        const phoneRaw: string | undefined = consultantProfile?.phone_commercial
+        const phoneDigits = phoneRaw ? phoneRaw.replace(/[^\d+]/g, '') : ''
+        const phoneIntl = phoneDigits.startsWith('+')
+          ? phoneDigits.slice(1)
+          : phoneDigits.startsWith('00')
+            ? phoneDigits.slice(2)
+            : phoneDigits.length === 9
+              ? `351${phoneDigits}`
+              : phoneDigits
+        const igRaw: string | undefined = consultantProfile?.instagram_handle
+        const igHandle = igRaw ? igRaw.replace(/^@/, '').trim() : ''
+        const igUrl = igHandle ? `https://instagram.com/${igHandle}` : null
+        const waUrl = phoneIntl ? `https://wa.me/${phoneIntl}` : null
+        const emailUrl = consultant.professional_email
+          ? `mailto:${consultant.professional_email}`
+          : null
+
+        return (
+          <div className="slide-wrap">
+            <section
+              id="slide-consultor"
+              className="slide flex bg-neutral-950 text-white"
+            >
+              {/* LEFT: info + CTAs */}
+              <div className="w-1/2 flex flex-col justify-center px-16 py-14">
+                <div className="text-xs tracking-[0.3em] uppercase opacity-60 mb-4">
+                  O seu consultor
+                </div>
+                <h2 className="serif text-6xl font-medium leading-[1.05] mb-2">
+                  {consultant.commercial_name}
+                </h2>
+                <div className="text-sm tracking-[0.2em] uppercase opacity-70 mb-10">
+                  Consultor Imobiliário · Infinity Group
+                </div>
+
+                <div className="flex flex-col gap-3 max-w-md">
+                  {waUrl && (
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-full hover:bg-white/90 transition-colors"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      <span className="font-medium">WhatsApp</span>
+                      <span className="ml-auto opacity-60 text-sm tabular-nums">
+                        {phoneRaw}
+                      </span>
+                    </a>
+                  )}
+                  {emailUrl && (
+                    <a
+                      href={emailUrl}
+                      className="flex items-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-full hover:bg-white/90 transition-colors"
+                    >
+                      <Mail className="h-5 w-5" />
+                      <span className="font-medium">Enviar Email</span>
+                      <span className="ml-auto opacity-60 text-sm truncate max-w-[220px]">
+                        {consultant.professional_email}
+                      </span>
+                    </a>
+                  )}
+                  {igUrl && (
+                    <a
+                      href={igUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 border border-white/20 px-6 py-3.5 rounded-full hover:bg-white/5 transition-colors"
+                    >
+                      <Instagram className="h-5 w-5" />
+                      <span className="font-medium">Instagram</span>
+                      <span className="ml-auto opacity-60 text-sm">@{igHandle}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: photo fills the panel — anchored just below the top so
+                   the face stays visible without showing only forehead. */}
+              <div className="w-1/2 relative bg-neutral-800 overflow-hidden">
+                {consultantProfile?.profile_photo_url ? (
                   <Image
                     src={consultantProfile.profile_photo_url}
                     alt={consultant.commercial_name || 'Consultor'}
                     fill
-                    className="object-cover"
+                    className="object-cover object-[50%_18%]"
                     unoptimized
-                    sizes="160px"
+                    sizes="640px"
                   />
-                </div>
-              ) : (
-                <div className="h-40 w-40 rounded-full bg-white text-neutral-900 flex items-center justify-center font-medium text-5xl serif">
-                  {(consultant.commercial_name || '?').charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="text-center">
-                <h2 className="serif text-5xl font-medium">{consultant.commercial_name}</h2>
-                <div className="text-sm opacity-70 tracking-wider uppercase mt-1">
-                  Consultor Imobiliário · Infinity Group
-                </div>
-              </div>
-              <div className="flex items-center gap-6 text-base">
-                {consultantProfile?.phone_commercial && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 opacity-70" />
-                    {consultantProfile.phone_commercial}
-                  </div>
-                )}
-                {consultant.professional_email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 opacity-70" />
-                    {consultant.professional_email}
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-9xl font-medium serif text-white/10">
+                    {(consultant.commercial_name || '?').charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           </div>
-        </section>
-      )}
+        )
+      })()}
 
       {/* Closing */}
       {has('closing') && (
-        <section id="slide-closing" className="slide flex flex-col items-center justify-center bg-neutral-900 text-white px-20">
-          <div className="text-center">
+        <div className="slide-wrap">
+        <section id="slide-closing" className="slide bg-neutral-900 text-white">
+          {/* HERO — absolutely positioned so the message centres relative to
+              the FULL slide, not the area above the compliance strip. */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-20">
             <div className="text-xs tracking-[0.3em] uppercase opacity-70 mb-6">Obrigado</div>
-            <h2 className="serif text-7xl font-medium leading-tight mb-6">
+            <h2 className="serif text-7xl font-medium leading-tight text-center">
               Vamos
               <br />
               conversar?
@@ -575,10 +755,88 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             <div className="text-sm tracking-[0.3em] uppercase opacity-80">Infinity Group</div>
             <div className="text-sm opacity-60 mt-1">infinitygroup.pt</div>
           </div>
+
+          {/* COMPLIANCE STRIP — overlays the bottom of the slide. Kept light
+              so the AMI text stays legible (the slide is white). */}
+          <div className="absolute bottom-0 inset-x-0 border-t border-neutral-200 px-16 py-6 flex items-center gap-8 bg-white">
+            {/* Logos */}
+            <div className="flex items-center gap-4 shrink-0">
+              <Image
+                src={REMAX_LOGO_PATH}
+                alt="RE/MAX"
+                width={56}
+                height={56}
+                className="h-12 w-auto"
+                unoptimized
+              />
+              <Image
+                src={REMAX_COLLECTION_CONVICTUS_LOGO_PATH}
+                alt="RE/MAX Collection Convictus"
+                width={100}
+                height={56}
+                className="h-12 w-auto"
+                unoptimized
+              />
+            </div>
+            {/* Agency text — clearly separated lines */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] tracking-[0.25em] uppercase text-neutral-700 leading-snug">
+                {AGENCY_INDEPENDENCE_NOTICE}
+              </div>
+              <div className="text-[10px] tracking-[0.2em] uppercase text-neutral-500 leading-snug mt-1">
+                Convictus Mediação Imobiliária, Lda · AMI 4719
+              </div>
+            </div>
+          </div>
         </section>
+        </div>
       )}
     </div>
   )
+}
+
+/**
+ * Splits a description into chunks small enough to fit one 720px slide. Keeps
+ * paragraph boundaries intact; if a single paragraph exceeds the limit it
+ * falls back to splitting at sentence ends.
+ */
+function chunkDescription(text: string, maxLen: number = 1200): string[] {
+  if (!text || text.length <= maxLen) return text ? [text] : []
+  const paragraphs = text.split(/\n\n+/).filter((p) => p.trim().length > 0)
+  const chunks: string[] = []
+  let current = ''
+
+  const flush = () => {
+    if (current.trim()) chunks.push(current.trim())
+    current = ''
+  }
+
+  for (const p of paragraphs) {
+    if (p.length > maxLen) {
+      flush()
+      // Split paragraph at sentence boundaries
+      const sentences = p.split(/(?<=[.!?])\s+/).filter((s) => s.trim())
+      let sub = ''
+      for (const s of sentences) {
+        if ((sub + ' ' + s).trim().length > maxLen && sub) {
+          chunks.push(sub.trim())
+          sub = s
+        } else {
+          sub = sub ? `${sub} ${s}` : s
+        }
+      }
+      if (sub) current = sub
+      continue
+    }
+    if ((current + '\n\n' + p).length > maxLen && current) {
+      flush()
+      current = p
+    } else {
+      current = current ? `${current}\n\n${p}` : p
+    }
+  }
+  flush()
+  return chunks
 }
 
 function renderRichHtml(text: string) {

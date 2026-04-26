@@ -78,7 +78,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
       [...PRESENTATION_SECTIONS, ...FICHA_SECTIONS].map((s) => [s.key, true]),
     ),
   )
-  const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [existing, setExisting] = useState<Existing[]>([])
   const [existingLoading, setExistingLoading] = useState(false)
@@ -112,32 +111,67 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
         : PRESENTATION_SECTIONS
 
   const generate = async () => {
-    setLoading(true)
-    setResult(null)
-    try {
-      const activeSections = relevantSections
-        .filter((s) => sections[s.key])
-        .map((s) => s.key)
+    const activeSections = relevantSections
+      .filter((s) => sections[s.key])
+      .map((s) => s.key)
 
+    // Close the dialog immediately so the consultor can keep working — show
+    // a persistent bottom-right toast instead. When done, the toast offers a
+    // "Ver" action that reopens the dialog with the fresh files.
+    setOpen(false)
+    setResult(null)
+
+    const toastId = `gen-presentation-${propertyId}`
+    toast.loading('A gerar apresentação…', {
+      id: toastId,
+      duration: Infinity,
+      closeButton: true,
+      description: 'Pode continuar a trabalhar — avisamos quando terminar.',
+    })
+
+    try {
       const res = await fetch(`/api/properties/${propertyId}/presentation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ format, sections: activeSections }),
       })
-      const data = await res.json()
+      const data = (await res.json()) as Result & { error?: string }
       if (!res.ok) throw new Error(data.error || 'Erro ao gerar apresentação')
-      setResult(data)
-      toast.success('Apresentação gerada com sucesso')
 
-      // Refresh existing list silently
+      // Refresh existing list silently so when the dialog reopens it shows
+      // the new files (no need to keep separate `result` state).
       fetch(`/api/properties/${propertyId}/presentation`)
         .then((r) => r.json())
         .then((d) => setExisting(d.items || []))
         .catch(() => {})
+
+      // "Ver" opens the actual presentation in a new tab (the public share
+      // URL is always returned). Falls back to the ficha PDF if only the
+      // ficha was generated.
+      const viewUrl =
+        format === 'ficha'
+          ? data.ficha_url || data.share_url
+          : data.share_url || data.presentation_url || data.ficha_url
+
+      toast.success('Apresentação pronta', {
+        id: toastId,
+        duration: 15000,
+        closeButton: true,
+        description: 'Clique em "Ver" para abrir a apresentação.',
+        action: viewUrl
+          ? {
+              label: 'Ver',
+              onClick: () => {
+                window.open(viewUrl, '_blank', 'noopener,noreferrer')
+              },
+            }
+          : undefined,
+      })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao gerar apresentação')
-    } finally {
-      setLoading(false)
+      toast.error(
+        e instanceof Error ? e.message : 'Erro ao gerar apresentação',
+        { id: toastId, duration: 8000, closeButton: true },
+      )
     }
   }
 
@@ -161,7 +195,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
         setOpen(o)
         if (!o) {
           setResult(null)
-          setLoading(false)
         }
       }}
     >
@@ -350,7 +383,6 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                   variant="ghost"
                   className="rounded-full"
                   onClick={() => setMode('view')}
-                  disabled={loading}
                 >
                   Voltar
                 </Button>
@@ -359,15 +391,9 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                 type="button"
                 className="rounded-full gap-1.5"
                 onClick={generate}
-                disabled={loading}
               >
-                {loading ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />A gerar…</>
-                ) : (
-                  <><Sparkles className="h-4 w-4" />
-                    {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
-                  </>
-                )}
+                <Sparkles className="h-4 w-4" />
+                {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
               </Button>
             </>
           )}

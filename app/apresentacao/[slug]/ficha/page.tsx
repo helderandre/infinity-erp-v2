@@ -18,7 +18,7 @@ const PUBLIC_SELECT = `
   dev_property_media(id, url, media_type, order_index, is_cover, ai_room_label, ai_staged_url, source_media_id),
   consultant:dev_users!consultant_id(
     id, commercial_name, professional_email,
-    dev_consultant_profiles(profile_photo_url, phone_commercial)
+    dev_consultant_profiles(profile_photo_url, phone_commercial, instagram_handle)
   )
 `
 

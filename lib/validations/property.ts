@@ -33,6 +33,10 @@ export const propertySchema = z.object({
   url_remax: z.string().optional(),
   url_idealista: z.string().optional(),
   url_imovirtual: z.string().optional(),
+
+  // Apresentação pública (toggles para o link partilhado)
+  presentation_show_staging: z.boolean().optional(),
+  presentation_show_ai_plantas: z.boolean().optional(),
 })
 
 export const propertySpecsSchema = z.object({

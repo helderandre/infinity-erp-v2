@@ -186,6 +186,8 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
             propertyId={property.id}
             propertySlug={property.slug ?? null}
             propertyTitle={property.title ?? ''}
+            showStaging={(property as any).presentation_show_staging !== false}
+            showAiPlantas={(property as any).presentation_show_ai_plantas !== false}
           />
           <ViewOnlinePopover property={property} />
           <BookingLinkDialog

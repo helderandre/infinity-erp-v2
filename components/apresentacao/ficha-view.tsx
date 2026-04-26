@@ -8,6 +8,10 @@ import {
 } from 'lucide-react'
 import {
   formatArea, PROPERTY_TYPES, BUSINESS_TYPES, ENERGY_CERTIFICATES,
+  AGENCY_FOOTER_LINE,
+  AGENCY_INDEPENDENCE_NOTICE,
+  REMAX_LOGO_PATH,
+  REMAX_COLLECTION_CONVICTUS_LOGO_PATH,
 } from '@/lib/constants'
 
 interface FichaViewProps {
@@ -201,33 +205,35 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
         )}
 
         {has('consultor') && consultant && (
-          <div className="px-10 py-4 border-t border-neutral-200 mt-auto">
-            <div className="flex items-center gap-3">
+          <div className="px-10 py-5 border-t border-neutral-200 mt-auto">
+            <div className="flex items-center gap-4">
+              {/* Square photo, anchored just below the top so the face shows
+                   without giving up too much of the body. */}
               {consultantProfile?.profile_photo_url ? (
-                <div className="relative h-12 w-12 rounded-full overflow-hidden shrink-0 border">
+                <div className="relative h-20 w-20 rounded-md overflow-hidden shrink-0 border">
                   <Image
                     src={consultantProfile.profile_photo_url}
                     alt={consultant.commercial_name || 'Consultor'}
                     fill
-                    className="object-cover"
+                    className="object-cover object-[50%_18%]"
                     unoptimized
-                    sizes="48px"
+                    sizes="80px"
                   />
                 </div>
               ) : (
-                <div className="h-12 w-12 rounded-full bg-neutral-900 text-white flex items-center justify-center font-medium shrink-0">
+                <div className="h-20 w-20 rounded-md bg-neutral-900 text-white flex items-center justify-center font-medium text-2xl shrink-0">
                   {(consultant.commercial_name || '?').charAt(0).toUpperCase()}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-neutral-900">
+                <div className="font-semibold text-base text-neutral-900">
                   {consultant.commercial_name}
                 </div>
                 <div className="text-[10px] tracking-wider uppercase text-neutral-500">
-                  Consultor Infinity Group
+                  Consultor Imobiliário · Infinity Group
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-0.5 text-[11px] text-neutral-700">
+              <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-700 shrink-0">
                 {consultantProfile?.phone_commercial && (
                   <div className="flex items-center gap-1.5">
                     <Phone className="h-3 w-3 text-neutral-500" />
@@ -446,11 +452,38 @@ function PageBrand({ externalRef }: { externalRef?: string | null }) {
 
 function PageFooter({ externalRef }: { externalRef?: string | null }) {
   return (
-    <div className="px-10 py-3 mt-auto border-t border-neutral-200 flex items-center justify-between">
-      <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500">
-        Infinity Group · infinitygroup.pt
+    <div className="px-10 py-3 mt-auto border-t border-neutral-200">
+      <div className="flex items-center justify-between gap-4">
+        {/* Franchise logos */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Image
+            src={REMAX_LOGO_PATH}
+            alt="RE/MAX"
+            width={28}
+            height={28}
+            className="h-6 w-auto object-contain"
+            unoptimized
+          />
+          <Image
+            src={REMAX_COLLECTION_CONVICTUS_LOGO_PATH}
+            alt="RE/MAX Collection Convictus"
+            width={56}
+            height={28}
+            className="h-6 w-auto object-contain"
+            unoptimized
+          />
+        </div>
+        {/* Two clean lines: brand on top, legal/AMI below */}
+        <div className="flex-1 text-center">
+          <div className="text-[9px] tracking-[0.2em] uppercase text-neutral-700 leading-tight">
+            Infinity Group · infinitygroup.pt
+          </div>
+          <div className="text-[9px] tracking-[0.18em] uppercase text-neutral-400 leading-tight mt-0.5">
+            {AGENCY_INDEPENDENCE_NOTICE} · {AGENCY_FOOTER_LINE}
+          </div>
+        </div>
+        <div className="text-[10px] tracking-wider text-neutral-400 shrink-0">{externalRef || ''}</div>
       </div>
-      <div className="text-[10px] tracking-wider text-neutral-400">{externalRef || ''}</div>
     </div>
   )
 }

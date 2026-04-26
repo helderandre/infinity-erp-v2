@@ -13,6 +13,7 @@ const PUBLIC_SELECT = `
   id, slug, title, description, listing_price, property_type, business_type,
   property_condition, energy_certificate, external_ref,
   address_street, postal_code, city, zone, latitude, longitude,
+  presentation_show_staging, presentation_show_ai_plantas,
   dev_property_specifications(
     typology, bedrooms, bathrooms, area_util, area_gross,
     construction_year, parking_spaces, garage_spaces,
@@ -22,7 +23,7 @@ const PUBLIC_SELECT = `
   dev_property_media(id, url, media_type, order_index, is_cover, ai_room_label, ai_staged_url, source_media_id),
   consultant:dev_users!consultant_id(
     id, commercial_name, professional_email,
-    dev_consultant_profiles(profile_photo_url, phone_commercial)
+    dev_consultant_profiles(profile_photo_url, phone_commercial, instagram_handle)
   )
 `
 
