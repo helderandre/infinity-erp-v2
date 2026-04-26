@@ -763,13 +763,13 @@ export function AiVoiceAssistant() {
       </button>
 
       <div className={cn(
-        'w-full max-w-md md:max-w-2xl px-6 py-8 md:py-10 text-center text-white',
+        'w-full max-w-md md:max-w-2xl px-6 pb-8 md:pb-10 text-center text-white',
         'max-h-[calc(100vh-1rem)] md:max-h-[calc(100vh-4rem)] overflow-y-auto',
-        // Quando o painel de revisão está visível, o X em mobile está ao
-        // nível ~56–104 px do topo (calc + status bar). Reservamos espaço
-        // a mais em mobile para o título do painel não passar por baixo
-        // dele; no desktop o X sai mais alto e basta pt-16.
-        showReview && 'pt-28 md:pt-16'
+        // Sempre reservamos espaço suficiente no topo para o X (que em
+        // mobile fica ao nível ~56–104 px). Vale para o ecrã do mic (
+        // "A ouvir…") e para o painel de revisão — em ambos o conteúdo
+        // não pode entrar por baixo do botão de fechar.
+        'pt-28 md:pt-10'
       )}>
         {showFullMic ? (
           <>
