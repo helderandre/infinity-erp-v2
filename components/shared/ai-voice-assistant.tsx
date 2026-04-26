@@ -541,9 +541,9 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Long-press 3s anywhere → abre o assistente.
+  // Long-press 2.5s anywhere → abre o assistente.
   //
-  // Modelo simples: a janela de 3 s é maior do que qualquer gesto nativo
+  // Modelo simples: a janela de 2,5 s é maior do que qualquer gesto nativo
   // de cópia (lupa ~500 ms + context-menu ~700 ms–1 s + tap em "Copiar").
   // Se o utilizador copiar, solta o dedo dentro desse intervalo e o
   // pointerup cancela. Se mantiver os 3 s todos, queremos abrir a voz —
@@ -552,7 +552,7 @@ export function AiVoiceAssistant() {
   // IMPORTANTE: NÃO cancelamos em `pointercancel` porque o iOS Safari
   // dispara esse evento quando o sistema mostra o context-menu nativo
   // de selecção de texto (~1 s no press), o que matava o temporizador
-  // antes dos 3 s e fazia o long-press parecer "morto" em zonas de
+  // antes dos 2,5 s e fazia o long-press parecer "morto" em zonas de
   // texto. Ficamos só com:
   //   - pointerup — gesto terminou (dedo saiu).
   //   - pointer move > 8 px — scroll ou drag de selection handle.
@@ -603,7 +603,7 @@ export function AiVoiceAssistant() {
       cancel()
       timer = window.setTimeout(() => {
         timer = null
-        // Se o utilizador chegou aos 3 s, é porque quer voz — limpa
+        // Se o utilizador chegou aos 2,5 s, é porque quer voz — limpa
         // qualquer selecção residual antes de abrir o overlay.
         try {
           window.getSelection?.()?.removeAllRanges()
@@ -612,7 +612,7 @@ export function AiVoiceAssistant() {
           ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
         } catch {}
         window.dispatchEvent(new Event('open-voice-assistant'))
-      }, 3000)
+      }, 2500)
     }
 
     const onPointerMove = (e: PointerEvent) => {
