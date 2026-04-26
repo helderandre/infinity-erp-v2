@@ -43,28 +43,37 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (search) {
-      // Also match properties by the owning consultant's commercial_name —
-      // two-step because .or() can't span tables. We resolve consultant IDs
-      // by name first, then fold them into the main search disjunction.
-      const { data: consultantMatches } = await supabase
-        .from('dev_users')
-        .select('id')
-        .ilike('commercial_name', `%${search}%`)
-        .limit(20)
-      const consultantIds = (consultantMatches ?? [])
-        .map((c: any) => String(c.id))
-        .filter(Boolean)
+      const trimmed = search.trim()
+      // Shorthand RE/MAX-style ref: caller said only the suffix digits
+      // (e.g., "103" for "121491860-103"). Match suffix exclusively so the
+      // result list isn't diluted by accidental hits on title/city/zone.
+      const isNumericShorthand = /^\d{2,}$/.test(trimmed)
+      if (isNumericShorthand) {
+        query = query.ilike('external_ref', `%-${trimmed}`)
+      } else {
+        // Also match properties by the owning consultant's commercial_name —
+        // two-step because .or() can't span tables. We resolve consultant IDs
+        // by name first, then fold them into the main search disjunction.
+        const { data: consultantMatches } = await supabase
+          .from('dev_users')
+          .select('id')
+          .ilike('commercial_name', `%${search}%`)
+          .limit(20)
+        const consultantIds = (consultantMatches ?? [])
+          .map((c: any) => String(c.id))
+          .filter(Boolean)
 
-      const conditions = [
-        `title.ilike.%${search}%`,
-        `city.ilike.%${search}%`,
-        `zone.ilike.%${search}%`,
-        `external_ref.ilike.%${search}%`,
-      ]
-      if (consultantIds.length > 0) {
-        conditions.push(`consultant_id.in.(${consultantIds.join(',')})`)
+        const conditions = [
+          `title.ilike.%${search}%`,
+          `city.ilike.%${search}%`,
+          `zone.ilike.%${search}%`,
+          `external_ref.ilike.%${search}%`,
+        ]
+        if (consultantIds.length > 0) {
+          conditions.push(`consultant_id.in.(${consultantIds.join(',')})`)
+        }
+        query = query.or(conditions.join(','))
       }
-      query = query.or(conditions.join(','))
     }
     if (status) {
       const statuses = status.split(',').filter(Boolean)
