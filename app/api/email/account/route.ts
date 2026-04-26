@@ -24,10 +24,12 @@ const setupSchema = z.object({
 })
 
 /**
- * GET /api/email/account — Get email accounts
+ * GET /api/email/account — Devolve apenas as contas do próprio utilizador.
  *
- * Regular users: returns their own accounts (array)
- * Email admins: returns ALL accounts (with consultant name)
+ * Política owner-only (Duarte, 2026-04-26): mesmo administradores de email
+ * só vêem as suas próprias contas pela UI. Operações automatizadas em
+ * background (node-processors / spawner) usam `resolveEmailAccountById`
+ * com service-role, sem passar por este endpoint.
  */
 export async function GET() {
   try {
@@ -38,46 +40,28 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const adminDb = createAdminClient()
+    // Mantemos o flag para que a UI possa decidir se expõe ferramentas de
+    // gestão (ex.: criar conta para outro consultor), mas não influencia o
+    // que esta resposta devolve.
     const emailAdmin = await isUserEmailAdmin(user.id)
 
-    let query = adminDb.from('consultant_email_accounts').select(ACCOUNT_SELECT)
-
-    if (!emailAdmin) {
-      // Regular user: only own accounts
-      query = query.eq('consultant_id', user.id)
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: true })
+    const { data, error } = await adminDb
+      .from('consultant_email_accounts')
+      .select(ACCOUNT_SELECT)
+      .eq('consultant_id', user.id)
+      .order('created_at', { ascending: true })
 
     if (error) {
       console.error('[email/account] GET error:', error)
       return NextResponse.json({ error: 'Erro ao buscar contas' }, { status: 500 })
     }
 
-    // For admin view, enrich with consultant name
-    let accounts = data || []
-    if (emailAdmin && accounts.length > 0) {
-      const consultantIds = [...new Set(accounts.map((a) => a.consultant_id))]
-      const { data: consultants } = await adminDb
-        .from('dev_users')
-        .select('id, commercial_name')
-        .in('id', consultantIds)
-
-      const nameMap = new Map(
-        (consultants || []).map((c) => [c.id, c.commercial_name])
-      )
-
-      accounts = accounts.map((a) => ({
-        ...a,
-        consultant_name: nameMap.get(a.consultant_id) || null,
-      }))
-    }
-
+    const accounts = data || []
     return NextResponse.json({
       accounts,
       is_email_admin: emailAdmin,
-      // Backward compat: return first account as "account" for existing frontend
-      account: accounts.find((a) => a.consultant_id === user.id) || accounts[0] || null,
+      // Backward compat: o frontend antigo lê `account` como conta default.
+      account: accounts[0] || null,
     })
   } catch (err) {
     console.error('[email/account] GET exception:', err)

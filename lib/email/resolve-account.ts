@@ -50,13 +50,23 @@ export async function isUserEmailAdmin(userId: string): Promise<boolean> {
 }
 
 /**
- * Resolve the email account for the current request.
+ * Resolve the email account for the current request — strict owner-only.
  *
- * - If `accountId` is provided and user is email admin → use that account
- * - If `accountId` is provided and user is NOT admin → only allow if it's their own account
- * - If `accountId` is not provided → use user's first active/verified account
+ * Política (definida pelo Duarte em 2026-04-26):
+ *   "Quero que cada pessoa veja só o seu próprio email, independentemente de
+ *    ser gestão ou não. Quando os processos precisam de enviar email a partir
+ *    da conta de outro utilizador, isso passa pelo path service-role
+ *    (`resolveEmailAccountById`) — não por aqui."
  *
- * Returns null with an error message if resolution fails.
+ * Implicações:
+ * - Independentemente do `isEmailAdmin`, este resolver SÓ devolve contas
+ *   onde `consultant_id = auth.uid()`.
+ * - O flag `isEmailAdmin` continua exposto no resultado para a UI poder
+ *   mostrar/esconder ferramentas de gestão noutros contextos, mas NÃO afecta
+ *   a resolução da conta.
+ * - O envio automatizado em background (node-processors / spawner) usa
+ *   `resolveEmailAccountById` em [lib/email/resolve-account-admin.ts] que é
+ *   service-role e não toca neste path.
  */
 export async function resolveEmailAccount(
   accountId?: string | null
@@ -78,21 +88,20 @@ export async function resolveEmailAccount(
   }
 
   const adminDb = createAdminClient()
+  // Mantemos o lookup do flag para outras superfícies da UI (ex.: mostrar
+  // dashboards de gestão), mas ele não influencia a resolução abaixo.
   const emailAdmin = await isUserEmailAdmin(user.id)
 
-  // Build query
+  // Owner-only: a query por si só já restringe a conta ao próprio.
   let query = adminDb
     .from('consultant_email_accounts')
     .select('*')
     .eq('is_verified', true)
     .eq('is_active', true)
+    .eq('consultant_id', user.id)
 
   if (accountId) {
-    // Specific account requested
     query = query.eq('id', accountId)
-  } else {
-    // Default: user's own account
-    query = query.eq('consultant_id', user.id)
   }
 
   const { data: account, error: accError } = await query
@@ -108,8 +117,9 @@ export async function resolveEmailAccount(
     }
   }
 
-  // Authorization check: non-admin can only access own accounts
-  if (!emailAdmin && account.consultant_id !== user.id) {
+  // Defesa extra (paranoia) — se alguma vez a query mudar, este invariante
+  // continua a falhar fechado em vez de devolver dados de outro utilizador.
+  if (account.consultant_id !== user.id) {
     return {
       ok: false,
       error: 'Sem permissão para aceder a esta conta de email',
