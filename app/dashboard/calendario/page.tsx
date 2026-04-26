@@ -190,10 +190,16 @@ function CalendarioPageInner() {
   }, [])
 
   // Wrapper around the toolbar's view changer so that picking a tab from
-  // within day view exits day view cleanly.
+  // within day view exits day view cleanly. Picking the "Dia" tab jumps to
+  // today's date.
   const handleViewChange = useCallback(
     (next: 'month' | 'week' | 'agenda' | 'day') => {
-      if (next !== 'day') setPreviousView(next)
+      if (next === 'day') {
+        setCurrentDate(new Date())
+        setPreviousView('month')
+      } else if (next !== 'agenda') {
+        setPreviousView(next)
+      }
       setView(next)
     },
     [],
@@ -321,7 +327,6 @@ function CalendarioPageInner() {
       <CalendarToolbar
         currentDate={currentDate}
         view={view}
-        parentView={previousView}
         onDateChange={handleDateChange}
         onViewChange={handleViewChange}
         onCreateEvent={handleCreateEvent}
@@ -365,13 +370,7 @@ function CalendarioPageInner() {
           onCreateAtTime={handleCreateAtTime}
           onDayNumberClick={handleDayNumberClick}
           onDayBack={handleDayBack}
-          dayBackLabel={
-            previousView === 'week'
-              ? 'Semana'
-              : previousView === 'agenda'
-              ? 'Agenda'
-              : 'Mês'
-          }
+          dayBackLabel={previousView === 'week' ? 'Semana' : 'Mês'}
           onTaskSelect={handleTaskSelect}
           onTaskToggleComplete={toggleTaskComplete}
         />

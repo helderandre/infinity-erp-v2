@@ -45,7 +45,13 @@ async function doFetchUser(): Promise<UserWithRole | null> {
     error: authError,
   } = await supabase.auth.getUser()
 
-  if (authError) throw authError
+  // "No session" is not a hard error — the caller (middleware/UI) decides
+  // what to do when the user is unauthenticated. Only propagate genuine
+  // failures (network, server, malformed token).
+  if (authError) {
+    if (authError.name === 'AuthSessionMissingError') return null
+    throw authError
+  }
   if (!authUser) return null
 
   const { data: devUser, error: devUserError } = await supabase
@@ -135,8 +141,17 @@ export function useUser() {
       const resolved = await fetchUserDeduped(force)
       setUser(resolved)
     } catch (err) {
-      console.error('Erro ao carregar utilizador:', err)
-      setError(err instanceof Error ? err : new Error('Erro desconhecido'))
+      // Error objects serialize to `{}` in the Next.js dev overlay because
+      // their `message`/`stack` are non-enumerable. Spread the relevant
+      // fields explicitly so we actually see what failed.
+      const detail =
+        err instanceof Error
+          ? { name: err.name, message: err.message, stack: err.stack }
+          : err && typeof err === 'object'
+          ? { ...(err as Record<string, unknown>) }
+          : { value: String(err) }
+      console.error('Erro ao carregar utilizador:', detail)
+      setError(err instanceof Error ? err : new Error(JSON.stringify(detail)))
       setUser(null)
     } finally {
       setLoading(false)

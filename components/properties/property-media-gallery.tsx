@@ -127,16 +127,16 @@ function RoomLabelBadge({
     <DropdownMenu onOpenChange={(open) => { if (!open) { setCustomMode(false); setCustomValue('') } }}>
       <DropdownMenuTrigger asChild>
         <button
-          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-white ${color} backdrop-blur-sm cursor-pointer hover:brightness-110 transition-all`}
+          className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium text-white ${color} backdrop-blur-sm cursor-pointer hover:brightness-110 transition-all max-w-full`}
           onClick={(e) => e.stopPropagation()}
         >
-          <Brain className="h-3 w-3" />
+          <Brain className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
           {isEmpty ? (
             <span>Classificar</span>
           ) : (
             <>
-              <span className="capitalize">{label}</span>
-              <span className="opacity-75">{pct}%</span>
+              <span className="capitalize truncate">{label}</span>
+              <span className="opacity-75 hidden sm:inline">{pct}%</span>
             </>
           )}
         </button>
@@ -272,10 +272,10 @@ function SortableGridItem({
 
       {/* Top-left badges: cover + AI label */}
       {!hideRoomLabels && (
-        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+        <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 z-10 flex flex-col gap-1 max-w-[calc(100%-1rem)]">
           {item.is_cover && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
-              <Star className="h-3 w-3 fill-current" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium text-primary-foreground w-fit">
+              <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 fill-current" />
               Capa
             </span>
           )}
@@ -298,9 +298,10 @@ function SortableGridItem({
             />
           )}
           {isClassifyingThis && (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-violet-600/85 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              A classificar…
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md bg-violet-600/85 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm w-fit">
+              <Loader2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 animate-spin" />
+              <span className="hidden sm:inline">A classificar…</span>
+              <span className="sm:hidden">…</span>
             </span>
           )}
         </div>
@@ -1269,13 +1270,14 @@ export function PropertyMediaGallery({
                       Comparar decorada
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="text-xs text-destructive hover:text-destructive h-7 px-2"
+                      className="text-xs text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => handleClearStagedSingle(aiDialogMedia.id)}
                       disabled={!!aiProcessing}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3 w-3 mr-1.5" />
+                      Eliminar decoração
                     </Button>
                   </>
                 )}
