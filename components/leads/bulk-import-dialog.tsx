@@ -26,6 +26,7 @@ import {
   CheckCircle2, XCircle, Users, ArrowRight, ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useUser } from '@/hooks/use-user'
 
 interface BulkImportDialogProps {
   open: boolean
@@ -61,6 +62,7 @@ const LEAD_FIELDS = [
 ] as const
 
 export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportDialogProps) {
+  const { user } = useUser()
   const [step, setStep] = useState<Step>('source')
   const [tab, setTab] = useState<'csv' | 'ai'>('csv')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -69,6 +71,7 @@ export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportD
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [fileName, setFileName] = useState<string>('')
 
   // Parsed leads
   const [leads, setLeads] = useState<ParsedLead[]>([])
@@ -95,6 +98,16 @@ export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportD
     }
   }, [open])
 
+  // Default the assigned agent to the importer themselves (overridable in
+  // the preview step). Per product decision: imports come from the consultor
+  // who already owns the contacts, so they should be assigned to them by
+  // default.
+  useEffect(() => {
+    if (open && user?.id && !agentId) {
+      setAgentId(user.id)
+    }
+  }, [open, user?.id, agentId])
+
   useEffect(() => {
     if (!open) {
       setStep('source')
@@ -107,6 +120,7 @@ export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportD
       setAgentId('')
       setDefaultOrigem('')
       setResults([])
+      setFileName('')
     }
   }, [open])
 
@@ -122,7 +136,15 @@ export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportD
       return
     }
 
+    setFileName(file.name)
     Papa.parse(file, {
+      // Auto-detect delimiter — Excel-PT defaults to ';', most other tools
+      // use ','. Tab and pipe handled too for robustness.
+      delimitersToGuess: [',', ';', '\t', '|'],
+      // papaparse decodes UTF-8 by default; for legacy Windows-1252 (common
+      // from older Excel exports) Safari handles BOM automatically. If users
+      // hit garbled characters, they should re-save the CSV as UTF-8.
+      skipEmptyLines: true,
       complete: (result) => {
         const data = result.data as string[][]
         if (data.length < 2) {
@@ -243,6 +265,7 @@ export function BulkImportDialog({ open, onOpenChange, onComplete }: BulkImportD
           leads,
           agent_id: agentId || undefined,
           default_origem: defaultOrigem || undefined,
+          file_name: fileName || undefined,
         }),
       })
       if (!res.ok) {

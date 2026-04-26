@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ContactRound, Briefcase, Euro, Landmark,
   GraduationCap, Store, Megaphone, Bot, MessageCircle, Infinity,
+  ChevronDown,
 } from 'lucide-react'
 import {
   meuEspacoItems, comunicacaoItems, crmItems, negocioItems, infinityItems,
@@ -15,14 +16,24 @@ import {
   marketingItems, automationItems,
 } from '@/components/layout/app-sidebar'
 import type { LucideIcon } from 'lucide-react'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 
 // ─── Section definitions (mirrors sidebar groups) ───────────────────────────
+
+interface SectionItem {
+  title: string
+  icon: any
+  href: string
+  alternates?: Array<{ title: string; icon: any; href: string }>
+}
 
 interface Section {
   key: string
   label: string
   icon: LucideIcon
-  items: { title: string; icon: any; href: string }[]
+  items: SectionItem[]
   prefixes: string[]
 }
 
@@ -30,7 +41,7 @@ const SECTIONS: Section[] = [
   { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: [] },
   { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: [] },
   { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: [] },
-  { key: 'crm', label: 'CRM', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/acompanhamentos'] },
+  { key: 'crm', label: 'Leads', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/acompanhamentos'] },
   { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: [] },
   { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: [] },
   { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: [] },
@@ -223,6 +234,69 @@ export function MobileBottomNav() {
             {visibleItems.map((item, idx) => {
               const Icon = item.icon
               const isActive = idx === activeItemIndex
+              const hasAlternates = !!item.alternates && item.alternates.length > 0
+              const showChevron = isActive && hasAlternates
+
+              if (showChevron) {
+                // Active item with alternates — wrapper holds two clickable
+                // areas (link + chevron-popover). Both share one rounded
+                // background so it still reads as a single pill.
+                return (
+                  <div
+                    key={`${item.href}-${idx}`}
+                    className="inline-flex items-center h-11 rounded-full bg-white text-neutral-900 shadow-sm pr-1.5"
+                  >
+                    <Link
+                      href={item.href}
+                      aria-label={item.title}
+                      title={item.title}
+                      className="inline-flex items-center gap-1.5 h-11 pl-4 pr-1 text-xs font-medium whitespace-nowrap"
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      <span>{item.title}</span>
+                    </Link>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Mais opções para ${item.title}`}
+                          className="h-7 w-7 rounded-full inline-flex items-center justify-center text-neutral-900/70 hover:text-neutral-900 hover:bg-neutral-900/10 transition-colors"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="top"
+                        align="end"
+                        sideOffset={10}
+                        className="w-48 p-1"
+                      >
+                        {item.alternates!.map((alt) => {
+                          const AltIcon = alt.icon
+                          const altActive =
+                            pathname === alt.href || pathname?.startsWith(`${alt.href}/`)
+                          return (
+                            <Link
+                              key={alt.href}
+                              href={alt.href}
+                              className={cn(
+                                'flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] transition-colors',
+                                altActive
+                                  ? 'bg-muted text-foreground'
+                                  : 'text-foreground/80 hover:bg-muted/60',
+                              )}
+                            >
+                              <AltIcon className="size-4" />
+                              <span>{alt.title}</span>
+                            </Link>
+                          )
+                        })}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )
+              }
+
               return (
                 <Link
                   key={`${item.href}-${idx}`}

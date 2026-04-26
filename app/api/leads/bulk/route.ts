@@ -4,20 +4,50 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { z } from 'zod'
 
+/**
+ * Bulk import of CONTACTOS (`leads` table). Creates one row per CSV line.
+ *
+ * Defaults — per product decisions:
+ *   - "create anyway": no DB-side dedup. The matching/merge step happens
+ *     downstream on the contactos page; the importer just dumps rows in.
+ *   - default `agent_id` is the user performing the import (overridable).
+ *   - `consentimento_contacto` defaults to true (these contacts came in via
+ *     a consultor, so consent is implicit; the dialog has a toggle if not).
+ */
+
 const bulkLeadSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório').trim(),
   email: z.string().email('Email inválido').optional().or(z.literal('')).transform(v => v || null),
   telemovel: z.string().optional().or(z.literal('')).transform(v => v || null),
   telefone: z.string().optional().or(z.literal('')).transform(v => v || null),
+  telefone_fixo: z.string().optional().or(z.literal('')).transform(v => v || null),
   origem: z.string().optional().transform(v => v || null),
   observacoes: z.string().optional().transform(v => v || null),
+  nif: z.string().optional().or(z.literal('')).transform(v => v || null),
+  empresa: z.string().optional().or(z.literal('')).transform(v => v || null),
+  morada: z.string().optional().or(z.literal('')).transform(v => v || null),
+  codigo_postal: z.string().optional().or(z.literal('')).transform(v => v || null),
+  localidade: z.string().optional().or(z.literal('')).transform(v => v || null),
+  lead_type: z.string().optional().or(z.literal('')).transform(v => v || null),
+  temperatura: z.string().optional().or(z.literal('')).transform(v => v || null),
 })
 
 const bulkRequestSchema = z.object({
-  leads: z.array(bulkLeadSchema).min(1, 'Pelo menos 1 lead é necessário').max(500, 'Máximo 500 leads por importação'),
+  leads: z.array(bulkLeadSchema).min(1, 'Pelo menos 1 contacto é necessário').max(2000, 'Máximo 2000 contactos por importação'),
   agent_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || null),
   default_origem: z.string().optional().transform(v => v || null),
+  file_name: z.string().optional(),
+  consentimento_contacto: z.boolean().default(true),
+  consentimento_webmarketing: z.boolean().default(false),
 })
+
+/** Normalise a Portuguese phone string to digits only (no formatting). */
+function normalisePhone(s: string | null): string | null {
+  if (!s) return null
+  const digits = s.replace(/[^\d+]/g, '')
+  if (!digits) return null
+  return digits
+}
 
 export async function POST(request: Request) {
   try {
@@ -33,105 +63,141 @@ export async function POST(request: Request) {
       )
     }
 
-    const { leads, agent_id, default_origem } = validation.data
+    const { leads, agent_id, default_origem, file_name, consentimento_contacto, consentimento_webmarketing } = validation.data
     const supabase = await createClient()
+    const adminDb = createCrmAdminClient() as any
 
-    const results: { index: number; id?: string; error?: string; duplicate?: boolean }[] = []
+    // Default agent_id to importer if not specified
+    const effectiveAgentId = agent_id || auth.user.id
 
-    // Check for duplicates within the batch (by email or phone)
-    const seenEmails = new Set<string>()
-    const seenPhones = new Set<string>()
+    // Create batch record FIRST so we can stamp its id on every row.
+    const { data: batchRow, error: batchErr } = await adminDb
+      .from('lead_import_batches')
+      .insert({
+        imported_by: auth.user.id,
+        target_table: 'leads',
+        file_name: file_name || null,
+        options: { agent_id: effectiveAgentId, default_origem, consentimento_contacto, consentimento_webmarketing },
+      })
+      .select('id')
+      .single()
+    if (batchErr || !batchRow) {
+      return NextResponse.json(
+        { error: 'Erro ao criar registo do lote', details: batchErr?.message },
+        { status: 500 },
+      )
+    }
+    const batchId = (batchRow as { id: string }).id
 
-    for (let i = 0; i < leads.length; i++) {
-      const lead = leads[i]
+    const results: { index: number; id?: string; error?: string }[] = []
+    const errorEntries: { index: number; error: string }[] = []
 
-      // Check internal duplicates
-      if (lead.email) {
-        if (seenEmails.has(lead.email.toLowerCase())) {
-          results.push({ index: i, error: 'Email duplicado no ficheiro' })
-          continue
-        }
-        seenEmails.add(lead.email.toLowerCase())
-      }
-      if (lead.telemovel) {
-        const normalized = lead.telemovel.replace(/\s/g, '')
-        if (seenPhones.has(normalized)) {
-          results.push({ index: i, error: 'Telemóvel duplicado no ficheiro' })
-          continue
-        }
-        seenPhones.add(normalized)
-      }
+    // Build rows for batch insert
+    type LeadInsert = {
+      nome: string
+      email: string | null
+      telemovel: string | null
+      telefone: string | null
+      telefone_fixo: string | null
+      origem: string | null
+      observacoes: string | null
+      nif: string | null
+      empresa: string | null
+      morada: string | null
+      codigo_postal: string | null
+      localidade: string | null
+      lead_type: string | null
+      temperatura: string | null
+      agent_id: string
+      consentimento_contacto: boolean
+      consentimento_webmarketing: boolean
+      tem_empresa: boolean
+      import_batch_id: string
+    }
 
-      // Check DB duplicates
-      if (lead.email) {
-        const { data: existing } = await supabase
-          .from('leads')
-          .select('id')
-          .eq('email', lead.email)
-          .limit(1)
-          .single()
-        if (existing) {
-          results.push({ index: i, id: existing.id, duplicate: true, error: 'Contacto já existe (email)' })
-          continue
-        }
-      }
-      if (lead.telemovel) {
-        const { data: existing } = await supabase
-          .from('leads')
-          .select('id')
-          .eq('telemovel', lead.telemovel.replace(/\s/g, ''))
-          .limit(1)
-          .single()
-        if (existing) {
-          results.push({ index: i, id: existing.id, duplicate: true, error: 'Contacto já existe (telemóvel)' })
-          continue
-        }
-      }
+    const rows: LeadInsert[] = leads.map((lead) => ({
+      nome: lead.nome,
+      email: lead.email ? lead.email.toLowerCase().trim() : null,
+      telemovel: normalisePhone(lead.telemovel),
+      telefone: normalisePhone(lead.telefone),
+      telefone_fixo: normalisePhone(lead.telefone_fixo),
+      origem: lead.origem || default_origem,
+      observacoes: lead.observacoes,
+      nif: lead.nif,
+      empresa: lead.empresa,
+      morada: lead.morada,
+      codigo_postal: lead.codigo_postal,
+      localidade: lead.localidade,
+      lead_type: lead.lead_type,
+      temperatura: lead.temperatura,
+      agent_id: effectiveAgentId,
+      consentimento_contacto,
+      consentimento_webmarketing,
+      tem_empresa: !!lead.empresa,
+      import_batch_id: batchId,
+    }))
 
-      // Insert
-      const { data: created, error } = await supabase
+    // Insert in chunks of 500 to keep payloads manageable.
+    const CHUNK = 500
+    let insertedTotal = 0
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK)
+      const { data: inserted, error } = await supabase
         .from('leads')
-        .insert({
-          nome: lead.nome,
-          email: lead.email,
-          telemovel: lead.telemovel,
-          telefone: lead.telefone,
-          origem: lead.origem || default_origem,
-          observacoes: lead.observacoes,
-          agent_id: agent_id,
-        })
+        .insert(chunk)
         .select('id')
-        .single()
-
       if (error) {
-        results.push({ index: i, error: error.message })
+        // Fall back to per-row inserts so partial success is preserved.
+        for (let j = 0; j < chunk.length; j++) {
+          const idx = i + j
+          const { data: one, error: oneErr } = await supabase
+            .from('leads')
+            .insert(chunk[j])
+            .select('id')
+            .single()
+          if (oneErr || !one) {
+            const msg = oneErr?.message || 'Erro desconhecido'
+            results.push({ index: idx, error: msg })
+            errorEntries.push({ index: idx, error: msg })
+          } else {
+            results.push({ index: idx, id: one.id })
+            insertedTotal++
+          }
+        }
       } else {
-        results.push({ index: i, id: created.id })
+        for (let j = 0; j < (inserted?.length || 0); j++) {
+          results.push({ index: i + j, id: inserted![j].id })
+        }
+        insertedTotal += inserted?.length || 0
       }
     }
 
-    // Notify assigned agent about bulk import
-    const created = results.filter(r => r.id && !r.duplicate)
-    if (agent_id && agent_id !== auth.user.id && created.length > 0) {
-      const db = createCrmAdminClient()
-      Promise.resolve(db.from('leads_notifications').insert({
+    // Update batch with final counts
+    await adminDb
+      .from('lead_import_batches')
+      .update({
+        inserted_count: insertedTotal,
+        failed_count: errorEntries.length,
+        errors: errorEntries.length ? errorEntries : null,
+      })
+      .eq('id', batchId)
+
+    // Notify assigned agent if it's not the importer themselves
+    if (agent_id && agent_id !== auth.user.id && insertedTotal > 0) {
+      adminDb.from('leads_notifications').insert({
         recipient_id: agent_id,
         type: 'new_lead',
         title: 'Importação em massa',
-        body: `${created.length} lead${created.length !== 1 ? 's' : ''} ${created.length !== 1 ? 'foram' : 'foi'} importada${created.length !== 1 ? 's' : ''} e atribuída${created.length !== 1 ? 's' : ''} a si.`,
+        body: `${insertedTotal} contacto${insertedTotal !== 1 ? 's' : ''} importado${insertedTotal !== 1 ? 's' : ''} e atribuído${insertedTotal !== 1 ? 's' : ''} a si.`,
         link: '/dashboard/crm/contactos',
-      })).then(() => {}).catch(() => {})
+      }).then(() => {}).catch(() => {})
     }
 
-    const successCount = created.length
-    const duplicateCount = results.filter(r => r.duplicate).length
-    const errorCount = results.filter(r => r.error && !r.duplicate).length
-
     return NextResponse.json({
-      success: successCount,
-      duplicates: duplicateCount,
-      errors: errorCount,
+      success: insertedTotal,
+      errors: errorEntries.length,
       total: leads.length,
+      batch_id: batchId,
       results,
     }, { status: 201 })
   } catch (error) {

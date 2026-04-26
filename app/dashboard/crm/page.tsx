@@ -49,7 +49,8 @@ import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { Inbox, Plus } from 'lucide-react'
+import { Inbox, Plus, Send } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -1376,13 +1377,9 @@ export default function CRMPage() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <KanbanIcon className="h-5 w-5 text-neutral-400" />
-            <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase">CRM</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
-            {myLeadsCount !== null && (
+          {/* Top row: "Tens X leads" pill (replaces the previous eyebrow). */}
+          {myLeadsCount !== null && (
+            <div className="mb-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => setMyLeadsOpen(true)}
@@ -1404,12 +1401,42 @@ export default function CRMPage() {
                   </span>
                 )}
               </button>
-            )}
+            </div>
+          )}
+
+          {/* Centered Pipeline title with chevron → Referências dropdown. */}
+          <div className="flex items-center justify-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Outras vistas"
+                  className="h-7 w-7 rounded-full inline-flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="center"
+                sideOffset={6}
+                className="w-44 p-1"
+              >
+                <Link
+                  href="/dashboard/crm/referencias"
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-foreground/80 hover:bg-muted/60 transition-colors"
+                >
+                  <Send className="size-4" />
+                  <span>Referências</span>
+                </Link>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Pipeline type tabs (inside the hero) — pluralised, with count badges.
-              Mobile: centred, compact; every tab shows icon + count; only the active tab shows the label. */}
-          <div className="mt-4 flex sm:inline-flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto sm:mx-0">
+              Centred on every breakpoint; compact on mobile, every tab shows
+              icon + count, only the active tab shows the label. */}
+          <div className="mt-4 flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto">
             {PIPELINE_TYPES.map((type) => {
               const Icon = PIPELINE_ICONS[type]
               const isActive = activeTab === type
@@ -1450,7 +1477,7 @@ export default function CRMPage() {
           </div>
 
           {/* Data points only — filter row moved out of the hero. */}
-          <div className="mt-4 flex justify-center lg:justify-start">
+          <div className="mt-4 flex justify-center">
             <SummaryBar pipelineType={activeTab} inHero refreshKey={kanbanRefreshKey} />
           </div>
         </div>

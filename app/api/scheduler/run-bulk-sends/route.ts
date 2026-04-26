@@ -7,6 +7,17 @@
  * workers can't double-execute), forwards to the matching single-target
  * synchronous endpoint, then marks done / failed.
  *
+ * ─── Coolify scheduled task ──────────────────────────────────────────
+ *
+ *   Frequency: * * * * *
+ *   Command:
+ *     wget -qO- --header="Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+ *       "https://app.infinitygroup.pt/api/scheduler/run-bulk-sends?limit=5"
+ *
+ *   (curl is not installed in the container — wget only.
+ *    SUPABASE_SERVICE_ROLE_KEY is already in the container env.)
+ * ─────────────────────────────────────────────────────────────────────
+ *
  *   • kind = 'send_properties' → POST /api/negocios/[negocio_id]/properties/send
  *   • kind = 'send_message'    → POST /api/crm/contacts/dispatch-message
  *

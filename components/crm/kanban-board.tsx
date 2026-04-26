@@ -771,11 +771,17 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
       {selectedIds.size > 0 && (
         <div
           className={cn(
-            'fixed left-1/2 bottom-6 -translate-x-1/2 z-50',
+            'fixed left-1/2 -translate-x-1/2 z-50',
             'inline-flex items-center gap-2 rounded-full',
             'bg-foreground text-background shadow-2xl',
             'pl-4 pr-2 py-2 animate-in fade-in slide-in-from-bottom-3 duration-200',
           )}
+          // Sit above the mobile bottom-nav (var publishes the real measured
+          // height; falls back to 0 on desktop where the nav isn't rendered,
+          // so the desktop offset stays at the original ~24px).
+          style={{
+            bottom: 'calc(var(--mobile-nav-height, 0px) + 1.5rem)',
+          }}
           role="status"
           aria-live="polite"
         >

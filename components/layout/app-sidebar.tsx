@@ -11,6 +11,7 @@ import {
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
+  Send,
 } from 'lucide-react'
 import Link from 'next/link'
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
@@ -30,6 +31,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 import { useTheme } from 'next-themes'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -68,8 +72,19 @@ export const bottomItems = [
 ]
 
 export const crmItems = [
-  { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  {
+    title: 'Pipeline',
+    icon: Kanban,
+    href: '/dashboard/crm',
+    permission: 'leads',
+    // Alternative views available via the chevron next to Pipeline. Each
+    // alternate is a sibling page that the same icon/section reaches from
+    // a small dropdown.
+    alternates: [
+      { title: 'Referências', icon: Send, href: '/dashboard/crm/referencias' },
+    ],
+  },
   { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
   { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
 ]
@@ -395,6 +410,14 @@ function SmartGroup({
 
 // ─── Collapsible Group ───────────────────────────────────
 
+type SidebarGroupItem = {
+  title: string
+  icon: any
+  href: string
+  permission?: string
+  alternates?: Array<{ title: string; icon: any; href: string }>
+}
+
 function CollapsibleGroup({
   label,
   icon: Icon,
@@ -406,7 +429,7 @@ function CollapsibleGroup({
 }: {
   label: string
   icon: any
-  items: Array<{ title: string; icon: any; href: string; permission?: string }>
+  items: SidebarGroupItem[]
   pathname: string | null
   hasPermission: (p: any) => boolean
   pathPrefixes: string[]
@@ -468,9 +491,10 @@ function CollapsibleGroup({
                 const activeHref = getActiveHref(pathname, visibleItems)
                 return visibleItems.map((item) => {
                   const isActive = activeHref === item.href
+                  const hasAlternates = !!item.alternates && item.alternates.length > 0
 
                   return (
-                    <SidebarMenuItem key={item.href}>
+                    <SidebarMenuItem key={item.href} className="relative">
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
@@ -479,7 +503,8 @@ function CollapsibleGroup({
                           'rounded-xl transition-all duration-150',
                           isActive
                             ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                            : 'hover:bg-muted/60 hover:backdrop-blur-sm'
+                            : 'hover:bg-muted/60 hover:backdrop-blur-sm',
+                          hasAlternates && 'pr-8',
                         )}
                       >
                         <Link href={item.href}>
@@ -487,6 +512,50 @@ function CollapsibleGroup({
                           <span className="text-[13px]">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {hasAlternates && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Mais opções para ${item.title}`}
+                              className={cn(
+                                'absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md inline-flex items-center justify-center transition-colors',
+                                isActive
+                                  ? 'text-white/70 hover:text-white hover:bg-white/10 dark:text-neutral-900/70 dark:hover:text-neutral-900 dark:hover:bg-neutral-900/10'
+                                  : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/60',
+                              )}
+                            >
+                              <ChevronDown className="size-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            side="right"
+                            align="start"
+                            sideOffset={6}
+                            className="w-48 p-1"
+                          >
+                            {item.alternates!.map((alt) => {
+                              const AltIcon = alt.icon
+                              const altActive = pathname === alt.href || pathname?.startsWith(`${alt.href}/`)
+                              return (
+                                <Link
+                                  key={alt.href}
+                                  href={alt.href}
+                                  className={cn(
+                                    'flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] transition-colors',
+                                    altActive
+                                      ? 'bg-muted text-foreground'
+                                      : 'text-foreground/80 hover:bg-muted/60',
+                                  )}
+                                >
+                                  <AltIcon className="size-4" />
+                                  <span>{alt.title}</span>
+                                </Link>
+                              )
+                            })}
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </SidebarMenuItem>
                   )
                 })
@@ -587,9 +656,9 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
-        {/* 4. CRM */}
+        {/* 4. Leads */}
         <CollapsibleGroup
-          label="CRM"
+          label="Leads"
           icon={ContactRound}
           items={crmItems}
           pathname={pathname}

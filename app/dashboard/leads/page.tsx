@@ -33,9 +33,10 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { LeadForm } from '@/components/leads/lead-form'
 import {
   Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight,
-  Phone, Mail, Zap, LayoutGrid, List, Download,
+  Phone, Mail, Zap, LayoutGrid, List, Download, Upload,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
+import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatDate } from '@/lib/constants'
 import { toast } from 'sonner'
@@ -107,6 +108,7 @@ function LeadsPageContent() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table')
 
   const [search, setSearch] = useState(searchParams.get('nome') || '')
@@ -238,6 +240,14 @@ function LeadsPageContent() {
           >
             <Download className="h-3.5 w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Importar</span>
           </Button>
           <Button
             size="sm"
@@ -529,6 +539,12 @@ function LeadsPageContent() {
         onOpenChange={setExportOpen}
         endpoint="/api/export/leads"
         title="Leads"
+      />
+
+      <BulkImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onComplete={() => loadLeads()}
       />
     </div>
   )

@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
-import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
+import { BulkImportEntriesDialog } from '@/components/leads/bulk-import-entries-dialog'
 import { AssignmentRulesManager } from '@/components/crm/assignment-rules-manager'
 import { SlaConfigsManager } from '@/components/crm/sla-configs-manager'
 import { toast } from 'sonner'
@@ -620,8 +620,9 @@ function GestoraContent() {
         onComplete={() => fetchData()}
       />
 
-      {/* CSV Bulk Import */}
-      <BulkImportDialog
+      {/* CSV Bulk Import — gestora is the leads (entries) management page,
+          so this importer creates leads_entries (+ a contact per row). */}
+      <BulkImportEntriesDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         onComplete={() => fetchData()}
