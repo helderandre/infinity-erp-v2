@@ -541,7 +541,7 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Long-press 1.5s anywhere → abre o assistente. Convive com selecção
+  // Long-press 3s anywhere → abre o assistente. Convive com selecção
   // de texto e copy/paste do sistema:
   //   - Ignora pressões em inputs/textarea/contenteditable, links,
   //     botões e nodes marcados com `data-no-long-press`.
@@ -599,6 +599,10 @@ export function AiVoiceAssistant() {
       startY = e.clientY
       cancel()
       armed = true
+      // Janela aumentada para 3 s — dá folga ao gesto nativo de selecção
+      // de texto do iOS (lupa ~500 ms, context-menu ~700 ms–1 s, copy
+      // tap < 2 s). Quem queira voz tem de manter o dedo parado os 3 s
+      // completos, por isso convive sem fricção com a cópia.
       timer = window.setTimeout(() => {
         timer = null
         if (!armed) return
@@ -608,7 +612,7 @@ export function AiVoiceAssistant() {
           ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
         } catch {}
         window.dispatchEvent(new Event('open-voice-assistant'))
-      }, 1500)
+      }, 3000)
     }
 
     const onPointerMove = (e: PointerEvent) => {

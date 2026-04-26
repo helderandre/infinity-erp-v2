@@ -461,3 +461,17 @@ main:has([data-acessos-page]) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* Esconde o highlight visual da selecção de texto (caixa azul por
+ * defeito do ::selection). A cópia continua a funcionar — o iOS mostra
+ * a lupa e o context-menu nativos, e o utilizador percebe o que está a
+ * copiar pela lupa; o highlight permanente sai por opção de design.
+ * `color: inherit` evita que o texto mude de cor durante a selecção. */
+::selection {
+  background: transparent;
+  color: inherit;
+}
+::-moz-selection {
+  background: transparent;
+  color: inherit;
+}
