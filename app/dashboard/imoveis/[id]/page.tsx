@@ -180,6 +180,7 @@ export default function ImovelDetalhePage() {
   const [resumeDealId, setResumeDealId] = useState<string | null>(null)
   const [selectedOwner, setSelectedOwner] = useState<any>(null)
   const isMobile = useIsMobile()
+  const searchParams = useSearchParams()
   const [interessados, setInteressados] = useState<{ linked: any[]; suggestions: any[] }>({ linked: [], suggestions: [] })
   const [interessadosLoading, setInteressadosLoading] = useState(true)
   const [interessadosStrict, setInteressadosStrict] = useState(false)
@@ -204,7 +205,6 @@ export default function ImovelDetalhePage() {
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
   const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas'>('imagens')
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
-  const searchParams = useSearchParams()
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
