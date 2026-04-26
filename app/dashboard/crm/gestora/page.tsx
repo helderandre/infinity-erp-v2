@@ -13,8 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
-import { LeadEntryForm } from '@/components/crm/lead-entry-form'
+import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { AssignmentRulesManager } from '@/components/crm/assignment-rules-manager'
 import { SlaConfigsManager } from '@/components/crm/sla-configs-manager'
@@ -121,19 +120,6 @@ function GestoraContent() {
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showRulesDialog, setShowRulesDialog] = useState(false)
   const [showSlaDialog, setShowSlaDialog] = useState(false)
-  const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
-
-  useEffect(() => {
-    fetch('/api/users/consultants')
-      .then((r) => r.ok ? r.json() : [])
-      .then((d) => setConsultants(
-        (d || []).map((c: Record<string, unknown>) => ({
-          id: c.id as string,
-          commercial_name: c.commercial_name as string,
-        }))
-      ))
-      .catch(() => {})
-  }, [])
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -627,20 +613,12 @@ function GestoraContent() {
         </div>
       )}
 
-      {/* New Lead Entry Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden" showCloseButton={false}>
-          <VisuallyHidden><DialogTitle>Nova Lead</DialogTitle></VisuallyHidden>
-          <LeadEntryForm
-            consultants={consultants}
-            onSuccess={() => {
-              setShowNewDialog(false)
-              fetchData()
-            }}
-            onCancel={() => setShowNewDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* New Lead Entry Dialog (unified com quick action) */}
+      <LeadEntryDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+        onComplete={() => fetchData()}
+      />
 
       {/* CSV Bulk Import */}
       <BulkImportDialog

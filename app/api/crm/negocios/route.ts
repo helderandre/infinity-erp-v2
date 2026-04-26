@@ -13,6 +13,12 @@ export async function GET(request: Request) {
     const temperatura = searchParams.get('temperatura')
     const search = (searchParams.get('search') || '').trim()
     const contact_id = searchParams.get('contact_id') || searchParams.get('lead_id')
+    const tipo_imovel = (searchParams.get('tipo_imovel') || '').trim()
+    const localizacao = (searchParams.get('localizacao') || '').trim()
+    const orcamento_min = searchParams.get('orcamento_min')
+    const orcamento_max = searchParams.get('orcamento_max')
+    const date_from = searchParams.get('date_from')
+    const date_to = searchParams.get('date_to')
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
     const per_page = Math.min(200, Math.max(1, parseInt(searchParams.get('per_page') ?? '50', 10)))
     const from = (page - 1) * per_page
@@ -44,6 +50,24 @@ export async function GET(request: Request) {
     if (temperatura) query = query.eq('temperatura', temperatura)
     if (contact_id) query = query.eq('lead_id', contact_id)
     if (search) query = query.ilike('leads.nome', `%${search}%`)
+    if (tipo_imovel) query = query.ilike('tipo_imovel', `%${tipo_imovel}%`)
+    if (localizacao) query = query.ilike('localizacao', `%${localizacao}%`)
+    // Orçamento: aplica ao orcamento_max (compradores) ou preco_venda (vendedores).
+    // Uso OR para cobrir os dois lados do pipeline.
+    if (orcamento_min) {
+      const min = Number(orcamento_min)
+      if (!Number.isNaN(min)) {
+        query = query.or(`orcamento_max.gte.${min},preco_venda.gte.${min}`)
+      }
+    }
+    if (orcamento_max) {
+      const max = Number(orcamento_max)
+      if (!Number.isNaN(max)) {
+        query = query.or(`orcamento.lte.${max},preco_venda.lte.${max}`)
+      }
+    }
+    if (date_from) query = query.gte('created_at', date_from)
+    if (date_to) query = query.lte('created_at', date_to)
 
     const { data, error, count } = await query
 

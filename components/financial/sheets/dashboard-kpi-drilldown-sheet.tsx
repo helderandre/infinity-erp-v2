@@ -15,7 +15,7 @@ import { MapaRowSheet } from './mapa-row-sheet'
 import { LedgerEntrySheet } from './ledger-entry-sheet'
 import type { LedgerEntry } from '@/lib/financial/ledger-types'
 import type { MapaGestaoRow } from '@/types/financial'
-import type { DrilldownKind, DrilldownPayload, DrilldownEntry, MarginBreakdown } from '@/app/api/financial/dashboard/drilldown/route'
+import type { DrilldownKind, DrilldownPayload, DrilldownEntry, MarginBreakdown, SideBreakdown } from '@/app/api/financial/dashboard/drilldown/route'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
@@ -42,17 +42,25 @@ const KIND_META: Record<DrilldownKind, { title: string; subtitle: string; cumula
   signed_pending_receipt: { title: 'Assinado por receber', subtitle: 'Pagamentos assinados que ainda não foram recebidos', cumulative: true, tone: 'warning' },
   received_pending_report: { title: 'Recebido por reportar', subtitle: 'Recebidos que ainda não foram reportados', cumulative: true, tone: 'info' },
   pending_consultant_payment: { title: 'A pagar consultores', subtitle: 'Comissões a entregar aos consultores', cumulative: true, tone: 'purple' },
+  forecast_revenue: { title: 'Report previsto', subtitle: 'Negócios com fecho previsto neste mês × probabilidade', cumulative: false, tone: 'info' },
+  forecast_margin: { title: 'Margem prevista', subtitle: 'Report previsto × taxa de margem da agência', cumulative: false, tone: 'info' },
 }
 
 interface DashboardKpiDrilldownSheetProps {
   kind: DrilldownKind | null
   month: number
   year: number
+  /** Optional: scope queries to a single consultant. Self-scope bypasses the financial permission gate. */
+  consultantId?: string | null
+  /** Optional: 'year' aggregates the whole year instead of a single month. Defaults to 'month'. */
+  scope?: 'month' | 'year'
+  /** Optional override for the title (used when scope='year' or to override defaults). */
+  titleOverride?: string
   onClose: () => void
 }
 
 export function DashboardKpiDrilldownSheet({
-  kind, month, year, onClose,
+  kind, month, year, consultantId, scope = 'month', titleOverride, onClose,
 }: DashboardKpiDrilldownSheetProps) {
   const [data, setData] = useState<DrilldownPayload | null>(null)
   const [loading, setLoading] = useState(false)
@@ -60,14 +68,19 @@ export function DashboardKpiDrilldownSheet({
   const [nestedEntry, setNestedEntry] = useState<LedgerEntry | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
 
+  const buildParams = useCallback(() => {
+    const p = new URLSearchParams({ kind: kind!, month: String(month), year: String(year), scope })
+    if (consultantId) p.set('consultant_id', consultantId)
+    return p
+  }, [kind, month, year, scope, consultantId])
+
   const refetch = useCallback(() => {
     if (!kind) return
-    const params = new URLSearchParams({ kind, month: String(month), year: String(year) })
-    fetch(`/api/financial/dashboard/drilldown?${params.toString()}`)
+    fetch(`/api/financial/dashboard/drilldown?${buildParams().toString()}`)
       .then((r) => r.ok ? r.json() : Promise.reject(r))
       .then((payload: DrilldownPayload) => setData(payload))
       .catch(() => {})
-  }, [kind, month, year])
+  }, [kind, buildParams])
 
   useEffect(() => {
     if (!kind) return
@@ -75,8 +88,7 @@ export function DashboardKpiDrilldownSheet({
     setLoading(true)
     setData(null)
 
-    const params = new URLSearchParams({ kind, month: String(month), year: String(year) })
-    fetch(`/api/financial/dashboard/drilldown?${params.toString()}`)
+    fetch(`/api/financial/dashboard/drilldown?${buildParams().toString()}`)
       .then((r) => r.ok ? r.json() : Promise.reject(r))
       .then((payload: DrilldownPayload) => {
         if (!cancelled) setData(payload)
@@ -89,7 +101,7 @@ export function DashboardKpiDrilldownSheet({
       })
 
     return () => { cancelled = true }
-  }, [kind, month, year])
+  }, [kind, buildParams])
 
   const handleEntryClick = useCallback(async (entry: DrilldownEntry) => {
     if (!entry.entityRef) return
@@ -125,6 +137,7 @@ export function DashboardKpiDrilldownSheet({
   const meta = kind ? KIND_META[kind] : null
   const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })
   const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)
+  const periodLabel = scope === 'year' ? String(year) : monthLabelCap
 
   // Resolve dynamic tone for "Resultado" (positive when ≥ 0, negative otherwise).
   const tone: Tone = !meta
@@ -138,13 +151,13 @@ export function DashboardKpiDrilldownSheet({
     <FinanceiroSheet
       open={kind !== null}
       onOpenChange={(v) => !v && onClose()}
-      title={meta?.title ?? ''}
+      title={titleOverride ?? (meta?.title ?? '')}
       accent={meta && (
         <span className={cn('inline-flex h-2 w-2 rounded-full', toneTokens.dot)} />
       )}
       subtitle={meta && (
         <span className="inline-flex items-center gap-1.5 flex-wrap">
-          <span>{meta.cumulative ? 'Pendente · cumulativo' : monthLabelCap}</span>
+          <span>{meta.cumulative ? 'Pendente · cumulativo' : periodLabel}</span>
           <span className="text-muted-foreground/60">·</span>
           <span>{meta.subtitle}</span>
         </span>
@@ -157,15 +170,25 @@ export function DashboardKpiDrilldownSheet({
       }
     >
       {kind === 'margin' ? (
-        <MarginView loading={loading} breakdown={data?.breakdown ?? null} toneFrom={toneTokens.from} />
+        <>
+          <MarginView loading={loading} breakdown={data?.breakdown ?? null} toneFrom={toneTokens.from} />
+          {data?.side_breakdown && (
+            <SideBreakdownView breakdown={data.side_breakdown} />
+          )}
+        </>
       ) : (
-        <EntriesView
-          loading={loading}
-          data={data}
-          toneFrom={toneTokens.from}
-          openingId={openingId}
-          onEntryClick={handleEntryClick}
-        />
+        <>
+          {data?.side_breakdown && data.side_breakdown.total > 0 && (
+            <SideBreakdownView breakdown={data.side_breakdown} />
+          )}
+          <EntriesView
+            loading={loading}
+            data={data}
+            toneFrom={toneTokens.from}
+            openingId={openingId}
+            onEntryClick={handleEntryClick}
+          />
+        </>
       )}
 
       {/* Nested sheets — open over the drilldown when an entry is clicked. */}
@@ -492,5 +515,102 @@ function MarginView({
         )}
       </div>
     </>
+  )
+}
+
+// ── Deal-side distribution view (vendedor / comprador / arrendador / arrendatário) ──
+
+const SIDE_SEGMENTS: Array<{ key: keyof Omit<SideBreakdown, 'total'>; label: string; color: string }> = [
+  { key: 'vendedor',      label: 'Vendedor',      color: '#10b981' },
+  { key: 'comprador',     label: 'Comprador',     color: '#3b82f6' },
+  { key: 'arrendador',    label: 'Arrendador',    color: '#a855f7' },
+  { key: 'arrendatario',  label: 'Arrendatário',  color: '#f59e0b' },
+]
+
+function SideBreakdownView({ breakdown }: { breakdown: SideBreakdown }) {
+  const chartData = useMemo(() => {
+    return SIDE_SEGMENTS
+      .map((s) => ({
+        key: s.key,
+        label: s.label,
+        color: s.color,
+        value: Number(breakdown[s.key] ?? 0),
+      }))
+      .filter((s) => s.value > 0)
+  }, [breakdown])
+
+  const total = breakdown.total
+
+  if (total <= 0) {
+    return null
+  }
+
+  return (
+    <div className="rounded-2xl ring-1 ring-border/40 bg-background/60 p-5">
+      <div className="mb-4">
+        <p className="text-sm font-semibold tracking-tight">Distribuição por tipo</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          Vendedor · Comprador · Arrendador · Arrendatário — total {fmtCurrency(total)}
+        </p>
+      </div>
+
+      <div className="grid gap-5 grid-cols-1 sm:grid-cols-[200px_1fr] items-center">
+        <div className="relative h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="label"
+                innerRadius={62}
+                outerRadius={92}
+                paddingAngle={2}
+                stroke="none"
+              >
+                {chartData.map((d) => (
+                  <Cell key={d.key} fill={d.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(v: any) => fmtCurrency(Number(v))}
+                contentStyle={{
+                  borderRadius: 12, fontSize: 12, border: '1px solid hsl(var(--border))',
+                  backgroundColor: 'hsl(var(--background) / 0.95)', backdropFilter: 'blur(8px)',
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
+            <p className="text-sm font-semibold tabular-nums leading-tight mt-0.5">
+              {fmtCurrency(total)}
+            </p>
+          </div>
+        </div>
+
+        <ul className="space-y-2.5">
+          {chartData.map((seg) => {
+            const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0
+            return (
+              <li key={seg.key} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="h-2.5 w-2.5 rounded-sm shrink-0"
+                    style={{ backgroundColor: seg.color }}
+                  />
+                  <span className="truncate">{seg.label}</span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="font-medium tabular-nums">{fmtCurrency(seg.value)}</span>
+                  <span className="ml-2 text-[11px] text-muted-foreground tabular-nums">
+                    {pct}%
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
   )
 }

@@ -143,6 +143,22 @@ export async function GET(
     const candidates = (negociosRes.data ?? []) as NegocioCandidate[]
     const propPrice = Number(property?.listing_price) || 0
 
+    // Carregar negocio_properties já existentes para este imóvel + estes negocios,
+    // para podermos surfacear `last_sent_at` em cada cartão (evita reenvios por engano).
+    const { data: existingLinks } = await supabase
+      .from('negocio_properties')
+      .select('negocio_id, sent_at, status')
+      .eq('property_id', id)
+      .in('negocio_id', candidateIds)
+    const sentMap = new Map<string, string | null>()
+    for (const l of (existingLinks ?? []) as Array<{
+      negocio_id: string
+      sent_at: string | null
+      status: string | null
+    }>) {
+      sentMap.set(l.negocio_id, l.sent_at)
+    }
+
     const enriched = candidates.map((n) => {
       const geoSource = geoSourceMap.get(n.id) ?? 'no_filter'
 
@@ -175,11 +191,34 @@ export async function GET(
         else price_flag = 'red'
       }
 
+      // Emitir warnings de orçamento — assim strict mode (que filtra warnings)
+      // exclui automaticamente leads sem orçamento definido OU com orçamento
+      // que não encaixa (yellow/orange/red).
+      // Princípio: "missing info" não é assumido como "qualquer preço" — fica
+      // explicitamente fora do match estrito.
+      if (!budget) {
+        badges.push({
+          type: 'warning',
+          key: 'orcamento_missing',
+          label: 'Sem orçamento definido',
+        })
+      } else if (propPrice && (price_flag === 'yellow' || price_flag === 'orange' || price_flag === 'red')) {
+        badges.push({
+          type: 'warning',
+          key: 'orcamento_off',
+          label:
+            price_flag === 'yellow' ? 'Orçamento ligeiramente abaixo' :
+            price_flag === 'orange' ? 'Orçamento abaixo' :
+            'Muito acima do orçamento',
+        })
+      }
+
       return {
         ...n,
         price_flag,
         geo_source: geoSource,
         badges,
+        last_sent_at: sentMap.get(n.id) ?? null,
         // mantém compat com UI antigo:
         type_match: 'exact' as const,
       }

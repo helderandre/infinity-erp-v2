@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { useCalendarEvents } from '@/hooks/use-calendar-events'
 import { CalendarTaskRow } from '@/components/calendar/calendar-task-row'
+import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
+import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
 import type { CalendarEvent } from '@/types/calendar'
 import type { TaskWithRelations } from '@/types/task'
 import { cn } from '@/lib/utils'
@@ -25,11 +27,12 @@ import { TasksBucketSheet, type TaskBucket } from './tasks-bucket-sheet'
 interface TodayCardProps {
   userId: string
   fillViewport?: boolean
+  className?: string
 }
 
 const SOON_DAYS = 7
 
-export function TodayCard({ userId, fillViewport }: TodayCardProps) {
+export function TodayCard({ userId, fillViewport, className }: TodayCardProps) {
   const { start, end } = useMemo(() => {
     const now = new Date()
     const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
@@ -37,16 +40,21 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
     return { start: s, end: e }
   }, [])
 
-  const { events, tasks, isLoading, toggleTaskComplete } = useCalendarEvents({
-    start,
-    end,
-    userId,
-  })
+  const { events, tasks, isLoading, toggleTaskComplete, refetch } =
+    useCalendarEvents({
+      start,
+      end,
+      userId,
+    })
 
   // Separate fetch for counts across full range (past-due + today + soon)
   const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([])
   const [allLoading, setAllLoading] = useState(true)
   const [bucketOpen, setBucketOpen] = useState<TaskBucket | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [eventDetailOpen, setEventDetailOpen] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -141,6 +149,7 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
         'rounded-2xl border-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] p-4 gap-3 flex flex-col',
         fillViewport &&
           'h-[calc(100dvh-env(safe-area-inset-top,0px)-var(--mobile-nav-height,5rem)-6rem)] min-h-[24rem]',
+        className,
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -229,7 +238,14 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
                   Eventos ({dayEvents.length})
                 </p>
                 {dayEvents.map((event) => (
-                  <EventRow key={event.id} event={event} />
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    onSelect={() => {
+                      setSelectedEvent(event)
+                      setEventDetailOpen(true)
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -244,7 +260,8 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
                     key={task.id}
                     task={task}
                     onSelect={() => {
-                      window.location.href = '/dashboard/tarefas'
+                      setSelectedTaskId(task.id)
+                      setTaskDetailOpen(true)
                     }}
                     onToggleComplete={toggleTaskComplete}
                   />
@@ -259,6 +276,29 @@ export function TodayCard({ userId, fillViewport }: TodayCardProps) {
         userId={userId}
         bucket={bucketOpen}
         onOpenChange={(o) => !o && setBucketOpen(null)}
+      />
+
+      <CalendarEventDetail
+        event={selectedEvent}
+        open={eventDetailOpen}
+        onClose={() => {
+          setEventDetailOpen(false)
+          setSelectedEvent(null)
+        }}
+        onRefresh={refetch}
+      />
+
+      <TaskDetailSheet
+        taskId={selectedTaskId}
+        open={taskDetailOpen}
+        onOpenChange={(open) => {
+          setTaskDetailOpen(open)
+          if (!open) setSelectedTaskId(null)
+        }}
+        onRefresh={refetch}
+        onCreateSubTask={() => {
+          // Sub-task creation lives in the tasks module; no-op here.
+        }}
       />
     </Card>
   )
@@ -310,14 +350,21 @@ function StatCard({
   )
 }
 
-function EventRow({ event }: { event: CalendarEvent }) {
+function EventRow({
+  event,
+  onSelect,
+}: {
+  event: CalendarEvent
+  onSelect: () => void
+}) {
   const eventDate = parseISO(event.start_date)
   const allDay = event.all_day
 
   return (
-    <Link
-      href="/dashboard/calendario"
-      className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors"
+    <button
+      type="button"
+      onClick={onSelect}
+      className="w-full text-left flex items-center gap-3 rounded-lg p-2 hover:bg-muted/40 transition-colors"
     >
       <div className="flex flex-col items-center justify-center w-12 shrink-0 rounded-md bg-muted/50 py-1">
         {allDay ? (
@@ -338,6 +385,6 @@ function EventRow({ event }: { event: CalendarEvent }) {
           </p>
         )}
       </div>
-    </Link>
+    </button>
   )
 }

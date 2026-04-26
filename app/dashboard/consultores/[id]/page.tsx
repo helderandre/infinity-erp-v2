@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useConsultant } from '@/hooks/use-consultant'
+import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -57,6 +59,18 @@ export default function ConsultorDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { consultant, isLoading, refetch } = useConsultant(id)
+  const { user } = useUser()
+  const { hasPermission } = usePermissions()
+  // Self-view always grants edit/private access; otherwise require `consultants` permission.
+  const isSelf = user?.id === id
+  const canManage = hasPermission('consultants' as any)
+  const canEdit = isSelf || canManage
+  const canSeePrivate = isSelf || canManage
+  const visibleTabs = TABS.filter((t) => {
+    if (t.key === 'privado' && !canSeePrivate) return false
+    if (t.key === 'comissoes' && !canSeePrivate) return false
+    return true
+  })
   const [activeTab, setActiveTab] = useState<TabKey>('perfil')
   const [properties, setProperties] = useState<any[]>([])
   const [propertiesLoading, setPropertiesLoading] = useState(false)
@@ -477,13 +491,16 @@ export default function ConsultorDetalhePage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
         </button>
-        <button
-          onClick={() => { setSettingsRoleId(consultant.user_roles?.[0]?.role_id || ''); setShowSettings(true) }}
-          className="absolute top-4 right-4 z-20 inline-flex items-center justify-center h-8 w-8 bg-white/15 backdrop-blur-sm text-white border border-white/20 rounded-full hover:bg-white/25 transition-colors"
-          title="Definições"
-        >
-          <Settings className="h-3.5 w-3.5" />
-        </button>
+        {/* Definições (role/active toggle) — managers only */}
+        {canManage && (
+          <button
+            onClick={() => { setSettingsRoleId(consultant.user_roles?.[0]?.role_id || ''); setShowSettings(true) }}
+            className="absolute top-4 right-4 z-20 inline-flex items-center justify-center h-8 w-8 bg-white/15 backdrop-blur-sm text-white border border-white/20 rounded-full hover:bg-white/25 transition-colors"
+            title="Definições"
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </button>
+        )}
 
         <div className="relative z-10 px-8 pt-14 pb-8 sm:px-10 flex items-center gap-6">
           <div className="relative group shrink-0">
@@ -540,7 +557,7 @@ export default function ConsultorDetalhePage() {
       {/* ─── Pill Navigation + Edit Toggle ─── */}
       <div className="mt-6 flex items-center justify-between gap-3">
         <div className="inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm mx-auto sm:mx-0">
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
             return (
@@ -564,8 +581,8 @@ export default function ConsultorDetalhePage() {
           })}
         </div>
 
-        {/* Edit toggle — only for perfil and privado tabs */}
-        {(activeTab === 'perfil' || activeTab === 'privado') && (
+        {/* Edit toggle — only for perfil and privado tabs, gated by edit permission (self or `consultants`) */}
+        {canEdit && (activeTab === 'perfil' || activeTab === 'privado') && (
           editing ? (
             <div className="flex items-center gap-2">
               <Button

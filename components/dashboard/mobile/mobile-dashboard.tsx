@@ -9,13 +9,13 @@ import {
 } from '@/components/ui/carousel'
 import { cn } from '@/lib/utils'
 import type { UserWithRole } from '@/hooks/use-user'
-import type { AgentDashboard } from '@/types/financial'
-import { getAgentDashboard } from '@/app/dashboard/financeiro/actions'
+import type { AgentMobileDashboard } from '@/app/dashboard/financeiro/actions'
+import { getAgentMobileDashboard } from '@/app/dashboard/financeiro/actions'
 import { WelcomeCard } from './welcome-card'
 import { ContactosCard } from './contactos-card'
 import { TodayCard } from './today-card'
 import { AngariacoesFaturacaoCard } from './angariacoes-faturacao-card'
-import { MargemCard } from './margem-card'
+import { FinanceCard } from './finance-card'
 
 interface MobileDashboardProps {
   user: UserWithRole
@@ -26,7 +26,7 @@ export function MobileDashboard({ user }: MobileDashboardProps) {
   const [current, setCurrent] = useState(0)
   const [count, setCount] = useState(0)
 
-  const [agentData, setAgentData] = useState<AgentDashboard | null>(null)
+  const [agentData, setAgentData] = useState<AgentMobileDashboard | null>(null)
   const [agentLoading, setAgentLoading] = useState(true)
 
   useEffect(() => {
@@ -42,16 +42,16 @@ export function MobileDashboard({ user }: MobileDashboardProps) {
 
   useEffect(() => {
     let cancelled = false
-    getAgentDashboard(user.id)
+    getAgentMobileDashboard(user.id)
       .then((res) => {
         if (cancelled) return
         if (!res.error) {
           const { error: _err, ...rest } = res
-          setAgentData(rest as AgentDashboard)
+          setAgentData(rest as AgentMobileDashboard)
         }
       })
       .catch((err) => {
-        console.error('getAgentDashboard failed:', err)
+        console.error('getAgentMobileDashboard failed:', err)
       })
       .finally(() => {
         if (!cancelled) setAgentLoading(false)
@@ -82,13 +82,15 @@ export function MobileDashboard({ user }: MobileDashboardProps) {
             <AngariacoesFaturacaoCard
               data={agentData}
               loading={agentLoading}
+              consultantId={user.id}
               fillViewport
             />
           </CarouselItem>
           <CarouselItem className="basis-full">
-            <MargemCard
+            <FinanceCard
               data={agentData}
               loading={agentLoading}
+              consultantId={user.id}
               fillViewport
             />
           </CarouselItem>

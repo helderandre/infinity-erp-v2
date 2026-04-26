@@ -15,13 +15,17 @@ import {
 } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
-  Popover, PopoverContent, PopoverTrigger,
+  Popover, PopoverAnchor, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  Mic, MicOff, Loader2, Sparkles, Handshake, Building2, UserPlus, Landmark,
+  Command, CommandEmpty, CommandGroup, CommandItem, CommandList,
+} from '@/components/ui/command'
+import {
+  Mic, MicOff, Loader2, Sparkles, Handshake, Building2, UserPlus, Landmark, Search, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useDebounce } from '@/hooks/use-debounce'
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -73,6 +77,10 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   const [form, setForm] = useState({
     raw_name: '', raw_email: '', raw_phone: '', source: 'other', notes: '',
     sector: '',
+    // Assignment + linked angariação (criar mode)
+    assigned_consultant_id: '',
+    property_id: '',
+    property_label: '',
     // Referral
     has_referral: false, referral_pct: '25', referral_consultant_id: '',
     referral_external_name: '', referral_external_phone: '', referral_external_email: '', referral_external_agency: '',
@@ -90,6 +98,43 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  // Property search (imóvel relacionado / angariação)
+  const [propQuery, setPropQuery] = useState('')
+  const [propResults, setPropResults] = useState<{ id: string; external_ref: string | null; title: string; city: string | null }[]>([])
+  const [propPopoverOpen, setPropPopoverOpen] = useState(false)
+  const [isPropLoading, setIsPropLoading] = useState(false)
+  const [hasPropTyped, setHasPropTyped] = useState(false)
+  const debouncedPropQuery = useDebounce(propQuery, 300)
+
+  useEffect(() => {
+    if (!hasPropTyped || debouncedPropQuery.trim().length < 2) {
+      setPropResults([])
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      setIsPropLoading(true)
+      try {
+        const res = await fetch(`/api/properties?search=${encodeURIComponent(debouncedPropQuery.trim())}&per_page=10`)
+        if (!res.ok) throw new Error()
+        const json = await res.json()
+        const rows: any[] = Array.isArray(json) ? json : (json.data ?? [])
+        if (cancelled) return
+        const mapped = rows.map((r) => ({
+          id: r.id, external_ref: r.external_ref ?? null, title: r.title ?? '(sem título)', city: r.city ?? null,
+        }))
+        setPropResults(mapped)
+        if (mapped.length > 0) setPropPopoverOpen(true)
+      } catch {
+        if (!cancelled) setPropResults([])
+      } finally {
+        if (!cancelled) setIsPropLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [debouncedPropQuery, hasPropTyped])
+
   useEffect(() => {
     if (open) {
       fetch('/api/consultants?limit=100')
@@ -102,6 +147,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   const resetForm = () => {
     setForm({
       raw_name: '', raw_email: '', raw_phone: '', source: 'other', notes: '', sector: '',
+      assigned_consultant_id: '', property_id: '', property_label: '',
       has_referral: false, referral_pct: '25', referral_consultant_id: '',
       referral_external_name: '', referral_external_phone: '', referral_external_email: '', referral_external_agency: '',
       has_experience: false, previous_agency: '', credit_purpose: '',
@@ -109,18 +155,38 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
     setDialogMode('criar')
     setCategory('imobiliario')
     setAiText('')
+    setPropQuery('')
+    setPropResults([])
   }
 
   // ── AI: voice + text ──────────────────────────────────────────
 
   const applyExtracted = (ext: Record<string, any>) => {
-    setForm((p) => ({
-      ...p,
-      raw_name: ext.name || p.raw_name,
-      raw_email: ext.email || p.raw_email,
-      raw_phone: ext.phone || p.raw_phone,
-      notes: ext.notes ? (p.notes ? p.notes + '\n' + ext.notes : ext.notes) : p.notes,
-    }))
+    setForm((p) => {
+      const next = { ...p }
+      if (ext.name) next.raw_name = ext.name
+      if (ext.email) next.raw_email = ext.email
+      if (ext.phone) next.raw_phone = ext.phone
+      if (ext.source && SOURCE_OPTIONS.some((s) => s.value === ext.source)) next.source = ext.source
+      if (ext.sector && IMOB_SECTORS.some((s) => s.value === ext.sector)) next.sector = ext.sector
+      // Assignment: only trust consultant_id (UUID) — name alone could collide.
+      if (ext.consultant_id && consultantsList.some((c) => c.id === ext.consultant_id)) {
+        next.assigned_consultant_id = ext.consultant_id
+      }
+      if (ext.property_id) {
+        next.property_id = ext.property_id
+        const label = [ext.property_external_ref, ext.property_title].filter(Boolean).join(' — ')
+        if (label) next.property_label = label
+      } else if (ext.property_external_ref) {
+        // Couldn't resolve to an actual angariação: surface as a hint in notes
+        // so the gestora can investigate manually.
+        next.notes = next.notes
+          ? `${next.notes}\nReferência mencionada: ${ext.property_external_ref}`
+          : `Referência mencionada: ${ext.property_external_ref}`
+      }
+      if (ext.notes) next.notes = next.notes ? `${next.notes}\n${ext.notes}` : ext.notes
+      return next
+    })
   }
 
   const startRecording = useCallback(async () => {
@@ -190,6 +256,8 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
         source: form.source,
         notes: form.notes,
         sector,
+        assigned_consultant_id: form.assigned_consultant_id || null,
+        property_id: form.property_id || null,
       }
 
       // Recruitment extras
@@ -362,6 +430,105 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
             </Select>
           </div>
 
+          {/* ── Atribuir a (criar mode only — referenciar uses its own consultor select above) ── */}
+          {dialogMode === 'criar' && (
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Para quem</Label>
+              <Select
+                value={form.assigned_consultant_id || '_auto'}
+                onValueChange={(v) => setForm((p) => ({ ...p, assigned_consultant_id: v === '_auto' ? '' : v }))}
+              >
+                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_auto">Automático (via regras)</SelectItem>
+                  {consultantsList.map((c) => (<SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ── Imóvel relacionado (apenas imobiliário) ── */}
+          {category === 'imobiliario' && (
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                Imóvel relacionado <span className="text-muted-foreground/60 font-normal">(opcional)</span>
+              </Label>
+              {form.property_id ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 mt-1 h-9">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs truncate flex-1">{form.property_label}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setForm((p) => ({ ...p, property_id: '', property_label: '' }))}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative mt-1">
+                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      {isPropLoading && (
+                        <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                      <Input
+                        value={propQuery}
+                        onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
+                        onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
+                        placeholder="Pesquisar por referência ou título..."
+                        autoComplete="off"
+                        className="rounded-lg h-9 pl-8 text-xs"
+                      />
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    sideOffset={4}
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandList>
+                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                          {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {propResults.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.id}
+                              onSelect={() => {
+                                const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
+                                setForm((prev) => ({ ...prev, property_id: p.id, property_label: label }))
+                                setPropQuery('')
+                                setHasPropTyped(false)
+                                setPropResults([])
+                                setPropPopoverOpen(false)
+                              }}
+                              className="cursor-pointer gap-2"
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs truncate font-medium">
+                                  {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
+                                </span>
+                                {p.city && (<span className="text-[10px] text-muted-foreground truncate">{p.city}</span>)}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          )}
+
           {/* ── Shared contact fields ── */}
           <div>
             <Label className="text-[11px] text-muted-foreground font-medium">Nome *</Label>
@@ -406,6 +573,110 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
                   <SelectItem value="investimento">Investimento</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* ── Atribuir a consultor (criar mode) ── */}
+          {dialogMode === 'criar' && (
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Atribuir a</Label>
+              <Select
+                value={form.assigned_consultant_id || 'auto'}
+                onValueChange={(v) => setForm((p) => ({ ...p, assigned_consultant_id: v === 'auto' ? '' : v }))}
+              >
+                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automático (via regras)</SelectItem>
+                  {consultantsList.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ── Imóvel relacionado (angariação) ── */}
+          {category === 'imobiliario' && (
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+                <Building2 className="h-3 w-3" />
+                Imóvel relacionado <span className="text-muted-foreground/70 font-normal">(opcional)</span>
+              </Label>
+              {form.property_id ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 mt-1 h-9">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs truncate flex-1">{form.property_label}</span>
+                  <button
+                    type="button"
+                    className="h-5 w-5 rounded-full text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                    onClick={() => setForm((p) => ({ ...p, property_id: '', property_label: '' }))}
+                    aria-label="Remover imóvel"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative mt-1">
+                      <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      {isPropLoading && (
+                        <Loader2 className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                      <Input
+                        value={propQuery}
+                        onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
+                        onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
+                        placeholder="Pesquisar por referência ou título..."
+                        autoComplete="off"
+                        className="pl-7 rounded-lg h-9 text-xs"
+                      />
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    sideOffset={4}
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandList>
+                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                          {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {propResults.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.id}
+                              onSelect={() => {
+                                const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
+                                setForm((prev) => ({ ...prev, property_id: p.id, property_label: label }))
+                                setPropQuery('')
+                                setHasPropTyped(false)
+                                setPropResults([])
+                                setPropPopoverOpen(false)
+                              }}
+                              className="cursor-pointer gap-2"
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs truncate font-medium">
+                                  {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
+                                </span>
+                                {p.city && (
+                                  <span className="text-[10px] text-muted-foreground truncate">{p.city}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           )}
 

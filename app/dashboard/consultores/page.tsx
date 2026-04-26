@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
+import { usePermissions } from '@/hooks/use-permissions'
 import { classifyMember } from '@/lib/auth/roles'
 import type { ConsultantWithProfile } from '@/types/consultant'
 import { cn } from '@/lib/utils'
@@ -78,6 +79,8 @@ function ConsultoresPageContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission('consultants' as any)
   const [activeTab, setActiveTab] = useState<TabKey>('equipa')
   const [detailConsultantId, setDetailConsultantId] = useState<string | null>(null)
 
@@ -274,25 +277,29 @@ function ConsultoresPageContent() {
             </div>
           )}
 
-          {/* Action buttons (icon-only on mobile, icon+label on desktop) */}
-          <button
-            onClick={() => setExportOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-muted/40 hover:bg-muted/60 text-sm font-medium transition-colors"
-            aria-label="Exportar"
-            title="Exportar"
-          >
-            <Download className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">Exportar</span>
-          </button>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium transition-colors hover:opacity-90"
-            aria-label="Novo Membro"
-            title="Novo Membro"
-          >
-            <Plus className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">Novo Membro</span>
-          </button>
+          {/* Action buttons (icon-only on mobile, icon+label on desktop) — gated by `consultants` permission */}
+          {canManage && (
+            <>
+              <button
+                onClick={() => setExportOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-muted/40 hover:bg-muted/60 text-sm font-medium transition-colors"
+                aria-label="Exportar"
+                title="Exportar"
+              >
+                <Download className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Exportar</span>
+              </button>
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium transition-colors hover:opacity-90"
+                aria-label="Novo Membro"
+                title="Novo Membro"
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Novo Membro</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -322,7 +329,7 @@ function ConsultoresPageContent() {
                   icon={Users}
                   title="Nenhum membro encontrado"
                   description="Comece por adicionar o primeiro membro à equipa"
-                  action={{ label: 'Novo Membro', onClick: () => setCreateOpen(true) }}
+                  action={canManage ? { label: 'Novo Membro', onClick: () => setCreateOpen(true) } : undefined}
                 />
               ) : (() => {
                 const sortedMembers = [...allMembers].sort((a, b) =>
@@ -474,7 +481,7 @@ function ConsultoresPageContent() {
                       : 'Comece por adicionar o primeiro consultor'
                   }
                   action={
-                    !hasActiveFilters
+                    !hasActiveFilters && canManage
                       ? { label: 'Novo Membro', onClick: () => setCreateOpen(true) }
                       : undefined
                   }

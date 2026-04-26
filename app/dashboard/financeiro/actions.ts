@@ -1905,3 +1905,243 @@ export async function generateCustomReport(
     return { rows: [], columns: [], error: (err as Error).message }
   }
 }
+
+// ─── Agent Mobile Dashboard ──────────────────────────────────────────────────
+//
+// Unified payload for the mobile carousel cards. Returns angariações breakdown
+// (Previsões/Activas/Fechadas), CRM mirror (compradores+arrendatários), and a
+// financial section with monthly Report+Margem evolution.
+
+export interface AgentMobileDashboard {
+  angariacoes: {
+    previsoes: { previstas: number; a_entrar: number; report_previsto_mes: number }
+    activas: { novas_este_mes: number; dias_sem_angariar: number; ativas: number; disponiveis: number; reservadas: number }
+    fechadas: { report_mes: number; report_ano: number }
+  }
+  crm: {
+    previsoes: { a_fechar_mes: number; receita_prevista: number; pipeline_ponderado: number }
+    activas: { em_curso: number; visitas: number; propostas: number }
+    fechadas: { ganhos_mes: number; ganhos_ano: number }
+  }
+  financial: {
+    report_mes: number
+    report_ano: number
+    margem_mes: number
+    margem_ano: number
+    report_previsto_mes: number
+    margem_prevista_mes: number
+    annual_target: number
+    pct_achieved: number
+    monthly_evolution: { month: string; revenue: number; margin: number; target: number }[]
+  }
+}
+
+const SELLER_PIPELINES = ["vendedor", "arrendador"]
+const BUYER_PIPELINES = ["comprador", "arrendatario"]
+
+export async function getAgentMobileDashboard(
+  consultantId: string,
+): Promise<AgentMobileDashboard & { error: string | null }> {
+  const empty: AgentMobileDashboard = {
+    angariacoes: {
+      previsoes: { previstas: 0, a_entrar: 0, report_previsto_mes: 0 },
+      activas: { novas_este_mes: 0, dias_sem_angariar: 0, ativas: 0, disponiveis: 0, reservadas: 0 },
+      fechadas: { report_mes: 0, report_ano: 0 },
+    },
+    crm: {
+      previsoes: { a_fechar_mes: 0, receita_prevista: 0, pipeline_ponderado: 0 },
+      activas: { em_curso: 0, visitas: 0, propostas: 0 },
+      fechadas: { ganhos_mes: 0, ganhos_ano: 0 },
+    },
+    financial: {
+      report_mes: 0, report_ano: 0,
+      margem_mes: 0, margem_ano: 0,
+      report_previsto_mes: 0, margem_prevista_mes: 0,
+      annual_target: 0, pct_achieved: 0,
+      monthly_evolution: [],
+    },
+  }
+
+  try {
+    const admin = createAdminClient()
+    const now = new Date()
+    const yearStart = startOfYear(now)
+    const monthStart = startOfMonth(now)
+    const monthEnd = endOfMonth(now)
+    const currentMonth = reportingMonth(now)
+
+    // ── Margin rate ──
+    const { data: settings } = await (admin as any).from("temp_agency_settings")
+      .select("value").eq("key", "margin_rate").single()
+    const marginRate = settings?.value ? parseFloat(settings.value) : DEFAULT_MARGIN_RATE
+
+    // ── Revenue (Report) per month from temp_goal_activity_log ──
+    const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
+      .select("consultant_id, revenue_amount, activity_date")
+      .eq("consultant_id", consultantId)
+      .gte("activity_date", yearStart)
+
+    let reportMes = 0
+    let reportAno = 0
+    for (const log of (allLogs ?? [])) {
+      const amt = log.revenue_amount || 0
+      reportAno += amt
+      if (log.activity_date?.slice(0, 7) === currentMonth) reportMes += amt
+    }
+
+    // ── My properties (angariações) ──
+    const { data: myProps } = await admin
+      .from("dev_properties")
+      .select("id, status, created_at")
+      .eq("consultant_id", consultantId)
+      .order("created_at", { ascending: false })
+
+    let activas = 0, disponiveis = 0, reservadas = 0, novasMes = 0
+    let lastCreated: Date | null = null
+    for (const p of (myProps ?? [])) {
+      if (p.status === "active" || p.status === "available") activas++
+      if (p.status === "available") disponiveis++
+      if (p.status === "reserved") reservadas++
+      if (p.created_at >= monthStart) novasMes++
+      if (!lastCreated && p.created_at) lastCreated = new Date(p.created_at)
+    }
+    const diasSemAngariar = lastCreated
+      ? Math.max(0, Math.floor((now.getTime() - lastCreated.getTime()) / 86400000))
+      : 0
+
+    // ── Negócios assigned to me (single fetch, partition in code) ──
+    const { data: myDeals } = await (admin as any).from("negocios")
+      .select(`
+        id, tipo, estado, expected_value, probability_pct, expected_close_date,
+        won_date, lost_date, pipeline_stage_id,
+        leads_pipeline_stages!negocios_pipeline_stage_id_fkey(name, pipeline_type, is_terminal, terminal_type, probability_pct)
+      `)
+      .eq("assigned_consultant_id", consultantId)
+
+    const sellerPrevistas: any[] = []
+    const sellerAEntrar: any[] = []
+    let sellerReportPrevistoMes = 0
+
+    const buyerActivos: any[] = []
+    let buyerAFecharMes = 0
+    let buyerReceitaPrevista = 0
+    let buyerPipelinePonderado = 0
+    let buyerVisitas = 0
+    let buyerPropostas = 0
+    let buyerGanhosMes = 0
+    let buyerGanhosAno = 0
+
+    for (const d of (myDeals ?? [])) {
+      const stage = d.leads_pipeline_stages
+      const pipelineType: string | null = stage?.pipeline_type ?? null
+      const stageName: string = stage?.name ?? ""
+      const isTerminal: boolean = !!stage?.is_terminal
+      const terminalType: string | null = stage?.terminal_type ?? null
+      const stageProb = (stage?.probability_pct ?? d.probability_pct ?? 0) / 100
+      const expectedValue = d.expected_value || 0
+      const closesThisMonth = d.expected_close_date && d.expected_close_date >= monthStart && d.expected_close_date <= monthEnd
+      const wonThisMonth = d.won_date && d.won_date >= monthStart && d.won_date <= now.toISOString()
+      const wonThisYear = d.won_date && d.won_date >= yearStart
+
+      // Angariações pipeline (vendedor/arrendador)
+      if (pipelineType && SELLER_PIPELINES.includes(pipelineType)) {
+        if (!isTerminal) {
+          sellerPrevistas.push(d)
+          if (stageProb >= 0.7) sellerAEntrar.push(d)
+          if (closesThisMonth) sellerReportPrevistoMes += expectedValue * stageProb
+        }
+      }
+
+      // CRM pipeline (comprador/arrendatario)
+      if (pipelineType && BUYER_PIPELINES.includes(pipelineType)) {
+        if (!isTerminal) {
+          buyerActivos.push(d)
+          buyerPipelinePonderado += expectedValue * stageProb
+          if (closesThisMonth) {
+            buyerAFecharMes++
+            buyerReceitaPrevista += expectedValue
+          }
+          const sn = stageName.toLowerCase()
+          if (sn === "visitas") buyerVisitas++
+          if (sn === "proposta" || sn === "proposta aceite") buyerPropostas++
+        }
+        if (terminalType === "won") {
+          if (wonThisMonth) buyerGanhosMes++
+          if (wonThisYear) buyerGanhosAno++
+        }
+      }
+    }
+
+    // ── Forecast revenue (Report Previsto este mês) ──
+    // Use the seller-side weighted forecast for the current month
+    const reportPrevistoMes = sellerReportPrevistoMes
+
+    // ── Annual target ──
+    const { data: goal } = await (admin as any).from("temp_consultant_goals")
+      .select("annual_revenue_target")
+      .eq("consultant_id", consultantId)
+      .eq("year", now.getFullYear())
+      .single()
+    const annualTarget = goal?.annual_revenue_target || 0
+
+    // ── Monthly evolution (12 months) ──
+    const monthlyEvolution: { month: string; revenue: number; margin: number; target: number }[] = []
+    const monthlyTarget = annualTarget / 12
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const m = reportingMonth(d)
+      let rev = 0
+      for (const log of (allLogs ?? [])) {
+        if (log.activity_date?.slice(0, 7) === m) rev += log.revenue_amount || 0
+      }
+      monthlyEvolution.push({
+        month: MONTH_NAMES[d.getMonth()],
+        revenue: rev,
+        margin: rev * marginRate,
+        target: monthlyTarget,
+      })
+    }
+
+    return {
+      angariacoes: {
+        previsoes: {
+          previstas: sellerPrevistas.length,
+          a_entrar: sellerAEntrar.length,
+          report_previsto_mes: reportPrevistoMes,
+        },
+        activas: {
+          novas_este_mes: novasMes,
+          dias_sem_angariar: diasSemAngariar,
+          ativas: activas,
+          disponiveis,
+          reservadas,
+        },
+        fechadas: { report_mes: reportMes, report_ano: reportAno },
+      },
+      crm: {
+        previsoes: {
+          a_fechar_mes: buyerAFecharMes,
+          receita_prevista: buyerReceitaPrevista,
+          pipeline_ponderado: buyerPipelinePonderado,
+        },
+        activas: { em_curso: buyerActivos.length, visitas: buyerVisitas, propostas: buyerPropostas },
+        fechadas: { ganhos_mes: buyerGanhosMes, ganhos_ano: buyerGanhosAno },
+      },
+      financial: {
+        report_mes: reportMes,
+        report_ano: reportAno,
+        margem_mes: reportMes * marginRate,
+        margem_ano: reportAno * marginRate,
+        report_previsto_mes: reportPrevistoMes,
+        margem_prevista_mes: reportPrevistoMes * marginRate,
+        annual_target: annualTarget,
+        pct_achieved: annualTarget > 0 ? Math.round((reportAno / annualTarget) * 100) : 0,
+        monthly_evolution: monthlyEvolution,
+      },
+      error: null,
+    }
+  } catch (err) {
+    console.error("[getAgentMobileDashboard]", err)
+    return { ...empty, error: (err as Error).message }
+  }
+}

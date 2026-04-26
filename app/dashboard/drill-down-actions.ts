@@ -428,3 +428,113 @@ export async function getDrillDownUpcomingActions(
     return { items: [], error: err.message ?? "Erro ao carregar acções futuras" }
   }
 }
+
+// ─── 6. Negocios Drill-Down ──────────────────────────────────────────────────
+
+const PIPELINE_TYPE_LABEL: Record<string, string> = {
+  comprador: "Comprador",
+  arrendatario: "Arrendatário",
+  vendedor: "Vendedor",
+  arrendador: "Arrendador",
+}
+
+export async function getDrillDownNegocios(filter: {
+  assigned_consultant_id?: string
+  pipeline_types?: string[]
+  not_terminal?: boolean
+  terminal_type?: "won" | "lost"
+  expected_close_from?: string
+  expected_close_to?: string
+  won_from?: string
+  won_to?: string
+  stage_names?: string[]
+  min_probability_pct?: number
+  limit?: number
+}): Promise<{ items: DrillDownItem[]; error: string | null }> {
+  try {
+    const admin = createAdminClient()
+    let query = (admin as any)
+      .from("negocios")
+      .select(`
+        id, tipo, estado, expected_value, probability_pct, expected_close_date,
+        won_date, lost_date, lead_id,
+        leads!negocios_lead_id_fkey(nome),
+        leads_pipeline_stages!negocios_pipeline_stage_id_fkey(name, pipeline_type, is_terminal, terminal_type, probability_pct)
+      `)
+      .order("expected_close_date", { ascending: true, nullsFirst: false })
+      .limit(filter.limit ?? DEFAULT_LIMIT)
+
+    if (filter.assigned_consultant_id) {
+      query = query.eq("assigned_consultant_id", filter.assigned_consultant_id)
+    }
+    if (filter.expected_close_from) {
+      query = query.gte("expected_close_date", filter.expected_close_from)
+    }
+    if (filter.expected_close_to) {
+      query = query.lte("expected_close_date", filter.expected_close_to)
+    }
+    if (filter.won_from) {
+      query = query.gte("won_date", filter.won_from)
+    }
+    if (filter.won_to) {
+      query = query.lte("won_date", filter.won_to)
+    }
+
+    const { data, error } = await query
+
+    if (error) return { items: [], error: error.message }
+
+    const items: DrillDownItem[] = []
+    for (const d of (data ?? []) as any[]) {
+      const stage = d.leads_pipeline_stages
+      const pipelineType: string | null = stage?.pipeline_type ?? null
+      const stageName: string | null = stage?.name ?? null
+      const isTerminal: boolean = !!stage?.is_terminal
+      const terminalType: string | null = stage?.terminal_type ?? null
+      const stageProb = (stage?.probability_pct ?? d.probability_pct ?? 0) / 100
+
+      // Apply post-fetch filters (PostgREST doesn't support filtering joined cols easily here)
+      if (filter.pipeline_types && filter.pipeline_types.length > 0) {
+        if (!pipelineType || !filter.pipeline_types.includes(pipelineType)) continue
+      }
+      if (filter.not_terminal && isTerminal) continue
+      if (filter.terminal_type && terminalType !== filter.terminal_type) continue
+      if (filter.stage_names && filter.stage_names.length > 0) {
+        if (!stageName || !filter.stage_names.includes(stageName.toLowerCase())) continue
+      }
+      if (typeof filter.min_probability_pct === "number") {
+        if (stageProb * 100 < filter.min_probability_pct) continue
+      }
+
+      const subtitleParts: string[] = []
+      if (d.leads?.nome) subtitleParts.push(d.leads.nome)
+      if (pipelineType) subtitleParts.push(PIPELINE_TYPE_LABEL[pipelineType] ?? pipelineType)
+      if (stageName) subtitleParts.push(stageName)
+
+      items.push({
+        id: d.id,
+        title: d.tipo || stageName || "Negócio",
+        subtitle: subtitleParts.length > 0 ? subtitleParts.join(" · ") : undefined,
+        badge: stageName
+          ? {
+              label: stageName,
+              variant: isTerminal && terminalType === "won" ? "secondary"
+                : isTerminal && terminalType === "lost" ? "destructive"
+                : "outline",
+            }
+          : undefined,
+        extra: d.expected_value ? fmtCurrency(d.expected_value) : undefined,
+        href: `/dashboard/crm/negocios/${d.id}`,
+        date: d.won_date
+          ? fmtDate(d.won_date)
+          : d.expected_close_date
+          ? fmtDate(d.expected_close_date)
+          : undefined,
+      })
+    }
+
+    return { items, error: null }
+  } catch (err: any) {
+    return { items: [], error: err.message ?? "Erro ao carregar negócios" }
+  }
+}

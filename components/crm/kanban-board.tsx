@@ -41,6 +41,13 @@ interface KanbanBoardProps {
    * the user having to refresh.
    */
   refreshKey?: number
+  /**
+   * Disparado depois de uma mutação com sucesso a partir do board (drag para
+   * outra stage, lost reason confirmado, etc.). Permite ao parent invalidar
+   * widgets-irmãos (SummaryBar com totais, badges de pipeline, lista) que de
+   * outra forma ficariam desactualizados até o user mudar de pipeline.
+   */
+  onMutated?: () => void
 }
 
 const formatEUR = (value: number) =>
@@ -160,7 +167,7 @@ function KanbanColumnView({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: KanbanBoardProps) {
+export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, onMutated }: KanbanBoardProps) {
   const [board, setBoard] = useState<KanbanBoardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -307,6 +314,10 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: 
 
       if (!res.ok) {
         fetchBoard()
+      } else {
+        // Avisar o parent para refrescar widgets-irmãos (SummaryBar, badges,
+        // contagens por pipeline) — o board já tem optimistic update local.
+        onMutated?.()
       }
     } catch {
       fetchBoard()
@@ -340,7 +351,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: 
       {loading ? (
         <BoardSkeleton />
       ) : (
-        <div className="overflow-x-auto pb-4">
+        <ScrollableBoard>
           <div className="flex gap-3 min-w-max">
             {(board?.columns ?? []).map((column) => (
               <KanbanColumnView
@@ -355,7 +366,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: 
               />
             ))}
           </div>
-        </div>
+        </ScrollableBoard>
       )}
 
       {/* Lost reason dialog */}
@@ -364,6 +375,177 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey }: 
         onConfirm={handleLostConfirm}
         onCancel={handleLostCancel}
       />
+    </div>
+  )
+}
+
+// ─── ScrollableBoard ──────────────────────────────────────────────────────
+//
+// Wrapper que adiciona affordances de scroll horizontal:
+//  • Mirror de scrollbar no TOPO (sincronizada bidireccionalmente com o board)
+//  • Gradient fade nas margens esquerda/direita quando há mais conteúdo
+//    para um dos lados
+//
+// O conteúdo real continua a ser scrollável normalmente — adicionamos só
+// indicadores visuais para PCs sem trackpad horizontal natural.
+function ScrollableBoard({ children }: { children: React.ReactNode }) {
+  const boardRef = useRef<HTMLDivElement | null>(null)
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const [contentWidth, setContentWidth] = useState(0)
+  const [viewportWidth, setViewportWidth] = useState(0)
+  const [scrollState, setScrollState] = useState({ left: 0, max: 0 })
+  const dragRef = useRef<{ startX: number; startThumbLeft: number } | null>(null)
+
+  // Mede dimensões do board + observa redimensionamentos.
+  useEffect(() => {
+    const board = boardRef.current
+    if (!board) return
+    const inner = board.firstElementChild as HTMLElement | null
+    if (!inner) return
+
+    const measure = () => {
+      setContentWidth(inner.scrollWidth)
+      setViewportWidth(board.clientWidth)
+      setScrollState({
+        left: board.scrollLeft,
+        max: board.scrollWidth - board.clientWidth,
+      })
+    }
+    measure()
+
+    const ro = new ResizeObserver(measure)
+    ro.observe(board)
+    ro.observe(inner)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [children])
+
+  const handleBoardScroll = () => {
+    const board = boardRef.current
+    if (!board) return
+    setScrollState({
+      left: board.scrollLeft,
+      max: board.scrollWidth - board.clientWidth,
+    })
+  }
+
+  // ── Custom thumb: sempre visível enquanto a barra estiver expandida ──
+  const hasOverflow = contentWidth > viewportWidth + 1
+  const thumbWidth = hasOverflow
+    ? Math.max(40, (viewportWidth / contentWidth) * viewportWidth)
+    : 0
+  const trackWidth = viewportWidth
+  const maxThumbLeft = Math.max(0, trackWidth - thumbWidth)
+  const thumbLeft =
+    scrollState.max > 0 ? (scrollState.left / scrollState.max) * maxThumbLeft : 0
+
+  const setBoardLeftFromThumbPx = (thumbPx: number) => {
+    const board = boardRef.current
+    if (!board || maxThumbLeft <= 0) return
+    const clamped = Math.max(0, Math.min(maxThumbLeft, thumbPx))
+    const ratio = clamped / maxThumbLeft
+    board.scrollLeft = ratio * scrollState.max
+  }
+
+  const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragRef.current = { startX: e.clientX, startThumbLeft: thumbLeft }
+    ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
+  }
+
+  const onThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    setBoardLeftFromThumbPx(dragRef.current.startThumbLeft + dx)
+  }
+
+  const onThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = null
+    try {
+      ;(e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId)
+    } catch {}
+  }
+
+  const onTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragRef.current) return
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const clickX = e.clientX - rect.left
+    setBoardLeftFromThumbPx(clickX - thumbWidth / 2)
+  }
+
+  const showLeftFade = scrollState.left > 4
+  const showRightFade = scrollState.max - scrollState.left > 4
+
+  return (
+    <div className="group/board relative">
+      {/* Mirror scrollbar no topo — colapsa para 0 height por defeito,
+          expande no hover de qualquer parte do board. Thumb custom sempre
+          visível durante hover (não depende do scrollbar nativo do browser,
+          que é invisível por defeito em macOS). */}
+      <div
+        className={cn(
+          'overflow-hidden transition-[height,opacity,margin] duration-150 ease-out',
+          hasOverflow
+            ? 'h-0 opacity-0 group-hover/board:h-3 group-hover/board:opacity-100 group-hover/board:mb-1'
+            : 'h-0 opacity-0',
+        )}
+        aria-hidden
+      >
+        <div
+          ref={trackRef}
+          onClick={onTrackClick}
+          className="relative h-3 w-full rounded-full bg-muted/40 cursor-pointer"
+        >
+          <div
+            role="presentation"
+            onPointerDown={onThumbPointerDown}
+            onPointerMove={onThumbPointerMove}
+            onPointerUp={onThumbPointerUp}
+            onPointerCancel={onThumbPointerUp}
+            className={cn(
+              'absolute top-0 h-3 rounded-full bg-foreground/30 hover:bg-foreground/50',
+              'transition-colors duration-150 cursor-grab active:cursor-grabbing shadow-sm',
+            )}
+            style={{
+              width: `${thumbWidth}px`,
+              transform: `translateX(${thumbLeft}px)`,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Container do board com fades nas margens */}
+      <div className="relative">
+        <div
+          ref={boardRef}
+          onScroll={handleBoardScroll}
+          className="overflow-x-auto pb-4"
+        >
+          {children}
+        </div>
+
+        {/* Fade esquerdo */}
+        <div
+          className={cn(
+            'pointer-events-none absolute left-0 top-0 bottom-4 w-10 transition-opacity duration-200',
+            'bg-gradient-to-r from-background via-background/70 to-transparent',
+            showLeftFade ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        {/* Fade direito */}
+        <div
+          className={cn(
+            'pointer-events-none absolute right-0 top-0 bottom-4 w-10 transition-opacity duration-200',
+            'bg-gradient-to-l from-background via-background/70 to-transparent',
+            showRightFade ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+      </div>
     </div>
   )
 }

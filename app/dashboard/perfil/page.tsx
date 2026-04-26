@@ -160,11 +160,12 @@ export default function PerfilPage() {
 
   return (
     <div className="max-w-3xl space-y-3 sm:space-y-6">
-      {/* Header card with photo */}
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+      {/* Header card with photo — mobile: centered avatar; desktop: hero with square flush left */}
+      {/* Mobile layout (default) */}
+      <Card className="sm:hidden">
+        <CardContent className="flex flex-col items-center gap-4 text-center">
           <div className="relative group shrink-0">
-            <Avatar className="h-20 w-20 rounded-2xl sm:h-24 sm:w-24">
+            <Avatar className="h-20 w-20 rounded-2xl">
               {photoUrl && <AvatarImage src={photoUrl} alt={profile?.commercial_name || ''} />}
               <AvatarFallback className="rounded-2xl bg-neutral-900 text-white text-2xl font-bold dark:bg-white dark:text-neutral-900">
                 {userInitials}
@@ -190,7 +191,7 @@ export default function PerfilPage() {
             />
           </div>
           <div className="flex-1 min-w-0 w-full">
-            <h1 className="text-xl font-bold sm:text-2xl truncate">{profile?.commercial_name || 'Utilizador'}</h1>
+            <h1 className="text-xl font-bold truncate">{profile?.commercial_name || 'Utilizador'}</h1>
             <p className="text-sm text-muted-foreground truncate">{user?.auth_user?.email}</p>
             {roleName && (
               <span className="mt-1 inline-block rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
@@ -199,6 +200,58 @@ export default function PerfilPage() {
             )}
           </div>
         </CardContent>
+      </Card>
+
+      {/* Desktop layout (sm+): hero with square photo flush with card's left edge */}
+      <Card className="hidden sm:block overflow-hidden p-0 rounded-2xl">
+        <div className="flex items-stretch">
+          <div className="w-32 shrink-0 relative bg-muted group">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={profile?.commercial_name || ''}
+                className="absolute inset-0 h-full w-full object-cover [object-position:center_10%]"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 dark:bg-white">
+                <span className="text-2xl font-bold text-white dark:text-neutral-900">
+                  {userInitials}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            >
+              {photoUploading ? (
+                <Loader2 className="h-6 w-6 text-white animate-spin" />
+              ) : (
+                <Camera className="h-6 w-6 text-white" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </div>
+          <div className="flex-1 min-w-0 p-6 flex flex-col justify-center">
+            <h1 className="text-xl font-bold tracking-tight truncate">
+              {profile?.commercial_name || 'Utilizador'}
+            </h1>
+            <p className="text-sm text-muted-foreground truncate mt-0.5">
+              {user?.auth_user?.email}
+            </p>
+            {roleName && (
+              <span className="mt-2 inline-flex self-start items-center rounded-full bg-muted/60 border border-border/40 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {roleName}
+              </span>
+            )}
+          </div>
+        </div>
       </Card>
 
       {/* Pill Navigation */}

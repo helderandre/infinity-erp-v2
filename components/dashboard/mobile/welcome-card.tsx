@@ -2,16 +2,9 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { UserPen, Building2, Kanban } from 'lucide-react'
 import type { UserWithRole } from '@/hooks/use-user'
-import PerfilPage from '@/app/dashboard/perfil/page'
+import { ProfileSheet } from '@/components/dashboard/profile-sheet'
 import { PropertiesSheet } from './properties-sheet'
 import { PipelineSheet } from './pipeline-sheet'
 
@@ -43,7 +36,7 @@ export function WelcomeCard({ user }: WelcomeCardProps) {
             <img
               src={photoUrl}
               alt={name}
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover [object-position:center_10%]"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-muted to-muted-foreground/10">
@@ -122,25 +115,7 @@ export function WelcomeCard({ user }: WelcomeCardProps) {
         onOpenChange={setPipelineOpen}
       />
 
-      <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
-        <SheetContent
-          side="bottom"
-          className="p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl h-[75dvh] max-h-[75dvh] rounded-t-3xl"
-        >
-          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
-          <SheetHeader className="shrink-0 px-6 pt-8 pb-4 gap-0">
-            <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight">
-              Perfil
-            </SheetTitle>
-            <SheetDescription className="sr-only">
-              Editar o teu perfil
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6">
-            <PerfilPage />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <ProfileSheet open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   )
 }

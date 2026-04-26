@@ -83,8 +83,10 @@ export const negocioItems = [
 ]
 
 export const infinityItems = [
-  { title: 'Equipa', icon: Users, href: '/dashboard/consultores', permission: 'consultants' },
-  { title: 'Parceiros', icon: Handshake, href: '/dashboard/parceiros', permission: 'consultants' },
+  // Equipa + Parceiros are visible to all authenticated users; mutation
+  // controls inside the pages are gated by the `consultants` permission.
+  { title: 'Equipa', icon: Users, href: '/dashboard/consultores' },
+  { title: 'Parceiros', icon: Handshake, href: '/dashboard/parceiros' },
   { title: 'Acessos', icon: KeyRound, href: '/dashboard/acessos', permission: 'dashboard' },
   { title: 'Formações', icon: GraduationCap, href: '/dashboard/formacoes', permission: 'training' },
 ]

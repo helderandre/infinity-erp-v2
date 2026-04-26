@@ -231,6 +231,62 @@ export async function ingestLead(
     }).catch(() => {})
   }
 
+  // 10. Notify the property owner when this lead originated from a specific
+  //     property (form_data.property_id presente — formulários do site e
+  //     captura por voz embebem o id do imóvel quando aplicável). O dono do
+  //     imóvel (`dev_properties.consultant_id`) merece saber que alguém se
+  //     interessou pela ficha dele, mesmo que o lead acabe atribuído a outro
+  //     consultor por round-robin / sector. Skip se o dono é o próprio
+  //     assigned_agent (já recebeu notificação acima) ou se o imóvel não tem
+  //     dono atribuído.
+  const formPropertyId = typeof input.form_data?.property_id === 'string'
+    ? (input.form_data.property_id as string)
+    : null
+  if (formPropertyId) {
+    const { data: property } = await supabase
+      .from('dev_properties')
+      .select('consultant_id, title, slug, external_ref')
+      .eq('id', formPropertyId)
+      .single()
+
+    const ownerId = property?.consultant_id ?? null
+    if (ownerId && ownerId !== assignedAgentId) {
+      const propertyLabel = property?.title || property?.external_ref || 'um imóvel seu'
+      await supabase.from('leads_notifications').insert({
+        recipient_id: ownerId,
+        type: 'new_lead',
+        title: 'Nova lead pelo seu imóvel',
+        body: `${input.name} pediu informação sobre "${propertyLabel}" — via ${formatSource(input.source)}`,
+        link: `/dashboard/imoveis/${formPropertyId}?tab=interessados&sub=site`,
+        entry_id: entry.id,
+        contact_id: contactId!,
+      })
+
+      // Email best-effort — paralelo ao do assigned agent.
+      import('./send-notification-email').then(({ sendNotificationEmail }) => {
+        supabase
+          .from('dev_users')
+          .select('professional_email, commercial_name')
+          .eq('id', ownerId)
+          .single()
+          .then(({ data: owner }) => {
+            if (owner?.professional_email) {
+              sendNotificationEmail({
+                recipientEmail: owner.professional_email,
+                recipientName: owner.commercial_name ?? 'Consultor',
+                type: 'new_lead',
+                title: 'Nova lead pelo seu imóvel',
+                body: `${input.name} pediu informação sobre "${propertyLabel}" via ${formatSource(input.source)}.`,
+                link: `/dashboard/imoveis/${formPropertyId}?tab=interessados&sub=site`,
+                contactName: input.name,
+                contactPhone: input.phone ?? undefined,
+              })
+            }
+          })
+      }).catch(() => {})
+    }
+  }
+
   return {
     contact_id: contactId!,
     entry_id: entry.id,

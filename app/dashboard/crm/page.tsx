@@ -84,7 +84,7 @@ interface SummaryData {
   forecast_commission: number
 }
 
-function SummaryBar({ pipelineType, inHero = false }: { pipelineType: PipelineType; inHero?: boolean }) {
+function SummaryBar({ pipelineType, inHero = false, refreshKey = 0 }: { pipelineType: PipelineType; inHero?: boolean; refreshKey?: number }) {
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -98,7 +98,7 @@ function SummaryBar({ pipelineType, inHero = false }: { pipelineType: PipelineTy
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [pipelineType])
+  }, [pipelineType, refreshKey])
 
   const stats = [
     { icon: Briefcase, label: 'Negócios activos', mobileLabel: 'Negócios', value: loading ? null : String(data?.negocios ?? 0) },
@@ -216,6 +216,13 @@ interface CrmFilters {
   pipelineStageId: string
   temperatura: string
   consultantId: string
+  // Filtros novos por coluna (desktop list view)
+  tipoImovel: string
+  localizacao: string
+  orcamentoMin: string
+  orcamentoMax: string
+  dateFrom: string
+  dateTo: string
 }
 
 function NegociosListView({
@@ -223,13 +230,19 @@ function NegociosListView({
   filters,
   stages,
   onStageChange,
+  onFilterChange,
   onOpenNegocio,
+  refreshKey = 0,
 }: {
   pipelineType: PipelineType
   filters: CrmFilters
   stages: PipelineStageOption[]
   onStageChange: (stageId: string | null) => void
+  onFilterChange: (patch: Partial<CrmFilters>) => void
   onOpenNegocio: (id: string) => void
+  /** Quando muda, força refetch da lista, contagens por stage e totais —
+   *  bumped pelo CRMPage em qualify/create/sheet-close. */
+  refreshKey?: number
 }) {
   const [negocios, setNegocios] = useState<NegocioRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -239,7 +252,19 @@ function NegociosListView({
   const limit = 30
 
   // Reset to first page when pipeline type or any filter changes
-  useEffect(() => { setPage(1) }, [pipelineType, filters.search, filters.pipelineStageId, filters.temperatura, filters.consultantId])
+  useEffect(() => { setPage(1) }, [
+    pipelineType,
+    filters.search,
+    filters.pipelineStageId,
+    filters.temperatura,
+    filters.consultantId,
+    filters.tipoImovel,
+    filters.localizacao,
+    filters.orcamentoMin,
+    filters.orcamentoMax,
+    filters.dateFrom,
+    filters.dateTo,
+  ])
 
   const fetchNegocios = useCallback(async () => {
     setIsLoading(true)
@@ -253,6 +278,12 @@ function NegociosListView({
       if (filters.pipelineStageId) params.set('pipeline_stage_id', filters.pipelineStageId)
       if (filters.temperatura) params.set('temperatura', filters.temperatura)
       if (filters.consultantId) params.set('assigned_consultant_id', filters.consultantId)
+      if (filters.tipoImovel) params.set('tipo_imovel', filters.tipoImovel)
+      if (filters.localizacao) params.set('localizacao', filters.localizacao)
+      if (filters.orcamentoMin) params.set('orcamento_min', filters.orcamentoMin)
+      if (filters.orcamentoMax) params.set('orcamento_max', filters.orcamentoMax)
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom)
+      if (filters.dateTo) params.set('date_to', filters.dateTo)
 
       const res = await fetch(`/api/crm/negocios?${params.toString()}`)
       if (res.ok) {
@@ -262,13 +293,28 @@ function NegociosListView({
       }
     } catch { setNegocios([]) }
     finally { setIsLoading(false) }
-  }, [page, pipelineType, filters.search, filters.pipelineStageId, filters.temperatura, filters.consultantId])
+  }, [
+    page,
+    pipelineType,
+    filters.search,
+    filters.pipelineStageId,
+    filters.temperatura,
+    filters.consultantId,
+    filters.tipoImovel,
+    filters.localizacao,
+    filters.orcamentoMin,
+    filters.orcamentoMax,
+    filters.dateFrom,
+    filters.dateTo,
+    // Re-corre quando algo é qualificado / criado / editado externamente.
+    refreshKey,
+  ])
 
   useEffect(() => { fetchNegocios() }, [fetchNegocios])
 
   // Counts per stage — usados pelo selector mobile no topo. Refetch quando
-  // muda o pipeline ou quando alguma operação (criar/eliminar) é provável.
-  // Para já refetch apenas em mudança de pipeline + reset de página.
+  // muda o pipeline, página ou quando algo no servidor invalida os totais
+  // (qualify / create / sheet edit).
   useEffect(() => {
     let cancelled = false
     async function loadCounts() {
@@ -288,7 +334,7 @@ function NegociosListView({
     }
     loadCounts()
     return () => { cancelled = true }
-  }, [pipelineType, page])
+  }, [pipelineType, page, refreshKey])
 
   const totalPages = Math.ceil(total / limit)
 
@@ -308,37 +354,99 @@ function NegociosListView({
 
   return (
     <div className="space-y-4">
-      {/* Table */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
-        </div>
-      ) : negocios.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 text-center">
-          <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"><Briefcase className="h-8 w-8 text-muted-foreground/30" /></div>
-          <h3 className="text-lg font-medium">Nenhum negócio neste pipeline</h3>
-          <p className="text-sm text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
-        </div>
-      ) : (
-        <>
-          {/* ── Desktop: full table ── */}
-          <div className="hidden md:block rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-            <Table>
-              <TableHeader>
+      {/* ── Desktop: full table — sempre montada para preservar popovers
+          de filtro durante refetches. ── */}
+      <div className="hidden md:block rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+        <Table>
+          <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Temperatura</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Procura</TableHead>
-                  <TableHead>Orçamento</TableHead>
-                  <TableHead>Localização</TableHead>
+                  <TableHead>
+                    <HeaderWithFilter label="Temperatura" active={!!filters.temperatura}>
+                      <ColumnFilterTemperatura
+                        value={filters.temperatura}
+                        onChange={(v) => onFilterChange({ temperatura: v })}
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
+                  <TableHead>
+                    <HeaderWithFilter label="Estado" active={!!filters.pipelineStageId}>
+                      <ColumnFilterStage
+                        stages={stages}
+                        value={filters.pipelineStageId}
+                        onChange={(v) => onFilterChange({ pipelineStageId: v })}
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
+                  <TableHead>
+                    <HeaderWithFilter label="Procura" active={!!filters.tipoImovel}>
+                      <ColumnFilterText
+                        placeholder="Tipo de imóvel"
+                        value={filters.tipoImovel}
+                        onChange={(v) => onFilterChange({ tipoImovel: v })}
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
+                  <TableHead>
+                    <HeaderWithFilter
+                      label="Orçamento"
+                      active={!!(filters.orcamentoMin || filters.orcamentoMax)}
+                    >
+                      <ColumnFilterRange
+                        min={filters.orcamentoMin}
+                        max={filters.orcamentoMax}
+                        onChange={(min, max) =>
+                          onFilterChange({ orcamentoMin: min, orcamentoMax: max })
+                        }
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
+                  <TableHead>
+                    <HeaderWithFilter label="Localização" active={!!filters.localizacao}>
+                      <ColumnFilterText
+                        placeholder="Cidade, zona…"
+                        value={filters.localizacao}
+                        onChange={(v) => onFilterChange({ localizacao: v })}
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
                   <TableHead>Consultor</TableHead>
                   <TableHead className="text-center">Obs.</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead>
+                    <HeaderWithFilter
+                      label="Data"
+                      active={!!(filters.dateFrom || filters.dateTo)}
+                    >
+                      <ColumnFilterDateRange
+                        from={filters.dateFrom}
+                        to={filters.dateTo}
+                        onChange={(from, to) =>
+                          onFilterChange({ dateFrom: from, dateTo: to })
+                        }
+                      />
+                    </HeaderWithFilter>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {negocios.map((n) => {
+                {isLoading ? (
+                  [0, 1, 2, 3, 4].map((i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                      <TableCell colSpan={9}>
+                        <Skeleton className="h-8 rounded-lg" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : negocios.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-12 text-center">
+                      <Briefcase className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Nenhum negócio neste pipeline</p>
+                      <p className="text-xs text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  negocios.map((n) => {
                   const clientName = n.lead?.nome || n.lead?.full_name || '—'
                   const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
                   const tempEmoji = temperaturaEmoji(n.temperatura)
@@ -395,7 +503,8 @@ function NegociosListView({
                       <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
                     </TableRow>
                   )
-                })}
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
@@ -408,7 +517,18 @@ function NegociosListView({
               activeStageId={filters.pipelineStageId || null}
               onChange={onStageChange}
             />
-            {negocios.map((n) => {
+            {isLoading ? (
+              [0, 1, 2, 3].map((i) => (
+                <Skeleton key={`m-skeleton-${i}`} className="h-24 rounded-2xl" />
+              ))
+            ) : negocios.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/50 bg-card/40 py-10 text-center">
+                <Briefcase className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm font-medium">Nenhum negócio neste pipeline</p>
+                <p className="text-xs text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
+              </div>
+            ) : (
+              negocios.map((n) => {
               const clientName = n.lead?.nome || n.lead?.full_name || '—'
               const tempBadge = n.temperatura ? TEMP_BADGE_LIST[n.temperatura] : null
               const tempEmoji = temperaturaEmoji(n.temperatura)
@@ -477,10 +597,9 @@ function NegociosListView({
                   </div>
                 </div>
               )
-            })}
+            })
+            )}
           </div>
-        </>
-      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -585,6 +704,279 @@ function MobileStageSelector({
   )
 }
 
+// ─── Per-column filter helpers (desktop table headers) ────────────────────
+
+function HeaderWithFilter({
+  label,
+  active,
+  children,
+}: {
+  label: string
+  active: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Popover>
+      <span className="inline-flex items-center gap-1.5">
+        <span>{label}</span>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'relative inline-flex items-center justify-center h-5 w-5 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors',
+              active && 'text-foreground',
+            )}
+            aria-label={`Filtrar ${label}`}
+          >
+            <ChevronDown className="h-3 w-3" />
+            {active && (
+              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-sky-500 ring-1 ring-background" />
+            )}
+          </button>
+        </PopoverTrigger>
+      </span>
+      <PopoverContent align="start" className="w-60 p-3 space-y-2">
+        {children}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function ColumnFilterTemperatura({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <>
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        Temperatura
+      </p>
+      <Select value={value || 'all'} onValueChange={(v) => onChange(v === 'all' ? '' : v)}>
+        <SelectTrigger className="h-9 w-full rounded-full text-xs">
+          <SelectValue placeholder="Qualquer" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Qualquer temperatura</SelectItem>
+          <SelectItem value="Frio">❄️ Frio</SelectItem>
+          <SelectItem value="Morno">🌤️ Morno</SelectItem>
+          <SelectItem value="Quente">🔥 Quente</SelectItem>
+        </SelectContent>
+      </Select>
+      {value && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full text-[11px] h-7"
+          onClick={() => onChange('')}
+        >
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+}
+
+function ColumnFilterStage({
+  stages,
+  value,
+  onChange,
+}: {
+  stages: PipelineStageOption[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <>
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        Estado
+      </p>
+      <Select value={value || 'all'} onValueChange={(v) => onChange(v === 'all' ? '' : v)}>
+        <SelectTrigger className="h-9 w-full rounded-full text-xs">
+          <SelectValue placeholder="Todos" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os estados</SelectItem>
+          {stages.map((s) => (
+            <SelectItem key={s.id} value={s.id}>
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: s.color || '#94a3b8' }}
+                />
+                {s.name}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {value && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full text-[11px] h-7"
+          onClick={() => onChange('')}
+        >
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+}
+
+function ColumnFilterText({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  // Estado local + debounce para evitar fetch + remount a cada keystroke.
+  const [local, setLocal] = useState(value)
+  useEffect(() => { setLocal(value) }, [value])
+  useEffect(() => {
+    if (local === value) return
+    const t = setTimeout(() => onChange(local), 300)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local])
+
+  return (
+    <>
+      <Input
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        placeholder={placeholder}
+        className="h-9 rounded-full text-xs"
+        autoFocus
+      />
+      {(value || local) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full text-[11px] h-7"
+          onClick={() => { setLocal(''); onChange('') }}
+        >
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+}
+
+function ColumnFilterRange({
+  min,
+  max,
+  onChange,
+}: {
+  min: string
+  max: string
+  onChange: (min: string, max: string) => void
+}) {
+  // Debounce dos dois inputs em conjunto.
+  const [localMin, setLocalMin] = useState(min)
+  const [localMax, setLocalMax] = useState(max)
+  useEffect(() => { setLocalMin(min) }, [min])
+  useEffect(() => { setLocalMax(max) }, [max])
+  useEffect(() => {
+    if (localMin === min && localMax === max) return
+    const t = setTimeout(() => onChange(localMin, localMax), 300)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localMin, localMax])
+
+  return (
+    <>
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        Orçamento (€)
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          type="number"
+          value={localMin}
+          onChange={(e) => setLocalMin(e.target.value)}
+          placeholder="Mínimo"
+          className="h-9 rounded-full text-xs"
+        />
+        <Input
+          type="number"
+          value={localMax}
+          onChange={(e) => setLocalMax(e.target.value)}
+          placeholder="Máximo"
+          className="h-9 rounded-full text-xs"
+        />
+      </div>
+      {(localMin || localMax || min || max) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full text-[11px] h-7"
+          onClick={() => { setLocalMin(''); setLocalMax(''); onChange('', '') }}
+        >
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+}
+
+function ColumnFilterDateRange({
+  from,
+  to,
+  onChange,
+}: {
+  from: string
+  to: string
+  onChange: (from: string, to: string) => void
+}) {
+  return (
+    <>
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        Data
+      </p>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground w-10">De</span>
+          <Input
+            type="date"
+            value={from}
+            onChange={(e) => onChange(e.target.value, to)}
+            className="h-9 rounded-full text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground w-10">Até</span>
+          <Input
+            type="date"
+            value={to}
+            onChange={(e) => onChange(from, e.target.value)}
+            className="h-9 rounded-full text-xs"
+          />
+        </div>
+      </div>
+      {(from || to) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full text-[11px] h-7"
+          onClick={() => onChange('', '')}
+        >
+          Limpar
+        </Button>
+      )}
+    </>
+  )
+}
+
 // ─── Observations cell ───────────────────────────────────────────────────────
 
 function ObservationsCell({
@@ -632,9 +1024,13 @@ export default function CRMPage() {
   const [newNegocioOpen, setNewNegocioOpen] = useState(false)
   const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null)
   const [detailNegocioId, setDetailNegocioId] = useState<string | null>(null)
-  // Bumped whenever a lead is qualified / added — KanbanBoard listens for the
-  // change and silently re-fetches so the new card appears in place.
+  // Bumped sempre que algo muda do lado do servidor que pode invalidar a
+  // lista que estamos a ver: qualificar uma lead (cria negócio), criar
+  // manualmente, editar/eliminar via sheet, mudar pipeline_stage, etc.
+  // Todos os fetchers deste ecrã (table, kanban, stage counts, summary,
+  // tab badges) ouvem este número como dependência para refrescar.
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0)
+  const bumpRefresh = useCallback(() => setKanbanRefreshKey((k) => k + 1), [])
   const [pipelineCounts, setPipelineCounts] = useState<Record<PipelineType, number | null>>({
     comprador: null,
     vendedor: null,
@@ -665,6 +1061,10 @@ export default function CRMPage() {
     (open: boolean) => {
       if (open) return
       setDetailNegocioId(null)
+      // O sheet pode ter alterado pipeline_stage / temperatura / observações /
+      // ou eliminado o negócio — qualquer um destes invalida a lista que está
+      // por trás. Bumpar a refresh key força tudo a refrescar em paralelo.
+      bumpRefresh()
       if (negocioParam) {
         const params = new URLSearchParams(searchParams?.toString() ?? '')
         params.delete('negocio')
@@ -672,10 +1072,11 @@ export default function CRMPage() {
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
       }
     },
-    [router, pathname, searchParams, negocioParam],
+    [router, pathname, searchParams, negocioParam, bumpRefresh],
   )
 
-  // Fetch the total count of negocios per pipeline (for tab badges)
+  // Fetch the total count of negocios per pipeline (for tab badges).
+  // Refresca quando uma operação cria/move/elimina um negócio (kanbanRefreshKey).
   useEffect(() => {
     let cancelled = false
     Promise.all(
@@ -694,9 +1095,11 @@ export default function CRMPage() {
       setPipelineCounts(next)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [kanbanRefreshKey])
 
-  // Fetch the count of pending lead-entries (status=new — need to be contacted)
+  // Fetch the count of pending lead-entries (status=new — need to be contacted).
+  // Quando uma lead é qualificada, ela deixa o estado 'new' — bumpamos a key
+  // para o badge "As minhas leads" cair imediatamente.
   useEffect(() => {
     let cancelled = false
     const params = new URLSearchParams({ status: 'new', limit: '1' })
@@ -711,7 +1114,7 @@ export default function CRMPage() {
       })
       .catch(() => !cancelled && setMyLeadsCount(0))
     return () => { cancelled = true }
-  }, [myLeadsOpen])
+  }, [myLeadsOpen, kanbanRefreshKey])
 
   // Shared filters across kanban + list
   const [filters, setFilters] = useState<CrmFilters>({
@@ -719,6 +1122,12 @@ export default function CRMPage() {
     pipelineStageId: '',
     temperatura: '',
     consultantId: '',
+    tipoImovel: '',
+    localizacao: '',
+    orcamentoMin: '',
+    orcamentoMax: '',
+    dateFrom: '',
+    dateTo: '',
   })
 
   // Stage list for the active pipeline + consultants list
@@ -754,8 +1163,31 @@ export default function CRMPage() {
     return () => { cancelled = true }
   }, [])
 
-  const hasActiveFilters = !!(filters.search || filters.pipelineStageId || filters.temperatura || filters.consultantId)
-  const clearFilters = () => setFilters({ search: '', pipelineStageId: '', temperatura: '', consultantId: '' })
+  const hasActiveFilters = !!(
+    filters.search ||
+    filters.pipelineStageId ||
+    filters.temperatura ||
+    filters.consultantId ||
+    filters.tipoImovel ||
+    filters.localizacao ||
+    filters.orcamentoMin ||
+    filters.orcamentoMax ||
+    filters.dateFrom ||
+    filters.dateTo
+  )
+  const clearFilters = () =>
+    setFilters({
+      search: '',
+      pipelineStageId: '',
+      temperatura: '',
+      consultantId: '',
+      tipoImovel: '',
+      localizacao: '',
+      orcamentoMin: '',
+      orcamentoMax: '',
+      dateFrom: '',
+      dateTo: '',
+    })
 
   // Filter row JSX — extracted so we can render it once. Lives outside the
   // hero on desktop (top-right of the kanban) and outside on mobile too.
@@ -986,7 +1418,7 @@ export default function CRMPage() {
 
           {/* Data points only — filter row moved out of the hero. */}
           <div className="mt-4 flex justify-center lg:justify-start">
-            <SummaryBar pipelineType={activeTab} inHero />
+            <SummaryBar pipelineType={activeTab} inHero refreshKey={kanbanRefreshKey} />
           </div>
         </div>
         <Button
@@ -1014,6 +1446,7 @@ export default function CRMPage() {
           filters={filters}
           onCardClick={(n) => openNegocioSheet(n.id)}
           refreshKey={kanbanRefreshKey}
+          onMutated={bumpRefresh}
         />
       ) : (
         <NegociosListView
@@ -1023,7 +1456,9 @@ export default function CRMPage() {
           onStageChange={(stageId) =>
             setFilters((f) => ({ ...f, pipelineStageId: stageId || '' }))
           }
+          onFilterChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
           onOpenNegocio={openNegocioSheet}
+          refreshKey={kanbanRefreshKey}
         />
       )}
 
@@ -1038,14 +1473,14 @@ export default function CRMPage() {
         open={myLeadsOpen}
         onOpenChange={setMyLeadsOpen}
         consultantId={user?.id ?? null}
-        onNegocioCreated={() => setKanbanRefreshKey((k) => k + 1)}
+        onNegocioCreated={bumpRefresh}
       />
 
       <NewNegocioDialog
         open={newNegocioOpen}
         onOpenChange={setNewNegocioOpen}
         onCreated={(id) => {
-          setKanbanRefreshKey((k) => k + 1)
+          bumpRefresh()
           if (id) openNegocioSheet(id)
         }}
       />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
@@ -81,6 +82,8 @@ import {
   Eye,
   Maximize2,
   Minimize2,
+  Globe,
+  Mic,
 } from 'lucide-react'
 import { motion, LayoutGroup } from 'framer-motion'
 import {
@@ -136,10 +139,11 @@ const PROCESS_SUBTABS: { key: ProcessSubTab; label: string; icon: React.ElementT
   { key: 'impic', label: 'IMPIC', icon: ShieldCheck },
 ]
 
-type InteressadosSubTab = 'pipeline' | 'propostas'
+type InteressadosSubTab = 'pipeline' | 'site' | 'propostas'
 
 const INTERESSADOS_SUBTABS: { key: InteressadosSubTab; label: string }[] = [
   { key: 'pipeline', label: 'Leads Infinity' },
+  { key: 'site', label: 'Leads Gerados' },
   { key: 'propostas', label: 'Propostas' },
 ]
 
@@ -179,7 +183,21 @@ export default function ImovelDetalhePage() {
   const [interessados, setInteressados] = useState<{ linked: any[]; suggestions: any[] }>({ linked: [], suggestions: [] })
   const [interessadosLoading, setInteressadosLoading] = useState(true)
   const [interessadosStrict, setInteressadosStrict] = useState(false)
-  const [interessadosSubTab, setInteressadosSubTab] = useState<InteressadosSubTab>('pipeline')
+  const [interessadosSubTab, setInteressadosSubTab] = useState<InteressadosSubTab>(() => {
+    // Deep-link: '?tab=interessados&sub=site' (usado pela notificação ao dono
+    // do imóvel) abre logo o sub-tab certo. Caso contrário, default 'pipeline'.
+    const tabParam = searchParams.get('tab')
+    if (tabParam !== 'interessados') return 'pipeline'
+    const sub = searchParams.get('sub')
+    if (sub === 'pipeline' || sub === 'site' || sub === 'propostas') return sub
+    return 'pipeline'
+  })
+  // Leads gerados: entradas em leads_entries que referenciam este imóvel
+  // (formulários do site, captura por voz, etc.). Lazy-fetch quando o
+  // sub-tab é aberto pela primeira vez.
+  const [siteEntries, setSiteEntries] = useState<any[]>([])
+  const [siteEntriesLoading, setSiteEntriesLoading] = useState(false)
+  const [siteEntriesLoaded, setSiteEntriesLoaded] = useState(false)
   const [hiddenInteressados, setHiddenInteressados] = useState<Set<string>>(new Set())
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
@@ -434,10 +452,29 @@ export default function ImovelDetalhePage() {
       .finally(() => setInteressadosLoading(false))
   }, [propertyId, interessadosStrict])
 
+  const fetchSiteEntries = useCallback(() => {
+    if (!propertyId) return
+    setSiteEntriesLoading(true)
+    fetch(`/api/properties/${propertyId}/lead-entries`)
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((d) => setSiteEntries(Array.isArray(d?.data) ? d.data : []))
+      .catch(() => setSiteEntries([]))
+      .finally(() => {
+        setSiteEntriesLoading(false)
+        setSiteEntriesLoaded(true)
+      })
+  }, [propertyId])
+
   useEffect(() => { fetchVisits() }, [fetchVisits])
   useEffect(() => { fetchPropostas() }, [fetchPropostas])
   useEffect(() => { fetchDeals() }, [fetchDeals])
   useEffect(() => { fetchInteressados() }, [fetchInteressados])
+  // Lazy: só chamado quando o sub-tab "site" é aberto pela primeira vez
+  useEffect(() => {
+    if (interessadosSubTab === 'site' && !siteEntriesLoaded && !siteEntriesLoading) {
+      fetchSiteEntries()
+    }
+  }, [interessadosSubTab, siteEntriesLoaded, siteEntriesLoading, fetchSiteEntries])
 
   // Init map
   useEffect(() => {
@@ -1219,6 +1256,109 @@ export default function ImovelDetalhePage() {
                     </div>
                   )
                 })()
+              )}
+            </div>
+          )}
+
+          {/* ══ Leads Gerados (vieram pelo imóvel — site / voz) ══ */}
+          {interessadosSubTab === 'site' && (
+            <div className="space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {siteEntriesLoading
+                    ? 'A carregar...'
+                    : `${siteEntries.length} ${siteEntries.length === 1 ? 'lead' : 'leads'} ${siteEntries.length === 1 ? 'que veio' : 'que vieram'} por este imóvel`}
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full gap-1.5 text-xs"
+                  onClick={fetchSiteEntries}
+                  disabled={siteEntriesLoading}
+                >
+                  Recarregar
+                </Button>
+              </div>
+
+              {siteEntriesLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                </div>
+              ) : siteEntries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                    <Globe className="h-7 w-7 text-muted-foreground/30" />
+                  </div>
+                  <h3 className="text-base font-medium">Sem leads gerados</h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                    Quando alguém preencher o formulário do site (ou for criado um lead por voz) referenciando este imóvel, aparece aqui.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {siteEntries.map((e: any, idx: number) => {
+                    const fd = (e?.form_data ?? {}) as Record<string, unknown>
+                    const message = typeof fd.message === 'string' ? fd.message : null
+                    const contactName = e?.contact?.full_name || e?.contact?.nome || e?.raw_name || 'Sem nome'
+                    const contactPhone = e?.contact?.telemovel || e?.contact?.telefone || e?.raw_phone || null
+                    const contactEmail = e?.contact?.email || e?.raw_email || null
+                    const contactId = e?.contact?.id || null
+                    const isVoice = (e?.source || '').toLowerCase().includes('voice')
+                    const SourceIcon = isVoice ? Mic : Globe
+                    return (
+                      <div
+                        key={e.id}
+                        className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 animate-in fade-in slide-in-from-bottom-2"
+                        style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                            <SourceIcon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {contactId ? (
+                                <Link
+                                  href={`/dashboard/leads/${contactId}`}
+                                  className="text-sm font-semibold hover:underline truncate"
+                                >
+                                  {contactName}
+                                </Link>
+                              ) : (
+                                <span className="text-sm font-semibold truncate">{contactName}</span>
+                              )}
+                              <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                                {e.source || 'origem desconhecida'}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {formatDate(e.created_at)}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+                              {contactPhone && (
+                                <a href={`tel:${contactPhone}`} className="inline-flex items-center gap-1 hover:text-foreground">
+                                  <Phone className="h-3 w-3" />
+                                  {contactPhone}
+                                </a>
+                              )}
+                              {contactEmail && (
+                                <a href={`mailto:${contactEmail}`} className="inline-flex items-center gap-1 hover:text-foreground truncate">
+                                  <Mail className="h-3 w-3" />
+                                  {contactEmail}
+                                </a>
+                              )}
+                            </div>
+                            {message && (
+                              <p className="mt-2 text-xs text-muted-foreground line-clamp-3 italic">
+                                &ldquo;{message}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}

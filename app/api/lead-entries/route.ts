@@ -239,6 +239,7 @@ export async function POST(request: Request) {
         assigned_consultant_id: assignedConsultantId,
         notes: input.notes || null,
         sector: input.sector || null,
+        property_id: input.property_id || null,
         has_referral: input.has_referral || false,
         referral_pct: input.referral_pct ?? null,
         referral_consultant_id: input.referral_consultant_id || null,

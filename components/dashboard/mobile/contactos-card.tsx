@@ -20,6 +20,7 @@ import {
 interface ContactosCardProps {
   userId: string
   fillViewport?: boolean
+  className?: string
 }
 
 interface LeadRow {
@@ -31,7 +32,7 @@ interface LeadRow {
   temperatura: string | null
 }
 
-export function ContactosCard({ userId, fillViewport }: ContactosCardProps) {
+export function ContactosCard({ userId, fillViewport, className }: ContactosCardProps) {
   const router = useRouter()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [leads, setLeads] = useState<LeadRow[]>([])
@@ -92,6 +93,7 @@ export function ContactosCard({ userId, fillViewport }: ContactosCardProps) {
         'rounded-2xl border-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-[0_12px_30px_-8px_rgba(0,0,0,0.18),0_4px_10px_-6px_rgba(0,0,0,0.12)] p-4 gap-3',
         fillViewport &&
           'h-[calc(100dvh-env(safe-area-inset-top,0px)-var(--mobile-nav-height,5rem)-6rem)] min-h-[24rem]',
+        className,
       )}
     >
       <Tabs defaultValue="entries" className="flex flex-col flex-1 min-h-0">

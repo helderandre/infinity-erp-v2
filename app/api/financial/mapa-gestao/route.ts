@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 
@@ -33,7 +33,11 @@ export async function GET(request: Request) {
     const endYear = month === 12 ? year + 1 : year
     const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
-    const supabase = await createClient() as any
+    // Authorization is enforced by requirePermission('financial') above. The
+    // admin client bypasses RLS — necessary because `deals` has a policy that
+    // only lets property owners read their own rows, blocking staff who need
+    // the full pipeline (broker, gestora, financial team).
+    const supabase = createAdminClient() as any
 
     // Fetch deals broadly — we filter per-payment by effective date below.
     // Include deals where deal_date, any signed_date, or any reported_date could fall in this month.

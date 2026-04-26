@@ -31,6 +31,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
+import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
@@ -120,6 +121,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [copied, setCopied] = useState<string | null>(null)
   const [outcomeOpen, setOutcomeOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
+  const [propertySheetId, setPropertySheetId] = useState<string | null>(null)
 
   const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
     setContactMethod(method)
@@ -473,21 +475,48 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
               )}
 
               {/* Form data */}
-              {entry.form_data && Object.keys(entry.form_data).length > 0 && (
-                <div className="rounded-xl border overflow-hidden">
-                  <div className="px-4 py-2.5 border-b bg-muted/20">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Dados do formulário</p>
+              {entry.form_data && Object.keys(entry.form_data).length > 0 && (() => {
+                // Consolidamos property_id/property_slug numa linha única
+                // "Imóvel" com link para a sheet do imóvel — escondemos os
+                // campos brutos para não duplicar informação.
+                const propertyId = typeof entry.form_data.property_id === 'string' ? entry.form_data.property_id : null
+                const propertySlug = typeof entry.form_data.property_slug === 'string' ? entry.form_data.property_slug : null
+                const propertyTitle = typeof entry.form_data.property_title === 'string' ? entry.form_data.property_title : null
+                const propertyExternalRef = typeof entry.form_data.property_external_ref === 'string' ? entry.form_data.property_external_ref : null
+                const HIDDEN_KEYS = new Set(['property_id', 'property_slug'])
+                const visibleEntries = Object.entries(entry.form_data).filter(([k]) => !HIDDEN_KEYS.has(k))
+                if (!propertyId && visibleEntries.length === 0) return null
+                return (
+                  <div className="rounded-xl border overflow-hidden">
+                    <div className="px-4 py-2.5 border-b bg-muted/20">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Dados do formulário</p>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {propertyId && (
+                        <button
+                          type="button"
+                          onClick={() => setPropertySheetId(propertyId)}
+                          className="w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors group focus-visible:outline-none focus-visible:bg-muted/30"
+                        >
+                          <span className="text-[10px] text-muted-foreground uppercase shrink-0">Imóvel</span>
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-primary text-right truncate">
+                            <span className="truncate">{propertyTitle || propertySlug || propertyExternalRef || propertyId}</span>
+                            <svg className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </span>
+                        </button>
+                      )}
+                      {visibleEntries.map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between px-4 py-2.5">
+                          <span className="text-[10px] text-muted-foreground uppercase">{key}</span>
+                          <span className="text-xs font-medium text-foreground/80">{String(value ?? '—')}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="divide-y divide-border/50">
-                    {Object.entries(entry.form_data).map(([key, value]) => (
-                      <div key={key} className="flex items-center justify-between px-4 py-2.5">
-                        <span className="text-[10px] text-muted-foreground uppercase">{key}</span>
-                        <span className="text-xs font-medium text-foreground/80">{String(value ?? '—')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* UTM */}
               {(entry.utm_source || entry.utm_medium || entry.utm_campaign) && (
@@ -543,6 +572,11 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
           contactMethod={contactMethod}
         />
       )}
+      <PropertyDetailSheet
+        propertyId={propertySheetId}
+        open={propertySheetId !== null}
+        onOpenChange={(o) => { if (!o) setPropertySheetId(null) }}
+      />
     </>
   )
 }

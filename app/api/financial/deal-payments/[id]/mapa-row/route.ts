@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 
@@ -14,7 +14,9 @@ export async function GET(
     if (!auth.authorized) return auth.response
 
     const { id } = await params
-    const supabase = await createClient() as any
+    // Admin client — same reason as the parent drilldown route: RLS on `deals`
+    // blocks staff. requirePermission('financial') above gates the access.
+    const supabase = createAdminClient() as any
 
     const { data: payment, error } = await supabase
       .from('deal_payments')

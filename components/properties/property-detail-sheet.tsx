@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -17,6 +18,7 @@ import { useUser } from '@/hooks/use-user'
 import { cn } from '@/lib/utils'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
+import { PropertyInteressadosTab } from '@/components/properties/property-interessados-tab'
 import type { PropertyDetail } from '@/types/property'
 
 interface PropertyDetailSheetProps {
@@ -110,9 +112,45 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
         {loading || !property ? (
           <DetailSkeleton />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pb-10">
-            <PropertyApresentacaoTab property={property} />
-          </div>
+          <Tabs defaultValue="apresentacao" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="shrink-0 px-4 sm:px-6 pb-3">
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+                <TabsList className="bg-transparent p-0 h-auto">
+                  <TabsTrigger
+                    value="apresentacao"
+                    className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
+                  >
+                    Apresentação
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="interessados"
+                    className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
+                  >
+                    Interessados
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+
+            <TabsContent
+              value="apresentacao"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pb-10 m-0"
+            >
+              <PropertyApresentacaoTab property={property} />
+            </TabsContent>
+
+            <TabsContent
+              value="interessados"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pb-10 m-0"
+            >
+              <PropertyInteressadosTab
+                propertyId={property.id}
+                propertySlug={property.slug ?? null}
+                propertyTitle={property.title ?? null}
+                propertyPrice={property.listing_price ?? null}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </SheetContent>
     </Sheet>

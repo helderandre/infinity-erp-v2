@@ -1,5 +1,5 @@
-import { PermissionGuard } from '@/components/shared/permission-guard'
-
+// Open to all authenticated users (placeholder page; future mutation
+// controls will be gated by the `teams` permission).
 export default function EquipasLayout({ children }: { children: React.ReactNode }) {
-  return <PermissionGuard module="teams">{children}</PermissionGuard>
+  return <>{children}</>
 }

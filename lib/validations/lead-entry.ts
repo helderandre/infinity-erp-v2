@@ -22,6 +22,8 @@ export const createLeadEntrySchema = z.object({
   notes: z.string().optional().nullable(),
   // Assignment override
   assigned_consultant_id: z.string().optional().nullable(),
+  // Optional link to angariação (dev_properties)
+  property_id: z.string().uuid().optional().nullable(),
   // Referral
   has_referral: z.boolean().optional(),
   referral_pct: z.number().nullable().optional(),

@@ -29,6 +29,9 @@ import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import type { GoalStatus } from '@/types/goal'
+import type { CalendarEvent } from '@/types/calendar'
+import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
+import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
 
 interface DailyAction {
   key: string
@@ -95,6 +98,8 @@ export function GoalDailyPopup() {
   const [events, setEvents] = useState<AgendaEvent[]>([])
   const [agendaLoading, setAgendaLoading] = useState(false)
   const [agendaLoaded, setAgendaLoaded] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     const dismissed = sessionStorage.getItem(SESSION_KEY)
@@ -268,7 +273,18 @@ export function GoalDailyPopup() {
           {tab === 'objetivos' ? (
             <ObjetivosTab data={data} />
           ) : (
-            <AgendaTab loading={agendaLoading} items={agendaItems} />
+            <AgendaTab
+              loading={agendaLoading}
+              items={agendaItems}
+              onItemClick={(item) => {
+                if (item.kind === 'task') {
+                  setSelectedTaskId(item.id)
+                } else {
+                  const full = events.find((e) => e.id === item.id)
+                  if (full) setSelectedEvent(full as unknown as CalendarEvent)
+                }
+              }}
+            />
           )}
         </div>
 
@@ -294,6 +310,18 @@ export function GoalDailyPopup() {
           )}
         </div>
       </SheetContent>
+
+      {/* Nested sheets — open over the popup when an agenda item is clicked. */}
+      <CalendarEventDetail
+        event={selectedEvent}
+        open={selectedEvent !== null}
+        onClose={() => setSelectedEvent(null)}
+      />
+      <TaskDetailSheet
+        taskId={selectedTaskId}
+        open={selectedTaskId !== null}
+        onOpenChange={(o) => { if (!o) setSelectedTaskId(null) }}
+      />
     </Sheet>
   )
 }
@@ -371,7 +399,13 @@ type AgendaItem =
   | { kind: 'event'; id: string; title: string; time: string; end: string | null; allDay: boolean; category: string | null }
   | { kind: 'task'; id: string; title: string; time: string | null; priority: number }
 
-function AgendaTab({ loading, items }: { loading: boolean; items: AgendaItem[] }) {
+function AgendaTab({
+  loading, items, onItemClick,
+}: {
+  loading: boolean
+  items: AgendaItem[]
+  onItemClick: (item: AgendaItem) => void
+}) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -396,13 +430,17 @@ function AgendaTab({ loading, items }: { loading: boolean; items: AgendaItem[] }
   return (
     <div className="space-y-1.5 py-2">
       {items.map((item) => (
-        <AgendaRow key={`${item.kind}-${item.id}`} item={item} />
+        <AgendaRow
+          key={`${item.kind}-${item.id}`}
+          item={item}
+          onClick={() => onItemClick(item)}
+        />
       ))}
     </div>
   )
 }
 
-function AgendaRow({ item }: { item: AgendaItem }) {
+function AgendaRow({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   const time = item.time ? formatTime(item.time) : '—'
   const Icon = item.kind === 'task' ? ListTodo : CalendarIcon
   const tone =
@@ -411,7 +449,11 @@ function AgendaRow({ item }: { item: AgendaItem }) {
       : 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border/40 bg-card px-3 py-2.5">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex items-start gap-3 rounded-xl border border-border/40 bg-card px-3 py-2.5 transition-all hover:border-border hover:bg-muted/40 hover:shadow-[0_2px_12px_-6px_rgb(0_0_0_/_0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', tone)}>
         <Icon className="h-3.5 w-3.5" />
       </div>
@@ -442,7 +484,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
       ) : (
         <CheckCircle2 className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5" />
       )}
-    </div>
+    </button>
   )
 }
 
