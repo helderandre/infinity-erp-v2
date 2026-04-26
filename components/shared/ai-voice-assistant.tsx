@@ -541,25 +541,26 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Long-press 3s anywhere → abre o assistente. Convive com selecção
-  // de texto e copy/paste do sistema:
-  //   - Ignora pressões em inputs/textarea/contenteditable, links,
-  //     botões e nodes marcados com `data-no-long-press`.
-  //   - Cancela o temporizador se o ponteiro mexer (>8px), se o
-  //     utilizador soltar, scrollar, abrir context-menu ou começar uma
-  //     selecção de texto. Como o iOS começa a selecção/menu de copy
-  //     em ~500 ms, ainda há 1 s a mais até nós activarmos.
-  //   - Aceita opt-in via evento custom `open-voice-assistant` (botão
-  //     do topbar continua a funcionar).
+  // Long-press 3s anywhere → abre o assistente.
+  //
+  // Modelo simples: a janela de 3 s é maior do que qualquer gesto nativo
+  // de cópia (lupa ~500 ms + context-menu ~700 ms–1 s + tap em "Copiar").
+  // Se o utilizador copiar, solta o dedo dentro desse intervalo e o
+  // pointerup cancela. Se mantiver os 3 s todos, queremos abrir a voz —
+  // limpamos qualquer selecção que tenha sido feita, em vez de cancelar.
+  //
+  // Mantemos só dois cancelamentos:
+  //   - pointerup / pointercancel — gesto terminou.
+  //   - pointer move > 8 px — scroll ou drag de selection handle.
+  // O opt-out por elemento (input/textarea/etc + data-no-long-press)
+  // continua porque pressionar um botão/input nunca deve abrir a voz.
   useEffect(() => {
     if (open) return
     let timer: number | null = null
     let startX = 0
     let startY = 0
-    let armed = false
 
     const cancel = () => {
-      armed = false
       if (timer != null) {
         window.clearTimeout(timer)
         timer = null
@@ -585,7 +586,6 @@ export function AiVoiceAssistant() {
         return true
       if ((el as HTMLElement).isContentEditable) return true
       if (el.closest('[data-no-long-press]')) return true
-      // Anything inside a button/anchor/input wrapper.
       if (el.closest('input, textarea, select, button, a, label, [contenteditable="true"]'))
         return true
       return false
@@ -594,20 +594,16 @@ export function AiVoiceAssistant() {
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return
       if (isOptOut(e.target)) return
-      armed = true
       startX = e.clientX
       startY = e.clientY
       cancel()
-      armed = true
-      // Janela aumentada para 3 s — dá folga ao gesto nativo de selecção
-      // de texto do iOS (lupa ~500 ms, context-menu ~700 ms–1 s, copy
-      // tap < 2 s). Quem queira voz tem de manter o dedo parado os 3 s
-      // completos, por isso convive sem fricção com a cópia.
       timer = window.setTimeout(() => {
         timer = null
-        if (!armed) return
-        const sel = window.getSelection?.()
-        if (sel && !sel.isCollapsed) return
+        // Se o utilizador chegou aos 3 s, é porque quer voz — limpa
+        // qualquer selecção residual antes de abrir o overlay.
+        try {
+          window.getSelection?.()?.removeAllRanges()
+        } catch {}
         try {
           ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
         } catch {}
@@ -622,27 +618,16 @@ export function AiVoiceAssistant() {
       if (dx > 8 || dy > 8) cancel()
     }
 
-    const onSelectionChange = () => {
-      const sel = window.getSelection?.()
-      if (sel && !sel.isCollapsed) cancel()
-    }
-
     window.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('pointermove', onPointerMove, true)
     window.addEventListener('pointerup', cancel, true)
     window.addEventListener('pointercancel', cancel, true)
-    window.addEventListener('scroll', cancel, true)
-    window.addEventListener('contextmenu', cancel, true)
-    document.addEventListener('selectionchange', onSelectionChange)
     return () => {
       cancel()
       window.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('pointermove', onPointerMove, true)
       window.removeEventListener('pointerup', cancel, true)
       window.removeEventListener('pointercancel', cancel, true)
-      window.removeEventListener('scroll', cancel, true)
-      window.removeEventListener('contextmenu', cancel, true)
-      document.removeEventListener('selectionchange', onSelectionChange)
     }
   }, [open])
 
