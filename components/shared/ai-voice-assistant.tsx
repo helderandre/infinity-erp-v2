@@ -749,8 +749,12 @@ export function AiVoiceAssistant() {
         onPointerDown={(e) => e.stopPropagation()}
         data-no-long-press
         style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
-          right: 'calc(env(safe-area-inset-right, 0px) + 0.75rem)',
+          // Garante 1) que o X fica sempre ABAIXO da status bar do iOS
+          // (~44 px sem env, ~47 px com entalhe) e 2) que tem espaço de
+          // respiração mesmo em PWAs onde env() devolve 0. O `max()`
+          // toma o maior entre o safe-area + 12 px e 56 px hard floor.
+          top: 'max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 3.5rem)',
+          right: 'max(calc(env(safe-area-inset-right, 0px) + 0.75rem), 0.75rem)',
         }}
         className="absolute h-12 w-12 md:h-10 md:w-10 rounded-full bg-white/15 text-white hover:bg-white/25 active:bg-white/35 flex items-center justify-center transition-colors z-[110] touch-manipulation ring-1 ring-white/15"
         aria-label="Fechar"
@@ -761,7 +765,11 @@ export function AiVoiceAssistant() {
       <div className={cn(
         'w-full max-w-md md:max-w-2xl px-6 py-8 md:py-10 text-center text-white',
         'max-h-[calc(100vh-1rem)] md:max-h-[calc(100vh-4rem)] overflow-y-auto',
-        showReview && 'pt-16'
+        // Quando o painel de revisão está visível, o X em mobile está ao
+        // nível ~56–104 px do topo (calc + status bar). Reservamos espaço
+        // a mais em mobile para o título do painel não passar por baixo
+        // dele; no desktop o X sai mais alto e basta pt-16.
+        showReview && 'pt-28 md:pt-16'
       )}>
         {showFullMic ? (
           <>
