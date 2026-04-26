@@ -16,6 +16,8 @@ import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { FinancialDashboardData } from '@/types/financial'
+import { DashboardKpiDrilldownSheet } from './sheets/dashboard-kpi-drilldown-sheet'
+import type { DrilldownKind } from '@/app/api/financial/dashboard/drilldown/route'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
@@ -31,6 +33,7 @@ export function FinancialDashboardTab() {
   const [year, setYear] = useState(now.getFullYear())
   const [data, setData] = useState<FinancialDashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null)
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -84,10 +87,34 @@ export function FinancialDashboardTab() {
             </div>
 
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-              <KpiCard icon={Banknote} label="Facturação" value={fmtCurrency(data.revenue_this_month)} tone="positive" />
-              <KpiCard icon={TrendingDown} label="Despesas" value={fmtCurrency(data.expenses_this_month)} tone="negative" />
-              <KpiCard icon={Wallet} label="Resultado" value={fmtCurrency(data.result_this_month)} tone={data.result_this_month >= 0 ? 'positive' : 'negative'} />
-              <KpiCard icon={Target} label="Margem líquida" value={`${data.margin_pct}%`} tone="info" />
+              <KpiCard
+                icon={Banknote}
+                label="Facturação"
+                value={fmtCurrency(data.revenue_this_month)}
+                tone="positive"
+                onClick={() => setDrilldownKind('revenue')}
+              />
+              <KpiCard
+                icon={TrendingDown}
+                label="Despesas"
+                value={fmtCurrency(data.expenses_this_month)}
+                tone="negative"
+                onClick={() => setDrilldownKind('expenses')}
+              />
+              <KpiCard
+                icon={Wallet}
+                label="Resultado"
+                value={fmtCurrency(data.result_this_month)}
+                tone={data.result_this_month >= 0 ? 'positive' : 'negative'}
+                onClick={() => setDrilldownKind('result')}
+              />
+              <KpiCard
+                icon={Target}
+                label="Margem líquida"
+                value={`${data.margin_pct}%`}
+                tone="info"
+                onClick={() => setDrilldownKind('margin')}
+              />
             </div>
 
             <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-5 space-y-3">
@@ -98,18 +125,21 @@ export function FinancialDashboardTab() {
                   label="Assinado por receber"
                   value={data.pipeline.signed_pending_receipt}
                   tone="warning"
+                  onClick={() => setDrilldownKind('signed_pending_receipt')}
                 />
                 <PipelineCard
                   icon={FileCheck}
                   label="Recebido por reportar"
                   value={data.pipeline.received_pending_report}
                   tone="info"
+                  onClick={() => setDrilldownKind('received_pending_report')}
                 />
                 <PipelineCard
                   icon={CreditCard}
                   label="A pagar consultores"
                   value={data.pipeline.pending_consultant_payment}
                   tone="purple"
+                  onClick={() => setDrilldownKind('pending_consultant_payment')}
                 />
               </div>
             </div>
@@ -222,6 +252,13 @@ export function FinancialDashboardTab() {
           </Card>
         </>
       )}
+
+      <DashboardKpiDrilldownSheet
+        kind={drilldownKind}
+        month={month}
+        year={year}
+        onClose={() => setDrilldownKind(null)}
+      />
     </div>
   )
 }
@@ -229,13 +266,14 @@ export function FinancialDashboardTab() {
 // ─── KPI Card (mesmo padrão do ConsultorResumo) ───────────────────────────
 
 function KpiCard({
-  icon: Icon, label, value, tone = 'neutral', hint,
+  icon: Icon, label, value, tone = 'neutral', hint, onClick,
 }: {
   icon: React.ElementType
   label: string
   value: string
   tone?: 'neutral' | 'positive' | 'negative' | 'warning' | 'info'
   hint?: React.ReactNode
+  onClick?: () => void
 }) {
   const toneMap = {
     neutral: { from: 'from-slate-500/10', icon: 'text-slate-600 dark:text-slate-300', accent: 'bg-slate-400/40' },
@@ -245,13 +283,20 @@ function KpiCard({
     info: { from: 'from-blue-500/15', icon: 'text-blue-600', accent: 'bg-blue-500/60' },
   }[tone]
 
+  const Component = onClick ? 'button' : 'div'
+
   return (
-    <div className={cn(
-      'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent',
-      'ring-1 ring-border/40 p-4 transition-all duration-300',
-      'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
-      toneMap.from,
-    )}>
+    <Component
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent text-left w-full',
+        'ring-1 ring-border/40 p-4 transition-all duration-300',
+        'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
+        onClick && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        toneMap.from,
+      )}
+    >
       <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
 
       <div className="flex items-center gap-2">
@@ -262,19 +307,20 @@ function KpiCard({
         {value}
       </p>
       {hint && <div className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">{hint}</div>}
-    </div>
+    </Component>
   )
 }
 
 // ─── Pipeline Card ────────────────────────────────────────────────────────
 
 function PipelineCard({
-  icon: Icon, label, value, tone,
+  icon: Icon, label, value, tone, onClick,
 }: {
   icon: React.ElementType
   label: string
   value: number
   tone: 'warning' | 'info' | 'purple'
+  onClick?: () => void
 }) {
   const toneMap = {
     warning: { from: 'from-amber-500/15', icon: 'text-amber-600', accent: 'bg-amber-500/60' },
@@ -282,13 +328,20 @@ function PipelineCard({
     purple: { from: 'from-purple-500/15', icon: 'text-purple-600', accent: 'bg-purple-500/60' },
   }[tone]
 
+  const Component = onClick ? 'button' : 'div'
+
   return (
-    <div className={cn(
-      'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent',
-      'ring-1 ring-border/40 p-4 transition-all duration-300',
-      'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
-      toneMap.from,
-    )}>
+    <Component
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={cn(
+        'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent text-left w-full',
+        'ring-1 ring-border/40 p-4 transition-all duration-300',
+        'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
+        onClick && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        toneMap.from,
+      )}
+    >
       <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
 
       <div className="flex items-center gap-2">
@@ -298,6 +351,6 @@ function PipelineCard({
       <p className="text-base sm:text-xl font-semibold tracking-tight tabular-nums mt-2 text-foreground break-words">
         {fmtCurrency(value)}
       </p>
-    </div>
+    </Component>
   )
 }

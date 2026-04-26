@@ -72,6 +72,9 @@ export default function AgentReportPage() {
   const router = useRouter()
 
   const consultantId = params.id as string
+  // O segmento 'all' é o sentinela para o modo agregado (todos os consultores).
+  // O backend recebe null para esse caso e dispensa o filtro `consultant_id`.
+  const isAggregate = consultantId === "all"
   const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()), 10)
 
   const [report, setReport] = useState<AgentAnalysisReport | null>(null)
@@ -82,7 +85,7 @@ export default function AgentReportPage() {
     if (!consultantId) return
     setLoading(true)
     Promise.all([
-      generateAgentReport(consultantId, year),
+      generateAgentReport(isAggregate ? null : consultantId, year),
       getCommissionTiers(),
     ]).then(([reportRes, tiersRes]) => {
       if (reportRes.error) toast.error(reportRes.error)
@@ -90,7 +93,7 @@ export default function AgentReportPage() {
       setTiers(tiersRes.tiers ?? [])
       setLoading(false)
     })
-  }, [consultantId, year])
+  }, [consultantId, isAggregate, year])
 
   if (loading) return <LoadingSkeleton />
 
@@ -123,19 +126,32 @@ export default function AgentReportPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
               <Building2 className="h-3.5 w-3.5" />
               <span>{agent.agency}</span>
-              <span className="mx-1">|</span>
-              <span>Entrada: {agent.entry_date}</span>
-              {agent.tier && (
+              {isAggregate ? (
                 <>
                   <span className="mx-1">|</span>
-                  <Badge variant="outline" className="text-xs">{agent.tier}</Badge>
+                  <span>Soma de todos os consultores</span>
+                </>
+              ) : (
+                <>
+                  {agent.entry_date && (
+                    <>
+                      <span className="mx-1">|</span>
+                      <span>Entrada: {agent.entry_date}</span>
+                    </>
+                  )}
+                  {agent.tier && (
+                    <>
+                      <span className="mx-1">|</span>
+                      <Badge variant="outline" className="text-xs">{agent.tier}</Badge>
+                    </>
+                  )}
+                  <span className="mx-1">|</span>
+                  <div className="flex items-center gap-1">
+                    <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                    <span>#{agent.ranking_position}</span>
+                  </div>
                 </>
               )}
-              <span className="mx-1">|</span>
-              <div className="flex items-center gap-1">
-                <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                <span>#{agent.ranking_position}</span>
-              </div>
             </div>
           </div>
         </div>

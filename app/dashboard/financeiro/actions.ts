@@ -1174,97 +1174,122 @@ export async function updateAgencySetting(
 // ─── 10. Reports ─────────────────────────────────────────────────────────────
 
 export async function generateAgentReport(
-  consultantId: string,
+  consultantId: string | null,
   year: number
 ): Promise<{ report: AgentAnalysisReport | null; error: string | null }> {
   try {
     const admin = createAdminClient()
     const prevYear = year - 1
 
+    // Quando `consultantId` é null, o relatório agrega todos os consultores
+    // activos: somas para valores monetários/contagens, médias ponderadas pelo
+    // próprio cálculo (productivity = billing/aquisições) e nenhum filtro
+    // `consultant_id` nas queries. Os campos "single-agent" (ranking, escalão,
+    // data de entrada) são preenchidos com placeholders neutros.
+    const isAggregate = consultantId == null
+
     // ── Agent Info ──
-    const { data: user } = await admin
-      .from("dev_users")
-      .select("id, commercial_name, created_at")
-      .eq("id", consultantId)
-      .single()
+    let user: { id: string; commercial_name: string | null; created_at: string | null } | null = null
+    let privateData: { hiring_date: string | null; commission_rate: number | null } | null = null
 
-    if (!user) return { report: null, error: "Consultor não encontrado" }
+    if (!isAggregate) {
+      const { data: u } = await admin
+        .from("dev_users")
+        .select("id, commercial_name, created_at")
+        .eq("id", consultantId!)
+        .single()
+      if (!u) return { report: null, error: "Consultor não encontrado" }
+      user = u
 
-    const { data: privateData } = await admin
-      .from("dev_consultant_private_data")
-      .select("hiring_date, commission_rate")
-      .eq("user_id", consultantId)
-      .single()
-
-    // ── Goal ──
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: goal } = await (admin as any).from("temp_consultant_goals")
-      .select("annual_revenue_target")
-      .eq("consultant_id", consultantId)
-      .eq("year", year)
-      .single()
-
-    const annualTarget = goal?.annual_revenue_target || 0
-
-    // ── Ranking ──
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
-      .select("consultant_id, revenue_amount")
-      .gte("activity_date", `${year}-01-01`)
-      .lte("activity_date", `${year}-12-31`)
-
-    const revenueMap: Record<string, number> = {}
-    for (const log of (allLogs ?? [])) {
-      revenueMap[log.consultant_id] = (revenueMap[log.consultant_id] || 0) + (log.revenue_amount || 0)
+      const { data: pd } = await admin
+        .from("dev_consultant_private_data")
+        .select("hiring_date, commission_rate")
+        .eq("user_id", consultantId!)
+        .single()
+      privateData = pd
     }
 
-    const sorted = Object.entries(revenueMap).sort(([, a], [, b]) => b - a)
-    const rankIdx = sorted.findIndex(([id]) => id === consultantId)
+    // ── Goal ──
+    // Single agent: read this consultant's annual target.
+    // Aggregate: sum all consultant targets for the year.
+    let annualTarget = 0
+    if (isAggregate) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: goals } = await (admin as any).from("temp_consultant_goals")
+        .select("annual_revenue_target")
+        .eq("year", year)
+      annualTarget = (goals ?? []).reduce(
+        (s: number, g: { annual_revenue_target: number | null }) => s + (g.annual_revenue_target || 0),
+        0,
+      )
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: goal } = await (admin as any).from("temp_consultant_goals")
+        .select("annual_revenue_target")
+        .eq("consultant_id", consultantId!)
+        .eq("year", year)
+        .single()
+      annualTarget = goal?.annual_revenue_target || 0
+    }
+
+    // ── Ranking ──
+    // Aggregate mode: ranking is meaningless; skip it.
+    let rankIdx = -1
+    let sortedLength = 0
+    if (!isAggregate) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: allLogs } = await (admin as any).from("temp_goal_activity_log")
+        .select("consultant_id, revenue_amount")
+        .gte("activity_date", `${year}-01-01`)
+        .lte("activity_date", `${year}-12-31`)
+
+      const revenueMap: Record<string, number> = {}
+      for (const log of (allLogs ?? [])) {
+        revenueMap[log.consultant_id] = (revenueMap[log.consultant_id] || 0) + (log.revenue_amount || 0)
+      }
+      const sorted = Object.entries(revenueMap).sort(([, a], [, b]) => b - a)
+      rankIdx = sorted.findIndex(([id]) => id === consultantId)
+      sortedLength = sorted.length
+    }
 
     // ── Monthly Billing ──
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: txCurr } = await (admin as any).from("temp_financial_transactions")
-      .select("reporting_month, agency_commission_amount, transaction_type")
-      .eq("consultant_id", consultantId)
-      .gte("reporting_month", `${year}-01`)
-      .lte("reporting_month", `${year}-12`)
-      .in("status", ["approved", "paid"])
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: txPrev } = await (admin as any).from("temp_financial_transactions")
-      .select("reporting_month, agency_commission_amount, transaction_type")
-      .eq("consultant_id", consultantId)
-      .gte("reporting_month", `${prevYear}-01`)
-      .lte("reporting_month", `${prevYear}-12`)
-      .in("status", ["approved", "paid"])
+    const txQuery = (yr: number) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q = (admin as any).from("temp_financial_transactions")
+        .select("reporting_month, agency_commission_amount, transaction_type")
+        .gte("reporting_month", `${yr}-01`)
+        .lte("reporting_month", `${yr}-12`)
+        .in("status", ["approved", "paid"])
+      if (!isAggregate) q = q.eq("consultant_id", consultantId!)
+      return q
+    }
+    const { data: txCurr } = await txQuery(year)
+    const { data: txPrev } = await txQuery(prevYear)
 
     // ── Acquisitions ──
-    const { data: acqCurr } = await admin
-      .from("dev_properties")
-      .select("id, created_at")
-      .eq("consultant_id", consultantId)
-      .gte("created_at", `${year}-01-01`)
-      .lte("created_at", `${year}-12-31`)
+    const acqQuery = (fromIso: string, toIso: string) => {
+      let q = admin
+        .from("dev_properties")
+        .select("id, created_at")
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+      if (!isAggregate) q = q.eq("consultant_id", consultantId!)
+      return q
+    }
+    const { data: acqCurr } = await acqQuery(`${year}-01-01`, `${year}-12-31`)
+    const { data: acqPrev } = await acqQuery(`${prevYear}-01-01`, `${prevYear}-12-31`)
 
-    const { data: acqPrev } = await admin
-      .from("dev_properties")
-      .select("id, created_at")
-      .eq("consultant_id", consultantId)
-      .gte("created_at", `${prevYear}-01-01`)
-      .lte("created_at", `${prevYear}-12-31`)
-
-    // Total acquisitions (cumulative)
-    const { count: totalAcqCurr } = await admin
-      .from("dev_properties")
-      .select("id", { count: "exact", head: true })
-      .eq("consultant_id", consultantId)
-      .lte("created_at", `${year}-12-31`)
-
-    const { count: totalAcqPrev } = await admin
-      .from("dev_properties")
-      .select("id", { count: "exact", head: true })
-      .eq("consultant_id", consultantId)
-      .lte("created_at", `${prevYear}-12-31`)
+    // Total acquisitions (cumulative until end of year)
+    const cumQuery = (toIso: string) => {
+      let q = admin
+        .from("dev_properties")
+        .select("id", { count: "exact", head: true })
+        .lte("created_at", toIso)
+      if (!isAggregate) q = q.eq("consultant_id", consultantId!)
+      return q
+    }
+    const { count: totalAcqCurr } = await cumQuery(`${year}-12-31`)
+    const { count: totalAcqPrev } = await cumQuery(`${prevYear}-12-31`)
 
     // ── Build Monthly Comparison ──
     const billingByMonth = (txs: typeof txCurr, yr: number): Record<string, { amount: number; count: number }> => {
@@ -1351,12 +1376,13 @@ export async function generateAgentReport(
 
     // ── Summary ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allTxCurr } = await (admin as any).from("temp_financial_transactions")
+    let allTxCurrQuery = (admin as any).from("temp_financial_transactions")
       .select("transaction_type, agency_commission_amount, is_shared_deal, share_type")
-      .eq("consultant_id", consultantId)
       .gte("reporting_month", `${year}-01`)
       .lte("reporting_month", `${year}-12`)
       .in("status", ["approved", "paid"])
+    if (!isAggregate) allTxCurrQuery = allTxCurrQuery.eq("consultant_id", consultantId!)
+    const { data: allTxCurr } = await allTxCurrQuery
 
     let saleCount = 0
     let rentCount = 0
@@ -1381,13 +1407,14 @@ export async function generateAgentReport(
     const ytdPrevious = totals.billing_prev
 
     // Sale acquisitions vs sold
-    const { data: saleAcqs } = await admin
+    let saleAcqsQuery = admin
       .from("dev_properties")
       .select("listing_price, status")
-      .eq("consultant_id", consultantId)
       .eq("business_type", "venda")
       .gte("created_at", `${year}-01-01`)
       .lte("created_at", `${year}-12-31`)
+    if (!isAggregate) saleAcqsQuery = saleAcqsQuery.eq("consultant_id", consultantId!)
+    const { data: saleAcqs } = await saleAcqsQuery
 
     for (const p of (saleAcqs ?? [])) {
       saleAcqAmount += p.listing_price || 0
@@ -1440,14 +1467,19 @@ export async function generateAgentReport(
       }
     }
 
+    // Em modo agregado, os campos "single-agent" do header não fazem sentido.
+    // Mantemos a forma do tipo `AgentAnalysisReport` para a UI poder optar por
+    // os esconder quando detectar o modo (placeholder name = "Todos os Consultores").
     const report: AgentAnalysisReport = {
       agent: {
-        name: user.commercial_name || "Consultor",
+        name: isAggregate ? "Todos os Consultores" : (user!.commercial_name || "Consultor"),
         agency: "Infinity Group",
-        id_number: consultantId.slice(0, 8).toUpperCase(),
-        entry_date: privateData?.hiring_date || user.created_at?.split("T")[0] || "",
-        tier: tierName,
-        ranking_position: rankIdx >= 0 ? rankIdx + 1 : sorted.length + 1,
+        id_number: isAggregate ? "EQUIPA" : consultantId!.slice(0, 8).toUpperCase(),
+        entry_date: isAggregate
+          ? ""
+          : (privateData?.hiring_date || user!.created_at?.split("T")[0] || ""),
+        tier: isAggregate ? "" : tierName,
+        ranking_position: isAggregate ? 0 : (rankIdx >= 0 ? rankIdx + 1 : sortedLength + 1),
       },
       objective: {
         forecast: annualTarget,

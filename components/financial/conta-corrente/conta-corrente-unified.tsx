@@ -2,22 +2,27 @@
 
 import { useMemo, useState } from 'react'
 import {
-  Wallet, ArrowDownCircle, ArrowUpCircle, TrendingUp, TrendingDown,
+  Wallet, ArrowDownCircle, ArrowUpCircle, TrendingUp, TrendingDown, CalendarIcon,
 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { useLedger } from '@/hooks/use-ledger'
 import { formatCurrency, formatDateTime } from '@/lib/constants'
-import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfDay, endOfDay, format } from 'date-fns'
+import { pt } from 'date-fns/locale'
+import type { DateRange } from 'react-day-picker'
 import type { LedgerScope, LedgerEntry } from '@/lib/financial/ledger-types'
 import { LedgerEntrySheet } from '@/components/financial/sheets/ledger-entry-sheet'
 
-type Preset = 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'all'
+type Preset = 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'all' | 'custom'
 type SubTab = 'all' | 'comissoes' | 'despesas'
 
 const PRESET_LABELS: Record<Preset, string> = {
@@ -26,9 +31,10 @@ const PRESET_LABELS: Record<Preset, string> = {
   last_3_months: 'Últimos 3 meses',
   this_year: 'Este ano',
   all: 'Tudo',
+  custom: 'Personalizado',
 }
 
-function rangeOf(p: Preset) {
+function rangeOf(p: Preset, customRange?: DateRange) {
   const now = new Date()
   switch (p) {
     case 'this_month': return { from: startOfMonth(now).toISOString(), to: endOfMonth(now).toISOString() }
@@ -39,6 +45,10 @@ function rangeOf(p: Preset) {
     case 'last_3_months': return { from: startOfMonth(subMonths(now, 2)).toISOString(), to: endOfMonth(now).toISOString() }
     case 'this_year': return { from: startOfYear(now).toISOString(), to: endOfYear(now).toISOString() }
     case 'all': return undefined
+    case 'custom': {
+      if (!customRange?.from || !customRange.to) return undefined
+      return { from: startOfDay(customRange.from).toISOString(), to: endOfDay(customRange.to).toISOString() }
+    }
   }
 }
 
@@ -48,9 +58,11 @@ interface ContaCorrenteUnifiedProps {
 
 export function ContaCorrenteUnified({ scope }: ContaCorrenteUnifiedProps) {
   const [preset, setPreset] = useState<Preset>('this_month')
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined)
+  const [customOpen, setCustomOpen] = useState(false)
   const [subTab, setSubTab] = useState<SubTab>('all')
   const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null)
-  const range = rangeOf(preset)
+  const range = rangeOf(preset, customRange)
   const { entries, loading, refetch } = useLedger({ scope, range })
 
   const filtered = useMemo(() => {
@@ -108,7 +120,13 @@ export function ContaCorrenteUnified({ scope }: ContaCorrenteUnifiedProps) {
 
       {/* Period filter */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={preset} onValueChange={(v: Preset) => setPreset(v)}>
+        <Select
+          value={preset}
+          onValueChange={(v: Preset) => {
+            setPreset(v)
+            if (v === 'custom') setCustomOpen(true)
+          }}
+        >
           <SelectTrigger className="h-9 w-[180px] text-sm rounded-full bg-muted/50 border-0">
             <SelectValue />
           </SelectTrigger>
@@ -118,6 +136,52 @@ export function ContaCorrenteUnified({ scope }: ContaCorrenteUnifiedProps) {
             ))}
           </SelectContent>
         </Select>
+
+        {preset === 'custom' && (
+          <Popover open={customOpen} onOpenChange={setCustomOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-full border-0 bg-muted/50 px-4 text-sm font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {customRange?.from && customRange.to
+                  ? `${format(customRange.from, 'dd/MM/yyyy', { locale: pt })} – ${format(customRange.to, 'dd/MM/yyyy', { locale: pt })}`
+                  : 'Escolher datas'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                selected={customRange}
+                onSelect={setCustomRange}
+                locale={pt}
+                numberOfMonths={2}
+                captionLayout="dropdown"
+                defaultMonth={customRange?.from ?? new Date()}
+                fromYear={2020}
+                toYear={2040}
+              />
+              <div className="flex justify-end gap-2 border-t p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCustomRange(undefined)}
+                >
+                  Limpar
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!customRange?.from || !customRange.to}
+                  onClick={() => setCustomOpen(false)}
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       {/* Sub-tabs (Tudo / Comissões / Despesas) */}

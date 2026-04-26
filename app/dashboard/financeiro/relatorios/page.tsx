@@ -161,7 +161,9 @@ export default function RelatoriosPage() {
 
   const handleAgentGenerate = useCallback(() => {
     if (!agentConsultant) return toast.error("Seleccione um consultor")
-    router.push(`/dashboard/financeiro/relatorios/agente/${agentConsultant}?year=${agentYear}`)
+    // Sentinela "__all__" → vai para /agente/all que renderiza modo agregado.
+    const segment = agentConsultant === "__all__" ? "all" : agentConsultant
+    router.push(`/dashboard/financeiro/relatorios/agente/${segment}?year=${agentYear}`)
     setActiveDialog(null)
   }, [agentConsultant, agentYear, router])
 
@@ -513,7 +515,9 @@ export default function RelatoriosPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Analise de Agente</DialogTitle>
-            <DialogDescription>Seleccione o consultor e o ano para gerar o relatorio</DialogDescription>
+            <DialogDescription>
+              Escolha um consultor — ou seleccione &quot;Todos&quot; para ver a soma agregada da equipa.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {consultantSelect(agentConsultant, setAgentConsultant)}
