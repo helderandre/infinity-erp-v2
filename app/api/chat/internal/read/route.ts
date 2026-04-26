@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { internalReadReceiptSchema } from '@/lib/validations/internal-chat'
 import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
+import { isChannelMember } from '@/lib/chat/membership'
 
 export async function GET(request: Request) {
   try {
@@ -13,6 +14,13 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const channelId = searchParams.get('channelId') || INTERNAL_CHAT_CHANNEL_ID
+
+    // Privacidade: ler read-receipts implica saber quem está no canal —
+    // só permitido a membros.
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Sem acesso a este canal' }, { status: 403 })
+    }
 
     const db = supabase as unknown as {
       from: (table: string) => ReturnType<typeof supabase.from>
@@ -52,7 +60,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const channelId = body.channel_id || INTERNAL_CHAT_CHANNEL_ID
+    const channelId = validation.data.channel_id || INTERNAL_CHAT_CHANNEL_ID
+
+    // Privacidade: marcar como lido = leu mensagens nesse canal — só membros.
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Sem acesso a este canal' }, { status: 403 })
+    }
 
     const db = supabase as unknown as {
       from: (table: string) => ReturnType<typeof supabase.from>

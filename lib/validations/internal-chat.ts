@@ -13,6 +13,11 @@ export const sendInternalMessageSchema = z.object({
     })
   ).default([]),
   parent_message_id: z.string().regex(uuidRegex).nullable().optional(),
+  /** Canal alvo. Default no handler para o canal global. */
+  channel_id: z.string().regex(uuidRegex).optional(),
+  /** Destinatário da DM — obrigatório se channel_id for diferente do canal
+   *  global e o canal ainda não existir; usado para criar a membership. */
+  dm_recipient_id: z.string().regex(uuidRegex).nullable().optional(),
 })
 
 export const editInternalMessageSchema = z.object({
@@ -27,6 +32,7 @@ export const toggleInternalReactionSchema = z.object({
 
 export const internalReadReceiptSchema = z.object({
   last_read_message_id: z.string().regex(uuidRegex),
+  channel_id: z.string().regex(uuidRegex).optional(),
 })
 
 export type SendInternalMessageData = z.infer<typeof sendInternalMessageSchema>

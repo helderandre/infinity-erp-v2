@@ -5,6 +5,7 @@ import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 import { notificationService } from '@/lib/notifications/service'
 import { sendPushToUser } from '@/lib/crm/send-push'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ensureDmMembership, isChannelMember, isGlobalChannel } from '@/lib/chat/membership'
 
 export async function GET(request: Request) {
   try {
@@ -18,6 +19,13 @@ export async function GET(request: Request) {
     const cursor = searchParams.get('cursor')
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100)
     const channelId = searchParams.get('channelId') || INTERNAL_CHAT_CHANNEL_ID
+
+    // Privacidade: só membros podem ler. Devolve 403 com `messages: []`
+    // (em vez de 404) para não distinguir "canal vazio" de "canal proibido".
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Sem acesso a este canal' }, { status: 403 })
+    }
 
     const db = supabase as unknown as {
       from: (table: string) => ReturnType<typeof supabase.from>
@@ -100,8 +108,38 @@ export async function POST(request: Request) {
       from: (table: string) => ReturnType<typeof supabase.from>
     }
 
-    const channelId = body.channel_id || INTERNAL_CHAT_CHANNEL_ID
-    const isDm = channelId !== INTERNAL_CHAT_CHANNEL_ID
+    const channelId = validation.data.channel_id || INTERNAL_CHAT_CHANNEL_ID
+    const isDm = !isGlobalChannel(channelId)
+
+    // Privacidade DM: o caller tem de ser membro do canal OU especificar
+    // `dm_recipient_id` para criar a membership — neste segundo caso fazemos
+    // o upsert de ambos os utilizadores como membros antes de inserir.
+    if (isDm) {
+      const dmRecipientId = validation.data.dm_recipient_id
+      const alreadyMember = await isChannelMember(supabase, user.id, channelId)
+      if (!alreadyMember) {
+        if (!dmRecipientId) {
+          return NextResponse.json(
+            { error: 'Sem acesso a este canal e dm_recipient_id em falta para o criar' },
+            { status: 403 },
+          )
+        }
+        if (dmRecipientId === user.id) {
+          return NextResponse.json(
+            { error: 'dm_recipient_id não pode ser o próprio utilizador' },
+            { status: 400 },
+          )
+        }
+        const ensure = await ensureDmMembership(createAdminClient(), channelId, [user.id, dmRecipientId])
+        if (!ensure.ok) {
+          return NextResponse.json({ error: ensure.error }, { status: 500 })
+        }
+      } else if (dmRecipientId && dmRecipientId !== user.id) {
+        // Já é membro mas o cliente passou recipient — garantir que o outro
+        // lado também está registado (idempotente).
+        await ensureDmMembership(createAdminClient(), channelId, [user.id, dmRecipientId])
+      }
+    }
 
     const { data: message, error: insertError } = await db.from('internal_chat_messages')
       .insert({
@@ -140,9 +178,9 @@ export async function POST(request: Request) {
       const adminSupabase = createAdminClient()
 
       if (isDm) {
-        // DM: notify the other user in the channel
-        // Parse the channel to find the other user — we get it from body
-        const dmRecipientId = body.dm_recipient_id
+        // DM: notify the other user in the channel — usar o validation.data
+        // para evitar duplicar a leitura raw do body.
+        const dmRecipientId = validation.data.dm_recipient_id
         if (dmRecipientId && dmRecipientId !== user.id) {
           // actionUrl is opened by the RECIPIENT — so `?dm=` must point at
           // the SENDER (the other side of the conversation), not at the

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { toggleInternalReactionSchema } from '@/lib/validations/internal-chat'
+import { getMessageChannelId, isChannelMember } from '@/lib/chat/membership'
 
 export async function POST(
   request: Request,
@@ -21,6 +22,16 @@ export async function POST(
         { error: 'Dados inválidos', details: validation.error.flatten() },
         { status: 400 }
       )
+    }
+
+    // Privacidade: só pode reagir a mensagens em canais a que pertence.
+    const channelId = await getMessageChannelId(supabase, messageId)
+    if (!channelId) {
+      return NextResponse.json({ error: 'Mensagem não encontrada' }, { status: 404 })
+    }
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Sem acesso a este canal' }, { status: 403 })
     }
 
     const db = supabase as unknown as {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { getMessageChannelId, isChannelMember } from '@/lib/chat/membership'
 
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 const MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -50,6 +51,16 @@ export async function POST(request: Request) {
     }
     if (!messageId || !uuidRegex.test(messageId)) {
       return NextResponse.json({ error: 'messageId inválido' }, { status: 400 })
+    }
+
+    // Privacidade: o uploader tem de pertencer ao canal da mensagem alvo.
+    const channelId = await getMessageChannelId(supabase, messageId)
+    if (!channelId) {
+      return NextResponse.json({ error: 'Mensagem não encontrada' }, { status: 404 })
+    }
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Sem acesso a este canal' }, { status: 403 })
     }
 
     const sanitizedFilename = sanitizeFilename(file.name)

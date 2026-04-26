@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { editInternalMessageSchema } from '@/lib/validations/internal-chat'
+import { getMessageChannelId, isChannelMember } from '@/lib/chat/membership'
 
 export async function GET(
   request: Request,
@@ -12,6 +13,16 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
+    // Privacidade: verificar primeiro o canal da mensagem.
+    const channelId = await getMessageChannelId(supabase, messageId)
+    if (!channelId) {
+      return NextResponse.json({ error: 'Mensagem não encontrada' }, { status: 404 })
+    }
+    const allowed = await isChannelMember(supabase, user.id, channelId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Mensagem não encontrada' }, { status: 404 })
     }
 
     const db = supabase as unknown as {
