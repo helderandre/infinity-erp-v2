@@ -404,6 +404,9 @@ const createLead: ToolConfig = {
     { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro },
     { key: 'orcamento_max', label: 'Orçamento máx.', inputType: 'number', format: formatEuro },
     { key: 'quartos_min', label: 'Quartos mín.', inputType: 'number' },
+    // Imóvel / angariação específica (opcional). O <PropertyMatchHint> resolve
+    // o termo livre contra /api/properties (incluindo external_ref / RE/MAX id).
+    { key: 'property_query', label: 'Imóvel (angariação)', placeholder: 'Ex: 103 (sufixo) ou T2 Av. Liberdade' },
     // Atribuição / origem (opcionais — o GPT extrai quando referidos)
     { key: 'origem', label: 'Origem', inputType: 'select', options: LEAD_SOURCE_OPTIONS },
     { key: 'assigned_consultant_id', label: 'Atribuir a', inputType: 'consultant-select' },
@@ -428,13 +431,21 @@ const createLead: ToolConfig = {
     }
     const { id: leadId } = await leadRes.json()
 
-    // 2) Optionally create inline negócio
+    // 2) Optionally create inline negócio. Either the user picked a property
+    // (resolved_property_id) — in which case we link it as an angariação and
+    // default to "Compra" when no explicit tipo was said — or they referred a
+    // negocio_tipo without a specific property.
+    const resolvedPropertyId = args.resolved_property_id ? String(args.resolved_property_id) : ''
+    const hasProperty = Boolean(resolvedPropertyId)
+    const tipo = args.negocio_tipo || (hasProperty ? 'Compra' : null)
+
     let negocioCreated = false
-    if (args.negocio_tipo) {
+    if (tipo) {
       const negocioPayload: Record<string, unknown> = {
         lead_id: leadId,
-        tipo: args.negocio_tipo,
+        tipo,
       }
+      if (resolvedPropertyId) negocioPayload.property_id = resolvedPropertyId
       if (args.tipo_imovel) negocioPayload.tipo_imovel = args.tipo_imovel
       if (args.localizacao) negocioPayload.localizacao = args.localizacao
       if (args.orcamento !== undefined && args.orcamento !== '') {
@@ -461,10 +472,12 @@ const createLead: ToolConfig = {
 
     const path = `/dashboard/leads/${leadId}`
     router.push(path)
-    return {
-      detailPath: path,
-      message: negocioCreated ? 'Contacto e negócio criados' : 'Contacto criado',
-    }
+    const message = negocioCreated
+      ? hasProperty
+        ? 'Contacto criado e ligado à angariação'
+        : 'Contacto e negócio criados'
+      : 'Contacto criado'
+    return { detailPath: path, message }
   },
 }
 

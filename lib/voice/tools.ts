@@ -67,7 +67,7 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'create_lead',
       description:
-        'Criar UM contacto individual (opcionalmente com um negócio associado). Usar quando o utilizador quer adicionar uma única pessoa. Para múltiplas pessoas numa só frase (ex: "adiciona leads João, Maria e Pedro"), usa create_leads_batch. Preenche também os campos do negócio se o utilizador mencionar intenção de compra/venda/arrendamento. Extrai origem e consultor atribuído se forem referidos.',
+        'Criar UM contacto individual (opcionalmente com um negócio associado). Usar quando o utilizador quer adicionar uma única pessoa. Para múltiplas pessoas numa só frase (ex: "adiciona leads João, Maria e Pedro"), usa create_leads_batch. Preenche também os campos do negócio se o utilizador mencionar intenção de compra/venda/arrendamento. Extrai origem e consultor atribuído se forem referidos. Se o utilizador disser que o lead está interessado num imóvel específico (ex: "interessado no MEX-12345", "lead para a angariação X", "sobre o T2 da Av. Liberdade"), preenche `property_query` com o termo dito — o ecrã de confirmação oferece um picker para escolher o imóvel real e ligar o negócio à angariação.',
       parameters: withConfidence({
         // Dados do contacto
         nome: { type: 'string', description: 'Nome completo' },
@@ -98,6 +98,12 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
         orcamento: { type: 'number', description: 'Orçamento/preço em euros' },
         orcamento_max: { type: 'number', description: 'Orçamento máximo em euros' },
         quartos_min: { type: 'number' },
+        // Imóvel específico (angariação) — opcional, só se o utilizador referir
+        property_query: {
+          type: 'string',
+          description:
+            'Termo livre para identificar a angariação/imóvel a ligar. Pode ser: (a) o sufixo numérico da referência interna — o utilizador costuma dizer só os últimos dígitos porque o prefixo é sempre o mesmo (ex: diz "103" para a angariação "121491860-103"); preenche apenas com os dígitos ditos, NÃO inventes prefixo; (b) título, zona ou descrição livre (ex: "T2 da Av. Liberdade"); (c) ID externo completo se for dito. Só preencher se o utilizador referir explicitamente um imóvel concreto.',
+        },
       }),
     },
   },
@@ -575,9 +581,14 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
 export function buildConfirmText(tool: string, args: Record<string, any>): string {
   switch (tool) {
     case 'create_lead': {
-      const hasNegocio = Boolean(args.negocio_tipo)
+      const hasNegocio = Boolean(args.negocio_tipo) || Boolean(args.property_query)
       const base = args.nome ? `Criar contacto: ${args.nome}` : 'Criar contacto'
-      return hasNegocio ? `${base} + negócio (${String(args.negocio_tipo).toLowerCase()})` : base
+      if (args.property_query && !args.negocio_tipo) {
+        return `${base} + ligar a "${args.property_query}"`
+      }
+      return hasNegocio
+        ? `${base} + negócio${args.negocio_tipo ? ` (${String(args.negocio_tipo).toLowerCase()})` : ''}`
+        : base
     }
     case 'create_leads_batch': {
       const n = Array.isArray(args.leads) ? args.leads.length : 0

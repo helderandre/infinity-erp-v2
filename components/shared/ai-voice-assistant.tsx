@@ -1417,7 +1417,7 @@ function ReviewPanel({
                       }}
                     />
                   )}
-                  {intent.tool === 'create_visit' && field.key === 'property_query' && (
+                  {(intent.tool === 'create_visit' || intent.tool === 'create_lead') && field.key === 'property_query' && (
                     <PropertyMatchHint
                       query={String(intent.args.property_query ?? '')}
                       adoptedId={
