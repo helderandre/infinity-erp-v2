@@ -549,8 +549,12 @@ export function AiVoiceAssistant() {
   // pointerup cancela. Se mantiver os 3 s todos, queremos abrir a voz —
   // limpamos qualquer selecção que tenha sido feita, em vez de cancelar.
   //
-  // Mantemos só dois cancelamentos:
-  //   - pointerup / pointercancel — gesto terminou.
+  // IMPORTANTE: NÃO cancelamos em `pointercancel` porque o iOS Safari
+  // dispara esse evento quando o sistema mostra o context-menu nativo
+  // de selecção de texto (~1 s no press), o que matava o temporizador
+  // antes dos 3 s e fazia o long-press parecer "morto" em zonas de
+  // texto. Ficamos só com:
+  //   - pointerup — gesto terminou (dedo saiu).
   //   - pointer move > 8 px — scroll ou drag de selection handle.
   // O opt-out por elemento (input/textarea/etc + data-no-long-press)
   // continua porque pressionar um botão/input nunca deve abrir a voz.
@@ -621,13 +625,11 @@ export function AiVoiceAssistant() {
     window.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('pointermove', onPointerMove, true)
     window.addEventListener('pointerup', cancel, true)
-    window.addEventListener('pointercancel', cancel, true)
     return () => {
       cancel()
       window.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('pointermove', onPointerMove, true)
       window.removeEventListener('pointerup', cancel, true)
-      window.removeEventListener('pointercancel', cancel, true)
     }
   }, [open])
 
