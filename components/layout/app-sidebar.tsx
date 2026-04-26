@@ -10,7 +10,7 @@ import {
   Plug, Store, ClipboardList, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield, MessagesSquare,
-  CheckSquare, Cpu, Infinity, KeyRound, Library, Bell,
+  CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
 } from 'lucide-react'
 import Link from 'next/link'
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
@@ -122,6 +122,7 @@ export const marketingItems = [
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: Target, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
+  { title: 'Recursos', icon: FolderOpen, href: '/dashboard/marketing/recursos', permission: 'marketing' },
 ]
 export const digitalItems = marketingItems
 
