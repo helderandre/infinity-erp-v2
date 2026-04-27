@@ -3473,6 +3473,7 @@ export type Database = {
           longitude: number | null
           notas_juridico_convictus: string | null
           postal_code: string | null
+          presentation_overrides: Json | null
           property_condition: string | null
           property_type: string | null
           remax_draft_number: string | null
@@ -3506,6 +3507,7 @@ export type Database = {
           longitude?: number | null
           notas_juridico_convictus?: string | null
           postal_code?: string | null
+          presentation_overrides?: Json | null
           property_condition?: string | null
           property_type?: string | null
           remax_draft_number?: string | null
@@ -3539,6 +3541,7 @@ export type Database = {
           longitude?: number | null
           notas_juridico_convictus?: string | null
           postal_code?: string | null
+          presentation_overrides?: Json | null
           property_condition?: string | null
           property_type?: string | null
           remax_draft_number?: string | null

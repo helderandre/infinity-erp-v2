@@ -13,6 +13,7 @@ import {
   REMAX_LOGO_PATH,
   REMAX_COLLECTION_CONVICTUS_LOGO_PATH,
 } from '@/lib/constants'
+import type { PresentationOverrides } from '@/types/presentation-overrides'
 
 interface FichaViewProps {
   property: any
@@ -52,7 +53,34 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
     return map
   }, [renders3d])
   const stagedImages = useMemo(() => images.filter((m) => m.ai_staged_url), [images])
-  const cover = images.find((m) => m.is_cover) ?? images[0]
+
+  const overrides: PresentationOverrides = property.presentation_overrides || {}
+  const text = (v: unknown, fallback: string | null | undefined): string | null => {
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (t.length > 0) return t
+    }
+    return fallback ?? null
+  }
+
+  const overrideCover = overrides.cover?.cover_media_id
+    ? images.find((m) => m.id === overrides.cover?.cover_media_id)
+    : null
+  const cover = overrideCover ?? images.find((m) => m.is_cover) ?? images[0]
+
+  const descriptionBody = text(overrides.descricao?.body, property.description)
+
+  const overrideGalleryIds = overrides.galeria?.media_ids ?? null
+  const galleryImages = useMemo(() => {
+    if (overrideGalleryIds && overrideGalleryIds.length > 0) {
+      const byId = new Map(images.map((m) => [m.id, m] as const))
+      const picked = overrideGalleryIds
+        .map((id) => byId.get(id))
+        .filter(Boolean) as typeof images
+      if (picked.length > 0) return picked
+    }
+    return images
+  }, [overrideGalleryIds, images])
 
   const has = (key: string) => sections.includes(key)
 
@@ -127,15 +155,23 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
 
         <div className="px-10 pt-5 pb-3">
           <div className="text-[9px] tracking-[0.3em] uppercase text-neutral-500 mb-1">
-            {(property.business_type &&
-              BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES]) ||
-              'Imóvel'}
-            {property.property_type &&
-              ` · ${PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type}`}
+            {text(
+              overrides.cover?.eyebrow,
+              [
+                (property.business_type &&
+                  BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES]) ||
+                  'Imóvel',
+                property.property_type &&
+                  (PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] ||
+                    property.property_type),
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            )}
           </div>
           <div className="flex items-end justify-between gap-4">
             <h1 className="serif text-3xl leading-tight font-medium text-neutral-900 flex-1 line-clamp-2">
-              {property.title || 'Sem título'}
+              {text(overrides.cover?.title, property.title) || 'Sem título'}
             </h1>
             {price && (
               <div className="text-right shrink-0">
@@ -195,12 +231,12 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           </div>
         )}
 
-        {has('descricao') && property.description && (
+        {has('descricao') && descriptionBody && (
           <div className="px-10 py-4 border-t border-neutral-200 flex-1 overflow-hidden">
             <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
-              Sobre este imóvel
+              {text(overrides.descricao?.heading, 'Sobre este imóvel')}
             </div>
-            <RichDescriptionFicha text={property.description} />
+            <RichDescriptionFicha text={descriptionBody} />
           </div>
         )}
 
@@ -230,7 +266,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
                   {consultant.commercial_name}
                 </div>
                 <div className="text-[10px] tracking-wider uppercase text-neutral-500">
-                  Consultor Imobiliário · Infinity Group
+                  {text(overrides.consultor?.tagline, 'Consultor Imobiliário · Infinity Group')}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-700 shrink-0">
@@ -253,17 +289,17 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
       </section>
 
       {/* ── PAGE 2: Gallery + map ── */}
-      {(has('galeria') && images.length > 0) || (has('localizacao') && mapUrl) ? (
+      {(has('galeria') && galleryImages.length > 0) || (has('localizacao') && mapUrl) ? (
         <section className="page flex flex-col">
           <PageBrand externalRef={property.external_ref} />
 
-          {has('galeria') && images.length > 0 && (
+          {has('galeria') && galleryImages.length > 0 && (
             <div className="px-10 pt-5 pb-3">
               <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
-                Galeria
+                {text(overrides.galeria?.heading, 'Galeria')}
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {images.slice(0, 6).map((img) => (
+                {galleryImages.slice(0, 6).map((img) => (
                   <div
                     key={img.id}
                     className="relative aspect-[4/3] bg-neutral-100 rounded-md overflow-hidden"
@@ -290,7 +326,7 @@ export function FichaView({ property, sections, isPrint }: FichaViewProps) {
           {has('localizacao') && mapUrl && (
             <div className="px-10 pt-3 pb-3">
               <div className="text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-2">
-                Localização
+                {text(overrides.localizacao?.heading, 'Localização')}
               </div>
               {/* Plain <img> to bypass Next/Image caching and ensure it renders in puppeteer */}
               {/* eslint-disable-next-line @next/next/no-img-element */}

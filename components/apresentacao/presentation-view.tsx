@@ -28,6 +28,7 @@ import {
   REMAX_LOGO_PATH,
   REMAX_COLLECTION_CONVICTUS_LOGO_PATH,
 } from '@/lib/constants'
+import type { PresentationOverrides } from '@/types/presentation-overrides'
 
 interface PresentationViewProps {
   property: any
@@ -91,6 +92,15 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
   const showStaging = property.presentation_show_staging !== false
   const showAiPlantas = property.presentation_show_ai_plantas !== false
 
+  const overrides: PresentationOverrides = property.presentation_overrides || {}
+  const text = (v: unknown, fallback: string | null | undefined): string | null => {
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (t.length > 0) return t
+    }
+    return fallback ?? null
+  }
+
   const plantas = allMedia.filter((m) => m.media_type === 'planta')
   const renders3d = showAiPlantas
     ? allMedia.filter((m) => m.media_type === 'planta_3d')
@@ -104,15 +114,20 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
   }
   const stagedImages = showStaging ? images.filter((m) => m.ai_staged_url) : []
 
-  const cover = images.find((m) => m.is_cover) ?? images[0]
+  const overrideCover = overrides.cover?.cover_media_id
+    ? images.find((m) => m.id === overrides.cover?.cover_media_id)
+    : null
+  const cover = overrideCover ?? images.find((m) => m.is_cover) ?? images[0]
+
+  const descriptionBody = text(overrides.descricao?.body, property.description)
 
   const has = (key: string) => sections.includes(key)
   const activeSlides: { key: string; label: string }[] = []
 
   // Split long descriptions across multiple slides so nothing gets clipped.
   const descriptionChunks = useMemo(
-    () => (property.description ? chunkDescription(property.description, 1200) : []),
-    [property.description],
+    () => (descriptionBody ? chunkDescription(descriptionBody, 1200) : []),
+    [descriptionBody],
   )
 
   if (has('cover')) activeSlides.push({ key: 'cover', label: 'Capa' })
@@ -125,8 +140,20 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
       }),
     )
   }
-  // Cap gallery to at most 2 slides of 6 images (12 images total)
-  const galleryImages = images.slice(0, 12)
+  // Cap gallery to at most 2 slides of 6 images (12 images total). When the
+  // consultor has explicitly picked images via overrides.galeria.media_ids,
+  // honour that order; otherwise fall back to the natural sort.
+  const overrideGalleryIds = overrides.galeria?.media_ids ?? null
+  const galleryImages = useMemo(() => {
+    if (overrideGalleryIds && overrideGalleryIds.length > 0) {
+      const byId = new Map(images.map((m) => [m.id, m] as const))
+      const picked = overrideGalleryIds
+        .map((id) => byId.get(id))
+        .filter(Boolean) as typeof images
+      if (picked.length > 0) return picked.slice(0, 12)
+    }
+    return images.slice(0, 12)
+  }, [overrideGalleryIds, images])
   const galleryChunks = Math.ceil(galleryImages.length / 6)
   if (has('galeria') && galleryImages.length > 0) {
     for (let i = 0; i < galleryChunks; i++) {
@@ -276,12 +303,15 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
             <div className="mt-auto">
               <div className="h-0.5 w-20 bg-white/50 mb-8" />
               <p className="text-xs tracking-[0.3em] uppercase opacity-70 mb-3">
-                {(property.property_type &&
-                  PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES]) ||
-                  'Imóvel'}
+                {text(
+                  overrides.cover?.eyebrow,
+                  (property.property_type &&
+                    PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES]) ||
+                    'Imóvel',
+                )}
               </p>
               <h1 className="serif text-7xl leading-[1.05] font-medium tracking-tight max-w-4xl">
-                {property.title || 'Sem título'}
+                {text(overrides.cover?.title, property.title) || 'Sem título'}
               </h1>
               <div className="flex items-end justify-between mt-10">
                 <div className="flex items-center gap-2 opacity-80 text-base">
@@ -322,7 +352,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
           <div className="w-1/2 flex flex-col px-14 py-14">
             <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-3">Resumo</div>
             <h2 className="serif text-5xl leading-[1.1] font-medium text-neutral-900 mb-8 line-clamp-3">
-              {property.title}
+              {text(overrides.resumo?.title, property.title)}
             </h2>
 
             {price && (
@@ -410,7 +440,9 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                   ` · ${idx + 1} / ${descriptionChunks.length}`}
               </div>
               <h2 className="serif text-5xl font-medium text-neutral-900 mb-8 leading-[1.1]">
-                {idx === 0 ? 'Sobre este imóvel' : 'Sobre este imóvel (cont.)'}
+                {idx === 0
+                  ? text(overrides.descricao?.heading, 'Sobre este imóvel')
+                  : `${text(overrides.descricao?.heading, 'Sobre este imóvel')} (cont.)`}
               </h2>
               <div className="flex-1 overflow-hidden">
                 <RichDescription text={chunk} />
@@ -435,7 +467,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
               <div className="flex items-start justify-between gap-6 mb-6">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs tracking-[0.3em] uppercase text-neutral-500 mb-2">
-                    Galeria
+                    {text(overrides.galeria?.heading, 'Galeria')}
                   </div>
                   <h2 className="serif text-3xl font-medium text-neutral-900 leading-tight line-clamp-2">
                     {property.title}
@@ -592,7 +624,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
               Localização
             </div>
             <h2 className="serif text-5xl font-medium text-neutral-900 mb-8 leading-[1.1]">
-              {property.zone || property.city || 'Localização'}
+              {text(overrides.localizacao?.heading, property.zone || property.city || 'Localização')}
             </h2>
             <div className="space-y-4">
               {property.address_street && (
@@ -670,7 +702,7 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
                   {consultant.commercial_name}
                 </h2>
                 <div className="text-sm tracking-[0.2em] uppercase opacity-70 mb-10">
-                  Consultor Imobiliário · Infinity Group
+                  {text(overrides.consultor?.tagline, 'Consultor Imobiliário · Infinity Group')}
                 </div>
 
                 <div className="flex flex-col gap-3 max-w-md">
@@ -745,11 +777,11 @@ export function PresentationView({ property, sections, isPrint }: PresentationVi
           {/* HERO — absolutely positioned so the message centres relative to
               the FULL slide, not the area above the compliance strip. */}
           <div className="absolute inset-0 flex flex-col items-center justify-center px-20">
-            <div className="text-xs tracking-[0.3em] uppercase opacity-70 mb-6">Obrigado</div>
-            <h2 className="serif text-7xl font-medium leading-tight text-center">
-              Vamos
-              <br />
-              conversar?
+            <div className="text-xs tracking-[0.3em] uppercase opacity-70 mb-6">
+              {text(overrides.closing?.eyebrow, 'Obrigado')}
+            </div>
+            <h2 className="serif text-7xl font-medium leading-tight text-center whitespace-pre-line">
+              {text(overrides.closing?.headline, 'Vamos\nconversar?')}
             </h2>
             <div className="h-0.5 w-20 bg-white/40 mx-auto my-8" />
             <div className="text-sm tracking-[0.3em] uppercase opacity-80">Infinity Group</div>

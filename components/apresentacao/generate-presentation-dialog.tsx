@@ -3,18 +3,18 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   FileText,
   Presentation,
@@ -25,6 +25,7 @@ import {
   Check,
   Sparkles,
   RefreshCw,
+  Pencil,
 } from 'lucide-react'
 
 type Format = 'ficha' | 'presentation' | 'both'
@@ -68,9 +69,13 @@ interface Existing {
 interface Props {
   propertyId: string
   trigger: React.ReactNode
+  /** Called when the user clicks Editar inside the sheet — the parent owns
+   *  the PresentationOverridesSheet and opens it on top of this one. */
+  onEditClick?: () => void
 }
 
-export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
+export function GeneratePresentationDialog({ propertyId, trigger, onEditClick }: Props) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [format, setFormat] = useState<Format>('both')
   const [sections, setSections] = useState<Record<string, boolean>>(() =>
@@ -115,9 +120,8 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
       .filter((s) => sections[s.key])
       .map((s) => s.key)
 
-    // Close the dialog immediately so the consultor can keep working — show
-    // a persistent bottom-right toast instead. When done, the toast offers a
-    // "Ver" action that reopens the dialog with the fresh files.
+    // Close the sheet immediately so the consultor can keep working — show a
+    // persistent toast instead. When done, a "Ver" action opens the new file.
     setOpen(false)
     setResult(null)
 
@@ -138,16 +142,13 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
       const data = (await res.json()) as Result & { error?: string }
       if (!res.ok) throw new Error(data.error || 'Erro ao gerar apresentação')
 
-      // Refresh existing list silently so when the dialog reopens it shows
-      // the new files (no need to keep separate `result` state).
+      // Refresh existing list silently so when the sheet reopens it shows the
+      // new files (no need to keep separate `result` state).
       fetch(`/api/properties/${propertyId}/presentation`)
         .then((r) => r.json())
         .then((d) => setExisting(d.items || []))
         .catch(() => {})
 
-      // "Ver" opens the actual presentation in a new tab (the public share
-      // URL is always returned). Falls back to the ficha PDF if only the
-      // ficha was generated.
       const viewUrl =
         format === 'ficha'
           ? data.ficha_url || data.share_url
@@ -189,191 +190,220 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
   const shareUrl = existingPres?.share_url
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
-        if (!o) {
-          setResult(null)
-        }
+        if (!o) setResult(null)
       }}
     >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-xl rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            Apresentação
-          </DialogTitle>
-          <DialogDescription>
-            {mode === 'view' && existing.length > 0
-              ? 'Apresentações guardadas para este imóvel. Pode regenerar para actualizar.'
-              : 'Escolha o formato e as secções a incluir. A geração pode demorar alguns segundos.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Existing + new result share the same shape */}
-        {mode === 'view' && !result && (
-          <div className="space-y-3">
-            {existingLoading ? (
-              <div className="py-6 flex items-center justify-center text-sm text-muted-foreground gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar…
-              </div>
-            ) : (
-              <>
-                {shareUrl && (
-                  <ActionCard
-                    icon={ExternalLink}
-                    label="Link público (apresentação 16:9)"
-                    href={shareUrl}
-                    kind="share"
-                    copyLabel="Link"
-                    onCopy={copy}
-                  />
-                )}
-                {existingFicha && (
-                  <ActionCard
-                    icon={FileText}
-                    label="Ficha A4 (PDF)"
-                    href={existingFicha.pdf_url}
-                    kind="pdf"
-                    copyLabel="Link da ficha"
-                    onCopy={copy}
-                    generatedAt={existingFicha.generated_at}
-                  />
-                )}
-                {existingPres && (
-                  <ActionCard
-                    icon={Presentation}
-                    label="Apresentação 16:9 (PDF)"
-                    href={existingPres.pdf_url}
-                    kind="pdf"
-                    copyLabel="Link da apresentação"
-                    onCopy={copy}
-                    generatedAt={existingPres.generated_at}
-                  />
-                )}
-                {existing.length === 0 && (
-                  <div className="py-6 text-sm text-muted-foreground text-center">
-                    Ainda não foi gerada nenhuma apresentação para este imóvel.
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+      <SheetTrigger asChild>{trigger}</SheetTrigger>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 gap-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+          'bg-background/95 supports-[backdrop-filter]:bg-background/80 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[88dvh] rounded-t-3xl'
+            : 'h-full w-full data-[side=right]:sm:max-w-[640px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
         )}
 
-        {mode === 'generate' && !result && (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Formato
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
-                <FormatOption
-                  active={format === 'ficha'}
-                  onClick={() => setFormat('ficha')}
-                  icon={FileText}
-                  title="Ficha A4"
-                  hint="PDF para visitas"
-                />
-                <FormatOption
-                  active={format === 'presentation'}
-                  onClick={() => setFormat('presentation')}
-                  icon={Presentation}
-                  title="Apresentação 16:9"
-                  hint="PDF + link público"
-                />
-                <FormatOption
-                  active={format === 'both'}
-                  onClick={() => setFormat('both')}
-                  icon={Sparkles}
-                  title="Ambos"
-                  hint="Ficha + apresentação"
-                />
-              </div>
+        {/* Header — same layout pattern as PropertyEditSheet */}
+        <SheetHeader className="shrink-0 px-6 pt-8 pb-3 sm:pt-10 gap-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight inline-flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4" />
+                Apresentação
+              </SheetTitle>
+              <SheetDescription className="text-xs text-muted-foreground mt-0.5">
+                {mode === 'view' && existing.length > 0
+                  ? 'Apresentações guardadas para este imóvel. Pode regenerar para actualizar.'
+                  : 'Escolha o formato e as secções a incluir. A geração pode demorar alguns segundos.'}
+              </SheetDescription>
             </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Secções a incluir
-              </Label>
-              <div className="rounded-xl border bg-muted/20 p-3 space-y-2 max-h-[260px] overflow-y-auto">
-                {relevantSections.map((s) => (
-                  <div key={s.key} className="flex items-start gap-2">
-                    <Checkbox
-                      id={`section-${s.key}`}
-                      checked={!!sections[s.key]}
-                      onCheckedChange={() => toggle(s.key)}
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor={`section-${s.key}`}
-                      className="text-sm leading-tight cursor-pointer select-none flex-1"
-                    >
-                      {s.label}
-                    </label>
-                  </div>
-                ))}
+            {/* Editar — opens the PresentationOverridesSheet (the parent's
+                "Editar conteúdo da apresentação") on top of this sheet
+                (sheet-inside-sheet). Only rendered when the parent provides
+                an onEditClick handler. */}
+            {onEditClick && (
+              <div className="flex items-center gap-1.5 shrink-0 mr-10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full text-xs gap-1"
+                  onClick={onEditClick}
+                  title="Editar conteúdo da apresentação"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Editar</span>
+                </Button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {result && (
-          <div className="space-y-3">
-            <ActionCard
-              icon={ExternalLink}
-              label="Link público (apresentação 16:9)"
-              href={result.share_url}
-              kind="share"
-              copyLabel="Link"
-              onCopy={copy}
-            />
-            {result.ficha_url && (
-              <ActionCard
-                icon={FileText}
-                label="Ficha A4 (PDF)"
-                href={result.ficha_url}
-                kind="pdf"
-                copyLabel="Link da ficha"
-                onCopy={copy}
-              />
-            )}
-            {result.presentation_url && (
-              <ActionCard
-                icon={Presentation}
-                label="Apresentação 16:9 (PDF)"
-                href={result.presentation_url}
-                kind="pdf"
-                copyLabel="Link da apresentação"
-                onCopy={copy}
-              />
             )}
           </div>
-        )}
+        </SheetHeader>
 
-        <DialogFooter>
+        {/* Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-5">
           {mode === 'view' && !result && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full gap-1.5"
-                onClick={() => setMode('generate')}
-                disabled={existingLoading}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
-              </Button>
-              <Button
-                type="button"
-                className="rounded-full"
-                onClick={() => setOpen(false)}
-              >
-                Fechar
-              </Button>
-            </>
+            <div className="space-y-3">
+              {existingLoading ? (
+                <div className="py-6 flex items-center justify-center text-sm text-muted-foreground gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar…
+                </div>
+              ) : (
+                <>
+                  {shareUrl && (
+                    <ActionCard
+                      icon={ExternalLink}
+                      label="Link público (apresentação 16:9)"
+                      href={shareUrl}
+                      kind="share"
+                      copyLabel="Link"
+                      onCopy={copy}
+                    />
+                  )}
+                  {existingFicha && (
+                    <ActionCard
+                      icon={FileText}
+                      label="Ficha A4 (PDF)"
+                      href={existingFicha.pdf_url}
+                      kind="pdf"
+                      copyLabel="Link da ficha"
+                      onCopy={copy}
+                      generatedAt={existingFicha.generated_at}
+                    />
+                  )}
+                  {existingPres && (
+                    <ActionCard
+                      icon={Presentation}
+                      label="Apresentação 16:9 (PDF)"
+                      href={existingPres.pdf_url}
+                      kind="pdf"
+                      copyLabel="Link da apresentação"
+                      onCopy={copy}
+                      generatedAt={existingPres.generated_at}
+                    />
+                  )}
+                  {existing.length === 0 && (
+                    <div className="py-6 text-sm text-muted-foreground text-center">
+                      Ainda não foi gerada nenhuma apresentação para este imóvel.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {mode === 'generate' && !result && (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Formato
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <FormatOption
+                    active={format === 'ficha'}
+                    onClick={() => setFormat('ficha')}
+                    icon={FileText}
+                    title="Ficha A4"
+                    hint="PDF para visitas"
+                  />
+                  <FormatOption
+                    active={format === 'presentation'}
+                    onClick={() => setFormat('presentation')}
+                    icon={Presentation}
+                    title="Apresentação 16:9"
+                    hint="PDF + link público"
+                  />
+                  <FormatOption
+                    active={format === 'both'}
+                    onClick={() => setFormat('both')}
+                    icon={Sparkles}
+                    title="Ambos"
+                    hint="Ficha + apresentação"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Secções a incluir
+                </Label>
+                <div className="rounded-xl border border-border/40 bg-background/40 p-3 space-y-2 max-h-[280px] overflow-y-auto">
+                  {relevantSections.map((s) => (
+                    <div key={s.key} className="flex items-start gap-2">
+                      <Checkbox
+                        id={`section-${s.key}`}
+                        checked={!!sections[s.key]}
+                        onCheckedChange={() => toggle(s.key)}
+                        className="mt-0.5"
+                      />
+                      <label
+                        htmlFor={`section-${s.key}`}
+                        className="text-sm leading-tight cursor-pointer select-none flex-1"
+                      >
+                        {s.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <ActionCard
+                icon={ExternalLink}
+                label="Link público (apresentação 16:9)"
+                href={result.share_url}
+                kind="share"
+                copyLabel="Link"
+                onCopy={copy}
+              />
+              {result.ficha_url && (
+                <ActionCard
+                  icon={FileText}
+                  label="Ficha A4 (PDF)"
+                  href={result.ficha_url}
+                  kind="pdf"
+                  copyLabel="Link da ficha"
+                  onCopy={copy}
+                />
+              )}
+              {result.presentation_url && (
+                <ActionCard
+                  icon={Presentation}
+                  label="Apresentação 16:9 (PDF)"
+                  href={result.presentation_url}
+                  kind="pdf"
+                  copyLabel="Link da apresentação"
+                  onCopy={copy}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-3 border-t border-border/40 flex items-center justify-end gap-2 bg-background/60 backdrop-blur-xl">
+          {mode === 'view' && !result && (
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-full h-8 text-xs gap-1.5"
+              onClick={() => setMode('generate')}
+              disabled={existingLoading}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
+            </Button>
           )}
           {mode === 'generate' && !result && (
             <>
@@ -381,7 +411,8 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="rounded-full"
+                  size="sm"
+                  className="rounded-full h-8 text-xs"
                   onClick={() => setMode('view')}
                 >
                   Voltar
@@ -389,35 +420,32 @@ export function GeneratePresentationDialog({ propertyId, trigger }: Props) {
               )}
               <Button
                 type="button"
-                className="rounded-full gap-1.5"
+                size="sm"
+                className="rounded-full h-8 text-xs gap-1.5"
                 onClick={generate}
               >
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className="h-3.5 w-3.5" />
                 {existing.length > 0 ? 'Regenerar' : 'Gerar apresentação'}
               </Button>
             </>
           )}
           {result && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full"
-                onClick={() => {
-                  setResult(null)
-                  setMode('view')
-                }}
-              >
-                Voltar
-              </Button>
-              <Button type="button" className="rounded-full" onClick={() => setOpen(false)}>
-                Fechar
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full h-8 text-xs"
+              onClick={() => {
+                setResult(null)
+                setMode('view')
+              }}
+            >
+              Voltar
+            </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -441,13 +469,13 @@ function FormatOption({
       className={cn(
         'rounded-xl border px-3 py-3 text-left transition-all',
         active
-          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-          : 'border-border hover:bg-muted/50',
+          ? 'border-foreground bg-foreground/5 ring-1 ring-foreground/30'
+          : 'border-border/50 bg-background/40 hover:bg-muted/40',
       )}
     >
       <div className="flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5" />
-        {active && <Check className="h-3 w-3 ml-auto text-primary" />}
+        {active && <Check className="h-3 w-3 ml-auto text-foreground" />}
       </div>
       <div className="text-[13px] font-medium mt-1">{title}</div>
       <div className="text-[10px] text-muted-foreground">{hint}</div>
@@ -483,8 +511,8 @@ function ActionCard({
     : null
 
   return (
-    <div className="rounded-xl border bg-card p-3 flex items-center gap-3">
-      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted shrink-0">
+    <div className="rounded-2xl border border-border/40 bg-background/40 p-3 flex items-center gap-3">
+      <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted/60 shrink-0">
         <Icon className="h-4 w-4" />
       </div>
       <div className="flex-1 min-w-0">
@@ -500,7 +528,7 @@ function ActionCard({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors"
+          className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/50 bg-background/60 hover:bg-muted transition-colors"
           title="Abrir"
         >
           <ExternalLink className="h-3.5 w-3.5" />
@@ -511,7 +539,7 @@ function ActionCard({
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="inline-flex items-center justify-center h-8 w-8 rounded-full border hover:bg-muted transition-colors"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/50 bg-background/60 hover:bg-muted transition-colors"
             title="Descarregar"
           >
             <Download className="h-3.5 w-3.5" />

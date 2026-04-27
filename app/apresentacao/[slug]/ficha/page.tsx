@@ -9,6 +9,7 @@ const PUBLIC_SELECT = `
   id, slug, title, description, listing_price, property_type, business_type,
   property_condition, energy_certificate, external_ref,
   address_street, postal_code, city, zone, latitude, longitude,
+  presentation_overrides,
   dev_property_specifications(
     typology, bedrooms, bathrooms, area_util, area_gross,
     construction_year, parking_spaces, garage_spaces,

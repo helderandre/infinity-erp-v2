@@ -16,6 +16,7 @@ import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { GeneratePresentationDialog } from '@/components/apresentacao/generate-presentation-dialog'
 import { BookingLinkDialog } from '@/components/booking/booking-link-dialog'
 import { SharePropertyButton } from '@/components/properties/share-property-button'
+import { PresentationOverridesSheet } from '@/components/properties/presentation-overrides-sheet'
 import { FileDown } from 'lucide-react'
 import {
   BedDouble,
@@ -41,6 +42,7 @@ import {
   BUSINESS_TYPES,
   PROPERTY_CONDITIONS,
   ENERGY_CERTIFICATES,
+  PROPERTY_STATUS,
 } from '@/lib/constants'
 import type { PropertyDetail, PropertyMedia } from '@/types/property'
 
@@ -56,6 +58,10 @@ type PlantaLike = PropertyMedia & { source_media_id?: string | null }
 
 export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApresentacaoTabProps) {
   const [section, setSection] = useState<ApresentacaoSection>('descricao')
+  const [overridesOpen, setOverridesOpen] = useState(false)
+  const [overrides, setOverrides] = useState(
+    (property as any).presentation_overrides ?? null,
+  )
 
   // On mobile, default the active sub-tab to "Visão Geral" so the right-side
   // cards render inline at the top instead of at the bottom of the page.
@@ -197,6 +203,7 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
           />
           <GeneratePresentationDialog
             propertyId={property.id}
+            onEditClick={() => setOverridesOpen(true)}
             trigger={
               <Button
                 variant="outline"
@@ -210,6 +217,15 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
           />
         </div>
       </div>
+
+      <PresentationOverridesSheet
+        open={overridesOpen}
+        onOpenChange={setOverridesOpen}
+        propertyId={property.id}
+        media={property.dev_property_media || []}
+        initial={overrides}
+        onSaved={(next) => setOverrides(next)}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
         {/* ── Main column ── */}
@@ -810,6 +826,7 @@ function SidebarCards({
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <h3 className="text-sm font-semibold mb-2">Informações Gerais</h3>
         <div className="divide-y">
+          <InfoRow label="Estado" value={<StatusValue status={property.status ?? null} />} />
           <InfoRow
             label="Tipo"
             value={
@@ -923,6 +940,23 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-muted-foreground shrink-0">{label}</span>
       <span className="font-medium text-right truncate">{display}</span>
     </div>
+  )
+}
+
+/** Read-only estado pill — same visual language as the management strip in
+ *  the edit sheet, but non-interactive. Lives inside the InfoRow on the right. */
+function StatusValue({ status }: { status: string | null }) {
+  if (!status) return <span className="text-muted-foreground">—</span>
+  const meta = PROPERTY_STATUS[status as keyof typeof PROPERTY_STATUS]
+  if (!meta) return <>{status}</>
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium',
+      meta.bg, meta.text,
+    )}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
+      {meta.label}
+    </span>
   )
 }
 
