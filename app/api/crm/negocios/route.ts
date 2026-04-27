@@ -6,14 +6,26 @@ import {
   linkReferralToNewNegocio,
 } from '@/lib/crm/inherit-referral-on-negocio-create'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
+import { requireAuth } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { searchParams } = new URL(request.url)
 
+    // Pipeline owners (admin/Broker/CEO/Gestora) see every consultor's
+    // négocios. Regular consultores are scoped to their own — `pipeline`
+    // permission is the broker-side gate (`leads` is the page-access gate
+    // that consultores also have, so we can't use it here).
+    const canSeeAll =
+      auth.permissions.pipeline === true || auth.permissions.users === true
+
     const pipeline_type = searchParams.get('pipeline_type')
-    const assigned_consultant_id = searchParams.get('assigned_consultant_id')
+    const assignedParam = searchParams.get('assigned_consultant_id')
+    const assigned_consultant_id = canSeeAll ? assignedParam : auth.user.id
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')
     const only_referenced = searchParams.get('only_referenced') === '1'

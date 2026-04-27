@@ -72,7 +72,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import { cn } from '@/lib/utils'
-import { NEGOCIO_PROPERTY_STATUS, VISIT_STATUS_COLORS } from '@/lib/constants'
+import { NEGOCIO_PROPERTY_STATUS, STATUS_COLORS, VISIT_STATUS_COLORS } from '@/lib/constants'
 
 import {
   TemperaturaSelector,
@@ -3155,7 +3155,12 @@ function FechoTab({
   )
 }
 
-// ─── Angariação Tab — processo de angariação do negócio ─────────────────
+// ─── Angariação Tab — imóvel(s) angariado(s) a partir do negócio ────────
+//
+// Shows the linked dev_properties, not the proc_instances. The processo
+// is collapsed to a small badge on each imóvel card. Click goes straight
+// to the imóvel detail page. Drafts (in-progress angariações) keep their
+// distinct amber treatment so the user can resume from here.
 
 function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any }) {
   const router = useRouter()
@@ -3169,13 +3174,12 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
   const refetch = useCallback(async () => {
     setLoading(true)
     try {
-      // Processos finalizados (não-rascunho) ligados ao negócio
       const procRes = await fetch(`/api/processes?negocio_id=${negocioId}`)
       if (procRes.ok) {
         const json = await procRes.json()
-        setProcesses(json.data || [])
+        const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : []
+        setProcesses(list)
       }
-      // Rascunhos pendentes
       const draftRes = await fetch('/api/acquisitions/drafts')
       if (draftRes.ok) {
         const json = await draftRes.json()
@@ -3201,8 +3205,8 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
     <div className="space-y-3">
       {!hasAny ? (
         <div className="rounded-2xl bg-background border border-border/50 shadow-sm p-6 flex flex-col items-center text-center">
-          <Briefcase className="h-7 w-7 text-muted-foreground/40 mb-2" />
-          <p className="text-sm font-medium">Sem processo de angariação</p>
+          <Home className="h-7 w-7 text-muted-foreground/40 mb-2" />
+          <p className="text-sm font-medium">Sem imóvel angariado</p>
           <p className="text-xs text-muted-foreground mt-1 max-w-[300px]">
             Cria a angariação a partir deste negócio. Quando concluída, o imóvel passa a estar disponível.
           </p>
@@ -3218,7 +3222,8 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
         </div>
       ) : (
         <>
-          {/* Drafts em curso */}
+          {/* Drafts em curso (angariação ainda incompleta — sem imóvel
+              publicável). Manter visível para o agente conseguir retomar. */}
           {drafts.map((d: any) => (
             <div
               key={d.id}
@@ -3245,58 +3250,70 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
             </div>
           ))}
 
-          {/* Processos formalizados */}
+          {/* Imóveis angariados — cada processo finalizado tem um dev_properties
+              embebido pelo /api/processes. Renderizamos o IMÓVEL como sujeito
+              principal; o processo aparece em chip discreto no fundo. */}
           {processes.map((p: any) => {
-            const status = p.current_status || 'unknown'
-            const statusMeta: Record<string, { label: string; bg: string; text: string }> = {
+            const property = p.dev_properties || null
+            if (!property) return null
+            const procStatus = p.current_status || 'unknown'
+            const procMeta: Record<string, { label: string; bg: string; text: string }> = {
               draft: { label: 'Rascunho', bg: 'bg-amber-500/15', text: 'text-amber-700' },
-              pending_approval: { label: 'Pendente aprovação', bg: 'bg-amber-500/15', text: 'text-amber-700' },
+              pending_approval: { label: 'Pendente', bg: 'bg-amber-500/15', text: 'text-amber-700' },
               active: { label: 'Activo', bg: 'bg-emerald-500/15', text: 'text-emerald-700' },
               on_hold: { label: 'Pausado', bg: 'bg-slate-500/15', text: 'text-slate-700' },
               completed: { label: 'Concluído', bg: 'bg-blue-500/15', text: 'text-blue-700' },
               cancelled: { label: 'Cancelado', bg: 'bg-red-500/15', text: 'text-red-700' },
               rejected: { label: 'Rejeitado', bg: 'bg-red-500/15', text: 'text-red-700' },
             }
-            const meta = statusMeta[status] || { label: status, bg: 'bg-muted', text: 'text-muted-foreground' }
-            const propertyTitle = p.dev_properties?.title || 'Imóvel'
-            const isCompleted = status === 'completed'
+            const procBadge = procMeta[procStatus] || { label: procStatus, bg: 'bg-muted', text: 'text-muted-foreground' }
+            const propStatus = String(property.status ?? '')
+            const propStatusMeta = STATUS_COLORS[propStatus as keyof typeof STATUS_COLORS]
+            const priceFmt = property.listing_price
+              ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(property.listing_price)
+              : null
+            const location = [property.zone, property.city].filter(Boolean).join(', ')
             return (
               <div
                 key={p.id}
-                className={cn(
-                  'rounded-2xl border bg-background shadow-sm p-4 cursor-pointer transition-colors',
-                  'hover:bg-muted/30',
-                  'border-border/50',
-                )}
-                onClick={() => router.push(`/dashboard/processos/${p.id}`)}
+                className="rounded-2xl border border-border/50 bg-background shadow-sm p-4 cursor-pointer transition-colors hover:bg-muted/30"
+                onClick={() => router.push(`/dashboard/imoveis/${property.id}`)}
               >
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <Home className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold truncate">{p.external_ref || 'Processo'}</p>
-                      <span className={cn('inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full', meta.bg, meta.text)}>
-                        {meta.label}
-                      </span>
-                      {p.percent_complete != null && (
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
-                          {p.percent_complete}%
+                      <p className="text-sm font-semibold truncate">{property.title || 'Imóvel'}</p>
+                      {propStatusMeta && (
+                        <span className={cn('inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full', propStatusMeta.bg, propStatusMeta.text)}>
+                          {propStatusMeta.label}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{propertyTitle}</p>
-                    {isCompleted && p.property_id && (
-                      <Link
-                        href={`/dashboard/imoveis?property=${p.property_id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline mt-1.5"
-                      >
-                        Ver imóvel
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </Link>
+                    {(location || property.property_type || priceFmt) && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        {[property.property_type, location, priceFmt].filter(Boolean).join(' · ')}
+                      </p>
                     )}
+                    {/* Processo de angariação — chip discreto + atalho */}
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/dashboard/processos/${p.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                      >
+                        <Briefcase className="h-2.5 w-2.5" />
+                        <span className="font-medium">{p.external_ref || 'Angariação'}</span>
+                        <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium', procBadge.bg, procBadge.text)}>
+                          {procBadge.label}
+                        </span>
+                        {p.percent_complete != null && (
+                          <span className="tabular-nums">{p.percent_complete}%</span>
+                        )}
+                      </Link>
+                    </div>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1" />
                 </div>
@@ -3304,7 +3321,6 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
             )
           })}
 
-          {/* CTA — criar outra (raro mas possível) */}
           <Button
             type="button"
             variant="outline"
@@ -3318,7 +3334,6 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
         </>
       )}
 
-      {/* Dialog de criação — pré-preenchido com o negocioId + specs do imóvel + owner=lead */}
       <AcquisitionDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

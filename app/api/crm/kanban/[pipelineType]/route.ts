@@ -1,5 +1,6 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth/permissions'
 
 const VALID_PIPELINE_TYPES = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as const
 type PipelineType = (typeof VALID_PIPELINE_TYPES)[number]
@@ -9,6 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ pipelineType: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { pipelineType: pt } = await params
 
@@ -21,8 +25,30 @@ export async function GET(
 
     const pipelineType = pt as PipelineType
     const { searchParams } = new URL(request.url)
-    const assigned_consultant_id = searchParams.get('assigned_consultant_id')
-    const referrer_consultant_id = searchParams.get('referrer_consultant_id')
+    const assignedParam = searchParams.get('assigned_consultant_id')
+    const referrerParam = searchParams.get('referrer_consultant_id')
+
+    // Pipeline owners see every consultor's négocios; regular consultores
+    // are scoped to their own. Referências page sets `referrer_consultant_id`
+    // to surface deals where I'm the referrer (worked by another consultor)
+    // — in that mode we lock the param to self instead of forcing
+    // assigned_consultant_id (which would AND to zero results).
+    const canSeeAll =
+      auth.permissions.pipeline === true || auth.permissions.users === true
+    const referrerMode = !!referrerParam
+
+    let assigned_consultant_id: string | null
+    let referrer_consultant_id: string | null
+    if (canSeeAll) {
+      assigned_consultant_id = assignedParam
+      referrer_consultant_id = referrerParam
+    } else if (referrerMode) {
+      assigned_consultant_id = null
+      referrer_consultant_id = auth.user.id
+    } else {
+      assigned_consultant_id = auth.user.id
+      referrer_consultant_id = null
+    }
     const only_referenced = searchParams.get('only_referenced') === '1'
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')

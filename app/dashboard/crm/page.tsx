@@ -980,6 +980,9 @@ function ObservationsCellInner({
 
 export default function CRMPage() {
   const { user } = useUser()
+  const userPermissions = (user?.role?.permissions as Record<string, boolean> | undefined) ?? {}
+  const canSeeAllNegocios =
+    userPermissions.pipeline === true || userPermissions.users === true
   const isMobile = useIsMobile()
   const router = useRouter()
   const pathname = usePathname()
@@ -1233,23 +1236,25 @@ export default function CRMPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
-            <Select
-              value={filters.consultantId || 'all'}
-              onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
-            >
-              <SelectTrigger className="h-9 w-full rounded-full text-xs">
-                <SelectValue placeholder="Consultor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os consultores</SelectItem>
-                {consultants.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {canSeeAllNegocios && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+              <Select
+                value={filters.consultantId || 'all'}
+                onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
+              >
+                <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                  <SelectValue placeholder="Consultor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os consultores</SelectItem>
+                  {consultants.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {/* Inbound-referrals toggle — surfaces négocios that came in via
               an internal referral (where I'm the recipient). Outbound ones
               I sent away aren't in this pipeline anyway — they're on the
