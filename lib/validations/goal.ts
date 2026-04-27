@@ -2,6 +2,13 @@ import { z } from 'zod'
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Per-stage conversion rates (0-1) keyed by stage_key.
+// Each value represents the conversion FROM this stage TO the next one.
+const conversionMapSchema = z
+  .record(z.string(), z.number().min(0).max(1))
+  .optional()
+  .nullable()
+
 // Base schema (used by react-hook-form + zodResolver)
 export const goalBaseSchema = z.object({
   consultant_id: z.string().regex(uuidRegex, 'ID de consultor inválido'),
@@ -11,19 +18,29 @@ export const goalBaseSchema = z.object({
   pct_buyers: z.number().min(0).max(100),
   working_weeks_year: z.number().int().min(1).max(52),
   working_days_week: z.number().int().min(1).max(7),
-  // Seller funnel
+  // Seller funnel — deal economics
   sellers_avg_sale_value: z.number().positive().nullable().optional(),
   sellers_avg_commission_pct: z.number().min(0).max(100).nullable().optional(),
+  // Legacy seller fields (kept for backwards compat — not used by new funnel)
   sellers_pct_listings_sold: z.number().min(0).max(100).nullable().optional(),
   sellers_pct_visit_to_listing: z.number().min(0).max(100).nullable().optional(),
   sellers_pct_lead_to_visit: z.number().min(0).max(100).nullable().optional(),
   sellers_avg_calls_per_lead: z.number().min(0).nullable().optional(),
-  // Buyer funnel
+  // Buyer funnel — deal economics
   buyers_avg_purchase_value: z.number().positive().nullable().optional(),
   buyers_avg_commission_pct: z.number().min(0).max(100).nullable().optional(),
+  // Legacy buyer fields
   buyers_close_rate: z.number().min(0).max(100).nullable().optional(),
   buyers_pct_lead_to_qualified: z.number().min(0).max(100).nullable().optional(),
   buyers_avg_calls_per_lead: z.number().min(0).nullable().optional(),
+  // New per-stage conversion rates aligned with the funnel structure
+  funnel_conversion_rates: z
+    .object({
+      buyer: conversionMapSchema,
+      seller: conversionMapSchema,
+    })
+    .optional()
+    .nullable(),
 })
 
 // With refinement (used by API route validation)

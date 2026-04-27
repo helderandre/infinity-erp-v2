@@ -1,17 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useFunnel } from '@/hooks/use-funnel'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
 import { Button } from '@/components/ui/button'
 import { Users, User, Sparkles } from 'lucide-react'
@@ -20,17 +14,13 @@ import { FunnelCard } from './funnel-card'
 import { FunnelLegend } from './funnel-legend'
 import { FunnelManualEventDialog } from './funnel-manual-event-dialog'
 import { FunnelCoachSheet } from './funnel-coach-sheet'
+import { TeamGridView } from './team-grid-view'
 import type {
   FunnelType,
   FunnelPeriod,
   FunnelScope,
   FunnelStageKey,
 } from '@/types/funnel'
-
-interface ConsultantOption {
-  id: string
-  commercial_name: string
-}
 
 const PERIOD_OPTIONS: { value: FunnelPeriod; label: string }[] = [
   { value: 'daily', label: 'Diário' },
@@ -60,46 +50,38 @@ function periodLabelEur(period: FunnelPeriod): string {
 }
 
 export function FunnelObjetivosView() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useUser()
   const { isBroker, isTeamLeader, hasPermission } = usePermissions()
   const isManager = isBroker() || isTeamLeader()
 
+  const initialView = searchParams.get('view')
   const [period, setPeriod] = useState<FunnelPeriod>('weekly')
-  const [scope, setScope] = useState<FunnelScope>(isManager ? 'team' : 'consultant')
-  const [consultantId, setConsultantId] = useState<string | null>(null)
-  const [consultants, setConsultants] = useState<ConsultantOption[]>([])
+  const [scope, setScope] = useState<FunnelScope>(
+    isManager && initialView !== 'individual' ? 'team' : isManager ? 'consultant' : 'consultant',
+  )
 
   const [manualOpen, setManualOpen] = useState(false)
   const [manualFunnel, setManualFunnel] = useState<FunnelType>('buyer')
   const [manualStage, setManualStage] = useState<FunnelStageKey | null>(null)
   const [coachOpen, setCoachOpen] = useState(false)
 
-  // Default scope tracks role once it loads
+  // Sync scope with role once permissions resolve, unless URL says otherwise
   useEffect(() => {
-    setScope(isManager ? 'team' : 'consultant')
-  }, [isManager])
+    if (initialView === 'individual') {
+      setScope('consultant')
+    } else if (isManager) {
+      setScope('team')
+    } else {
+      setScope('consultant')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager, initialView])
 
-  // Initial consultant: self
-  useEffect(() => {
-    if (user?.id && !consultantId) setConsultantId(user.id)
-  }, [user?.id, consultantId])
-
-  // Load consultants list for managers
-  useEffect(() => {
-    if (!isManager) return
-    fetch('/api/consultants')
-      .then((r) => r.json())
-      .then((json) => {
-        const list: ConsultantOption[] = (json.data || json || [])
-          .map((c: any) => ({ id: c.id, commercial_name: c.commercial_name }))
-          .filter((c: any) => c.id && c.commercial_name)
-          .sort((a: ConsultantOption, b: ConsultantOption) =>
-            a.commercial_name.localeCompare(b.commercial_name, 'pt'),
-          )
-        setConsultants(list)
-      })
-      .catch(() => setConsultants([]))
-  }, [isManager])
+  // Non-manager always sees themselves; manager in consultant scope shows the
+  // team grid (no auto-self).
+  const consultantId = !isManager ? user?.id ?? null : null
 
   const { data, isLoading, error, refetch } = useFunnel({
     consultantId,
@@ -109,18 +91,22 @@ export function FunnelObjetivosView() {
   })
 
   const consultantName = useMemo(() => {
-    if (scope === 'team') return data?.team_member_count != null
-      ? `Equipa (${data.team_member_count})`
-      : 'Equipa'
+    if (scope === 'team')
+      return data?.team_member_count != null
+        ? `Equipa (${data.team_member_count})`
+        : 'Equipa'
     if (data?.consultant?.commercial_name) return data.consultant.commercial_name
-    if (consultantId === user?.id) return user?.commercial_name ?? '—'
-    return consultants.find((c) => c.id === consultantId)?.commercial_name ?? '—'
-  }, [data, consultantId, user, consultants, scope])
+    return user?.commercial_name ?? '—'
+  }, [data, user, scope])
 
   function handleRegisterManual(funnel: FunnelType, stage: FunnelStageKey) {
     setManualFunnel(funnel)
     setManualStage(stage)
     setManualOpen(true)
+  }
+
+  function handleSelectConsultant(id: string) {
+    router.push(`/dashboard/objetivos/consultor/${id}`)
   }
 
   if (!hasPermission('goals')) {
@@ -133,7 +119,7 @@ export function FunnelObjetivosView() {
 
   return (
     <div className="space-y-4">
-      {/* Header card — borrows dashboard-hero look (gradient + ring + soft shadow) */}
+      {/* Header card */}
       <div className="overflow-hidden rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
         <div className="px-5 py-5 sm:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/40">
           <div className="min-w-0">
@@ -176,7 +162,7 @@ export function FunnelObjetivosView() {
           </div>
         </div>
 
-        {/* Sub-header — scope toggle + consultor + period range + euro target */}
+        {/* Sub-header — scope toggle + period range + euro target */}
         <div className="px-5 py-3 sm:px-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs bg-background/30">
           {isManager && (
             <div className="inline-flex items-center rounded-full border border-border/40 bg-muted/40 p-0.5 font-medium backdrop-blur-sm">
@@ -208,29 +194,27 @@ export function FunnelObjetivosView() {
               </button>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium">
-              {scope === 'team' ? 'Vista' : 'Consultor'}
+          {scope === 'team' && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium">
+                Vista
+              </span>
+              <span className="font-semibold">{consultantName}</span>
+            </div>
+          )}
+          {scope === 'consultant' && !isManager && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium">
+                Consultor
+              </span>
+              <span className="font-semibold">{consultantName}</span>
+            </div>
+          )}
+          {scope === 'consultant' && isManager && (
+            <span className="text-[11px] text-muted-foreground italic">
+              Selecione um consultor abaixo para ver o detalhe
             </span>
-            {scope === 'team' ? (
-              <span className="font-semibold">{consultantName}</span>
-            ) : isManager && consultants.length > 0 ? (
-              <Select value={consultantId ?? ''} onValueChange={setConsultantId}>
-                <SelectTrigger className="h-7 rounded-full text-xs w-[200px] font-medium border-border/40 bg-background/60 backdrop-blur-sm">
-                  <SelectValue placeholder="Escolher..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {consultants.map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs">
-                      {c.commercial_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <span className="font-semibold">{consultantName}</span>
-            )}
-          </div>
+          )}
           {data && (
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-1 text-muted-foreground">
@@ -250,8 +234,14 @@ export function FunnelObjetivosView() {
         </div>
       </div>
 
-      {/* Funnels */}
-      {isLoading ? (
+      {/* Body:
+          - Manager + scope=consultant → team grid (clicking a card navigates to /consultor/[id])
+          - scope=team → aggregate dual funnels
+          - non-manager → own dual funnels
+       */}
+      {scope === 'consultant' && isManager ? (
+        <TeamGridView period={period} onSelectConsultant={handleSelectConsultant} />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Skeleton className="h-[640px] rounded-2xl" />
           <Skeleton className="h-[640px] rounded-2xl hidden lg:block" />
@@ -262,12 +252,11 @@ export function FunnelObjetivosView() {
         </div>
       ) : data ? (
         <>
-          {/* Desktop — side by side */}
           <div className="hidden lg:grid grid-cols-2 gap-4 items-start">
             <FunnelCard
               data={data.buyer}
               onRegisterManual={
-                scope === 'consultant'
+                scope === 'consultant' && !isManager
                   ? (stage) => handleRegisterManual('buyer', stage)
                   : undefined
               }
@@ -275,14 +264,12 @@ export function FunnelObjetivosView() {
             <FunnelCard
               data={data.seller}
               onRegisterManual={
-                scope === 'consultant'
+                scope === 'consultant' && !isManager
                   ? (stage) => handleRegisterManual('seller', stage)
                   : undefined
               }
             />
           </div>
-
-          {/* Mobile — swipable carousel */}
           <div className="lg:hidden">
             <Carousel opts={{ align: 'start', loop: false }}>
               <CarouselContent>
@@ -290,7 +277,7 @@ export function FunnelObjetivosView() {
                   <FunnelCard
                     data={data.buyer}
                     onRegisterManual={
-                      scope === 'consultant'
+                      scope === 'consultant' && !isManager
                         ? (stage) => handleRegisterManual('buyer', stage)
                         : undefined
                     }
@@ -300,7 +287,7 @@ export function FunnelObjetivosView() {
                   <FunnelCard
                     data={data.seller}
                     onRegisterManual={
-                      scope === 'consultant'
+                      scope === 'consultant' && !isManager
                         ? (stage) => handleRegisterManual('seller', stage)
                         : undefined
                     }
@@ -313,14 +300,12 @@ export function FunnelObjetivosView() {
               <span className="h-1.5 w-1.5 rounded-full bg-foreground/20" />
             </div>
           </div>
+          <FunnelLegend />
         </>
       ) : null}
 
-      {/* Legend */}
-      {data && <FunnelLegend />}
-
-      {/* Manual event dialog — only in consultant scope */}
-      {consultantId && scope === 'consultant' && (
+      {/* Manual event dialog — only when consultor is viewing themselves */}
+      {consultantId && !isManager && (
         <FunnelManualEventDialog
           open={manualOpen}
           onOpenChange={setManualOpen}
@@ -331,7 +316,7 @@ export function FunnelObjetivosView() {
         />
       )}
 
-      {/* AI Coach sheet — works for both team and consultant scopes */}
+      {/* AI Coach sheet */}
       <FunnelCoachSheet
         open={coachOpen}
         onOpenChange={setCoachOpen}

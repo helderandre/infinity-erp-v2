@@ -23,6 +23,11 @@ export interface ConsultantGoal {
   buyers_close_rate: number | null
   buyers_pct_lead_to_qualified: number | null
   buyers_avg_calls_per_lead: number | null
+  // New per-stage conversion rates (0-1) aligned with the new funnel structure
+  funnel_conversion_rates: {
+    buyer?: Record<string, number>
+    seller?: Record<string, number>
+  } | null
   // Meta
   is_active: boolean
   created_at: string

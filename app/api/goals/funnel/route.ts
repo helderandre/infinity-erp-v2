@@ -124,10 +124,17 @@ export async function GET(request: Request) {
       if (consErr || !consultant) {
         return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 })
       }
+      // Supabase returns 1:1 relationship as object (not array)
+      const photo =
+        (consultant.profile as any)?.profile_photo_url ??
+        (Array.isArray(consultant.profile)
+          ? consultant.profile[0]?.profile_photo_url
+          : null) ??
+        null
       consultantInfo = {
         id: consultant.id,
         commercial_name: consultant.commercial_name ?? '',
-        profile_photo_url: consultant.profile?.[0]?.profile_photo_url ?? null,
+        profile_photo_url: photo,
       }
     }
 
@@ -243,12 +250,27 @@ export async function GET(request: Request) {
           if (v !== undefined) absoluteOverrides[s.key] = v
         })
 
+        // Per-consultor conversion rate overrides (configured by gestor)
+        const conversionOverrides: Partial<Record<FunnelStageKey, number>> = {}
+        const crByFunnel = (g.funnel_conversion_rates || {})[funnel] as
+          | Record<string, number>
+          | undefined
+        if (crByFunnel) {
+          stagesDefs.forEach((s) => {
+            const v = crByFunnel[s.key]
+            if (typeof v === 'number' && v >= 0 && v <= 1) {
+              conversionOverrides[s.key] = v
+            }
+          })
+        }
+
         const consultorTargets = computeStageTargets({
           funnel,
           periodEuroTarget: periodEurFunnel,
           avgDealValue,
           commissionPct,
           absoluteOverrides,
+          conversionOverrides,
         })
         stagesDefs.forEach((s) => {
           summedTargets[s.key] += consultorTargets[s.key] || 0

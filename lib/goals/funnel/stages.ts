@@ -11,7 +11,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 1,
     label: 'Contactos',
-    defaultConversionRate: 0.5, // 50% of new buyer contacts become active searches
+    shortLabel: 'Cont',
+    defaultConversionRate: 0.5,
     emptyHint: 'Sem novos contactos no período',
   },
   {
@@ -19,7 +20,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 2,
     label: 'Pesquisa de imóveis',
-    defaultConversionRate: 0.4, // 40% of clients receiving properties book a visit
+    shortLabel: 'Pesq',
+    defaultConversionRate: 0.4,
     emptyHint: 'Sem envios de imóveis no período',
   },
   {
@@ -27,7 +29,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 3,
     label: 'Visitas',
-    defaultConversionRate: 0.3, // 30% of visits lead to a proposal
+    shortLabel: 'Vis',
+    defaultConversionRate: 0.3,
     emptyHint: 'Sem visitas no período',
   },
   {
@@ -35,7 +38,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 4,
     label: 'Propostas',
-    defaultConversionRate: 0.6, // 60% of proposals lead to a CPCV
+    shortLabel: 'Prop',
+    defaultConversionRate: 0.6,
     emptyHint: 'Sem propostas no período',
   },
   {
@@ -43,7 +47,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 5,
     label: 'CPCV',
-    defaultConversionRate: 1.0, // 100% — in PT every CPCV becomes Escritura (eventually)
+    shortLabel: 'CPCV',
+    defaultConversionRate: 1.0,
     emptyHint: 'Sem CPCV no período',
   },
   {
@@ -51,6 +56,7 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     funnel: 'buyer',
     order: 6,
     label: 'Escritura',
+    shortLabel: 'Esc',
     defaultConversionRate: 1.0,
     emptyHint: 'Sem escrituras no período',
   },
@@ -62,7 +68,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 1,
     label: 'Contactos',
-    defaultConversionRate: 0.4, // 40% of seller contacts move to pre-angariação
+    shortLabel: 'Cont',
+    defaultConversionRate: 0.4,
     emptyHint: 'Sem novos contactos no período',
   },
   {
@@ -70,7 +77,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 2,
     label: 'Pré-angariação',
-    defaultConversionRate: 0.7, // 70% of pre-angariações receive a market study
+    shortLabel: 'Pré',
+    defaultConversionRate: 0.7,
     emptyHint: 'Sem pré-angariações no período',
   },
   {
@@ -78,7 +86,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 3,
     label: 'Estudo de Mercado',
-    defaultConversionRate: 0.8, // 80% of market studies become listings
+    shortLabel: 'EM',
+    defaultConversionRate: 0.8,
     emptyHint: 'Sem estudos de mercado no período',
   },
   {
@@ -86,7 +95,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 4,
     label: 'Angariação',
-    defaultConversionRate: 0.5, // 50% of listings get visited
+    shortLabel: 'Ang',
+    defaultConversionRate: 0.5,
     emptyHint: 'Sem angariações no período',
   },
   {
@@ -94,7 +104,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 5,
     label: 'Visitas',
-    defaultConversionRate: 0.25, // 25% of visits result in a proposal
+    shortLabel: 'Vis',
+    defaultConversionRate: 0.25,
     emptyHint: 'Sem visitas no período',
   },
   {
@@ -102,6 +113,7 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 6,
     label: 'Propostas',
+    shortLabel: 'Prop',
     defaultConversionRate: 0.7,
     emptyHint: 'Sem propostas no período',
   },
@@ -110,6 +122,7 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 7,
     label: 'CPCV',
+    shortLabel: 'CPCV',
     defaultConversionRate: 1.0,
     emptyHint: 'Sem CPCV no período',
   },
@@ -118,6 +131,7 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     funnel: 'seller',
     order: 8,
     label: 'Escritura',
+    shortLabel: 'Esc',
     defaultConversionRate: 1.0,
     emptyHint: 'Sem escrituras no período',
   },
