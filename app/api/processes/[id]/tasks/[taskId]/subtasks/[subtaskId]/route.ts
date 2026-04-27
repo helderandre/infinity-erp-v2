@@ -443,13 +443,15 @@ export async function PUT(
     await recalculateProgress(id)
 
     // --- Quando a task pai passa a completed via subtasks, disparar on_complete da task ---
+    let parentTaskFull: { config?: unknown; title?: string; assigned_to?: string; proc_instance?: { external_ref?: string } } | null = null
     if (newTaskStatus === 'completed') {
       try {
-        const { data: parentTaskFull } = await supabase
+        const { data } = await supabase
           .from('proc_tasks')
           .select('config, title, assigned_to, proc_instance:proc_instances(external_ref)')
           .eq('id', taskId)
           .single()
+        parentTaskFull = data as never
 
         const parentConfig = ((parentTaskFull as any)?.config as Record<string, any>) || {}
         if (parentConfig.alerts?.on_complete?.enabled) {
@@ -469,6 +471,55 @@ export async function PUT(
         }
       } catch (parentAlertError) {
         console.error('[SubtaskUpdate] Erro ao processar on_complete da task pai:', parentAlertError)
+      }
+    }
+
+    // --- PROC-NEG hook dispatch: cpcv/escritura signed/received + close_deal ---
+    // Quando uma task com `config.hook` fica completed via conclusão das
+    // subtasks, dispatch:
+    //   - cpcv_signed | escritura_signed   → flip deal_payments.is_signed
+    //   - cpcv_received | escritura_received → flip deal_payments.is_received
+    //   - close_deal → deals.status='completed' + move negócio para terminal won
+    // Triggers SQL fazem o resto da propagação (deal_events, company_transactions).
+    if (newTaskStatus === 'completed' && parentTaskFull) {
+      try {
+        const hook = ((parentTaskFull.config as Record<string, unknown> | undefined)?.hook ?? null) as string | null
+        const SIGNED_HOOKS = ['cpcv_signed', 'escritura_signed']
+        const RECEIVED_HOOKS = ['cpcv_received', 'escritura_received']
+
+        if (hook && (SIGNED_HOOKS.includes(hook) || RECEIVED_HOOKS.includes(hook))) {
+          const { data: dealRow } = await adminDb.from('deals')
+            .select('id')
+            .eq('proc_instance_id', id)
+            .maybeSingle()
+
+          if (dealRow) {
+            const moments = hook.startsWith('cpcv_')
+              ? ['cpcv']
+              : ['escritura', 'single']
+            const fieldUpdate = SIGNED_HOOKS.includes(hook)
+              ? { is_signed: true }
+              : { is_received: true }
+
+            const { error: hookErr } = await adminDb.from('deal_payments')
+              .update(fieldUpdate)
+              .eq('deal_id', (dealRow as { id: string }).id)
+              .in('payment_moment', moments)
+
+            if (hookErr) {
+              console.error(`[ProcNegHook] Falha ao despachar ${hook}:`, hookErr.message)
+            }
+          }
+        } else if (hook === 'close_deal') {
+          const { closeDealFromHook } = await import('@/lib/processes/neg/close-deal-hook')
+          const result = await closeDealFromHook(admin, id)
+          if (result.status === 'error' || result.status === 'no_deal' || result.status === 'no_terminal_stage') {
+            console.error(`[ProcNegHook] close_deal status=${result.status}: ${result.message ?? ''}`)
+          }
+        }
+      } catch (hookError) {
+        // Falhas de hook não devem reverter a conclusão da subtask.
+        console.error('[ProcNegHook] Erro inesperado:', hookError)
       }
     }
 

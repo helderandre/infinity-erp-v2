@@ -47,7 +47,11 @@ export const calendarEventSchema = z.object({
 
 export type CalendarEventFormData = z.infer<typeof calendarEventSchema>
 
-// Schema para o modal de agendar evento (subtarefa schedule_event)
+// Schema para o modal de agendar evento (subtarefa schedule_event).
+// Os campos PROC-NEG (location_*, latitude/longitude, notary_*) são
+// opcionais e só preenchidos quando a subtask pertence ao fluxo de
+// fecho de negócios — usados para sincronizar `deal_events` com o
+// calendar event criado.
 export const scheduleEventSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(200, 'Título demasiado longo'),
   description: z.string().max(2000).optional().nullable(),
@@ -56,6 +60,14 @@ export const scheduleEventSchema = z.object({
   all_day: z.boolean().default(true),
   owner_ids: z.array(z.string().regex(UUID_REGEX)).default([]),
   attendee_user_ids: z.array(z.string().regex(UUID_REGEX)).default([]),
+  // PROC-NEG extras (opcionais)
+  location_label: z.string().max(200).optional().nullable(),
+  location_address: z.string().max(500).optional().nullable(),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
+  notary_name: z.string().max(200).optional().nullable(),
+  notary_phone: z.string().max(50).optional().nullable(),
+  notary_email: z.string().email('Email inválido').max(200).optional().nullable(),
 })
 
 export type ScheduleEventFormData = z.infer<typeof scheduleEventSchema>

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { bypassNonApplicableNegTasks } from '@/lib/processes/neg/bypass-non-applicable-tasks'
+import { repeatTasksPerClient } from '@/lib/processes/neg/repeat-tasks-per-client'
 
 // POST /api/deals/[id]/submit — Submit deal, create proc_instance + payments + splits
 export async function POST(
@@ -43,12 +45,24 @@ export async function POST(
       return NextResponse.json({ error: 'Percentagem de comissão é obrigatória' }, { status: 400 })
     }
 
-    // ── 1. Create proc_instance ──
+    // ── 1. Lookup system NEG template + create proc_instance ──
+    // The template is seeded by 20260517_neg_process_template.sql.
+    // If the migration hasn't been applied yet, fall back to null
+    // (proc_instance is created without tasks; template can be linked
+    // manually via /api/processes/[id]/re-template later).
+    const { data: negTemplate } = await supabase
+      .from('tpl_processes')
+      .select('id')
+      .eq('process_type', 'negocio')
+      .eq('name', 'Processo de Negócio')
+      .is('deleted_at' as any, null)
+      .maybeSingle()
+
     const { data: procInstance, error: procError } = await supabase
       .from('proc_instances')
       .insert({
         property_id: deal.property_id || null,
-        tpl_process_id: null,
+        tpl_process_id: negTemplate?.id || null,
         current_status: 'pending_approval',
         process_type: 'negocio',
         requested_by: auth.user.id,
@@ -275,7 +289,44 @@ export async function POST(
       }
     }
 
-    // ── 8. Update deal with calculated amounts and link to proc ──
+    // ── 8. Create deal_events for each signing moment ──
+    // Maps payment moments → event types. Single-moment deals (arrendamento /
+    // trespasse) map to the appropriate legal event. All events start as
+    // status='scheduled' with scheduled_at = predicted date; occurred_at stays
+    // NULL until the corresponding deal_payment is marked is_signed=true
+    // (hook lands in follow-up commit).
+    const eventTypeFor = (moment: string, bizType: string): string => {
+      if (moment === 'cpcv') return 'cpcv'
+      if (moment === 'escritura') return 'escritura'
+      if (moment === 'single') {
+        return bizType === 'arrendamento' ? 'contrato_arrendamento' : 'escritura'
+      }
+      return 'outro'
+    }
+
+    const eventRows = moments
+      .filter((m) => m.date)
+      .map((m) => ({
+        deal_id: id,
+        event_type: eventTypeFor(m.moment, businessType),
+        scheduled_at: m.date,
+        status: 'scheduled',
+        created_by: auth.user.id,
+      }))
+
+    if (eventRows.length > 0) {
+      const { error: eventsError } = await supabase
+        .from('deal_events')
+        .insert(eventRows)
+
+      // Failure to create events should not abort submission — events
+      // can be added manually from the deal detail later.
+      if (eventsError) {
+        console.error('Erro ao criar deal_events:', eventsError.message)
+      }
+    }
+
+    // ── 9. Update deal with calculated amounts and link to proc ──
     const { error: updateError } = await supabase
       .from('deals')
       .update({
@@ -298,12 +349,52 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // ── 10. PROC-NEG applies_when post-processor ──
+    // Avalia config.applies_when de cada proc_task contra o deal real e
+    // marca como is_bypassed=true as que não aplicam (ex.: "Documentos
+    // do Vendedor (Externo)" num pleno; "Distrate de Hipoteca" sem
+    // hipoteca activa). Erros não revertem o submit.
+    let bypassedCount = 0
+    try {
+      const result = await bypassNonApplicableNegTasks(
+        supabase,
+        procInstance.id,
+        id,
+        auth.user.id
+      )
+      bypassedCount = result.bypassed_count
+    } catch (bypassErr) {
+      console.error('[ProcNegBypass] Erro:', bypassErr)
+    }
+
+    // ── 11. PROC-NEG per-client task multiplication ──
+    // Para tasks com config.repeat_per_client=true (ex.: "Documentos do
+    // Comprador (Singular)"), filtra deal_clients por person_type_filter
+    // e clona a task uma vez por cliente adicional (annotando título +
+    // config.client_id/client_name). Erros não revertem o submit.
+    let tasksRepeated = 0
+    let totalClones = 0
+    try {
+      const repeatResult = await repeatTasksPerClient(
+        supabase,
+        procInstance.id,
+        id
+      )
+      tasksRepeated = repeatResult.tasks_repeated
+      totalClones = repeatResult.total_clones
+    } catch (repeatErr) {
+      console.error('[ProcNegRepeat] Erro:', repeatErr)
+    }
+
     return NextResponse.json({
       success: true,
       deal_id: id,
       proc_instance_id: procInstance.id,
       payments_created: createdPayments.length,
       splits_created: splitRows.length,
+      tasks_bypassed: bypassedCount,
+      tasks_repeated: tasksRepeated,
+      task_clones_created: totalClones,
     })
   } catch (err: any) {
     console.error('Erro ao submeter negócio:', err)

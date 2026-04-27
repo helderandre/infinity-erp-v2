@@ -39,7 +39,11 @@ export async function POST(
       )
     }
 
-    const { title, description, start_date, end_date, all_day, owner_ids, attendee_user_ids } = parsed.data
+    const {
+      title, description, start_date, end_date, all_day, owner_ids, attendee_user_ids,
+      location_label, location_address, latitude, longitude,
+      notary_name, notary_phone, notary_email,
+    } = parsed.data
 
     // Verificar que a subtarefa existe e pertence ao processo
     const { data: subtask, error: subtaskError } = await adminDb
@@ -146,6 +150,88 @@ export async function POST(
     }
 
     await adminDb.from('proc_subtasks').update(updatePayload).eq('id', subtaskId)
+
+    // ── PROC-NEG side-effect: sincronizar deal_events ──
+    // Se o parent task tiver `config.hook ∈ {schedule_cpcv, schedule_escritura}`,
+    // actualizamos a row matching em `deal_events` (event_type derivado
+    // do hook + business_type do deal) com a data agendada e os campos
+    // de localização/notário se fornecidos. Reschedules incrementam
+    // `reschedule_count`.
+    try {
+      const { data: parentTaskRow } = await adminDb
+        .from('proc_tasks')
+        .select('config')
+        .eq('id', taskId)
+        .maybeSingle()
+
+      const parentConfig = (parentTaskRow as { config?: Record<string, unknown> } | null)?.config ?? {}
+      const hookName = parentConfig.hook as string | undefined
+
+      if (hookName === 'schedule_cpcv' || hookName === 'schedule_escritura') {
+        const { data: dealRow } = await adminDb
+          .from('deals')
+          .select('id, business_type')
+          .eq('proc_instance_id', processId)
+          .maybeSingle()
+
+        if (dealRow) {
+          const deal = dealRow as { id: string; business_type: string | null }
+          const eventType =
+            hookName === 'schedule_cpcv'
+              ? 'cpcv'
+              : (deal.business_type === 'arrendamento' ? 'contrato_arrendamento' : 'escritura')
+
+          // Lookup latest non-done event of this type for this deal
+          const { data: existingEvent } = await adminDb
+            .from('deal_events')
+            .select('id, scheduled_at, reschedule_count, status')
+            .eq('deal_id', deal.id)
+            .eq('event_type', eventType)
+            .not('status', 'in', '("done","cancelled")')
+            .order('scheduled_at', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          const dealEventPayload: Record<string, unknown> = {
+            scheduled_at: start_date,
+          }
+          if (location_label !== undefined) dealEventPayload.location_label = location_label
+          if (location_address !== undefined) dealEventPayload.location_address = location_address
+          if (latitude !== undefined) dealEventPayload.latitude = latitude
+          if (longitude !== undefined) dealEventPayload.longitude = longitude
+          if (notary_name !== undefined) dealEventPayload.notary_name = notary_name
+          if (notary_phone !== undefined) dealEventPayload.notary_phone = notary_phone
+          if (notary_email !== undefined) dealEventPayload.notary_email = notary_email
+
+          if (existingEvent) {
+            const existing = existingEvent as { id: string; scheduled_at: string | null; reschedule_count: number; status: string }
+            // Detectar reschedule: scheduled_at já existia e mudou
+            if (existing.scheduled_at && existing.scheduled_at !== start_date) {
+              dealEventPayload.reschedule_count = (existing.reschedule_count ?? 0) + 1
+              dealEventPayload.last_reschedule_at = new Date().toISOString()
+              dealEventPayload.status = 'rescheduled'
+            } else if (!existing.scheduled_at) {
+              dealEventPayload.status = 'scheduled'
+            }
+
+            await adminDb.from('deal_events').update(dealEventPayload).eq('id', existing.id)
+          } else {
+            // Não há row pré-existente (caso raro — submit sempre cria) — INSERT
+            await adminDb.from('deal_events').insert({
+              deal_id: deal.id,
+              event_type: eventType,
+              status: 'scheduled',
+              created_by: user.id,
+              ...dealEventPayload,
+            })
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('[schedule-event][deal_events sync]', syncErr)
+      // Não bloqueia o fluxo principal — calendar_events foi criado/actualizado.
+    }
 
     // Recalcular progresso do processo
     await recalculateProgress(processId)
