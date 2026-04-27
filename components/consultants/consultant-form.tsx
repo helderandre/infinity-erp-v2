@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -80,39 +80,53 @@ export function ConsultantForm({
     private: isEdit,
   })
 
+  const buildDefaults = (dv?: Partial<FormData>): FormData => ({
+    user: {
+      commercial_name: '',
+      professional_email: '',
+      is_active: true,
+      display_website: false,
+      ...dv?.user,
+    } as FormData['user'],
+    profile: {
+      bio: '',
+      phone_commercial: '',
+      specializations: [],
+      languages: [],
+      instagram_handle: '',
+      linkedin_url: '',
+      ...dv?.profile,
+    } as FormData['profile'],
+    private_data: {
+      full_name: '',
+      nif: '',
+      iban: '',
+      address_private: '',
+      monthly_salary: null,
+      commission_rate: null,
+      hiring_date: '',
+      ...dv?.private_data,
+    } as FormData['private_data'],
+    role_id: dv?.role_id || '',
+  })
+
   const form = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(formSchema) as any,
-    defaultValues: {
-      user: {
-        commercial_name: '',
-        professional_email: '',
-        is_active: true,
-        display_website: false,
-        ...defaultValues?.user,
-      },
-      profile: {
-        bio: '',
-        phone_commercial: '',
-        specializations: [],
-        languages: [],
-        instagram_handle: '',
-        linkedin_url: '',
-        ...defaultValues?.profile,
-      },
-      private_data: {
-        full_name: '',
-        nif: '',
-        iban: '',
-        address_private: '',
-        monthly_salary: null,
-        commission_rate: null,
-        hiring_date: '',
-        ...defaultValues?.private_data,
-      },
-      role_id: defaultValues?.role_id || '',
-    },
+    defaultValues: buildDefaults(defaultValues),
   })
+
+  // Re-seed when the parent fetches the consultant after mount, or when
+  // navigating between different consultant edit pages without the form
+  // unmounting.
+  useEffect(() => {
+    form.reset(buildDefaults(defaultValues))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    defaultValues?.user?.commercial_name,
+    defaultValues?.user?.professional_email,
+    defaultValues?.role_id,
+  ])
 
   const handleSubmit = async (data: FormData) => {
     setIsSubmitting(true)

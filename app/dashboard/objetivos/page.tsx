@@ -5,11 +5,20 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Settings2 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
+import { useUser } from '@/hooks/use-user'
+import { useGoals } from '@/hooks/use-goals'
 import { FunnelObjetivosView } from '@/components/goals/funnel/funnel-objetivos-view'
 import { GoalConfigSheet } from '@/components/goals/goal-config-sheet'
 
 function ObjetivosPageInner() {
   const { hasPermission, loading } = usePermissions()
+  const { user } = useUser()
+  const currentYear = new Date().getFullYear()
+  // Look up the user's goal for the current year so the sheet opens in edit
+  // mode (pre-filled) instead of always showing a blank "create" form when a
+  // goal already exists.
+  const { goals, refetch } = useGoals({ year: currentYear, consultant_id: user?.id })
+  const myGoalId = goals[0]?.id ?? null
   const [configOpen, setConfigOpen] = useState(false)
 
   if (loading) {
@@ -40,10 +49,15 @@ function ObjetivosPageInner() {
           className="text-xs text-muted-foreground"
         >
           <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-          Configurar objectivos anuais
+          {myGoalId ? 'Editar objectivos anuais' : 'Configurar objectivos anuais'}
         </Button>
       </div>
-      <GoalConfigSheet open={configOpen} onOpenChange={setConfigOpen} />
+      <GoalConfigSheet
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        goalId={myGoalId}
+        onSuccess={() => refetch()}
+      />
     </div>
   )
 }

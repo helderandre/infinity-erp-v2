@@ -1,9 +1,17 @@
 import type { FunnelStageDef, FunnelStageKey, FunnelType } from '@/types/funnel'
 
-// Conversion rates are educated defaults for PT real estate. The gestor can
-// override any individual stage target via `funnel_target_overrides`. After
-// ~12 months of accumulated history, these defaults will be replaced by
-// per-consultant computed averages.
+// Conversion rates are educated defaults for PT residential real estate.
+// Each rate is "from THIS stage to the NEXT" (0-1). The gestor can override
+// per-consultor via `temp_consultant_goals.funnel_conversion_rates` (jsonb)
+// or per-stage absolute targets via `funnel_target_overrides`.
+//
+// Rationale per rate:
+//   buyer cumulativo  ≈ 2.0%  (≈ 49 contactos por escritura)
+//   seller cumulativo ≈ 1.2%  (≈ 86 contactos por escritura)
+//
+// Anchored against industry consensus for residential PT (1-3% buyer,
+// 1-2.5% seller end-to-end). After ~12 months of activity these will be
+// replaced by per-consultor learned averages.
 
 export const BUYER_STAGES: FunnelStageDef[] = [
   {
@@ -12,7 +20,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 1,
     label: 'Contactos',
     shortLabel: 'Cont',
-    defaultConversionRate: 0.5,
+    // ~60% dos leads engajados recebem opções (alguns ficam sem follow-up)
+    defaultConversionRate: 0.6,
     emptyHint: 'Sem novos contactos no período',
   },
   {
@@ -21,6 +30,7 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 2,
     label: 'Pesquisa de imóveis',
     shortLabel: 'Pesq',
+    // ~40% dos envios geram visita
     defaultConversionRate: 0.4,
     emptyHint: 'Sem envios de imóveis no período',
   },
@@ -30,7 +40,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 3,
     label: 'Visitas',
     shortLabel: 'Vis',
-    defaultConversionRate: 0.3,
+    // ~20% das visitas convertem em proposta (residencial PT, mistura cold+warm)
+    defaultConversionRate: 0.2,
     emptyHint: 'Sem visitas no período',
   },
   {
@@ -39,7 +50,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 4,
     label: 'Propostas',
     shortLabel: 'Prop',
-    defaultConversionRate: 0.6,
+    // ~45% das propostas chegam a CPCV (metade das negociações parte)
+    defaultConversionRate: 0.45,
     emptyHint: 'Sem propostas no período',
   },
   {
@@ -48,7 +60,8 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 5,
     label: 'CPCV',
     shortLabel: 'CPCV',
-    defaultConversionRate: 1.0,
+    // ~95% dos CPCV chegam a escritura (fall-through de financiamento ~5%)
+    defaultConversionRate: 0.95,
     emptyHint: 'Sem CPCV no período',
   },
   {
@@ -57,6 +70,7 @@ export const BUYER_STAGES: FunnelStageDef[] = [
     order: 6,
     label: 'Escritura',
     shortLabel: 'Esc',
+    // Terminal — não cascateia
     defaultConversionRate: 1.0,
     emptyHint: 'Sem escrituras no período',
   },
@@ -69,7 +83,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 1,
     label: 'Contactos',
     shortLabel: 'Cont',
-    defaultConversionRate: 0.4,
+    // ~55% dos contactos de vendedor aceitam reunião de pré-angariação
+    defaultConversionRate: 0.55,
     emptyHint: 'Sem novos contactos no período',
   },
   {
@@ -78,6 +93,7 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 2,
     label: 'Pré-angariação',
     shortLabel: 'Pré',
+    // ~70% das pré-angariações pedem estudo de mercado
     defaultConversionRate: 0.7,
     emptyHint: 'Sem pré-angariações no período',
   },
@@ -87,7 +103,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 3,
     label: 'Estudo de Mercado',
     shortLabel: 'EM',
-    defaultConversionRate: 0.8,
+    // ~50% dos estudos apresentados resultam em angariação assinada
+    defaultConversionRate: 0.5,
     emptyHint: 'Sem estudos de mercado no período',
   },
   {
@@ -96,7 +113,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 4,
     label: 'Angariação',
     shortLabel: 'Ang',
-    defaultConversionRate: 0.5,
+    // ~85% dos listings activos têm visitas (base anual)
+    defaultConversionRate: 0.85,
     emptyHint: 'Sem angariações no período',
   },
   {
@@ -105,7 +123,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 5,
     label: 'Visitas',
     shortLabel: 'Vis',
-    defaultConversionRate: 0.25,
+    // ~15% das visitas a um listing geram proposta (lado vendedor é ainda mais selectivo)
+    defaultConversionRate: 0.15,
     emptyHint: 'Sem visitas no período',
   },
   {
@@ -114,7 +133,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 6,
     label: 'Propostas',
     shortLabel: 'Prop',
-    defaultConversionRate: 0.7,
+    // ~50% das propostas (vista do vendedor) chegam a CPCV
+    defaultConversionRate: 0.5,
     emptyHint: 'Sem propostas no período',
   },
   {
@@ -123,7 +143,8 @@ export const SELLER_STAGES: FunnelStageDef[] = [
     order: 7,
     label: 'CPCV',
     shortLabel: 'CPCV',
-    defaultConversionRate: 1.0,
+    // ~95% como no funil comprador
+    defaultConversionRate: 0.95,
     emptyHint: 'Sem CPCV no período',
   },
   {

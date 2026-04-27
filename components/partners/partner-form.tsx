@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createPartnerSchema, type CreatePartnerInput } from '@/lib/validations/partner'
@@ -47,38 +47,48 @@ export function PartnerForm({ partner, onSubmit, onCancel, canSeePrivate, isProp
   const isEditing = !!partner
   const { categories } = usePartnerCategories()
 
+  const buildDefaults = (p?: Partner | null): CreatePartnerInput => ({
+    name: p?.name || '',
+    person_type: p?.person_type || 'coletiva',
+    nif: p?.nif || '',
+    category: p?.category || 'other',
+    visibility: p?.visibility || 'public',
+    email: p?.email || '',
+    phone: p?.phone || '',
+    phone_secondary: p?.phone_secondary || '',
+    website: p?.website || '',
+    address: p?.address || '',
+    city: p?.city || '',
+    postal_code: p?.postal_code || '',
+    contact_person: p?.contact_person || '',
+    specialties: p?.specialties || [],
+    service_areas: p?.service_areas || [],
+    commercial_conditions: p?.commercial_conditions || '',
+    payment_method: p?.payment_method || null,
+    is_recommended: p?.is_recommended || false,
+    internal_notes: p?.internal_notes || '',
+    cover_image_url: p?.cover_image_url || '',
+    description: p?.description || '',
+  })
+
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<CreatePartnerInput>({
     resolver: zodResolver(createPartnerSchema),
-    defaultValues: {
-      name: partner?.name || '',
-      person_type: partner?.person_type || 'coletiva',
-      nif: partner?.nif || '',
-      category: partner?.category || 'other',
-      visibility: partner?.visibility || 'public',
-      email: partner?.email || '',
-      phone: partner?.phone || '',
-      phone_secondary: partner?.phone_secondary || '',
-      website: partner?.website || '',
-      address: partner?.address || '',
-      city: partner?.city || '',
-      postal_code: partner?.postal_code || '',
-      contact_person: partner?.contact_person || '',
-      specialties: partner?.specialties || [],
-      service_areas: partner?.service_areas || [],
-      commercial_conditions: partner?.commercial_conditions || '',
-      payment_method: partner?.payment_method || null,
-      is_recommended: partner?.is_recommended || false,
-      internal_notes: partner?.internal_notes || '',
-      cover_image_url: partner?.cover_image_url || '',
-      description: partner?.description || '',
-    },
+    defaultValues: buildDefaults(partner),
   })
+
+  // Re-seed the form when the parent passes a different partner (e.g. switching
+  // between rows in a list), otherwise useForm keeps the very first defaults
+  // and the edit sheet shows stale data — silently failing zod validation on save.
+  useEffect(() => {
+    reset(buildDefaults(partner))
+  }, [partner?.id])
 
   const specialties = watch('specialties') || []
   const serviceAreas = watch('service_areas') || []

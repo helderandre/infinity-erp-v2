@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ownerSchema, type OwnerFormData } from '@/lib/validations/owner'
@@ -31,49 +32,60 @@ interface OwnerFormProps {
   onCancel?: () => void
 }
 
+function buildOwnerDefaults(owner?: OwnerRow | null): OwnerFormData {
+  return {
+    person_type: (owner?.person_type as 'singular' | 'coletiva') || 'singular',
+    name: owner?.name || '',
+    email: owner?.email || '',
+    phone: owner?.phone || '',
+    nif: owner?.nif || '',
+    nationality: owner?.nationality || '',
+    naturality: owner?.naturality || '',
+    marital_status: owner?.marital_status || '',
+    marital_regime: owner?.marital_regime || '',
+    address: owner?.address || '',
+    postal_code: owner?.postal_code || '',
+    city: owner?.city || '',
+    observations: owner?.observations || '',
+    birth_date: owner?.birth_date || '',
+    id_doc_type: owner?.id_doc_type || '',
+    id_doc_number: owner?.id_doc_number || '',
+    id_doc_expiry: owner?.id_doc_expiry || '',
+    id_doc_issued_by: owner?.id_doc_issued_by || '',
+    profession: owner?.profession || '',
+    last_profession: owner?.last_profession || '',
+    is_portugal_resident: owner?.is_portugal_resident ?? true,
+    residence_country: owner?.residence_country || '',
+    is_pep: owner?.is_pep ?? false,
+    pep_position: owner?.pep_position || '',
+    funds_origin: owner?.funds_origin || [],
+    legal_representative_name: owner?.legal_representative_name || '',
+    legal_representative_nif: owner?.legal_representative_nif || '',
+    legal_rep_id_doc: owner?.legal_rep_id_doc || '',
+    company_cert_url: owner?.company_cert_url || '',
+    company_object: owner?.company_object || '',
+    company_branches: owner?.company_branches || '',
+    legal_nature: owner?.legal_nature || '',
+    country_of_incorporation: owner?.country_of_incorporation || '',
+    cae_code: owner?.cae_code || '',
+    rcbe_code: owner?.rcbe_code || '',
+  }
+}
+
 export function OwnerForm({ owner, onSuccess, onCancel }: OwnerFormProps) {
   const isEditing = !!owner
 
   const form = useForm<OwnerFormData>({
     resolver: zodResolver(ownerSchema),
-    defaultValues: {
-      person_type: (owner?.person_type as 'singular' | 'coletiva') || 'singular',
-      name: owner?.name || '',
-      email: owner?.email || '',
-      phone: owner?.phone || '',
-      nif: owner?.nif || '',
-      nationality: owner?.nationality || '',
-      naturality: owner?.naturality || '',
-      marital_status: owner?.marital_status || '',
-      marital_regime: owner?.marital_regime || '',
-      address: owner?.address || '',
-      postal_code: owner?.postal_code || '',
-      city: owner?.city || '',
-      observations: owner?.observations || '',
-      birth_date: owner?.birth_date || '',
-      id_doc_type: owner?.id_doc_type || '',
-      id_doc_number: owner?.id_doc_number || '',
-      id_doc_expiry: owner?.id_doc_expiry || '',
-      id_doc_issued_by: owner?.id_doc_issued_by || '',
-      profession: owner?.profession || '',
-      last_profession: owner?.last_profession || '',
-      is_portugal_resident: owner?.is_portugal_resident ?? true,
-      residence_country: owner?.residence_country || '',
-      is_pep: owner?.is_pep ?? false,
-      pep_position: owner?.pep_position || '',
-      funds_origin: owner?.funds_origin || [],
-      legal_representative_name: owner?.legal_representative_name || '',
-      legal_representative_nif: owner?.legal_representative_nif || '',
-      legal_rep_id_doc: owner?.legal_rep_id_doc || '',
-      company_cert_url: owner?.company_cert_url || '',
-      company_object: owner?.company_object || '',
-      company_branches: owner?.company_branches || '',
-      legal_nature: owner?.legal_nature || '',
-      country_of_incorporation: owner?.country_of_incorporation || '',
-      cae_code: owner?.cae_code || '',
-      rcbe_code: owner?.rcbe_code || '',
-    },
+    defaultValues: buildOwnerDefaults(owner),
   })
+
+  // Re-seed when the parent swaps the owner. useForm only reads defaultValues
+  // on mount; without this, switching between owners or opening the form after
+  // the data has loaded leaves the inputs blank.
+  useEffect(() => {
+    form.reset(buildOwnerDefaults(owner))
+  }, [owner?.id])
 
   const personType = form.watch('person_type')
   const isPep = form.watch('is_pep')

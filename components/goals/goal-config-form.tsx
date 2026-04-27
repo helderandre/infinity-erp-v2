@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
@@ -88,24 +88,23 @@ export function GoalConfigForm({
   const [activeTab, setActiveTab] = useState<'geral' | 'vendedores' | 'compradores'>('geral')
   const isEdit = !!goalId
 
-  const form = useForm<CreateGoalInput>({
-    resolver: zodResolver(goalBaseSchema),
-    defaultValues: initialData
+  const buildFormDefaults = (initial?: ConsultantGoal): CreateGoalInput =>
+    initial
       ? {
-          consultant_id: initialData.consultant_id,
-          year: initialData.year,
-          annual_revenue_target: initialData.annual_revenue_target,
-          pct_sellers: initialData.pct_sellers,
-          pct_buyers: initialData.pct_buyers,
-          working_weeks_year: initialData.working_weeks_year,
-          working_days_week: initialData.working_days_week,
-          sellers_avg_sale_value: initialData.sellers_avg_sale_value,
-          sellers_avg_commission_pct: initialData.sellers_avg_commission_pct,
-          buyers_avg_purchase_value: initialData.buyers_avg_purchase_value,
-          buyers_avg_commission_pct: initialData.buyers_avg_commission_pct,
+          consultant_id: initial.consultant_id,
+          year: initial.year,
+          annual_revenue_target: initial.annual_revenue_target,
+          pct_sellers: initial.pct_sellers,
+          pct_buyers: initial.pct_buyers,
+          working_weeks_year: initial.working_weeks_year,
+          working_days_week: initial.working_days_week,
+          sellers_avg_sale_value: initial.sellers_avg_sale_value,
+          sellers_avg_commission_pct: initial.sellers_avg_commission_pct,
+          buyers_avg_purchase_value: initial.buyers_avg_purchase_value,
+          buyers_avg_commission_pct: initial.buyers_avg_commission_pct,
           funnel_conversion_rates: {
-            buyer: buildInitialRates(initialData, 'buyer'),
-            seller: buildInitialRates(initialData, 'seller'),
+            buyer: buildInitialRates(initial, 'buyer'),
+            seller: buildInitialRates(initial, 'seller'),
           },
         }
       : {
@@ -124,8 +123,19 @@ export function GoalConfigForm({
             buyer: buildDefaultRates('buyer'),
             seller: buildDefaultRates('seller'),
           },
-        },
+        }
+
+  const form = useForm<CreateGoalInput>({
+    resolver: zodResolver(goalBaseSchema),
+    defaultValues: buildFormDefaults(initialData),
   })
+
+  // Re-seed when the parent fetches the goal asynchronously or navigates between
+  // different goals while the form stays mounted.
+  useEffect(() => {
+    form.reset(buildFormDefaults(initialData))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id])
 
   const watchPctSellers = form.watch('pct_sellers')
 

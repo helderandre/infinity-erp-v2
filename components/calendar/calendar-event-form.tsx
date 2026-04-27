@@ -225,6 +225,32 @@ export function CalendarEventForm({
     }
   }
 
+  // Map of form field → tab so a Zod error on a hidden tab can surface visibly.
+  // Without this, the user clicks "Guardar" on tab Conteúdo, validation fails on
+  // a field in Opções, and the form just silently does nothing.
+  const FIELD_TO_TAB: Partial<Record<keyof CalendarEventFormData, string>> = {
+    description: 'conteudo',
+    cover_image_url: 'conteudo',
+    location: 'conteudo',
+    livestream_url: 'conteudo',
+    registration_url: 'conteudo',
+    reminders: 'opcoes',
+    is_recurring: 'opcoes',
+    recurrence_rule: 'opcoes',
+    requires_rsvp: 'opcoes',
+    priority: 'opcoes',
+    links: 'opcoes',
+  }
+
+  const handleInvalid = (formErrors: typeof errors) => {
+    const firstKey = Object.keys(formErrors)[0] as keyof CalendarEventFormData | undefined
+    if (!firstKey) return
+    const targetTab = FIELD_TO_TAB[firstKey] ?? 'detalhes'
+    setActiveTab(targetTab)
+    const msg = (formErrors[firstKey] as { message?: string } | undefined)?.message
+    toast.error(msg || 'Verifica os campos assinalados a vermelho.')
+  }
+
   const parseDateValue = (value: string | null | undefined): Date | undefined => {
     if (!value) return undefined
     try { return parseISO(value) } catch { return undefined }
@@ -518,7 +544,7 @@ export function CalendarEventForm({
         )}
 
         <form
-          onSubmit={handleSubmit(handleFormSubmit as any)}
+          onSubmit={handleSubmit(handleFormSubmit as any, handleInvalid as any)}
           className="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
           {/* Header */}

@@ -153,23 +153,34 @@ export function PropertyForm({
       .catch(() => {})
   }, [])
 
+  const buildPropertyDefaults = (dv?: Partial<FormValues>): FormValues => ({
+    title: '',
+    description: '',
+    property_type: '',
+    business_type: '',
+    status: 'pending_approval',
+    has_elevator: false,
+    features: [],
+    solar_orientation: [],
+    views_list: [],
+    equipment_list: [],
+    commission_type: 'percentage',
+    ...dv,
+  } as FormValues)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
-    defaultValues: {
-      title: '',
-      description: '',
-      property_type: '',
-      business_type: '',
-      status: 'pending_approval',
-      has_elevator: false,
-      features: [],
-      solar_orientation: [],
-      views_list: [],
-      equipment_list: [],
-      commission_type: 'percentage',
-      ...defaultValues,
-    },
+    defaultValues: buildPropertyDefaults(defaultValues),
   })
+
+  // Re-seed when the parent fetches the property after mount or navigates
+  // between different /imoveis/[id]/editar pages without unmounting the form.
+  // useForm only reads defaultValues on first mount, so without this the edit
+  // form silently keeps blank/stale values and submit can fail Zod validation.
+  useEffect(() => {
+    form.reset(buildPropertyDefaults(defaultValues))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultValues])
 
   const canGoNext = async () => {
     const fields = STEP_REQUIRED_FIELDS[STEPS[step].key] || []

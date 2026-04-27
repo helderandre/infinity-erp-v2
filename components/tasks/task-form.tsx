@@ -61,23 +61,35 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { createTask } = useTaskMutations()
 
+  const buildDefaults = (dv?: TaskFormProps['defaultValues']): FormData => ({
+    title: dv?.title || '',
+    description: dv?.description || '',
+    priority: dv?.priority ?? 4,
+    is_recurring: false,
+    due_date: dv?.due_date || undefined,
+    reminders: [],
+    entity_type: dv?.entity_type || null,
+    entity_id: dv?.entity_id || null,
+    assigned_to: dv?.assigned_to || null,
+    parent_task_id: dv?.parent_task_id || null,
+    task_list_id: dv?.task_list_id || null,
+    section: dv?.section || null,
+  })
+
   const form = useForm<FormData>({
     resolver: zodResolver(createTaskSchema),
-    defaultValues: {
-      title: defaultValues?.title || '',
-      description: defaultValues?.description || '',
-      priority: defaultValues?.priority ?? 4,
-      is_recurring: false,
-      due_date: defaultValues?.due_date || undefined,
-      reminders: [],
-      entity_type: defaultValues?.entity_type || null,
-      entity_id: defaultValues?.entity_id || null,
-      assigned_to: defaultValues?.assigned_to || null,
-      parent_task_id: defaultValues?.parent_task_id || null,
-      task_list_id: defaultValues?.task_list_id || null,
-      section: defaultValues?.section || null,
-    },
+    defaultValues: buildDefaults(defaultValues),
   })
+
+  // Re-seed each time the sheet opens — the parent often reuses the same
+  // <TaskForm> instance with different `defaultValues` (entity_id, parent_task_id,
+  // section…) and useForm only reads them on first mount.
+  useEffect(() => {
+    if (open) {
+      form.reset(buildDefaults(defaultValues))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultValues?.entity_id, defaultValues?.parent_task_id, defaultValues?.section, defaultValues?.task_list_id])
 
   const isRecurring = form.watch('is_recurring')
   const selectedEntityType = form.watch('entity_type')

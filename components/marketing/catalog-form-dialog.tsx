@@ -278,7 +278,7 @@ export function CatalogFormDialog({ open, onOpenChange, item, onSubmit }: Props)
 
           <div className="space-y-2">
             <Label htmlFor="estimated_delivery_days">Prazo de Entrega (dias úteis)</Label>
-            <Input id="estimated_delivery_days" type="number" min="1" {...register('estimated_delivery_days')} />
+            <Input id="estimated_delivery_days" type="number" min="0" {...register('estimated_delivery_days')} />
             {errors.estimated_delivery_days && <p className="text-xs text-destructive">{errors.estimated_delivery_days.message}</p>}
           </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -42,11 +42,16 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
   const open = entry !== null
   const editable = scope.kind === 'company'
 
-  // Reset form when a new entry opens
-  if (entry && !editing) {
-    if (description !== entry.description) setDescription(entry.description)
-    if (amountGross !== String(entry.amount)) setAmountGross(String(entry.amount))
-  }
+  // Sync the local edit state when a different entry is opened. Doing this in
+  // a useEffect (instead of during render) avoids the setState-on-render loop
+  // and keeps the edit form in sync when the user switches between entries
+  // without closing the sheet.
+  useEffect(() => {
+    if (entry && !editing) {
+      setDescription(entry.description)
+      setAmountGross(String(entry.amount))
+    }
+  }, [entry?.id, editing])
 
   const handleEnterEdit = () => {
     if (!entry) return

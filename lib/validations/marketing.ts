@@ -9,7 +9,7 @@ export const createCatalogItemSchema = z.object({
   description: z.string().default(''),
   category: z.enum(categories, { message: 'Categoria inválida' }),
   price: z.coerce.number().min(0, 'Preço deve ser positivo'),
-  estimated_delivery_days: z.coerce.number().int().min(1, 'Mínimo 1 dia'),
+  estimated_delivery_days: z.coerce.number().int().min(0, 'Não pode ser negativo'),
   thumbnail: z.string().url().optional().nullable(),
   is_active: z.boolean().default(true),
   requires_scheduling: z.boolean().default(false),

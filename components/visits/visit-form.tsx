@@ -82,6 +82,7 @@ export function VisitForm({
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<CreateVisitInput>({
     resolver: zodResolver(createVisitSchema),
@@ -98,6 +99,25 @@ export function VisitForm({
       client_email: null,
     },
   })
+
+  // Re-seed when the parent passes new defaults (e.g. opening the visit
+  // sheet from a different property/lead context). Without this, useForm
+  // sticks to the very first defaults and the pre-fill is silently dropped.
+  useEffect(() => {
+    reset({
+      property_id: defaultPropertyId || '',
+      lead_id: defaultLeadId || null,
+      consultant_id: defaultConsultantId || '',
+      visit_date: new Date().toISOString().split('T')[0],
+      visit_time: '10:00',
+      duration_minutes: 30,
+      notes: '',
+      client_name: null,
+      client_phone: null,
+      client_email: null,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPropertyId, defaultLeadId, defaultConsultantId])
 
   const selectedLeadId = watch('lead_id')
 

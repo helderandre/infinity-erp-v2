@@ -113,8 +113,12 @@ export async function PUT(
           { status: 400 },
         )
       }
+      // `priority` is task-only; drop it before update or PostgREST 400s
+      // ("Could not find the 'priority' column of 'calendar_events'").
+      const { priority: _priority, ...eventUpdate } = parsed.data
+      void _priority
       updatePayload = {
-        ...parsed.data,
+        ...eventUpdate,
         updated_at: new Date().toISOString(),
       }
     }

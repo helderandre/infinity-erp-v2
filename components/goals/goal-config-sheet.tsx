@@ -9,39 +9,93 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { GoalConfigForm } from './goal-config-form'
+import type { ConsultantGoal } from '@/types/goal'
 
 interface GoalConfigSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: (id: string) => void
+  /** When set, the sheet opens in edit mode and pre-fills with the goal's data. */
+  goalId?: string | null
 }
 
-export function GoalConfigSheet({ open, onOpenChange, onSuccess }: GoalConfigSheetProps) {
+export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalConfigSheetProps) {
   const isMobile = useIsMobile()
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [goal, setGoal] = useState<ConsultantGoal | null>(null)
+  // Track each fetch independently so we can render the form as soon as the
+  // pieces it actually needs are ready, instead of blocking on the slowest one.
+  const [loadingConsultants, setLoadingConsultants] = useState(true)
+  const [loadingGoal, setLoadingGoal] = useState(false)
+  const [goalFetchFailed, setGoalFetchFailed] = useState(false)
+  const isEdit = !!goalId
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    setIsLoading(true)
+
+    setLoadingConsultants(true)
     fetch('/api/users/consultants')
-      .then((res) => (res.ok ? res.json() : []))
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .catch(() => ({ data: [] }))
       .then((json) => {
         if (cancelled) return
-        setConsultants(json.data || json || [])
+        setConsultants(json?.data || json || [])
       })
-      .catch(() => {})
       .finally(() => {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelled) setLoadingConsultants(false)
       })
+
     return () => {
       cancelled = true
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    if (!goalId) {
+      setGoal(null)
+      setLoadingGoal(false)
+      setGoalFetchFailed(false)
+      return
+    }
+    let cancelled = false
+    setLoadingGoal(true)
+    setGoalFetchFailed(false)
+    setGoal(null)
+
+    fetch(`/api/goals/${goalId}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          if (!cancelled) setGoalFetchFailed(true)
+          return null
+        }
+        return res.json()
+      })
+      .catch(() => {
+        if (!cancelled) setGoalFetchFailed(true)
+        return null
+      })
+      .then((json) => {
+        if (cancelled) return
+        setGoal(json || null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingGoal(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, goalId])
+
+  // In edit mode we need both pieces. In create mode we only need consultants.
+  const isLoading = loadingConsultants || (isEdit && loadingGoal)
+  const editButGoalMissing = isEdit && !isLoading && !goal
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -62,10 +116,12 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess }: GoalConfigShe
         <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
           <SheetHeader className="p-0 gap-1">
             <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
-              Novo Objetivo
+              {isEdit ? 'Editar Objetivo' : 'Novo Objetivo'}
             </SheetTitle>
             <SheetDescription className="text-xs text-muted-foreground">
-              Definir objetivo anual e parâmetros de funil para um consultor
+              {isEdit
+                ? 'Atualizar parâmetros do objetivo e funis de conversão'
+                : 'Definir objetivo anual e parâmetros de funil para um consultor'}
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -76,10 +132,33 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess }: GoalConfigShe
               <Skeleton className="h-[280px] w-full rounded-xl" />
               <Skeleton className="h-[180px] w-full rounded-xl" />
             </div>
+          ) : editButGoalMissing ? (
+            <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-6 text-center space-y-3">
+              <p className="text-sm font-medium">Objetivo não encontrado</p>
+              <p className="text-xs text-muted-foreground">
+                {goalFetchFailed
+                  ? 'Não foi possível carregar este objetivo. Verifica as tuas permissões e tenta novamente.'
+                  : 'Este objetivo já não existe.'}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => onOpenChange(false)}
+              >
+                Fechar
+              </Button>
+            </div>
           ) : (
+            // `key` forces a clean remount when switching between create / edit
+            // so useForm picks up the right defaults from the start instead of
+            // depending on a follow-up form.reset.
             <GoalConfigForm
+              key={goalId ?? 'new'}
               consultants={consultants}
-              enableQuickFill
+              initialData={goal ?? undefined}
+              goalId={isEdit ? (goalId as string) : undefined}
+              enableQuickFill={!isEdit}
               onCancel={() => onOpenChange(false)}
               onSuccess={(id) => {
                 onOpenChange(false)

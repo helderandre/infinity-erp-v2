@@ -493,12 +493,13 @@ export function AcquisitionFormV2({
         </>
       ) : (
         <>
-          <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
+          <span className="text-xs font-medium text-foreground">É de um negócio existente?</span>
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="text-xs font-medium text-primary hover:underline ml-auto"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
           >
+            <Briefcase className="h-3.5 w-3.5" />
             Escolher negócio
           </button>
         </>
@@ -623,12 +624,13 @@ export function AcquisitionFormV2({
               </>
             ) : (
               <>
-                <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
+                <span className="text-xs font-medium text-foreground">É de um negócio existente?</span>
                 <button
                   type="button"
                   onClick={() => setPickerOpen(true)}
-                  className="text-xs font-medium text-primary hover:underline ml-auto"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
                 >
+                  <Briefcase className="h-3.5 w-3.5" />
                   Escolher negócio
                 </button>
               </>
