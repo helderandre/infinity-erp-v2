@@ -58,18 +58,25 @@ export async function POST(
       .is('deleted_at' as any, null)
       .maybeSingle()
 
+    // PROC-NEG não tem flow de aprovação — auto-active ao submeter.
+    // (Decisão do stakeholder: a aprovação foi removida do fluxo
+    // genérico de processos para fechos de negócio.)
+    const nowIso = new Date().toISOString()
     const { data: procInstance, error: procError } = await supabase
       .from('proc_instances')
       .insert({
         property_id: deal.property_id || null,
         tpl_process_id: negTemplate?.id || null,
-        current_status: 'pending_approval',
+        current_status: 'active',
         process_type: 'negocio',
         requested_by: auth.user.id,
+        approved_at: nowIso,
+        approved_by: auth.user.id,
+        started_at: nowIso,
         percent_complete: 0,
         last_completed_step: 0,
       })
-      .select('id')
+      .select('id, tpl_process_id')
       .single()
 
     if (procError || !procInstance) {
@@ -77,6 +84,38 @@ export async function POST(
         { error: 'Erro ao criar processo', details: procError?.message },
         { status: 500 }
       )
+    }
+
+    // Popular tasks do template — não há trigger registado em proc_instances,
+    // a função `populate_process_tasks(uuid)` tem de ser chamada explicitamente
+    // (mesmo padrão usado no fluxo de angariação após `approve`).
+    if (negTemplate?.id) {
+      const { error: populateError } = await supabase.rpc(
+        'populate_process_tasks' as never,
+        { p_instance_id: procInstance.id } as never,
+      )
+      if (populateError) {
+        console.error('[deals/submit] populate_process_tasks falhou:', populateError.message)
+        // Não revertemos o proc_instance — o template pode ser re-aplicado via
+        // /api/processes/[id]/re-template depois.
+      }
+
+      // Definir current_stage_id para a primeira stage do template
+      // (populate_process_tasks não o faz — é responsabilidade do caller).
+      const { data: firstStage } = await supabase
+        .from('tpl_stages')
+        .select('id')
+        .eq('tpl_process_id', negTemplate.id)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (firstStage) {
+        await supabase
+          .from('proc_instances')
+          .update({ current_stage_id: (firstStage as { id: string }).id })
+          .eq('id', procInstance.id)
+      }
     }
 
     // ── 2. Fetch agency settings for network % ──

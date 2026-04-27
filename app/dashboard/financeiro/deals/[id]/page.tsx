@@ -37,6 +37,7 @@ import {
   updatePaymentInvoice,
 } from '@/app/dashboard/financeiro/deals/actions'
 import { DealComplianceTab } from '@/components/financial/deal-compliance-tab'
+import { SurveyInviteCard } from '@/components/financial/survey-invite-card'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { Workflow, Euro, ShieldCheck } from 'lucide-react'
 
@@ -443,8 +444,9 @@ export default function DealDetailPage() {
 
           {/* ── Compliance tab ── */}
           {activeTab === 'compliance' && (
-            <div className="animate-in fade-in duration-200">
+            <div className="animate-in fade-in duration-200 space-y-5">
               <DealComplianceTab dealId={deal.id} dealValue={deal.deal_value} dealDate={deal.deal_date} />
+              <SurveyInviteCard dealId={deal.id} dealStatus={deal.status} />
             </div>
           )}
         </div>

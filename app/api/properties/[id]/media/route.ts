@@ -24,21 +24,11 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const rows = data || []
-    const gallery = rows.filter(
-      (m) => m.media_type !== 'planta' && m.media_type !== 'planta_3d'
-    )
-    if (gallery.length > 0 && !gallery.some((m) => m.is_cover)) {
-      const first = gallery[0]
-      await supabase
-        .from('dev_property_media')
-        .update({ is_cover: true })
-        .eq('id', first.id)
-      const idx = rows.findIndex((m) => m.id === first.id)
-      if (idx !== -1) rows[idx] = { ...rows[idx], is_cover: true }
-    }
-
-    return NextResponse.json(rows)
+    // Auto-promote-to-cover removed: the cover is now set exclusively by
+    // explicit user action (clicking the star). Without this guard, every
+    // read silently re-promoted a photo whenever the user removed the
+    // cover — making the UI feel broken.
+    return NextResponse.json(data || [])
   } catch (error) {
     console.error('Erro ao listar media:', error)
     return NextResponse.json(
@@ -124,20 +114,9 @@ export async function POST(
     const baseOrder = maxOrderData?.order_index != null ? maxOrderData.order_index + 1 : 0
     const nextOrder = explicitOrderIndex !== null ? explicitOrderIndex : baseOrder + positionOffset
 
-    // If this is a regular gallery image and no cover exists yet, auto-promote it
-    let finalIsCover = isCover
-    if (!finalIsCover && mediaType !== 'planta' && mediaType !== 'planta_3d') {
-      const { data: existingCover } = await supabase
-        .from('dev_property_media')
-        .select('id')
-        .eq('property_id', id)
-        .eq('is_cover', true)
-        .not('media_type', 'in', '("planta","planta_3d")')
-        .limit(1)
-      if (!existingCover || existingCover.length === 0) {
-        finalIsCover = true
-      }
-    }
+    // No auto-promote: respect exactly what the client sent. The cover is
+    // set explicitly via the star button on each photo.
+    const finalIsCover = isCover
 
     const { data: media, error } = await supabase
       .from('dev_property_media')

@@ -53,6 +53,7 @@ import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { DealForm } from '@/components/financial/deal-form'
+import { NegocioCard } from '@/components/negocios/negocio-card'
 import {
   getDeals,
   getConsultantsForSelect,
@@ -144,6 +145,7 @@ function NegociosPageContent() {
   const searchParams = useSearchParams()
 
   const [deals, setDeals] = useState<Deal[]>([])
+  const [thumbnails, setThumbnails] = useState<Record<string, string | null>>({})
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
@@ -246,6 +248,30 @@ function NegociosPageContent() {
     loadDeals()
   }, [loadDeals])
 
+  // Batch-fetch thumbnails (first marketing moment photo per deal) sempre que
+  // a página de deals muda. Esses URLs alimentam o hero do <NegocioCard>; deals
+  // sem moment ficam com null e o card cai para deal logo.
+  useEffect(() => {
+    if (deals.length === 0 || viewMode !== 'grid') {
+      return
+    }
+    const ids = deals.map((d) => d.id)
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/deals/thumbnails?ids=${ids.join(',')}`)
+        if (!res.ok) return
+        const { data } = await res.json()
+        if (!cancelled && data) setThumbnails(data)
+      } catch {
+        // silenciosamente ignora — fallback é deal logo
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [deals, viewMode])
+
   useEffect(() => {
     loadConsultants()
   }, [loadConsultants])
@@ -279,7 +305,16 @@ function NegociosPageContent() {
   }
 
   const openDetail = (d: Deal) => {
-    router.push(`/dashboard/financeiro/deals/${d.id}`)
+    // Preferir a nova página unificada do negócio (6 tabs com Apresentação,
+    // Momentos, Processo, Financeiro embebido). Se o deal não tiver
+    // `negocio_id` (raro — drafts antigos), cai para a página financeira
+    // dedicada.
+    const negocioId = (d as { negocio_id?: string | null }).negocio_id
+    if (negocioId) {
+      router.push(`/dashboard/negocios/${negocioId}`)
+    } else {
+      router.push(`/dashboard/financeiro/deals/${d.id}`)
+    }
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1
@@ -620,64 +655,29 @@ function NegociosPageContent() {
               const scenario = d.deal_type as DealScenario
               const scenarioInfo = DEAL_SCENARIOS[scenario]
               const statusInfo = DEAL_STATUSES[d.status]
-              const ref = d.reference || d.pv_number || d.id.slice(0, 8)
               return (
-                <div
+                <NegocioCard
                   key={d.id}
+                  deal={{
+                    id: d.id,
+                    reference: d.reference,
+                    pv_number: d.pv_number,
+                    property_title: d.property?.title ?? null,
+                    external_property_link: d.external_property_link ?? null,
+                    deal_type: d.deal_type,
+                    status: d.status,
+                    deal_value: d.deal_value,
+                    commission_total: d.commission_total,
+                    deal_date: d.deal_date,
+                    consultant_name: d.consultant?.commercial_name ?? null,
+                  }}
+                  thumbnailUrl={thumbnails[d.id] ?? null}
+                  scenarioInfo={scenarioInfo}
+                  scenarioColor={SCENARIO_COLORS[scenario] || 'bg-muted text-muted-foreground border-border'}
+                  statusInfo={statusInfo}
+                  statusDot={STATUS_DOTS[d.status]}
                   onClick={() => openDetail(d)}
-                  className="group rounded-2xl border border-border/30 bg-card/50 p-5 cursor-pointer transition-all hover:shadow-lg hover:bg-card"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[11px] text-muted-foreground truncate">{ref}</p>
-                      <p className="font-semibold text-sm truncate mt-0.5">
-                        {d.property?.title || (d.external_property_link ? 'Imóvel externo' : '—')}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap border shrink-0',
-                        SCENARIO_COLORS[scenario] || 'bg-muted text-muted-foreground border-border'
-                      )}
-                    >
-                      {scenarioInfo?.label ?? d.deal_type}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {statusInfo && (
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium',
-                          statusInfo.color
-                        )}
-                      >
-                        <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOTS[d.status])} />
-                        {statusInfo.label}
-                      </span>
-                    )}
-                    {d.consultant?.commercial_name && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2 py-0.5 rounded-full">
-                        <Users className="h-2.5 w-2.5" />
-                        {d.consultant.commercial_name}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pt-3 border-t border-border/30">
-                    <div>
-                      <p className="text-muted-foreground text-[10px]">Valor</p>
-                      <p className="font-semibold">{fmtCurrency(d.deal_value)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground text-[10px]">Comissão</p>
-                      <p className="font-semibold">{fmtCurrency(d.commission_total)}</p>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 text-right">
-                    {fmtDate(d.deal_date)}
-                  </p>
-                </div>
+                />
               )
             })}
           </div>

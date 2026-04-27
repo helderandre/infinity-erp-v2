@@ -4,6 +4,7 @@ import { notificationService } from '@/lib/notifications/service'
 import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 import { logGoalActivity } from '@/lib/goals/log-activity'
+import { ensureLeadAndNegocioForAcquisition } from '@/lib/acquisitions/ensure-lead-and-negocio'
 
 export async function POST(
   request: Request,
@@ -19,7 +20,7 @@ export async function POST(
     // Load the proc_instance
     const { data: proc, error: procError } = await supabase
       .from('proc_instances')
-      .select('id, property_id, current_status')
+      .select('id, property_id, current_status, negocio_id')
       .eq('id', id)
       .single()
 
@@ -92,6 +93,19 @@ export async function POST(
         { error: 'Erro ao finalizar', details: propUpdate.error?.message || procUpdate.error?.message },
         { status: 500 }
       )
+    }
+
+    // Auto-criar lead + negócio quando a angariação não tem negócio associado
+    if (!(proc as any).negocio_id) {
+      try {
+        await ensureLeadAndNegocioForAcquisition(supabase, {
+          procInstanceId: id,
+          propertyId: proc.property_id,
+          consultantId: auth.user.id,
+        })
+      } catch (linkError) {
+        console.error('[Finalize] Erro ao criar lead+negócio automaticamente:', linkError)
+      }
     }
 
     // Log listing to goals system

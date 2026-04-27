@@ -9,17 +9,25 @@ export async function GET(
     const { id } = await params
     const supabase = await createClient() as any
 
+    // `leads` only has `nome` (no `name` column) — selecting both used to
+    // 500 with column-not-found. The FK hint is also dropped: PostgREST
+    // resolves the consultant relation by the column name alone unless
+    // there are multiple FKs to dev_users, in which case we'd need a
+    // disambiguator that actually matches the constraint.
     const { data, error } = await supabase
       .from('property_propostas')
       .select(`
         *,
-        lead:leads(id, name, nome, email),
-        consultant:dev_users!property_propostas_consultant_id_fkey(id, commercial_name)
+        lead:leads(id, nome, email),
+        consultant:consultant_id(id, commercial_name)
       `)
       .eq('property_id', id)
       .order('created_at', { ascending: false })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.error('Erro ao listar propostas:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json(data || [])
   } catch (error) {
     console.error('Erro ao listar propostas:', error)

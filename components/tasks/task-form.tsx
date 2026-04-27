@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, CalendarIcon, RotateCcw, Search } from 'lucide-react'
@@ -31,6 +31,7 @@ import { TASK_PRIORITY_MAP, RECURRENCE_PRESETS, TASK_ENTITY_LABELS } from '@/typ
 import type { TaskEntityType } from '@/types/task'
 import { useTaskMutations } from '@/hooks/use-tasks'
 import { AIQuickFillBar } from '@/components/shared/ai-quick-fill-bar'
+import { EntityPicker, type EntityKind } from '@/components/tasks/entity-picker'
 import { toast as sonnerToast } from 'sonner'
 import type { z } from 'zod'
 
@@ -55,39 +56,9 @@ interface TaskFormProps {
   }
 }
 
-interface EntityOption {
-  id: string
-  label: string
-}
-
-const ENTITY_ENDPOINTS: Record<string, { url: string; mapFn: (item: any) => EntityOption }> = {
-  property: {
-    url: '/api/properties?limit=50',
-    mapFn: (p) => ({ id: p.id, label: p.title || p.slug || p.id }),
-  },
-  lead: {
-    url: '/api/leads?limit=50',
-    mapFn: (l) => ({ id: l.id, label: l.nome || l.email || l.id }),
-  },
-  process: {
-    url: '/api/processes?limit=50',
-    mapFn: (p) => ({ id: p.id, label: p.external_ref || p.id }),
-  },
-  owner: {
-    url: '/api/proprietarios?limit=50',
-    mapFn: (o) => ({ id: o.id, label: o.name || o.nome || o.id }),
-  },
-  negocio: {
-    url: '/api/negocios?limit=50',
-    mapFn: (n) => ({ id: n.id, label: n.tipo ? `${n.tipo} — ${n.localizacao || n.id}` : n.id }),
-  },
-}
-
 export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultValues }: TaskFormProps) {
   const isMobile = useIsMobile()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
-  const [isLoadingEntities, setIsLoadingEntities] = useState(false)
   const { createTask } = useTaskMutations()
 
   const form = useForm<FormData>({
@@ -110,33 +81,6 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
 
   const isRecurring = form.watch('is_recurring')
   const selectedEntityType = form.watch('entity_type')
-
-  // Fetch entity options when type changes
-  const fetchEntities = useCallback(async (type: string) => {
-    const config = ENTITY_ENDPOINTS[type]
-    if (!config) { setEntityOptions([]); return }
-
-    setIsLoadingEntities(true)
-    try {
-      const res = await fetch(config.url)
-      if (!res.ok) throw new Error()
-      const json = await res.json()
-      const items = json.data || json || []
-      setEntityOptions(items.map(config.mapFn))
-    } catch {
-      setEntityOptions([])
-    } finally {
-      setIsLoadingEntities(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (selectedEntityType) {
-      fetchEntities(selectedEntityType)
-    } else {
-      setEntityOptions([])
-    }
-  }, [selectedEntityType, fetchEntities])
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
@@ -262,8 +206,6 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
 
             {/* ─── Quando ─── */}
             <section className="space-y-3">
-              <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Quando</p>
-
               <FormField
                 control={form.control}
                 name="due_date"
@@ -404,7 +346,6 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
 
             {/* ─── Quem & Prioridade ─── */}
             <section className="space-y-3">
-              <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Quem & Prioridade</p>
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
@@ -471,9 +412,6 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
             {/* ─── Associação ─── */}
             {!defaultValues?.entity_type && (
               <section className="space-y-3">
-                <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">
-                  Associação <span className="text-muted-foreground/60 font-normal normal-case tracking-normal">(opcional)</span>
-                </p>
                 <FormField
                   control={form.control}
                   name="entity_type"
@@ -513,27 +451,14 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                         <FormLabel className="text-xs font-medium text-muted-foreground">
                           {TASK_ENTITY_LABELS[selectedEntityType as TaskEntityType]}
                         </FormLabel>
-                        <Select
-                          value={field.value || '_none'}
-                          onValueChange={(v) => field.onChange(v === '_none' ? null : v)}
-                          disabled={isLoadingEntities}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
-                              <SelectValue placeholder={
-                                isLoadingEntities ? 'A carregar...' : 'Seleccionar...'
-                              } />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="_none">Nenhum</SelectItem>
-                            {entityOptions.map((opt) => (
-                              <SelectItem key={opt.id} value={opt.id}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <EntityPicker
+                            type={selectedEntityType as EntityKind}
+                            value={field.value || null}
+                            onChange={(v) => field.onChange(v)}
+                            placeholder="Pesquisar e seleccionar..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

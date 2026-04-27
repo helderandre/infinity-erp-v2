@@ -142,6 +142,12 @@ export function ProcessTaskCard({
     ? <Lock className="h-4 w-4 text-primary" />
     : (STATUS_ICONS[task.status as keyof typeof STATUS_ICONS] ?? STATUS_ICONS.pending)
   const actionIcon = ACTION_ICONS[task.action_type as keyof typeof ACTION_ICONS] ?? ACTION_ICONS.MANUAL
+
+  // PROC-NEG client context (set by lib/processes/neg/repeat-tasks-per-client.ts)
+  const taskConfig = task.config as Record<string, unknown> | null
+  const clientName = taskConfig?.client_name as string | undefined
+  const clientPersonType = taskConfig?.person_type_filter as 'singular' | 'coletiva' | undefined
+  const ClientIcon = clientPersonType === 'coletiva' ? Building2 : User
   const actionMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -231,6 +237,12 @@ export function ProcessTaskCard({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
               <Lock className="h-2.5 w-2.5 mr-0.5" />
               Bloqueada
+            </Badge>
+          )}
+          {clientName && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sky-500/30 text-sky-700 bg-sky-50 shrink-0 gap-1">
+              <ClientIcon className="h-2.5 w-2.5" />
+              <span className="truncate max-w-[100px]">{clientName}</span>
             </Badge>
           )}
           <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
@@ -324,6 +336,14 @@ export function ProcessTaskCard({
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary bg-primary/5 shrink-0">
           <Lock className="h-2.5 w-2.5 mr-0.5" />
           Bloqueada
+        </Badge>
+      )}
+
+      {/* PROC-NEG client (set by repeat-tasks-per-client) */}
+      {clientName && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sky-500/30 text-sky-700 bg-sky-50 shrink-0 gap-1">
+          <ClientIcon className="h-2.5 w-2.5" />
+          <span className="truncate max-w-[100px]">{clientName}</span>
         </Badge>
       )}
 

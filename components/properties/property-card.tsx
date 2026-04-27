@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/constants'
 import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
 import { Hash, MapPin, Maximize, User, Pencil } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
+import { pickCoverMedia } from '@/lib/properties/cover-image'
 
 interface PropertyCardProps {
   property: PropertyWithRelations
@@ -18,8 +19,7 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
-  const coverImage = property.dev_property_media?.find((m) => m.is_cover)
-    || property.dev_property_media?.[0]
+  const coverImage = pickCoverMedia(property.dev_property_media)
 
   const specs = property.dev_property_specifications
   const propertyTypeLabel = PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type

@@ -15,6 +15,7 @@ import { Copyable } from '@/components/shared/copyable'
 import { toast } from 'sonner'
 import { PropertyMediaGallery } from '@/components/properties/property-media-gallery'
 import { PropertyDocumentsRoot } from '@/components/properties/property-documents-root'
+import { pickCoverImageUrl } from '@/lib/properties/cover-image'
 import { PropertyPlantasSection } from '@/components/properties/property-plantas-section'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
@@ -546,8 +547,7 @@ export default function ImovelDetalhePage() {
   const specs = property.dev_property_specifications
   const internal = property.dev_property_internal
   const propertyImages = (property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta' && m.media_type !== 'planta_3d')
-  const coverImage = propertyImages.find((m: any) => m.is_cover)?.url
-    || propertyImages[0]?.url
+  const coverImage = pickCoverImageUrl(propertyImages)
 
   return (
     <div className="space-y-5">

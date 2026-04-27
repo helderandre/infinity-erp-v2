@@ -239,6 +239,12 @@ export function PropertyEditSheet({
   const [approving, setApproving] = useState(false)
   const [tab, setTab] = useState<TabValue>('geral')
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
+  // Gate that prevents the form from rendering until form.reset has populated
+  // the field values from the loaded property. Without this, Select components
+  // mount with empty values and Radix sometimes won't update the trigger when
+  // the value flips later — leaving the user staring at "Seleccione..." even
+  // though field.value already holds the saved value.
+  const [isFormReady, setIsFormReady] = useState(false)
 
   // Management gate: only brokers/admin/staff see the Estado + Apresentação
   // quick controls. Consultores see the regular form fields only.
@@ -296,10 +302,18 @@ export function PropertyEditSheet({
    *  `values` on `useForm` proved to be brittle here (the Select trigger could
    *  show "Não atribuído" while the underlying form value was already the
    *  consultant_id, depending on render timing). `form.reset(...)` is the
-   *  blessed way to push fresh data into all field controllers in one go. */
+   *  blessed way to push fresh data into all field controllers in one go.
+   *  The `isFormReady` flag is flipped to true only after the reset commits,
+   *  so children render with the correct field values from their first mount
+   *  (preventing Select triggers from sticking on the placeholder). */
+  useEffect(() => {
+    setIsFormReady(false)
+  }, [property?.id])
+
   useEffect(() => {
     if (property) {
       form.reset(buildDefaults(property))
+      setIsFormReady(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property?.id, property?.updated_at])
@@ -491,7 +505,7 @@ export function PropertyEditSheet({
         </SheetHeader>
 
         {/* Body */}
-        {loading ? (
+        {loading || (property && !isFormReady) ? (
           <div className="flex-1 min-h-0 flex items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
@@ -503,7 +517,37 @@ export function PropertyEditSheet({
         ) : (
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit(handleSubmit)}
+              onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+                // Without this callback, react-hook-form silently swallows
+                // submit clicks when zod validation fails — the user just
+                // sees the button do nothing. Surface the offending fields
+                // and switch to the tab that contains the first error so
+                // the inline FormMessage is visible.
+                const flat = Object.keys(errors)
+                if (flat.length === 0) return
+                const FIELD_TO_TAB: Record<string, typeof tab> = {
+                  title: 'geral', property_type: 'geral', business_type: 'geral',
+                  listing_price: 'geral', status: 'geral', consultant_id: 'geral',
+                  energy_certificate: 'geral', property_condition: 'geral', external_ref: 'geral',
+                  address_street: 'localizacao', address_parish: 'localizacao',
+                  postal_code: 'localizacao', city: 'localizacao', zone: 'localizacao',
+                  latitude: 'localizacao', longitude: 'localizacao',
+                  bedrooms: 'especificacoes', bathrooms: 'especificacoes',
+                  area_gross: 'especificacoes', area_util: 'especificacoes',
+                  typology: 'especificacoes', construction_year: 'especificacoes',
+                  parking_spaces: 'especificacoes', garage_spaces: 'especificacoes',
+                  contract_regime: 'contrato', contract_term: 'contrato',
+                  commission_agreed: 'contrato', cpcv_percentage: 'contrato',
+                }
+                const firstField = flat[0]
+                const targetTab = FIELD_TO_TAB[firstField]
+                if (targetTab && targetTab !== tab) setTab(targetTab)
+                toast.error(
+                  flat.length === 1
+                    ? `Campo inválido: ${firstField}`
+                    : `${flat.length} campos por corrigir: ${flat.slice(0, 3).join(', ')}${flat.length > 3 ? '…' : ''}`,
+                )
+              })}
               className="flex-1 min-h-0 flex flex-col overflow-hidden"
             >
               <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6">
@@ -587,7 +631,7 @@ function GeralPanel({
         <FormField control={form.control} name="status" render={({ field }) => (
           <FormItem>
             <FormLabel>Estado</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value ?? ''}>
               <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
               <SelectContent>
                 {Object.entries(PROPERTY_STATUS).map(([k, v]) => (
@@ -602,7 +646,7 @@ function GeralPanel({
         <FormField control={form.control} name="property_type" render={({ field }) => (
           <FormItem>
             <FormLabel>Tipo de imóvel *</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value ?? ''}>
               <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
               <SelectContent>
                 {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
@@ -617,7 +661,7 @@ function GeralPanel({
         <FormField control={form.control} name="business_type" render={({ field }) => (
           <FormItem>
             <FormLabel>Negócio *</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value ?? ''}>
               <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
               <SelectContent>
                 {Object.entries(BUSINESS_TYPES).map(([k, v]) => (

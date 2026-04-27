@@ -333,49 +333,57 @@ function SortableGridItem({
 
       {/* Normal mode hover overlay */}
       {!selectMode && (
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="absolute top-2 right-2 flex gap-1">
-            {!isClassifyingThis && (
+        <>
+          {/* Hover overlay with action buttons (cover/delete/classify). */}
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="absolute top-2 right-2 flex gap-1 pointer-events-auto">
+              {!isClassifyingThis && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-white hover:bg-white/20"
+                  onClick={(e) => { e.stopPropagation(); onClassify(item.id) }}
+                  title={item.ai_room_label ? 'Reclassificar com IA' : 'Classificar com IA'}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-white hover:bg-white/20"
-                onClick={(e) => { e.stopPropagation(); onClassify(item.id) }}
-                title={item.ai_room_label ? 'Reclassificar com IA' : 'Classificar com IA'}
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
-            )}
-            {!item.is_cover && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-white hover:bg-white/20"
+                className={cn(
+                  'h-7 w-7 hover:bg-white/20',
+                  item.is_cover ? 'text-amber-300' : 'text-white',
+                )}
                 onClick={(e) => { e.stopPropagation(); onSetCover(item.id) }}
-                title="Definir como capa"
+                title={item.is_cover ? 'Remover capa' : 'Definir como capa'}
               >
-                <Star className="h-4 w-4" />
+                <Star className={cn('h-4 w-4', item.is_cover && 'fill-current')} />
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white hover:bg-white/20"
-              onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
-              title="Eliminar"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
+                title="Eliminar"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+          {/* Drag handle — always visible (was hidden inside the hover overlay
+              before, which made reordering invisible on touch and very hard to
+              discover on desktop). */}
           <div
-            className="absolute bottom-2 left-2 cursor-grab active:cursor-grabbing text-white"
+            className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white shadow-sm cursor-grab active:cursor-grabbing touch-none"
             onClick={(e) => e.stopPropagation()}
+            title="Arrastar para reordenar"
             {...attributes}
             {...listeners}
           >
-            <GripVertical className="h-5 w-5" />
+            <GripVertical className="h-4 w-4" />
           </div>
-        </div>
+        </>
       )}
     </div>
   )
@@ -514,17 +522,15 @@ function SortableListItem({
               <Sparkles className="h-4 w-4" />
             </Button>
           )}
-          {!item.is_cover && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onSetCover(item.id)}
-              title="Definir como capa"
-            >
-              <Star className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-8 w-8', item.is_cover && 'text-amber-500')}
+            onClick={() => onSetCover(item.id)}
+            title={item.is_cover ? 'Remover capa' : 'Definir como capa'}
+          >
+            <Star className={cn('h-4 w-4', item.is_cover && 'fill-current')} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -549,6 +555,7 @@ export function PropertyMediaGallery({
   const {
     media,
     setCover,
+    unsetCover,
     deleteImage,
     reorderImages,
     classifyImage,
@@ -687,13 +694,21 @@ export function PropertyMediaGallery({
     }
   }
 
+  // Toggle: clicking the star on the current cover removes it; on any other
+  // photo, sets that one as cover (the API auto-clears the previous one).
   const handleSetCover = async (mediaId: string) => {
+    const target = media.find((m) => m.id === mediaId)
     try {
-      await setCover(mediaId)
-      toast.success('Capa actualizada')
+      if (target?.is_cover) {
+        await unsetCover(mediaId)
+        toast.success('Capa removida')
+      } else {
+        await setCover(mediaId)
+        toast.success('Capa actualizada')
+      }
       onMediaChange()
     } catch {
-      toast.error('Erro ao definir capa')
+      toast.error('Erro ao actualizar capa')
     }
   }
 

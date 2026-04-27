@@ -383,6 +383,18 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   </Link>
                 </Button>
               )}
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-full h-8 text-xs gap-1.5"
+                title="Abrir página completa do negócio"
+              >
+                <Link href={`/dashboard/negocios/${negocio.id}`} onClick={() => onOpenChange(false)}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Página completa
+                </Link>
+              </Button>
               {!readOnly && (
                 <>
                   <Button

@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Library,
   ContactRound,
+  Briefcase,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -26,11 +27,13 @@ import { TaskForm } from '@/components/tasks/task-form'
 import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { ContactDialog } from '@/components/leads/contact-dialog'
+import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 
 export function QuickActions() {
   const router = useRouter()
   const [contactOpen, setContactOpen] = useState(false)
   const [novoContactoOpen, setNovoContactoOpen] = useState(false)
+  const [negocioOpen, setNegocioOpen] = useState(false)
   const [acquisitionOpen, setAcquisitionOpen] = useState(false)
   const [fechoOpen, setFechoOpen] = useState(false)
   const [taskOpen, setTaskOpen] = useState(false)
@@ -51,6 +54,7 @@ export function QuickActions() {
       const key = (e as CustomEvent).detail
       if (key === 'lead') setContactOpen(true)
       else if (key === 'contacto') setNovoContactoOpen(true)
+      else if (key === 'negocio') setNegocioOpen(true)
       else if (key === 'acquisition') setAcquisitionOpen(true)
       else if (key === 'deal') setFechoOpen(true)
       else if (key === 'task') setTaskOpen(true)
@@ -79,6 +83,10 @@ export function QuickActions() {
           <DropdownMenuItem onClick={() => setNovoContactoOpen(true)}>
             <ContactRound className="mr-2 h-4 w-4" />
             Novo Contacto
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setNegocioOpen(true)}>
+            <Briefcase className="mr-2 h-4 w-4" />
+            Novo Negócio
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setAcquisitionOpen(true)}>
             <Zap className="mr-2 h-4 w-4" />
@@ -119,6 +127,15 @@ export function QuickActions() {
         open={novoContactoOpen}
         onOpenChange={setNovoContactoOpen}
         onComplete={() => setNovoContactoOpen(false)}
+      />
+
+      <NewNegocioDialog
+        open={negocioOpen}
+        onOpenChange={setNegocioOpen}
+        onCreated={(negocioId) => {
+          setNegocioOpen(false)
+          router.push(`/dashboard/negocios/${negocioId}`)
+        }}
       />
 
       <AcquisitionDialog

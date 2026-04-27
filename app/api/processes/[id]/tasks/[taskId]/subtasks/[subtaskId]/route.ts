@@ -115,6 +115,7 @@ export async function PUT(
       subtaskType === 'upload' ||
       subtaskType === 'form' ||
       subtaskType === 'field' ||
+      subtaskType === 'ai_caption' ||
       checkType === 'manual'
 
     if (!isAllowedType) {

@@ -5,6 +5,7 @@ import { format, isToday, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Home, Sparkles, Hash, Calendar, User } from 'lucide-react'
 import { PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_STATUS } from '@/lib/constants'
+import { pickCoverMedia } from '@/lib/properties/cover-image'
 import { cn } from '@/lib/utils'
 
 export interface PropertyListItemData {
@@ -43,9 +44,7 @@ export function PropertyListItem({
   showStatus = false,
   actions,
 }: PropertyListItemProps) {
-  const cover =
-    property.dev_property_media?.find((m) => m.is_cover) ||
-    property.dev_property_media?.[0]
+  const cover = pickCoverMedia(property.dev_property_media)
 
   let publishedDate: Date | null = null
   try {

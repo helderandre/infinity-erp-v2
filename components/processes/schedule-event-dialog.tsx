@@ -23,7 +23,14 @@ import {
   Users,
   User,
   X,
+  MapPin,
+  ChevronDown,
 } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Select,
   SelectContent,
@@ -57,6 +64,12 @@ interface EventData {
   end_time: string
   owner_ids: string[]
   attendee_user_ids: string[]
+  // PROC-NEG opcionais — só usados quando o backend deteta hook schedule_*
+  location_label: string
+  location_address: string
+  notary_name: string
+  notary_phone: string
+  notary_email: string
 }
 
 interface ScheduleEventDialogProps {
@@ -146,6 +159,11 @@ export function ScheduleEventDialog({
           : '10:00',
         owner_ids: existingEvent.owner_ids || [],
         attendee_user_ids: existingEvent.attendee_user_ids || [],
+        location_label: '',
+        location_address: '',
+        notary_name: '',
+        notary_phone: '',
+        notary_email: '',
       })
     } else {
       setForm({
@@ -158,6 +176,11 @@ export function ScheduleEventDialog({
         end_time: '10:00',
         owner_ids: [],
         attendee_user_ids: [],
+        location_label: '',
+        location_address: '',
+        notary_name: '',
+        notary_phone: '',
+        notary_email: '',
       })
     }
   }, [open, existingEvent, subtaskTitle])
@@ -216,6 +239,14 @@ export function ScheduleEventDialog({
         all_day: form.all_day,
         owner_ids: form.owner_ids,
         attendee_user_ids: form.attendee_user_ids,
+        // PROC-NEG: o endpoint só usa estes campos quando o parent task tem
+        // config.hook ∈ {schedule_cpcv, schedule_escritura}. Para outros
+        // processos são silenciosamente ignorados.
+        location_label: form.location_label.trim() || null,
+        location_address: form.location_address.trim() || null,
+        notary_name: form.notary_name.trim() || null,
+        notary_phone: form.notary_phone.trim() || null,
+        notary_email: form.notary_email.trim() || null,
       }
 
       const res = await fetch(
@@ -354,6 +385,61 @@ export function ScheduleEventDialog({
               </div>
             </div>
           )}
+
+          {/* Local & Notário (opcional, PROC-NEG) */}
+          <Separator />
+          <Collapsible className="space-y-2">
+            <CollapsibleTrigger className="flex items-center gap-2 text-sm w-full text-left hover:text-foreground text-muted-foreground transition-colors group">
+              <MapPin className="h-4 w-4" />
+              <span>Local & Notário (opcional)</span>
+              <ChevronDown className="h-3.5 w-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2 pt-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Local</Label>
+                <Input
+                  value={form.location_label}
+                  onChange={(e) => update({ location_label: e.target.value })}
+                  placeholder="Ex: Cartório Notarial Maria Silva"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Morada</Label>
+                <Input
+                  value={form.location_address}
+                  onChange={(e) => update({ location_address: e.target.value })}
+                  placeholder="Morada completa (para abrir no Maps)"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Notário</Label>
+                  <Input
+                    value={form.notary_name}
+                    onChange={(e) => update({ notary_name: e.target.value })}
+                    placeholder="Nome"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Telefone</Label>
+                  <Input
+                    value={form.notary_phone}
+                    onChange={(e) => update({ notary_phone: e.target.value })}
+                    placeholder="+351 ..."
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email do notário</Label>
+                <Input
+                  type="email"
+                  value={form.notary_email}
+                  onChange={(e) => update({ notary_email: e.target.value })}
+                  placeholder="notario@exemplo.pt"
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Proprietários */}
           {owners.length > 0 && (

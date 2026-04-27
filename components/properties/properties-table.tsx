@@ -12,6 +12,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_STATUS } from '@/lib/constants'
+import { pickCoverMedia } from '@/lib/properties/cover-image'
 import { cn } from '@/lib/utils'
 import type { PropertyListItemData } from './property-list-item'
 
@@ -161,7 +162,7 @@ export function PropertiesTable({
           </TableHeader>
           <TableBody>
             {properties.map((p) => {
-              const cover = p.dev_property_media?.find((m) => m.is_cover) || p.dev_property_media?.[0]
+              const cover = pickCoverMedia(p.dev_property_media)
               const typeLabel =
                 PROPERTY_TYPES[p.property_type as keyof typeof PROPERTY_TYPES] || p.property_type || '—'
               const businessLabel = p.business_type

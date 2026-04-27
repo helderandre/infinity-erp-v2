@@ -28,6 +28,7 @@ interface UsePropertyMediaReturn {
   uploadImages: (files: File[]) => Promise<void>
   deleteImage: (mediaId: string) => Promise<void>
   setCover: (mediaId: string) => Promise<void>
+  unsetCover: (mediaId: string) => Promise<void>
   reorderImages: (items: PropertyMedia[]) => Promise<void>
   classifyImage: (mediaId: string) => Promise<ClassifyResult>
   classifyAll: (force?: boolean) => Promise<BulkClassifyResult>
@@ -114,6 +115,23 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Erro ao definir capa')
+      }
+      await fetchMedia()
+    },
+    [propertyId, fetchMedia]
+  )
+
+  const unsetCover = useCallback(
+    async (mediaId: string) => {
+      if (!propertyId) return
+      const res = await fetch(`/api/properties/${propertyId}/media/${mediaId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_cover: false }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao remover capa')
       }
       await fetchMedia()
     },
@@ -291,6 +309,7 @@ export function usePropertyMedia(propertyId: string | undefined): UsePropertyMed
     uploadImages,
     deleteImage,
     setCover,
+    unsetCover,
     reorderImages,
     classifyImage,
     classifyAll,

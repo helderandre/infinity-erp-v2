@@ -80,7 +80,8 @@ export async function GET(request: Request) {
       .select(`
         *,
         property:dev_properties(id, title, external_ref, city, listing_price),
-        consultant:dev_users!deals_consultant_id_fkey(id, commercial_name)
+        consultant:dev_users!deals_consultant_id_fkey(id, commercial_name),
+        payments:deal_payments(*)
       `)
       .order('created_at', { ascending: false })
 
