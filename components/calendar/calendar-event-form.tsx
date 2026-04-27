@@ -52,7 +52,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useImageCompress } from '@/hooks/use-image-compress'
@@ -712,7 +712,7 @@ export function CalendarEventForm({
                         >
                           <CalendarDays className="mr-2 h-4 w-4" />
                           {startDate
-                            ? format(parseISO(startDate), 'PPP', { locale: ptBR })
+                            ? format(parseISO(startDate), 'PPP', { locale: pt })
                             : 'Data'}
                         </Button>
                       </PopoverTrigger>
@@ -732,7 +732,7 @@ export function CalendarEventForm({
                               )
                             }
                           }}
-                          locale={ptBR}
+                          locale={pt}
                         />
                       </PopoverContent>
                     </Popover>
@@ -775,7 +775,7 @@ export function CalendarEventForm({
                           >
                             <CalendarDays className="mr-2 h-4 w-4" />
                             {endDate
-                              ? format(parseISO(endDate), 'PPP', { locale: ptBR })
+                              ? format(parseISO(endDate), 'PPP', { locale: pt })
                               : 'Opcional'}
                           </Button>
                         </PopoverTrigger>
@@ -792,7 +792,7 @@ export function CalendarEventForm({
                                 setValue('end_date', c, { shouldValidate: true })
                               }
                             }}
-                            locale={ptBR}
+                            locale={pt}
                           />
                         </PopoverContent>
                       </Popover>

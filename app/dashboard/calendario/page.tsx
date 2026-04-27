@@ -4,7 +4,7 @@
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, format, parseISO, isSameDay } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { useCalendarEvents } from '@/hooks/use-calendar-events'
 import { useCalendarFilters } from '@/hooks/use-calendar-filters'
 import { CalendarToolbar } from '@/components/calendar/calendar-toolbar'
@@ -446,7 +446,7 @@ function CalendarioPageInner() {
           <SheetHeader className="pb-3">
             <SheetTitle>
               {selectedDay && (() => {
-                const label = format(selectedDay, "EEEE, d 'de' MMMM", { locale: ptBR })
+                const label = format(selectedDay, "EEEE, d 'de' MMMM", { locale: pt })
                 return label.charAt(0).toUpperCase() + label.slice(1)
               })()}
             </SheetTitle>
@@ -545,7 +545,7 @@ function CalendarioPageInner() {
                   {companyEvents.map((event) => {
                     const colors = CALENDAR_CATEGORY_COLORS[event.category]
                     const eventDate = parseISO(event.start_date)
-                    const dayLabel = format(eventDate, "EEE, d MMM", { locale: ptBR })
+                    const dayLabel = format(eventDate, "EEE, d MMM", { locale: pt })
                     const eventEnd = event.end_date ? new Date(event.end_date) : new Date(eventDate.getTime() + 3600000)
                     const isLive = now >= eventDate && now <= eventEnd
 

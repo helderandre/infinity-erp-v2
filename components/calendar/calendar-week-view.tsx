@@ -15,7 +15,7 @@ import {
   getMinutes,
   differenceInMinutes,
 } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { CheckCircle2 } from 'lucide-react'
 
@@ -137,7 +137,7 @@ export function CalendarWeekView({
         <div className="px-1 py-2 sm:px-2" />
         {weekDays.map((day) => {
           const today = isToday(day)
-          const dayLabel = format(day, 'EEE', { locale: ptBR })
+          const dayLabel = format(day, 'EEE', { locale: pt })
           const capitalizedDay = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)
           const shortDay = capitalizedDay.charAt(0)
 

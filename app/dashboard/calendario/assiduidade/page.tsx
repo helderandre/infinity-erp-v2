@@ -13,7 +13,7 @@ import {
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 const PERIODS = [
@@ -198,7 +198,7 @@ export default function AssiduidadePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{ev.title}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {format(parseISO(ev.start_date), "d MMM yyyy", { locale: ptBR })}
+                        {format(parseISO(ev.start_date), "d MMM yyyy", { locale: pt })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 text-xs shrink-0">
@@ -267,7 +267,7 @@ export default function AssiduidadePage() {
                       </div>
                       {absence.event_date && (
                         <p className="text-[11px] text-muted-foreground">
-                          {format(parseISO(absence.event_date), "EEEE, d 'de' MMMM yyyy", { locale: ptBR })}
+                          {format(parseISO(absence.event_date), "EEEE, d 'de' MMMM yyyy", { locale: pt })}
                         </p>
                       )}
                       {absence.reason ? (

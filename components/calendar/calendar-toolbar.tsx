@@ -1,8 +1,19 @@
 'use client'
 
 import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { addMonths, subMonths, addWeeks, subWeeks } from 'date-fns'
+import { pt } from 'date-fns/locale'
+import {
+  addMonths,
+  subMonths,
+  addWeeks,
+  subWeeks,
+  addDays,
+  subDays,
+  startOfWeek,
+  endOfWeek,
+  isSameMonth,
+  isSameYear,
+} from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Infinity as InfinityIcon, BarChart3 } from 'lucide-react'
@@ -39,20 +50,42 @@ export function CalendarToolbar({
 }: CalendarToolbarProps) {
   const displayView: 'month' | 'week' | 'day' =
     view === 'agenda' ? 'day' : view
+
   const handlePrev = () => {
-    onDateChange(view === 'week' ? subWeeks(currentDate, 1) : subMonths(currentDate, 1))
+    if (view === 'day') onDateChange(subDays(currentDate, 1))
+    else if (view === 'week') onDateChange(subWeeks(currentDate, 1))
+    else onDateChange(subMonths(currentDate, 1))
   }
 
   const handleNext = () => {
-    onDateChange(view === 'week' ? addWeeks(currentDate, 1) : addMonths(currentDate, 1))
+    if (view === 'day') onDateChange(addDays(currentDate, 1))
+    else if (view === 'week') onDateChange(addWeeks(currentDate, 1))
+    else onDateChange(addMonths(currentDate, 1))
   }
 
   const handleToday = () => {
     onDateChange(new Date())
   }
 
-  const monthLabelFull = format(currentDate, 'MMMM yyyy', { locale: ptBR })
-  const capitalizedLabelFull = monthLabelFull.charAt(0).toUpperCase() + monthLabelFull.slice(1)
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+  const periodLabel = (() => {
+    if (view === 'day') {
+      return capitalize(format(currentDate, "EEE, d 'de' MMMM", { locale: pt }))
+    }
+    if (view === 'week') {
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 })
+      const end = endOfWeek(currentDate, { weekStartsOn: 1 })
+      if (isSameMonth(start, end)) {
+        return `${format(start, 'd', { locale: pt })} – ${format(end, "d 'de' MMMM yyyy", { locale: pt })}`
+      }
+      if (isSameYear(start, end)) {
+        return `${format(start, 'd MMM', { locale: pt })} – ${format(end, "d 'de' MMMM yyyy", { locale: pt })}`
+      }
+      return `${format(start, 'd MMM yyyy', { locale: pt })} – ${format(end, 'd MMM yyyy', { locale: pt })}`
+    }
+    return capitalize(format(currentDate, 'MMMM yyyy', { locale: pt }))
+  })()
 
   return (
     <div className="flex flex-col gap-2 pb-2 min-[540px]:flex-row min-[540px]:items-center min-[540px]:justify-between min-[540px]:gap-2 sm:pb-4">
@@ -77,8 +110,12 @@ export function CalendarToolbar({
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <button onClick={handleToday} className="text-sm font-semibold whitespace-nowrap sm:text-lg sm:min-w-[180px] sm:text-left text-center hover:text-primary transition-colors">
-          {capitalizedLabelFull}
+        <button
+          onClick={handleToday}
+          aria-label="Ir para hoje"
+          className="text-sm font-semibold whitespace-nowrap text-center sm:text-lg hover:text-primary transition-colors px-1"
+        >
+          {periodLabel}
         </button>
 
         <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handleNext} aria-label="Seguinte">

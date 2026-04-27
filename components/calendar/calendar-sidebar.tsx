@@ -7,7 +7,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { format, parseISO, isAfter, isSameDay } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { CalendarDays } from 'lucide-react'
 
@@ -44,7 +44,7 @@ export function CalendarSidebar({
           mode="single"
           selected={currentDate}
           onSelect={(date) => date && onDateChange(date)}
-          locale={ptBR}
+          locale={pt}
           weekStartsOn={1}
           className="rounded-md border"
         />
@@ -93,7 +93,7 @@ export function CalendarSidebar({
                       >
                         {isEventToday
                           ? 'Hoje'
-                          : format(eventDate, "d 'de' MMM", { locale: ptBR })}
+                          : format(eventDate, "d 'de' MMM", { locale: pt })}
                         {!event.all_day && (
                           <span className="ml-1">
                             {format(eventDate, 'HH:mm')}

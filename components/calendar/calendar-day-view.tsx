@@ -10,7 +10,7 @@ import {
   isTomorrow,
   isYesterday,
 } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { ArrowLeft, CalendarX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AgendaEventCard, isTaskEvent } from './calendar-agenda-view'
@@ -75,8 +75,8 @@ export function CalendarDayView({
   const today = isToday(date)
   const tomorrow = isTomorrow(date)
   const yesterday = isYesterday(date)
-  const weekday = format(date, 'EEEE', { locale: ptBR })
-  const fullDate = format(date, "d 'de' MMMM 'de' yyyy", { locale: ptBR })
+  const weekday = format(date, 'EEEE', { locale: pt })
+  const fullDate = format(date, "d 'de' MMMM 'de' yyyy", { locale: pt })
 
   const relativeLabel = today
     ? 'Hoje'

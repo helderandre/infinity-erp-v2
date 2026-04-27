@@ -17,7 +17,7 @@ import {
   startOfDay,
   addHours,
 } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { CalendarX, CheckCircle2, Infinity as InfinityIcon } from 'lucide-react'
 
@@ -143,7 +143,7 @@ export function CalendarAgendaView({
         {groupedByDay.map(({ date, events: dayEvents }) => {
           const today = isToday(date)
           const tomorrow = isTomorrow(date)
-          const dayLabel = format(date, "EEEE, d 'de' MMMM", { locale: ptBR })
+          const dayLabel = format(date, "EEEE, d 'de' MMMM", { locale: pt })
 
           return (
             <div
@@ -407,8 +407,8 @@ function DayCard({
 }) {
   const today = isToday(date)
   const tomorrow = isTomorrow(date)
-  const weekday = format(date, 'EEEE', { locale: ptBR })
-  const fullDate = format(date, "d 'de' MMMM", { locale: ptBR })
+  const weekday = format(date, 'EEEE', { locale: pt })
+  const fullDate = format(date, "d 'de' MMMM", { locale: pt })
 
   const legacyTaskEvents = events.filter(isTaskEvent)
   const timed = events.filter((e) => !isTaskEvent(e))

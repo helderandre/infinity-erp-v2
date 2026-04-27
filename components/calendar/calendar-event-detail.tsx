@@ -29,7 +29,7 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { format, parseISO, addHours } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { pt } from 'date-fns/locale'
 import {
   Dialog,
   DialogContent,
@@ -225,9 +225,9 @@ export function CalendarEventDetail({
   const formatEventDate = (dateStr: string, allDay: boolean) => {
     const date = parseISO(dateStr)
     if (allDay) {
-      return format(date, "EEEE, d 'de' MMMM", { locale: ptBR })
+      return format(date, "EEEE, d 'de' MMMM", { locale: pt })
     }
-    return format(date, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR })
+    return format(date, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: pt })
   }
 
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
