@@ -1,15 +1,24 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { createContactSchema } from '@/lib/validations/leads-crm'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { searchParams } = new URL(request.url)
 
     const search = searchParams.get('search') || ''
     const lifecycleStageId = searchParams.get('lifecycle_stage_id')
-    const assignedConsultantId = searchParams.get('assigned_consultant_id')
+    const assignedConsultantParam = searchParams.get('assigned_consultant_id')
+    // Gestão pode filtrar por qualquer consultor; restantes ficam scoped
+    // ao próprio (vê só os contactos onde é o `agent_id`).
+    const canSeeAll = isManagementRole(auth.roles)
+    const assignedConsultantId = canSeeAll ? assignedConsultantParam : auth.user.id
     const tagsParam = searchParams.get('tags')
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get('per_page')) || 25))

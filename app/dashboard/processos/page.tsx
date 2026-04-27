@@ -38,6 +38,8 @@ import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
@@ -127,6 +129,15 @@ const STATUS_TABS = [
 
 export default function ProcessosPage() {
   const router = useRouter()
+  // Página índice é só para gestão. Detalhe (`/dashboard/processos/[id]`)
+  // continua acessível a consultores via deep-link a partir do imóvel/deal.
+  const { user, loading: userLoading } = useUser()
+  useEffect(() => {
+    if (userLoading) return
+    if (!isManagementRole(user?.role_names ?? [])) {
+      router.replace('/dashboard')
+    }
+  }, [user, userLoading, router])
   const [processes, setProcesses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')

@@ -9,7 +9,7 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, ClipboardList, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Truck, Shield, MessagesSquare,
+  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Shield, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
   Send,
 } from 'lucide-react'
@@ -37,6 +37,7 @@ import {
 import { useTheme } from 'next-themes'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -79,7 +80,10 @@ export const crmItems = [
 ]
 
 export const negocioItems = [
-  { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
+  // Processos: index só visível a gestão. O role Consultor TEM `processes`
+  // (precisa para angariações + tasks de PROC-NEG), mas a página índice
+  // mostra processos transversais — restrita a gestão via `managementOnly`.
+  { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes', managementOnly: true },
   // Template de Processos is hidden from the sidebar for now — route stays live.
   // { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
@@ -112,9 +116,10 @@ export const recrutamentoItems = [
 
 export const lojaItems = [
   { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
-  { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo' },
+  // Catálogo: gestão do catálogo de produtos — só visível a gestão.
+  // Encomendas fica visível a todos (consultor encomenda).
+  { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo', managementOnly: true },
   { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas' },
-  { title: 'Fornecedores', icon: Truck, href: '/dashboard/parceiros?tab=fornecedores' },
 ]
 
 /**
@@ -567,6 +572,14 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
+  // Esconde do sidebar items marcados com `managementOnly` quando o
+  // utilizador não pertence aos papéis de gestão (ver MANAGEMENT_ROLES).
+  // A permissão da rota (e.g. `processes`) não chega — Consultor TEM
+  // `processes` para tarefas próprias mas não deve ver o índice global.
+  const isManagement = isManagementRole(user?.role_names ?? [])
+  const filterMgmt = <T extends { managementOnly?: boolean }>(items: T[]) =>
+    isManagement ? items : items.filter((i) => !i.managementOnly)
+
   useEffect(() => { setMounted(true) }, [])
 
   const handleLogout = async () => {
@@ -659,7 +672,7 @@ export function AppSidebar() {
         <CollapsibleGroup
           label="Negócio"
           icon={Briefcase}
-          items={negocioItems}
+          items={filterMgmt(negocioItems)}
           pathname={pathname}
           hasPermission={hasPermission}
           pathPrefixes={['/dashboard/imoveis', '/dashboard/processos', '/dashboard/objetivos', '/dashboard/negocios']}
@@ -681,7 +694,7 @@ export function AppSidebar() {
           <CollapsibleGroup
             label="Infinity Store"
             icon={Store}
-            items={lojaItems}
+            items={filterMgmt(lojaItems)}
             pathname={pathname}
             hasPermission={() => true}
             pathPrefixes={['/dashboard/marketing', '/dashboard/encomendas']}

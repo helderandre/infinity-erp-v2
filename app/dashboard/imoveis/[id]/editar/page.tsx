@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useProperty } from '@/hooks/use-property'
 import { Button } from '@/components/ui/button'
@@ -8,12 +8,27 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PropertyForm } from '@/components/properties/property-form'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export default function EditarImovelPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { property, isLoading } = useProperty(id)
+  const { user, loading: userLoading } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Edição reservada ao angariador (`consultant_id === me`) ou gestão.
+  // Acesso directo via URL devolve o consultor à página de detalhe (onde
+  // verá apenas a tab Apresentação).
+  useEffect(() => {
+    if (isLoading || userLoading || !property || !user) return
+    const isOwner = property.consultant_id === user.id
+    const isManagement = isManagementRole(user.role_names ?? [])
+    if (!isOwner && !isManagement) {
+      router.replace(`/dashboard/imoveis/${property.id}`)
+    }
+  }, [isLoading, userLoading, property, user, router])
 
   if (isLoading) {
     return (

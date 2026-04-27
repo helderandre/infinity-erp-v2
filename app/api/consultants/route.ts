@@ -3,11 +3,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { consultantUserSchema } from '@/lib/validations/consultant'
 import { CONSULTANT_ROLES, PROPERTY_RESPONSIBLE_ROLES } from '@/lib/auth/roles'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth, requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(request: Request) {
   try {
-    const auth = await requirePermission('consultants')
+    // Listagem da Equipa é visível a todos os utilizadores autenticados —
+    // ver comentário em `components/layout/app-sidebar.tsx` (Equipa +
+    // Parceiros). Mutações (POST/PUT/DELETE) continuam atrás de
+    // `requirePermission('consultants')` mais abaixo.
+    const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
     const supabase = await createClient()

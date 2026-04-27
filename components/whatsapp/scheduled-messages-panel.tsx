@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -155,21 +155,23 @@ export function ScheduledMessagesPanel() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
-              <Calendar className="h-4 w-4" />
-              {pendingCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
-                  {pendingCount}
-                </span>
-              )}
-            </Button>
-          </SheetTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative h-8 w-8 flex-shrink-0">
+                <Calendar className="h-4 w-4" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-medium text-white">
+                    {pendingCount}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Mensagens agendadas</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <SheetContent
         side={isMobile ? 'bottom' : 'right'}

@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth/permissions'
 import { ContaCorrenteEmpresaClient } from '@/components/financial/conta-corrente/conta-corrente-empresa-client'
 import { ContaCorrenteUnified } from '@/components/financial/conta-corrente/conta-corrente-unified'
@@ -10,7 +11,7 @@ import { ContaCorrenteUnified } from '@/components/financial/conta-corrente/cont
 // - Consultor: locked à própria CC, com os 3 sub-tabs (Tudo / Comissões / Despesas).
 export default async function ContaCorrentePage() {
   const auth = await requireAuth()
-  if (!auth.authorized) return auth.response
+  if (!auth.authorized) redirect('/login')
 
   const isEmpresa = auth.permissions.users === true
 

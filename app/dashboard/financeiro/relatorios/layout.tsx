@@ -10,7 +10,7 @@ export default async function RelatoriosFinanceirosLayout({
   children: React.ReactNode
 }) {
   const auth = await requireAuth()
-  if (!auth.authorized) return auth.response
+  if (!auth.authorized) redirect('/login')
   if (auth.permissions.users !== true) redirect('/dashboard')
   return <>{children}</>
 }

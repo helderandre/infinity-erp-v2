@@ -25,12 +25,26 @@ import {
 } from '@/components/ui/table'
 import { CatalogFormDialog } from '@/components/marketing/catalog-form-dialog'
 import { ProductFormDialog } from '@/components/encomendas/product-form-dialog'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 
 type Tab = 'services' | 'products'
 
 const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)
 
 export default function CatalogoManagementPage() {
+  // Catálogo é gestão pura (criar/editar serviços e produtos da loja).
+  // Consultor é redireccionado; pode encomendar via /dashboard/encomendas.
+  const router = useRouter()
+  const { user, loading: userLoading } = useUser()
+  useEffect(() => {
+    if (userLoading) return
+    if (!isManagementRole(user?.role_names ?? [])) {
+      router.replace('/dashboard/encomendas')
+    }
+  }, [user, userLoading, router])
+
   const [tab, setTab] = useState<Tab>('services')
   const [search, setSearch] = useState('')
 

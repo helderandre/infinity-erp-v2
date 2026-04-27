@@ -19,6 +19,11 @@ type DevUserWithRoles = DevUser & {
 
 export interface UserWithRole extends DevUser {
   role: Role | null
+  /** Todos os nomes de papéis do utilizador (M:N via user_roles).
+   *  `role` continua a apontar para o "primeiro" devolvido por Postgres —
+   *  útil para mostrar uma etiqueta — mas para checks de autorização (e.g.
+   *  isManagementRole) usar SEMPRE este array. */
+  role_names: string[]
   auth_user: User | null
   profile_photo_url: string | null
 }
@@ -148,11 +153,16 @@ async function doFetchUser(): Promise<UserWithRole | null> {
     ? { ...baseRole, permissions: mergedPermissions }
     : null
 
+  const role_names = (userData.user_roles ?? [])
+    .map((ur) => ur.role?.name)
+    .filter((n): n is string => !!n)
+
   const { user_roles: _ur, dev_consultant_profiles, ...userDataWithoutRoles } = userData
 
   return {
     ...userDataWithoutRoles,
     role: combinedRole as Role | null,
+    role_names,
     auth_user: authUser,
     profile_photo_url: dev_consultant_profiles?.profile_photo_url || null,
   }

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createVisitSchema } from '@/lib/validations/visit'
 import { notifyProposalCreated } from '@/lib/visits/notifications'
+import { isManagementRole } from '@/lib/auth/roles'
+import { requireAuth } from '@/lib/auth/permissions'
 
 const VISIT_SELECT = `
   *,
@@ -13,15 +15,12 @@ const VISIT_SELECT = `
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
-    const consultant_id = searchParams.get('consultant_id')
+    const consultantParam = searchParams.get('consultant_id')
     const property_id = searchParams.get('property_id')
     const lead_id = searchParams.get('lead_id')
     const date_from = searchParams.get('date_from')
@@ -31,11 +30,25 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const upcoming = searchParams.get('upcoming')
 
+    // Visita tem dois consultores envolvidos: `consultant_id` (lado do
+    // comprador) e `seller_consultant_id` (angariador). Para gestão sem
+    // restrição, vê tudo. Para Consultor sem permissão de gestão: só
+    // visitas onde ele é uma das duas pontas. O filtro `consultant_id` da
+    // query é honrado apenas por gestão.
+    const canSeeAll = isManagementRole(auth.roles)
+    const consultant_id = canSeeAll ? consultantParam : null
+
     const admin = createAdminClient() as any
     let query = admin.from('visits').select(VISIT_SELECT, { count: 'exact' })
 
     if (status) query = query.eq('status', status)
     if (consultant_id) query = query.eq('consultant_id', consultant_id)
+    if (!canSeeAll) {
+      // Forçar self-scope: ou sou o consultor do comprador OU o angariador.
+      query = query.or(
+        `consultant_id.eq.${auth.user.id},seller_consultant_id.eq.${auth.user.id}`,
+      )
+    }
     if (property_id) query = query.eq('property_id', property_id)
     if (lead_id) query = query.eq('lead_id', lead_id)
     if (date_from) query = query.gte('visit_date', date_from)

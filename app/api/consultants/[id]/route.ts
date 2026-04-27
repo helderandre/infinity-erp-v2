@@ -2,27 +2,38 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { updateConsultantSchema } from '@/lib/validations/consultant'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth, requirePermission } from '@/lib/auth/permissions'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('consultants')
+    // Detalhe da Equipa visível a qualquer utilizador autenticado (Sheet
+    // do consultor). Dados privados (NIF, IBAN, salário, contrato) só são
+    // devolvidos quando o caller tem permissão `consultants` OU está a ver
+    // o seu próprio perfil.
+    const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
     const { id } = await params
+    const canSeePrivate =
+      auth.permissions.consultants === true || auth.user.id === id
+
     const supabase = await createClient()
 
-    const { data, error } = await supabase
-      .from('dev_users')
-      .select(
-        `*,
+    const select = canSeePrivate
+      ? `*,
         dev_consultant_profiles(*),
         dev_consultant_private_data(*),
         user_roles!user_roles_user_id_fkey(role_id, roles(id, name, description))`
-      )
+      : `*,
+        dev_consultant_profiles(*),
+        user_roles!user_roles_user_id_fkey(role_id, roles(id, name, description))`
+
+    const { data, error } = await supabase
+      .from('dev_users')
+      .select(select)
       .eq('id', id)
       .single()
 

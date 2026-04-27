@@ -1,6 +1,7 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 const VALID_PIPELINE_TYPES = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as const
 type PipelineType = (typeof VALID_PIPELINE_TYPES)[number]
@@ -28,13 +29,14 @@ export async function GET(
     const assignedParam = searchParams.get('assigned_consultant_id')
     const referrerParam = searchParams.get('referrer_consultant_id')
 
-    // Pipeline owners see every consultor's négocios; regular consultores
-    // are scoped to their own. Referências page sets `referrer_consultant_id`
-    // to surface deals where I'm the referrer (worked by another consultor)
-    // — in that mode we lock the param to self instead of forcing
-    // assigned_consultant_id (which would AND to zero results).
-    const canSeeAll =
-      auth.permissions.pipeline === true || auth.permissions.users === true
+    // Gestão (admin/Broker/CEO/Gestor Processual/Office Manager/Team Leader)
+    // vê tudo; restantes papéis ficam scoped aos seus négocios. Atenção:
+    // `permissions.pipeline` NÃO é um proxy fiável — o role Consultor também
+    // o tem. Referências page sets `referrer_consultant_id` para surfaçar
+    // deals onde sou referrer (trabalhados por outro consultor) — nesse modo
+    // bloqueamos o param a self em vez de forçar assigned_consultant_id (que
+    // resultaria em AND a zero resultados).
+    const canSeeAll = isManagementRole(auth.roles)
     const referrerMode = !!referrerParam
 
     let assigned_consultant_id: string | null

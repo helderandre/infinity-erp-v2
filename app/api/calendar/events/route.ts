@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { calendarEventSchema } from '@/lib/validations/calendar'
+import { isManagementRole, MANAGEMENT_ROLES } from '@/lib/auth/roles'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     let currentUserId: string | null = null
     let currentUserRole = ''
+    let currentUserRoleNames: string[] = []
     if (authUser) {
       currentUserId = authUser.id
       const { data: ud } = await admin
@@ -71,8 +73,12 @@ export async function GET(request: Request) {
         .select('user_roles:user_roles!user_roles_user_id_fkey(role:roles!user_roles_role_id_fkey(name))')
         .eq('id', authUser.id)
         .single()
-      currentUserRole = (ud?.user_roles as any)?.[0]?.role?.name ?? ''
+      currentUserRoleNames = ((ud?.user_roles as any) || [])
+        .map((ur: any) => ur?.role?.name)
+        .filter((n: any): n is string => !!n)
+      currentUserRole = currentUserRoleNames[0] ?? ''
     }
+    const callerIsManagement = isManagementRole(currentUserRoleNames)
 
     // visits.visit_date is a DATE column (not timestamp); compare on the date part only
     const startDateOnly = start.slice(0, 10)
@@ -519,25 +525,52 @@ export async function GET(request: Request) {
     }
 
     // ------ Filter by visibility ------
+    // Modelo: gestão (admin/Broker/CEO/Gestor Processual/Office Manager/
+    // Team Leader) vê tudo; Consultor vê só os seus eventos + os eventos
+    // marcados visíveis para todos (manual com visibility_mode='all'
+    // ou auto-gerados explicitamente "company-wide" — não há tal flag em
+    // events auto, então scoped ao próprio user_id / participantes).
     if (currentUserId) {
       filtered = filtered.filter((ev) => {
-        // Auto-generated events are always visible
-        if (ev.source === 'auto') return true
+        // Manual events: honour the existing visibility_mode model.
+        if (ev.source !== 'auto') {
+          const vis = (ev as any).visibility_mode ?? 'all'
+          // 'all' = company-wide: visível a todos (incl. consultor).
+          if (vis === 'all') return true
 
-        // Simple visibility check
-        const vis = (ev as any).visibility_mode ?? 'all'
-        if (vis === 'all') return true
+          const allowedUsers: string[] = (ev as any).visibility_user_ids ?? []
+          const allowedRoles: string[] = (ev as any).visibility_role_names ?? []
+          const userMatch = allowedUsers.includes(currentUserId!)
+          const roleMatch = allowedRoles.some((r: string) =>
+            currentUserRoleNames.some((n) => n.toLowerCase() === r.toLowerCase()),
+          )
+          // Caller é o criador? Sempre vê.
+          const isCreator = (ev as any).created_by === currentUserId
+          if (isCreator) return true
 
-        const allowedUsers: string[] = (ev as any).visibility_user_ids ?? []
-        const allowedRoles: string[] = (ev as any).visibility_role_names ?? []
-        const userMatch = allowedUsers.includes(currentUserId!)
-        const roleMatch = allowedRoles.some((r: string) => r.toLowerCase() === currentUserRole.toLowerCase())
+          if (vis === 'include') return userMatch || roleMatch
+          if (vis === 'exclude') return !userMatch && !roleMatch
+          return true
+        }
 
-        if (vis === 'include') return userMatch || roleMatch
-        if (vis === 'exclude') return !userMatch && !roleMatch
-        return true
+        // Auto events (visits, proc tasks/subtasks, lead/contract expiry):
+        // gestão vê tudo; consultor vê só onde participa.
+        if (callerIsManagement) return true
+        // Visit: aceitar comprador OU vendedor.
+        if (ev.visit_id) {
+          return (
+            ev.visit_buyer_agent_id === currentUserId ||
+            ev.visit_seller_agent_id === currentUserId
+          )
+        }
+        // Outros auto events expõem `user_id` (consultor responsável /
+        // assignee / agent). Sem user_id → esconder por defeito.
+        return ev.user_id === currentUserId
       })
     }
+    // Marcamos `MANAGEMENT_ROLES` como usado para evitar warning (helper
+    // re-exportado para legibilidade do comentário acima).
+    void MANAGEMENT_ROLES
 
     // ------ Sort by start_date ------
     filtered.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
@@ -580,10 +613,17 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient() as any
 
+    // `priority` lives on the schema for the shared form (events ↔ tasks)
+    // but `calendar_events` has no such column — drop it before insert,
+    // otherwise PostgREST rejects the row with "Could not find the
+    // 'priority' column of 'calendar_events' in the schema cache".
+    const { priority: _priority, ...eventInsert } = parsed.data
+    void _priority
+
     const { data, error } = await admin
       .from('calendar_events')
       .insert({
-        ...parsed.data,
+        ...eventInsert,
         created_by: user.id,
       })
       .select()

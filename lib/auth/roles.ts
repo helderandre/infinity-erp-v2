@@ -9,6 +9,29 @@ export const ADMIN_ROLES = ['admin', 'Broker/CEO'] as const
 /** Roles que podem aprovar/rejeitar/pausar/cancelar/devolver processos */
 export const PROCESS_MANAGER_ROLES = ['Broker/CEO', 'Gestor Processual', 'admin'] as const
 
+/**
+ * Roles consideradas "gestão" para efeitos de visibilidade entre consultores
+ * (CRM pipeline, leads, visitas, etc.). Membros destes papéis VEEM TUDO; os
+ * restantes (Consultor, Consultora Executiva, Marketing, etc.) ficam scoped
+ * aos seus próprios registos.
+ *
+ * NOTA: a permissão `pipeline` NÃO é um proxy fiável — Consultor também a tem
+ * (precisa dela para aceder à página). Usar SEMPRE este array para o gate.
+ */
+export const MANAGEMENT_ROLES = [
+  'admin',
+  'Broker/CEO',
+  'Gestor Processual',
+  'Office Manager',
+  'Team Leader',
+] as const
+
+/** Helper case-insensitive para detectar se o utilizador é gestão. */
+export function isManagementRole(roles: ReadonlyArray<string | null | undefined>): boolean {
+  const lc = roles.filter((r): r is string => !!r).map((r) => r.toLowerCase())
+  return MANAGEMENT_ROLES.some((m) => lc.includes(m.toLowerCase()))
+}
+
 /** Roles que podem criar/remover tarefas ad-hoc e reverter tarefas concluídas */
 export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
 

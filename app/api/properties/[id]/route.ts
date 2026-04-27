@@ -2,6 +2,28 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { updatePropertySchema } from '@/lib/validations/property'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
+
+// Devolve { ok: true } se o caller é o angariador OU faz parte da
+// gestão. Caso contrário 403. Imóvel inexistente devolve 404.
+async function checkPropertyEditAccess(
+  supabase: any,
+  id: string,
+  authUserId: string,
+  isManagement: boolean,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { data, error } = await supabase
+    .from('dev_properties')
+    .select('consultant_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) return { ok: false, status: 500, error: error.message }
+  if (!data) return { ok: false, status: 404, error: 'Imóvel não encontrado' }
+  if (!isManagement && data.consultant_id !== authUserId) {
+    return { ok: false, status: 403, error: 'Sem permissão para editar este imóvel' }
+  }
+  return { ok: true }
+}
 
 const IS_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -70,6 +92,16 @@ export async function PUT(
     const supabase = await createClient()
     const id = await resolvePropertyId(supabase, param)
     if (!id) return NextResponse.json({ error: 'Imóvel não encontrado' }, { status: 404 })
+
+    const access = await checkPropertyEditAccess(
+      supabase as any,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const body = await request.json()
     const { property, specifications, internal } = body
@@ -168,6 +200,17 @@ export async function DELETE(
     const supabase = await createClient()
     const id = await resolvePropertyId(supabase, param)
     if (!id) return NextResponse.json({ error: 'Imóvel não encontrado' }, { status: 404 })
+
+    const access = await checkPropertyEditAccess(
+      supabase as any,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
+
     const { searchParams } = new URL(request.url)
     const mode = searchParams.get('mode') || 'cancel'
 

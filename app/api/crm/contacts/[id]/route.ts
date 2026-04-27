@@ -1,14 +1,50 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { updateContactSchema } from '@/lib/validations/leads-crm'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
+
+// Devolve 404 para inexistente, 403 quando o caller não é gestão e não
+// é o `agent_id` do contacto. Mantém o sheet/edit silenciosamente
+// inacessíveis a quem não deveria sequer saber que existem outros.
+async function checkContactAccess(
+  supabase: any,
+  id: string,
+  authUserId: string,
+  isManagement: boolean,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('agent_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) return { ok: false, status: 500, error: error.message }
+  if (!data) return { ok: false, status: 404, error: 'Contacto não encontrado' }
+  if (!isManagement && data.agent_id !== authUserId) {
+    return { ok: false, status: 403, error: 'Sem permissão para este contacto' }
+  }
+  return { ok: true }
+}
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { id } = await params
+    const access = await checkContactAccess(
+      supabase,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const { data, error } = await supabase
       .from('leads')
@@ -37,8 +73,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { id } = await params
+    const access = await checkContactAccess(
+      supabase,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const body = await request.json()
     const validation = updateContactSchema.safeParse(body)
@@ -75,8 +123,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { id } = await params
+    const access = await checkContactAccess(
+      supabase,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const { error } = await supabase
       .from('leads')

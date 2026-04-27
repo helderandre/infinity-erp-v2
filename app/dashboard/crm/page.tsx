@@ -50,6 +50,7 @@ import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { isManagementRole } from '@/lib/auth/roles'
 import { Inbox, Plus, Send } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -980,9 +981,10 @@ function ObservationsCellInner({
 
 export default function CRMPage() {
   const { user } = useUser()
-  const userPermissions = (user?.role?.permissions as Record<string, boolean> | undefined) ?? {}
-  const canSeeAllNegocios =
-    userPermissions.pipeline === true || userPermissions.users === true
+  // Gestão (admin/Broker/CEO/Gestor Processual/Office Manager/Team Leader)
+  // vê o filtro Consultor; restantes papéis ficam scoped ao próprio (server
+  // enforça via isManagementRole em /api/crm/*).
+  const canSeeAllNegocios = isManagementRole(user?.role_names ?? [])
   const isMobile = useIsMobile()
   const router = useRouter()
   const pathname = usePathname()

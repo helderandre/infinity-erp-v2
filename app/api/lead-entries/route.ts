@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createLeadEntrySchema } from '@/lib/validations/lead-entry'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -25,12 +27,19 @@ function normalizeEmail(email: string | null | undefined): string | null {
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
     const source = searchParams.get('source')
-    const consultant_id = searchParams.get('consultant_id')
+    const consultantParam = searchParams.get('consultant_id')
+    // Gestão pode filtrar por qualquer consultor; restantes vêem só
+    // entries que lhes foram atribuídas (`assigned_consultant_id = me`).
+    const canSeeAll = isManagementRole(auth.roles)
+    const consultant_id = canSeeAll ? consultantParam : auth.user.id
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 

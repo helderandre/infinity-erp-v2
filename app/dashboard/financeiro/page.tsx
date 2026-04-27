@@ -14,7 +14,7 @@ import { VistaConsultor } from '@/components/financial/consultor/vista-consultor
 //       Compras na loja / Conta corrente). Deep-link via ?tab=.
 export default async function FinanceiroRootPage() {
   const auth = await requireAuth()
-  if (!auth.authorized) return auth.response
+  if (!auth.authorized) redirect('/login')
 
   const isEmpresa = auth.permissions.users === true
   if (isEmpresa) {

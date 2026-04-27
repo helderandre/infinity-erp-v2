@@ -2,9 +2,31 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { updateLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import type { Database } from '@/types/database'
 
 type LeadUpdate = Database['public']['Tables']['leads']['Update']
+
+// Devolve 404 vs 403 conforme se o lead existe e o caller não tem
+// ownership. Mantém-se a UX do detalhe inalterada para gestão (vê tudo).
+async function checkLeadAccess(
+  supabase: any,
+  id: string,
+  authUserId: string,
+  isManagement: boolean,
+): Promise<{ ok: true; agentId: string | null } | { ok: false; status: number; error: string }> {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('agent_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) return { ok: false, status: 500, error: error.message }
+  if (!data) return { ok: false, status: 404, error: 'Lead não encontrado' }
+  if (!isManagement && data.agent_id !== authUserId) {
+    return { ok: false, status: 403, error: 'Sem permissão para este contacto' }
+  }
+  return { ok: true, agentId: data.agent_id }
+}
 
 export async function GET(
   request: Request,
@@ -16,6 +38,15 @@ export async function GET(
 
     const { id } = await params
     const supabase = await createClient()
+    const access = await checkLeadAccess(
+      supabase as any,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const { data, error } = await supabase
       .from('leads')
@@ -50,6 +81,15 @@ export async function PUT(
 
     const { id } = await params
     const supabase = await createClient()
+    const access = await checkLeadAccess(
+      supabase as any,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const body = await request.json()
     const validation = updateLeadSchema.safeParse(body)
@@ -111,6 +151,15 @@ export async function DELETE(
 
     const { id } = await params
     const supabase = await createClient()
+    const access = await checkLeadAccess(
+      supabase as any,
+      id,
+      auth.user.id,
+      isManagementRole(auth.roles),
+    )
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status })
+    }
 
     const { error } = await supabase
       .from('leads')

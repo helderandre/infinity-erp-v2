@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { createGoalSchema } from '@/lib/validations/goal'
 
 export async function GET(request: Request) {
@@ -13,7 +14,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     const year = searchParams.get('year')
-    const consultant_id = searchParams.get('consultant_id')
+    const consultantParam = searchParams.get('consultant_id')
+
+    // Gestão pode filtrar por qualquer consultor; restantes ficam scoped
+    // ao próprio. Override silencioso (não 403) para evitar partir UIs
+    // que tentem mostrar grelha global.
+    const canSeeAll = isManagementRole(auth.roles)
+    const consultant_id = canSeeAll ? consultantParam : auth.user.id
 
     let query = supabase
       .from('temp_consultant_goals')

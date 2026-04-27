@@ -7,6 +7,7 @@ import {
 } from '@/lib/crm/inherit-referral-on-negocio-create'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
@@ -16,12 +17,11 @@ export async function GET(request: Request) {
     const supabase = createCrmAdminClient()
     const { searchParams } = new URL(request.url)
 
-    // Pipeline owners (admin/Broker/CEO/Gestora) see every consultor's
-    // négocios. Regular consultores are scoped to their own — `pipeline`
-    // permission is the broker-side gate (`leads` is the page-access gate
-    // that consultores also have, so we can't use it here).
-    const canSeeAll =
-      auth.permissions.pipeline === true || auth.permissions.users === true
+    // Gestão (admin/Broker/CEO/Gestor Processual/Office Manager/Team Leader)
+    // vê os négocios de todos os consultores. Restantes papéis (Consultor,
+    // etc.) ficam scoped aos seus próprios. Atenção: `permissions.pipeline`
+    // NÃO é um proxy fiável aqui — o role Consultor também o tem.
+    const canSeeAll = isManagementRole(auth.roles)
 
     const pipeline_type = searchParams.get('pipeline_type')
     const assignedParam = searchParams.get('assigned_consultant_id')

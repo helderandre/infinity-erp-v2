@@ -3,6 +3,7 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { createLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import type { Database } from '@/types/database'
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert']
@@ -19,7 +20,11 @@ export async function GET(request: Request) {
     const estado = searchParams.get('estado')
     const temperatura = searchParams.get('temperatura')
     const origem = searchParams.get('origem')
-    const agent_id = searchParams.get('agent_id')
+    const agentParam = searchParams.get('agent_id')
+    // Gestão pode filtrar por qualquer agent; restantes ficam scoped ao
+    // próprio (vê apenas contactos de que é o `agent_id`).
+    const canSeeAll = isManagementRole(auth.roles)
+    const agent_id = canSeeAll ? agentParam : auth.user.id
     const qualified_only = searchParams.get('qualified_only') === 'true'
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100)
     const offset = Number(searchParams.get('offset')) || 0

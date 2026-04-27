@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -210,6 +211,25 @@ export default function ImovelDetalhePage() {
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
+
+  // Acesso ao detalhe completo (todas as tabs + editar) só para o
+  // angariador (`property.consultant_id === me`) ou gestão. Restantes
+  // consultores vêem apenas a tab Apresentação. A página fica acessível
+  // (lista pública), mas o resto fica vedado.
+  const canEditProperty =
+    !!property &&
+    !!currentUserId &&
+    (property.consultant_id === currentUserId ||
+      isManagementRole(currentUser?.role_names ?? []))
+  const visibleTabs = canEditProperty ? TABS : TABS.filter((t) => t.key === 'apresentacao')
+
+  // Se um consultor sem ownership tentar entrar via deep-link num tab que
+  // não a Apresentação, redireccionar silenciosamente.
+  useEffect(() => {
+    if (property && !canEditProperty && activeTab !== 'apresentacao') {
+      setActiveTab('apresentacao')
+    }
+  }, [property, canEditProperty, activeTab])
   const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>(initialProcessSubTab)
   const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -563,33 +583,35 @@ export default function ImovelDetalhePage() {
             Voltar
           </button>
 
-          {/* Mobile-only edit/delete */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => setEditSheetOpen(true)}
-              title="Editar"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setDeleteStep(1)}
-              title="Eliminar imóvel"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {/* Mobile-only edit/delete — só para owner ou gestão */}
+          {canEditProperty && (
+            <div className="flex items-center gap-2 lg:hidden">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => setEditSheetOpen(true)}
+                title="Editar"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setDeleteStep(1)}
+                title="Eliminar imóvel"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Row 2 (mobile) / inline (desktop): tabs first, then edit/delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center justify-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full mx-auto sm:mx-0">
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const Icon = t.icon
               const isActive = activeTab === t.key
               return (
@@ -613,7 +635,8 @@ export default function ImovelDetalhePage() {
             })}
           </div>
 
-          {/* Desktop-only edit/delete (now after the tabs) */}
+          {/* Desktop-only edit/delete (now after the tabs) — só para owner ou gestão */}
+          {canEditProperty && (
           <div className="hidden lg:flex items-center gap-2">
             <Button
               variant="outline"
@@ -634,6 +657,7 @@ export default function ImovelDetalhePage() {
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
+          )}
         </div>
       </div>
 
