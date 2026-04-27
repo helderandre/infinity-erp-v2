@@ -68,6 +68,11 @@ interface TaskSectionsProps {
   onSelect: (task: TaskWithRelations) => void
   onRefresh?: () => void
   isSelected: (task: TaskWithRelations) => boolean
+  /**
+   * Tasks completed today, rendered as a final "Concluídas hoje" section
+   * with strikethrough styling. Clicking the check uncompletes them.
+   */
+  completedToday?: TaskWithRelations[]
 }
 
 export function TaskSections({
@@ -76,18 +81,20 @@ export function TaskSections({
   onSelect,
   onRefresh,
   isSelected,
+  completedToday = [],
 }: TaskSectionsProps) {
   const sections = bucketize(tasks)
-  const [collapsed, setCollapsed] = useState<Record<SectionKey, boolean>>({
+  const [collapsed, setCollapsed] = useState<Record<SectionKey | 'completed_today', boolean>>({
     overdue: false,
     today: false,
     tomorrow: false,
     week: false,
     later: true,
     nodate: true,
+    completed_today: false,
   })
 
-  const toggle = (key: SectionKey) =>
+  const toggle = (key: SectionKey | 'completed_today') =>
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
   return (
@@ -129,6 +136,44 @@ export function TaskSections({
           )}
         </div>
       ))}
+
+      {completedToday.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => toggle('completed_today')}
+            className="w-full flex items-center gap-1.5 py-1.5 px-2.5 text-[13px] font-semibold tracking-tight hover:bg-muted/40 rounded-md transition-colors"
+          >
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0',
+                collapsed.completed_today && '-rotate-90',
+              )}
+              strokeWidth={2.5}
+            />
+            <span className="text-emerald-600">Concluídas hoje</span>
+            <span className="text-muted-foreground font-normal text-xs">
+              {completedToday.length}
+            </span>
+            <div className="flex-1 ml-2 h-px bg-border/60" />
+          </button>
+
+          {!collapsed.completed_today && (
+            <div className="mt-1">
+              {completedToday.map((task) => (
+                <TaskListItem
+                  key={task.id}
+                  task={task}
+                  onToggleComplete={onToggleComplete}
+                  onSelect={onSelect}
+                  onRefresh={onRefresh}
+                  isSelected={isSelected(task)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { isToday, parseISO } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil, LayoutGrid } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,15 +22,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskSections } from '@/components/tasks/task-sections'
-import { TaskQuickAdd } from '@/components/tasks/task-quick-add'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskDetailContent } from '@/components/tasks/task-detail-sheet'
 import { ProcessTaskContent } from '@/components/tasks/process-task-content'
 import { VisitProposalContent } from '@/components/booking/visit-proposal-sheet'
 import { ShareListDialog } from '@/components/tasks/share-list-dialog'
 import { TaskListSwitcher } from '@/components/tasks/task-list-switcher'
+import { AllListsView } from '@/components/tasks/all-lists-view'
 import { useTasks, useTaskStats, useTaskMutations } from '@/hooks/use-tasks'
-import { useTaskList, useTaskListMutations } from '@/hooks/use-task-lists'
+import { useTaskList, useTaskListMutations, useTaskLists } from '@/hooks/use-task-lists'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,8 @@ function TarefasPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const listId = searchParams.get('list')
+  const viewParam = searchParams.get('view')
+  const isAllListsView = viewParam === 'all-lists'
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
   const [showForm, setShowForm] = useState(false)
   const [selection, setSelection] = useState<Selection>(null)
@@ -92,6 +95,45 @@ function TarefasPageInner() {
   )
   const { list, refetch: refetchList } = useTaskList(listId)
   const { update: updateList, remove: removeList } = useTaskListMutations()
+
+  // ── All-lists view (when ?view=all-lists) ──
+  const allListsTab = useTasks(
+    { is_completed: 'false' },
+    { enabled: isAllListsView },
+  )
+  const { owned: ownedLists, shared: sharedLists, refetch: refetchAllLists } = useTaskLists()
+
+  // ── Completed-today (across all tabs) ──
+  // Shown at the bottom of every list view as a "Concluídas hoje" section
+  // with strikethrough; click the check to undo. Single fetch, scoped
+  // client-side to the active list / source filter when applicable.
+  const completedTab = useTasks(
+    listId
+      ? { is_completed: 'true', task_list_id: listId }
+      : { is_completed: 'true' },
+    { enabled: !isAllListsView },
+  )
+  const completedTodayTasks = useMemo(() => {
+    return completedTab.tasks.filter((t) => {
+      if (!t.completed_at) return false
+      try {
+        return isToday(parseISO(t.completed_at))
+      } catch {
+        return false
+      }
+    })
+  }, [completedTab.tasks])
+  const completedTodayForTab = (sourceFilter?: 'personal' | 'process') => {
+    if (!sourceFilter) return completedTodayTasks
+    if (sourceFilter === 'process') {
+      return completedTodayTasks.filter(
+        (t) => t.source === 'proc_task' || t.source === 'proc_subtask',
+      )
+    }
+    return completedTodayTasks.filter(
+      (t) => t.source !== 'proc_task' && t.source !== 'proc_subtask',
+    )
+  }
 
   const refetch = listId
     ? listTab.refetch
@@ -231,7 +273,7 @@ function TarefasPageInner() {
       {/* Header — list picker on top, tab pills below */}
       <div className="space-y-3">
         {/* Row 1: list switcher (+ list actions when inside a list) */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
           <TaskListSwitcher
             activeListId={listId}
             activeListName={list?.name}
@@ -253,8 +295,9 @@ function TarefasPageInner() {
           )}
         </div>
 
-        {/* Row 2: Pill picker — only when NOT inside a list (processes don't apply to lists) */}
-        {!listId && (
+        {/* Row 2: Pill picker — only when NOT inside a list and NOT in all-lists view */}
+        {!listId && !isAllListsView && (
+          <div className="flex sm:block justify-center">
           <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
             {([
               { key: 'all' as const, label: 'Todos', icon: LayoutGrid, count: allTab.total },
@@ -293,6 +336,7 @@ function TarefasPageInner() {
               )
             })}
           </div>
+          </div>
         )}
       </div>
 
@@ -309,10 +353,50 @@ function TarefasPageInner() {
         />
       )}
 
-      {/* All tasks — combined personal + process */}
-      {!listId && activeTab === 'all' && (
+      {/* All-lists view — every list with its tasks, expandable. */}
+      {isAllListsView && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
+            <div className="flex items-center justify-end">
+              <Button
+                onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
+                className="rounded-full h-9 gap-1.5 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar tarefa
+              </Button>
+            </div>
+            <AllListsView
+              lists={[...ownedLists, ...sharedLists]}
+              tasks={allListsTab.tasks}
+              isLoading={allListsTab.isLoading}
+              onToggleComplete={handleToggleComplete}
+              onSelectTask={handleSelectTask}
+              onCreateForList={(forListId) => {
+                setFormDefaults(forListId ? { task_list_id: forListId } : undefined)
+                setShowForm(true)
+              }}
+              onRefresh={() => { allListsTab.refetch(); refetchStats(); refetchAllLists() }}
+              isSelected={isTaskSelected}
+            />
+          </div>
+          {detailPanel}
+        </div>
+      )}
+
+      {/* All tasks — combined personal + process */}
+      {!isAllListsView && !listId && activeTab === 'all' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
+            <div className="flex items-center justify-end">
+              <Button
+                onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
+                className="rounded-full h-9 gap-1.5 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar tarefa
+              </Button>
+            </div>
             <TaskFilters
               filters={allTab.filters}
               onFiltersChange={allTab.setFilters}
@@ -320,17 +404,14 @@ function TarefasPageInner() {
               consultants={consultants}
               currentUserId={user?.id}
             />
-            <TaskQuickAdd
-              onCreated={() => { allTab.refetch(); refetchStats() }}
-              onOpenFullForm={() => { setFormDefaults(undefined); setShowForm(true) }}
-            />
             <TaskList
               tasks={allTab.tasks}
+              completedToday={completedTodayForTab()}
               isLoading={allTab.isLoading}
               isCompletedFilter={allTab.filters.is_completed}
               onToggleComplete={handleToggleComplete}
               onSelect={handleSelectTask}
-              onRefresh={() => { allTab.refetch(); refetchStats() }}
+              onRefresh={() => { allTab.refetch(); completedTab.refetch(); refetchStats() }}
               onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
               emptyMessage="Sem tarefas pendentes."
               isSelected={isTaskSelected}
@@ -346,9 +427,18 @@ function TarefasPageInner() {
       )}
 
       {/* Personal tasks (or list-filtered tasks) — same layout, the list is just a filter */}
-      {(listId || activeTab === 'personal') && (
+      {!isAllListsView && (listId || activeTab === 'personal') && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
+            <div className="flex items-center justify-end">
+              <Button
+                onClick={() => { setFormDefaults(listId ? { task_list_id: listId } : undefined); setShowForm(true) }}
+                className="rounded-full h-9 gap-1.5 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar tarefa
+              </Button>
+            </div>
             <TaskFilters
               filters={listId ? listTab.filters : personalTab.filters}
               onFiltersChange={listId ? listTab.setFilters : personalTab.setFilters}
@@ -356,22 +446,9 @@ function TarefasPageInner() {
               consultants={consultants}
               currentUserId={user?.id}
             />
-            <TaskQuickAdd
-              key={listId || 'none'}
-              taskListId={listId || undefined}
-              onCreated={() => {
-                if (listId) { listTab.refetch(); refetchList() }
-                else { personalTab.refetch() }
-                refetchStats()
-              }}
-              onOpenFullForm={() => {
-                setFormDefaults(listId ? { task_list_id: listId } : undefined)
-                setShowForm(true)
-              }}
-              placeholder={listId && list ? `Adicionar tarefa a ${list.name}...` : undefined}
-            />
             <TaskList
               tasks={listId ? listTab.tasks : personalTab.tasks}
+              completedToday={listId ? completedTodayTasks : completedTodayForTab('personal')}
               isLoading={listId ? listTab.isLoading : personalTab.isLoading}
               isCompletedFilter={(listId ? listTab.filters : personalTab.filters).is_completed}
               onToggleComplete={handleToggleComplete}
@@ -379,6 +456,7 @@ function TarefasPageInner() {
               onRefresh={() => {
                 if (listId) { listTab.refetch(); refetchList() }
                 else { personalTab.refetch() }
+                completedTab.refetch()
                 refetchStats()
               }}
               onCreate={() => {
@@ -398,9 +476,18 @@ function TarefasPageInner() {
         </div>
       )}
 
-      {!listId && activeTab === 'process' && (
+      {!isAllListsView && !listId && activeTab === 'process' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
+            <div className="flex items-center justify-end">
+              <Button
+                onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
+                className="rounded-full h-9 gap-1.5 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar tarefa
+              </Button>
+            </div>
             <TaskFilters
               filters={processTab.filters}
               onFiltersChange={processTab.setFilters}
@@ -410,11 +497,12 @@ function TarefasPageInner() {
             />
             <TaskList
               tasks={processTab.tasks}
+              completedToday={completedTodayForTab('process')}
               isLoading={processTab.isLoading}
               isCompletedFilter={processTab.filters.is_completed}
               onToggleComplete={handleToggleComplete}
               onSelect={handleSelectTask}
-              onRefresh={() => { processTab.refetch(); refetchStats() }}
+              onRefresh={() => { processTab.refetch(); completedTab.refetch(); refetchStats() }}
               onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
               emptyMessage="Sem tarefas de processos pendentes."
               isSelected={isTaskSelected}
@@ -490,6 +578,7 @@ function TarefasPageInner() {
 
 function TaskList({
   tasks,
+  completedToday,
   isLoading,
   isCompletedFilter,
   onToggleComplete,
@@ -500,6 +589,7 @@ function TaskList({
   isSelected,
 }: {
   tasks: TaskWithRelations[]
+  completedToday?: TaskWithRelations[]
   isLoading: boolean
   isCompletedFilter?: 'true' | 'false'
   onToggleComplete: (id: string, isCompleted: boolean) => void
@@ -526,7 +616,7 @@ function TaskList({
     )
   }
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && (!completedToday || completedToday.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <CheckSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
@@ -545,6 +635,7 @@ function TaskList({
   return (
     <TaskSections
       tasks={tasks}
+      completedToday={completedToday}
       onToggleComplete={onToggleComplete}
       onSelect={onSelect}
       onRefresh={onRefresh}

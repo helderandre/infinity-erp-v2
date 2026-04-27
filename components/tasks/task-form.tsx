@@ -159,7 +159,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
         side={isMobile ? 'bottom' : 'right'}
         className={cn(
           'p-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
-          'bg-background',
+          'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
           isMobile
             ? 'data-[side=bottom]:h-[80dvh] rounded-t-3xl'
             : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
@@ -216,251 +216,270 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
             onSubmit={form.handleSubmit(onSubmit)}
             className="flex flex-col flex-1 min-h-0 overflow-hidden"
           >
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-1 pb-20 space-y-4">
-            {/* Title */}
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Título</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Ligar ao proprietário" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Description */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Detalhes adicionais..."
-                      rows={3}
-                      {...field}
-                      value={field.value || ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Assignee */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-1 pb-20 space-y-5">
+            {/* ─── Essencial ─── */}
+            <section className="space-y-3">
               <FormField
                 control={form.control}
-                name="assigned_to"
+                name="title"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Atribuir a</FormLabel>
-                    <Select
-                      value={field.value || '_none'}
-                      onValueChange={(v) => field.onChange(v === '_none' ? null : v)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="_none">Sem atribuição</SelectItem>
-                        {consultants.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.commercial_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Priority */}
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prioridade</FormLabel>
-                    <Select
-                      value={String(field.value)}
-                      onValueChange={(v) => field.onChange(Number(v))}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(TASK_PRIORITY_MAP).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>
-                            <span className="flex items-center gap-2">
-                              <span className={`h-2 w-2 rounded-full ${v.dot}`} />
-                              {v.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Due date */}
-            <FormField
-              control={form.control}
-              name="due_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data limite</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value
-                            ? format(new Date(field.value), 'PPP', { locale: pt })
-                            : 'Sem data limite'}
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => field.onChange(date?.toISOString() || null)}
-                        locale={pt}
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Título</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ex: Ligar ao proprietário"
+                        {...field}
+                        className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm"
                       />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Recurring */}
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div className="flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Tarefa recorrente</span>
-              </div>
-              <FormField
-                control={form.control}
-                name="is_recurring"
-                render={({ field }) => (
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
-
-            {isRecurring && (
-              <FormField
-                control={form.control}
-                name="recurrence_rule"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Frequência</FormLabel>
-                    <Select
-                      value={field.value || ''}
-                      onValueChange={field.onChange}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar frequência..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {RECURRENCE_PRESETS.map((p) => (
-                          <SelectItem key={p.rule} value={p.rule}>
-                            {p.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
 
-            {/* Reminders — preset pills */}
-            <FormField
-              control={form.control}
-              name="reminders"
-              render={({ field }) => {
-                const reminders = (field.value ?? []) as { minutes_before: number }[]
-                const presets = [
-                  { minutes: 15, label: '15 min' },
-                  { minutes: 30, label: '30 min' },
-                  { minutes: 60, label: '1 hora' },
-                  { minutes: 120, label: '2 horas' },
-                  { minutes: 1440, label: '1 dia' },
-                ]
-                const toggle = (m: number) => {
-                  const has = reminders.some((r) => r.minutes_before === m)
-                  field.onChange(
-                    has
-                      ? reminders.filter((r) => r.minutes_before !== m)
-                      : [...reminders, { minutes_before: m }],
-                  )
-                }
-                return (
-                  <FormItem>
-                    <FormLabel>Lembretes</FormLabel>
-                    <div className="flex flex-wrap gap-1.5">
-                      {presets.map((p) => {
-                        const active = reminders.some((r) => r.minutes_before === p.minutes)
-                        return (
-                          <button
-                            key={p.minutes}
-                            type="button"
-                            onClick={() => toggle(p.minutes)}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Descrição <span className="text-muted-foreground/60 font-normal">(opcional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Detalhes adicionais..."
+                        rows={3}
+                        {...field}
+                        value={field.value || ''}
+                        className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm resize-none"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </section>
+
+            {/* ─── Quando ─── */}
+            <section className="space-y-3">
+              <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Quando</p>
+
+              <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Data limite</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
                             className={cn(
-                              'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-                              active
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background text-muted-foreground border-border/40 hover:border-border/70',
+                              'w-full justify-start text-left font-normal rounded-xl border-border/40 bg-background/40 backdrop-blur-sm hover:bg-background/70',
+                              !field.value && 'text-muted-foreground'
                             )}
                           >
-                            {p.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value
+                              ? format(new Date(field.value), 'PPP', { locale: pt })
+                              : 'Sem data limite'}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString() || null)}
+                          locale={pt}
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
-                )
-              }}
-            />
+                )}
+              />
 
-            {/* Entity link (if not pre-set) */}
+              {/* Recurring toggle + conditional frequency in one glass card */}
+              <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Tarefa recorrente</span>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="is_recurring"
+                    render={({ field }) => (
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
+                </div>
+
+                {isRecurring && (
+                  <FormField
+                    control={form.control}
+                    name="recurrence_rule"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1.5 pt-1 border-t border-border/40">
+                        <FormLabel className="text-xs font-medium text-muted-foreground pt-2">Frequência</FormLabel>
+                        <Select
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="rounded-xl border-border/40 bg-background/60">
+                              <SelectValue placeholder="Seleccionar frequência..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {RECURRENCE_PRESETS.map((p) => (
+                              <SelectItem key={p.rule} value={p.rule}>
+                                {p.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+
+              {/* Reminders — preset pills */}
+              <FormField
+                control={form.control}
+                name="reminders"
+                render={({ field }) => {
+                  const reminders = (field.value ?? []) as { minutes_before: number }[]
+                  const presets = [
+                    { minutes: 15, label: '15 min' },
+                    { minutes: 30, label: '30 min' },
+                    { minutes: 60, label: '1 hora' },
+                    { minutes: 120, label: '2 horas' },
+                    { minutes: 1440, label: '1 dia' },
+                  ]
+                  const toggle = (m: number) => {
+                    const has = reminders.some((r) => r.minutes_before === m)
+                    field.onChange(
+                      has
+                        ? reminders.filter((r) => r.minutes_before !== m)
+                        : [...reminders, { minutes_before: m }],
+                    )
+                  }
+                  return (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Lembretes</FormLabel>
+                      <div className="flex flex-wrap gap-1.5">
+                        {presets.map((p) => {
+                          const active = reminders.some((r) => r.minutes_before === p.minutes)
+                          return (
+                            <button
+                              key={p.minutes}
+                              type="button"
+                              onClick={() => toggle(p.minutes)}
+                              className={cn(
+                                'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                                active
+                                  ? 'bg-foreground text-background border-foreground'
+                                  : 'bg-background/40 backdrop-blur-sm text-muted-foreground border-border/40 hover:border-border/70 hover:text-foreground',
+                              )}
+                            >
+                              {p.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
+              />
+            </section>
+
+            {/* ─── Quem & Prioridade ─── */}
+            <section className="space-y-3">
+              <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Quem & Prioridade</p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="assigned_to"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Atribuir a</FormLabel>
+                      <Select
+                        value={field.value || '_none'}
+                        onValueChange={(v) => field.onChange(v === '_none' ? null : v)}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
+                            <SelectValue placeholder="Seleccionar..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="_none">Sem atribuição</SelectItem>
+                          {consultants.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.commercial_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Prioridade</FormLabel>
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(TASK_PRIORITY_MAP).map(([k, v]) => (
+                            <SelectItem key={k} value={k}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${v.dot}`} />
+                                {v.label}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </section>
+
+            {/* ─── Associação ─── */}
             {!defaultValues?.entity_type && (
-              <div className="space-y-4">
+              <section className="space-y-3">
+                <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">
+                  Associação <span className="text-muted-foreground/60 font-normal normal-case tracking-normal">(opcional)</span>
+                </p>
                 <FormField
                   control={form.control}
                   name="entity_type"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Associar a</FormLabel>
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Associar a</FormLabel>
                       <Select
                         value={field.value || '_none'}
                         onValueChange={(v) => {
@@ -469,7 +488,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                         }}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
                             <SelectValue placeholder="Nenhum" />
                           </SelectTrigger>
                         </FormControl>
@@ -490,8 +509,8 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                     control={form.control}
                     name="entity_id"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-xs font-medium text-muted-foreground">
                           {TASK_ENTITY_LABELS[selectedEntityType as TaskEntityType]}
                         </FormLabel>
                         <Select
@@ -500,7 +519,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                           disabled={isLoadingEntities}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
                               <SelectValue placeholder={
                                 isLoadingEntities ? 'A carregar...' : 'Seleccionar...'
                               } />
@@ -520,12 +539,12 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                     )}
                   />
                 )}
-              </div>
+              </section>
             )}
 
             </div>
 
-            <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background border-t border-border/50">
+            <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl border-t border-border/40">
               <Button
                 type="button"
                 variant="outline"

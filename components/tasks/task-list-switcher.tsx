@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { ChevronDown, Hash, Inbox, ListChecks, Plus, Users, Workflow } from 'lucide-react'
+import { ChevronDown, Hash, Inbox, LayoutList, ListChecks, Plus, Users, Workflow } from 'lucide-react'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
@@ -41,17 +41,33 @@ export function TaskListSwitcher({
     const params = new URLSearchParams(searchParams.toString())
     if (listId) params.set('list', listId)
     else params.delete('list')
+    params.delete('view')
     const qs = params.toString()
     router.push(`${pathname}${qs ? `?${qs}` : ''}`)
     setOpen(false)
   }
+
+  const navigateAllLists = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('view', 'all-lists')
+    params.delete('list')
+    router.push(`${pathname}?${params.toString()}`)
+    setOpen(false)
+  }
+
+  const viewParam = searchParams.get('view')
+  const isAllListsView = viewParam === 'all-lists'
 
   const onListCreated = (newId?: string) => {
     refetch()
     if (newId) navigate(newId)
   }
 
-  const triggerLabel = activeListId ? (activeListName || 'Lista') : defaultViewLabel
+  const triggerLabel = isAllListsView
+    ? 'Todas as listas'
+    : activeListId
+      ? (activeListName || 'Lista')
+      : defaultViewLabel
   const triggerColor = TASK_LIST_COLORS[activeListColor]?.hash || 'text-muted-foreground'
 
   return (
@@ -103,13 +119,27 @@ export function TaskListSwitcher({
             onClick={() => navigate(null)}
             className={cn(
               'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors',
-              !activeListId
+              !activeListId && !isAllListsView
                 ? 'bg-muted/60 text-foreground'
                 : 'hover:bg-muted/40',
             )}
           >
             <Inbox className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span className="flex-1 text-left">Entrada</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={navigateAllLists}
+            className={cn(
+              'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors',
+              isAllListsView
+                ? 'bg-muted/60 text-foreground'
+                : 'hover:bg-muted/40',
+            )}
+          >
+            <LayoutList className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="flex-1 text-left">Ver todas as listas</span>
           </button>
 
           {/* Lists */}

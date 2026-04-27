@@ -2,9 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { TASK_PRIORITY_MAP } from '@/types/task'
 import { cn } from '@/lib/utils'
@@ -73,48 +71,121 @@ export function TaskFilters({ filters, onFiltersChange, consultants, currentUser
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 space-y-3">
+      <PopoverContent
+        align="end"
+        className="w-72 p-4 rounded-2xl border-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-xl space-y-4"
+      >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Filtros</span>
+          <span className="text-sm font-semibold tracking-tight">Filtros</span>
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs gap-1">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-background/60 transition-colors"
+            >
               <X className="h-3 w-3" /> Limpar
-            </Button>
+            </button>
           )}
         </div>
-        <Select value={filters.assigned_to || '_all'} onValueChange={(v) => onFiltersChange({ ...filters, assigned_to: v === '_all' ? undefined : v })}>
-          <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Atribuído a" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todos</SelectItem>
-            {currentUserId && <SelectItem value={currentUserId}>As minhas</SelectItem>}
-            {consultants.map((c) => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filters.priority ? String(filters.priority) : '_all'} onValueChange={(v) => onFiltersChange({ ...filters, priority: v === '_all' ? undefined : Number(v) })}>
-          <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Prioridade" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todas</SelectItem>
-            {Object.entries(TASK_PRIORITY_MAP).map(([k, v]) => (
-              <SelectItem key={k} value={k}><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${v.dot}`} />{v.label}</span></SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filters.is_completed || (filters.overdue === 'true' ? '_overdue' : '_pending')}
-          onValueChange={(v) => {
-            if (v === '_overdue') onFiltersChange({ ...filters, is_completed: undefined, overdue: 'true' })
-            else if (v === '_all') onFiltersChange({ ...filters, is_completed: undefined, overdue: undefined })
-            else onFiltersChange({ ...filters, is_completed: v as 'true' | 'false', overdue: undefined })
-          }}
-        >
-          <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="false">Pendentes</SelectItem>
-            <SelectItem value="true">Concluídas</SelectItem>
-            <SelectItem value="_overdue">Em atraso</SelectItem>
-            <SelectItem value="_all">Todas</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Estado — pill row */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Estado</p>
+          <div className="grid grid-cols-2 gap-1">
+            {([
+              { key: 'pending', label: 'Pendentes' },
+              { key: 'completed', label: 'Concluídas' },
+              { key: 'overdue', label: 'Em atraso' },
+              { key: 'all', label: 'Todas' },
+            ] as const).map((opt) => {
+              const current =
+                filters.overdue === 'true' ? 'overdue'
+                : filters.is_completed === 'true' ? 'completed'
+                : filters.is_completed === 'false' ? 'pending'
+                : 'all'
+              const active = current === opt.key
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => {
+                    if (opt.key === 'overdue') onFiltersChange({ ...filters, is_completed: undefined, overdue: 'true' })
+                    else if (opt.key === 'all') onFiltersChange({ ...filters, is_completed: undefined, overdue: undefined })
+                    else if (opt.key === 'completed') onFiltersChange({ ...filters, is_completed: 'true', overdue: undefined })
+                    else onFiltersChange({ ...filters, is_completed: 'false', overdue: undefined })
+                  }}
+                  className={cn(
+                    'rounded-full text-xs font-medium px-3 py-1.5 border transition-colors',
+                    active
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground hover:border-border/70',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Prioridade — pill row */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Prioridade</p>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => onFiltersChange({ ...filters, priority: undefined })}
+              className={cn(
+                'rounded-full text-xs font-medium px-3 py-1 border transition-colors',
+                !filters.priority
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Todas
+            </button>
+            {Object.entries(TASK_PRIORITY_MAP).map(([k, v]) => {
+              const active = filters.priority === Number(k)
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => onFiltersChange({ ...filters, priority: Number(k) })}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-3 py-1 border transition-colors',
+                    active
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground',
+                  )}
+                  title={v.label}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', v.dot)} />
+                  {v.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Atribuído a */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Atribuído a</p>
+          <Select
+            value={filters.assigned_to || '_all'}
+            onValueChange={(v) => onFiltersChange({ ...filters, assigned_to: v === '_all' ? undefined : v })}
+          >
+            <SelectTrigger className="h-9 text-xs rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
+              <SelectValue placeholder="Toda a equipa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Toda a equipa</SelectItem>
+              {currentUserId && <SelectItem value={currentUserId}>As minhas</SelectItem>}
+              {consultants.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </PopoverContent>
     </Popover>
   )
@@ -150,7 +221,7 @@ export function TaskFilters({ filters, onFiltersChange, consultants, currentUser
   )
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-card pl-2 pr-1 py-0.5">
+    <div className="flex items-center gap-1 rounded-full border border-border/40 bg-background/40 backdrop-blur-sm pl-2 pr-1 py-0.5">
       {searchOpen ? (
         searchInput
       ) : (
