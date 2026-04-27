@@ -37,6 +37,10 @@ export async function GET(request: Request) {
     const missing_cover = searchParams.get('missing_cover') === 'true'
     const missing_owners = searchParams.get('missing_owners') === 'true'
     const contract_expiring_days = searchParams.get('contract_expiring_days')
+    // 'with' → only properties that already have a reference, 'without' → only
+    // those still missing one. Anything else (or absent) leaves the dataset
+    // untouched.
+    const external_ref_status = searchParams.get('external_ref_status')
     const limit = Math.min(Number(searchParams.get('per_page')) || 20, 100)
     const page = Math.max(Number(searchParams.get('page')) || 1, 1)
     const offset = (page - 1) * limit
@@ -130,6 +134,13 @@ export async function GET(request: Request) {
     }
     if (external_ref) {
       query = query.ilike('external_ref', `%${external_ref}%`)
+    }
+    if (external_ref_status === 'with') {
+      // Has a non-empty external_ref. Postgres treats '' and NULL differently;
+      // we exclude both to match what the consultant sees as "no reference".
+      query = query.not('external_ref', 'is', null).neq('external_ref', '')
+    } else if (external_ref_status === 'without') {
+      query = query.or('external_ref.is.null,external_ref.eq.')
     }
     if (property_condition) {
       const conds = property_condition.split(',').map((s) => s.trim()).filter(Boolean)

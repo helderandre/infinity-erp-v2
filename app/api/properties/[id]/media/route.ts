@@ -66,6 +66,19 @@ export async function POST(
     const file = formData.get('file') as File | null
     const isCover = formData.get('is_cover') === 'true'
     const mediaType = (formData.get('media_type') as string) || 'image'
+    // Two ways the client can pin the gallery position:
+    //  - `order_index` → fully explicit, used by the staging upload flow which
+    //    pre-computes the absolute index for each file (no race possible).
+    //  - `position` → batch-relative offset; older callers send this and we
+    //    fall back to `max(order_index) + 1 + position` (still racy under
+    //    concurrent uploads from independent batches, but stable for the
+    //    common case of a single user uploading one batch at a time).
+    const orderIndexRaw = formData.get('order_index') as string | null
+    const explicitOrderIndex =
+      orderIndexRaw != null && /^\d+$/.test(orderIndexRaw) ? Number(orderIndexRaw) : null
+    const positionRaw = formData.get('position') as string | null
+    const positionOffset =
+      positionRaw != null && /^\d+$/.test(positionRaw) ? Number(positionRaw) : 0
 
     if (!file) {
       return NextResponse.json({ error: 'Ficheiro obrigatório' }, { status: 400 })
@@ -105,7 +118,11 @@ export async function POST(
       .limit(1)
       .single()
 
-    const nextOrder = maxOrderData?.order_index != null ? maxOrderData.order_index + 1 : 0
+    // Prefer the explicit absolute order_index from the client (race-free —
+    // the staging UI pre-computes it). Otherwise fall back to legacy
+    // max+1+position (works when there's no concurrent batch).
+    const baseOrder = maxOrderData?.order_index != null ? maxOrderData.order_index + 1 : 0
+    const nextOrder = explicitOrderIndex !== null ? explicitOrderIndex : baseOrder + positionOffset
 
     // If this is a regular gallery image and no cover exists yet, auto-promote it
     let finalIsCover = isCover

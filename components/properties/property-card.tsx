@@ -5,15 +5,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatCurrency } from '@/lib/constants'
 import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
-import { Hash, MapPin, Maximize, User } from 'lucide-react'
+import { Hash, MapPin, Maximize, User, Pencil } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
 
 interface PropertyCardProps {
   property: PropertyWithRelations
   onClick?: () => void
+  /** Optional pencil overlay — when provided, an icon-button appears in the
+   *  cover image's top-right (next to the business badge) and triggers edit
+   *  without bubbling the card click. */
+  onEdit?: () => void
 }
 
-export function PropertyCard({ property, onClick }: PropertyCardProps) {
+export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
   const coverImage = property.dev_property_media?.find((m) => m.is_cover)
     || property.dev_property_media?.[0]
 
@@ -43,11 +47,24 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
         <div className="absolute top-2 left-2">
           <StatusBadge status={property.status || 'pending_approval'} type="property" className="!bg-background/80 backdrop-blur-sm" />
         </div>
-        {businessTypeLabel && (
-          <div className="absolute top-2 right-2">
-            <span className="inline-flex items-center rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs font-medium">
-              {businessTypeLabel}
-            </span>
+        {(businessTypeLabel || onEdit) && (
+          <div className="absolute top-2 right-2 flex items-center gap-1.5">
+            {businessTypeLabel && (
+              <span className="inline-flex items-center rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs font-medium">
+                {businessTypeLabel}
+              </span>
+            )}
+            {onEdit && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onEdit() }}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/85 backdrop-blur-sm border border-border/40 text-muted-foreground hover:text-foreground hover:bg-background transition-colors shadow-sm"
+                title="Editar"
+                aria-label="Editar imóvel"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import type { PropertyListItemData } from '@/components/properties/property-list
 import { PropertiesTable } from '@/components/properties/properties-table'
 import { PropertyActiveChips } from '@/components/properties/property-active-chips'
 import { PropertyFiltersSheet, PropertyFiltersAside, type AdvancedFiltersValue } from '@/components/properties/property-filters-sheet'
+import { PropertyEditSheet } from '@/components/properties/property-edit-sheet'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -44,6 +45,7 @@ import {
   Search,
   SlidersHorizontal,
   X,
+  Pencil,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -190,6 +192,7 @@ function ImoveisPageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = usePersistentState<'table' | 'grid'>('imoveis-view-mode', 'table')
   // Default to the numeric-suffix order of `external_ref` so the most recent
@@ -223,6 +226,12 @@ function ImoveisPageContent() {
   const [missingCover, setMissingCover] = usePersistentState<boolean>('imoveis-filter-missing-cover', false)
   const [missingOwners, setMissingOwners] = usePersistentState<boolean>('imoveis-filter-missing-owners', false)
   const [contractExpiringDays, setContractExpiringDays] = usePersistentState('imoveis-filter-contract-expiring', '')
+  // 'all' | 'with' | 'without' — quick toolbar filter for properties that
+  // already have an external reference vs those still missing one.
+  const [externalRefStatus, setExternalRefStatus] = usePersistentState<'all' | 'with' | 'without'>(
+    'imoveis-filter-external-ref-status',
+    'all',
+  )
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
@@ -253,7 +262,8 @@ function ImoveisPageContent() {
     energyCerts.length > 0 ||
     missingCover ||
     missingOwners ||
-    contractExpiringDays !== ''
+    contractExpiringDays !== '' ||
+    externalRefStatus !== 'all'
 
   // Count of advanced-only filters (used to badge the "Filtros avançados" button).
   // Excludes the four quick pills (Status / Negócio / Preço / Tipologia) that
@@ -304,6 +314,7 @@ function ImoveisPageContent() {
       if (missingCover) params.set('missing_cover', 'true')
       if (missingOwners) params.set('missing_owners', 'true')
       if (contractExpiringDays) params.set('contract_expiring_days', contractExpiringDays)
+      if (externalRefStatus !== 'all') params.set('external_ref_status', externalRefStatus)
       params.set('sort_by', sortBy)
       params.set('sort_dir', sortDir)
       params.set('per_page', String(PAGE_SIZE))
@@ -327,7 +338,7 @@ function ImoveisPageContent() {
     selectedPropertyTypes, selectedBusinessTypes, selectedConditions, selectedConsultants,
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
-    energyCerts, missingCover, missingOwners, contractExpiringDays,
+    energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
     page, sortBy, sortDir,
   ])
 
@@ -392,7 +403,7 @@ function ImoveisPageContent() {
     selectedPropertyTypes, selectedBusinessTypes, selectedConditions, selectedConsultants,
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
-    energyCerts, missingCover, missingOwners, contractExpiringDays,
+    energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
   ])
 
   const handleCancel = async () => {
@@ -447,6 +458,7 @@ function ImoveisPageContent() {
     setMissingCover(false)
     setMissingOwners(false)
     setContractExpiringDays('')
+    setExternalRefStatus('all')
     setPage(0)
   }
 
@@ -586,6 +598,51 @@ function ImoveisPageContent() {
           </PopoverContent>
         </Popover>
 
+        {/* Referência quick-pill */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size="sm"
+              variant={externalRefStatus !== 'all' ? 'default' : 'outline'}
+              className={cn(
+                'h-9 rounded-full text-xs',
+                externalRefStatus !== 'all' && 'bg-foreground text-background',
+              )}
+            >
+              {externalRefStatus === 'with'
+                ? 'Com referência'
+                : externalRefStatus === 'without'
+                  ? 'Sem referência'
+                  : 'Referência'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-48 rounded-xl p-1.5">
+            <div className="flex flex-col gap-0.5">
+              {([
+                { value: 'all' as const, label: 'Todas' },
+                { value: 'with' as const, label: 'Com referência' },
+                { value: 'without' as const, label: 'Sem referência' },
+              ]).map((opt) => {
+                const active = externalRefStatus === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setExternalRefStatus(opt.value)}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors',
+                      active ? 'bg-muted/60 font-medium' : 'hover:bg-muted/30',
+                    )}
+                  >
+                    <span>{opt.label}</span>
+                    {active && <span className="text-[10px] text-foreground/70">✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {/* Filtros avançados — abre o sheet com tudo o resto */}
         <Button
           size="sm"
@@ -669,6 +726,8 @@ function ImoveisPageContent() {
         onMissingOwnersChange={setMissingOwners}
         contractExpiringDays={contractExpiringDays}
         onContractExpiringDaysChange={setContractExpiringDays}
+        externalRefStatus={externalRefStatus}
+        onExternalRefStatusChange={setExternalRefStatus}
         onClearAll={clearFilters}
       />
 
@@ -789,6 +848,13 @@ function ImoveisPageContent() {
                     <Building2 className="mr-2 h-3.5 w-3.5" />
                     Ver Detalhe
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-lg"
+                    onClick={() => setEditId(p.id)}
+                  >
+                    <Pencil className="mr-2 h-3.5 w-3.5" />
+                    Editar
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive rounded-lg"
@@ -822,6 +888,7 @@ function ImoveisPageContent() {
                 key={property.id}
                 property={property}
                 onClick={() => openPropertySheet(property)}
+                onEdit={() => setEditId(property.id)}
               />
             ))}
           </div>
@@ -922,6 +989,13 @@ function ImoveisPageContent() {
         propertyId={detailPropertyId}
         open={!!detailPropertyId}
         onOpenChange={handleSheetOpenChange}
+      />
+
+      <PropertyEditSheet
+        propertyId={editId}
+        open={!!editId}
+        onOpenChange={(o) => { if (!o) setEditId(null) }}
+        onSaved={() => loadProperties()}
       />
     </div>
   )

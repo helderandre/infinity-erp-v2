@@ -37,6 +37,11 @@ export function CalendarRichEditor({
   )
 
   const editor = useEditor({
+    // Tiptap v2 warns when used inside React Server Components / SSR contexts.
+    // We're a 'use client' component, but Next still pre-renders briefly —
+    // disabling immediate render avoids hydration mismatches that can blank
+    // out surrounding UI.
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [3] },

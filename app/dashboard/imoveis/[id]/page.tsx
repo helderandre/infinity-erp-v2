@@ -30,6 +30,7 @@ import { PropertyOwnerAddDialog } from '@/components/properties/property-owner-a
 import { PropertyOwnerInvitesSection } from '@/components/properties/property-owner-invites-section'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { PropertyEditSheet } from '@/components/properties/property-edit-sheet'
 import { Progress } from '@/components/ui/progress'
 import {
   AlertDialog,
@@ -216,6 +217,8 @@ export default function ImovelDetalhePage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [editData, setEditData] = useState<Record<string, any>>({})
   const [consultantsList, setConsultantsList] = useState<{ id: string; commercial_name: string }[]>([])
+  // ─── Edit sheet (replaces in-place edit triggered by the Pencil button) ───
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/consultants?per_page=100&status=active&include_brokers=true')
@@ -560,87 +563,31 @@ export default function ImovelDetalhePage() {
             Voltar
           </button>
 
-          {/* Mobile-only edit/delete buttons */}
+          {/* Mobile-only edit/delete */}
           <div className="flex items-center gap-2 lg:hidden">
-            {isEditing && (
-              <>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
-                  <X className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                </Button>
-              </>
-            )}
-            {!isEditing && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={() => {
-                  if (activeTab === 'apresentacao') setActiveTab('resumo')
-                  startEditing()
-                }}
-                title="Editar"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {!isEditing && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                onClick={() => setDeleteStep(1)}
-                title="Eliminar imóvel"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={() => setEditSheetOpen(true)}
+              title="Editar"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setDeleteStep(1)}
+              title="Eliminar imóvel"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
 
-        {/* Row 2 (mobile) / inline (desktop): tabs + desktop-only edit/delete */}
+        {/* Row 2 (mobile) / inline (desktop): tabs first, then edit/delete */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Desktop-only edit/delete buttons */}
-          <div className="hidden lg:flex items-center gap-2">
-            {isEditing && (
-              <>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={cancelEditing} title="Cancelar">
-                  <X className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" onClick={saveChanges} disabled={isSaving} title="Guardar">
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                </Button>
-              </>
-            )}
-            {!isEditing && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={() => {
-                  if (activeTab === 'apresentacao') setActiveTab('resumo')
-                  startEditing()
-                }}
-                title="Editar"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {!isEditing && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                onClick={() => setDeleteStep(1)}
-                title="Eliminar imóvel"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-
           <div className="flex items-center justify-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 overflow-x-auto scrollbar-hide max-w-full mx-auto sm:mx-0">
             {TABS.map((t) => {
               const Icon = t.icon
@@ -664,6 +611,28 @@ export default function ImovelDetalhePage() {
                 </button>
               )
             })}
+          </div>
+
+          {/* Desktop-only edit/delete (now after the tabs) */}
+          <div className="hidden lg:flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={() => setEditSheetOpen(true)}
+              title="Editar"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setDeleteStep(1)}
+              title="Eliminar imóvel"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </div>
@@ -2025,6 +1994,15 @@ export default function ImovelDetalhePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* New tabbed edit sheet — replaces the inline-edit triggered by the
+          Pencil button. Refetch on save so the page reflects the changes. */}
+      <PropertyEditSheet
+        propertyId={editSheetOpen ? property?.id ?? null : null}
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        onSaved={() => { refetch() }}
+      />
     </div>
   )
 }

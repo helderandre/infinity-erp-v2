@@ -60,6 +60,8 @@ interface ActiveChipsProps {
   onMissingOwnersChange: (v: boolean) => void
   contractExpiringDays: string
   onContractExpiringDaysChange: (v: string) => void
+  externalRefStatus: 'all' | 'with' | 'without'
+  onExternalRefStatusChange: (v: 'all' | 'with' | 'without') => void
   onClearAll: () => void
 }
 
@@ -114,6 +116,7 @@ export function PropertyActiveChips(props: ActiveChipsProps) {
     missingCover, onMissingCoverChange,
     missingOwners, onMissingOwnersChange,
     contractExpiringDays, onContractExpiringDaysChange,
+    externalRefStatus, onExternalRefStatusChange,
     onClearAll,
   } = props
 
@@ -244,6 +247,15 @@ export function PropertyActiveChips(props: ActiveChipsProps) {
   }
   if (contractExpiringDays) {
     chips.push(<Chip key="contract-exp" label={<>Contrato a expirar: {contractExpiringDays}d</>} onRemove={() => onContractExpiringDaysChange('')} />)
+  }
+  if (externalRefStatus !== 'all') {
+    chips.push(
+      <Chip
+        key="external-ref"
+        label={<>Referência: {externalRefStatus === 'with' ? 'com' : 'sem'}</>}
+        onRemove={() => onExternalRefStatusChange('all')}
+      />,
+    )
   }
 
   if (chips.length === 0) return null

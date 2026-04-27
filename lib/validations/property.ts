@@ -29,10 +29,21 @@ export const propertySchema = z.object({
   // Contrato
   contract_regime: z.string().optional(),
 
-  // Portal URLs
+  // Portal URLs (legacy aliases — page edit-in-place still uses these and maps
+  // to link_portal_* on submit. Keep accepted for backwards compat).
   url_remax: z.string().optional(),
   url_idealista: z.string().optional(),
   url_imovirtual: z.string().optional(),
+
+  // Portal links — actual DB column names. Used by the new edit sheet
+  // directly without the legacy url_* → link_portal_* mapping.
+  link_portal_remax: z.string().optional().nullable(),
+  link_portal_idealista: z.string().optional().nullable(),
+  link_portal_imovirtual: z.string().optional().nullable(),
+  link_portal_infinity: z.string().optional().nullable(),
+  remax_published_date: z.string().optional().nullable(),
+  remax_draft_number: z.string().optional().nullable(),
+  notas_juridico_convictus: z.string().optional().nullable(),
 
   // Apresentação pública (toggles para o link partilhado)
   presentation_show_staging: z.boolean().optional(),

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import {
   DndContext,
@@ -210,6 +210,7 @@ function SortableGridItem({
   selectMode,
   isSelected,
   onToggleSelect,
+  onStartDragSelect,
   hideRoomLabels,
 }: {
   item: PropertyMedia
@@ -223,6 +224,8 @@ function SortableGridItem({
   selectMode: boolean
   isSelected: boolean
   onToggleSelect: (id: string) => void
+  /** Starts an iPhone-style drag-select gesture from this card. */
+  onStartDragSelect: (id: string, currentlySelected: boolean) => void
   hideRoomLabels?: boolean
 }) {
   const {
@@ -244,11 +247,18 @@ function SortableGridItem({
     <div
       ref={setNodeRef}
       style={style}
+      data-media-id={item.id}
       className={cn(
         'relative group aspect-[16/10] rounded-lg overflow-hidden bg-muted border transition-all',
         selectMode && isSelected && 'ring-2 ring-primary border-primary',
+        selectMode && 'touch-none select-none',
       )}
-      onClick={selectMode ? () => onToggleSelect(item.id) : () => onImageClick(item)}
+      // In selectMode pointerdown drives both single-tap toggle and the
+      // tap-and-drag-to-select gesture (handled at the parent level via
+      // window pointermove). Plain click is suppressed while in selectMode
+      // to avoid the toggle firing twice on quick taps.
+      onPointerDown={selectMode ? () => onStartDragSelect(item.id, isSelected) : undefined}
+      onClick={selectMode ? undefined : () => onImageClick(item)}
     >
       <Image
         src={displayUrl}
@@ -382,6 +392,7 @@ function SortableListItem({
   selectMode,
   isSelected,
   onToggleSelect,
+  onStartDragSelect,
 }: {
   item: PropertyMedia
   index: number
@@ -393,6 +404,7 @@ function SortableListItem({
   selectMode: boolean
   isSelected: boolean
   onToggleSelect: (id: string) => void
+  onStartDragSelect: (id: string, currentlySelected: boolean) => void
 }) {
   const {
     attributes,
@@ -413,11 +425,13 @@ function SortableListItem({
     <div
       ref={setNodeRef}
       style={style}
+      data-media-id={item.id}
       className={cn(
         'flex items-center gap-3 rounded-lg border bg-card p-2 hover:bg-accent/50 transition-colors',
         selectMode && isSelected && 'ring-2 ring-primary border-primary bg-primary/5',
+        selectMode && 'touch-none select-none',
       )}
-      onClick={selectMode ? () => onToggleSelect(item.id) : undefined}
+      onPointerDown={selectMode ? () => onStartDragSelect(item.id, isSelected) : undefined}
     >
       {selectMode ? (
         <div className={cn(
@@ -591,6 +605,55 @@ export function PropertyMediaGallery({
       return next
     })
   }
+
+  /* iPhone-style drag-to-select: pointer-down on a card decides the action
+     (select if it was unselected, deselect if it was selected) and propagates
+     that same action to every other card the pointer enters. Listening at the
+     window level so the gesture survives the pointer leaving the gallery. */
+  const dragSelectRef = useRef<{
+    mode: 'select' | 'deselect'
+    visited: Set<string>
+  } | null>(null)
+
+  const startDragSelect = useCallback((id: string, currentlySelected: boolean) => {
+    const mode: 'select' | 'deselect' = currentlySelected ? 'deselect' : 'select'
+    dragSelectRef.current = { mode, visited: new Set([id]) }
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (mode === 'select') next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!selectMode) return
+    const onMove = (e: PointerEvent) => {
+      const drag = dragSelectRef.current
+      if (!drag) return
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+      const card = el?.closest<HTMLElement>('[data-media-id]')
+      if (!card) return
+      const id = card.dataset.mediaId
+      if (!id || drag.visited.has(id)) return
+      drag.visited.add(id)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (drag.mode === 'select') next.add(id)
+        else next.delete(id)
+        return next
+      })
+    }
+    const onEnd = () => { dragSelectRef.current = null }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+    }
+  }, [selectMode])
 
   const selectAll = () => {
     setSelectedIds(new Set(currentMedia.map((m) => m.id)))
@@ -1110,6 +1173,7 @@ export function PropertyMediaGallery({
                     selectMode={selectMode}
                     isSelected={selectedIds.has(item.id)}
                     onToggleSelect={toggleSelect}
+                    onStartDragSelect={startDragSelect}
                     hideRoomLabels={hideRoomLabels}
                   />
                 ))}
@@ -1129,6 +1193,7 @@ export function PropertyMediaGallery({
                     selectMode={selectMode}
                     isSelected={selectedIds.has(item.id)}
                     onToggleSelect={toggleSelect}
+                    onStartDragSelect={startDragSelect}
                   />
                 ))}
               </div>

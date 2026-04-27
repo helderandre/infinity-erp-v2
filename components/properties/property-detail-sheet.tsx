@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, Building2 } from 'lucide-react'
+import { ArrowUpRight, Building2, Pencil } from 'lucide-react'
+import { PropertyEditSheet } from '@/components/properties/property-edit-sheet'
 import {
   Sheet,
   SheetContent,
@@ -32,6 +33,7 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
   const { user } = useUser()
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [loading, setLoading] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     if (!open || !propertyId) {
@@ -93,16 +95,33 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
             </SheetDescription>
           </div>
           {canSeeFullPage && fullPageHref && (
-            <div className="flex items-center gap-2 mr-10 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 mr-10 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label="Editar"
+                className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                onClick={() => setEditOpen(true)}
+                title="Editar"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
               <Button
                 asChild
                 size="sm"
                 variant="outline"
-                className="rounded-full h-8 text-xs gap-1.5"
+                className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                title="Ver tudo"
               >
-                <Link href={fullPageHref} onClick={() => onOpenChange(false)}>
-                  Ver tudo
+                <Link
+                  href={fullPageHref}
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Ver tudo"
+                  className="inline-flex items-center justify-center"
+                >
                   <ArrowUpRight className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Ver tudo</span>
                 </Link>
               </Button>
             </div>
@@ -114,17 +133,17 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
         ) : (
           <Tabs defaultValue="apresentacao" className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="shrink-0 px-4 sm:px-6 pb-3">
-              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+              <div className="inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
                 <TabsList className="bg-transparent p-0 h-auto">
                   <TabsTrigger
                     value="apresentacao"
-                    className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
+                    className="rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
                   >
                     Apresentação
                   </TabsTrigger>
                   <TabsTrigger
                     value="interessados"
-                    className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
+                    className="rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
                   >
                     Interessados
                   </TabsTrigger>
@@ -153,6 +172,21 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
           </Tabs>
         )}
       </SheetContent>
+
+      <PropertyEditSheet
+        propertyId={editOpen ? property?.id ?? null : null}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => {
+          // Refresh the underlying detail by re-fetching.
+          if (propertyId) {
+            fetch(`/api/properties/${propertyId}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => setProperty(d))
+              .catch(() => {})
+          }
+        }}
+      />
     </Sheet>
   )
 }
