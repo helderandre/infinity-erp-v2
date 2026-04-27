@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskSections } from '@/components/tasks/task-sections'
+import { MarketingMomentsDueSection } from '@/components/tasks/marketing-moments-due-section'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskDetailContent } from '@/components/tasks/task-detail-sheet'
 import { ProcessTaskContent } from '@/components/tasks/process-task-content'
@@ -340,6 +341,9 @@ function TarefasPageInner() {
         )}
       </div>
 
+      {/* PROC-NEG: marketing moments scheduled for today (or overdue) */}
+      <MarketingMomentsDueSection />
+
       {/* Share dialog */}
       {listId && list && (
         <ShareListDialog
@@ -357,10 +361,10 @@ function TarefasPageInner() {
       {isAllListsView && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
-            <div className="flex items-center justify-end">
+            <div className="flex items-stretch sm:items-center sm:justify-end">
               <Button
                 onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
-                className="rounded-full h-9 gap-1.5 shadow-sm"
+                className="rounded-full h-10 sm:h-9 w-full sm:w-auto gap-1.5 shadow-sm bg-foreground/85 hover:bg-foreground text-background"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar tarefa
@@ -388,10 +392,10 @@ function TarefasPageInner() {
       {!isAllListsView && !listId && activeTab === 'all' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
-            <div className="flex items-center justify-end">
+            <div className="flex items-stretch sm:items-center sm:justify-end">
               <Button
                 onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
-                className="rounded-full h-9 gap-1.5 shadow-sm"
+                className="rounded-full h-10 sm:h-9 w-full sm:w-auto gap-1.5 shadow-sm bg-foreground/85 hover:bg-foreground text-background"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar tarefa
@@ -430,10 +434,10 @@ function TarefasPageInner() {
       {!isAllListsView && (listId || activeTab === 'personal') && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
-            <div className="flex items-center justify-end">
+            <div className="flex items-stretch sm:items-center sm:justify-end">
               <Button
                 onClick={() => { setFormDefaults(listId ? { task_list_id: listId } : undefined); setShowForm(true) }}
-                className="rounded-full h-9 gap-1.5 shadow-sm"
+                className="rounded-full h-10 sm:h-9 w-full sm:w-auto gap-1.5 shadow-sm bg-foreground/85 hover:bg-foreground text-background"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar tarefa
@@ -479,10 +483,10 @@ function TarefasPageInner() {
       {!isAllListsView && !listId && activeTab === 'process' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
-            <div className="flex items-center justify-end">
+            <div className="flex items-stretch sm:items-center sm:justify-end">
               <Button
                 onClick={() => { setFormDefaults(undefined); setShowForm(true) }}
-                className="rounded-full h-9 gap-1.5 shadow-sm"
+                className="rounded-full h-10 sm:h-9 w-full sm:w-auto gap-1.5 shadow-sm bg-foreground/85 hover:bg-foreground text-background"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar tarefa
