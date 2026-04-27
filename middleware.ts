@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Rotas públicas
-  const publicPaths = ['/login', '/forgot-password', '/verify-otp', '/reset-password', '/entryform', '/fichas', '/apresentacao', '/proprietario']
+  const publicPaths = ['/login', '/forgot-password', '/verify-otp', '/reset-password', '/entryform', '/fichas', '/apresentacao', '/proprietario', '/inquerito']
   const isPublicPath = publicPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirecionar utilizadores autenticados da página de login para o dashboard
   // (excepto rotas que devem ser acessíveis mesmo autenticado: entryform, fichas, reset-password)
-  const alwaysAccessiblePaths = ['/entryform', '/fichas', '/apresentacao', '/proprietario', '/reset-password']
+  const alwaysAccessiblePaths = ['/entryform', '/fichas', '/apresentacao', '/proprietario', '/reset-password', '/inquerito']
   const isAlwaysAccessible = alwaysAccessiblePaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   )
