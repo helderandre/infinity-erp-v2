@@ -14,7 +14,7 @@ import {
   Phone, Mail, MessageSquare, ArrowRight, X,
   Megaphone, Calendar, User, FileText, Hash,
   History, Sparkles, Copy, Check, ShoppingCart, Store, Key, Building2,
-  Handshake, Percent, UserCheck,
+  Handshake, Percent, UserCheck, Send,
 } from 'lucide-react'
 
 // Inline WhatsApp brand glyph (Lucide doesn't ship one)
@@ -32,6 +32,7 @@ import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
 import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
+import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
@@ -122,6 +123,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [outcomeOpen, setOutcomeOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
   const [propertySheetId, setPropertySheetId] = useState<string | null>(null)
+  const [referOpen, setReferOpen] = useState(false)
 
   const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
     setContactMethod(method)
@@ -551,6 +553,14 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                 >
                   Descartar
                 </button>
+                <button
+                  onClick={() => setReferOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors"
+                  title="Referenciar este lead a outro consultor"
+                >
+                  <Send className="h-3 w-3" />
+                  Referenciar
+                </button>
                 <div className="flex-1" />
                 <button
                   onClick={() => { onQualify(entry); onClose() }}
@@ -570,6 +580,27 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
           contactId={entry.contact.id}
           contactName={entry.raw_name || entry.contact?.nome}
           contactMethod={contactMethod}
+        />
+      )}
+      {/* Refer this lead-entry to another consultor. Server-side flips
+          leads_entries.assigned_consultant_id to the recipient and tags
+          the linked contacto so future négocios stay in the original
+          referrer's audit kanban. */}
+      {entry && (
+        <ReferenciarDialog
+          open={referOpen}
+          onOpenChange={setReferOpen}
+          subject={{
+            kind: 'lead_entry',
+            id: entry.id,
+            contact_id: entry.contact?.id || entry.contact_id,
+          }}
+          onSuccess={() => {
+            // Lead-entry handed off — let the parent list refresh and close
+            // this detail view since it's no longer mine.
+            onStatusChange()
+            onClose()
+          }}
         />
       )}
       <PropertyDetailSheet

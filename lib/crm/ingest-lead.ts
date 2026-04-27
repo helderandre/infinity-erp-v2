@@ -102,6 +102,7 @@ export async function ingestLead(
         email: input.email || null,
         telemovel: input.phone || null,
         origem: input.source,
+        estado: 'Lead',
       })
       .select('id')
       .single()
@@ -115,6 +116,20 @@ export async function ingestLead(
   // 4. Run assignment engine (unless manually assigned)
   let assignedAgentId = input.assigned_agent_id || null
   let assignmentMethod: IngestLeadResult['assignment_method'] = 'manual'
+  // Property linkage from the matched rule (Meta ad → imóvel mapping configurado
+  // pela gestora). external_ref é canónico; property_id é a denormalização FK.
+  // Fallback para form_data quando nenhuma regra ganhou — formulários do site,
+  // captura por voz e bulk import já embebem property_external_ref/property_id.
+  let rulePropertyExternalRef: string | null = null
+  let rulePropertyId: string | null = null
+
+  // Meta ad attribution lives inside form_data (set by sync-meta-leads cron).
+  const metaAdId = typeof input.form_data?.meta_ad_id === 'string'
+    ? (input.form_data.meta_ad_id as string)
+    : null
+  const metaAdsetId = typeof input.form_data?.meta_adset_id === 'string'
+    ? (input.form_data.meta_adset_id as string)
+    : null
 
   if (!assignedAgentId) {
     const contactCity = await getContactCity(supabase, contactId!)
@@ -122,9 +137,47 @@ export async function ingestLead(
       entry: { source: input.source, campaign_id: input.campaign_id || null, sector: sector || null },
       campaign: input.campaign_id ? { id: input.campaign_id, sector: sector || null } : null,
       contact_city: contactCity,
+      meta_ad_id: metaAdId,
+      meta_adset_id: metaAdsetId,
     })
     assignedAgentId = assignment.agent_id
     assignmentMethod = assignment.method
+    rulePropertyExternalRef = assignment.property_external_ref
+    rulePropertyId = assignment.property_id
+  }
+
+  // Resolve property linkage to stamp on the entry. Priority:
+  //   1) rule's external_ref (gestora-set, canónico)
+  //   2) form_data.property_external_ref (voice/bulk/site forms já guardam)
+  //   3) rule's property_id
+  //   4) form_data.property_id (older website forms)
+  //
+  // Whichever side we have, resolve the missing one against dev_properties so
+  // the entry always carries both columns in sync.
+  const formPropertyRef = typeof input.form_data?.property_external_ref === 'string'
+    ? (input.form_data.property_external_ref as string)
+    : null
+  const formPropertyId = typeof input.form_data?.property_id === 'string'
+    ? (input.form_data.property_id as string)
+    : null
+
+  let entryPropertyExternalRef = rulePropertyExternalRef ?? formPropertyRef
+  let entryPropertyId = rulePropertyId ?? formPropertyId
+
+  if (entryPropertyExternalRef && !entryPropertyId) {
+    const { data: byRef } = await supabase
+      .from('dev_properties')
+      .select('id')
+      .eq('external_ref', entryPropertyExternalRef)
+      .maybeSingle()
+    if (byRef?.id) entryPropertyId = byRef.id
+  } else if (entryPropertyId && !entryPropertyExternalRef) {
+    const { data: byId } = await supabase
+      .from('dev_properties')
+      .select('external_ref')
+      .eq('id', entryPropertyId)
+      .maybeSingle()
+    if (byId?.external_ref) entryPropertyExternalRef = byId.external_ref
   }
 
   // 5. Calculate SLA deadline
@@ -143,6 +196,8 @@ export async function ingestLead(
       campaign_id: input.campaign_id || null,
       partner_id: input.partner_id || null,
       assigned_agent_id: assignedAgentId,
+      property_id: entryPropertyId,
+      property_external_ref: entryPropertyExternalRef,
       sector,
       is_reactivation: isReactivation,
       status: 'new',
@@ -231,22 +286,18 @@ export async function ingestLead(
     }).catch(() => {})
   }
 
-  // 10. Notify the property owner when this lead originated from a specific
-  //     property (form_data.property_id presente — formulários do site e
-  //     captura por voz embebem o id do imóvel quando aplicável). O dono do
-  //     imóvel (`dev_properties.consultant_id`) merece saber que alguém se
-  //     interessou pela ficha dele, mesmo que o lead acabe atribuído a outro
-  //     consultor por round-robin / sector. Skip se o dono é o próprio
-  //     assigned_agent (já recebeu notificação acima) ou se o imóvel não tem
-  //     dono atribuído.
-  const formPropertyId = typeof input.form_data?.property_id === 'string'
-    ? (input.form_data.property_id as string)
-    : null
-  if (formPropertyId) {
+  // 10. Notify the property owner when this lead is tied to a specific imóvel
+  //     (vindo de uma assignment rule Meta-ad → propriedade, ou de form_data
+  //     embebido pelos formulários do site/captura por voz). O dono do imóvel
+  //     (`dev_properties.consultant_id`) merece saber que alguém se interessou
+  //     pela ficha dele, mesmo que o lead acabe atribuído a outro consultor
+  //     por round-robin / sector. Skip se o dono é o próprio assigned_agent
+  //     (já recebeu notificação acima) ou se o imóvel não tem dono.
+  if (entryPropertyId) {
     const { data: property } = await supabase
       .from('dev_properties')
       .select('consultant_id, title, slug, external_ref')
-      .eq('id', formPropertyId)
+      .eq('id', entryPropertyId)
       .single()
 
     const ownerId = property?.consultant_id ?? null
@@ -257,7 +308,7 @@ export async function ingestLead(
         type: 'new_lead',
         title: 'Nova lead pelo seu imóvel',
         body: `${input.name} pediu informação sobre "${propertyLabel}" — via ${formatSource(input.source)}`,
-        link: `/dashboard/imoveis/${formPropertyId}?tab=interessados&sub=site`,
+        link: `/dashboard/imoveis/${entryPropertyId}?tab=interessados&sub=site`,
         entry_id: entry.id,
         contact_id: contactId!,
       })
@@ -277,7 +328,7 @@ export async function ingestLead(
                 type: 'new_lead',
                 title: 'Nova lead pelo seu imóvel',
                 body: `${input.name} pediu informação sobre "${propertyLabel}" via ${formatSource(input.source)}.`,
-                link: `/dashboard/imoveis/${formPropertyId}?tab=interessados&sub=site`,
+                link: `/dashboard/imoveis/${entryPropertyId}?tab=interessados&sub=site`,
                 contactName: input.name,
                 contactPhone: input.phone ?? undefined,
               })

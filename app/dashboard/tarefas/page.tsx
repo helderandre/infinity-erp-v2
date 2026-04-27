@@ -3,7 +3,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
+import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil, LayoutGrid } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -37,7 +37,7 @@ import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { TASK_LIST_COLORS, type TaskListColor } from '@/types/task-list'
 import type { TaskWithRelations } from '@/types/task'
 
-type TasksTab = 'personal' | 'process'
+type TasksTab = 'all' | 'personal' | 'process'
 
 type Selection =
   | { kind: 'task'; id: string }
@@ -66,10 +66,16 @@ function TarefasPageInner() {
       }
     | undefined
   >()
-  const [activeTab, setActiveTab] = useState<TasksTab>('personal')
+  const [activeTab, setActiveTab] = useState<TasksTab>('all')
   const [shareOpen, setShareOpen] = useState(false)
 
-  // ── Standard tabs (todo + process) ──
+  // ── Standard tabs (all + personal + process) ──
+  // `allTab` omits source_filter so the API returns both personal and
+  // process-derived tasks combined in one list.
+  const allTab = useTasks(
+    { is_completed: 'false' },
+    { enabled: !listId },
+  )
   const personalTab = useTasks(
     { is_completed: 'false', source_filter: 'personal' },
     { enabled: !listId },
@@ -89,7 +95,11 @@ function TarefasPageInner() {
 
   const refetch = listId
     ? listTab.refetch
-    : activeTab === 'personal' ? personalTab.refetch : processTab.refetch
+    : activeTab === 'all'
+      ? allTab.refetch
+      : activeTab === 'personal'
+        ? personalTab.refetch
+        : processTab.refetch
   const { refetch: refetchStats } = useTaskStats()
   const { toggleComplete } = useTaskMutations()
 
@@ -218,19 +228,36 @@ function TarefasPageInner() {
 
   return (
     <div className="space-y-4">
-      {/* Single header row: switcher + tabs + list actions (when in a list) */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <TaskListSwitcher
-          activeListId={listId}
-          activeListName={list?.name}
-          activeListColor={(list?.color as TaskListColor | undefined) ?? 'neutral'}
-          defaultViewLabel="Listas"
-        />
+      {/* Header — list picker on top, tab pills below */}
+      <div className="space-y-3">
+        {/* Row 1: list switcher (+ list actions when inside a list) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <TaskListSwitcher
+            activeListId={listId}
+            activeListName={list?.name}
+            activeListColor={(list?.color as TaskListColor | undefined) ?? 'neutral'}
+            defaultViewLabel="Listas"
+          />
+          {listId && list && (
+            <ListInlineActions
+              list={list}
+              onShare={() => setShareOpen(true)}
+              onRenamed={async (name) => { await updateList(list.id, { name }); refetchList() }}
+              onColorChanged={async (color) => { await updateList(list.id, { color }); refetchList() }}
+              onDeleted={async () => {
+                await removeList(list.id)
+                toast.success('Lista eliminada')
+                router.push('/dashboard/tarefas')
+              }}
+            />
+          )}
+        </div>
 
-        {/* Pill picker — only when NOT inside a list (processes don't apply to lists) */}
+        {/* Row 2: Pill picker — only when NOT inside a list (processes don't apply to lists) */}
         {!listId && (
           <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
             {([
+              { key: 'all' as const, label: 'Todos', icon: LayoutGrid, count: allTab.total },
               { key: 'personal' as const, label: 'Tarefas', icon: ListChecks, count: personalTab.total },
               { key: 'process' as const, label: 'Processos', icon: Workflow, count: processTab.total },
             ]).map((t) => {
@@ -267,21 +294,6 @@ function TarefasPageInner() {
             })}
           </div>
         )}
-
-        {/* Member avatars + list actions — only when inside a list */}
-        {listId && list && (
-          <ListInlineActions
-            list={list}
-            onShare={() => setShareOpen(true)}
-            onRenamed={async (name) => { await updateList(list.id, { name }); refetchList() }}
-            onColorChanged={async (color) => { await updateList(list.id, { color }); refetchList() }}
-            onDeleted={async () => {
-              await removeList(list.id)
-              toast.success('Lista eliminada')
-              router.push('/dashboard/tarefas')
-            }}
-          />
-        )}
       </div>
 
       {/* Share dialog */}
@@ -295,6 +307,42 @@ function TarefasPageInner() {
           ownerId={list.owner_id}
           onChanged={refetchList}
         />
+      )}
+
+      {/* All tasks — combined personal + process */}
+      {!listId && activeTab === 'all' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="rounded-2xl border bg-card shadow-sm p-3 space-y-3">
+            <TaskFilters
+              filters={allTab.filters}
+              onFiltersChange={allTab.setFilters}
+              onNewTask={() => { setFormDefaults(undefined); setShowForm(true) }}
+              consultants={consultants}
+              currentUserId={user?.id}
+            />
+            <TaskQuickAdd
+              onCreated={() => { allTab.refetch(); refetchStats() }}
+              onOpenFullForm={() => { setFormDefaults(undefined); setShowForm(true) }}
+            />
+            <TaskList
+              tasks={allTab.tasks}
+              isLoading={allTab.isLoading}
+              isCompletedFilter={allTab.filters.is_completed}
+              onToggleComplete={handleToggleComplete}
+              onSelect={handleSelectTask}
+              onRefresh={() => { allTab.refetch(); refetchStats() }}
+              onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
+              emptyMessage="Sem tarefas pendentes."
+              isSelected={isTaskSelected}
+            />
+            {allTab.total > 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                A mostrar {allTab.tasks.length} de {allTab.total} tarefa{allTab.total !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          {detailPanel}
+        </div>
       )}
 
       {/* Personal tasks (or list-filtered tasks) — same layout, the list is just a filter */}

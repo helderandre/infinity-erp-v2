@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Target, Plus, MoreHorizontal, Pencil, Trash2, Loader2,
-  ArrowRightLeft, Users, Zap,
+  ArrowRightLeft, Users, Zap, ChevronDown, Building2, Megaphone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,9 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -210,7 +213,22 @@ export function AssignmentRulesManager() {
                           {SECTORS.find(sec => sec.value === s)?.label ?? s}
                         </span>
                       ))}
-                      {(!rule.source_match?.length && !campaign && !rule.sector_match?.length) && (
+                      {rule.ad_id_match && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full" title={`ad_id ${rule.ad_id_match}`}>
+                          <Megaphone className="h-2.5 w-2.5" /> Ad pinned
+                        </span>
+                      )}
+                      {!rule.ad_id_match && rule.adset_id_match && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full" title={`adset_id ${rule.adset_id_match}`}>
+                          <Megaphone className="h-2.5 w-2.5" /> Adset pinned
+                        </span>
+                      )}
+                      {rule.property_external_ref && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full" title="Imóvel a stamp na entry">
+                          <Building2 className="h-2.5 w-2.5" /> {rule.property_external_ref}
+                        </span>
+                      )}
+                      {(!rule.source_match?.length && !campaign && !rule.sector_match?.length && !rule.ad_id_match && !rule.adset_id_match) && (
                         <span className="text-[10px] text-muted-foreground italic">Todas as leads (catch-all)</span>
                       )}
                     </div>
@@ -294,7 +312,12 @@ function RuleDialog({
     consultant_id: '',
     overflow_threshold: '',
     fallback_action: 'gestora_pool',
+    // Avançado — Meta Ads targeting (raramente usado)
+    ad_id_match: '',
+    adset_id_match: '',
+    property_external_ref: '',
   })
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -309,13 +332,20 @@ function RuleDialog({
         consultant_id: rule.consultant_id ?? '',
         overflow_threshold: rule.overflow_threshold?.toString() ?? '',
         fallback_action: rule.fallback_action ?? 'gestora_pool',
+        ad_id_match: rule.ad_id_match ?? '',
+        adset_id_match: rule.adset_id_match ?? '',
+        property_external_ref: rule.property_external_ref ?? '',
       })
+      // Auto-open the advanced section when editing a rule that already uses it
+      setAdvancedOpen(!!(rule.ad_id_match || rule.adset_id_match || rule.property_external_ref))
     } else {
       setForm({
         name: '', description: '', priority: '0',
         source_match: [], campaign_id_match: '', sector_match: [],
         consultant_id: '', overflow_threshold: '', fallback_action: 'gestora_pool',
+        ad_id_match: '', adset_id_match: '', property_external_ref: '',
       })
+      setAdvancedOpen(false)
     }
   }, [rule, open])
 
@@ -342,6 +372,11 @@ function RuleDialog({
         consultant_id: form.consultant_id || null,
         overflow_threshold: form.overflow_threshold ? parseInt(form.overflow_threshold) : null,
         fallback_action: form.fallback_action,
+        ad_id_match: form.ad_id_match.trim() || null,
+        adset_id_match: form.adset_id_match.trim() || null,
+        property_external_ref: form.property_external_ref.trim() || null,
+        // property_id is resolved server-side from external_ref
+        property_id: null,
         is_active: true,
       }
 
@@ -481,6 +516,65 @@ function RuleDialog({
               </div>
             </div>
           </div>
+
+          {/* Avançado — Meta Ads (raramente usado: ad/adset específico + imóvel) */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border border-dashed bg-muted/20 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+              >
+                <span className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                  <Megaphone className="h-3.5 w-3.5" />
+                  Avançado — Meta Ads (ad/adset → imóvel)
+                </span>
+                <ChevronDown
+                  className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', advancedOpen && 'rotate-180')}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="rounded-xl border p-4 space-y-3">
+                <p className="text-[10px] text-muted-foreground">
+                  Use só quando uma campanha Meta promove um imóvel específico. Convenção de prioridade: ad-level ≥ 300, adset-level 200-299, campaign-level 100-199.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-medium">Meta ad_id</Label>
+                    <Input
+                      value={form.ad_id_match}
+                      onChange={e => setForm(p => ({ ...p, ad_id_match: e.target.value }))}
+                      className="rounded-xl text-xs font-mono"
+                      placeholder="120211234567890123"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-medium">Meta adset_id</Label>
+                    <Input
+                      value={form.adset_id_match}
+                      onChange={e => setForm(p => ({ ...p, adset_id_match: e.target.value }))}
+                      className="rounded-xl text-xs font-mono"
+                      placeholder="120211234567890123"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium">Imóvel (referência)</Label>
+                  <Input
+                    value={form.property_external_ref}
+                    onChange={e => setForm(p => ({ ...p, property_external_ref: e.target.value }))}
+                    className="rounded-xl text-xs font-mono"
+                    placeholder="PROP-2024-0123"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Copie a referência da página do imóvel. Será carimbada na entrada para o consultor saber qual imóvel originou o pedido.
+                  </p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <DialogFooter className="mt-4 flex-col-reverse sm:flex-row gap-2">

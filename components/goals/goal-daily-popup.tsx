@@ -95,6 +95,7 @@ export function GoalDailyPopup() {
   const [tab, setTab] = useState<TabKey>('objetivos')
   const [data, setData] = useState<DailyGoalData | null>(null)
   const [tasks, setTasks] = useState<AgendaTask[]>([])
+  const [overdueTasks, setOverdueTasks] = useState<AgendaTask[]>([])
   const [events, setEvents] = useState<AgendaEvent[]>([])
   const [agendaLoading, setAgendaLoading] = useState(false)
   const [agendaLoaded, setAgendaLoaded] = useState(false)
@@ -141,6 +142,13 @@ export function GoalDailyPopup() {
       is_completed: 'false',
       per_page: '50',
     })
+    // Pending work that isn't planned for today — overdue tasks (due_date in
+    // the past, still open). Surfaced as a "Por fazer" group below today.
+    const overdueParams = new URLSearchParams({
+      assigned_to: user.id,
+      overdue: 'true',
+      per_page: '50',
+    })
     const eventsParams = new URLSearchParams({
       start: start.toISOString(),
       end: end.toISOString(),
@@ -149,11 +157,16 @@ export function GoalDailyPopup() {
 
     Promise.all([
       fetch(`/api/tasks?${tasksParams.toString()}`).then((r) => (r.ok ? r.json() : { data: [] })),
+      fetch(`/api/tasks?${overdueParams.toString()}`).then((r) => (r.ok ? r.json() : { data: [] })),
       fetch(`/api/calendar/events?${eventsParams.toString()}`).then((r) => (r.ok ? r.json() : { data: [] })),
     ])
-      .then(([tasksRes, eventsRes]) => {
+      .then(([tasksRes, overdueRes, eventsRes]) => {
         if (cancelled) return
         setTasks(tasksRes.data || [])
+        // Drop any overdue rows that are also in today's list (defensive — the
+        // overdue filter excludes today by definition, but APIs may shift).
+        const todayIds = new Set<string>((tasksRes.data || []).map((t: AgendaTask) => t.id))
+        setOverdueTasks(((overdueRes.data || []) as AgendaTask[]).filter((t) => !todayIds.has(t.id)))
         setEvents(eventsRes.data || [])
       })
       .catch(() => {
@@ -203,6 +216,25 @@ export function GoalDailyPopup() {
       return new Date(a.time).getTime() - new Date(b.time).getTime()
     })
   }, [events, tasks])
+
+  // Overdue items shown as a "Por fazer" section below today's list. Sorted
+  // by oldest first so the most-stale gets the user's attention.
+  const overdueItems = useMemo(() => {
+    return overdueTasks
+      .filter((t) => !t.is_completed)
+      .map((t) => ({
+        kind: 'task' as const,
+        id: t.id,
+        title: t.title,
+        time: t.due_date,
+        priority: t.priority ?? 1,
+      }))
+      .sort((a, b) => {
+        if (!a.time) return 1
+        if (!b.time) return -1
+        return new Date(a.time).getTime() - new Date(b.time).getTime()
+      })
+  }, [overdueTasks])
 
   if (!data || !data.hasGoal) return null
 
@@ -276,6 +308,7 @@ export function GoalDailyPopup() {
             <AgendaTab
               loading={agendaLoading}
               items={agendaItems}
+              overdueItems={overdueItems}
               onItemClick={(item) => {
                 if (item.kind === 'task') {
                   setSelectedTaskId(item.id)
@@ -400,10 +433,11 @@ type AgendaItem =
   | { kind: 'task'; id: string; title: string; time: string | null; priority: number }
 
 function AgendaTab({
-  loading, items, onItemClick,
+  loading, items, overdueItems, onItemClick,
 }: {
   loading: boolean
   items: AgendaItem[]
+  overdueItems: AgendaItem[]
   onItemClick: (item: AgendaItem) => void
 }) {
   if (loading) {
@@ -413,7 +447,7 @@ function AgendaTab({
       </div>
     )
   }
-  if (items.length === 0) {
+  if (items.length === 0 && overdueItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40 mb-3">
@@ -428,23 +462,59 @@ function AgendaTab({
   }
 
   return (
-    <div className="space-y-1.5 py-2">
-      {items.map((item) => (
-        <AgendaRow
-          key={`${item.kind}-${item.id}`}
-          item={item}
-          onClick={() => onItemClick(item)}
-        />
-      ))}
+    <div className="space-y-4 py-2">
+      {/* Hoje */}
+      {items.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground px-1">
+            Hoje
+          </p>
+          {items.map((item) => (
+            <AgendaRow
+              key={`${item.kind}-${item.id}`}
+              item={item}
+              onClick={() => onItemClick(item)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground px-1">
+          Sem nada agendado para hoje.
+        </p>
+      )}
+
+      {/* Por fazer (atrasadas) */}
+      {overdueItems.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] uppercase tracking-wider font-medium text-red-600 dark:text-red-400">
+              Por fazer
+            </p>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {overdueItems.length} em atraso
+            </span>
+          </div>
+          {overdueItems.map((item) => (
+            <AgendaRow
+              key={`overdue-${item.kind}-${item.id}`}
+              item={item}
+              onClick={() => onItemClick(item)}
+              overdue
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function AgendaRow({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
+function AgendaRow({ item, onClick, overdue }: { item: AgendaItem; onClick: () => void; overdue?: boolean }) {
   const time = item.time ? formatTime(item.time) : '—'
+  const dateLabel = overdue && item.time ? formatRelativeDate(item.time) : null
   const Icon = item.kind === 'task' ? ListTodo : CalendarIcon
-  const tone =
-    item.kind === 'task'
+  const tone = overdue
+    ? 'bg-red-500/10 text-red-700 dark:text-red-300'
+    : item.kind === 'task'
       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
       : 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
 
@@ -452,7 +522,10 @@ function AgendaRow({ item, onClick }: { item: AgendaItem; onClick: () => void })
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left flex items-start gap-3 rounded-xl border border-border/40 bg-card px-3 py-2.5 transition-all hover:border-border hover:bg-muted/40 hover:shadow-[0_2px_12px_-6px_rgb(0_0_0_/_0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        'w-full text-left flex items-start gap-3 rounded-xl border bg-card px-3 py-2.5 transition-all hover:border-border hover:bg-muted/40 hover:shadow-[0_2px_12px_-6px_rgb(0_0_0_/_0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        overdue ? 'border-red-200/70 dark:border-red-900/50' : 'border-border/40',
+      )}
     >
       <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', tone)}>
         <Icon className="h-3.5 w-3.5" />
@@ -460,7 +533,12 @@ function AgendaRow({ item, onClick }: { item: AgendaItem; onClick: () => void })
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{item.title}</p>
         <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-          {item.kind === 'event' && item.allDay ? (
+          {overdue && dateLabel ? (
+            <span className="inline-flex items-center gap-1 tabular-nums text-red-600 dark:text-red-400">
+              <Clock className="h-3 w-3" />
+              {dateLabel}
+            </span>
+          ) : item.kind === 'event' && item.allDay ? (
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" />
               Dia inteiro
@@ -486,6 +564,23 @@ function AgendaRow({ item, onClick }: { item: AgendaItem; onClick: () => void })
       )}
     </button>
   )
+}
+
+function formatRelativeDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const target = new Date(d)
+    target.setHours(0, 0, 0, 0)
+    const diffMs = today.getTime() - target.getTime()
+    const days = Math.round(diffMs / (1000 * 60 * 60 * 24))
+    if (days === 1) return 'Ontem'
+    if (days > 1) return `Há ${days} dias`
+    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })
+  } catch {
+    return '—'
+  }
 }
 
 function formatTime(iso: string): string {

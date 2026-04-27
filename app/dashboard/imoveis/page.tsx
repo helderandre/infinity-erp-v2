@@ -410,6 +410,7 @@ function ImoveisPageContent() {
               <div className="flex items-center gap-0.5">
                 <span className="text-[11px] text-muted-foreground mr-1">Ordenar:</span>
                 <SortableColumnHeader column="created_at" label="Data" />
+                <SortableColumnHeader column="external_ref" label="Ref." />
                 <SortableColumnHeader column="listing_price" label="Preço" />
                 <SortableColumnHeader column="title" label="Título" />
                 <SortableColumnHeader column="status" label="Estado" />

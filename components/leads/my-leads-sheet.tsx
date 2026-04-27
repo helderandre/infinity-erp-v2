@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,12 +18,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import { Inbox, ChevronRight, Megaphone, Plus, SlidersHorizontal } from 'lucide-react'
+import {
+  Inbox, ChevronRight, Megaphone, Plus, SlidersHorizontal, Send, Undo2,
+} from 'lucide-react'
 import { LeadEntryDetailView } from '@/components/leads/lead-entry-sheet'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import type { LeadEntry } from '@/types/lead-entry'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useUser } from '@/hooks/use-user'
+
+// A referral row is "active" (still in effect) when it hasn't been
+// cancelled / rejected / closed-out. The lead-entries inbox surfaces
+// active inbound referrals as a badge so the recipient knows the entry
+// came from another consultor — and can bounce it back via "Devolver".
+const ACTIVE_REFERRAL_STATUSES = new Set(['pending', 'accepted'])
 
 const SOURCE_LABELS: Record<string, string> = {
   meta_ads: 'Meta Ads',
@@ -85,6 +95,7 @@ interface MyLeadsSheetProps {
 
 export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSheetProps) {
   const isMobile = useIsMobile()
+  const { user } = useUser()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -93,6 +104,7 @@ export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSh
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [qualifyEntry, setQualifyEntry] = useState<LeadEntry | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
+  const [bouncing, setBouncing] = useState<string | null>(null)
 
   const fetchEntries = useCallback(async () => {
     setLoading(true)
@@ -120,6 +132,25 @@ export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSh
       fetchEntries()
     }
   }, [open, fetchEntries])
+
+  // Bounce-back — recipient returns the referral to the sender. Calls the
+  // DELETE handler which reverses the leads_entries assignment + cleans
+  // leads.referred_by_consultant_id and marks the audit row 'cancelled'.
+  const handleBounceBack = useCallback(async (referralId: string) => {
+    if (bouncing) return
+    setBouncing(referralId)
+    try {
+      const res = await fetch(`/api/crm/referrals/${referralId}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Erro ao devolver a referência')
+      toast.success('Referência devolvida ao consultor que enviou')
+      fetchEntries()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao devolver a referência')
+    } finally {
+      setBouncing(null)
+    }
+  }, [bouncing, fetchEntries])
 
   return (
     <>
@@ -161,6 +192,9 @@ export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSh
                 setSourceFilter={setSourceFilter}
                 onSelect={(id) => setSelectedEntryId(id)}
                 onCreate={() => setShowNewDialog(true)}
+                currentUserId={user?.id ?? null}
+                bouncingReferralId={bouncing}
+                onBounceBack={handleBounceBack}
               />
             )}
           </div>
@@ -203,6 +237,9 @@ function ListView({
   setSourceFilter,
   onSelect,
   onCreate,
+  currentUserId,
+  bouncingReferralId,
+  onBounceBack,
 }: {
   loading: boolean
   entries: LeadEntry[]
@@ -213,6 +250,9 @@ function ListView({
   setSourceFilter: (v: string) => void
   onSelect: (id: string) => void
   onCreate: () => void
+  currentUserId: string | null
+  bouncingReferralId: string | null
+  onBounceBack: (referralId: string) => void | Promise<void>
 }) {
   return (
     <>
@@ -345,14 +385,35 @@ function ListView({
             const email = entry.raw_email || entry.contact?.email
             const sourceLabel = SOURCE_LABELS[entry.source] || entry.source
             const timeAgo = formatDistanceToNow(new Date(entry.created_at), { addSuffix: true, locale: pt })
+
+            // Active inbound referral (someone referred this entry to me).
+            // The embedded query returns every referral for this entry — pick
+            // the one that's still active and aimed at the current user.
+            const activeReferral = (entry.referrals ?? []).find(
+              (r: any) =>
+                ACTIVE_REFERRAL_STATUSES.has(r.status) &&
+                r.to_consultant_id === currentUserId,
+            )
+            const referrerName = activeReferral?.referrer?.commercial_name ?? null
+            const isBouncing = activeReferral && bouncingReferralId === activeReferral.id
+
             return (
-              <button
+              <div
                 key={entry.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelect(entry.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(entry.id)
+                  }
+                }}
                 className={cn(
                   'w-full text-left rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:shadow-md',
-                  'p-3 transition-all flex items-start gap-3'
+                  'p-3 transition-all flex items-start gap-3 cursor-pointer',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  activeReferral && 'border-sky-300/60 dark:border-sky-700/60',
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -370,6 +431,12 @@ function ListView({
                         {entry.campaign.name}
                       </span>
                     )}
+                    {referrerName && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 text-[10px] font-medium truncate max-w-[200px]">
+                        <Send className="h-2.5 w-2.5" />
+                        Referenciado por {referrerName}
+                      </span>
+                    )}
                   </div>
                   {(phone || email) && (
                     <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
@@ -377,8 +444,28 @@ function ListView({
                     </p>
                   )}
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 mt-1 shrink-0" />
-              </button>
+                {activeReferral ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onBounceBack(activeReferral.id)
+                    }}
+                    disabled={isBouncing}
+                    title="Devolver a referência ao consultor que a enviou"
+                    className={cn(
+                      'shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                      'bg-muted/60 text-foreground/80 hover:bg-muted hover:text-foreground',
+                      'disabled:opacity-60 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <Undo2 className="h-3 w-3" />
+                    {isBouncing ? 'A devolver…' : 'Devolver'}
+                  </button>
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 mt-1 shrink-0" />
+                )}
+              </div>
             )
           })
         )}

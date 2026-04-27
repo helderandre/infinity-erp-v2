@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('leads')
-      .select(`*, agent:dev_users(id, commercial_name), ${negociosJoin}`, { count: 'exact' })
+      .select(`*, agent:dev_users!agent_id(id, commercial_name), ${negociosJoin}`, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     if (data.telemovel) insertData.telemovel = data.telemovel.trim()
     if (data.origem) insertData.origem = data.origem
     if (data.agent_id) insertData.agent_id = data.agent_id
-    if (data.estado) insertData.estado = data.estado
+    insertData.estado = data.estado || 'Lead'
     if (data.lead_type) (insertData as any).lead_type = data.lead_type
     if (data.observacoes) insertData.observacoes = data.observacoes
 

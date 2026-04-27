@@ -85,7 +85,17 @@ export async function POST(request: Request) {
       contact_id = newContact.id
     }
 
-    // 2. Create entry
+    // Resolve Meta ad attribution. Top-level fields take precedence over
+    // the same keys inside form_data (some webhook providers nest them).
+    const formData = payload.form_data as Record<string, unknown> | null
+    const metaAdId = payload.ad_id
+      ?? (typeof formData?.meta_ad_id === 'string' ? (formData.meta_ad_id as string) : null)
+      ?? null
+    const metaAdsetId = payload.adset_id
+      ?? (typeof formData?.meta_adset_id === 'string' ? (formData.meta_adset_id as string) : null)
+      ?? null
+
+    // 2. Create entry (property_id stamped after rule match below)
     const { data: entry, error: entryError } = await supabase
       .from('leads_entries')
       .insert({
@@ -128,36 +138,12 @@ export async function POST(request: Request) {
         .eq('id', entry.id)
     }
 
-    // 4. Create negocio if pipeline_type provided
-    let negocio_id: string | null = null
-    if (payload.pipeline_type) {
-      const { data: firstStage } = await supabase
-        .from('leads_pipeline_stages')
-        .select('id')
-        .eq('pipeline_type', payload.pipeline_type)
-        .order('order_index', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (firstStage) {
-        const tipo = pipelineTypeToTipo(payload.pipeline_type)
-        const { data: negocio } = await supabase
-          .from('negocios')
-          .insert({
-            lead_id: contact_id,
-            tipo,
-            pipeline_stage_id: firstStage.id,
-            stage_entered_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-
-        if (negocio) negocio_id = negocio.id
-      }
-    }
-
-    // 5. Auto-assign if no consultant yet
+    // 4. Auto-assign (rule engine) — runs BEFORE negocio creation so we know
+    //    the matched rule's property and can stamp it on both the entry
+    //    and the negocio in a single shot.
     let assigned_consultant_id: string | null = null
+    let matched_property_external_ref: string | null = null
+    let matched_property_id: string | null = null
 
     const { data: currentContact } = await supabase
       .from('leads')
@@ -184,10 +170,17 @@ export async function POST(request: Request) {
             rule.pipeline_type_match.length === 0 ||
             (payload.pipeline_type && rule.pipeline_type_match.includes(payload.pipeline_type))
 
-          if (!sourceMatch || !pipelineMatch) continue
+          // Meta ad/adset matching — only filters when the rule pins them.
+          // Specificity is enforced via priority (manual convention).
+          const adMatch = !rule.ad_id_match || rule.ad_id_match === metaAdId
+          const adsetMatch = !rule.adset_id_match || rule.adset_id_match === metaAdsetId
+
+          if (!sourceMatch || !pipelineMatch || !adMatch || !adsetMatch) continue
 
           if (rule.consultant_id) {
             assigned_consultant_id = rule.consultant_id
+            matched_property_external_ref = rule.property_external_ref ?? null
+            matched_property_id = rule.property_id ?? null
             break
           }
 
@@ -212,6 +205,8 @@ export async function POST(request: Request) {
 
             if (chosenId) {
               assigned_consultant_id = chosenId
+              matched_property_external_ref = rule.property_external_ref ?? null
+              matched_property_id = rule.property_id ?? null
               break
             }
           }
@@ -222,17 +217,83 @@ export async function POST(request: Request) {
             .from('leads')
             .update({ agent_id: assigned_consultant_id })
             .eq('id', contact_id)
-
-          if (negocio_id) {
-            await supabase
-              .from('negocios')
-              .update({ assigned_consultant_id })
-              .eq('id', negocio_id)
-          }
         }
       }
     } else if (currentContact?.agent_id) {
       assigned_consultant_id = currentContact.agent_id
+    }
+
+    // Resolve property linkage. Priority:
+    //   1) rule's external_ref (canónico)
+    //   2) form_data.property_external_ref (formulários do site / voice / bulk)
+    //   3) rule's property_id
+    //   4) form_data.property_id (older payloads)
+    // Sempre que tivermos um lado, resolvemos o outro contra dev_properties
+    // para a entry levar ambas as colunas em sincronia.
+    const formPropertyRef = typeof formData?.property_external_ref === 'string'
+      ? (formData.property_external_ref as string)
+      : null
+    const formPropertyId = typeof formData?.property_id === 'string'
+      ? (formData.property_id as string)
+      : null
+    let entry_property_external_ref = matched_property_external_ref ?? formPropertyRef
+    let entry_property_id = matched_property_id ?? formPropertyId
+
+    if (entry_property_external_ref && !entry_property_id) {
+      const { data: byRef } = await supabase
+        .from('dev_properties')
+        .select('id')
+        .eq('external_ref', entry_property_external_ref)
+        .maybeSingle()
+      if (byRef?.id) entry_property_id = byRef.id
+    } else if (entry_property_id && !entry_property_external_ref) {
+      const { data: byId } = await supabase
+        .from('dev_properties')
+        .select('external_ref')
+        .eq('id', entry_property_id)
+        .maybeSingle()
+      if (byId?.external_ref) entry_property_external_ref = byId.external_ref
+    }
+
+    if (entry_property_external_ref || entry_property_id) {
+      await supabase
+        .from('leads_entries')
+        .update({
+          property_external_ref: entry_property_external_ref,
+          property_id: entry_property_id,
+        })
+        .eq('id', entry.id)
+    }
+
+    // 5. Create negocio if pipeline_type provided (após assignment para já levar
+    //    consultor + property_id no insert).
+    let negocio_id: string | null = null
+    if (payload.pipeline_type) {
+      const { data: firstStage } = await supabase
+        .from('leads_pipeline_stages')
+        .select('id')
+        .eq('pipeline_type', payload.pipeline_type)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (firstStage) {
+        const tipo = pipelineTypeToTipo(payload.pipeline_type)
+        const { data: negocio } = await supabase
+          .from('negocios')
+          .insert({
+            lead_id: contact_id,
+            tipo,
+            pipeline_stage_id: firstStage.id,
+            stage_entered_at: new Date().toISOString(),
+            assigned_consultant_id: assigned_consultant_id ?? null,
+            property_id: entry_property_id,
+          })
+          .select('id')
+          .single()
+
+        if (negocio) negocio_id = negocio.id
+      }
     }
 
     // 6. Log activity

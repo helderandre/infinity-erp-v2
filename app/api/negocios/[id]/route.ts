@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { updateNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import type { Database } from '@/types/database'
 
 type NegocioUpdate = Database['public']['Tables']['negocios']['Update']
@@ -19,7 +20,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('negocios')
-      .select('*, pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days, pipeline_type), lead:leads(id, nome, full_name, telefone, telemovel, email, nif, data_nascimento, nacionalidade, morada, tipo_documento, numero_documento, data_validade_documento, pais_emissor, tem_empresa, empresa, nipc, email_empresa, telefone_empresa, morada_empresa, documento_identificacao_url, documento_identificacao_frente_url, documento_identificacao_verso_url)')
+      .select('*, pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days, pipeline_type), lead:leads(id, nome, full_name, telefone, telemovel, email, nif, data_nascimento, nacionalidade, morada, tipo_documento, numero_documento, data_validade_documento, pais_emissor, tem_empresa, empresa, nipc, email_empresa, telefone_empresa, morada_empresa, documento_identificacao_url, documento_identificacao_frente_url, documento_identificacao_verso_url), referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name)')
       .eq('id', id)
       .single()
 
@@ -92,6 +93,12 @@ export async function PUT(
       }
     }
 
+    const { data: existing } = await supabase
+      .from('negocios')
+      .select('lead_id')
+      .eq('id', id)
+      .maybeSingle()
+
     const { error } = await supabase
       .from('negocios')
       .update(updateData)
@@ -102,6 +109,10 @@ export async function PUT(
         { error: 'Erro ao actualizar negócio', details: error.message },
         { status: 500 }
       )
+    }
+
+    if (existing?.lead_id) {
+      await syncLeadEstado(supabase, existing.lead_id)
     }
 
     return NextResponse.json({ id })
@@ -125,6 +136,12 @@ export async function DELETE(
     const { id } = await params
     const supabase = await createClient()
 
+    const { data: existing } = await supabase
+      .from('negocios')
+      .select('lead_id')
+      .eq('id', id)
+      .maybeSingle()
+
     const { error } = await supabase
       .from('negocios')
       .delete()
@@ -135,6 +152,10 @@ export async function DELETE(
         { error: 'Erro ao eliminar negócio', details: error.message },
         { status: 500 }
       )
+    }
+
+    if (existing?.lead_id) {
+      await syncLeadEstado(supabase, existing.lead_id)
     }
 
     return NextResponse.json({ success: true })

@@ -90,6 +90,20 @@ const ESTADO_COLORS: Record<string, string> = {
   'Inactivo': 'bg-slate-400',
 }
 
+const ESTADO_HEX: Record<string, string> = {
+  'Lead': '#3b82f6',
+  'Contactado': '#0ea5e9',
+  'Qualificado': '#6366f1',
+  'Potencial Cliente': '#f59e0b',
+  'Cliente Activo': '#10b981',
+  '1 Negocio Fechado': '#14b8a6',
+  'Cliente Recorrente': '#a855f7',
+  'Cliente Premium': '#a3a3a3',
+  'Perdido': '#ef4444',
+  'Inactivo': '#94a3b8',
+}
+const DEFAULT_ESTADO_HEX = '#64748b'
+
 const QUALIF_TAGS: { tipo: string; label: string; class: string }[] = [
   { tipo: 'Compra', label: 'QC', class: 'bg-blue-500/10 text-blue-600' },
   { tipo: 'Venda', label: 'QV', class: 'bg-emerald-500/10 text-emerald-600' },
@@ -402,16 +416,19 @@ function LeadsPageContent() {
           })}
         </div>
       ) : (
-        /* Table view */
-        <div className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
+        /* Table view — pipeline-style: rounded-3xl wrapper, tinted header,
+           inset estado-colour left bar per row, and a pastel gradient that
+           fades across the first 4 cells (Nome → Estado → Temperatura →
+           Qualif.) using the row's estado colour. */
+        <div className="rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/30">
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nome</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contacto</th>
+            <thead className="bg-muted/40">
+              <tr className="border-b border-border/40">
+                <th className="text-left px-5 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nome</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Temp.</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Qualif.</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contacto</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Origem</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Data</th>
@@ -423,36 +440,52 @@ function LeadsPageContent() {
                 const phone = lead.telemovel || lead.telefone
                 const tempInfo = TEMP_DISPLAY[lead.temperatura as string]
                 const qualifs = getQualifTags(lead)
+                const estadoHex = (lead.estado && ESTADO_HEX[lead.estado]) || DEFAULT_ESTADO_HEX
                 return (
                   <tr
                     key={lead.id}
-                    className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="border-b border-border/30 cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                    style={{ boxShadow: `inset 3px 0 0 0 ${estadoHex}` }}
                   >
-                    <td className="px-4 py-3 font-medium">{lead.nome}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      <div className="flex items-center gap-2">
-                        {phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{phone}</span>}
-                        {lead.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{lead.email}</span>}
-                      </div>
+                    <td
+                      className="px-5 py-3 font-medium"
+                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}33, ${estadoHex}28)` }}
+                    >
+                      {lead.nome}
                     </td>
-                    <td className="px-4 py-3">
+                    <td
+                      className="px-4 py-3"
+                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}28, ${estadoHex}1a)` }}
+                    >
                       {renderEstadoBadge(lead.estado)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td
+                      className="px-4 py-3"
+                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}1a, ${estadoHex}0d)` }}
+                    >
                       {tempInfo ? (
                         <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', tempInfo.class)}>
                           {tempInfo.emoji} {tempInfo.label}
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td
+                      className="px-4 py-3"
+                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}0d, transparent)` }}
+                    >
                       <div className="flex gap-1">
                         {qualifs?.map((t) => (
                           <span key={t.label} className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold', t.class)}>
                             {t.label}
                           </span>
                         )) || '—'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      <div className="flex items-center gap-2">
+                        {phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{phone}</span>}
+                        {lead.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{lead.email}</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{lead.origem || '—'}</td>

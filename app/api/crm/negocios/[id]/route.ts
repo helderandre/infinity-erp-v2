@@ -2,6 +2,7 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { updateNegocioSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
 import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
+import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 
 export async function GET(
   _request: Request,
@@ -146,18 +147,62 @@ export async function PUT(
         const consultantId = (data as any)?.assigned_consultant_id
         const pipelineType = stage.data.pipeline_type as string
         if (consultantId) {
+          // Same recipient-vs-referrer split as /stage route. Prefer the
+          // closing price (preco_venda / renda_pretendida) when set.
+          const d = data as Record<string, unknown>
+          const closedPrice =
+            (typeof d.preco_venda === 'number' && d.preco_venda > 0
+              ? d.preco_venda
+              : null) ??
+            (typeof d.renda_pretendida === 'number' && d.renda_pretendida > 0
+              ? d.renda_pretendida
+              : null) ??
+            0
+          const expectedValue =
+            closedPrice || (typeof d.expected_value === 'number' ? d.expected_value : 0)
+          const referrerId = (d.referrer_consultant_id as string | null) ?? null
+          const referralPct = ((d.referral_pct as number | null) ?? 0)
+          const referrerSlice = referrerId && referralPct > 0
+            ? expectedValue * (referralPct / 100)
+            : 0
+          const recipientRevenue = expectedValue - referrerSlice
+
           await logGoalActivity({
             consultantId,
             activityType: pipelineType === 'comprador' || pipelineType === 'arrendatario' ? 'buyer_close' : 'sale_close',
             origin: pipelineTypeToOrigin(pipelineType),
             createdBy: consultantId,
-            revenueAmount: (data as any)?.expected_value || undefined,
+            revenueAmount: recipientRevenue || undefined,
             referenceId: id,
             referenceType: 'negocio',
             notes: `Negócio ganho`,
           })
+
+          if (referrerId && referrerSlice > 0) {
+            try {
+              await logGoalActivity({
+                consultantId: referrerId,
+                activityType: pipelineType === 'comprador' || pipelineType === 'arrendatario' ? 'buyer_close' : 'sale_close',
+                origin: pipelineTypeToOrigin(pipelineType),
+                createdBy: consultantId,
+                revenueAmount: referrerSlice,
+                referenceId: id,
+                referenceType: 'negocio',
+                notes: `Comissão de referência (${referralPct}%)`,
+              })
+            } catch (err) {
+              console.warn('[crm/negocios PUT] referrer goal-activity log failed:', err)
+            }
+          }
         }
       }
+    }
+
+    const updatedLeadId =
+      ((data as unknown as { lead_id?: string | null }).lead_id ?? null) ||
+      prevLeadId
+    if (updatedLeadId) {
+      await syncLeadEstado(supabase, updatedLeadId)
     }
 
     return NextResponse.json(data)
@@ -174,9 +219,20 @@ export async function DELETE(
     const supabase = createCrmAdminClient()
     const { id } = await params
 
+    const { data: existing } = await supabase
+      .from('negocios')
+      .select('lead_id')
+      .eq('id', id)
+      .maybeSingle()
+
     const { error } = await supabase.from('negocios').delete().eq('id', id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const leadId = (existing as { lead_id?: string | null } | null)?.lead_id
+    if (leadId) {
+      await syncLeadEstado(supabase, leadId)
+    }
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {

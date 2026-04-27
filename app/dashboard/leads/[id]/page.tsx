@@ -47,6 +47,7 @@ import {
   Database,
   Workflow,
   Clock,
+  Send,
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
@@ -58,6 +59,7 @@ import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
 import { NegocioListItem, type NegocioListItemData } from '@/components/negocios/negocio-list-item'
 import { ContactAutomationsList } from '@/components/crm/contact-automations-list'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
+import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
@@ -108,6 +110,7 @@ export default function LeadDetailPage() {
   const [cpLoading, setCpLoading] = useState(false)
   const [nipcLoading, setNipcLoading] = useState(false)
   const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
+  const [referOpen, setReferOpen] = useState(false)
   const [pendingLeads, setPendingLeads] = useState<{ id: string; source: string; raw_name: string; created_at: string; match_type: string | null }[]>([])
   const [activities, setActivities] = useState<any[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(false)
@@ -327,7 +330,7 @@ export default function LeadDetailPage() {
         'flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-2 h-[calc(100svh-8rem)]',
         // Desktop: one continuous rounded shell, natural height.
         'lg:overflow-x-visible lg:snap-none lg:gap-0 lg:mx-0 lg:px-0 lg:pb-0 lg:h-auto',
-        'lg:rounded-3xl lg:overflow-hidden lg:border lg:border-border/40 lg:shadow-sm lg:bg-card',
+        'lg:rounded-3xl lg:overflow-hidden lg:ring-1 lg:ring-border/50 lg:bg-gradient-to-br lg:from-background/80 lg:to-muted/20 lg:backdrop-blur-sm lg:shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]',
       )}
     >
       {/* ─── LEFT: profile sidebar / Card 1 in mobile carousel ─── */}
@@ -336,10 +339,10 @@ export default function LeadDetailPage() {
           'relative',
           // Mobile: carousel card — full-width snap, scrolls internally
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl border border-border/40 bg-card shadow-sm',
+          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-sm',
           // Desktop: merged into the outer card
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
-          'lg:rounded-none lg:border-0 lg:shadow-none lg:border-r lg:border-border/40',
+          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:border-r lg:border-border/40',
         )}
       >
         <div className="relative px-5 py-5 sm:px-6 sm:py-6 space-y-5">
@@ -354,13 +357,9 @@ export default function LeadDetailPage() {
             Voltar
           </Button>
 
-          {/* Identity — centered avatar + name + subtitle + estado badge */}
+          {/* Identity — name + subtitle + estado badge */}
           <div className="flex flex-col items-center text-center gap-1.5 pt-2">
-            {/* Initials circle (no photo for leads) */}
-            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground">
-              {(lead.nome || '?').split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase()}
-            </div>
-            <h2 className="mt-1 text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
+            <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
               {lead.nome}
             </h2>
             <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
@@ -386,46 +385,65 @@ export default function LeadDetailPage() {
             )}
           </div>
 
-          {/* Contact action buttons */}
-          <div className="grid grid-cols-3 gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
+          {/* Contact action buttons — unified glass style with coloured icons */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
               disabled={!lead.telemovel}
               onClick={() => {
                 if (!lead.telemovel) return
                 window.location.href = `tel:${lead.telemovel}`
                 setTimeout(() => setCallOutcomeOpen(true), 500)
               }}
-              className="rounded-full border-border/60 h-8 text-[11px] px-2"
+              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              title={lead.telemovel ? `Ligar para ${lead.telemovel}` : 'Sem telemóvel'}
             >
-              <Phone className="mr-1 h-3 w-3" />
-              Ligar
-            </Button>
-            <Button
-              size="sm"
+              <span className="h-7 w-7 rounded-full bg-sky-500/10 text-sky-600 flex items-center justify-center transition-colors group-hover:bg-sky-500/15">
+                <Phone className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-[10px] font-medium text-foreground/80">Ligar</span>
+            </button>
+            <button
+              type="button"
               disabled={!lead.telemovel}
               onClick={() => lead.telemovel && window.open(`https://wa.me/${lead.telemovel.replace(/\D/g, '')}`, '_blank')}
-              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 shadow-none h-8 text-[11px] px-2"
+              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              title={lead.telemovel ? 'Abrir WhatsApp' : 'Sem telemóvel'}
             >
-              <MessageCircle className="mr-1 h-3 w-3" />
-              WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+              <span className="h-7 w-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center transition-colors group-hover:bg-emerald-500/15">
+                <MessageCircle className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-[10px] font-medium text-foreground/80">WhatsApp</span>
+            </button>
+            <button
+              type="button"
               disabled={!lead.email}
               onClick={() => lead.email && (window.location.href = `mailto:${lead.email}`)}
-              className="rounded-full border-border/60 h-8 text-[11px] px-2"
+              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              title={lead.email ? `Email para ${lead.email}` : 'Sem email'}
             >
-              <Mail className="mr-1 h-3 w-3" />
-              Email
-            </Button>
+              <span className="h-7 w-7 rounded-full bg-violet-500/10 text-violet-600 flex items-center justify-center transition-colors group-hover:bg-violet-500/15">
+                <Mail className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-[10px] font-medium text-foreground/80">Email</span>
+            </button>
           </div>
+
+          {/* Referenciar — secondary action below the comms row. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReferOpen(true)}
+            className="w-full rounded-full border-border/60 h-8 text-[11px] gap-1.5"
+            title="Referenciar este contacto a outro consultor"
+          >
+            <Send className="h-3 w-3" />
+            Referenciar a outro consultor
+          </Button>
 
           {/* Contact details card */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
-            <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 space-y-2.5">
+            <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-3 space-y-2.5">
               <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
@@ -456,7 +474,7 @@ export default function LeadDetailPage() {
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground/80">Estado</p>
             <Select value={estadoValue} onValueChange={(v) => saveSidebarField('estado', v)}>
-              <SelectTrigger className="w-full rounded-xl text-xs h-9">
+              <SelectTrigger className="w-full rounded-2xl text-xs h-9 border-border/40 bg-background/40 backdrop-blur-sm">
                 <SelectValue placeholder="Sem estado" />
               </SelectTrigger>
               <SelectContent>
@@ -491,7 +509,7 @@ export default function LeadDetailPage() {
                       'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium transition-all border',
                       isActive
                         ? (info?.active ?? 'bg-muted text-foreground border-border/60')
-                        : 'border-border/40 bg-background text-muted-foreground hover:text-foreground hover:border-border/70',
+                        : 'border-border/40 bg-background/40 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:border-border/70',
                     )}
                   >
                     <span className="text-xs">{info?.emoji}</span>
@@ -506,19 +524,21 @@ export default function LeadDetailPage() {
               save-on-blur via o mesmo saveSidebarField dos outros campos. */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
-            <Textarea
-              value={(form.observacoes as string) ?? ''}
-              onChange={(e) => updateField('observacoes', e.target.value)}
-              onBlur={(e) => {
-                const next = e.target.value
-                if (next !== (lead?.observacoes ?? '')) {
-                  saveSidebarField('observacoes', next)
-                }
-              }}
-              placeholder="Notas pessoais sobre este contacto…"
-              rows={4}
-              className="text-xs resize-none"
-            />
+            <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-1">
+              <Textarea
+                value={(form.observacoes as string) ?? ''}
+                onChange={(e) => updateField('observacoes', e.target.value)}
+                onBlur={(e) => {
+                  const next = e.target.value
+                  if (next !== (lead?.observacoes ?? '')) {
+                    saveSidebarField('observacoes', next)
+                  }
+                }}
+                placeholder="Notas pessoais sobre este contacto…"
+                rows={4}
+                className="text-xs resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:outline-none"
+              />
+            </div>
           </div>
         </div>
       </aside>
@@ -528,10 +548,10 @@ export default function LeadDetailPage() {
         className={cn(
           // Mobile: second carousel card — own styling, scrolls internally
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl border border-border/40 bg-card shadow-sm p-5',
+          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-sm p-5',
           // Desktop: merges into the outer card
           'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
-          'lg:rounded-none lg:border-0 lg:shadow-none lg:p-6',
+          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:p-6',
         )}
       >
           <Tabs
@@ -546,7 +566,7 @@ export default function LeadDetailPage() {
             {/* Pill tabs — responsive: icon-only on narrow containers,
                 active-only label at md, all labels at lg (container queries). */}
             <div className="@container mb-4">
-              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 border border-border/30 shadow-sm h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
                 {[
                   { key: 'leads', label: 'Leads', icon: Zap, count: pendingLeads.length || undefined },
                   { key: 'negocios', label: 'Negócios', icon: Briefcase },
@@ -561,9 +581,8 @@ export default function LeadDetailPage() {
                       value={tab.key}
                       className={cn(
                         'group inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
-                        'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
-                        'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
-                        'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900',
+                        'data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm',
+                        'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40',
                       )}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -718,7 +737,7 @@ export default function LeadDetailPage() {
             {/* Historico Tab */}
             <TabsContent value="historico" className="mt-0 space-y-4">
               {/* Subtabs */}
-              <div className="flex items-center gap-1 rounded-full bg-muted/40 p-1 w-fit border border-border/30">
+              <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit border border-border/30">
                 {([
                   { key: 'actividades' as const, label: 'Actividades', count: activities.length },
                   { key: 'entradas' as const, label: 'Entradas', count: entries.length },
@@ -730,8 +749,8 @@ export default function LeadDetailPage() {
                     className={cn(
                       'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200',
                       historicoSubtab === sub.key
-                        ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                     )}
                   >
                     {sub.label}
@@ -739,7 +758,7 @@ export default function LeadDetailPage() {
                       <span className={cn(
                         'text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center',
                         historicoSubtab === sub.key
-                          ? 'bg-white/20 text-white dark:bg-neutral-900/20 dark:text-neutral-900'
+                          ? 'bg-muted/60 text-foreground'
                           : 'bg-muted text-muted-foreground'
                       )}>
                         {sub.count}
@@ -862,6 +881,24 @@ export default function LeadDetailPage() {
         />
       )}
 
+      {/* Refer this contacto to another consultor. Reassigns leads.agent_id
+          to the recipient and flags leads.referred_by_consultant_id so the
+          referrer keeps audit visibility on every future négocio. */}
+      {lead && (
+        <ReferenciarDialog
+          open={referOpen}
+          onOpenChange={setReferOpen}
+          subject={{ kind: 'contact', id: lead.id, contact_id: lead.id }}
+          onSuccess={() => {
+            // Contact handed off — reload so the new consultor + audit flag
+            // surfaces in the sidebar. The lead is no longer "mine" but the
+            // referrer can still navigate back here from the Referências
+            // page if they want to see the contacto's full history.
+            loadLead()
+          }}
+        />
+      )}
+
       {/* WhatsApp chat bubble */}
       {lead?.telemovel && (
         <WhatsAppChatBubble
@@ -888,6 +925,10 @@ export default function LeadDetailPage() {
             setOpenNegocioId(null)
             updateNegocioInUrl(null)
           }
+        }}
+        onChanged={() => {
+          loadNegocios()
+          loadLead()
         }}
       />
     </>

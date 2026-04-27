@@ -82,10 +82,10 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
   return (
     <div
       className={cn(
-        'group relative w-full rounded-2xl border shadow-sm transition-colors',
+        'group relative w-full rounded-2xl border backdrop-blur-sm transition-colors',
         isNewToday
-          ? 'border-amber-400/70 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-amber-500/20'
-          : 'border-border/40 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800/80',
+          ? 'border-amber-400/70 bg-amber-50/70 dark:bg-amber-500/15 hover:bg-amber-100/80 dark:hover:bg-amber-500/20'
+          : 'border-border/40 bg-background/60 hover:bg-background/80',
       )}
     >
       <button

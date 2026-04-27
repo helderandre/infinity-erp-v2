@@ -47,7 +47,7 @@ function DisplayField({
 }) {
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
+      className={`rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
     >
       <p className="text-xs text-muted-foreground mb-0.5">
         {icon && <span className="mr-1">{icon}</span>}
@@ -84,7 +84,7 @@ function EditField({
 }) {
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
+      className={`rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
     >
       <p className="text-xs text-muted-foreground mb-1">
         {icon && <span className="mr-1">{icon}</span>}
@@ -96,7 +96,7 @@ function EditField({
           value={value || ''}
           onValueChange={(_masked, unmasked) => onChange(unmasked)}
           placeholder={placeholder || '—'}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium bg-transparent"
         />
       ) : (
         <Input
@@ -104,7 +104,7 @@ function EditField({
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder || '—'}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium bg-transparent"
         />
       )}
     </div>
@@ -139,7 +139,7 @@ function PhoneEditField({
 
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
+      className={`rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 ${fullWidth ? 'col-span-full' : ''}`}
     >
       <p className="text-xs text-muted-foreground mb-1">
         {icon && <span className="mr-1">{icon}</span>}
@@ -153,7 +153,7 @@ function PhoneEditField({
         placeholder={placeholder || '+351 912 345 678'}
         inputMode="tel"
         autoComplete="off"
-        className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+        className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium bg-transparent"
       />
     </div>
   )
@@ -181,13 +181,13 @@ function SelectField({
     return <DisplayField label={label} value={value} icon={icon} />
   }
   return (
-    <div className="rounded-lg border px-4 py-3">
+    <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3">
       <p className="text-xs text-muted-foreground mb-1">
         {icon && <span className="mr-1">{icon}</span>}
         {label}
       </p>
       <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium">
+        <SelectTrigger className="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium bg-transparent">
           <SelectValue placeholder={placeholder || 'Selecionar...'} />
         </SelectTrigger>
         <SelectContent>
@@ -215,20 +215,19 @@ function ToggleField({
   isEditing: boolean
 }) {
   return (
-    <div className="rounded-lg border px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Switch
-          checked={checked}
-          onCheckedChange={onChange}
-          disabled={!isEditing}
-        />
-        <p className="text-sm">
-          {icon && <span className="mr-1">{icon}</span>}
-          {label}
-        </p>
-      </div>
+    <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-3 flex items-start gap-2 min-w-0">
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={!isEditing}
+        className="shrink-0 mt-0.5"
+      />
+      <p className="text-sm leading-snug min-w-0 flex-1">
+        {icon && <span className="mr-1">{icon}</span>}
+        {label}
+      </p>
       {!isEditing && (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-xs text-muted-foreground shrink-0 self-center">
           {checked ? 'Sim' : 'Não'}
         </span>
       )}
@@ -300,13 +299,13 @@ export function LeadDataCard({
   const docUrl = (lead.documento_identificacao_frente_url || lead.documento_identificacao_url || null) as string | null
 
   return (
-    <Card>
+    <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
       <CardContent className="pt-6 pb-6">
         <Tabs defaultValue="contactos">
           {/* Sub-tabs header + edit button */}
           <div className="flex items-center justify-between mb-4">
             <div className="@container min-w-0 flex-1">
-              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
                 {[
                   { key: 'contactos', label: 'Contactos', icon: Phone },
                   { key: 'identificacao', label: 'Identificação', icon: IdCard },
@@ -364,7 +363,8 @@ export function LeadDataCard({
 
           {/* ─── Contactos ─── */}
           <TabsContent value="contactos" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="@container">
+            <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3">
               {isEditing ? (
                 <>
                   <PhoneEditField icon="📱" label="Telemóvel" value={val('telemovel')} onChange={(v) => onFieldChange('telemovel', v)} />
@@ -373,7 +373,7 @@ export function LeadDataCard({
                   <SelectField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} options={LEAD_MEIOS_CONTACTO} onChange={(v) => onFieldChange('meio_contacto_preferencial', v)} isEditing />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={(v) => onFieldChange('consentimento_contacto', v)} isEditing />
                   <ToggleField icon="📣" label="Consentimento WebMarketing" checked={boolVal('consentimento_webmarketing')} onChange={(v) => onFieldChange('consentimento_webmarketing', v)} isEditing />
-                  <div className="col-span-full rounded-lg border px-4 py-3">
+                  <div className="col-span-full rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3">
                     <p className="text-xs text-muted-foreground mb-1">📝 Observações</p>
                     <Textarea
                       value={val('observacoes')}
@@ -396,11 +396,13 @@ export function LeadDataCard({
                 </>
               )}
             </div>
+            </div>
           </TabsContent>
 
           {/* ─── Identificação ─── */}
           <TabsContent value="identificacao" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="@container">
+            <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3">
               {isEditing ? (
                 <>
                   <EditField icon="👤" label="Nome Completo" value={val('full_name')} fullWidth onChange={(v) => onFieldChange('full_name', v)} />
@@ -435,7 +437,7 @@ export function LeadDataCard({
               {docUrl && (
                 <>
                   <SectionHeader title="Ficheiro do Documento" />
-                  <div className="col-span-full rounded-lg border px-4 py-3 flex items-center justify-between">
+                  <div className="col-span-full rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <FileText className="h-5 w-5 text-muted-foreground" />
                       <span className="text-sm font-medium">Documento carregado</span>
@@ -459,15 +461,17 @@ export function LeadDataCard({
                 </>
               )}
             </div>
+            </div>
           </TabsContent>
 
           {/* ─── Morada ─── */}
           <TabsContent value="morada" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="@container">
+            <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3">
               {isEditing ? (
                 <>
                   <EditField icon="🏠" label="Morada" value={val('morada')} fullWidth placeholder="Rua, número, andar..." onChange={(v) => onFieldChange('morada', v)} />
-                  <div className="rounded-lg border px-4 py-3">
+                  <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3">
                     <p className="text-xs text-muted-foreground mb-1">📮 Código Postal</p>
                     <div className="flex gap-2">
                       <Input
@@ -506,13 +510,15 @@ export function LeadDataCard({
                 </>
               )}
             </div>
+            </div>
           </TabsContent>
 
           {/* ─── Empresa ─── */}
           <TabsContent value="empresa" className="mt-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="@container">
+            <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3">
               {/* Tem Empresa toggle - always shown */}
-              <div className="col-span-full rounded-lg border px-4 py-3 flex items-center justify-between">
+              <div className="col-span-full rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span>🏢</span>
                   <span className="text-sm font-medium">Tem Empresa</span>
@@ -533,7 +539,7 @@ export function LeadDataCard({
                 <>
                   {isEditing ? (
                     <>
-                      <div className="rounded-lg border px-4 py-3">
+                      <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3">
                         <p className="text-xs text-muted-foreground mb-1">🔢 NIPC</p>
                         <div className="flex gap-2">
                           <Input
@@ -572,6 +578,7 @@ export function LeadDataCard({
                   )}
                 </>
               )}
+            </div>
             </div>
           </TabsContent>
         </Tabs>

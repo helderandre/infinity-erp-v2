@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { KanbanBoard } from '@/components/crm/kanban-board'
 import { StageTag } from '@/components/crm/stage-tag'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
+import { SummaryBar } from '@/components/crm/summary-bar'
 import {
   ShoppingCart,
   Store,
@@ -86,81 +87,8 @@ interface SummaryData {
   forecast_commission: number
 }
 
-function SummaryBar({ pipelineType, inHero = false, refreshKey = 0 }: { pipelineType: PipelineType; inHero?: boolean; refreshKey?: number }) {
-  const [data, setData] = useState<SummaryData | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    setData(null)
-    fetch(`/api/crm/kanban/${pipelineType}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.totals) setData(json.totals)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [pipelineType, refreshKey])
-
-  const stats = [
-    { icon: Briefcase, label: 'Negócios activos', mobileLabel: 'Negócios', value: loading ? null : String(data?.negocios ?? 0) },
-    { icon: Euro, label: 'Comissão possível', mobileLabel: 'Possível', value: loading ? null : formatEUR(data?.possible_commission ?? 0) },
-    { icon: TrendingUp, label: 'Comissão prevista', mobileLabel: 'Previsão', value: loading ? null : formatEUR(data?.forecast_commission ?? 0) },
-  ]
-
-  if (inHero) {
-    // Dark-on-dark variant for inside the black hero card.
-    // Mobile: stacked label-on-top / value-on-bottom (no icon).
-    // Desktop: icon + label on the left, value on the right, single row.
-    return (
-      <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
-        {stats.map(({ icon: Icon, label, mobileLabel, value }, idx) => (
-          <div
-            key={label}
-            className={cn(
-              'flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0',
-              idx > 0 && 'border-l border-white/10',
-            )}
-          >
-            <div className="flex items-center gap-1.5">
-              <Icon className="hidden md:block h-3 w-3 text-white/50" />
-              <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
-                <span className="md:hidden">{mobileLabel}</span>
-                <span className="hidden md:inline">{label}</span>
-              </span>
-            </div>
-            {loading ? (
-              <Skeleton className="h-3.5 w-10 bg-white/10" />
-            ) : (
-              <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{value}</span>
-            )}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      {stats.map(({ icon: Icon, label, mobileLabel, value }) => (
-        <div key={label} className="flex items-center gap-1 md:gap-2 rounded-full bg-card/70 backdrop-blur-sm border border-border/30 shadow-sm px-2.5 md:px-3.5 py-1.5">
-          <div className="hidden md:flex p-1 rounded-full bg-muted/60">
-            <Icon className="h-3 w-3 text-muted-foreground" />
-          </div>
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-            <span className="md:hidden">{mobileLabel}</span>
-            <span className="hidden md:inline">{label}</span>
-          </span>
-          {loading ? (
-            <Skeleton className="h-4 w-12" />
-          ) : (
-            <span className="text-xs font-bold whitespace-nowrap">{value}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
+// SummaryBar moved to components/crm/summary-bar.tsx so /referencias can
+// reuse it with the referrer-mode query param.
 
 // ─── Pipeline List View ──────────────────────────────────────────────────────
 
@@ -218,6 +146,9 @@ interface CrmFilters {
   pipelineStageId: string
   temperatura: string
   consultantId: string
+  // Show only négocios that came in via an internal referral
+  // (referrer_consultant_id IS NOT NULL).
+  onlyReferenced: boolean
   // Filtros novos por coluna (desktop list view)
   tipoImovel: string
   localizacao: string
@@ -280,6 +211,7 @@ function NegociosListView({
       if (filters.pipelineStageId) params.set('pipeline_stage_id', filters.pipelineStageId)
       if (filters.temperatura) params.set('temperatura', filters.temperatura)
       if (filters.consultantId) params.set('assigned_consultant_id', filters.consultantId)
+      if (filters.onlyReferenced) params.set('only_referenced', '1')
       if (filters.tipoImovel) params.set('tipo_imovel', filters.tipoImovel)
       if (filters.localizacao) params.set('localizacao', filters.localizacao)
       if (filters.orcamentoMin) params.set('orcamento_min', filters.orcamentoMin)
@@ -302,6 +234,7 @@ function NegociosListView({
     filters.pipelineStageId,
     filters.temperatura,
     filters.consultantId,
+    filters.onlyReferenced,
     filters.tipoImovel,
     filters.localizacao,
     filters.orcamentoMin,
@@ -1156,6 +1089,7 @@ export default function CRMPage() {
     pipelineStageId: '',
     temperatura: '',
     consultantId: '',
+    onlyReferenced: false,
     tipoImovel: '',
     localizacao: '',
     orcamentoMin: '',
@@ -1202,6 +1136,7 @@ export default function CRMPage() {
     filters.pipelineStageId ||
     filters.temperatura ||
     filters.consultantId ||
+    filters.onlyReferenced ||
     filters.tipoImovel ||
     filters.localizacao ||
     filters.orcamentoMin ||
@@ -1215,6 +1150,7 @@ export default function CRMPage() {
       pipelineStageId: '',
       temperatura: '',
       consultantId: '',
+      onlyReferenced: false,
       tipoImovel: '',
       localizacao: '',
       orcamentoMin: '',
@@ -1314,6 +1250,38 @@ export default function CRMPage() {
               </SelectContent>
             </Select>
           </div>
+          {/* Inbound-referrals toggle — surfaces négocios that came in via
+              an internal referral (where I'm the recipient). Outbound ones
+              I sent away aren't in this pipeline anyway — they're on the
+              Referências page. */}
+          <button
+            type="button"
+            onClick={() => setFilters((f) => ({ ...f, onlyReferenced: !f.onlyReferenced }))}
+            className={cn(
+              'w-full inline-flex items-center justify-between gap-2 h-9 px-3 rounded-full text-xs border transition-colors',
+              filters.onlyReferenced
+                ? 'bg-sky-500/15 border-sky-300/60 text-sky-700 dark:text-sky-300 dark:border-sky-700/60'
+                : 'bg-card/80 border-border/40 text-foreground/80 hover:bg-muted/60',
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Send className="h-3 w-3" />
+              Referenciados para mim
+            </span>
+            <span
+              className={cn(
+                'h-3.5 w-6 rounded-full transition-colors relative',
+                filters.onlyReferenced ? 'bg-sky-500' : 'bg-muted',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all',
+                  filters.onlyReferenced ? 'left-3' : 'left-0.5',
+                )}
+              />
+            </span>
+          </button>
           {hasActiveFilters && (
             <Button
               variant="ghost"

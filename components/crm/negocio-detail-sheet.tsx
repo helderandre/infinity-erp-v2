@@ -33,6 +33,7 @@ import {
   Ruler,
   Sparkles,
   Pencil,
+  Send,
   StickyNote,
   Thermometer,
   Trash2,
@@ -110,6 +111,7 @@ import {
 import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
 import { MarketStudiesCard } from '@/components/crm/market-studies-card'
 import { NegocioProposalsTab } from '@/components/crm/negocio-proposals-tab'
+import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import {
   suggestNegocioToColleagueViaWhatsApp,
   suggestNegocioToColleagueViaInternalChat,
@@ -128,6 +130,20 @@ interface NegocioDetailSheetProps {
   negocioId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * Read-only mode for the referrer in the Referências page. Hides the
+   * Editar / Eliminar / Referenciar header buttons and shows a banner
+   * explaining the visit is observational. Mutating endpoints aren't
+   * called from this UI when in this mode.
+   */
+  readOnly?: boolean
+  /**
+   * Fires after any mutation that may affect the parent page: stage
+   * change, edit, qualification. The contact-detail page uses this to
+   * refetch the negocios list and the contact's `estado` (since the
+   * server-side syncLeadEstado may have moved it between buckets).
+   */
+  onChanged?: () => void
 }
 
 type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao'
@@ -172,7 +188,7 @@ function formatRange(min: number | null, max: number | null, suffix = ''): strin
   return `até ${eur.format(max!)}${suffix}`
 }
 
-export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDetailSheetProps) {
+export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = false, onChanged }: NegocioDetailSheetProps) {
   const isMobile = useIsMobile()
   const { user } = useUser()
   const router = useRouter()
@@ -181,6 +197,13 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('inicio')
+  // When the sheet is opened in read-only mode the tabs collapse to Início
+  // only (see `tabs` memo below). Snap activeTab back so a previously
+  // selected tab (e.g. "Visitas" from a non-readOnly open) doesn't leave
+  // the body blank.
+  useEffect(() => {
+    if (readOnly && activeTab !== 'inicio') setActiveTab('inicio')
+  }, [readOnly, activeTab])
   const [aiFillOpen, setAiFillOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
@@ -188,6 +211,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [referOpen, setReferOpen] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
@@ -236,11 +260,12 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
         if (!res.ok) throw new Error()
         setForm((prev) => ({ ...prev, ...patch }))
         if (successMessage) toast.success(successMessage)
+        onChanged?.()
       } catch {
         toast.error('Erro ao guardar')
       }
     },
-    [negocioId],
+    [negocioId, onChanged],
   )
 
   const handleTemperaturaChange = useCallback(
@@ -286,6 +311,12 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
   const isSellerType = ['Venda', 'Compra e Venda', 'Arrendador'].includes(tipo)
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
+    // Read-only mode (referrer viewing a referenced négocio): collapse to
+    // just Início — the rest of the workflow tabs aren't relevant when you
+    // can't act on them anyway.
+    if (readOnly) {
+      return [{ key: 'inicio', label: 'Início', icon: Info }]
+    }
     // Angariação (puro vendedor / arrendador) — fluxo focado em interessados + processo
     if (isSellerType && !isBuyerType) {
       return [
@@ -303,7 +334,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
       { key: 'propostas', label: 'Propostas', icon: FileText },
       { key: 'fecho', label: 'Fecho', icon: Briefcase },
     ]
-  }, [isBuyerType, isSellerType])
+  }, [isBuyerType, isSellerType, readOnly])
 
   const leadId = negocio?.lead_id ?? null
 
@@ -352,33 +383,77 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
                   </Link>
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full h-8 text-xs gap-1.5"
-                onClick={() => {
-                  // Snapshot do form actual para detectar dirty depois
-                  setEditInitialForm({ ...form })
-                  setEditOpen(true)
-                }}
-                title="Editar dados do negócio"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Editar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full h-8 text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
-                onClick={() => setDeleteOpen(true)}
-                title="Eliminar negócio"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Eliminar
-              </Button>
+              {!readOnly && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Editar"
+                    className="rounded-full h-8 w-8 p-0 justify-center"
+                    onClick={() => {
+                      // Snapshot do form actual para detectar dirty depois
+                      setEditInitialForm({ ...form })
+                      setEditOpen(true)
+                    }}
+                    title="Editar dados do negócio"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full h-8 text-xs gap-1.5"
+                    onClick={() => setReferOpen(true)}
+                    title="Referenciar a outro consultor"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Referenciar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Eliminar"
+                    className="rounded-full h-8 w-8 p-0 justify-center border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+                    onClick={() => setDeleteOpen(true)}
+                    title="Eliminar negócio"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+              {readOnly && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 px-3 py-1 text-[11px] font-medium"
+                  title="Estás a ver este negócio como consultor referenciador. Apenas leitura."
+                >
+                  <Send className="h-3 w-3" />
+                  Apenas leitura
+                </span>
+              )}
             </div>
           )}
         </SheetHeader>
+
+        {/* Recipient-side referral banner — surfaces "this deal pays X% to
+            {referrer}" when the négocio came in via an internal referral.
+            Hidden in readOnly mode (the referrer's view already says
+            "Apenas leitura" in the header). */}
+        {!loading && negocio && !readOnly && (negocio as { referrer_consultant_id?: string | null }).referrer_consultant_id && (
+          <div className="shrink-0 mx-6 mt-1 mb-2 px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-300/60 dark:border-sky-700/60 text-[12px] text-sky-800 dark:text-sky-200 inline-flex items-center gap-2">
+            <Send className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              Este negócio paga{' '}
+              <strong className="font-semibold tabular-nums">
+                {(negocio as { referral_pct?: number | null }).referral_pct ?? '—'}%
+              </strong>
+              {' '}da comissão a{' '}
+              <strong className="font-semibold">
+                {(negocio as { referrer?: { commercial_name?: string | null } }).referrer?.commercial_name || 'consultor referenciador'}
+              </strong>
+              .
+            </span>
+          </div>
+        )}
 
         {loading || !negocio ? (
           <DetailSkeleton />
@@ -660,6 +735,23 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange }: NegocioDet
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        )}
+
+        {/* Referenciar — handover dialog. Records the audit row in
+            leads_referrals and flips assigned_consultant_id + commission
+            slice on the négocio. */}
+        {negocio?.id && leadId && (
+          <ReferenciarDialog
+            open={referOpen}
+            onOpenChange={setReferOpen}
+            subject={{ kind: 'negocio', id: negocio.id, contact_id: leadId }}
+            onSuccess={() => {
+              // After the négocio is handed off it leaves my pipeline, so
+              // close the sheet and refresh the underlying page.
+              onOpenChange(false)
+              router.refresh()
+            }}
+          />
         )}
 
         {/* Floating WhatsApp + Email chat bubbles — replicam o que existia

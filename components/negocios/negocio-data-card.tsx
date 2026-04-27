@@ -248,7 +248,7 @@ function AmenityGrid({
   const fields = Object.keys(AMENITY_EMOJIS)
 
   return (
-    <div className="col-span-full grid grid-cols-10 gap-1">
+    <div className="col-span-full grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-1.5">
       {fields.map((baseField) => {
         const field = prefix ? `${baseField}${prefix}` : baseField
         const active = !!form[field]
@@ -260,7 +260,7 @@ function AmenityGrid({
             disabled={!isEditing}
             onClick={() => isEditing && onToggle(field, !active)}
             className={`
-              rounded-md border px-1 py-2 flex flex-col items-center justify-center gap-0.5 text-center transition-all
+              min-w-0 overflow-hidden rounded-md border px-1.5 py-2 flex flex-col items-center justify-center gap-1 text-center transition-all
               ${active
                 ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300'
                 : 'border-border hover:bg-muted/50'
@@ -268,8 +268,8 @@ function AmenityGrid({
               ${isEditing ? 'cursor-pointer' : 'cursor-default'}
             `}
           >
-            <span className="text-sm">{info.emoji}</span>
-            <span className={`text-[8px] font-medium leading-tight px-0.5 ${active ? 'text-orange-700 dark:text-orange-300' : ''}`}>
+            <span className="text-base leading-none">{info.emoji}</span>
+            <span className={`text-[10px] font-medium leading-tight w-full break-words hyphens-auto ${active ? 'text-orange-700 dark:text-orange-300' : ''}`}>
               {info.label}
             </span>
           </button>

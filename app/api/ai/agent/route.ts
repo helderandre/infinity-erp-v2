@@ -154,7 +154,7 @@ async function executeTool(name: string, args: Record<string, any>, supabase: an
       case 'query_leads': {
         let query = supabase
           .from('leads')
-          .select('id, nome, email, telemovel, estado, origem, created_at, agent:dev_users(commercial_name)', { count: 'exact' })
+          .select('id, nome, email, telemovel, estado, origem, created_at, agent:dev_users!agent_id(commercial_name)', { count: 'exact' })
           .order('created_at', { ascending: false })
           .limit(args.count_only ? 0 : (args.limit || 10))
 

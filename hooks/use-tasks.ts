@@ -48,6 +48,18 @@ export function useTasks(initialFilters?: TaskFilters, options: UseTasksOptions 
   const [filters, setFilters] = useState<TaskFilters>(initialFilters || {})
   const [page, setPage] = useState(1)
 
+  // Sync filters when the caller's initialFilters change content (e.g.,
+  // navigating between task lists changes task_list_id). useState's
+  // initial-value semantics would otherwise pin the first-render filters
+  // forever, so refetch() and fetchTasks would query the stale list.
+  // String-key dependency dedupes — the effect only re-runs when content
+  // actually changes, not on every parent re-render.
+  const initialFiltersKey = JSON.stringify(initialFilters ?? {})
+  useEffect(() => {
+    setFilters(JSON.parse(initialFiltersKey))
+    setPage(1)
+  }, [initialFiltersKey])
+
   const debouncedSearch = useDebounce(filters.search || '', 300)
 
   const fetchTasks = useCallback(async () => {

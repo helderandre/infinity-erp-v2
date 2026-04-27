@@ -58,7 +58,26 @@ interface KanbanBoardProps {
     pipelineStageId?: string
     temperatura?: string
     consultantId?: string
+    /**
+     * Referências mode: filter négocios where the current user is the
+     * referrer (i.e. is owed a commission slice) instead of the assigned
+     * consultor. The kanban renders them in their *current owner's* stage
+     * columns so the referrer can see where each deal sits.
+     */
+    referrerConsultantId?: string
+    /**
+     * Surface only négocios that came in via an internal referral
+     * (referrer_consultant_id IS NOT NULL). Used by the Pipeline page's
+     * "Só referenciados" toggle.
+     */
+    onlyReferenced?: boolean
   }
+  /**
+   * Read-only mode — used by the Referências page where the viewer is the
+   * referrer, not the consultor working the deal. Disables drag-to-move
+   * stage transitions and the multi-select / bulk-actions surface.
+   */
+  readOnly?: boolean
   onCardClick?: (negocio: { id: string; lead_id?: string | null; contact_id?: string | null }) => void
   /**
    * Bumping this number triggers a silent re-fetch — used by the parent CRM
@@ -113,6 +132,8 @@ interface ColumnProps {
   selectedIds: Set<string>
   onToggleSelect: (id: string) => void
   onToggleSelectAllInStage: (stageId: string) => void
+  /** Read-only — disables drag/drop + the select-all column toggle. */
+  readOnly?: boolean
 }
 
 function KanbanColumnView({
@@ -126,6 +147,7 @@ function KanbanColumnView({
   selectedIds,
   onToggleSelect,
   onToggleSelectAllInStage,
+  readOnly = false,
 }: ColumnProps) {
   const { stage, negocios, count, total_commission } = column
   // Stage color comes from leads_pipeline_stages.color (hex #RRGGBB) seeded
@@ -147,9 +169,9 @@ function KanbanColumnView({
   return (
     <div
       className="min-w-[230px] w-[230px] flex-shrink-0 flex flex-col"
-      onDragOver={(e) => onDragOver(e, stage.id)}
-      onDragLeave={onDragLeave}
-      onDrop={(e) => onDrop(e, stage)}
+      onDragOver={readOnly ? undefined : (e) => onDragOver(e, stage.id)}
+      onDragLeave={readOnly ? undefined : onDragLeave}
+      onDrop={readOnly ? undefined : (e) => onDrop(e, stage)}
     >
       {/* Column header — pastel-gradient + accent bar in stage colour
            (financeiro KpiCard design language). */}
@@ -193,8 +215,9 @@ function KanbanColumnView({
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Select all in this column. Indeterminate state when only
-              some are selected — clicking still toggles all on/off. */}
-          {negocios.length > 0 && (
+              some are selected — clicking still toggles all on/off. Hidden
+              entirely in read-only mode (no bulk surface). */}
+          {!readOnly && negocios.length > 0 && (
             <button
               type="button"
               onClick={() => onToggleSelectAllInStage(stage.id)}
@@ -264,7 +287,8 @@ function KanbanColumnView({
             onDragStart={onCardDragStart}
             onClick={onCardClick ? () => onCardClick(negocio) : undefined}
             selected={selectedIds.has(negocio.id)}
-            onToggleSelect={onToggleSelect}
+            onToggleSelect={readOnly ? undefined : onToggleSelect}
+            readOnly={readOnly}
             stageColor={color}
           />
         ))}
@@ -281,7 +305,7 @@ function KanbanColumnView({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, onMutated }: KanbanBoardProps) {
+export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, onMutated, readOnly = false }: KanbanBoardProps) {
   const [board, setBoard] = useState<KanbanBoardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -315,6 +339,8 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
   const filterStage = filters?.pipelineStageId ?? ''
   const filterTemp = filters?.temperatura ?? ''
   const filterConsultant = filters?.consultantId ?? ''
+  const filterReferrer = filters?.referrerConsultantId ?? ''
+  const filterOnlyReferenced = !!filters?.onlyReferenced
 
   const fetchBoard = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -322,6 +348,8 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
     try {
       const params = new URLSearchParams()
       if (filterConsultant) params.set('assigned_consultant_id', filterConsultant)
+      if (filterReferrer) params.set('referrer_consultant_id', filterReferrer)
+      if (filterOnlyReferenced) params.set('only_referenced', '1')
       if (filterStage) params.set('pipeline_stage_id', filterStage)
       if (filterTemp) params.set('temperatura', filterTemp)
       if (filterSearch) params.set('search', filterSearch)
@@ -335,7 +363,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
     } finally {
       if (!opts?.silent) setLoading(false)
     }
-  }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant])
+  }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant, filterReferrer, filterOnlyReferenced])
 
   useEffect(() => {
     fetchBoard()
@@ -743,7 +771,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
               <KanbanColumnView
                 key={column.stage.id}
                 column={column}
-                isDragOver={dragOverStageId === column.stage.id}
+                isDragOver={!readOnly && dragOverStageId === column.stage.id}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -752,6 +780,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelected}
                 onToggleSelectAllInStage={toggleSelectAllInStage}
+                readOnly={readOnly}
               />
             ))}
           </div>

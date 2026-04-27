@@ -43,7 +43,11 @@ export async function GET(request: Request) {
           agent:dev_users!leads_agent_id_fkey(id, commercial_name)
         ),
         campaign:leads_campaigns(id, name, platform),
-        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name)
+        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name),
+        referrals:leads_referrals!entry_id(
+          id, status, from_consultant_id, to_consultant_id, referral_pct, created_at,
+          referrer:dev_users!leads_referrals_from_consultant_id_fkey(id, commercial_name)
+        )
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
@@ -184,7 +188,7 @@ export async function POST(request: Request) {
             nome: input.raw_name,
             email: normEmail || null,
             telemovel: normPhone || null,
-            estado: 'Novo',
+            estado: 'Lead',
             origem: input.source,
             agent_id: input.assigned_consultant_id || null,
           })
@@ -203,6 +207,25 @@ export async function POST(request: Request) {
     // ── Step 4: Determine assignment ──
 
     let assignedConsultantId = input.assigned_consultant_id || null
+
+    // Active referral agreement on this contacto — if one exists, route the
+    // entry to the agreement's recipient regardless of the matched-contact
+    // agent / round-robin / etc. Otherwise the recipient's deals on this
+    // contacto would silently bypass the slice. Only fires when we have a
+    // matched contacto (the agreement is keyed on contact_id).
+    if (matchedContactId && !assignedConsultantId) {
+      const { data: activeReferral } = await supabase
+        .from('leads_referrals')
+        .select('to_consultant_id')
+        .eq('contact_id', matchedContactId)
+        .in('status', ['pending', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (activeReferral?.to_consultant_id) {
+        assignedConsultantId = activeReferral.to_consultant_id
+      }
+    }
 
     if (matchedContactId && !assignedConsultantId) {
       const assignmentMode = settings.assignment_mode || 'existing_consultant'

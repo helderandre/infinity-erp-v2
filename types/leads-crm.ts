@@ -29,6 +29,7 @@ export type ActivityType =
   | 'visit'
   | 'stage_change'
   | 'temperature_change'
+  | 'referral_inherited'
   | 'assignment'
   | 'lifecycle_change'
   | 'system'
@@ -404,11 +405,17 @@ export interface LeadsAssignmentRule {
   description: string | null
   source_match: string[] | null
   campaign_id_match: string | null
+  ad_id_match: string | null
+  adset_id_match: string | null
   zone_match: string[] | null
   pipeline_type_match: string[] | null
   sector_match: string[] | null
   consultant_id: string | null
   team_consultant_ids: string[] | null
+  // Property linkage — external_ref is canonical/displayed; property_id is the
+  // denormalized FK kept in sync server-side.
+  property_external_ref: string | null
+  property_id: string | null
   overflow_threshold: number | null
   fallback_action: AssignmentFallbackAction
   round_robin_index: number
@@ -418,6 +425,7 @@ export interface LeadsAssignmentRule {
   updated_at: string
   // Joins
   consultant?: { id: string; commercial_name: string | null } | null
+  property?: { id: string; title: string; external_ref: string | null } | null
 }
 
 // =============================================================================

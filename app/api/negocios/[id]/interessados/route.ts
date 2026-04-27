@@ -100,7 +100,7 @@ export async function GET(
         leads!lead_id(
           nome,
           agent_id,
-          agent:dev_users(
+          agent:dev_users!agent_id(
             commercial_name,
             professional_email,
             profile:dev_consultant_profiles(phone_commercial)

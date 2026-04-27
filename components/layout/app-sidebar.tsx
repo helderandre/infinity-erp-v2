@@ -72,19 +72,8 @@ export const bottomItems = [
 ]
 
 export const crmItems = [
+  { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  {
-    title: 'Pipeline',
-    icon: Kanban,
-    href: '/dashboard/crm',
-    permission: 'leads',
-    // Alternative views available via the chevron next to Pipeline. Each
-    // alternate is a sibling page that the same icon/section reaches from
-    // a small dropdown.
-    alternates: [
-      { title: 'Referências', icon: Send, href: '/dashboard/crm/referencias' },
-    ],
-  },
   { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
   { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
 ]
@@ -656,9 +645,9 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
-        {/* 4. Leads */}
+        {/* 4. CRM */}
         <CollapsibleGroup
-          label="Leads"
+          label="CRM"
           icon={ContactRound}
           items={crmItems}
           pathname={pathname}

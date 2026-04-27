@@ -14,12 +14,20 @@ interface AssignmentResult {
   agent_id: string | null
   rule_id: string | null
   method: 'direct' | 'round_robin' | 'gestora_pool'
+  // Pulled from the matched rule so the caller (ingestLead) can stamp
+  // both columns on the leads_entries row. external_ref is canonical;
+  // property_id is the denormalized FK. Both null when no rule won.
+  property_external_ref: string | null
+  property_id: string | null
 }
 
 interface AssignmentContext {
   entry: Pick<LeadsEntry, 'source' | 'campaign_id' | 'sector'>
   campaign?: Pick<LeadsCampaign, 'id' | 'sector'> | null
   contact_city?: string | null
+  // Meta ad attribution — extracted from form_data by the caller.
+  meta_ad_id?: string | null
+  meta_adset_id?: string | null
 }
 
 /**
@@ -37,24 +45,28 @@ export async function assignLeadEntry(
     .order('priority', { ascending: false })
 
   if (error || !rules?.length) {
-    return { agent_id: null, rule_id: null, method: 'gestora_pool' }
+    return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null }
   }
 
   // 2. Evaluate each rule in priority order
   for (const rule of rules as LeadsAssignmentRule[]) {
     if (!matchesRule(rule, context)) continue
 
+    const ruleProperty = pickRuleProperty(rule)
+
     // Rule matches — try to assign
     if (rule.consultant_id) {
       // Direct assignment — check overflow
       const overloaded = await isAgentOverloaded(supabase, rule.consultant_id, rule.overflow_threshold)
       if (!overloaded) {
-        return { agent_id: rule.consultant_id, rule_id: rule.id, method: 'direct' }
+        return { agent_id: rule.consultant_id, rule_id: rule.id, method: 'direct', ...ruleProperty }
       }
       // Agent overloaded — apply fallback
       if (rule.fallback_action === 'skip') continue
       if (rule.fallback_action === 'gestora_pool') {
-        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool' }
+        // Pool fallback still surfaces the property — the entry should
+        // remember which imóvel originou o pedido even sem dono atribuído.
+        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty }
       }
       // round_robin fallback — but no team defined, skip
       continue
@@ -64,11 +76,11 @@ export async function assignLeadEntry(
       // Round-robin within team
       const agent = await pickRoundRobin(supabase, rule)
       if (agent) {
-        return { agent_id: agent, rule_id: rule.id, method: 'round_robin' }
+        return { agent_id: agent, rule_id: rule.id, method: 'round_robin', ...ruleProperty }
       }
       // All team members overloaded
       if (rule.fallback_action === 'gestora_pool') {
-        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool' }
+        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty }
       }
       continue
     }
@@ -78,7 +90,18 @@ export async function assignLeadEntry(
   }
 
   // No rule matched — gestora pool
-  return { agent_id: null, rule_id: null, method: 'gestora_pool' }
+  return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null }
+}
+
+/**
+ * Extract property linkage from a matched rule. Both columns surfaced; the
+ * caller can write whichever it needs (the entry row carries both).
+ */
+function pickRuleProperty(rule: LeadsAssignmentRule): { property_external_ref: string | null; property_id: string | null } {
+  return {
+    property_external_ref: rule.property_external_ref ?? null,
+    property_id: rule.property_id ?? null,
+  }
 }
 
 /**
@@ -92,6 +115,18 @@ function matchesRule(rule: LeadsAssignmentRule, context: AssignmentContext): boo
 
   // Campaign match
   if (rule.campaign_id_match && rule.campaign_id_match !== context.entry.campaign_id) {
+    return false
+  }
+
+  // Meta ad match (most specific). When the rule pins a Meta ad_id, it only
+  // matches inbound leads carrying the same ad_id. Specificity is enforced
+  // via `priority` (manual convention: ad-level > adset-level > campaign).
+  if (rule.ad_id_match && rule.ad_id_match !== context.meta_ad_id) {
+    return false
+  }
+
+  // Meta adset match
+  if (rule.adset_id_match && rule.adset_id_match !== context.meta_adset_id) {
     return false
   }
 

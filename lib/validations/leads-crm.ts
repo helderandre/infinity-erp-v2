@@ -183,6 +183,10 @@ export const createReferralSchema = z.object({
   from_consultant_id: z.string().uuid().nullable().optional(),
   to_consultant_id: z.string().uuid().nullable().optional(),
   partner_id: z.string().uuid().nullable().optional(),
+  // Internal referrals only: per-referral % override (NULL → falls back to
+  // temp_agency_settings.default_referral_pct on the server). 1–100; 0 was
+  // ruled out because it would silently create a no-op agreement.
+  referral_pct: z.number().min(1).max(100).nullable().optional(),
   notes: z.string().nullable().optional(),
 }).refine(
   (data) => {
@@ -278,11 +282,17 @@ export const createAssignmentRuleSchema = z.object({
   description: z.string().nullable().optional(),
   source_match: z.array(z.string()).nullable().optional(),
   campaign_id_match: z.string().uuid().nullable().optional(),
+  ad_id_match: z.string().nullable().optional(),
+  adset_id_match: z.string().nullable().optional(),
   zone_match: z.array(z.string()).nullable().optional(),
   pipeline_type_match: z.array(z.enum(pipelineTypes)).nullable().optional(),
   sector_match: z.array(z.enum(entrySectors)).nullable().optional(),
   consultant_id: z.string().uuid().nullable().optional(),
   team_consultant_ids: z.array(z.string().uuid()).nullable().optional(),
+  // Either may be supplied — server resolves the missing one against
+  // dev_properties before insert/update.
+  property_external_ref: z.string().nullable().optional(),
+  property_id: z.string().uuid().nullable().optional(),
   overflow_threshold: z.number().int().positive().nullable().optional(),
   fallback_action: z.enum(fallbackActions).optional().default('gestora_pool'),
   priority: z.number().int().optional().default(0),
@@ -318,6 +328,9 @@ export const webhookLeadSchema = z.object({
   // Source tracking
   source: z.enum(entrySources).optional().default('other'),
   campaign_id: z.string().nullable().optional(),
+  // Meta ad attribution (used by assignment rules to route ad → consultor + imóvel)
+  ad_id: z.string().nullable().optional(),
+  adset_id: z.string().nullable().optional(),
   utm_source: z.string().nullable().optional(),
   utm_medium: z.string().nullable().optional(),
   utm_campaign: z.string().nullable().optional(),

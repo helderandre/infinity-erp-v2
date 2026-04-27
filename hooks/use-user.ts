@@ -184,8 +184,12 @@ function invalidateUserCache() {
 }
 
 export function useUser() {
-  const [user, setUser] = useState<UserWithRole | null>(() => cached?.user ?? null)
-  const [loading, setLoading] = useState(() => !cached)
+  // Initial state must match between SSR (no `cached`, no `window`) and the
+  // first client render (where `cached` may be hydrated from localStorage).
+  // Seeding from cache here causes a hydration mismatch — instead, the cache
+  // is consulted inside the effect below via fetchUserDeduped().
+  const [user, setUser] = useState<UserWithRole | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   const loadUser = useCallback(async (force: boolean) => {

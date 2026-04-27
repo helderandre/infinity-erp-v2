@@ -22,6 +22,8 @@ export async function GET(
     const pipelineType = pt as PipelineType
     const { searchParams } = new URL(request.url)
     const assigned_consultant_id = searchParams.get('assigned_consultant_id')
+    const referrer_consultant_id = searchParams.get('referrer_consultant_id')
+    const only_referenced = searchParams.get('only_referenced') === '1'
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')
     const search = (searchParams.get('search') || '').trim()
@@ -52,9 +54,11 @@ export async function GET(
          stage_entered_at, won_date, lost_date, orcamento, orcamento_max, tipo_imovel,
          preco_venda, renda_pretendida, renda_max_mensal,
          quartos_min, localizacao, has_referral, referral_pct, referral_type, referral_side,
+         referrer_consultant_id,
          temperatura, observacoes, origem,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
          dev_users!assigned_consultant_id(id, commercial_name),
+         referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name),
          leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days)`
       )
 
@@ -70,6 +74,19 @@ export async function GET(
 
     if (assigned_consultant_id) {
       negociosQuery = negociosQuery.eq('assigned_consultant_id', assigned_consultant_id)
+    }
+    if (referrer_consultant_id) {
+      // Referências view: I'm owed a commission slice on these négocios but
+      // I'm not the consultor working them — filter by referrer instead of
+      // assigned. Kanban renders them in their current owner's pipeline
+      // stages so the referrer can see where each deal is at.
+      negociosQuery = negociosQuery.eq('referrer_consultant_id', referrer_consultant_id)
+    }
+    if (only_referenced) {
+      // Surface only négocios that came in via an internal referral (any
+      // referrer, not necessarily the current user). Used by the Pipeline
+      // page's "Só referenciados" toggle.
+      negociosQuery = negociosQuery.not('referrer_consultant_id', 'is', null)
     }
     if (pipeline_stage_id) {
       negociosQuery = negociosQuery.eq('pipeline_stage_id', pipeline_stage_id)
@@ -141,8 +158,35 @@ export async function GET(
     // "Comissão prevista" — sum across non-terminal stages from order_index >= 4
     //   onwards, i.e. negotiations that are far enough along to actually count
     //   as a forecast (excludes Fecho / Perdido which are terminal).
+    //
+    // Referrer mode: when filtering by referrer_consultant_id, the figures
+    // returned are the *referrer's slice*, i.e. each card's commission is
+    // multiplied by its referral_pct (or the agency default when null).
     let totalPossibleCommission = 0
     let totalForecastCommission = 0
+
+    const isReferrerMode = !!referrer_consultant_id
+    let defaultReferralPctFraction = 0.25
+    if (isReferrerMode) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: setting } = await (supabase as any)
+        .from('temp_agency_settings')
+        .select('value')
+        .eq('key', 'default_referral_pct')
+        .maybeSingle()
+      const parsed = parseFloat(setting?.value ?? '')
+      if (Number.isFinite(parsed)) defaultReferralPctFraction = parsed / 100
+    }
+
+    const cardCommission = (n: any): number => {
+      const base = negocioValue(n) * commissionFactor
+      if (!isReferrerMode) return base
+      const pctFraction =
+        typeof n.referral_pct === 'number' && n.referral_pct >= 0
+          ? n.referral_pct / 100
+          : defaultReferralPctFraction
+      return base * pctFraction
+    }
 
     const columns = (stages ?? []).map((stage) => {
       const items = enrichedNegocios.filter((n) => n.pipeline_stage_id === stage.id)
@@ -153,7 +197,7 @@ export async function GET(
         0
       )
 
-      const total_commission = total_value * commissionFactor
+      const total_commission = items.reduce((sum, n) => sum + cardCommission(n), 0)
 
       if (!stage.is_terminal) {
         totalPossibleCommission += total_commission

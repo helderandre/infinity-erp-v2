@@ -2,7 +2,9 @@
 
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles, MessageCircle, Check, Phone } from 'lucide-react'
+import {
+  Clock, AlertTriangle, User, Euro, Home, MapPin, Sparkles, MessageCircle, Check, Phone, Send,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { parseObservations } from '@/components/crm/observations-dialog'
@@ -20,6 +22,10 @@ interface KanbanCardProps {
   /** Stage colour (hex) used for the selected ring + checkbox accent.
    *  Falls back to the primary token if not provided. */
   stageColor?: string
+  /** Read-only — disables HTML5 drag and the cmd-click multi-select. The
+   *  card stays clickable so the détail sheet can still open. Used by the
+   *  Referências page where the viewer is the referrer, not the owner. */
+  readOnly?: boolean
 }
 
 const formatEUR = (value: number) =>
@@ -51,6 +57,7 @@ export function KanbanCard({
   selected = false,
   onToggleSelect,
   stageColor,
+  readOnly = false,
 }: KanbanCardProps) {
   const router = useRouter()
 
@@ -70,6 +77,32 @@ export function KanbanCard({
   const orcamentoMax = negocio.orcamento_max as number | null
   const expectedValue = negocio.expected_value
   const hasReferral = negocio.has_referral
+  // Internal user → user referral. When set, the négocio came from another
+  // consultor who keeps a commission slice. Card gets a sky tint + a
+  // "Referenciado por X" badge so the recipient knows where it came from.
+  const referrerConsultantId = negocio.referrer_consultant_id as string | null | undefined
+  const referrerName = negocio.referrer?.commercial_name as string | null | undefined
+  const referralPctRaw = negocio.referral_pct as number | string | null | undefined
+  const referralPct = typeof referralPctRaw === 'number'
+    ? referralPctRaw
+    : typeof referralPctRaw === 'string'
+      ? parseFloat(referralPctRaw)
+      : null
+  const isInternalReferral = !!referrerConsultantId
+
+  // Compute the slice in € so the badge can show actual money. Mirrors the
+  // formula used by /api/crm/kanban totals: gross × commission_factor × pct.
+  const tipoForFactor = tipo ?? ''
+  const isRentalCard =
+    tipoForFactor === 'Arrendatário' || tipoForFactor === 'Arrendador'
+  const commissionFactor = isRentalCard ? 1.5 * 0.5 : 0.05 * 0.5
+  const grossForCommission = Number.isFinite(Number(expectedValue))
+    ? Number(expectedValue)
+    : 0
+  const referralCommission =
+    isInternalReferral && referralPct !== null && Number.isFinite(referralPct)
+      ? grossForCommission * commissionFactor * (referralPct / 100)
+      : null
 
   const isBuyer = tipo === 'Compra' || tipo === 'Compra e Venda' || tipo === 'Arrendatário'
   const displayValue = isBuyer
@@ -102,12 +135,13 @@ export function KanbanCard({
 
   return (
     <div
-      draggable
-      onDragStart={handleDragStart}
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : handleDragStart}
       onClick={(e) => {
         // Cmd / Ctrl click also toggles selection — mac/windows convention,
         // handy for quickly multi-selecting without aiming for the checkbox.
-        if ((e.metaKey || e.ctrlKey) && onToggleSelect) {
+        // Disabled in read-only mode (no multi-select surface there).
+        if (!readOnly && (e.metaKey || e.ctrlKey) && onToggleSelect) {
           e.stopPropagation()
           onToggleSelect(negocio.id)
           return
@@ -115,10 +149,15 @@ export function KanbanCard({
         handleClick()
       }}
       className={cn(
-        'group/kanban-card relative bg-card rounded-xl border border-border/20 p-2.5 shadow-sm cursor-grab active:cursor-grabbing',
+        'group/kanban-card relative bg-card rounded-xl border border-border/20 p-2.5 shadow-sm',
+        readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
         'hover:shadow-lg hover:bg-card transition-all duration-200 select-none',
         // When selected: full-colour stage ring + slight stage tint
         selected && 'shadow-md',
+        // Internal referral: sky tint + sky border so referred-in deals are
+        // visually distinct from the rest of the recipient's pipeline.
+        isInternalReferral && !selected &&
+          'border-sky-300/70 dark:border-sky-700/70 bg-sky-50/50 dark:bg-sky-950/20',
       )}
       style={
         selected
@@ -222,14 +261,37 @@ export function KanbanCard({
         </div>
       )}
 
-      {/* Referral badge */}
-      {hasReferral && (
-        <div className="mt-1">
-          <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5">
-            <Sparkles className="h-2.5 w-2.5" />
-            Ref.{negocio.referral_side === 'angariacao' ? ' Ang.' : negocio.referral_side === 'comprador' ? ' Comp.' : ''}
-            {negocio.referral_pct ? ` ${negocio.referral_pct}%` : ''}
-          </Badge>
+      {/* Referral badges — internal (consultor → consultor) takes precedence
+          visually because it changes the card's whole tone. has_referral is
+          the legacy partner/external referral flag and stays compact. */}
+      {(isInternalReferral || hasReferral) && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {isInternalReferral && (
+            <Badge
+              variant="secondary"
+              className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15 max-w-[200px]"
+            >
+              <Send className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">
+                {referrerName ? `Ref. ${referrerName}` : 'Referenciado'}
+              </span>
+              {referralPct !== null && Number.isFinite(referralPct) ? (
+                <span className="shrink-0 tabular-nums">{referralPct}%</span>
+              ) : null}
+              {referralCommission !== null && referralCommission > 0 ? (
+                <span className="shrink-0 tabular-nums">
+                  · {formatEUR(referralCommission)}
+                </span>
+              ) : null}
+            </Badge>
+          )}
+          {hasReferral && (
+            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5">
+              <Sparkles className="h-2.5 w-2.5" />
+              Ref.{negocio.referral_side === 'angariacao' ? ' Ang.' : negocio.referral_side === 'comprador' ? ' Comp.' : ''}
+              {negocio.referral_pct ? ` ${negocio.referral_pct}%` : ''}
+            </Badge>
+          )}
         </div>
       )}
 

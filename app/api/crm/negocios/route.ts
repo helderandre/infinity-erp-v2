@@ -1,6 +1,11 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { createNegocioSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
+import {
+  resolveInheritedReferralForNegocio,
+  linkReferralToNewNegocio,
+} from '@/lib/crm/inherit-referral-on-negocio-create'
+import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 
 export async function GET(request: Request) {
   try {
@@ -11,6 +16,7 @@ export async function GET(request: Request) {
     const assigned_consultant_id = searchParams.get('assigned_consultant_id')
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')
+    const only_referenced = searchParams.get('only_referenced') === '1'
     const search = (searchParams.get('search') || '').trim()
     const contact_id = searchParams.get('contact_id') || searchParams.get('lead_id')
     const tipo_imovel = (searchParams.get('tipo_imovel') || '').trim()
@@ -46,6 +52,7 @@ export async function GET(request: Request) {
       }
     }
     if (assigned_consultant_id) query = query.eq('assigned_consultant_id', assigned_consultant_id)
+    if (only_referenced) query = query.not('referrer_consultant_id', 'is', null)
     if (pipeline_stage_id) query = query.eq('pipeline_stage_id', pipeline_stage_id)
     if (temperatura) query = query.eq('temperatura', temperatura)
     if (contact_id) query = query.eq('lead_id', contact_id)
@@ -136,11 +143,27 @@ export async function POST(request: Request) {
         .eq('id', input.entry_id)
     }
 
+    // Internal user→user referral inheritance: if there's an active
+    // leads_referrals row pairing this contacto with the recipient
+    // consultor, this négocio (and every future one with the same pair)
+    // inherits the referrer's commission slice automatically.
+    const inheritedReferral = await resolveInheritedReferralForNegocio(
+      supabase,
+      input.lead_id,
+      input.assigned_consultant_id ?? null,
+    )
+
     const { data, error } = await supabase
       .from('negocios')
       .insert({
         ...input,
         ...referralFields,
+        ...(inheritedReferral
+          ? {
+              referrer_consultant_id: inheritedReferral.referrer_consultant_id,
+              referral_pct: inheritedReferral.referral_pct,
+            }
+          : {}),
         stage_entered_at: new Date().toISOString(),
       })
       .select(
@@ -149,6 +172,26 @@ export async function POST(request: Request) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (inheritedReferral?.referral_row_id && data?.id) {
+      await linkReferralToNewNegocio(
+        supabase,
+        inheritedReferral.referral_row_id,
+        data.id,
+        {
+          referrer_consultant_id: inheritedReferral.referrer_consultant_id,
+          referral_pct: inheritedReferral.referral_pct,
+        },
+        {
+          lead_id: input.lead_id ?? null,
+          recipient_consultant_id: input.assigned_consultant_id ?? null,
+        },
+      )
+    }
+
+    if (input.lead_id) {
+      await syncLeadEstado(supabase, input.lead_id)
+    }
 
     return NextResponse.json(data, { status: 201 })
   } catch (err) {

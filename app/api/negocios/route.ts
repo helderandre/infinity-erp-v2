@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('negocios')
-      .select('*, leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type), lead:leads(id, nome, full_name, telemovel, email, agent_id, agent:dev_users(id, commercial_name))', { count: 'exact' })
+      .select('*, leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type), lead:leads(id, nome, full_name, telemovel, email, agent_id, agent:dev_users!agent_id(id, commercial_name))', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -100,6 +101,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Internal user→user referral inheritance for the legacy create path.
+    // Looks up the active referral agreement (contact_id, to_consultant_id)
+    // and copies the slice onto the new négocio if one applies.
+    const leadId = (validation.data as { lead_id?: string }).lead_id
+    const recipientId = (insertPayload as { assigned_consultant_id?: string }).assigned_consultant_id
+    let inheritedReferral: Awaited<ReturnType<typeof import('@/lib/crm/inherit-referral-on-negocio-create').resolveInheritedReferralForNegocio>> = null
+    if (leadId && recipientId) {
+      const { resolveInheritedReferralForNegocio } = await import(
+        '@/lib/crm/inherit-referral-on-negocio-create'
+      )
+      inheritedReferral = await resolveInheritedReferralForNegocio(supabase, leadId, recipientId)
+      if (inheritedReferral) {
+        ;(insertPayload as Record<string, unknown>).referrer_consultant_id =
+          inheritedReferral.referrer_consultant_id
+        ;(insertPayload as Record<string, unknown>).referral_pct =
+          inheritedReferral.referral_pct
+      }
+    }
+
     const { data: negocio, error } = await supabase
       .from('negocios')
       .insert(insertPayload as never)
@@ -110,6 +130,29 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Erro ao criar negócio', details: error.message },
         { status: 500 }
+      )
+    }
+
+    if (leadId) {
+      await syncLeadEstado(supabase, leadId)
+    }
+
+    if (inheritedReferral?.referral_row_id && negocio?.id) {
+      const { linkReferralToNewNegocio } = await import(
+        '@/lib/crm/inherit-referral-on-negocio-create'
+      )
+      await linkReferralToNewNegocio(
+        supabase,
+        inheritedReferral.referral_row_id,
+        negocio.id,
+        {
+          referrer_consultant_id: inheritedReferral.referrer_consultant_id,
+          referral_pct: inheritedReferral.referral_pct,
+        },
+        {
+          lead_id: leadId ?? null,
+          recipient_consultant_id: recipientId ?? null,
+        },
       )
     }
 
