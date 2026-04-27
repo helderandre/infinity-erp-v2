@@ -2133,6 +2133,105 @@ const openLink: ToolConfig = {
 // Batch lead creation: several lead *entries* at once (table `leads_entries`).
 // Each entry auto-matches/creates a contacto (leads table) server-side.
 // Rendering is special-cased in the overlay because the row count is variable.
+// Adicionar um negócio NOVO a um contacto JÁ existente. Diferente de
+// create_lead (que cria contacto + negócio) — aqui assumimos que o
+// contacto já está em base. Resolução do contacto:
+//   1) Se houver entity={type:'lead',id} (utilizador na página do lead),
+//      usa-se o id directamente.
+//   2) Senão usa-se `resolved_lead_id` injectado pelo OwnerMatchHint.
+//   3) Falhando ambos, faz lookup por nome em /api/leads e adopta o
+//      primeiro exact-match; se não houver, atira erro pedindo picker.
+const createNegocio: ToolConfig = {
+  title: 'Novo negócio',
+  submitLabel: 'Criar negócio',
+  fields: [
+    { key: 'contact_name', label: 'Contacto', required: true, placeholder: 'Nome do lead já existente' },
+    {
+      key: 'tipo',
+      label: 'Tipo',
+      required: true,
+      inputType: 'select',
+      options: [
+        { value: 'Compra', label: 'Compra' },
+        { value: 'Venda', label: 'Venda' },
+        { value: 'Arrendatário', label: 'Arrendatário' },
+        { value: 'Arrendador', label: 'Arrendador' },
+      ],
+    },
+    { key: 'tipo_imovel', label: 'Tipo imóvel', placeholder: 'T2, Apartamento, Moradia…' },
+    { key: 'localizacao', label: 'Localização' },
+    { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro },
+    { key: 'orcamento_max', label: 'Orçamento máx.', inputType: 'number', format: formatEuro },
+    { key: 'quartos_min', label: 'Quartos mín.', inputType: 'number' },
+    { key: 'property_query', label: 'Imóvel (angariação)', placeholder: 'Ex: 103 (sufixo) ou T2 Av. Liberdade' },
+    { key: 'observacoes', label: 'Notas', inputType: 'textarea' },
+  ],
+  canSubmit: (args) => {
+    if (!args.tipo) return false
+    // Tem de haver pelo menos um caminho para resolver o contacto.
+    if (args.resolved_lead_id) return true
+    if (args.contact_name && String(args.contact_name).trim()) return true
+    return false
+  },
+  submit: async (args, { router, entity }) => {
+    let leadId: string | null = args.resolved_lead_id ? String(args.resolved_lead_id) : null
+    if (!leadId && entity?.type === 'lead') leadId = entity.id
+
+    if (!leadId) {
+      const name = String(args.contact_name ?? '').trim()
+      if (!name) throw new Error('Contacto em falta')
+      const res = await fetch(`/api/leads?nome=${encodeURIComponent(name)}&limit=3`)
+      if (!res.ok) throw new Error('Falha ao procurar contacto')
+      const data = await res.json()
+      const list: any[] = Array.isArray(data) ? data : data?.data || []
+      if (list.length === 0) {
+        throw new Error(`Contacto "${name}" não encontrado. Cria-o primeiro.`)
+      }
+      const exact = list.find(
+        (l) => String(l.nome ?? '').trim().toLowerCase() === name.toLowerCase()
+      )
+      leadId = String((exact || list[0]).id)
+    }
+
+    const payload: Record<string, unknown> = {
+      lead_id: leadId,
+      tipo: args.tipo,
+    }
+    if (args.tipo_imovel) payload.tipo_imovel = args.tipo_imovel
+    if (args.localizacao) payload.localizacao = args.localizacao
+    if (args.orcamento !== undefined && args.orcamento !== '') {
+      payload.orcamento = Number(args.orcamento)
+    }
+    if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
+      payload.orcamento_max = Number(args.orcamento_max)
+    }
+    if (args.quartos_min !== undefined && args.quartos_min !== '') {
+      payload.quartos_min = Number(args.quartos_min)
+    }
+    if (args.observacoes) payload.observacoes = args.observacoes
+    if (args.resolved_property_id) payload.property_id = args.resolved_property_id
+
+    const negRes = await fetch('/api/negocios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!negRes.ok) {
+      const err = await negRes.json().catch(() => ({}))
+      throw new Error(err?.error || 'Falha ao criar negócio')
+    }
+    const { id: negocioId } = await negRes.json()
+    const path = `/dashboard/leads/${leadId}?negocio=${negocioId}`
+    router.push(path)
+    return {
+      detailPath: path,
+      message: args.resolved_property_id
+        ? 'Negócio criado e ligado à angariação'
+        : 'Negócio criado',
+    }
+  },
+}
+
 const createLeadsBatch: ToolConfig = {
   title: 'Criar vários leads',
   submitLabel: 'Criar leads',
@@ -2207,6 +2306,7 @@ const createLeadsBatch: ToolConfig = {
 export const TOOL_CONFIGS: Record<VoiceToolName, ToolConfig> = {
   create_lead: createLead,
   create_leads_batch: createLeadsBatch,
+  create_negocio: createNegocio,
   create_angariacao: createAngariacao,
   create_fecho: createFecho,
   create_todo: createTodo,

@@ -3,6 +3,7 @@ import type { ChatCompletionTool } from 'openai/resources/chat/completions'
 export type VoiceToolName =
   | 'create_lead'
   | 'create_leads_batch'
+  | 'create_negocio'
   | 'create_angariacao'
   | 'create_fecho'
   | 'create_todo'
@@ -164,6 +165,44 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
           },
         },
         ['leads']
+      ),
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_negocio',
+      description:
+        'Adicionar um NOVO negócio a um contacto/lead JÁ EXISTENTE. Usar para "cria um negócio de venda à Maria Silva", "novo negócio de compra para o João, T2 em Lisboa até 250 mil", "adiciona uma intenção de arrendar ao Pedro". Para criar contacto novo + negócio na mesma frase, usa `create_lead` com `negocio_tipo`. Se o utilizador estiver na página de um contacto, podes deixar `contact_name` em branco — assumimos esse contacto. Se ele referir um imóvel/angariação ("para a angariação 103", "interessado no T2 da Av. Liberdade"), preenche `property_query`.',
+      parameters: withConfidence(
+        {
+          contact_name: {
+            type: 'string',
+            description:
+              'Nome do contacto/lead já existente. Procura na tabela leads. Omitir só se for óbvio pelo contexto da página actual.',
+          },
+          tipo: {
+            type: 'string',
+            enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador'],
+            description:
+              'Tipo de negócio. "Compra"=quer comprar, "Venda"=quer vender, "Arrendatário"=quer arrendar, "Arrendador"=senhorio.',
+          },
+          tipo_imovel: {
+            type: 'string',
+            description: 'Tipologia/tipo (ex: T2, Apartamento, Moradia, Terreno)',
+          },
+          localizacao: { type: 'string', description: 'Localização desejada' },
+          orcamento: { type: 'number', description: 'Preço/orçamento em euros' },
+          orcamento_max: { type: 'number', description: 'Orçamento máximo em euros' },
+          quartos_min: { type: 'number' },
+          property_query: {
+            type: 'string',
+            description:
+              'Termo livre para identificar uma angariação a ligar (sufixo numérico da ref interna, título ou zona). Só preencher se o utilizador referir explicitamente um imóvel concreto.',
+          },
+          observacoes: { type: 'string', description: 'Notas livres sobre o negócio' },
+        },
+        ['tipo']
       ),
     },
   },
@@ -603,6 +642,11 @@ export function buildConfirmText(tool: string, args: Record<string, any>): strin
     case 'create_leads_batch': {
       const n = Array.isArray(args.leads) ? args.leads.length : 0
       return n > 0 ? `Criar ${n} lead${n !== 1 ? 's' : ''}` : 'Criar leads'
+    }
+    case 'create_negocio': {
+      const tipo = args.tipo ? ` (${String(args.tipo).toLowerCase()})` : ''
+      const to = args.contact_name ? ` para ${args.contact_name}` : ''
+      return `Novo negócio${tipo}${to}`
     }
     case 'create_angariacao':
       return args.title ? `Nova angariação: ${args.title}` : 'Nova angariação'

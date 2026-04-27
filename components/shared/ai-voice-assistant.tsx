@@ -1255,6 +1255,7 @@ const ENTITY_LINKED_TOOLS: VoiceToolName[] = [
   'create_todo',
   'create_reminder',
   'create_call_log',
+  'create_negocio',
 ]
 
 function ReviewPanel({
@@ -1408,24 +1409,27 @@ function ReviewPanel({
                       }}
                     />
                   )}
-                  {(intent.tool === 'create_visit' || intent.tool === 'create_lead') && field.key === 'property_query' && (
-                    <PropertyMatchHint
-                      query={String(intent.args.property_query ?? '')}
-                      adoptedId={
-                        intent.args.resolved_property_id
-                          ? String(intent.args.resolved_property_id)
-                          : undefined
-                      }
-                      onAdopt={(match) => {
-                        // Replace the free-text query with the real title so
-                        // the green banner is stable even if the user keeps
-                        // speaking and the matches list changes.
-                        onArgChange('property_query', match.title)
-                        onArgChange('resolved_property_id', match.id)
-                      }}
-                      onUnlink={() => onArgChange('resolved_property_id', '')}
-                    />
-                  )}
+                  {(intent.tool === 'create_visit' ||
+                    intent.tool === 'create_lead' ||
+                    intent.tool === 'create_negocio') &&
+                    field.key === 'property_query' && (
+                      <PropertyMatchHint
+                        query={String(intent.args.property_query ?? '')}
+                        adoptedId={
+                          intent.args.resolved_property_id
+                            ? String(intent.args.resolved_property_id)
+                            : undefined
+                        }
+                        onAdopt={(match) => {
+                          // Replace the free-text query with the real title so
+                          // the green banner is stable even if the user keeps
+                          // speaking and the matches list changes.
+                          onArgChange('property_query', match.title)
+                          onArgChange('resolved_property_id', match.id)
+                        }}
+                        onUnlink={() => onArgChange('resolved_property_id', '')}
+                      />
+                    )}
                   {intent.tool === 'create_visit' && field.key === 'contact_name' && (
                     <OwnerMatchHint
                       name={String(intent.args.contact_name ?? '')}
@@ -1434,6 +1438,15 @@ function ReviewPanel({
                         onArgChange('resolved_lead_id', match.id)
                         if (match.telemovel) onArgChange('client_phone', match.telemovel)
                         if (match.email) onArgChange('client_email', match.email)
+                      }}
+                    />
+                  )}
+                  {intent.tool === 'create_negocio' && field.key === 'contact_name' && (
+                    <OwnerMatchHint
+                      name={String(intent.args.contact_name ?? '')}
+                      onAdopt={(match) => {
+                        onArgChange('contact_name', match.nome)
+                        onArgChange('resolved_lead_id', match.id)
                       }}
                     />
                   )}
