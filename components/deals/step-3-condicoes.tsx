@@ -201,21 +201,33 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           error={errors.deposit_value}
           isMissing={isEmpty('deposit_value')}
         />
-        {showCpcv && (
-          <DealQuickPick
-            label="Pagamento no CPCV"
-            value={form.watch('cpcv_pct')}
-            onChange={(v) => form.setValue('cpcv_pct', parseFloat(v) || 0)}
-            quickPicks={[
-              { value: 0, label: '0%' },
-              { value: 50, label: '50%' },
-              { value: 100, label: '100%' },
-            ]}
-            hint="Indica a percentagem paga no cpcv e faremos o cálculo automático da percentagem da escritura"
-            required
-            error={errors.cpcv_pct}
-          />
-        )}
+        {showCpcv && (() => {
+          const cpcvVal = form.watch('cpcv_pct')
+          const cpcvNum = Math.max(0, Math.min(100, parseFloat(cpcvVal) || 0))
+          const escNum = 100 - cpcvNum
+          return (
+            <DealQuickPick
+              label="Pagamento no CPCV"
+              value={cpcvVal}
+              onChange={(v) => {
+                const c = Math.max(0, Math.min(100, parseFloat(v) || 0))
+                form.setValue('cpcv_pct', c)
+                // Mantemos `escritura_pct` em sync no form caso outro step a leia.
+                if (typeof form.setValue === 'function') {
+                  form.setValue('escritura_pct', 100 - c)
+                }
+              }}
+              quickPicks={[
+                { value: 0, label: '0%' },
+                { value: 50, label: '50%' },
+                { value: 100, label: '100%' },
+              ]}
+              hint={`Pagamento na escritura: ${escNum}% (calculado automaticamente)`}
+              required
+              error={errors.cpcv_pct}
+            />
+          )
+        })()}
       </div>
 
       {/* Date + Deadline side by side */}

@@ -4,6 +4,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { isManagementRole } from '@/lib/auth/roles'
+import { normalizeTranchePcts } from '@/lib/financial/normalize-tranche-pcts'
 import type { Deal, DealPayment } from '@/types/deal'
 
 // ─── Helper: resolve roles do utilizador autenticado para gate de visibilidade
@@ -254,8 +255,11 @@ export async function createDeal(data: {
         consultant_pct: dealData.consultant_pct ?? null,
         consultant_amount: dealData.consultant_amount ?? null,
         agency_net: dealData.agency_net ?? null,
-        cpcv_pct: dealData.cpcv_pct ?? 0,
-        escritura_pct: dealData.escritura_pct ?? 0,
+        // Tranches normalizadas (somam 100; default 50/50 se ambos NULL).
+        ...normalizeTranchePcts({
+          cpcv_pct: dealData.cpcv_pct,
+          escritura_pct: dealData.escritura_pct,
+        }),
         reference: dealData.reference || null,
         pv_number: dealData.pv_number || null,
         notes: dealData.notes || null,
@@ -463,9 +467,20 @@ export async function updateDeal(
   try {
     const admin = createAdminClient()
 
+    // Normaliza tranches no update: se uma é tocada, complementa a outra.
+    const updatePayload: any = { ...data, updated_at: new Date().toISOString() }
+    if (data.cpcv_pct !== undefined || data.escritura_pct !== undefined) {
+      const norm = normalizeTranchePcts({
+        cpcv_pct: data.cpcv_pct,
+        escritura_pct: data.escritura_pct,
+      })
+      updatePayload.cpcv_pct = norm.cpcv_pct
+      updatePayload.escritura_pct = norm.escritura_pct
+    }
+
     const { data: deal, error } = await (admin as any)
       .from('deals')
-      .update({ ...data, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single()

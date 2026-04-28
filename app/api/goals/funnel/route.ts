@@ -11,6 +11,11 @@ import {
   aggregateFunnelStatus,
   computeTotalConversion,
 } from '@/lib/goals/funnel/calculate'
+import {
+  REALIZED_DEAL_COLUMNS,
+  aggregateRealizedByConsultant,
+  type DealForRealized,
+} from '@/lib/goals/funnel/realized'
 import type {
   FunnelType,
   FunnelPeriod,
@@ -184,19 +189,35 @@ export async function GET(request: Request) {
       eventsRows = events || []
     }
 
-    // ── Realized € (sum of deals.commission_total in period) ─────────────
+    // ── Realized € — split por tranche (CPCV + Escritura) ────────────────
+    // Cada deal contribui em duas datas distintas: na data CPCV (o consultor
+    // recebe `cpcv_pct`% do `consultant_amount`) e na data Escritura (recebe o
+    // restante). Fetch alargado para apanhar deals cuja CPCV ou Escritura caia
+    // na janela, mesmo que a outra tranche esteja noutro período.
     let realizedEurAll = 0
     if (consultantIds.length > 0) {
+      const startYmd = formatYmd(bounds.start)
+      const endYmd = formatYmd(bounds.end)
+      const todayYmd = formatYmd(new Date())
+      const dateOr =
+        `and(deal_date.gte.${startYmd},deal_date.lte.${endYmd}),` +
+        `and(escritura_actual_date.gte.${startYmd},escritura_actual_date.lte.${endYmd}),` +
+        `and(contract_signing_date.gte.${startYmd},contract_signing_date.lte.${endYmd}),` +
+        `and(cpcv_actual_date.gte.${startYmd},cpcv_actual_date.lte.${endYmd})`
+
       const { data: dealsRows } = await supabase
         .from('deals')
-        .select('commission_total')
+        .select(REALIZED_DEAL_COLUMNS)
         .in('consultant_id', consultantIds)
-        .gte('deal_date', formatYmd(bounds.start))
-        .lte('deal_date', formatYmd(bounds.end))
-      realizedEurAll = (dealsRows || []).reduce(
-        (acc, d) => acc + (Number(d.commission_total) || 0),
-        0,
+        .or(dateOr)
+
+      const byConsultor = aggregateRealizedByConsultant(
+        (dealsRows || []) as DealForRealized[],
+        startYmd,
+        endYmd,
+        todayYmd,
       )
+      realizedEurAll = Object.values(byConsultor).reduce((acc, v) => acc + v, 0)
     }
 
     // ── Per-stage absolute overrides ─────────────────────────────────────

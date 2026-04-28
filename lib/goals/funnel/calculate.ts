@@ -22,14 +22,29 @@ export interface ComputeStageTargetsArgs {
 }
 
 /**
+ * Factor da parte do consultor numa comissão de deal típico. O `commission_pct`
+ * registado no goal é a comissão da agência (ex.: 5%); o consultor recebe
+ * tipicamente metade dessa comissão por representar uma das duas pontas
+ * (compra OU venda) — a outra metade vai para o agente do outro lado ou para
+ * a agência. Quando o consultor representa ambos os lados (`pleno_agencia`)
+ * recebe os 100%, mas isso é a excepção e não pode ser previsto à frente
+ * num target anual.
+ */
+const CONSULTANT_SIDE_FACTOR = 0.5
+
+/**
  * Cascades the period € target backwards through the funnel using the
  * conversion-rate chain. Each stage's target is computed as the next
  * stage's target divided by the conversion rate from this stage to the next.
  *
- *   target[escritura] = € / (avg_deal_value * commission_pct/100)
+ *   target[escritura] = € / (avg_deal_value * commission_pct/100 * 0.5)
  *   target[cpcv]      = target[escritura] / cr(cpcv→escritura)
  *   target[proposta]  = target[cpcv]      / cr(proposta→cpcv)
  *   ...
+ *
+ * O factor `0.5` reflecte que o consultor só recebe a parte da comissão que
+ * lhe corresponde do negócio (uma das duas pontas). Sem este factor o sistema
+ * sobre-estima o ganho por deal e o número-alvo de escrituras vem subdimensionado.
  *
  * Absolute overrides win over the cascade — they're values the gestor pinned.
  */
@@ -37,10 +52,10 @@ export function computeStageTargets(args: ComputeStageTargetsArgs): Record<Funne
   const stages = getStagesFor(args.funnel)
   const result: Partial<Record<FunnelStageKey, number>> = {}
 
-  // Final stage = € / commission per deal
+  // Final stage = € / (consultor's take per deal)
   const commissionPerDeal =
     args.avgDealValue > 0 && args.commissionPct > 0
-      ? args.avgDealValue * (args.commissionPct / 100)
+      ? args.avgDealValue * (args.commissionPct / 100) * CONSULTANT_SIDE_FACTOR
       : 0
   const closesTarget = commissionPerDeal > 0 ? args.periodEuroTarget / commissionPerDeal : 0
 

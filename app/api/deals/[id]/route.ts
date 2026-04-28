@@ -62,8 +62,15 @@ export async function PUT(
     if (dealData.deal_value && dealData.commission_pct) {
       dealData.commission_total = dealData.deal_value * dealData.commission_pct / 100
     }
-    if (dealData.cpcv_pct !== undefined) {
-      dealData.escritura_pct = 100 - dealData.cpcv_pct
+    // Normaliza tranches: se uma é dada, a outra é derivada para somar 100.
+    if (dealData.cpcv_pct !== undefined || dealData.escritura_pct !== undefined) {
+      const { normalizeTranchePcts } = await import('@/lib/financial/normalize-tranche-pcts')
+      const norm = normalizeTranchePcts({
+        cpcv_pct: dealData.cpcv_pct,
+        escritura_pct: dealData.escritura_pct,
+      })
+      dealData.cpcv_pct = norm.cpcv_pct
+      dealData.escritura_pct = norm.escritura_pct
     }
     if (dealData.scenario) {
       dealData.deal_type = dealData.scenario

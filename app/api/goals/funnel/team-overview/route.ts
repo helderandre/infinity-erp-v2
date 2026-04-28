@@ -5,6 +5,11 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { resolvePeriodBounds, formatYmd, periodEuroTarget } from '@/lib/goals/funnel/period'
 import { getStagesFor } from '@/lib/goals/funnel/stages'
 import { computeStageTargets, statusFromPercent } from '@/lib/goals/funnel/calculate'
+import {
+  REALIZED_DEAL_COLUMNS,
+  aggregateRealizedByConsultant,
+  type DealForRealized,
+} from '@/lib/goals/funnel/realized'
 import type {
   FunnelType,
   FunnelPeriod,
@@ -118,17 +123,32 @@ export async function GET(request: Request) {
       eventsByConsultor[e.consultant_id].push(e)
     })
 
+    // Realized € — split por tranche (cpcv + escritura), reconhecida em cada
+    // data efectiva (com fallback para a data prevista). Fetch alargado: um
+    // deal cujo CPCV cai na janela mas cuja escritura é noutro período ainda
+    // assim deve aparecer (e a tranche correcta é depois imputada via
+    // `aggregateRealizedByConsultant`).
+    const startYmd = formatYmd(bounds.start)
+    const endYmd = formatYmd(bounds.end)
+    const todayYmd = formatYmd(new Date())
+    const dateOr =
+      `and(deal_date.gte.${startYmd},deal_date.lte.${endYmd}),` +
+      `and(escritura_actual_date.gte.${startYmd},escritura_actual_date.lte.${endYmd}),` +
+      `and(contract_signing_date.gte.${startYmd},contract_signing_date.lte.${endYmd}),` +
+      `and(cpcv_actual_date.gte.${startYmd},cpcv_actual_date.lte.${endYmd})`
+
     const { data: dealsRows } = await supabase
       .from('deals')
-      .select('consultant_id, commission_total')
+      .select(REALIZED_DEAL_COLUMNS)
       .in('consultant_id', consultantIds)
-      .gte('deal_date', formatYmd(bounds.start))
-      .lte('deal_date', formatYmd(bounds.end))
-    const realizedByConsultor: Record<string, number> = {}
-    ;(dealsRows || []).forEach((d) => {
-      realizedByConsultor[d.consultant_id] =
-        (realizedByConsultor[d.consultant_id] || 0) + (Number(d.commission_total) || 0)
-    })
+      .or(dateOr)
+
+    const realizedByConsultor = aggregateRealizedByConsultant(
+      (dealsRows || []) as DealForRealized[],
+      startYmd,
+      endYmd,
+      todayYmd,
+    )
 
     const { data: overrides } = await supabase
       .from('funnel_target_overrides')
