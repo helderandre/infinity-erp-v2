@@ -55,13 +55,13 @@ export async function getDeals(filters?: {
       .range(from, to)
 
     // Gate de visibilidade: consultor só vê deals onde é o consultant_id
-    // ou o internal_colleague_id (split interno). Gestão vê tudo.
+    // (referenciações/splits ficam fora por agora). Gestão vê tudo.
     const { selfId, isManagement } = await resolveCallerScope()
     if (!isManagement) {
       if (!selfId) {
         return { deals: [], total: 0, error: null }
       }
-      query = query.or(`consultant_id.eq.${selfId},internal_colleague_id.eq.${selfId}`)
+      query = query.eq('consultant_id', selfId)
     }
 
     if (filters?.consultant_id) {
@@ -144,14 +144,10 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
       return { deal: null, error: error.message }
     }
 
-    // Gate: consultor só vê o deal se é o consultant_id ou internal_colleague_id.
+    // Gate: consultor só vê o deal se é o consultant_id directo.
     const { selfId, isManagement } = await resolveCallerScope()
     if (!isManagement) {
-      if (
-        !selfId ||
-        ((deal as any).consultant_id !== selfId &&
-          (deal as any).internal_colleague_id !== selfId)
-      ) {
+      if (!selfId || (deal as any).consultant_id !== selfId) {
         return { deal: null, error: 'Negócio não encontrado' }
       }
     }
