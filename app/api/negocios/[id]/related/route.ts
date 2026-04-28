@@ -55,14 +55,28 @@ export async function GET(
     const negocio = negocioRow as Record<string, unknown>
 
     // Gate: consultor só pode abrir negócios em que está envolvido —
-    // assigned_consultant_id ou agent_id do lead. Esconde com 404 (não
-    // revela existência). Gestão vê tudo.
+    // assigned_consultant_id, agent_id do lead, ou participante do deal
+    // associado (consultant_id ou internal_colleague_id no deal). Esconde
+    // com 404 (não revela existência). Gestão vê tudo.
     if (!isManagementRole(auth.roles)) {
       const selfId = auth.user.id
       const leadAgentId = ((negocio.lead as { agent_id?: string } | null)?.agent_id) ?? null
-      const isOwner =
+      let allowed =
         negocio.assigned_consultant_id === selfId || leadAgentId === selfId
-      if (!isOwner) {
+      if (!allowed) {
+        // Fallback: split interno do deal pode tornar o caller participante
+        // sem ele aparecer ao nível do negócio. Aceita se for consultant_id
+        // ou internal_colleague_id de algum deal ligado a este negócio.
+        const { data: dealCheck } = await adminDb
+          .from('deals')
+          .select('consultant_id, internal_colleague_id')
+          .eq('negocio_id', negocioId)
+        allowed = (dealCheck ?? []).some(
+          (d: { consultant_id: string | null; internal_colleague_id: string | null }) =>
+            d.consultant_id === selfId || d.internal_colleague_id === selfId,
+        )
+      }
+      if (!allowed) {
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
     }

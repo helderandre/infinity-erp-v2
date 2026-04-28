@@ -52,6 +52,8 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { DealForm } from '@/components/financial/deal-form'
 import { NegocioCard } from '@/components/negocios/negocio-card'
 import {
@@ -143,6 +145,8 @@ function NegociosPageSkeleton() {
 function NegociosPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
 
   const [deals, setDeals] = useState<Deal[]>([])
   const [thumbnails, setThumbnails] = useState<Record<string, string | null>>({})
@@ -307,14 +311,20 @@ function NegociosPageContent() {
   const openDetail = (d: Deal) => {
     // Preferir a nova página unificada do negócio (6 tabs com Apresentação,
     // Momentos, Processo, Financeiro embebido). Se o deal não tiver
-    // `negocio_id` (raro — drafts antigos), cai para a página financeira
-    // dedicada.
+    // `negocio_id` (raro — drafts antigos), o fallback `/dashboard/
+    // financeiro/deals/{id}` está atrás do PermissionGuard `commissions`,
+    // que faz bounce de consultor para /dashboard. Para não-gestão, em vez
+    // de redireccionar e perder contexto, mostramos toast informativo.
     const negocioId = (d as { negocio_id?: string | null }).negocio_id
     if (negocioId) {
       router.push(`/dashboard/negocios/${negocioId}`)
-    } else {
-      router.push(`/dashboard/financeiro/deals/${d.id}`)
+      return
     }
+    if (!isManagement) {
+      toast.info('Negócio em rascunho — ainda sem ligação a lead. Pede à gestão para regularizar.')
+      return
+    }
+    router.push(`/dashboard/financeiro/deals/${d.id}`)
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1
