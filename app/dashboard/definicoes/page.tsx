@@ -38,6 +38,7 @@ import {
   getCommissionTiers, upsertCommissionTier, deleteCommissionTier,
 } from '@/app/dashboard/financeiro/actions'
 import type { AgencySetting, CommissionTier } from '@/types/financial'
+import { PermissionGuard } from '@/components/shared/permission-guard'
 
 // ─── Financial constants ─────────────────────────────────────────────────────
 
@@ -89,7 +90,7 @@ const emptyTier: Partial<CommissionTier> = {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function DefinicoesPage() {
+function DefinicoesPageInner() {
   const [mainTab, setMainTab] = useState('roles')
 
   // Roles
@@ -680,5 +681,16 @@ function TierCard({ tier, onEdit, onDelete, onToggle }: {
         </div>
       </div>
     </div>
+  )
+}
+
+// O índice de Definições é gestão pura (roles, permissões, tiers, etc.).
+// O gate antes vivia no layout-pai mas isso bloqueava
+// `/dashboard/definicoes/email` (per-consultor); agora é por-página.
+export default function DefinicoesPage() {
+  return (
+    <PermissionGuard module="settings">
+      <DefinicoesPageInner />
+    </PermissionGuard>
   )
 }
