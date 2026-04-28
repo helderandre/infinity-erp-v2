@@ -34,6 +34,7 @@ import { useTasks, useTaskStats, useTaskMutations } from '@/hooks/use-tasks'
 import { useTaskList, useTaskListMutations, useTaskLists } from '@/hooks/use-task-lists'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { isManagementRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { TASK_LIST_COLORS, type TaskListColor } from '@/types/task-list'
@@ -49,6 +50,7 @@ type Selection =
 
 function TarefasPageInner() {
   const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
   const isMobile = useIsMobile()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -407,6 +409,7 @@ function TarefasPageInner() {
               onNewTask={() => { setFormDefaults(undefined); setShowForm(true) }}
               consultants={consultants}
               currentUserId={user?.id}
+              isManagement={isManagement}
             />
             <TaskList
               tasks={allTab.tasks}
@@ -449,6 +452,7 @@ function TarefasPageInner() {
               onNewTask={() => { setFormDefaults(listId ? { task_list_id: listId } : undefined); setShowForm(true) }}
               consultants={consultants}
               currentUserId={user?.id}
+              isManagement={isManagement}
             />
             <TaskList
               tasks={listId ? listTab.tasks : personalTab.tasks}
@@ -498,6 +502,7 @@ function TarefasPageInner() {
               onNewTask={() => { setFormDefaults(undefined); setShowForm(true) }}
               consultants={consultants}
               currentUserId={user?.id}
+              isManagement={isManagement}
             />
             <TaskList
               tasks={processTab.tasks}

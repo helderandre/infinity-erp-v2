@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
+import { isTaskListMember } from '@/lib/tasks/access'
 import { updateTaskSchema } from '@/lib/validations/task'
 import { getNextOccurrence } from '@/lib/tasks/recurrence'
 import { notificationService } from '@/lib/notifications/service'
@@ -38,6 +40,20 @@ export async function GET(
         return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Gate: consultor só pode ver tarefas onde é assignee, criador, ou
+    // membro da lista a que a tarefa pertence.
+    if (!isManagementRole(auth.roles)) {
+      const isOwner =
+        task.assigned_to === auth.user.id || task.created_by === auth.user.id
+      let allowed = isOwner
+      if (!allowed && task.task_list_id) {
+        allowed = await isTaskListMember(supabase, task.task_list_id, auth.user.id)
+      }
+      if (!allowed) {
+        return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
+      }
     }
 
     return NextResponse.json(task)

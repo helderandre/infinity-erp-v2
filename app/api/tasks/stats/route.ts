@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +9,12 @@ export async function GET(request: Request) {
     if (!auth.authorized) return auth.response
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('user_id') || auth.user.id
+    // Gestão pode pedir stats de outro user via ?user_id=; consultor é
+    // sempre forçado a self (ignora o param para não vazar counts de terceiros).
+    const callerIsManagement = isManagementRole(auth.roles)
+    const userId = callerIsManagement
+      ? (searchParams.get('user_id') || auth.user.id)
+      : auth.user.id
 
     const supabase = createAdminClient()
     const now = new Date().toISOString()

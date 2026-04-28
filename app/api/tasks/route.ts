@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { isTaskListMember } from '@/lib/tasks/access'
 import { createTaskSchema, taskQuerySchema } from '@/lib/validations/task'
 import { notificationService } from '@/lib/notifications/service'
 
@@ -56,6 +57,24 @@ export async function GET(request: Request) {
 
     // ─── Sub-task drill-down: only general tasks table (proc subtasks not nested) ───
     if (parent_task_id) {
+      // Gate: consultor só pode listar sub-tarefas se tem acesso à pai
+      // (assignee, criador, ou membro da lista da pai).
+      if (!callerIsManagement) {
+        const { data: parent } = await supabase
+          .from('tasks')
+          .select('id, assigned_to, created_by, task_list_id')
+          .eq('id', parent_task_id)
+          .maybeSingle()
+        const isOwner = !!parent && (parent.assigned_to === selfId || parent.created_by === selfId)
+        let allowed = isOwner
+        if (!allowed && parent?.task_list_id) {
+          allowed = await isTaskListMember(supabase, parent.task_list_id, selfId)
+        }
+        if (!allowed) {
+          return NextResponse.json({ data: [], total: 0 })
+        }
+      }
+
       const { data, error, count } = await supabase
         .from('tasks')
         .select(`
@@ -118,9 +137,17 @@ export async function GET(request: Request) {
     if (due_from) tasksQuery = tasksQuery.gte('due_date', due_from)
     if (due_to) tasksQuery = tasksQuery.lte('due_date', due_to)
 
-    // Consultor só vê tarefas onde é assignee OU criador.
+    // Consultor só vê tarefas onde é assignee OU criador, EXCEPTO quando
+    // está dentro duma lista partilhada de que é membro — nesse caso vê
+    // todas as tarefas da lista.
     if (!callerIsManagement) {
-      tasksQuery = tasksQuery.or(`assigned_to.eq.${selfId},created_by.eq.${selfId}`)
+      let dispenseGate = false
+      if (task_list_id) {
+        dispenseGate = await isTaskListMember(supabase, task_list_id, selfId)
+      }
+      if (!dispenseGate) {
+        tasksQuery = tasksQuery.or(`assigned_to.eq.${selfId},created_by.eq.${selfId}`)
+      }
     }
 
     // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───

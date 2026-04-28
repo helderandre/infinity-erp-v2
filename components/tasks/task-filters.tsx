@@ -22,15 +22,18 @@ interface TaskFiltersProps {
   onNewTask: () => void
   consultants: Array<{ id: string; commercial_name: string }>
   currentUserId?: string
+  /** Se false (consultor), o selector "Atribuído a" fica escondido — o
+   *  backend já força self para não-gestão. */
+  isManagement?: boolean
 }
 
-export function TaskFilters({ filters, onFiltersChange, consultants, currentUserId }: TaskFiltersProps) {
+export function TaskFilters({ filters, onFiltersChange, consultants, currentUserId, isManagement = true }: TaskFiltersProps) {
   const hasFilters = filters.assigned_to || filters.priority || filters.is_completed || filters.overdue
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [searchOpen, setSearchOpen] = useState(!!filters.search)
 
   const activeFilterCount = [
-    filters.assigned_to,
+    isManagement ? filters.assigned_to : undefined,
     filters.priority,
     filters.is_completed === 'true',
     filters.overdue === 'true',
@@ -167,25 +170,28 @@ export function TaskFilters({ filters, onFiltersChange, consultants, currentUser
           </div>
         </div>
 
-        {/* Atribuído a */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Atribuído a</p>
-          <Select
-            value={filters.assigned_to || '_all'}
-            onValueChange={(v) => onFiltersChange({ ...filters, assigned_to: v === '_all' ? undefined : v })}
-          >
-            <SelectTrigger className="h-9 text-xs rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
-              <SelectValue placeholder="Toda a equipa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Toda a equipa</SelectItem>
-              {currentUserId && <SelectItem value={currentUserId}>As minhas</SelectItem>}
-              {consultants.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Atribuído a — só gestão pode escolher consultor; consultor vê
+            sempre apenas as suas (forçado server-side). */}
+        {isManagement && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-1">Atribuído a</p>
+            <Select
+              value={filters.assigned_to || '_all'}
+              onValueChange={(v) => onFiltersChange({ ...filters, assigned_to: v === '_all' ? undefined : v })}
+            >
+              <SelectTrigger className="h-9 text-xs rounded-xl border-border/40 bg-background/40 backdrop-blur-sm">
+                <SelectValue placeholder="Toda a equipa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Toda a equipa</SelectItem>
+                {currentUserId && <SelectItem value={currentUserId}>As minhas</SelectItem>}
+                {consultants.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
