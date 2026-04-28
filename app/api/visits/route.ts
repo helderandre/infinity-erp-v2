@@ -156,16 +156,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Push: se ficou em estado proposal, notificar o seller agent.
+    // Push + in-app: se ficou em estado proposal, notificar o seller agent.
     // Não bloqueamos a resposta nem fazemos rollback se a notificação falhar.
     if (initialStatus === 'proposal' && sellerConsultantId) {
-      void notifyProposalCreated(admin, sellerConsultantId, {
-        id: data.id,
-        property_title: data.property?.title ?? null,
-        client_name: data.lead?.full_name ?? data.client_name ?? null,
-        visit_date: data.visit_date,
-        visit_time: data.visit_time,
-      })
+      void notifyProposalCreated(
+        admin,
+        sellerConsultantId,
+        {
+          id: data.id,
+          property_title: data.property?.title ?? null,
+          client_name: data.lead?.full_name ?? data.client_name ?? null,
+          visit_date: data.visit_date,
+          visit_time: data.visit_time,
+        },
+        parsed.data.consultant_id,
+      )
     }
 
     return NextResponse.json({ data }, { status: 201 })

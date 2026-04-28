@@ -162,9 +162,9 @@ export async function POST(
       visit_time: visit.visit_time,
     }
     if (parsed.data.decision === 'confirm') {
-      void notifyProposalConfirmed(admin, visit.consultant_id, ctx)
+      void notifyProposalConfirmed(admin, visit.consultant_id, ctx, user.id)
     } else {
-      void notifyProposalRejected(admin, visit.consultant_id, ctx, parsed.data.reason)
+      void notifyProposalRejected(admin, visit.consultant_id, ctx, parsed.data.reason, user.id)
     }
 
     // Complete any pending "respond to request" task linked to this visit

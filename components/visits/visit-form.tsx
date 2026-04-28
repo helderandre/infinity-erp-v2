@@ -31,6 +31,12 @@ interface VisitFormProps {
   hideClient?: boolean
   /** Restringe o selector de imóvel a um conjunto pré-definido (ex.: dossier do negócio). */
   propertyOptions?: PropertyOption[]
+  /**
+   * Imóvel pré-fixado: renderiza um cartão read-only em vez do select e salta
+   * o fetch da lista de imóveis. Usar quando o contexto já define o imóvel
+   * (ex.: sheet de detalhe a partir de uma propriedade específica).
+   */
+  lockedProperty?: { id: string; title: string; external_ref?: string | null; city?: string | null }
   /** Texto custom para o botão submit. */
   submitLabel?: string
   onSubmit: (data: CreateVisitInput) => Promise<any>
@@ -65,6 +71,7 @@ export function VisitForm({
   hideConsultant,
   hideClient,
   propertyOptions,
+  lockedProperty,
   submitLabel,
   hideFooter,
   formId,
@@ -87,7 +94,7 @@ export function VisitForm({
   } = useForm<CreateVisitInput>({
     resolver: zodResolver(createVisitSchema),
     defaultValues: {
-      property_id: defaultPropertyId || '',
+      property_id: lockedProperty?.id || defaultPropertyId || '',
       lead_id: defaultLeadId || null,
       consultant_id: defaultConsultantId || '',
       visit_date: new Date().toISOString().split('T')[0],
@@ -105,7 +112,7 @@ export function VisitForm({
   // sticks to the very first defaults and the pre-fill is silently dropped.
   useEffect(() => {
     reset({
-      property_id: defaultPropertyId || '',
+      property_id: lockedProperty?.id || defaultPropertyId || '',
       lead_id: defaultLeadId || null,
       consultant_id: defaultConsultantId || '',
       visit_date: new Date().toISOString().split('T')[0],
@@ -117,7 +124,7 @@ export function VisitForm({
       client_email: null,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultPropertyId, defaultLeadId, defaultConsultantId])
+  }, [defaultPropertyId, defaultLeadId, defaultConsultantId, lockedProperty?.id])
 
   const selectedLeadId = watch('lead_id')
 
@@ -127,14 +134,21 @@ export function VisitForm({
     const fetchData = async () => {
       try {
         const requests: Array<Promise<Response | null>> = [
-          // Propriedades: se foram fornecidas externamente, não pedimos.
-          propertyOptions ? Promise.resolve(null) : fetch('/api/properties?limit=200'),
+          // Propriedades: se foram fornecidas externamente ou já temos um
+          // imóvel "trancado", não pedimos a lista.
+          (propertyOptions || lockedProperty) ? Promise.resolve(null) : fetch('/api/properties?limit=200'),
           hideClient ? Promise.resolve(null) : fetch('/api/leads?limit=200'),
           hideConsultant ? Promise.resolve(null) : fetch('/api/consultants?per_page=100&status=active'),
         ]
         const [propRes, leadRes, consultRes] = await Promise.all(requests)
 
-        if (propertyOptions) {
+        if (lockedProperty) {
+          setProperties([{
+            id: lockedProperty.id,
+            title: lockedProperty.title,
+            external_ref: lockedProperty.external_ref ?? null,
+          }])
+        } else if (propertyOptions) {
           setProperties(propertyOptions)
         } else if (propRes && propRes.ok) {
           const propJson = await propRes.json()
@@ -173,7 +187,7 @@ export function VisitForm({
     }
 
     fetchData()
-  }, [hideClient, hideConsultant, propertyOptions])
+  }, [hideClient, hideConsultant, propertyOptions, lockedProperty])
 
   const handleFormSubmit = async (data: CreateVisitInput) => {
     setIsSubmitting(true)
@@ -191,22 +205,35 @@ export function VisitForm({
       {/* Imóvel */}
       <div className="space-y-2">
         <Label htmlFor="property_id">Imóvel *</Label>
-        <Select
-          value={watch('property_id')}
-          onValueChange={(v) => setValue('property_id', v)}
-          disabled={!!defaultPropertyId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar imóvel..." />
-          </SelectTrigger>
-          <SelectContent>
-            {properties.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.external_ref ? `${p.external_ref} — ` : ''}{p.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {lockedProperty ? (
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+            <div className="text-sm font-medium leading-tight">
+              {lockedProperty.title}
+            </div>
+            {(lockedProperty.external_ref || lockedProperty.city) && (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {[lockedProperty.external_ref, lockedProperty.city].filter(Boolean).join(' · ')}
+              </div>
+            )}
+          </div>
+        ) : (
+          <Select
+            value={watch('property_id')}
+            onValueChange={(v) => setValue('property_id', v)}
+            disabled={!!defaultPropertyId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar imóvel..." />
+            </SelectTrigger>
+            <SelectContent>
+              {properties.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.external_ref ? `${p.external_ref} — ` : ''}{p.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {errors.property_id && (
           <p className="text-sm text-destructive">{errors.property_id.message}</p>
         )}

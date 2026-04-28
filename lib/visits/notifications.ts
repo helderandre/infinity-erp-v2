@@ -10,6 +10,7 @@
  */
 
 import { sendPushToUser } from '@/lib/crm/send-push'
+import { notificationService } from '@/lib/notifications/service'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface VisitContext {
@@ -39,49 +40,75 @@ function visitTitle(v: VisitContext): string {
 }
 
 /**
- * 1. Nova proposta criada → notificar o seller agent.
+ * 1. Nova proposta criada → notificar o seller agent (push + in-app).
  */
 export async function notifyProposalCreated(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   sellerAgentId: string,
   visit: VisitContext,
+  buyerAgentId?: string | null,
 ) {
+  const url = `/dashboard/calendario?event=visit:${visit.id}`
+  const title = 'Nova proposta de visita'
+  const body = `${visitTitle(visit)} · ${formatVisitWhen(visit)}`
   try {
-    await sendPushToUser(supabase, sellerAgentId, {
-      title: 'Nova proposta de visita',
-      body: `${visitTitle(visit)} · ${formatVisitWhen(visit)}`,
-      url: `/dashboard/calendario?event=visit:${visit.id}`,
-      tag: `visit-proposal-${visit.id}`,
+    await sendPushToUser(supabase, sellerAgentId, { title, body, url, tag: `visit-proposal-${visit.id}` })
+  } catch (err) {
+    console.error('[notifyProposalCreated push]', err)
+  }
+  try {
+    await notificationService.create({
+      recipientId: sellerAgentId,
+      senderId: buyerAgentId ?? null,
+      notificationType: 'visit_proposal_created',
+      entityType: 'visit',
+      entityId: visit.id,
+      title,
+      body,
+      actionUrl: url,
     })
   } catch (err) {
-    console.error('[notifyProposalCreated]', err)
+    console.error('[notifyProposalCreated in-app]', err)
   }
 }
 
 /**
- * 2. Proposta confirmada → notificar o buyer agent.
+ * 2. Proposta confirmada → notificar o buyer agent (push + in-app).
  */
 export async function notifyProposalConfirmed(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   buyerAgentId: string,
   visit: VisitContext,
+  sellerAgentId?: string | null,
 ) {
+  const url = `/dashboard/calendario?event=visit:${visit.id}`
+  const title = 'Visita confirmada'
+  const body = `${visitTitle(visit)} · ${formatVisitWhen(visit)}`
   try {
-    await sendPushToUser(supabase, buyerAgentId, {
-      title: 'Visita confirmada',
-      body: `${visitTitle(visit)} · ${formatVisitWhen(visit)}`,
-      url: `/dashboard/calendario?event=visit:${visit.id}`,
-      tag: `visit-confirmed-${visit.id}`,
+    await sendPushToUser(supabase, buyerAgentId, { title, body, url, tag: `visit-confirmed-${visit.id}` })
+  } catch (err) {
+    console.error('[notifyProposalConfirmed push]', err)
+  }
+  try {
+    await notificationService.create({
+      recipientId: buyerAgentId,
+      senderId: sellerAgentId ?? null,
+      notificationType: 'visit_proposal_confirmed',
+      entityType: 'visit',
+      entityId: visit.id,
+      title,
+      body,
+      actionUrl: url,
     })
   } catch (err) {
-    console.error('[notifyProposalConfirmed]', err)
+    console.error('[notifyProposalConfirmed in-app]', err)
   }
 }
 
 /**
- * 3. Proposta rejeitada → notificar o buyer agent (com motivo).
+ * 3. Proposta rejeitada → notificar o buyer agent (push + in-app), com motivo.
  */
 export async function notifyProposalRejected(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,16 +116,30 @@ export async function notifyProposalRejected(
   buyerAgentId: string,
   visit: VisitContext,
   reason: string,
+  sellerAgentId?: string | null,
 ) {
+  const url = `/dashboard/calendario?event=visit:${visit.id}`
+  const title = 'Proposta de visita rejeitada'
+  const body = `${visitTitle(visit)} · Motivo: ${reason}`
   try {
-    await sendPushToUser(supabase, buyerAgentId, {
-      title: 'Proposta de visita rejeitada',
-      body: `${visitTitle(visit)} · Motivo: ${reason}`,
-      url: `/dashboard/calendario?event=visit:${visit.id}`,
-      tag: `visit-rejected-${visit.id}`,
+    await sendPushToUser(supabase, buyerAgentId, { title, body, url, tag: `visit-rejected-${visit.id}` })
+  } catch (err) {
+    console.error('[notifyProposalRejected push]', err)
+  }
+  try {
+    await notificationService.create({
+      recipientId: buyerAgentId,
+      senderId: sellerAgentId ?? null,
+      notificationType: 'visit_proposal_rejected',
+      entityType: 'visit',
+      entityId: visit.id,
+      title,
+      body,
+      actionUrl: url,
+      metadata: { reason },
     })
   } catch (err) {
-    console.error('[notifyProposalRejected]', err)
+    console.error('[notifyProposalRejected in-app]', err)
   }
 }
 
