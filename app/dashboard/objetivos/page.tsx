@@ -44,8 +44,14 @@ function ObjetivosPageInner() {
 
   return (
     <div className="space-y-4">
-      <FunnelObjetivosView key={refreshTick} />
-      <div className="flex justify-end">
+      <FunnelObjetivosView
+        key={refreshTick}
+        onEditGoal={() => setConfigOpen(true)}
+        hasGoal={!!myGoalId}
+      />
+      {/* Botão inferior só em desktop — em mobile o gesto vive no header
+          do funil (icon-button ao lado do Coach). */}
+      <div className="hidden sm:flex justify-end">
         <Button
           variant="ghost"
           size="sm"

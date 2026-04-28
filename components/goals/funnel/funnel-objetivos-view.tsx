@@ -8,7 +8,7 @@ import { useFunnel } from '@/hooks/use-funnel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
 import { Button } from '@/components/ui/button'
-import { Users, User, Sparkles } from 'lucide-react'
+import { Users, User, Sparkles, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FunnelCard } from './funnel-card'
 import { FunnelLegend } from './funnel-legend'
@@ -49,7 +49,16 @@ function periodLabelEur(period: FunnelPeriod): string {
   }[period]
 }
 
-export function FunnelObjetivosView() {
+interface FunnelObjetivosViewProps {
+  /** Mobile-only: callback para abrir o GoalConfigSheet a partir do header.
+   *  Se omitido, o botão não é renderizado. */
+  onEditGoal?: () => void
+  /** Controla a label do botão: "Editar" quando há objetivo, "Configurar"
+   *  quando não há. */
+  hasGoal?: boolean
+}
+
+export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosViewProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useUser()
@@ -159,6 +168,17 @@ export function FunnelObjetivosView() {
               <Sparkles className="h-3.5 w-3.5 text-orange-500" />
               Coach
             </Button>
+            {onEditGoal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onEditGoal}
+                aria-label={hasGoal ? 'Editar objetivos anuais' : 'Configurar objetivos anuais'}
+                className="sm:hidden rounded-full h-8 w-8 p-0 border-border/40 bg-background/60 backdrop-blur-sm"
+              >
+                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            )}
           </div>
         </div>
 
