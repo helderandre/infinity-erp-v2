@@ -559,6 +559,8 @@ function TarefasPageInner() {
         onSuccess={handleFormSuccess}
         consultants={taskFormConsultants}
         defaultValues={formDefaults}
+        currentUserId={user?.id}
+        requireAssignment={!isManagement && !(formDefaults?.task_list_id ?? listId)}
       />
 
       {/* Mobile detail sheet — em desktop a detail aparece inline no split-view.

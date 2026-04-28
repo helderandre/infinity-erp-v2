@@ -468,11 +468,23 @@ export async function POST(request: Request) {
 
     const data = validation.data
     const supabase = createAdminClient()
+    const callerIsMgmt = isManagementRole(auth.roles)
+
+    // Gate: consultor fora duma lista partilhada não pode criar tarefa
+    // sem assignee — é obrigatório atribuir a si próprio. Dentro duma
+    // lista, "Sem atribuição" continua válido (ficheiro partilhado entre
+    // membros).
+    if (!callerIsMgmt && !data.task_list_id && !data.assigned_to) {
+      return NextResponse.json(
+        { error: 'Tarefa precisa de ser atribuída a um utilizador.' },
+        { status: 400 },
+      )
+    }
 
     // Gate: consultor só pode atribuir a si próprio, EXCEPTO dentro duma
     // lista partilhada onde tanto ele como o destinatário são membros.
     if (
-      !isManagementRole(auth.roles) &&
+      !callerIsMgmt &&
       data.assigned_to &&
       data.assigned_to !== auth.user.id
     ) {

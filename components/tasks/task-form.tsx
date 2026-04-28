@@ -54,9 +54,16 @@ interface TaskFormProps {
     task_list_id?: string
     section?: string
   }
+  /** ID do utilizador autenticado — usado como atribuição obrigatória quando
+   *  `requireAssignment` é true. */
+  currentUserId?: string
+  /** Quando true (consultor a criar tarefa fora duma lista partilhada), o
+   *  selector "Atribuir a" não permite "Sem atribuição" e é pré-preenchido
+   *  com o próprio utilizador. */
+  requireAssignment?: boolean
 }
 
-export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultValues }: TaskFormProps) {
+export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultValues, currentUserId, requireAssignment = false }: TaskFormProps) {
   const isMobile = useIsMobile()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { createTask } = useTaskMutations()
@@ -70,7 +77,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
     reminders: [],
     entity_type: dv?.entity_type || null,
     entity_id: dv?.entity_id || null,
-    assigned_to: dv?.assigned_to || null,
+    assigned_to: dv?.assigned_to || (requireAssignment ? currentUserId ?? null : null),
     parent_task_id: dv?.parent_task_id || null,
     task_list_id: dv?.task_list_id || null,
     section: dv?.section || null,
@@ -366,7 +373,7 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                     <FormItem className="space-y-1.5">
                       <FormLabel className="text-xs font-medium text-muted-foreground">Atribuir a</FormLabel>
                       <Select
-                        value={field.value || '_none'}
+                        value={field.value || (requireAssignment ? currentUserId ?? '' : '_none')}
                         onValueChange={(v) => field.onChange(v === '_none' ? null : v)}
                       >
                         <FormControl>
@@ -375,7 +382,9 @@ export function TaskForm({ open, onOpenChange, onSuccess, consultants, defaultVa
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="_none">Sem atribuição</SelectItem>
+                          {!requireAssignment && (
+                            <SelectItem value="_none">Sem atribuição</SelectItem>
+                          )}
                           {consultants.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.commercial_name}
