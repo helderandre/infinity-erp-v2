@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Send, RotateCcw, Sparkles } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -141,7 +140,7 @@ export function AICoachSheet({ goalId, consultantName, open, onOpenChange }: AIC
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 px-4 sm:px-6 py-4" ref={scrollRef}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4">
           <div className="space-y-3">
             {messages.length === 0 && !isLoading && (
               <div className="text-center py-12 text-xs text-muted-foreground">
@@ -170,7 +169,7 @@ export function AICoachSheet({ goalId, consultantName, open, onOpenChange }: AIC
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Quick prompts */}
         {messages.length <= 2 && !isLoading && (
