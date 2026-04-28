@@ -140,8 +140,8 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
               Evolução face aos objetivos
             </p>
           </div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <div className="inline-flex items-center rounded-full border border-border/40 bg-muted/40 p-0.5 text-xs font-medium backdrop-blur-sm">
+          <div className="flex flex-col gap-2 self-start sm:self-auto sm:flex-row sm:items-center">
+            <div className="inline-flex items-center rounded-full border border-border/40 bg-muted/40 p-0.5 text-xs font-medium backdrop-blur-sm self-start">
               {PERIOD_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -158,27 +158,29 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
                 </button>
               ))}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCoachOpen(true)}
-              disabled={!data}
-              className="rounded-full h-8 text-xs gap-1.5 border-border/40 bg-background/60 backdrop-blur-sm"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-orange-500" />
-              Coach
-            </Button>
-            {onEditGoal && (
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onEditGoal}
-                aria-label={hasGoal ? 'Editar objetivos anuais' : 'Configurar objetivos anuais'}
-                className="sm:hidden rounded-full h-8 w-8 p-0 border-border/40 bg-background/60 backdrop-blur-sm"
+                onClick={() => setCoachOpen(true)}
+                disabled={!data}
+                className="rounded-full h-8 text-xs gap-1.5 border-border/40 bg-background/60 backdrop-blur-sm"
               >
-                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Sparkles className="h-3.5 w-3.5 text-orange-500" />
+                Coach
               </Button>
-            )}
+              {onEditGoal && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onEditGoal}
+                  className="sm:hidden rounded-full h-8 text-xs gap-1.5 border-border/40 bg-background/60 backdrop-blur-sm"
+                >
+                  <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  {hasGoal ? 'Editar' : 'Configurar'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
