@@ -596,7 +596,12 @@ export function AiVoiceAssistant() {
     }
 
     const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return
+      // Desktop/PC: skip the long-press trigger entirely. Mouse users have
+      // the explicit voice button in the dashboard topbar; holding a click
+      // for 2.5s every time you select text or scroll is annoying. Touch
+      // and pen pointers (mobile/tablet/Wacom) keep the gesture, which is
+      // where the long-press shortcut actually adds value.
+      if (e.pointerType === 'mouse') return
       if (isOptOut(e.target)) return
       startX = e.clientX
       startY = e.clientY
