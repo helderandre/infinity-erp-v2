@@ -8,7 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/shared/empty-state'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
-import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
+import { NegociosFiltersSheet } from '@/components/negocios/negocios-filters-sheet'
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ import {
   Plus,
   Building2,
   Users,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
@@ -155,6 +157,7 @@ function NegociosPageContent() {
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [cancelId, setCancelId] = useState<string | null>(null)
   const [newDealOpen, setNewDealOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewMode, setViewMode] = usePersistentState<'table' | 'grid'>(
     'negocios-view-mode',
     'table'
@@ -355,7 +358,7 @@ function NegociosPageContent() {
         selected={selectedStatuses}
         onSelectedChange={setSelectedStatuses}
       />
-      {consultants.length > 0 && (
+      {isManagement && consultants.length > 0 && (
         <MultiSelectFilter
           title="Consultor"
           options={consultantOptions}
@@ -477,9 +480,45 @@ function NegociosPageContent() {
         </div>
         <div className="hidden sm:flex items-center gap-2 flex-wrap">{filterButtons}</div>
         <div className="sm:hidden">
-          <MobileFilterSheet activeCount={activeFilterCount}>{filterButtons}</MobileFilterSheet>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen(true)}
+            className="h-8 gap-1.5 rounded-full text-xs px-3"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="h-4 min-w-4 px-1 rounded-full text-[9px]">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
         </div>
       </div>
+
+      {/* Mobile filters sheet */}
+      <NegociosFiltersSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        scenarioOptions={scenarioOptions}
+        selectedScenarios={selectedScenarios}
+        onScenariosChange={setSelectedScenarios}
+        statusOptions={statusOptions}
+        selectedStatuses={selectedStatuses}
+        onStatusesChange={setSelectedStatuses}
+        consultants={consultants}
+        consultantId={consultantId}
+        onConsultantChange={setConsultantId}
+        isManagement={isManagement}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        onClearAll={clearFilters}
+        liveCount={isLoading ? null : total}
+        liveLoading={isLoading}
+      />
 
       {isLoading ? (
         viewMode === 'table' ? (
