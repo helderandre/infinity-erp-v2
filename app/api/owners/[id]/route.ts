@@ -72,6 +72,7 @@ export async function GET(
 const partialOwnerSchema = z
   .object({
     naturality: z.string().nullable().optional(),
+    nationality: z.string().nullable().optional(),
     address: z.string().nullable().optional(),
     marital_status: z.string().nullable().optional(),
     marital_regime: z.string().nullable().optional(),

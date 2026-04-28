@@ -24,6 +24,12 @@ export type NotificationType =
   | 'internal_chat_message'
   | 'internal_chat_mention'
   | 'dm_message'
+  | 'visit_proposal_created'
+  | 'visit_proposal_confirmed'
+  | 'visit_proposal_rejected'
+  | 'owner_doc_submitted'
+  | 'owner_cmi_signed'
+  | 'owner_field_edited'
 
 export type NotificationEntityType =
   | 'proc_instance'
@@ -34,6 +40,7 @@ export type NotificationEntityType =
   | 'task'
   | 'task_comment'
   | 'lead'
+  | 'visit'
 
 export const PROCESS_NOTIFICATION_TYPES = [
   'comment_mention',

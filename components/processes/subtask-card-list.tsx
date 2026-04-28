@@ -291,6 +291,9 @@ export function SubtaskCardList({
             compact={isHardcoded}
             label={docLabel}
             badge={docBadge}
+            processId={processId}
+            taskId={task.id}
+            onTaskUpdate={onTaskUpdate}
             onOpenSheet={async (s) => {
               // Check template_type to decide which sheet to open
               const c = s.config as Record<string, unknown>

@@ -35,6 +35,12 @@ export type TaskActivityType =
   | 'event_scheduled'
   | 'event_updated'
   | 'event_cancelled'
+  | 'owner_doc_submitted'
+  | 'owner_cmi_signed'
+  | 'owner_doc_approved'
+  | 'owner_doc_rejected'
+  | 'owner_cmi_signed_accepted'
+  | 'owner_field_edited'
 
 export async function logTaskActivity(
   supabase: SupabaseClient,

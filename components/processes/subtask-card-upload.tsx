@@ -10,6 +10,7 @@ import { DocumentUploader } from '@/components/documents/document-uploader'
 import type { ProcSubtask } from '@/types/subtask'
 import type { ProcessDocument } from '@/types/process'
 import { DocIcon } from '@/components/icons/doc-icon'
+import { OwnerSubmissionReviewActions } from './owner-submission-review-actions'
 
 interface SubtaskCardUploadProps {
   subtask: ProcSubtask
@@ -109,6 +110,14 @@ export function SubtaskCardUpload({
       typeLabel="Upload"
     >
       <div className="space-y-2 text-xs">
+        {/* Owner-submitted docs awaiting review (pending or approved CMI signed) */}
+        <OwnerSubmissionReviewActions
+          processId={processId}
+          taskId={taskId}
+          subtaskId={subtask.id}
+          onUpdate={onTaskUpdate}
+        />
+
         {/* Pending: show existing doc match or uploader */}
         {!subtask.is_completed && docTypeId && (
           <>

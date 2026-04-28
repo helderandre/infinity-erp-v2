@@ -29,6 +29,7 @@ import { cn, formatDateTime } from '@/lib/utils'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { DocIcon } from '@/components/icons/doc-icon'
 import { DocumentUploader } from '@/components/documents/document-uploader'
+import { OwnerSubmissionReviewActions } from './owner-submission-review-actions'
 import type { ProcSubtask } from '@/types/subtask'
 import type { ProcessDocument, ProcessOwner } from '@/types/process'
 
@@ -779,6 +780,14 @@ function Pill({
             {subtask.owner?.name && (
               <p className="text-[11px] text-muted-foreground">{subtask.owner.name}</p>
             )}
+
+            {/* Owner-submitted docs awaiting review (Aprovar/Rejeitar) */}
+            <OwnerSubmissionReviewActions
+              processId={processId}
+              taskId={taskId}
+              subtaskId={subtask.id}
+              onUpdate={onTaskUpdate}
+            />
 
             {matchingDoc && (
               <div className="space-y-1.5 rounded-md border border-emerald-200 bg-emerald-50/50 p-2 dark:border-emerald-800 dark:bg-emerald-950/20">

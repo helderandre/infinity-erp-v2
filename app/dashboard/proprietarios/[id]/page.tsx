@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { OwnerForm } from '@/components/owners/owner-form'
+import { OwnerFieldAuditTimeline } from '@/components/owners/owner-field-audit-timeline'
 import {
   ArrowLeft,
   UserCircle,
@@ -165,6 +166,7 @@ export default function OwnerDetailPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="dados">Dados</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="imoveis">
             Imóveis ({properties.length})
           </TabsTrigger>
@@ -408,6 +410,22 @@ export default function OwnerDetailPage() {
                 <span>Criado: {formatDate(owner.created_at)}</span>
                 <span>Actualizado: {formatDate(owner.updated_at)}</span>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Histórico (audit de edições do proprietário) */}
+        <TabsContent value="historico" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de alterações</CardTitle>
+              <CardDescription>
+                Edições registadas pelo proprietário via app cliente ou pelo
+                consultor a partir do ERP.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OwnerFieldAuditTimeline ownerId={owner.id} />
             </CardContent>
           </Card>
         </TabsContent>

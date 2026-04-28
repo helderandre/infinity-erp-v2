@@ -7,6 +7,7 @@ import { cn, formatDateTime } from '@/lib/utils'
 import { DocIcon } from '@/components/icons/doc-icon'
 import { SubtaskCardBase, type CardState } from './subtask-card-base'
 import type { ProcSubtask } from '@/types/subtask'
+import { OwnerSubmissionReviewActions } from './owner-submission-review-actions'
 
 interface SubtaskCardDocProps {
   subtask: ProcSubtask
@@ -29,10 +30,19 @@ interface SubtaskCardDocProps {
    * visível mesmo depois de concluído.
    */
   badge?: ReactNode
+  /**
+   * Opcionais — quando passados, renderiza `<OwnerSubmissionReviewActions>`
+   * para mostrar docs enviados pelo proprietário (ex.: CMI assinado via app).
+   * Necessários só na variante full (não compact).
+   */
+  processId?: string
+  taskId?: string
+  onTaskUpdate?: () => void
 }
 
 export function SubtaskCardDoc({
   subtask, onOpenSheet, onRevert, compact, label, badge,
+  processId, taskId, onTaskUpdate,
 }: SubtaskCardDocProps) {
   const isBlocked = Boolean(subtask.is_blocked)
   const hasRendered = !!(subtask.config as Record<string, unknown>).rendered
@@ -83,6 +93,16 @@ export function SubtaskCardDoc({
       typeLabel="Documento"
     >
       <div className="space-y-2 text-xs">
+        {/* Owner-submitted docs awaiting review (e.g. signed CMI) */}
+        {processId && taskId && (
+          <OwnerSubmissionReviewActions
+            processId={processId}
+            taskId={taskId}
+            subtaskId={subtask.id}
+            onUpdate={onTaskUpdate}
+          />
+        )}
+
         {/* Completion info */}
         {subtask.is_completed && subtask.completed_at && (
           <p className="text-muted-foreground">

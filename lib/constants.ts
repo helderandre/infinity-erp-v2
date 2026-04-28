@@ -584,6 +584,13 @@ export const TASK_ACTIVITY_TYPE_CONFIG: Record<string, {
   subtasks_populated:      { icon: 'Sparkles',        label: 'Subtarefas preparadas',      color: 'text-violet-500' },
   subtask_completed:       { icon: 'CheckSquare',     label: 'Subtarefa concluída',        color: 'text-emerald-500' },
   due_date_set:            { icon: 'Clock',           label: 'Prazo atribuído',            color: 'text-muted-foreground' },
+  // Submissões do proprietário via app cliente (add-owner-submission-review-flow)
+  owner_doc_submitted:        { icon: 'FileUp',     label: 'Documento enviado pelo proprietário', color: 'text-blue-600' },
+  owner_cmi_signed:           { icon: 'PenLine',    label: 'CMI assinado pelo proprietário',       color: 'text-emerald-600' },
+  owner_doc_approved:         { icon: 'FileCheck2', label: 'Documento aprovado',                   color: 'text-emerald-700' },
+  owner_doc_rejected:         { icon: 'FileX',      label: 'Documento rejeitado',                  color: 'text-red-600' },
+  owner_cmi_signed_accepted:  { icon: 'BadgeCheck', label: 'Assinatura aceite',                    color: 'text-emerald-700' },
+  owner_field_edited:         { icon: 'UserPen',    label: 'Campo editado pelo proprietário',      color: 'text-amber-600' },
 }
 
 /**
