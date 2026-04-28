@@ -51,6 +51,7 @@ type Selection =
 function TarefasPageInner() {
   const { user } = useUser()
   const isManagement = isManagementRole(user?.role_names ?? [])
+  const selfCommercialName = user?.commercial_name ?? 'Eu'
   const isMobile = useIsMobile()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -98,6 +99,31 @@ function TarefasPageInner() {
   )
   const { list, refetch: refetchList } = useTaskList(listId)
   const { update: updateList, remove: removeList } = useTaskListMutations()
+
+  // Lista de candidatos para o selector "Atribuir a" no formulário de nova
+  // tarefa. Gestão pode atribuir a qualquer consultor; consultor só pode
+  // atribuir a si próprio, EXCEPTO dentro duma lista partilhada de que é
+  // membro — nesse caso pode atribuir a qualquer outro membro da lista.
+  const taskFormConsultants = useMemo(() => {
+    if (isManagement) return consultants
+    if (!user?.id) return []
+
+    const allowedIds = new Set<string>([user.id])
+    if (listId && list) {
+      if (list.owner_id) allowedIds.add(list.owner_id)
+      ;(list.members as Array<{ user_id: string }> | undefined)?.forEach((m) => {
+        allowedIds.add(m.user_id)
+      })
+    }
+
+    const filtered = consultants.filter((c) => allowedIds.has(c.id))
+    // Garantir que o próprio user aparece sempre, mesmo que /api/users/consultants
+    // o omita por algum motivo.
+    if (!filtered.some((c) => c.id === user.id)) {
+      filtered.unshift({ id: user.id, commercial_name: selfCommercialName })
+    }
+    return filtered
+  }, [isManagement, consultants, user?.id, selfCommercialName, listId, list])
 
   // ── All-lists view (when ?view=all-lists) ──
   const allListsTab = useTasks(
@@ -531,7 +557,7 @@ function TarefasPageInner() {
         open={showForm}
         onOpenChange={(open) => { setShowForm(open); if (!open) setFormDefaults(undefined) }}
         onSuccess={handleFormSuccess}
-        consultants={consultants}
+        consultants={taskFormConsultants}
         defaultValues={formDefaults}
       />
 

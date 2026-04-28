@@ -469,6 +469,29 @@ export async function POST(request: Request) {
     const data = validation.data
     const supabase = createAdminClient()
 
+    // Gate: consultor só pode atribuir a si próprio, EXCEPTO dentro duma
+    // lista partilhada onde tanto ele como o destinatário são membros.
+    if (
+      !isManagementRole(auth.roles) &&
+      data.assigned_to &&
+      data.assigned_to !== auth.user.id
+    ) {
+      let allowed = false
+      if (data.task_list_id) {
+        const [callerIsMember, targetIsMember] = await Promise.all([
+          isTaskListMember(supabase, data.task_list_id, auth.user.id),
+          isTaskListMember(supabase, data.task_list_id, data.assigned_to),
+        ])
+        allowed = callerIsMember && targetIsMember
+      }
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Sem permissão para atribuir esta tarefa a outro utilizador.' },
+          { status: 403 },
+        )
+      }
+    }
+
     const { data: task, error } = await supabase
       .from('tasks')
       .insert({

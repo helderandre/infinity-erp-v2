@@ -87,12 +87,37 @@ export async function PUT(
     // Fetch current task for recurring logic and notifications
     const { data: currentTask } = await supabase
       .from('tasks')
-      .select('id, title, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by')
+      .select('id, title, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by, task_list_id')
       .eq('id', id)
       .single()
 
     if (!currentTask) {
       return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
+    }
+
+    // Gate: consultor só pode reatribuir para si próprio, EXCEPTO dentro
+    // duma lista partilhada onde tanto ele como o destinatário são membros.
+    if (
+      !isManagementRole(auth.roles) &&
+      data.assigned_to !== undefined &&
+      data.assigned_to !== null &&
+      data.assigned_to !== auth.user.id
+    ) {
+      let allowed = false
+      const listId = (data as any).task_list_id ?? currentTask.task_list_id
+      if (listId) {
+        const [callerIsMember, targetIsMember] = await Promise.all([
+          isTaskListMember(supabase, listId, auth.user.id),
+          isTaskListMember(supabase, listId, data.assigned_to),
+        ])
+        allowed = callerIsMember && targetIsMember
+      }
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Sem permissão para atribuir esta tarefa a outro utilizador.' },
+          { status: 403 },
+        )
+      }
     }
 
     // Build update object
