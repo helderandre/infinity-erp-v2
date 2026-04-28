@@ -13,6 +13,13 @@ import {
 } from '@/components/ui/dialog'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  useCarousel,
+  type CarouselApi,
+} from '@/components/ui/carousel'
+import {
   BedDouble,
   Bath,
   Maximize,
@@ -163,13 +170,47 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
     setViewerMode('image')
   }
 
-  const goImage = (step: number) => {
-    setLightboxIndex((i) => {
-      if (i === null) return i
-      return Math.min(images.length - 1, Math.max(0, i + step))
-    })
-    setViewerMode('image')
-  }
+  // Embla carousel API — drag/swipe nativo + animação de slide. Só usado no
+  // modo `image`; staging e planta+3D continuam com `ImageCompareSlider`.
+  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null)
+
+  // Embla → state: quando o utilizador desliza, sincroniza `lightboxIndex`.
+  useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => {
+      setLightboxIndex(emblaApi.selectedScrollSnap())
+    }
+    emblaApi.on('select', onSelect)
+    return () => {
+      emblaApi.off('select', onSelect)
+    }
+  }, [emblaApi])
+
+  // State → Embla: navegação por código (mode switch staging/planta) salta
+  // para a slide correcta sem animação.
+  useEffect(() => {
+    if (!emblaApi || lightboxIndex === null) return
+    if (emblaApi.selectedScrollSnap() !== lightboxIndex) {
+      emblaApi.scrollTo(lightboxIndex, true)
+    }
+  }, [lightboxIndex, emblaApi])
+
+  // Setas do teclado em modo image → delegam ao Embla (que faz a animação).
+  // Esc é tratado pelo Dialog.
+  useEffect(() => {
+    if (lightboxIndex === null || viewerMode !== 'image' || !emblaApi) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        emblaApi.scrollPrev()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        emblaApi.scrollNext()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxIndex, viewerMode, emblaApi])
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -374,46 +415,75 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
           </DialogHeader>
 
           {currentImage && (
-            <div className="relative w-full aspect-[16/10] bg-muted">
+            <div className="relative w-full">
               {viewerMode === 'image' && (
-                <Image
-                  src={currentImage.url}
-                  alt={`Imagem ${(lightboxIndex ?? 0) + 1}`}
-                  fill
-                  className="object-contain"
-                  sizes="1000px"
-                  priority
-                />
+                <Carousel
+                  opts={{ startIndex: lightboxIndex ?? 0, loop: false }}
+                  setApi={setEmblaApi}
+                  className="w-full"
+                >
+                  <CarouselContent className="ml-0">
+                    {images.map((m, idx) => {
+                      // Lazy render: só monta `<Image>` para a imagem actual e
+                      // ±2 vizinhos. Reduz pedidos de rede em galerias grandes
+                      // (ex.: 49 fotos) sem perder a animação suave do Embla.
+                      const distance = Math.abs(idx - (lightboxIndex ?? 0))
+                      const shouldRender = distance <= 2
+                      return (
+                        <CarouselItem key={m.id} className="pl-0 basis-full">
+                          <div className="relative w-full aspect-[16/10] bg-muted">
+                            {shouldRender && (
+                              <Image
+                                src={m.url}
+                                alt={`Imagem ${idx + 1}`}
+                                fill
+                                className="object-contain"
+                                sizes="(min-width: 1024px) 1000px, 100vw"
+                                priority={idx === lightboxIndex}
+                                draggable={false}
+                              />
+                            )}
+                          </div>
+                        </CarouselItem>
+                      )
+                    })}
+                  </CarouselContent>
+                  <CarouselNavButtons />
+                </Carousel>
               )}
               {viewerMode === 'staging' && currentImage.ai_staged_url && (
-                <ImageCompareSlider
-                  originalUrl={currentImage.url}
-                  modifiedUrl={currentImage.ai_staged_url}
-                  originalLabel="Original"
-                  modifiedLabel="Virtual Staging"
-                  className="!aspect-auto !rounded-none w-full h-full"
-                  showLabels={false}
-                />
-              )}
-              {viewerMode === 'planta' && currentPlanta && (
-                currentPlantaRender ? (
+                <div className="relative w-full aspect-[16/10] bg-muted">
                   <ImageCompareSlider
-                    originalUrl={currentPlanta.url}
-                    modifiedUrl={currentPlantaRender.url}
-                    originalLabel="Planta"
-                    modifiedLabel="Render 3D"
+                    originalUrl={currentImage.url}
+                    modifiedUrl={currentImage.ai_staged_url}
+                    originalLabel="Original"
+                    modifiedLabel="Virtual Staging"
                     className="!aspect-auto !rounded-none w-full h-full"
                     showLabels={false}
                   />
-                ) : (
-                  <Image
-                    src={currentPlanta.url}
-                    alt="Planta"
-                    fill
-                    className="object-contain"
-                    sizes="1000px"
-                  />
-                )
+                </div>
+              )}
+              {viewerMode === 'planta' && currentPlanta && (
+                <div className="relative w-full aspect-[16/10] bg-muted">
+                  {currentPlantaRender ? (
+                    <ImageCompareSlider
+                      originalUrl={currentPlanta.url}
+                      modifiedUrl={currentPlantaRender.url}
+                      originalLabel="Planta"
+                      modifiedLabel="Render 3D"
+                      className="!aspect-auto !rounded-none w-full h-full"
+                      showLabels={false}
+                    />
+                  ) : (
+                    <Image
+                      src={currentPlanta.url}
+                      alt="Planta"
+                      fill
+                      className="object-contain"
+                      sizes="1000px"
+                    />
+                  )}
+                </div>
               )}
 
               {/* Top overlay: counter + close */}
@@ -442,23 +512,7 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
                 </button>
               </div>
 
-              {/* Navigation arrows — contextual */}
-              {viewerMode === 'image' && (lightboxIndex ?? 0) > 0 && (
-                <button
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/45 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center transition-colors"
-                  onClick={() => goImage(-1)}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              {viewerMode === 'image' && (lightboxIndex ?? 0) < images.length - 1 && (
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/45 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center transition-colors"
-                  onClick={() => goImage(1)}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              )}
+              {/* Navigation arrows — contextual (modo image usa CarouselNavButtons) */}
               {viewerMode === 'planta' && plantas.length > 1 && (
                 <>
                   {plantaIndex > 0 && (
@@ -807,5 +861,38 @@ function BadgeList({ label, items }: { label: string; items?: string[] | null })
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * Setas de navegação do Carousel do lightbox — usa o contexto do Embla via
+ * `useCarousel()` para chamar scrollPrev/scrollNext, mantendo o visual dos
+ * botões anteriores (rounded-full + bg-black/45 + backdrop-blur).
+ */
+function CarouselNavButtons() {
+  const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel()
+  return (
+    <>
+      {canScrollPrev && (
+        <button
+          type="button"
+          onClick={scrollPrev}
+          aria-label="Imagem anterior"
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/45 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center transition-colors"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+      {canScrollNext && (
+        <button
+          type="button"
+          onClick={scrollNext}
+          aria-label="Próxima imagem"
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-black/45 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center transition-colors"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      )}
+    </>
   )
 }
