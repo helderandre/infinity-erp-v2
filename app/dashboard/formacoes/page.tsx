@@ -20,7 +20,8 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 import { useTrainingCourses } from '@/hooks/use-training-courses'
-import { usePermissions } from '@/hooks/use-permissions'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 12
@@ -81,8 +82,11 @@ function FormacoesPageSkeleton() {
 
 function FormacoesPageContent() {
   const router = useRouter()
-  const { hasPermission } = usePermissions()
-  const canManage = hasPermission('training')
+  const { user, loading: userLoading } = useUser()
+  // Gate por role (gestão), não por permissão `training` — esta última é
+  // usada também como "acesso ao módulo" e está activa para consultores.
+  // Mantém-se coerente com o padrão de calendário/tarefas/objetivos.
+  const canManage = !userLoading && isManagementRole(user?.role_names ?? [])
   const [activeTab, setActiveTab] = useState<TabKey>('catalogo')
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
