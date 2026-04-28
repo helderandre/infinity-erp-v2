@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 /**
  * GET /api/negocios/[id]/related
@@ -37,7 +38,7 @@ export async function GET(
       .select(`
         *,
         pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, pipeline_type),
-        lead:leads(id, nome, full_name, telefone, telemovel, email, empresa, nipc, morada, codigo_postal, localidade),
+        lead:leads(id, nome, full_name, telefone, telemovel, email, empresa, nipc, morada, codigo_postal, localidade, agent_id),
         property:dev_properties!negocios_property_id_fkey(id, address_street, city, zone, address_parish, listing_price, property_type),
         consultant:dev_users!negocios_assigned_consultant_id_fkey(
           id, commercial_name, professional_email,
@@ -52,6 +53,19 @@ export async function GET(
     }
 
     const negocio = negocioRow as Record<string, unknown>
+
+    // Gate: consultor só pode abrir negócios em que está envolvido —
+    // assigned_consultant_id ou agent_id do lead. Esconde com 404 (não
+    // revela existência). Gestão vê tudo.
+    if (!isManagementRole(auth.roles)) {
+      const selfId = auth.user.id
+      const leadAgentId = ((negocio.lead as { agent_id?: string } | null)?.agent_id) ?? null
+      const isOwner =
+        negocio.assigned_consultant_id === selfId || leadAgentId === selfId
+      if (!isOwner) {
+        return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
+      }
+    }
 
     // Deal mais recente para este negócio (com payments embedded)
     const { data: dealRows } = await adminDb
