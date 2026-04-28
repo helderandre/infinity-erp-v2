@@ -25,6 +25,13 @@ interface Props {
   propertyTitle: string
   showStaging?: boolean
   showAiPlantas?: boolean
+  /**
+   * Quando `false`, os toggles "Decoração virtual (IA)" e "Plantas 3D (IA)"
+   * aparecem mas em modo só-leitura — o consultor que não é dono da
+   * angariação vê o que o dono configurou para a apresentação mas não pode
+   * alterar. Default: true.
+   */
+  canEditFlags?: boolean
 }
 
 export function SharePropertyButton({
@@ -33,6 +40,7 @@ export function SharePropertyButton({
   propertyTitle,
   showStaging: showStagingProp,
   showAiPlantas: showAiPlantasProp,
+  canEditFlags = true,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [channelDialog, setChannelDialog] = useState<'email' | 'whatsapp' | null>(
@@ -120,7 +128,7 @@ export function SharePropertyButton({
             icon={Sofa}
             label="Decoração virtual (IA)"
             checked={showStaging}
-            disabled={savingFlag === 'presentation_show_staging'}
+            disabled={!canEditFlags || savingFlag === 'presentation_show_staging'}
             onCheckedChange={(v) => {
               setShowStaging(v)
               persistFlag('presentation_show_staging', v)
@@ -130,7 +138,7 @@ export function SharePropertyButton({
             icon={Box}
             label="Plantas 3D (IA)"
             checked={showAiPlantas}
-            disabled={savingFlag === 'presentation_show_ai_plantas'}
+            disabled={!canEditFlags || savingFlag === 'presentation_show_ai_plantas'}
             onCheckedChange={(v) => {
               setShowAiPlantas(v)
               persistFlag('presentation_show_ai_plantas', v)
@@ -232,7 +240,11 @@ function ToggleRow({
 }) {
   return (
     <label
-      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm hover:bg-muted transition-colors cursor-pointer"
+      className={
+        disabled
+          ? 'w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm opacity-60'
+          : 'w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm hover:bg-muted transition-colors cursor-pointer'
+      }
     >
       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="flex-1">{label}</span>

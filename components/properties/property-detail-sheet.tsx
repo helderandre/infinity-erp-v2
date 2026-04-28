@@ -26,6 +26,7 @@ import { useUser } from '@/hooks/use-user'
 import { cn } from '@/lib/utils'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
+import { PropertyApresentacaoActions } from '@/components/properties/property-apresentacao-actions'
 import { PropertyInteressadosTab } from '@/components/properties/property-interessados-tab'
 import { VisitForm } from '@/components/visits/visit-form'
 import type { PropertyDetail } from '@/types/property'
@@ -43,6 +44,7 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
   const [loading, setLoading] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [visitDialogOpen, setVisitDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'apresentacao' | 'interessados'>('apresentacao')
 
   useEffect(() => {
     if (!open || !propertyId) {
@@ -73,6 +75,7 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
     ADMIN_ROLES.some((r) => r.toLowerCase() === roleName?.toLowerCase())
   const isOwner = !!property?.consultant?.id && property.consultant.id === user?.id
   const canSeeFullPage = isOwner || isStaffLike
+  const canShareAsOwner = canSeeFullPage
 
   const fullPageHref = property
     ? `/dashboard/imoveis/${property.slug || property.id}`
@@ -162,8 +165,12 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
         {loading || !property ? (
           <DetailSkeleton />
         ) : (
-          <Tabs defaultValue="apresentacao" className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="shrink-0 px-4 sm:px-6 pb-3">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as 'apresentacao' | 'interessados')}
+            className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          >
+            <div className="shrink-0 px-4 sm:px-6 pb-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
                 <TabsList className="bg-transparent p-0 h-auto">
                   <TabsTrigger
@@ -180,6 +187,12 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
                   </TabsTrigger>
                 </TabsList>
               </div>
+              {activeTab === 'apresentacao' && (
+                <PropertyApresentacaoActions
+                  property={property}
+                  canShareAsOwner={canShareAsOwner}
+                />
+              )}
             </div>
 
             <TabsContent

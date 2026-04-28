@@ -285,6 +285,16 @@ function ImoveisPageContent() {
     (missingOwners ? 1 : 0) +
     (contractExpiringDays ? 1 : 0)
 
+  // No mobile, todas as quick pills estão escondidas — o badge do botão
+  // "Filtros" reflete o total de filtros activos (não só os avançados).
+  const mobileFilterCount =
+    advancedFilterCount +
+    (hasStatusFilter ? 1 : 0) +
+    (selectedBusinessTypes.length > 0 ? 1 : 0) +
+    (priceMin || priceMax ? 1 : 0) +
+    (bedroomsMin ? 1 : 0) +
+    (externalRefStatus !== 'all' ? 1 : 0)
+
   const loadProperties = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -514,163 +524,193 @@ function ImoveisPageContent() {
           />
         </div>
 
-        {/* Status quick-pill */}
-        <MultiPill
-          label="Estado"
-          options={STATUS_QUICK_OPTIONS}
-          selected={selectedStatuses}
-          onChange={setSelectedStatuses}
-        />
+        {/* Quick pills — só desktop. No mobile tudo passa pelo Sheet de Filtros. */}
+        <div className="hidden sm:contents">
+          {/* Status quick-pill */}
+          <MultiPill
+            label="Estado"
+            options={STATUS_QUICK_OPTIONS}
+            selected={selectedStatuses}
+            onChange={setSelectedStatuses}
+          />
 
-        {/* Negócio quick-pill */}
-        <MultiPill
-          label="Negócio"
-          options={BUSINESS_QUICK_OPTIONS}
-          selected={selectedBusinessTypes}
-          onChange={setSelectedBusinessTypes}
-        />
+          {/* Negócio quick-pill */}
+          <MultiPill
+            label="Negócio"
+            options={BUSINESS_QUICK_OPTIONS}
+            selected={selectedBusinessTypes}
+            onChange={setSelectedBusinessTypes}
+          />
 
-        {/* Preço quick-pill */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size="sm"
-              variant={priceMin || priceMax ? 'default' : 'outline'}
-              className={cn(
-                'h-9 rounded-full text-xs',
-                (priceMin || priceMax) && 'bg-foreground text-background',
-              )}
-            >
-              {priceMin || priceMax
-                ? `Preço ${priceMin ? `≥${shortPrice(priceMin)}` : '−'}${priceMin && priceMax ? ' · ' : priceMax ? ' ' : ''}${priceMax ? `≤${shortPrice(priceMax)}` : ''}`
-                : 'Preço'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-64 rounded-xl p-3 space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Preço (€)</p>
-            <div className="grid grid-cols-2 gap-2">
-              <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)} className="h-8 text-xs" />
-              <Input type="number" inputMode="numeric" placeholder="Máx" value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)} className="h-8 text-xs" />
-            </div>
-            {(priceMin || priceMax) && (
-              <Button size="sm" variant="ghost" className="w-full h-7 text-xs"
-                onClick={() => { setPriceMin(''); setPriceMax('') }}>
-                <X className="mr-1 h-3 w-3" /> Limpar
+          {/* Preço quick-pill */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant={priceMin || priceMax ? 'default' : 'outline'}
+                className={cn(
+                  'h-9 rounded-full text-xs',
+                  (priceMin || priceMax) && 'bg-foreground text-background',
+                )}
+              >
+                {priceMin || priceMax
+                  ? `Preço ${priceMin ? `≥${shortPrice(priceMin)}` : '−'}${priceMin && priceMax ? ' · ' : priceMax ? ' ' : ''}${priceMax ? `≤${shortPrice(priceMax)}` : ''}`
+                  : 'Preço'}
               </Button>
-            )}
-          </PopoverContent>
-        </Popover>
-
-        {/* Tipologia quick-pill */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size="sm"
-              variant={bedroomsMin ? 'default' : 'outline'}
-              className={cn(
-                'h-9 rounded-full text-xs',
-                bedroomsMin && 'bg-foreground text-background',
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 rounded-xl p-3 space-y-2">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Preço (€)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="number" inputMode="numeric" placeholder="Min" value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)} className="h-8 text-xs" />
+                <Input type="number" inputMode="numeric" placeholder="Máx" value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)} className="h-8 text-xs" />
+              </div>
+              {(priceMin || priceMax) && (
+                <Button size="sm" variant="ghost" className="w-full h-7 text-xs"
+                  onClick={() => { setPriceMin(''); setPriceMax('') }}>
+                  <X className="mr-1 h-3 w-3" /> Limpar
+                </Button>
               )}
-            >
-              {bedroomsMin ? `T${bedroomsMin}+` : 'Tipologia'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto rounded-xl p-2">
-            <div className="flex flex-wrap gap-1.5">
-              {(['1','2','3','4','5'] as const).map((v) => {
-                const active = bedroomsMin === v
-                return (
-                  <button key={v} type="button"
-                    onClick={() => setBedroomsMin(active ? '' : v)}
-                    className={cn(
-                      'h-8 px-3 rounded-full text-xs font-medium border transition-colors',
-                      active
-                        ? 'bg-foreground text-background border-foreground'
-                        : 'bg-transparent text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground',
-                    )}>
-                    T{v}+
-                  </button>
-                )
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
 
-        {/* Referência quick-pill */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size="sm"
-              variant={externalRefStatus !== 'all' ? 'default' : 'outline'}
-              className={cn(
-                'h-9 rounded-full text-xs',
-                externalRefStatus !== 'all' && 'bg-foreground text-background',
-              )}
-            >
-              {externalRefStatus === 'with'
-                ? 'Com referência'
-                : externalRefStatus === 'without'
-                  ? 'Sem referência'
-                  : 'Referência'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-48 rounded-xl p-1.5">
-            <div className="flex flex-col gap-0.5">
-              {([
-                { value: 'all' as const, label: 'Todas' },
-                { value: 'with' as const, label: 'Com referência' },
-                { value: 'without' as const, label: 'Sem referência' },
-              ]).map((opt) => {
-                const active = externalRefStatus === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setExternalRefStatus(opt.value)}
-                    className={cn(
-                      'w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors',
-                      active ? 'bg-muted/60 font-medium' : 'hover:bg-muted/30',
-                    )}
-                  >
-                    <span>{opt.label}</span>
-                    {active && <span className="text-[10px] text-foreground/70">✓</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
+          {/* Tipologia quick-pill */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant={bedroomsMin ? 'default' : 'outline'}
+                className={cn(
+                  'h-9 rounded-full text-xs',
+                  bedroomsMin && 'bg-foreground text-background',
+                )}
+              >
+                {bedroomsMin ? `T${bedroomsMin}+` : 'Tipologia'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto rounded-xl p-2">
+              <div className="flex flex-wrap gap-1.5">
+                {(['1','2','3','4','5'] as const).map((v) => {
+                  const active = bedroomsMin === v
+                  return (
+                    <button key={v} type="button"
+                      onClick={() => setBedroomsMin(active ? '' : v)}
+                      className={cn(
+                        'h-8 px-3 rounded-full text-xs font-medium border transition-colors',
+                        active
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'bg-transparent text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground',
+                      )}>
+                      T{v}+
+                    </button>
+                  )
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
 
-        {/* Filtros avançados — abre o sheet com tudo o resto */}
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-9 rounded-full text-xs gap-1.5 relative"
-          onClick={() => setAdvancedOpen(true)}
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-          Filtros
-          {advancedFilterCount > 0 && (
-            <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-foreground text-background text-[10px] font-semibold px-1.5">
-              {advancedFilterCount}
-            </span>
-          )}
-        </Button>
-
-        {/* View toggle (mobile) */}
-        <div className="sm:hidden flex items-center gap-0.5 p-0.5 rounded-full bg-muted border border-border/30">
-          <button onClick={() => setViewMode('table')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'table' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
-            <List className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => setViewMode('grid')} className={cn('inline-flex items-center justify-center h-7 w-7 rounded-full transition-all', viewMode === 'grid' ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900' : 'text-muted-foreground')}>
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
+          {/* Referência quick-pill */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant={externalRefStatus !== 'all' ? 'default' : 'outline'}
+                className={cn(
+                  'h-9 rounded-full text-xs',
+                  externalRefStatus !== 'all' && 'bg-foreground text-background',
+                )}
+              >
+                {externalRefStatus === 'with'
+                  ? 'Com referência'
+                  : externalRefStatus === 'without'
+                    ? 'Sem referência'
+                    : 'Referência'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 rounded-xl p-1.5">
+              <div className="flex flex-col gap-0.5">
+                {([
+                  { value: 'all' as const, label: 'Todas' },
+                  { value: 'with' as const, label: 'Com referência' },
+                  { value: 'without' as const, label: 'Sem referência' },
+                ]).map((opt) => {
+                  const active = externalRefStatus === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setExternalRefStatus(opt.value)}
+                      className={cn(
+                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors',
+                        active ? 'bg-muted/60 font-medium' : 'hover:bg-muted/30',
+                      )}
+                    >
+                      <span>{opt.label}</span>
+                      {active && <span className="text-[10px] text-foreground/70">✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
+        {/* Filtros avançados — abre o sheet com tudo o resto. No mobile é o
+            único entry-point para qualquer filtro, portanto o badge mostra
+            o total activo (e não só os avançados). Quando há filtros activos
+            aparece um X à direita do pill como atalho para limpar tudo. */}
+        <div
+          className={cn(
+            'inline-flex items-center h-9 rounded-full text-xs shrink-0',
+            'border bg-background shadow-xs',
+            'dark:bg-input/30 dark:border-input',
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen(true)}
+            className={cn(
+              'inline-flex items-center gap-1.5 h-full pl-3 transition-colors',
+              'hover:bg-accent hover:text-accent-foreground dark:hover:bg-input/50',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              hasActiveFilters ? 'pr-2 rounded-l-full' : 'pr-3 rounded-full',
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filtros
+            {advancedFilterCount > 0 && (
+              <span className="hidden sm:inline-flex ml-0.5 h-5 min-w-[20px] items-center justify-center rounded-full bg-foreground text-background text-[10px] font-semibold px-1.5">
+                {advancedFilterCount}
+              </span>
+            )}
+            {mobileFilterCount > 0 && (
+              <span className="sm:hidden ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-foreground text-background text-[10px] font-semibold px-1.5">
+                {mobileFilterCount}
+              </span>
+            )}
+          </button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              aria-label="Limpar filtros"
+              title="Limpar filtros"
+              className={cn(
+                'inline-flex items-center justify-center h-full px-2 rounded-r-full transition-colors',
+                'border-l text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                'dark:hover:bg-input/50',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Limpar — só desktop. No mobile use-se o "Limpar" dentro do Sheet. */}
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 rounded-full text-xs">
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="hidden sm:inline-flex h-9 rounded-full text-xs">
             <X className="mr-1 h-3.5 w-3.5" /> Limpar
           </Button>
         )}
@@ -870,11 +910,11 @@ function ImoveisPageContent() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 pt-2">
-              <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+              <button type="button" aria-label="Página anterior" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <button disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+              <button type="button" aria-label="Próxima página" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -895,11 +935,11 @@ function ImoveisPageContent() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 pt-2">
-              <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+              <button type="button" aria-label="Página anterior" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <button disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
+              <button type="button" aria-label="Próxima página" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
