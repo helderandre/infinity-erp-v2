@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { GoalConfigForm } from './goal-config-form'
 import type { ConsultantGoal } from '@/types/goal'
 
@@ -25,6 +27,8 @@ interface GoalConfigSheetProps {
 
 export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalConfigSheetProps) {
   const isMobile = useIsMobile()
+  const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [goal, setGoal] = useState<ConsultantGoal | null>(null)
   // Track each fetch independently so we can render the form as soon as the
@@ -36,6 +40,13 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalC
 
   useEffect(() => {
     if (!open) return
+    // Consultor não precisa do array — selector escondido + self injectado
+    // server-side. Skip do fetch para reduzir 1 round-trip.
+    if (!isManagement) {
+      setConsultants([])
+      setLoadingConsultants(false)
+      return
+    }
     let cancelled = false
 
     setLoadingConsultants(true)
@@ -53,7 +64,7 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalC
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, isManagement])
 
   useEffect(() => {
     if (!open) return
@@ -121,7 +132,9 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalC
             <SheetDescription className="text-xs text-muted-foreground">
               {isEdit
                 ? 'Atualizar parâmetros do objetivo e funis de conversão'
-                : 'Definir objetivo anual e parâmetros de funil para um consultor'}
+                : isManagement
+                  ? 'Definir objetivo anual e parâmetros de funil para um consultor'
+                  : 'Definir o teu objetivo anual e parâmetros de funil'}
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -159,6 +172,8 @@ export function GoalConfigSheet({ open, onOpenChange, onSuccess, goalId }: GoalC
               initialData={goal ?? undefined}
               goalId={isEdit ? (goalId as string) : undefined}
               enableQuickFill={!isEdit}
+              currentUserId={user?.id}
+              isManagement={isManagement}
               onCancel={() => onOpenChange(false)}
               onSuccess={(id) => {
                 onOpenChange(false)

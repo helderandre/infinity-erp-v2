@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,12 @@ interface GoalConfigFormProps {
   onSuccess?: (id: string) => void
   onCancel?: () => void
   enableQuickFill?: boolean
+  /** ID do utilizador autenticado — usado quando `isManagement` é false
+   *  para forçar `consultant_id = self` e esconder o selector. */
+  currentUserId?: string
+  /** Se false (consultor), o selector "Consultor" fica escondido e o
+   *  `consultant_id` é forçado ao próprio utilizador. */
+  isManagement?: boolean
 }
 
 const QUICK_FILL_KEYS = new Set<keyof CreateGoalInput>([
@@ -75,6 +81,202 @@ function buildInitialRates(
   return { ...defaults, ...stored }
 }
 
+// IMPORTANT: keep these at module scope. Defining them inside `GoalConfigForm`
+// produced a new function reference on every render, which made React treat each
+// keystroke as a different component type and unmount/remount the inputs —
+// causing the Radix Sheet FocusScope to yank focus back to the sheet container.
+function NumberField({
+  control,
+  name,
+  label,
+  suffix,
+  step = '1',
+  description,
+}: {
+  control: Control<CreateGoalInput>
+  name: keyof CreateGoalInput
+  label: string
+  suffix?: string
+  step?: string
+  description?: string
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name as any}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
+            {label}
+          </FormLabel>
+          <div className="flex items-center gap-2">
+            <FormControl>
+              <Input
+                type="number"
+                step={step}
+                className="rounded-xl bg-background/80 border-border/40 tabular-nums"
+                value={(field.value as number | string | null | undefined) ?? ''}
+                onChange={(e) =>
+                  field.onChange(e.target.value ? Number(e.target.value) : null)
+                }
+              />
+            </FormControl>
+            {suffix && (
+              <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                {suffix}
+              </span>
+            )}
+          </div>
+          {description && (
+            <FormDescription className="text-[11px]">{description}</FormDescription>
+          )}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+}
+
+function ConversionRow({
+  control,
+  funnel,
+  stage,
+  nextStage,
+}: {
+  control: Control<CreateGoalInput>
+  funnel: FunnelType
+  stage: FunnelStageDef
+  nextStage: FunnelStageDef
+}) {
+  const fieldName = `funnel_conversion_rates.${funnel}.${stage.key}` as const
+  return (
+    <Controller
+      control={control}
+      name={fieldName as any}
+      render={({ field }) => {
+        const pctValue =
+          field.value != null && field.value !== ''
+            ? Math.round(Number(field.value) * 100)
+            : ''
+        const defaultPct = Math.round(stage.defaultConversionRate * 100)
+        return (
+          <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-2.5">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="text-xs font-medium tracking-tight truncate">
+                {stage.label}
+              </span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+              <span className="text-xs font-medium tracking-tight truncate text-muted-foreground">
+                {nextStage.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={pctValue}
+                placeholder={String(defaultPct)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === '') {
+                    field.onChange(null)
+                  } else {
+                    const num = Number(v)
+                    field.onChange(Math.max(0, Math.min(100, num)) / 100)
+                  }
+                }}
+                className="w-16 h-8 rounded-lg text-xs text-right tabular-nums bg-background/80 border-border/40"
+              />
+              <span className="text-xs text-muted-foreground font-medium">%</span>
+            </div>
+          </div>
+        )
+      }}
+    />
+  )
+}
+
+function FunnelTab({
+  control,
+  funnel,
+}: {
+  control: Control<CreateGoalInput>
+  funnel: FunnelType
+}) {
+  const stages = funnel === 'buyer' ? BUYER_STAGES : SELLER_STAGES
+  const isBuyer = funnel === 'buyer'
+  return (
+    <div className="space-y-5">
+      {/* Economics card */}
+      <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              'h-8 w-8 rounded-lg flex items-center justify-center ring-1',
+              isBuyer
+                ? 'bg-amber-50 text-amber-700 ring-amber-200/60'
+                : 'bg-rose-50 text-rose-700 ring-rose-200/60',
+            )}
+          >
+            {isBuyer ? <Key className="h-4 w-4" /> : <Home className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
+              Economia do negócio
+            </p>
+            <p className="text-sm font-semibold tracking-tight">
+              {isBuyer ? 'Funil Compradores · 6 etapas' : 'Funil Vendedores · 8 etapas'}
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <NumberField
+            control={control}
+            name={isBuyer ? 'buyers_avg_purchase_value' : 'sellers_avg_sale_value'}
+            label={isBuyer ? 'Valor médio de compra' : 'Valor médio de venda'}
+            suffix="€"
+            step="1000"
+          />
+          <NumberField
+            control={control}
+            name={isBuyer ? 'buyers_avg_commission_pct' : 'sellers_avg_commission_pct'}
+            label="Comissão média"
+            suffix="%"
+            step="0.1"
+          />
+        </div>
+      </div>
+
+      {/* Conversion rates card */}
+      <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-3">
+        <div>
+          <p className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
+            Taxas de conversão
+          </p>
+          <p className="text-sm font-semibold tracking-tight">Etapa para a seguinte</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Quanto da etapa anterior chega à seguinte. Define o ritmo necessário para atingir o
+            objectivo.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          {stages.slice(0, -1).map((stage, idx) => (
+            <ConversionRow
+              key={stage.key}
+              control={control}
+              funnel={funnel}
+              stage={stage}
+              nextStage={stages[idx + 1]}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function GoalConfigForm({
   consultants,
   initialData,
@@ -82,6 +284,8 @@ export function GoalConfigForm({
   onSuccess,
   onCancel,
   enableQuickFill,
+  currentUserId,
+  isManagement = true,
 }: GoalConfigFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -108,7 +312,7 @@ export function GoalConfigForm({
           },
         }
       : {
-          consultant_id: '',
+          consultant_id: !isManagement && currentUserId ? currentUserId : '',
           year: new Date().getFullYear(),
           annual_revenue_target: 0,
           pct_sellers: 50,
@@ -140,6 +344,14 @@ export function GoalConfigForm({
   const watchPctSellers = form.watch('pct_sellers')
 
   async function onSubmit(data: CreateGoalInput) {
+    // Extra check the schema can't express on its own (sum must equal 100).
+    const sum = (data.pct_sellers || 0) + (data.pct_buyers || 0)
+    if (Math.abs(sum - 100) > 0.01) {
+      toast.error(`A soma de % Vendedores + % Compradores deve ser 100% (actual: ${sum}%)`)
+      setActiveTab('geral')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const url = isEdit ? `/api/goals/${goalId}` : '/api/goals'
@@ -171,183 +383,24 @@ export function GoalConfigForm({
     }
   }
 
-  function NumberField({
-    name,
-    label,
-    suffix,
-    step = '1',
-    description,
-  }: {
-    name: keyof CreateGoalInput
-    label: string
-    suffix?: string
-    step?: string
-    description?: string
-  }) {
-    return (
-      <FormField
-        control={form.control}
-        name={name as any}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
-              {label}
-            </FormLabel>
-            <div className="flex items-center gap-2">
-              <FormControl>
-                <Input
-                  type="number"
-                  step={step}
-                  className="rounded-xl bg-background/80 border-border/40 tabular-nums"
-                  value={(field.value as number | string | null | undefined) ?? ''}
-                  onChange={(e) =>
-                    field.onChange(e.target.value ? Number(e.target.value) : null)
-                  }
-                />
-              </FormControl>
-              {suffix && (
-                <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                  {suffix}
-                </span>
-              )}
-            </div>
-            {description && (
-              <FormDescription className="text-[11px]">{description}</FormDescription>
-            )}
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    )
-  }
-
-  function ConversionRow({
-    funnel,
-    stage,
-    nextStage,
-  }: {
-    funnel: FunnelType
-    stage: FunnelStageDef
-    nextStage: FunnelStageDef
-  }) {
-    const fieldName = `funnel_conversion_rates.${funnel}.${stage.key}` as const
-    return (
-      <Controller
-        control={form.control}
-        name={fieldName as any}
-        render={({ field }) => {
-          const pctValue =
-            field.value != null && field.value !== ''
-              ? Math.round(Number(field.value) * 100)
-              : ''
-          const defaultPct = Math.round(stage.defaultConversionRate * 100)
-          return (
-            <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-2.5">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-xs font-medium tracking-tight truncate">
-                  {stage.label}
-                </span>
-                <ArrowRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                <span className="text-xs font-medium tracking-tight truncate text-muted-foreground">
-                  {nextStage.label}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={pctValue}
-                  placeholder={String(defaultPct)}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v === '') {
-                      field.onChange(null)
-                    } else {
-                      const num = Number(v)
-                      field.onChange(Math.max(0, Math.min(100, num)) / 100)
-                    }
-                  }}
-                  className="w-16 h-8 rounded-lg text-xs text-right tabular-nums bg-background/80 border-border/40"
-                />
-                <span className="text-xs text-muted-foreground font-medium">%</span>
-              </div>
-            </div>
-          )
-        }}
-      />
-    )
-  }
-
-  function FunnelTab({ funnel }: { funnel: FunnelType }) {
-    const stages = funnel === 'buyer' ? BUYER_STAGES : SELLER_STAGES
-    const isBuyer = funnel === 'buyer'
-    return (
-      <div className="space-y-5">
-        {/* Economics card */}
-        <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'h-8 w-8 rounded-lg flex items-center justify-center ring-1',
-                isBuyer
-                  ? 'bg-amber-50 text-amber-700 ring-amber-200/60'
-                  : 'bg-rose-50 text-rose-700 ring-rose-200/60',
-              )}
-            >
-              {isBuyer ? <Key className="h-4 w-4" /> : <Home className="h-4 w-4" />}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
-                Economia do negócio
-              </p>
-              <p className="text-sm font-semibold tracking-tight">
-                {isBuyer ? 'Funil Compradores · 6 etapas' : 'Funil Vendedores · 8 etapas'}
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField
-              name={isBuyer ? 'buyers_avg_purchase_value' : 'sellers_avg_sale_value'}
-              label={isBuyer ? 'Valor médio de compra' : 'Valor médio de venda'}
-              suffix="€"
-              step="1000"
-            />
-            <NumberField
-              name={isBuyer ? 'buyers_avg_commission_pct' : 'sellers_avg_commission_pct'}
-              label="Comissão média"
-              suffix="%"
-              step="0.1"
-            />
-          </div>
-        </div>
-
-        {/* Conversion rates card */}
-        <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-3">
-          <div>
-            <p className="text-[11px] text-muted-foreground tracking-wider uppercase font-medium">
-              Taxas de conversão
-            </p>
-            <p className="text-sm font-semibold tracking-tight">Etapa para a seguinte</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Quanto da etapa anterior chega à seguinte. Define o ritmo necessário para atingir o
-              objectivo.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            {stages.slice(0, -1).map((stage, idx) => (
-              <ConversionRow
-                key={stage.key}
-                funnel={funnel}
-                stage={stage}
-                nextStage={stages[idx + 1]}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
+  // Surface validation failures: without this the click was silent because RHF
+  // just writes to formState.errors and never calls onSubmit.
+  function onInvalid(errors: Record<string, unknown>) {
+    const firstField = Object.keys(errors)[0]
+    if (firstField === 'sellers_avg_sale_value' || firstField === 'sellers_avg_commission_pct') {
+      setActiveTab('vendedores')
+    } else if (
+      firstField === 'buyers_avg_purchase_value' ||
+      firstField === 'buyers_avg_commission_pct'
+    ) {
+      setActiveTab('compradores')
+    } else if (firstField === 'funnel_conversion_rates') {
+      // Could be either funnel — default to vendedores; user will see the field.
+      setActiveTab('vendedores')
+    } else {
+      setActiveTab('geral')
+    }
+    toast.error('Verifica os campos assinalados a vermelho antes de continuar')
   }
 
   const applyAiFields = (fields: Record<string, unknown>) => {
@@ -373,7 +426,7 @@ export function GoalConfigForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-5">
         {enableQuickFill && <GoalQuickFill onApply={applyAiFields} />}
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-5">
@@ -402,7 +455,7 @@ export function GoalConfigForm({
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {!isEdit && (
+                {!isEdit && isManagement && (
                   <FormField
                     control={form.control}
                     name="consultant_id"
@@ -430,33 +483,49 @@ export function GoalConfigForm({
                     )}
                   />
                 )}
-                <NumberField name="year" label="Ano" />
+                <NumberField control={form.control} name="year" label="Ano" />
                 <NumberField
+                  control={form.control}
                   name="annual_revenue_target"
                   label="Objectivo anual de faturação"
                   suffix="€"
                   step="100"
                 />
-                <NumberField name="pct_sellers" label="% Vendedores" suffix="%" step="1" />
                 <NumberField
+                  control={form.control}
+                  name="pct_sellers"
+                  label="% Vendedores"
+                  suffix="%"
+                  step="1"
+                />
+                <NumberField
+                  control={form.control}
                   name="pct_buyers"
                   label="% Compradores"
                   suffix="%"
                   step="1"
                   description={`Soma actual: ${(watchPctSellers || 0) + (form.watch('pct_buyers') || 0)}%`}
                 />
-                <NumberField name="working_weeks_year" label="Semanas úteis / ano" />
-                <NumberField name="working_days_week" label="Dias úteis / semana" />
+                <NumberField
+                  control={form.control}
+                  name="working_weeks_year"
+                  label="Semanas úteis / ano"
+                />
+                <NumberField
+                  control={form.control}
+                  name="working_days_week"
+                  label="Dias úteis / semana"
+                />
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="vendedores" className="mt-0">
-            <FunnelTab funnel="seller" />
+            <FunnelTab control={form.control} funnel="seller" />
           </TabsContent>
 
           <TabsContent value="compradores" className="mt-0">
-            <FunnelTab funnel="buyer" />
+            <FunnelTab control={form.control} funnel="buyer" />
           </TabsContent>
         </Tabs>
 

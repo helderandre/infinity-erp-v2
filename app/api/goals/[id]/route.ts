@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { updateGoalSchema } from '@/lib/validations/goal'
 
 export async function GET(
@@ -33,6 +34,12 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Consultor só pode ler o seu próprio objetivo. Esconde com 404 para
+    // não revelar a existência de objetivos de outros.
+    if (!isManagementRole(auth.roles) && data.consultant_id !== auth.user.id) {
+      return NextResponse.json({ error: 'Objetivo não encontrado' }, { status: 404 })
+    }
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('Erro ao obter objetivo:', error)
@@ -61,6 +68,28 @@ export async function PUT(
       )
     }
 
+    // Gate de propriedade: consultor só pode editar o seu próprio objetivo.
+    if (!isManagementRole(auth.roles)) {
+      const { data: current } = await supabase
+        .from('temp_consultant_goals')
+        .select('consultant_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (!current || current.consultant_id !== auth.user.id) {
+        return NextResponse.json({ error: 'Objetivo não encontrado' }, { status: 404 })
+      }
+      // Bloquear tentativa de mudar o `consultant_id` para outro user.
+      if (
+        validation.data.consultant_id !== undefined &&
+        validation.data.consultant_id !== auth.user.id
+      ) {
+        return NextResponse.json(
+          { error: 'Sem permissão para reatribuir este objetivo.' },
+          { status: 403 },
+        )
+      }
+    }
+
     const { error } = await supabase
       .from('temp_consultant_goals')
       .update(validation.data)
@@ -87,6 +116,18 @@ export async function DELETE(
 
     const { id } = await params
     const supabase = await createClient()
+
+    // Gate de propriedade — consultor só pode arquivar o seu próprio objetivo.
+    if (!isManagementRole(auth.roles)) {
+      const { data: current } = await supabase
+        .from('temp_consultant_goals')
+        .select('consultant_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (!current || current.consultant_id !== auth.user.id) {
+        return NextResponse.json({ error: 'Objetivo não encontrado' }, { status: 404 })
+      }
+    }
 
     const { error } = await supabase
       .from('temp_consultant_goals')

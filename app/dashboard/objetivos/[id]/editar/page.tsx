@@ -3,10 +3,14 @@
 import { useState, useEffect, use } from 'react'
 import { GoalConfigForm } from '@/components/goals/goal-config-form'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import type { ConsultantGoal } from '@/types/goal'
 
 export default function EditarObjetivoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
   const [goal, setGoal] = useState<ConsultantGoal | null>(null)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -64,7 +68,13 @@ export default function EditarObjetivoPage({ params }: { params: Promise<{ id: s
         </p>
       </div>
 
-      <GoalConfigForm consultants={consultants} initialData={goal} goalId={id} />
+      <GoalConfigForm
+        consultants={consultants}
+        initialData={goal}
+        goalId={id}
+        currentUserId={user?.id}
+        isManagement={isManagement}
+      />
     </div>
   )
 }

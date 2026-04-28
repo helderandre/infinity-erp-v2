@@ -65,9 +65,16 @@ export async function POST(request: Request) {
       )
     }
 
+    // Consultor só pode criar objetivo para si próprio. Force-override
+    // silencioso (mesmo padrão do GET) — evita 403 surpresa.
+    const callerIsManagement = isManagementRole(auth.roles)
+    const insertPayload = callerIsManagement
+      ? validation.data
+      : { ...validation.data, consultant_id: auth.user.id }
+
     const { data: goal, error } = await supabase
       .from('temp_consultant_goals')
-      .insert(validation.data)
+      .insert(insertPayload)
       .select('id')
       .single()
 
