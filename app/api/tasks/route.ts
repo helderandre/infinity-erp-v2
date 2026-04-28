@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { createTaskSchema, taskQuerySchema } from '@/lib/validations/task'
 import { notificationService } from '@/lib/notifications/service'
 
@@ -45,6 +46,13 @@ export async function GET(request: Request) {
     } = params.data
 
     const supabase = createAdminClient()
+
+    // Visibility gate: gestão vê tudo; consultor só vê tarefas onde
+    // está envolvido (assigned_to || created_by para tasks gerais;
+    // assigned_to para proc_tasks/proc_subtasks). visit_proposals já
+    // ficam scoped a `seller_consultant_id = self` mais abaixo.
+    const callerIsManagement = isManagementRole(auth.roles)
+    const selfId = auth.user.id
 
     // ─── Sub-task drill-down: only general tasks table (proc subtasks not nested) ───
     if (parent_task_id) {
@@ -110,6 +118,11 @@ export async function GET(request: Request) {
     if (due_from) tasksQuery = tasksQuery.gte('due_date', due_from)
     if (due_to) tasksQuery = tasksQuery.lte('due_date', due_to)
 
+    // Consultor só vê tarefas onde é assignee OU criador.
+    if (!callerIsManagement) {
+      tasksQuery = tasksQuery.or(`assigned_to.eq.${selfId},created_by.eq.${selfId}`)
+    }
+
     // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───
     // Proc tasks/subtasks are intrinsically tied to a 'process' entity.
     const includeProcSources =
@@ -148,6 +161,11 @@ export async function GET(request: Request) {
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
 
+      // Consultor só vê proc_tasks onde é o assignee.
+      if (!callerIsManagement) {
+        q = q.eq('assigned_to', selfId)
+      }
+
       procTasksPromise = q as any
     }
 
@@ -183,6 +201,11 @@ export async function GET(request: Request) {
       if (search) q = q.ilike('title', `%${search}%`)
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
+
+      // Consultor só vê proc_subtasks onde é o assignee.
+      if (!callerIsManagement) {
+        q = q.eq('assigned_to', selfId)
+      }
 
       procSubtasksPromise = q as any
     }

@@ -163,11 +163,11 @@ export const CALENDAR_ROLE_PRESETS: Record<string, { categories: CalendarCategor
   'Office Manager': { categories: ALL_CATEGORIES, filterSelf: false },
   'Consultor': {
     categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
-    filterSelf: true,
+    filterSelf: false,
   },
   'Consultora Executiva': {
     categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
-    filterSelf: true,
+    filterSelf: false,
   },
   'Team Leader': {
     categories: ['contract_expiry', 'process_task', 'process_subtask', 'process_event', 'birthday', 'vacation', 'company_event', 'meeting', 'visit'],
