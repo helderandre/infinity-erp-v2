@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowRight, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useUser } from '@/hooks/use-user'
 import { PropertyPreviewSheet } from './property-preview-sheet'
 import { PropertyListItem, type PropertyListItemData } from '@/components/properties/property-list-item'
 
@@ -26,15 +27,23 @@ type PropertyItem = PropertyListItemData & { status: string | null }
 
 export function PropertiesSheet({ open, onOpenChange }: PropertiesSheetProps) {
   const isMobile = useIsMobile()
+  const { user } = useUser()
   const [items, setItems] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(false)
   const [previewId, setPreviewId] = useState<string | null>(null)
+  const [scope, setScope] = useState<'all' | 'mine'>('all')
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     setLoading(true)
-    fetch('/api/properties?per_page=20&sort_by=created_at&sort_dir=desc')
+    const params = new URLSearchParams({
+      per_page: '20',
+      sort_by: 'created_at',
+      sort_dir: 'desc',
+    })
+    if (scope === 'mine' && user?.id) params.set('consultant_id', user.id)
+    fetch(`/api/properties?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((json) => {
         if (cancelled) return
@@ -50,7 +59,7 @@ export function PropertiesSheet({ open, onOpenChange }: PropertiesSheetProps) {
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, scope, user?.id])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -88,6 +97,38 @@ export function PropertiesSheet({ open, onOpenChange }: PropertiesSheetProps) {
             </Link>
           </Button>
         </SheetHeader>
+
+        <div className="shrink-0 px-6 pb-3">
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
+            <button
+              type="button"
+              onClick={() => setScope('all')}
+              className={cn(
+                'h-7 px-3 rounded-full text-xs font-medium transition-colors',
+                scope === 'all'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              aria-pressed={scope === 'all' ? 'true' : 'false'}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('mine')}
+              disabled={!user?.id}
+              className={cn(
+                'h-7 px-3 rounded-full text-xs font-medium transition-colors disabled:opacity-50',
+                scope === 'mine'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              aria-pressed={scope === 'mine' ? 'true' : 'false'}
+            >
+              Os meus
+            </button>
+          </div>
+        </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 space-y-2">
           {loading ? (
