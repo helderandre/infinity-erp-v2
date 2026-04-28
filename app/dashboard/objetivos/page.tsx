@@ -20,6 +20,10 @@ function ObjetivosPageInner() {
   const { goals, refetch } = useGoals({ year: currentYear, consultant_id: user?.id })
   const myGoalId = goals[0]?.id ?? null
   const [configOpen, setConfigOpen] = useState(false)
+  // Bumped após cada criação/edição de objetivo para forçar o
+  // <FunnelObjetivosView> (e seus hooks internos `useFunnel`) a re-montar e
+  // re-fazer fetch — refetch local não os atinge.
+  const [refreshTick, setRefreshTick] = useState(0)
 
   if (loading) {
     return (
@@ -40,7 +44,7 @@ function ObjetivosPageInner() {
 
   return (
     <div className="space-y-4">
-      <FunnelObjetivosView />
+      <FunnelObjetivosView key={refreshTick} />
       <div className="flex justify-end">
         <Button
           variant="ghost"
@@ -56,7 +60,10 @@ function ObjetivosPageInner() {
         open={configOpen}
         onOpenChange={setConfigOpen}
         goalId={myGoalId}
-        onSuccess={() => refetch()}
+        onSuccess={() => {
+          refetch()
+          setRefreshTick((n) => n + 1)
+        }}
       />
     </div>
   )

@@ -30,6 +30,9 @@ export function ConsultantObjetivosHome({ showRoleToggle = false }: ConsultantOb
 
   const { goals, isLoading, refetch } = useGoals({ year, consultant_id: user?.id })
   const myGoal = goals[0]
+  // Bumped após criar/editar — força <ConsultantGoalDashboard> a re-montar e
+  // re-fazer todos os fetches internos (KPIs, daily plan, etc.).
+  const [refreshTick, setRefreshTick] = useState(0)
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 
@@ -99,7 +102,7 @@ export function ConsultantObjetivosHome({ showRoleToggle = false }: ConsultantOb
           <Skeleton className="h-[500px] w-full rounded-2xl" />
         </div>
       ) : myGoal ? (
-        <ConsultantGoalDashboard goalId={myGoal.id} mode="self" />
+        <ConsultantGoalDashboard key={`${myGoal.id}-${refreshTick}`} goalId={myGoal.id} mode="self" />
       ) : (
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="flex flex-col items-center justify-center py-20 text-center px-4">
@@ -123,7 +126,10 @@ export function ConsultantObjetivosHome({ showRoleToggle = false }: ConsultantOb
       <GoalConfigSheet
         open={configOpen}
         onOpenChange={setConfigOpen}
-        onSuccess={() => refetch()}
+        onSuccess={() => {
+          refetch()
+          setRefreshTick((n) => n + 1)
+        }}
       />
 
       <AICoachSheet

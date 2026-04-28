@@ -46,6 +46,10 @@ export function ManagerObjetivosView({ showRoleToggle = false }: ManagerObjetivo
 
   const { data, isLoading, refetch } = useTeamSummary(year)
 
+  // Bumped após criar/editar — força <TeamReportsSection> a re-montar e
+  // re-fazer fetch (o useTeamSummary já tem refetch próprio para o resumo).
+  const [refreshTick, setRefreshTick] = useState(0)
+
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 
   function handleViewSwitch(view: 'self' | 'equipa') {
@@ -280,7 +284,7 @@ export function ManagerObjetivosView({ showRoleToggle = false }: ManagerObjetivo
 
         {/* ── Relatórios Semanais ── */}
         <TabsContent value="relatorios" className="mt-6">
-          <TeamReportsSection />
+          <TeamReportsSection key={refreshTick} />
         </TabsContent>
 
         {/* ── Histórico ── */}
@@ -308,7 +312,10 @@ export function ManagerObjetivosView({ showRoleToggle = false }: ManagerObjetivo
       <GoalConfigSheet
         open={newSheetOpen}
         onOpenChange={setNewSheetOpen}
-        onSuccess={() => refetch()}
+        onSuccess={() => {
+          refetch()
+          setRefreshTick((n) => n + 1)
+        }}
       />
     </div>
   )
