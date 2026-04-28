@@ -46,10 +46,12 @@ import {
   SlidersHorizontal,
   X,
   Pencil,
+  User,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
+import { useUser } from '@/hooks/use-user'
 import { PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -185,6 +187,7 @@ function ImoveisPageContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { user } = useUser()
 
   const [properties, setProperties] = useState<PropertyWithRelations[]>([])
   const [detailPropertyId, setDetailPropertyId] = useState<string | null>(null)
@@ -232,6 +235,9 @@ function ImoveisPageContent() {
     'imoveis-filter-external-ref-status',
     'all',
   )
+  // Toggle "Os meus imóveis" — força consultant_id = user.id no fetch, sem
+  // depender do filtro avançado de consultores.
+  const [onlyMine, setOnlyMine] = usePersistentState<boolean>('imoveis-filter-only-mine', false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
@@ -263,7 +269,8 @@ function ImoveisPageContent() {
     missingCover ||
     missingOwners ||
     contractExpiringDays !== '' ||
-    externalRefStatus !== 'all'
+    externalRefStatus !== 'all' ||
+    onlyMine
 
   // Count of advanced-only filters (used to badge the "Filtros avançados" button).
   // Excludes the four quick pills (Status / Negócio / Preço / Tipologia) that
@@ -306,7 +313,9 @@ function ImoveisPageContent() {
       if (selectedPropertyTypes.length > 0) params.set('property_type', selectedPropertyTypes.join(','))
       if (selectedBusinessTypes.length > 0) params.set('business_type', selectedBusinessTypes.join(','))
       if (selectedConditions.length > 0) params.set('property_condition', selectedConditions.join(','))
-      if (selectedConsultants.length > 0) params.set('consultant_id', selectedConsultants.join(','))
+      const consultantIds = new Set<string>(selectedConsultants)
+      if (onlyMine && user?.id) consultantIds.add(user.id)
+      if (consultantIds.size > 0) params.set('consultant_id', Array.from(consultantIds).join(','))
       if (priceMin) params.set('price_min', priceMin)
       if (priceMax) params.set('price_max', priceMax)
       if (bedroomsMin) params.set('bedrooms_min', bedroomsMin)
@@ -349,6 +358,7 @@ function ImoveisPageContent() {
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
     energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
+    onlyMine, user?.id,
     page, sortBy, sortDir,
   ])
 
@@ -414,6 +424,7 @@ function ImoveisPageContent() {
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
     energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
+    onlyMine,
   ])
 
   const handleCancel = async () => {
@@ -469,6 +480,7 @@ function ImoveisPageContent() {
     setMissingOwners(false)
     setContractExpiringDays('')
     setExternalRefStatus('all')
+    setOnlyMine(false)
     setPage(0)
   }
 
@@ -523,6 +535,24 @@ function ImoveisPageContent() {
             className="pl-9 rounded-full"
           />
         </div>
+
+        {/* "Os meus imóveis" — visível em mobile e desktop, fora dos filtros. */}
+        <Button
+          size="sm"
+          variant={onlyMine ? 'default' : 'outline'}
+          onClick={() => setOnlyMine(!onlyMine)}
+          disabled={!user?.id}
+          className={cn(
+            'h-9 rounded-full text-xs gap-1.5 shrink-0',
+            onlyMine && 'bg-foreground text-background',
+          )}
+          aria-pressed={onlyMine}
+          title="Mostrar apenas imóveis onde sou o consultor"
+        >
+          <User className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Os meus imóveis</span>
+          <span className="sm:hidden">Os meus</span>
+        </Button>
 
         {/* Quick pills — só desktop. No mobile tudo passa pelo Sheet de Filtros. */}
         <div className="hidden sm:contents">
