@@ -443,9 +443,10 @@ function NegociosPageContent() {
         </div>
       </div>
 
-      {/* Filters row */}
-      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[220px]">
+      {/* Filters row — single line em mobile (search + toggle + Filtros);
+          em desktop volta ao layout antigo com chips wrappable. */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-nowrap sm:flex-wrap">
+        <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar por referência, imóvel, consultor..."
@@ -454,7 +455,7 @@ function NegociosPageContent() {
             className="pl-9 rounded-full"
           />
         </div>
-        <div className="sm:hidden flex items-center gap-0.5 p-0.5 rounded-full bg-muted border border-border/30">
+        <div className="sm:hidden shrink-0 flex items-center gap-0.5 p-0.5 rounded-full bg-muted border border-border/30">
           <button
             onClick={() => setViewMode('table')}
             className={cn(
@@ -479,12 +480,12 @@ function NegociosPageContent() {
           </button>
         </div>
         <div className="hidden sm:flex items-center gap-2 flex-wrap">{filterButtons}</div>
-        <div className="sm:hidden">
+        <div className="sm:hidden shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setFiltersOpen(true)}
-            className="h-8 gap-1.5 rounded-full text-xs px-3"
+            className="h-8 gap-1 rounded-full text-xs px-2.5"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filtros
