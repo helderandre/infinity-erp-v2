@@ -31,6 +31,7 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useTemplateVariables } from '@/hooks/use-template-variables'
+import { applyTransform } from '@/lib/pdf/transforms'
 import type { ProcSubtask } from '@/types/subtask'
 import type { TemplateVariable } from '@/hooks/use-template-variables'
 
@@ -89,25 +90,6 @@ function getDocLibraryId(subtask: ProcSubtask): string | undefined {
     if (personType === 'coletiva') return (c.coletiva_config as Record<string, string> | undefined)?.doc_library_id
   }
   return c.doc_library_id as string | undefined
-}
-
-function applyTransform(value: string, transform: string | null): string {
-  if (!transform || !value) return value
-  switch (transform) {
-    case 'uppercase': return value.toUpperCase()
-    case 'lowercase': return value.toLowerCase()
-    case 'date_pt': {
-      const d = new Date(value)
-      if (isNaN(d.getTime())) return value
-      return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    }
-    case 'currency_eur': {
-      const num = parseFloat(value)
-      if (isNaN(num)) return value
-      return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(num)
-    }
-    default: return value
-  }
 }
 
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2]

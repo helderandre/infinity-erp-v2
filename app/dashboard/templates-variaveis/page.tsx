@@ -144,9 +144,18 @@ interface VariableFormData {
   static_value: string
   concat_columns: string
   concat_separator: string
+  system_date_format: string
   is_active: boolean
   order_index: number
 }
+
+const SYSTEM_DATE_FORMATS = [
+  { value: 'full', label: 'Data completa (dd/MM/aaaa)' },
+  { value: 'day', label: 'Dia (01-31)' },
+  { value: 'month_numeric', label: 'Mês numérico (01-12)' },
+  { value: 'month_full', label: 'Mês por extenso (Janeiro)' },
+  { value: 'year', label: 'Ano (aaaa)' },
+] as const
 
 const defaultFormData: VariableFormData = {
   key: '',
@@ -159,6 +168,7 @@ const defaultFormData: VariableFormData = {
   static_value: '',
   concat_columns: '',
   concat_separator: ', ',
+  system_date_format: 'full',
   is_active: true,
   order_index: 100,
 }
@@ -225,6 +235,7 @@ export default function TemplatesVariaveisPage() {
     setEditingVariable(variable)
 
     const concatConfig = variable.format_config as { columns?: string[]; separator?: string } | null
+    const dateConfig = variable.format_config as { format?: string } | null
 
     setFormData({
       key: variable.key,
@@ -237,6 +248,7 @@ export default function TemplatesVariaveisPage() {
       static_value: variable.static_value || '',
       concat_columns: concatConfig?.columns?.join(', ') || '',
       concat_separator: concatConfig?.separator || ', ',
+      system_date_format: dateConfig?.format && dateConfig.format !== 'dd/MM/yyyy' ? dateConfig.format : 'full',
       is_active: variable.is_active,
       order_index: variable.order_index,
     })
@@ -262,7 +274,13 @@ export default function TemplatesVariaveisPage() {
       } else if (formData.format_type === 'currency') {
         format_config = { currency: 'EUR', locale: 'pt-PT' }
       } else if (formData.format_type === 'date') {
-        format_config = { locale: 'pt-PT', format: 'dd/MM/yyyy' }
+        const isSystemDate = formData.source_entity === 'system'
+        format_config = {
+          locale: 'pt-PT',
+          format: isSystemDate && formData.system_date_format !== 'full'
+            ? formData.system_date_format
+            : 'dd/MM/yyyy',
+        }
       }
 
       const payload = {
@@ -755,6 +773,33 @@ export default function TemplatesVariaveisPage() {
                 />
                 <p className="text-[10px] text-muted-foreground">
                   Valor fixo que será usado sempre (ex: nome da empresa)
+                </p>
+              </div>
+            )}
+
+            {/* System date sub-format — for current date components */}
+            {formData.source_entity === 'system' && formData.format_type === 'date' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Componente da data actual</Label>
+                <Select
+                  value={formData.system_date_format}
+                  onValueChange={(v) =>
+                    setFormData((p) => ({ ...p, system_date_format: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SYSTEM_DATE_FORMATS.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  A variável devolve o componente da data actual no momento de gerar o documento.
                 </p>
               </div>
             )}

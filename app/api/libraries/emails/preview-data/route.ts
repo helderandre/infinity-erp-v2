@@ -133,11 +133,29 @@ export async function POST(request: Request) {
       // System variables
       if (v.source_entity === 'system') {
         if (v.format_type === 'date') {
-          variables[v.key] = new Date().toLocaleDateString('pt-PT', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          })
+          const cfg = (v.format_config || {}) as { format?: string; locale?: string }
+          const locale = cfg.locale || 'pt-PT'
+          const now = new Date()
+          switch (cfg.format) {
+            case 'day':
+              variables[v.key] = String(now.getDate()).padStart(2, '0')
+              break
+            case 'month_numeric':
+              variables[v.key] = String(now.getMonth() + 1).padStart(2, '0')
+              break
+            case 'month_full':
+              variables[v.key] = now.toLocaleDateString(locale, { month: 'long' })
+              break
+            case 'year':
+              variables[v.key] = String(now.getFullYear())
+              break
+            default:
+              variables[v.key] = now.toLocaleDateString(locale, {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              })
+          }
         } else if (v.static_value) {
           variables[v.key] = v.static_value
         }

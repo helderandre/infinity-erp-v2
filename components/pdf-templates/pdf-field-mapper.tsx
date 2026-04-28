@@ -46,6 +46,7 @@ import {
   Settings2,
 } from 'lucide-react'
 import type { PdfFieldWithMapping, BulkMappingUpdate } from '@/types/pdf-template'
+import { applyTransform, TRANSFORMS } from '@/lib/pdf/transforms'
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -61,14 +62,6 @@ interface PageRenderInfo {
   canvasWidth: number
   canvasHeight: number
 }
-
-const TRANSFORMS = [
-  { value: '__none__', label: 'Nenhum' },
-  { value: 'uppercase', label: 'MAIÚSCULAS' },
-  { value: 'lowercase', label: 'minúsculas' },
-  { value: 'date_pt', label: 'Data PT (DD/MM/AAAA)' },
-  { value: 'currency_eur', label: 'Moeda EUR' },
-]
 
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const DEFAULT_ZOOM_INDEX = 2
@@ -122,27 +115,6 @@ function AutoScaleInput({
       style={{ ...style, fontSize, lineHeight: `${fieldHeight}px` }}
     />
   )
-}
-
-// ─── Transform helper ────────────────────────────────────────────
-
-function applyTransform(value: string, transform: string | null): string {
-  if (!transform || !value) return value
-  switch (transform) {
-    case 'uppercase': return value.toUpperCase()
-    case 'lowercase': return value.toLowerCase()
-    case 'date_pt': {
-      const d = new Date(value)
-      if (isNaN(d.getTime())) return value
-      return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    }
-    case 'currency_eur': {
-      const num = parseFloat(value)
-      if (isNaN(num)) return value
-      return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(num)
-    }
-    default: return value
-  }
 }
 
 // ─── Main Component ──────────────────────────────────────────────

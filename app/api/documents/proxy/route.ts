@@ -28,6 +28,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const urlParam = searchParams.get('url')
   const keyParam = searchParams.get('key')
+  const inline = searchParams.get('inline') === '1'
 
   let key: string | null = null
   if (keyParam) {
@@ -63,9 +64,12 @@ export async function GET(request: Request) {
     const contentLength = res.ContentLength?.toString()
 
     const filename = key.split('/').pop() ?? 'documento'
+    const safeName = filename.replace(/"/g, '')
     const headers = new Headers({
       'content-type': contentType,
-      'content-disposition': `attachment; filename="${filename.replace(/"/g, '')}"`,
+      'content-disposition': inline
+        ? `inline; filename="${safeName}"`
+        : `attachment; filename="${safeName}"`,
       'cache-control': 'private, max-age=60',
     })
     if (contentLength) headers.set('content-length', contentLength)
