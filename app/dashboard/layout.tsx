@@ -139,7 +139,12 @@ export default function DashboardLayout({
               orientation="vertical"
               className={cn('mr-2 h-6', hideBreadcrumbsOnMobile && 'hidden lg:block')}
             />
-            <div className={cn(hideBreadcrumbsOnMobile && 'hidden lg:contents')}>
+            <div
+              className={cn(
+                'min-w-0 flex-1 overflow-hidden',
+                hideBreadcrumbsOnMobile && 'hidden lg:block'
+              )}
+            >
               <Breadcrumbs />
             </div>
             <div className="ml-auto flex items-center gap-2">
