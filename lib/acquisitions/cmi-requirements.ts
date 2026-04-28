@@ -165,6 +165,12 @@ const ownerFields = {
       (o.marital_status ?? '').toLowerCase() === 'casado' ||
       (o.marital_status ?? '').toLowerCase() === 'casada',
   },
+  nationality: {
+    kind: 'field' as const,
+    key: 'nationality',
+    label: 'Nacionalidade',
+    isFilled: (o: OwnerRow) => hasValue((o as any).nationality),
+  },
 }
 
 export const OWNER_SINGULAR_REQUIREMENTS: OwnerRequirement[] = [
@@ -175,6 +181,7 @@ export const OWNER_SINGULAR_REQUIREMENTS: OwnerRequirement[] = [
     docTypeId: DOC_TYPE_IDS.CARTAO_CIDADAO,
   },
   ownerFields.naturality,
+  ownerFields.nationality,
   ownerFields.address,
   ownerFields.maritalStatus,
   ownerFields.maritalRegime,
@@ -209,6 +216,7 @@ export const OWNER_COLETIVA_REQUIREMENTS: OwnerRequirement[] = [
     docTypeId: DOC_TYPE_IDS.CARTAO_CIDADAO,
   },
   { ...ownerFields.naturality, label: 'Naturalidade do representante legal' },
+  { ...ownerFields.nationality, label: 'Nacionalidade do representante legal' },
   { ...ownerFields.address, label: 'Morada atual do representante legal' },
   { ...ownerFields.maritalStatus, label: 'Estado civil do representante legal' },
   { ...ownerFields.maritalRegime, label: 'Regime de casamento (se casado)' },
@@ -227,9 +235,16 @@ export interface DocRef {
   owner_id?: string | null
   property_id?: string | null
   doc_type: { id: string } | null
+  /**
+   * Status do doc no `doc_registry`. Necessário para distinguir docs aprovados
+   * (`active`/`approved`) de docs ainda à espera de revisão pelo consultor
+   * (`under_review` quando enviados pela app cliente / `signed` para CMI).
+   * Se ausente, assume-se `'active'` (compatibilidade com chamadas antigas).
+   */
+  status?: string | null
 }
 
-export type ComputedStatus = 'satisfied' | 'missing' | 'na'
+export type ComputedStatus = 'satisfied' | 'pending_review' | 'missing' | 'na'
 
 export interface ComputedRequirement {
   key: string
@@ -238,6 +253,44 @@ export interface ComputedRequirement {
   kind: 'document' | 'field'
   docTypeId?: string
   status: ComputedStatus
+  /**
+   * Quando `status === 'pending_review'`, o id do doc em revisão (o mais
+   * recente). UI usa para abrir um sheet de revisão directamente.
+   */
+  pendingDocId?: string
+  /**
+   * Quando `status === 'pending_review'` E `kind === 'field'`, o id do
+   * audit row pendente em `owner_field_audit`. UI usa para abrir o sheet
+   * de revisão com diff old → new.
+   */
+  pendingAuditId?: string
+}
+
+export interface PendingFieldAudit {
+  id: string
+  owner_id: string
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  edited_via: string
+  created_at: string
+}
+
+/**
+ * Map de field_name (coluna em `owners`) → key da requirement (snake-case).
+ * Usado para correlacionar audit rows com requirements por owner.
+ *
+ * Para coletiva, os mesmos campos são REUSED com label "do rep. legal":
+ * `owners.naturality` guarda a naturalidade do rep. legal quando
+ * person_type='coletiva'. Não há colunas dedicadas — `legal_rep_*`
+ * existem mas estão deprecated nesta change.
+ */
+const FIELD_NAME_TO_REQ_KEY: Record<string, string> = {
+  naturality: 'naturality',
+  address: 'address',
+  marital_status: 'marital-status',
+  marital_regime: 'marital-regime',
+  nationality: 'nationality',
 }
 
 export interface OwnerReadiness {
@@ -258,17 +311,70 @@ export interface CmiReadiness {
   totalRequired: number
 }
 
-function matchDoc(docs: DocRef[], docTypeId: string, ownerId?: string): boolean {
-  return docs.some((d) => {
-    if (d.doc_type?.id !== docTypeId) return false
-    if (ownerId) return d.owner_id === ownerId
-    return true
-  })
+/**
+ * Procura docs em `docs` que matchem o `docTypeId` (e `ownerId` se passado).
+ * Retorna o status agregado + (quando pending_review) o id do doc pendente
+ * mais recente para a UI poder abrir o sheet de revisão.
+ *
+ * Granularidade:
+ *   - 'satisfied'      se há ≥1 doc com status `approved` ou `active`.
+ *   - 'pending_review' se só há docs com `under_review` ou `signed`
+ *                      (tipicamente enviados pelo proprietário via app cliente
+ *                      e à espera de aprovação pelo consultor).
+ *   - 'missing'        se não há nenhum doc.
+ *
+ * Docs em `under_review` NÃO contam como satisfeitos no progresso, mas o
+ * consultor precisa de ver/agir sobre eles.
+ */
+function matchDoc(
+  docs: DocRef[],
+  docTypeId: string,
+  ownerId?: string
+): { status: 'satisfied' | 'pending_review' | 'missing'; pendingDocId?: string } {
+  let pendingDocId: string | undefined
+
+  for (const d of docs) {
+    if (d.doc_type?.id !== docTypeId) continue
+    if (ownerId && d.owner_id !== ownerId) continue
+
+    const status = (d.status ?? 'active').toLowerCase()
+    if (status === 'approved' || status === 'active') {
+      return { status: 'satisfied' }
+    }
+    if (status === 'under_review' || status === 'signed') {
+      // Mantém o primeiro encontrado (docs já vêm ordenados por created_at DESC
+      // pela API)
+      if (!pendingDocId) pendingDocId = d.id
+    }
+  }
+
+  return pendingDocId
+    ? { status: 'pending_review', pendingDocId }
+    : { status: 'missing' }
+}
+
+/**
+ * Procura audits pendentes para um (owner, fieldKey). Retorna o audit row
+ * mais recente (created_at DESC) se existir.
+ */
+function findPendingFieldAudit(
+  audits: PendingFieldAudit[] | undefined,
+  ownerId: string,
+  reqKey: string
+): PendingFieldAudit | undefined {
+  if (!audits?.length) return undefined
+  // audits already DESC by created_at (from API). First match wins.
+  return audits.find(
+    (a) =>
+      a.owner_id === ownerId &&
+      FIELD_NAME_TO_REQ_KEY[a.field_name] === reqKey
+  )
 }
 
 export function computeCmiReadiness(
   property: PropertyDetail,
-  allDocs: DocRef[]
+  allDocs: DocRef[],
+  pendingFieldAudits?: PendingFieldAudit[]
 ): CmiReadiness {
   // Property section
   const propItems: ComputedRequirement[] = PROPERTY_CMI_REQUIREMENTS.map((req) => {
@@ -283,17 +389,23 @@ export function computeCmiReadiness(
         status: 'na',
       }
     }
-    const satisfied =
-      req.kind === 'document'
-        ? matchDoc(allDocs, req.docTypeId!)
-        : !!req.isFilled?.(property)
+    let status: ComputedStatus
+    let pendingDocId: string | undefined
+    if (req.kind === 'document') {
+      const m = matchDoc(allDocs, req.docTypeId!)
+      status = m.status
+      pendingDocId = m.pendingDocId
+    } else {
+      status = req.isFilled?.(property) ? 'satisfied' : 'missing'
+    }
     return {
       key: req.key,
       label: req.label,
       description: req.description,
       kind: req.kind,
       docTypeId: req.docTypeId,
-      status: satisfied ? 'satisfied' : 'missing',
+      status,
+      pendingDocId,
     }
   })
 
@@ -319,17 +431,36 @@ export function computeCmiReadiness(
           status: 'na',
         }
       }
-      const satisfied =
-        req.kind === 'document'
-          ? matchDoc(allDocs, req.docTypeId!, owner.id)
-          : !!req.isFilled?.(owner)
+      let status: ComputedStatus
+      let pendingDocId: string | undefined
+      let pendingAuditId: string | undefined
+      if (req.kind === 'document') {
+        const m = matchDoc(allDocs, req.docTypeId!, owner.id)
+        status = m.status
+        pendingDocId = m.pendingDocId
+      } else {
+        const pendingAudit = findPendingFieldAudit(
+          pendingFieldAudits,
+          owner.id,
+          req.key
+        )
+        if (pendingAudit) {
+          // Owner submitted a value via cliente app — awaits consultor review.
+          status = 'pending_review'
+          pendingAuditId = pendingAudit.id
+        } else {
+          status = req.isFilled?.(owner) ? 'satisfied' : 'missing'
+        }
+      }
       return {
         key: req.key,
         label: req.label,
         description: req.description,
         kind: req.kind,
         docTypeId: req.docTypeId,
-        status: satisfied ? 'satisfied' : 'missing',
+        status,
+        pendingDocId,
+        pendingAuditId,
       }
     })
 

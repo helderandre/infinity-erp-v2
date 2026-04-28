@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, Building2, Pencil } from 'lucide-react'
+import { ArrowUpRight, Building2, CalendarPlus, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
 import { PropertyEditSheet } from '@/components/properties/property-edit-sheet'
 import {
   Sheet,
@@ -11,6 +12,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -20,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { PropertyInteressadosTab } from '@/components/properties/property-interessados-tab'
+import { VisitForm } from '@/components/visits/visit-form'
 import type { PropertyDetail } from '@/types/property'
 
 interface PropertyDetailSheetProps {
@@ -34,6 +42,7 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!open || !propertyId) {
@@ -69,6 +78,13 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
     ? `/dashboard/imoveis/${property.slug || property.id}`
     : null
 
+  // Quem é o consultor da angariação pode marcar a visita directamente.
+  // Outros consultores submetem uma proposta — o endpoint `/api/visits`
+  // resolve isto automaticamente via comparação de `consultant_id` com o
+  // consultor da angariação.
+  const visitCtaLabel = isOwner ? 'Marcar visita' : 'Solicitar visita'
+  const canRequestVisit = !!user?.id && !!property?.id
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -94,38 +110,53 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
               Apresentação do imóvel.
             </SheetDescription>
           </div>
-          {canSeeFullPage && fullPageHref && (
-            <div className="flex items-center gap-1.5 sm:gap-2 mr-10 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 mr-10 shrink-0">
+            {canRequestVisit && (
               <Button
                 size="sm"
                 variant="outline"
-                aria-label="Editar"
+                aria-label={visitCtaLabel}
                 className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
-                onClick={() => setEditOpen(true)}
-                title="Editar"
+                onClick={() => setVisitDialogOpen(true)}
+                title={visitCtaLabel}
               >
-                <Pencil className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Editar</span>
+                <CalendarPlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{visitCtaLabel}</span>
               </Button>
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
-                title="Ver tudo"
-              >
-                <Link
-                  href={fullPageHref}
-                  onClick={() => onOpenChange(false)}
-                  aria-label="Ver tudo"
-                  className="inline-flex items-center justify-center"
+            )}
+            {canSeeFullPage && fullPageHref && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label="Editar"
+                  className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                  onClick={() => setEditOpen(true)}
+                  title="Editar"
                 >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Ver tudo</span>
-                </Link>
-              </Button>
-            </div>
-          )}
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Editar</span>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                  title="Ver tudo"
+                >
+                  <Link
+                    href={fullPageHref}
+                    onClick={() => onOpenChange(false)}
+                    aria-label="Ver tudo"
+                    className="inline-flex items-center justify-center"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Ver tudo</span>
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
         </SheetHeader>
 
         {loading || !property ? (
@@ -187,6 +218,42 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
           }
         }}
       />
+
+      <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{isOwner ? 'Agendar visita' : 'Solicitar visita'}</DialogTitle>
+          </DialogHeader>
+          {property?.id && user?.id && visitDialogOpen && (
+            <VisitForm
+              lockedProperty={{
+                id: property.id,
+                title: property.title || 'Imóvel',
+                external_ref: property.external_ref,
+                city: property.city,
+              }}
+              defaultConsultantId={user.id}
+              hideConsultant
+              submitLabel={isOwner ? 'Agendar visita' : 'Solicitar visita'}
+              onSubmit={async (data) => {
+                const res = await fetch('/api/visits', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(data),
+                })
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}))
+                  throw new Error(err.error || 'Erro ao agendar visita')
+                }
+                toast.success(isOwner ? 'Visita agendada' : 'Pedido de visita enviado')
+                setVisitDialogOpen(false)
+                return res.json()
+              }}
+              onCancel={() => setVisitDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   )
 }

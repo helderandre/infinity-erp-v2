@@ -65,11 +65,13 @@ export function CmiFieldEditDialog({ target, onClose, onSaved }: Props) {
       return
     }
     if (target.kind === 'owner') {
+      const o = target.owner as any
       setValues({
         naturality: target.owner.naturality || '',
+        nationality: o.nationality || '',
         address: target.owner.address || '',
         marital_status: target.owner.marital_status || '',
-        marital_regime: (target.owner as any).marital_regime || '',
+        marital_regime: o.marital_regime || '',
       })
     } else {
       const internal = target.property.dev_property_internal as any
@@ -160,8 +162,11 @@ function getTitle(target: CmiFieldEditTarget | null): {
   if (!target) return { title: '' }
   if (target.kind === 'owner') {
     const name = target.owner.name
+    // Para coletiva, os labels são adaptados pelo cmi-requirements (com
+    // sufixo "do representante legal"); aqui mantemos os labels base.
     const keyLabels: Record<string, string> = {
       naturality: 'Naturalidade',
+      nationality: 'Nacionalidade',
       address: 'Morada atual',
       'marital-status': 'Estado civil',
       'marital-regime': 'Regime de casamento',
@@ -272,6 +277,18 @@ function renderOwnerField(
       </div>
     )
   }
+  if (fieldKey === 'nationality') {
+    return (
+      <div className="space-y-2">
+        <Label>Nacionalidade</Label>
+        <Input
+          value={values.nationality || ''}
+          placeholder="Ex.: Portuguesa"
+          onChange={(e) => update({ nationality: e.target.value })}
+        />
+      </div>
+    )
+  }
   return null
 }
 
@@ -332,6 +349,9 @@ function buildOwnerPayload(
   }
   if (fieldKey === 'marital-regime') {
     return { marital_regime: values.marital_regime || null }
+  }
+  if (fieldKey === 'nationality') {
+    return { nationality: values.nationality || null }
   }
   return {}
 }

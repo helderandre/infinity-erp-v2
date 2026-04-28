@@ -6,6 +6,7 @@ import {
   Building2,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Eye,
   FileUp,
   Info,
@@ -28,6 +29,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
+import type { PendingFieldAudit } from '@/lib/acquisitions/cmi-requirements'
 import {
   computeCmiReadiness,
   type ComputedRequirement,
@@ -38,6 +40,8 @@ import type { PropertyDetail } from '@/types/property'
 import type { Database } from '@/types/database'
 import type { OwnerRoleType } from '@/types/owner'
 import { CmiFieldEditDialog, type CmiFieldEditTarget } from './cmi-field-edit-dialog'
+import { OwnerSubmissionReviewSheet } from '@/components/processes/owner-submission-review-sheet'
+import { OwnerFieldAuditReviewSheet } from '@/components/processes/owner-field-audit-review-sheet'
 import { SubtaskPdfSheet } from '@/components/processes/subtask-pdf-sheet'
 import { AddOwnerDialog } from '@/components/processes/add-owner-dialog'
 
@@ -75,12 +79,116 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
   const [cmiSheetOpen, setCmiSheetOpen] = useState(false)
   const [addOwnerOpen, setAddOwnerOpen] = useState(false)
   const [reExtracting, setReExtracting] = useState(false)
+  const [reviewDoc, setReviewDoc] = useState<DocRef | null>(null)
+  const [pendingFieldAudits, setPendingFieldAudits] = useState<PendingFieldAudit[]>([])
+  const [reviewAudit, setReviewAudit] = useState<PendingFieldAudit | null>(null)
+
+  // Ref kept in sync with `readiness` so the click handler can read it
+  // without forcing a callback recreation per render and without TDZ issues
+  // (the useMemo for `readiness` is declared below this callback).
+  const readinessRef = useRef<{ owners: Array<{ ownerId: string; items: ComputedRequirement[] }> } | null>(null)
+
+  const openReviewByItem = useCallback(
+    (item: ComputedRequirement) => {
+      // Field-edit audit review (kind: 'field' pending)
+      if (item.kind === 'field' && item.pendingAuditId) {
+        const audit = pendingFieldAudits.find((a) => a.id === item.pendingAuditId)
+        if (audit) setReviewAudit(audit)
+        return
+      }
+
+      // Satisfied field — open the existing edit dialog directly so consultor
+      // can adjust the value (creates a new audit row that will be auto-acked
+      // when the editor is the consultor; cliente edits create pending review).
+      if (item.kind === 'field' && item.status === 'satisfied') {
+        // Identify which owner this requirement belongs to. We need to find
+        // the OwnerSection that owns this requirement; since the same key
+        // can appear on multiple owners, we walk readiness.owners to match.
+        const r = readinessRef.current
+        if (!r) return
+        for (const ownerR of r.owners) {
+          const match = ownerR.items.find((i) => i.key === item.key)
+          if (!match) continue
+          const ownerRow = property?.property_owners?.find(
+            (po) => po.owners?.id === ownerR.ownerId
+          )?.owners
+          if (!ownerRow) continue
+          if (match === item) {
+            setEditTarget({
+              kind: 'owner',
+              ownerId: ownerR.ownerId,
+              fieldKey: item.key,
+              owner: ownerRow,
+            })
+            return
+          }
+        }
+        // Not found in owners → maybe property field
+        if (property) {
+          setEditTarget({
+            kind: 'property',
+            propertyId,
+            fieldKey: item.key,
+            property,
+          })
+        }
+        return
+      }
+
+      // Approved doc — open sheet in "approved view" mode (allows re-open)
+      if (item.kind === 'document' && item.status === 'satisfied' && item.docTypeId) {
+        const found = docs.find(
+          (d) => d.doc_type?.id === item.docTypeId &&
+            (d.status === 'approved' || d.status === 'active')
+        )
+        if (found) setReviewDoc(found)
+        return
+      }
+
+      if (!item.pendingDocId) return
+      const found = docs.find((d) => d.id === item.pendingDocId)
+      if (!found) return
+
+      // Resolve owner name with fallbacks:
+      //   1. doc.owner_id matches a property_owner
+      //   2. metadata.auth_user_id matches an owner's auth_user_id
+      //   3. main_contact owner of the property
+      let ownerName: string | null = null
+      const propOwners = property?.property_owners ?? []
+
+      if (found.owner_id) {
+        ownerName =
+          propOwners.find((po) => po.owners?.id === found.owner_id)?.owners?.name ?? null
+      }
+
+      const authUserId = (found as any).metadata?.auth_user_id as string | undefined
+      if (!ownerName && authUserId) {
+        ownerName =
+          propOwners.find(
+            (po) => (po.owners as any)?.auth_user_id === authUserId
+          )?.owners?.name ?? null
+      }
+
+      if (!ownerName) {
+        ownerName =
+          propOwners.find((po) => po.is_main_contact)?.owners?.name ??
+          propOwners[0]?.owners?.name ??
+          null
+      }
+
+      setReviewDoc({ ...found, owner_name: ownerName } as DocRef & {
+        owner_name?: string | null
+      })
+    },
+    [docs, property, propertyId, pendingFieldAudits]
+  )
 
   const fetchAll = useCallback(async () => {
     try {
-      const [pRes, dRes] = await Promise.all([
+      const [pRes, dRes, aRes] = await Promise.all([
         fetch(`/api/properties/${propertyId}`),
         fetch(`/api/properties/${propertyId}/documents`),
+        fetch(`/api/properties/${propertyId}/pending-field-audits`),
       ])
       if (pRes.ok) setProperty(await pRes.json())
       if (dRes.ok) {
@@ -89,6 +197,10 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
           ...(d.property_documents || []),
           ...(d.owner_documents || []),
         ])
+      }
+      if (aRes.ok) {
+        const a = await aRes.json()
+        setPendingFieldAudits(a.audits || [])
       }
     } finally {
       setLoading(false)
@@ -111,9 +223,16 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
   }, [])
 
   const readiness = useMemo(
-    () => (property ? computeCmiReadiness(property, docs) : null),
-    [property, docs]
+    () =>
+      property
+        ? computeCmiReadiness(property, docs, pendingFieldAudits)
+        : null,
+    [property, docs, pendingFieldAudits]
   )
+
+  // Keep ref in sync so `openReviewByItem` (declared above) can access the
+  // latest readiness without restructuring or adding it to deps.
+  readinessRef.current = readiness
 
   // Resolve a classified file to an upload target. Simple heuristic: the
   // doc_type category tells us whether it belongs to the property or to an
@@ -502,6 +621,7 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
         satisfied={readiness.propertySatisfiedCount}
         required={readiness.propertyRequiredCount}
         items={readiness.property}
+        onReviewClick={openReviewByItem}
         renderAction={(item) => (
           <PropertyItemAction
             propertyId={propertyId}
@@ -548,6 +668,7 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
                 owner={owner}
                 rawOwner={rawOwner || null}
                 onRefresh={fetchAll}
+                onReviewClick={openReviewByItem}
                 onEditField={(ownerId, fieldKey, ownerRow) =>
                   setEditTarget({
                     kind: 'owner',
@@ -588,6 +709,32 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
           fetchAll()
         }}
       />
+
+      <OwnerSubmissionReviewSheet
+        open={reviewDoc !== null}
+        onOpenChange={(o) => {
+          if (!o) setReviewDoc(null)
+        }}
+        doc={reviewDoc as any}
+        processId={processId}
+        onUpdate={fetchAll}
+      />
+
+      <OwnerFieldAuditReviewSheet
+        open={reviewAudit !== null}
+        onOpenChange={(o) => {
+          if (!o) setReviewAudit(null)
+        }}
+        audit={reviewAudit}
+        ownerName={
+          reviewAudit
+            ? property?.property_owners?.find(
+                (po) => po.owners?.id === reviewAudit.owner_id
+              )?.owners?.name ?? null
+            : null
+        }
+        onUpdate={fetchAll}
+      />
     </div>
   )
 }
@@ -602,6 +749,7 @@ interface SectionCardProps {
   required: number
   items: ComputedRequirement[]
   renderAction: (item: ComputedRequirement) => React.ReactNode
+  onReviewClick?: (item: ComputedRequirement) => void
 }
 
 function SectionCard({
@@ -612,6 +760,7 @@ function SectionCard({
   required,
   items,
   renderAction,
+  onReviewClick,
 }: SectionCardProps) {
   const [open, setOpen] = useState(true)
   const percent = required === 0 ? 100 : Math.round((satisfied / required) * 100)
@@ -675,6 +824,7 @@ function SectionCard({
                 key={item.key}
                 item={item}
                 action={renderAction(item)}
+                onReviewClick={onReviewClick}
               />
             ))}
           </div>
@@ -689,28 +839,48 @@ function SectionCard({
 function RequirementRow({
   item,
   action,
+  onReviewClick,
 }: {
   item: ComputedRequirement
   action: React.ReactNode
+  onReviewClick?: (item: ComputedRequirement) => void
 }) {
   const satisfied = item.status === 'satisfied'
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-3 px-4 py-3 transition-colors',
-        !satisfied && 'bg-amber-50/30 dark:bg-amber-950/10'
-      )}
-    >
+  const pendingReview = item.status === 'pending_review'
+  // Satisfied rows are also clickable when a handler is provided so the
+  // consultor can re-open / re-edit the value via the sheet.
+  const clickable = !!onReviewClick && (pendingReview || satisfied)
+
+  const rowClassName = cn(
+    'flex items-center gap-3 px-4 py-3 transition-colors text-left',
+    !satisfied && !pendingReview && 'bg-amber-50/30 dark:bg-amber-950/10',
+    pendingReview && 'bg-sky-50/40 dark:bg-sky-950/20',
+    clickable && 'w-full',
+    clickable && pendingReview && 'cursor-pointer hover:bg-sky-100/60 dark:hover:bg-sky-950/40',
+    clickable && satisfied && 'cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20'
+  )
+
+  const inner = (
+    <>
       <div
         className={cn(
           'h-7 w-7 rounded-full flex items-center justify-center shrink-0',
-          satisfied
-            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-            : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+          satisfied && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+          pendingReview && 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
+          !satisfied && !pendingReview && 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
         )}
+        title={
+          pendingReview
+            ? 'Documento enviado pelo proprietário — clique para rever'
+            : satisfied
+              ? 'Concluído'
+              : 'Em falta'
+        }
       >
         {satisfied ? (
           <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : pendingReview ? (
+          <Clock className="h-3.5 w-3.5" />
         ) : (
           <AlertCircle className="h-3.5 w-3.5" />
         )}
@@ -733,8 +903,22 @@ function RequirementRow({
         )}
       </div>
       <div className="shrink-0">{action}</div>
-    </div>
+    </>
   )
+
+  if (clickable) {
+    return (
+      <button
+        type="button"
+        className={rowClassName}
+        onClick={() => onReviewClick?.(item)}
+      >
+        {inner}
+      </button>
+    )
+  }
+
+  return <div className={rowClassName}>{inner}</div>
 }
 
 // ─── Owner section ───────────────────────────────────────────────────
@@ -745,12 +929,14 @@ function OwnerSection({
   rawOwner,
   onRefresh,
   onEditField,
+  onReviewClick,
 }: {
   propertyId: string
   owner: OwnerReadiness
   rawOwner: OwnerRow | null
   onRefresh: () => Promise<void>
   onEditField: (ownerId: string, fieldKey: string, ownerRow: OwnerRow) => void
+  onReviewClick?: (item: ComputedRequirement) => void
 }) {
   return (
     <SectionCard
@@ -768,6 +954,7 @@ function OwnerSection({
       satisfied={owner.satisfiedCount}
       required={owner.requiredCount}
       items={owner.items}
+      onReviewClick={onReviewClick}
       renderAction={(item) => (
         <OwnerItemAction
           propertyId={propertyId}
@@ -799,6 +986,14 @@ function PropertyItemAction({
   onEditField: (fieldKey: string) => void
 }) {
   if (item.status === 'satisfied') return null
+  if (item.status === 'pending_review') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 font-medium">
+        <Clock className="h-3.5 w-3.5" />
+        Aguarda revisão
+      </span>
+    )
+  }
   if (item.kind === 'field') {
     return (
       <Button
@@ -835,6 +1030,14 @@ function OwnerItemAction({
   onEditField: () => void
 }) {
   if (item.status === 'satisfied') return null
+  if (item.status === 'pending_review') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 font-medium">
+        <Clock className="h-3.5 w-3.5" />
+        Aguarda revisão
+      </span>
+    )
+  }
   if (item.kind === 'field') {
     return (
       <Button
