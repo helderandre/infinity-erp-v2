@@ -1,12 +1,14 @@
 // @ts-nocheck
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   GraduationCap, FolderOpen, Route, BarChart3,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/use-permissions'
 import { GestaoCursosTab } from '@/components/training/admin/gestao-cursos-tab'
 import { GestaoCategoriasTab } from '@/components/training/admin/gestao-categorias-tab'
 import { GestaoPercursosTab } from '@/components/training/admin/gestao-percursos-tab'
@@ -47,8 +49,22 @@ function GestaoSkeleton() {
 }
 
 function GestaoContent() {
+  const router = useRouter()
+  const { hasPermission, loading } = usePermissions()
   const [mainTab, setMainTab] = useState<GestaoTabKey>('cursos')
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // Guard: consultor sem permissão `training` não pode aceder à gestão.
+  // Redirecciona silenciosamente para o catálogo.
+  useEffect(() => {
+    if (!loading && !hasPermission('training')) {
+      router.replace('/dashboard/formacoes')
+    }
+  }, [loading, hasPermission, router])
+
+  if (loading || !hasPermission('training')) {
+    return <GestaoSkeleton />
+  }
 
   return (
     <div>

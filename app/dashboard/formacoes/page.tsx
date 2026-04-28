@@ -20,6 +20,7 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 import { useTrainingCourses } from '@/hooks/use-training-courses'
+import { usePermissions } from '@/hooks/use-permissions'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 12
@@ -80,6 +81,8 @@ function FormacoesPageSkeleton() {
 
 function FormacoesPageContent() {
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission('training')
   const [activeTab, setActiveTab] = useState<TabKey>('catalogo')
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
@@ -214,26 +217,29 @@ function FormacoesPageContent() {
             Plataforma de formação e desenvolvimento contínuo
           </p>
         </div>
-        {/* Action buttons */}
-        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
-            onClick={() => router.push('/dashboard/formacoes/gestao')}
-          >
-            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-            Gestão
-          </Button>
-          <Button
-            size="sm"
-            className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Nova Formação
-          </Button>
-        </div>
+        {/* Action buttons — só para quem tem permissão `training` (gestão).
+            Consultor sem essa permissão não vê os CTAs nem pode criar/gerir. */}
+        {canManage && (
+          <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
+              onClick={() => router.push('/dashboard/formacoes/gestao')}
+            >
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+              Gestão
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Nova Formação
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ─── Pill Toggle Navigation ─── */}
