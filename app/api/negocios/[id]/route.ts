@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { updateNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import type { Database } from '@/types/database'
 
@@ -29,6 +30,18 @@ export async function GET(
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Gate: consultor só vê negócios onde é o assigned_consultant_id ou
+    // o agent_id do lead associado. Esconde com 404 (não revela existência).
+    if (!isManagementRole(auth.roles)) {
+      const selfId = auth.user.id
+      const isOwner =
+        (data as any).assigned_consultant_id === selfId ||
+        ((data as any).lead as { agent_id?: string } | null)?.agent_id === selfId
+      if (!isOwner) {
+        return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
+      }
     }
 
     return NextResponse.json(data)
@@ -95,9 +108,21 @@ export async function PUT(
 
     const { data: existing } = await supabase
       .from('negocios')
-      .select('lead_id')
+      .select('lead_id, assigned_consultant_id, lead:leads(agent_id)')
       .eq('id', id)
       .maybeSingle()
+
+    // Gate: consultor só pode editar negócios em que é dono.
+    if (!isManagementRole(auth.roles)) {
+      const selfId = auth.user.id
+      const isOwner =
+        !!existing &&
+        ((existing as any).assigned_consultant_id === selfId ||
+          ((existing as any).lead as { agent_id?: string } | null)?.agent_id === selfId)
+      if (!isOwner) {
+        return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
+      }
+    }
 
     const { error } = await supabase
       .from('negocios')
@@ -138,9 +163,21 @@ export async function DELETE(
 
     const { data: existing } = await supabase
       .from('negocios')
-      .select('lead_id')
+      .select('lead_id, assigned_consultant_id, lead:leads(agent_id)')
       .eq('id', id)
       .maybeSingle()
+
+    // Gate: consultor só pode eliminar negócios em que é dono.
+    if (!isManagementRole(auth.roles)) {
+      const selfId = auth.user.id
+      const isOwner =
+        !!existing &&
+        ((existing as any).assigned_consultant_id === selfId ||
+          ((existing as any).lead as { agent_id?: string } | null)?.agent_id === selfId)
+      if (!isOwner) {
+        return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
+      }
+    }
 
     const { error } = await supabase
       .from('negocios')

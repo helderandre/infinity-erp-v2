@@ -3,7 +3,29 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { isManagementRole } from '@/lib/auth/roles'
 import type { Deal, DealPayment } from '@/types/deal'
+
+// ─── Helper: resolve roles do utilizador autenticado para gate de visibilidade
+async function resolveCallerScope(): Promise<{ selfId: string | null; isManagement: boolean }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { selfId: null, isManagement: false }
+    const admin = createAdminClient() as any
+    const { data: ud } = await admin
+      .from('dev_users')
+      .select('user_roles:user_roles!user_roles_user_id_fkey(role:roles!user_roles_role_id_fkey(name))')
+      .eq('id', user.id)
+      .single()
+    const roles = ((ud?.user_roles as any) || [])
+      .map((ur: any) => ur?.role?.name)
+      .filter((n: any): n is string => !!n)
+    return { selfId: user.id, isManagement: isManagementRole(roles) }
+  } catch {
+    return { selfId: null, isManagement: false }
+  }
+}
 
 const PAGE_SIZE = 25
 
@@ -31,6 +53,16 @@ export async function getDeals(filters?: {
       )
       .order('deal_date', { ascending: false })
       .range(from, to)
+
+    // Gate de visibilidade: consultor só vê deals onde é o consultant_id
+    // ou o internal_colleague_id (split interno). Gestão vê tudo.
+    const { selfId, isManagement } = await resolveCallerScope()
+    if (!isManagement) {
+      if (!selfId) {
+        return { deals: [], total: 0, error: null }
+      }
+      query = query.or(`consultant_id.eq.${selfId},internal_colleague_id.eq.${selfId}`)
+    }
 
     if (filters?.consultant_id) {
       query = query.eq('consultant_id', filters.consultant_id)
@@ -110,6 +142,18 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
 
     if (error) {
       return { deal: null, error: error.message }
+    }
+
+    // Gate: consultor só vê o deal se é o consultant_id ou internal_colleague_id.
+    const { selfId, isManagement } = await resolveCallerScope()
+    if (!isManagement) {
+      if (
+        !selfId ||
+        ((deal as any).consultant_id !== selfId &&
+          (deal as any).internal_colleague_id !== selfId)
+      ) {
+        return { deal: null, error: 'Negócio não encontrado' }
+      }
     }
 
     // Fetch payments with splits

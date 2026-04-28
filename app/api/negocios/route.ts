@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 
 export async function GET(request: Request) {
@@ -37,6 +38,29 @@ export async function GET(request: Request) {
     }
     if (search) {
       query = query.or(`localizacao.ilike.%${search}%,observacoes.ilike.%${search}%`)
+    }
+
+    // Gate de visibilidade: gestão vê tudo; consultor só vê onde é o
+    // `assigned_consultant_id` OU onde é o `agent_id` do lead associado
+    // (mesma regra usada noutros endpoints — ver /api/negocios/[id]/interessados).
+    if (!isManagementRole(auth.roles)) {
+      const selfId = auth.user.id
+      const { data: ownedLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('agent_id', selfId)
+      const leadIds = (ownedLeads ?? []).map((l: { id: string }) => l.id)
+      if (leadIds.length > 0) {
+        // Limite prático: 200 leads chega até 6KB no URL — bem dentro do
+        // que o PostgREST aceita. Truncamos defensivamente para evitar
+        // que listas muito grandes partam o gate.
+        const safeIds = leadIds.slice(0, 200)
+        query = query.or(
+          `assigned_consultant_id.eq.${selfId},lead_id.in.(${safeIds.join(',')})`,
+        )
+      } else {
+        query = query.eq('assigned_consultant_id', selfId)
+      }
     }
 
     const { data, error, count } = await query
