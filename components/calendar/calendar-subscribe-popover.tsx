@@ -81,10 +81,13 @@ export function CalendarSubscribePopover() {
     }
   }
 
-  // One-click subscribe via Google Calendar's URL handler. Google parses the
-  // `cid` param from a `webcal://` or `https://` URL on the public form below.
-  const googleAddUrl = url
-    ? `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(url)}`
+  // One-click subscribe via Google Calendar's URL handler. Passamos o feed
+  // com o esquema `webcal://` (em vez de `https://`) — o Google reconhece
+  // melhor como subscrição contínua e adiciona automaticamente. Internamente
+  // o Google traduz para HTTPS para fazer poll.
+  const webcalUrl = url ? url.replace(/^https?:\/\//, 'webcal://') : null
+  const googleAddUrl = webcalUrl
+    ? `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(webcalUrl)}`
     : null
 
   return (
@@ -119,6 +122,9 @@ export function CalendarSubscribePopover() {
                 <input
                   type="text"
                   readOnly
+                  aria-label="URL do calendário"
+                  title="URL do calendário"
+                  placeholder="URL do calendário"
                   value={loading ? 'A carregar...' : url ?? ''}
                   className="flex-1 h-8 px-2.5 text-xs rounded-md border bg-muted/30 font-mono truncate focus:outline-none focus:ring-1 focus:ring-primary/40"
                   onFocus={(e) => e.currentTarget.select()}
