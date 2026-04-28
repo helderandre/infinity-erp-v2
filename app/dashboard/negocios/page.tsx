@@ -56,7 +56,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
-import { DealForm } from '@/components/financial/deal-form'
+import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { NegocioCard } from '@/components/negocios/negocio-card'
 import {
   getDeals,
@@ -759,12 +759,12 @@ function NegociosPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <DealForm
+      <NewNegocioDialog
         open={newDealOpen}
         onOpenChange={setNewDealOpen}
-        onSuccess={() => {
+        onCreated={(negocioId) => {
           setNewDealOpen(false)
-          loadDeals()
+          router.push(`/dashboard/negocios/${negocioId}`)
         }}
       />
     </div>
