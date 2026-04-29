@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { computeFlexibleBadges, isStrictPass } from '@/lib/matching'
 import type { GeoSource } from '@/lib/matching'
+import { isLeadership } from '@/lib/auth/roles'
 
 // GET — list interested buyers for this property
 //
@@ -21,8 +22,29 @@ export async function GET(
     const strict = url.searchParams.get('strict') === 'true'
     const supabaseRaw = await createClient()
     const supabase = supabaseRaw as unknown as {
+      auth: { getUser: () => Promise<{ data: { user: { id: string } | null } }> }
       from: (table: string) => any
       rpc: (fn: string, args: Record<string, unknown>) => Promise<any>
+    }
+
+    // Identifica o utilizador actual + roles (leadership → vê tudo,
+    // restantes → só os negócios "seus")
+    const { data: authData } = await supabase.auth.getUser()
+    const currentUserId = authData?.user?.id ?? null
+    let canSeeAll = false
+    if (currentUserId) {
+      try {
+        const { data: roleRows } = await supabaseRaw
+          .from('user_roles')
+          .select('role:roles!inner(name)')
+          .eq('user_id', currentUserId)
+        const roleNames = (roleRows ?? [])
+          .map((r: any) => r.role?.name)
+          .filter((n: unknown): n is string => typeof n === 'string')
+        canSeeAll = isLeadership(roleNames)
+      } catch {
+        canSeeAll = false
+      }
     }
 
     // 1) Buyers já ligados a este imóvel (negocio_properties)
@@ -140,7 +162,23 @@ export async function GET(
       [key: string]: unknown
     }
 
-    const candidates = (negociosRes.data ?? []) as NegocioCandidate[]
+    const allCandidates = (negociosRes.data ?? []) as NegocioCandidate[]
+
+    // Filtro "só meus": utilizador comum só vê sugestões onde ele é o
+    // consultor atribuído ao negócio OU o agente do lead. Leadership
+    // (admin / Broker / Office Manager / Team Leader) vê tudo.
+    const candidates = canSeeAll
+      ? allCandidates
+      : allCandidates.filter((n) => {
+          const negAssigned = (n as { assigned_consultant_id?: string | null })
+            .assigned_consultant_id
+          const leadAgent = (n.lead as { agent_id?: string | null } | undefined)
+            ?.agent_id
+          return (
+            !!currentUserId &&
+            (negAssigned === currentUserId || leadAgent === currentUserId)
+          )
+        })
     const propPrice = Number(property?.listing_price) || 0
 
     // Carregar negocio_properties já existentes para este imóvel + estes negocios.
