@@ -117,8 +117,8 @@ export function CadenceHeatmap({ consultantId, scope = 'consultant', weeks = 12 
   if (!data || !grid) return null
 
   return (
-    <div className="overflow-hidden rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/85 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
-      <div className="px-5 py-5 sm:px-7 sm:py-6">
+    <div className="overflow-hidden rounded-2xl border bg-card/50 backdrop-blur-sm shadow-sm">
+      <div className="px-4 py-4 sm:px-6 sm:py-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>

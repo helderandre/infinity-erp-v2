@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -16,6 +15,7 @@ import { TrajectoryHero } from '@/components/goals/trajectory-hero'
 import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
 import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
 import { FunnelRadialChart } from '@/components/goals/funnel-radial-chart'
+import { WeeklyReportSheet } from '@/components/goals/weekly-report-sheet'
 
 type ObjetivosTab = 'funil' | 'dashboard'
 
@@ -32,6 +32,7 @@ function ObjetivosPageInner() {
   const { goals, refetch } = useGoals({ year: currentYear, consultant_id: user?.id })
   const myGoalId = goals[0]?.id ?? null
   const [configOpen, setConfigOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
   const initialTab = searchParams.get('tab')
@@ -86,15 +87,14 @@ function ObjetivosPageInner() {
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <Button
-              asChild
               variant="outline"
               size="sm"
+              onClick={() => setReportOpen(true)}
               className="h-8 text-xs gap-1.5"
             >
-              <Link href="/dashboard/objetivos/relatorio-semanal">
-                <FileText className="h-3.5 w-3.5 text-blue-600" />
-                Relatório semanal
-              </Link>
+              <FileText className="h-3.5 w-3.5 text-blue-600" />
+              <span className="hidden xs:inline">Relatório semanal</span>
+              <span className="xs:hidden">Relatório</span>
             </Button>
             <Button
               variant="outline"
@@ -136,6 +136,8 @@ function ObjetivosPageInner() {
           setRefreshTick((n) => n + 1)
         }}
       />
+
+      <WeeklyReportSheet open={reportOpen} onOpenChange={setReportOpen} />
     </div>
   )
 }

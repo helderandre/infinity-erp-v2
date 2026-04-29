@@ -94,8 +94,8 @@ export function TrajectoryHero({ year, consultantId, scope = 'consultant' }: Pro
   const isAhead = s.projected_year_end_count >= s.annual_target_count
 
   return (
-    <div className="overflow-hidden rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/85 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
-      <div className="px-5 py-5 sm:px-7 sm:py-6">
+    <div className="overflow-hidden rounded-2xl border bg-card/50 backdrop-blur-sm shadow-sm">
+      <div className="px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + badge */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -122,7 +122,7 @@ export function TrajectoryHero({ year, consultantId, scope = 'consultant' }: Pro
         </div>
 
         {/* Big number row */}
-        <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-5">
+        <div className="grid grid-cols-3 gap-3 sm:gap-6 mt-4 sm:mt-5">
           <Stat
             label="Realizado"
             value={String(s.realized_count_ytd)}
@@ -132,7 +132,7 @@ export function TrajectoryHero({ year, consultantId, scope = 'consultant' }: Pro
           <Stat
             label="Projectado"
             value={String(Math.round(s.projected_year_end_count))}
-            sub={`Ritmo ${s.pace_per_week.toFixed(2)} / semana`}
+            sub={`${s.pace_per_week.toFixed(2)} / sem`}
             tone={isAhead ? 'positive' : s.status === 'late' ? 'negative' : 'default'}
           />
           <Stat
@@ -145,7 +145,7 @@ export function TrajectoryHero({ year, consultantId, scope = 'consultant' }: Pro
         </div>
 
         {/* Chart */}
-        <div className="mt-5 h-[140px] sm:h-[160px] -mx-2">
+        <div className="mt-4 sm:mt-5 h-[120px] sm:h-[160px] -mx-2">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <defs>
@@ -276,14 +276,14 @@ function Stat({
     tone === 'positive' ? 'text-emerald-600' : tone === 'negative' ? 'text-red-600' : 'text-foreground'
   return (
     <div className="min-w-0">
-      <p className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium flex items-center gap-1">
+      <p className="text-[9px] sm:text-[10px] text-muted-foreground tracking-wider uppercase font-medium flex items-center gap-1">
         {icon}
         {label}
       </p>
-      <p className={cn('text-2xl sm:text-3xl font-semibold tabular-nums leading-tight mt-1', valueCls)}>
+      <p className={cn('text-xl sm:text-3xl font-semibold tabular-nums leading-tight mt-0.5 sm:mt-1', valueCls)}>
         {value}
       </p>
-      {sub && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
+      {sub && <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
     </div>
   )
 }

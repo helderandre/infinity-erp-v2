@@ -84,7 +84,7 @@ export function FunnelRadialChart({ consultantId, scope = 'consultant' }: Props)
   const hasAny = chartData.some((d) => d.realized > 0)
 
   return (
-    <Card className="flex flex-col rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/85 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
+    <Card className="flex flex-col rounded-2xl border bg-card/50 backdrop-blur-sm shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
         <div>
           <CardTitle className="text-sm font-medium tracking-tight">
