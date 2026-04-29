@@ -542,19 +542,25 @@ export function AiVoiceAssistant() {
   }, [open])
 
   // Gesto MOBILE-only para abrir o assistente: tocar no canto superior
-  // direito e arrastar para baixo até cerca de meio do ecrã.
+  // direito e arrastar para baixo até cerca de 1/3 do ecrã.
   //
   // No desktop (pointer: fine, rato) NÃO há gesto — o long-press anterior
   // chocava com selecção de texto / drag de janelas. Quem usa rato tem
   // o botão de voz no topbar.
   //
   // Critérios:
-  //   • pointerdown na zona top-right (right > 70 % da largura, top
-  //     < 25 % da altura) e em elemento não-interactivo (skip em
+  //   • pointerdown na zona top-right (right > 65 % da largura, top
+  //     < 30 % da altura) e em elemento não-interactivo (skip em
   //     button/input/link/contenteditable/data-no-long-press).
-  //   • pointermove com Δy ≥ 40 % da altura do viewport.
+  //   • Usamos touch events em vez de pointer events — pointer events
+  //     são "swallowed" pelo iOS quando interpreta o gesto como scroll
+  //     (`pointercancel` dispara quando a página começa a deslocar-se,
+  //     e isso matava a leitura do nosso gesto). Touch events não têm
+  //     esse problema: vão sempre disparar `touchmove` para o nosso
+  //     listener, mesmo que o navegador faça scroll em paralelo.
+  //   • touchmove com Δy ≥ 30 % da altura do viewport.
   //   • Cancela se Δx dominar (swipe lateral) ou se o dedo subir > 10 px.
-  //   • pointerup/pointercancel antes do limiar → cancela.
+  //   • touchend antes do limiar → cancela.
   useEffect(() => {
     if (open) return
     if (typeof window === 'undefined') return
@@ -589,22 +595,28 @@ export function AiVoiceAssistant() {
       return false
     }
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') return
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
       if (isOptOut(e.target)) return
       const w = window.innerWidth
       const h = window.innerHeight
-      const inZone = e.clientX > w * 0.7 && e.clientY < h * 0.25
+      const inZone = t.clientX > w * 0.65 && t.clientY < h * 0.3
       if (!inZone) return
       armed = true
-      startX = e.clientX
-      startY = e.clientY
+      startX = t.clientX
+      startY = t.clientY
     }
 
-    const onPointerMove = (e: PointerEvent) => {
+    const onTouchMove = (e: TouchEvent) => {
       if (!armed) return
-      const dx = e.clientX - startX
-      const dy = e.clientY - startY
+      if (e.touches.length !== 1) {
+        armed = false
+        return
+      }
+      const t = e.touches[0]
+      const dx = t.clientX - startX
+      const dy = t.clientY - startY
       // Mais horizontal do que vertical → não é o nosso gesto.
       if (Math.abs(dx) > Math.abs(dy) + 30) {
         armed = false
@@ -615,7 +627,7 @@ export function AiVoiceAssistant() {
         armed = false
         return
       }
-      const threshold = window.innerHeight * 0.4
+      const threshold = window.innerHeight * 0.3
       if (dy >= threshold) {
         armed = false
         try {
@@ -632,16 +644,16 @@ export function AiVoiceAssistant() {
       armed = false
     }
 
-    window.addEventListener('pointerdown', onPointerDown, true)
-    window.addEventListener('pointermove', onPointerMove, true)
-    window.addEventListener('pointerup', cancel, true)
-    window.addEventListener('pointercancel', cancel, true)
+    // `passive: true` — não chamamos preventDefault; queremos o scroll
+    // nativo a acontecer em paralelo com a leitura do gesto.
+    window.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true, capture: true })
+    window.addEventListener('touchend', cancel, true)
     return () => {
       cancel()
-      window.removeEventListener('pointerdown', onPointerDown, true)
-      window.removeEventListener('pointermove', onPointerMove, true)
-      window.removeEventListener('pointerup', cancel, true)
-      window.removeEventListener('pointercancel', cancel, true)
+      window.removeEventListener('touchstart', onTouchStart, true)
+      window.removeEventListener('touchmove', onTouchMove, true)
+      window.removeEventListener('touchend', cancel, true)
     }
   }, [open])
 
