@@ -62,8 +62,21 @@ const shortMonth = (m: string) =>
   m.replace(/\s*\d{4}$/, '').replace(/\s*'\d{2}$/, '')
 
 const revenueChartConfig = {
-  revenue: { label: 'Facturação', color: 'var(--chart-1)' },
+  revenue: { label: 'Facturação', color: '#10b981' },
+  margin: { label: 'Margem', color: '#047857' },
 } satisfies ChartConfig
+
+const PT_MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+function monthLabelToDate(label: string): Date | null {
+  const [name, year] = label.split(' ')
+  const idx = PT_MONTH_NAMES.indexOf(name)
+  if (idx < 0 || !year) return null
+  return new Date(parseInt(year, 10), idx, 1)
+}
 
 // ─── Skeleton ───────────────────────────────────────────────────────────────
 
@@ -80,7 +93,7 @@ function DashboardSkeleton() {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type ChartPeriod = '3m' | '6m' | '12m' | 'ytd'
+type ChartPeriod = 'month' | '6m' | 'year' | 'custom'
 type TimePeriod = 'ytd' | 'month' | 'custom'
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -95,7 +108,9 @@ export function ManagementDashboard() {
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetConfig, setSheetConfig] = useState<DrillDownConfig | null>(null)
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('12m')
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('year')
+  const [chartCustomFrom, setChartCustomFrom] = useState('')
+  const [chartCustomTo, setChartCustomTo] = useState('')
   const [rankingTab, setRankingTab] = useState<'revenue' | 'acquisitions'>('revenue')
   const [rankingPeriod, setRankingPeriod] = useState<TimePeriod>('ytd')
   const [customFrom, setCustomFrom] = useState('')
@@ -144,16 +159,24 @@ export function ManagementDashboard() {
   const pipeTotal = pipeline.reduce((s, p) => s + p.weighted_value, 0)
   const urgentAlerts = alerts.filter((a) => a.severity === 'urgent').length
   const monthStart = startOfMonth()
-  const filteredChart = chartPeriod === '3m'
-    ? chart.slice(-3)
+  const filteredChart = chartPeriod === 'month'
+    ? chart.slice(-1)
     : chartPeriod === '6m'
       ? chart.slice(-6)
-      : chartPeriod === 'ytd'
+      : chartPeriod === 'year'
         ? chart.filter((c) => {
             const y = new Date().getFullYear().toString()
             return c.month.includes(y) || c.month.includes(y.slice(-2))
           })
-        : chart
+        : chartPeriod === 'custom' && (chartCustomFrom || chartCustomTo)
+          ? chart.filter((c) => {
+              const d = monthLabelToDate(c.month)
+              if (!d) return false
+              if (chartCustomFrom && d < new Date(chartCustomFrom)) return false
+              if (chartCustomTo && d > new Date(chartCustomTo)) return false
+              return true
+            })
+          : chart
   const currentRankings = rankingTab === 'revenue' ? rankings : rankingsAcq
 
   return (
@@ -278,10 +301,10 @@ export function ManagementDashboard() {
             <SectionCard
               className="lg:col-span-2"
               title="Evolução mensal"
-              description="Facturação reportada por mês"
+              description="Facturação e margem por mês"
               rightSlot={
                 <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/40">
-                  {([['3m', '3M'], ['6m', '6M'], ['12m', '12M'], ['ytd', 'YTD']] as const).map(
+                  {([['month', 'Mês'], ['6m', '6 meses'], ['year', 'Ano'], ['custom', 'Custom']] as const).map(
                     ([val, label]) => (
                       <button
                         key={val}
@@ -300,11 +323,32 @@ export function ManagementDashboard() {
                 </div>
               }
             >
+              {chartPeriod === 'custom' && (
+                <div className="flex items-center gap-2 -mt-2">
+                  <input
+                    type="date"
+                    value={chartCustomFrom}
+                    onChange={(e) => setChartCustomFrom(e.target.value)}
+                    className="h-8 rounded-full border bg-background px-3 text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">a</span>
+                  <input
+                    type="date"
+                    value={chartCustomTo}
+                    onChange={(e) => setChartCustomTo(e.target.value)}
+                    className="h-8 rounded-full border bg-background px-3 text-xs"
+                  />
+                </div>
+              )}
               <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-5">
                 {filteredChart.length > 0 && (
-                  <div className="flex items-baseline gap-3 mb-4">
+                  <div className="flex flex-wrap items-baseline gap-3 mb-4">
                     <span className="text-2xl font-bold tabular-nums tracking-tight">
                       {fmt.format(filteredChart.reduce((s, c) => s + c.revenue, 0))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-700 mr-1.5 align-middle" />
+                      Margem {fmt.format(filteredChart.reduce((s, c) => s + c.margin, 0))}
                     </span>
                     {filteredChart.length >= 2 && (() => {
                       const curr = filteredChart[filteredChart.length - 1]?.revenue || 0
@@ -326,8 +370,12 @@ export function ManagementDashboard() {
                   <AreaChart data={filteredChart} margin={{ left: 4, right: 8, top: 4 }}>
                     <defs>
                       <linearGradient id="fillRevenueMgmt" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
+                        <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.7} />
                         <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
+                      </linearGradient>
+                      <linearGradient id="fillMarginMgmt" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-margin)" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="var(--color-margin)" stopOpacity={0.25} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} className="stroke-muted/40" />
@@ -355,6 +403,13 @@ export function ManagementDashboard() {
                       type="natural"
                       fill="url(#fillRevenueMgmt)"
                       stroke="var(--color-revenue)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      dataKey="margin"
+                      type="natural"
+                      fill="url(#fillMarginMgmt)"
+                      stroke="var(--color-margin)"
                       strokeWidth={2}
                     />
                   </AreaChart>

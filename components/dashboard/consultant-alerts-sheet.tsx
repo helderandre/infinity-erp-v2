@@ -14,7 +14,13 @@ import {
   Download, Phone, Home, UserPlus, LogIn,
   AlertCircle, AlertTriangle, CheckCircle2, Loader2,
 } from 'lucide-react'
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
+import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 
 type Severity = 'ok' | 'warning' | 'danger'
 
@@ -67,6 +73,13 @@ const EXPORT_TYPE_LABELS: Record<string, string> = {
   commissions: 'Comissões',
   candidates: 'Recrutamento',
 }
+
+const loginChartConfig = {
+  count: {
+    label: 'Logins',
+    color: 'var(--chart-1)',
+  },
+} satisfies ChartConfig
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return '—'
@@ -151,7 +164,6 @@ export function ConsultantAlertsSheet({ consultant, open, onOpenChange, onAcknow
     if (!consultant) return []
     return consultant.login_chart.map((p) => ({
       date: p.date,
-      dayLabel: new Date(p.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }),
       count: p.count,
     }))
   }, [consultant])
@@ -325,40 +337,55 @@ export function ConsultantAlertsSheet({ consultant, open, onOpenChange, onAcknow
                   </div>
                 </div>
 
-                <div className="mt-4 h-24 -mx-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                      <XAxis
-                        dataKey="dayLabel"
-                        tick={{ fontSize: 9, fill: 'currentColor' }}
-                        axisLine={false}
-                        tickLine={false}
-                        interval={Math.ceil(chartData.length / 6)}
-                      />
-                      <YAxis hide domain={[0, 'dataMax + 1']} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'rgba(0,0,0,0.85)',
-                          border: 'none',
-                          borderRadius: 8,
-                          fontSize: 11,
-                          padding: '4px 8px',
-                        }}
-                        labelStyle={{ color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
-                        formatter={(v: number) => [`${v}`, 'logins']}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="count"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                <ChartContainer
+                  config={loginChartConfig}
+                  className="mt-4 aspect-auto h-32 w-full"
+                >
+                  <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="fillLogins" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-count)" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="var(--color-count)" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={32}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) =>
+                        new Date(value).toLocaleDateString('pt-PT', {
+                          day: '2-digit',
+                          month: 'short',
+                        })
+                      }
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          labelFormatter={(value) =>
+                            new Date(value).toLocaleDateString('pt-PT', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          }
+                          indicator="dot"
+                        />
+                      }
+                    />
+                    <Area
+                      dataKey="count"
+                      type="natural"
+                      fill="url(#fillLogins)"
+                      stroke="var(--color-count)"
+                    />
+                  </AreaChart>
+                </ChartContainer>
               </div>
 
               {/* 3. Acquisitions */}

@@ -92,6 +92,7 @@ function NumberField({
   suffix,
   step = '1',
   description,
+  onValueChange,
 }: {
   control: Control<CreateGoalInput>
   name: keyof CreateGoalInput
@@ -99,6 +100,7 @@ function NumberField({
   suffix?: string
   step?: string
   description?: string
+  onValueChange?: (value: number | null) => void
 }) {
   return (
     <FormField
@@ -116,9 +118,11 @@ function NumberField({
                 step={step}
                 className="rounded-xl bg-background/80 border-border/40 tabular-nums"
                 value={(field.value as number | string | null | undefined) ?? ''}
-                onChange={(e) =>
-                  field.onChange(e.target.value ? Number(e.target.value) : null)
-                }
+                onChange={(e) => {
+                  const v = e.target.value ? Number(e.target.value) : null
+                  field.onChange(v)
+                  onValueChange?.(v)
+                }}
               />
             </FormControl>
             {suffix && (
@@ -497,6 +501,14 @@ export function GoalConfigForm({
                   label="% Vendedores"
                   suffix="%"
                   step="1"
+                  onValueChange={(v) => {
+                    if (v != null && Number.isFinite(v)) {
+                      form.setValue('pct_buyers', 100 - v, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                  }}
                 />
                 <NumberField
                   control={form.control}
@@ -505,6 +517,14 @@ export function GoalConfigForm({
                   suffix="%"
                   step="1"
                   description={`Soma actual: ${(watchPctSellers || 0) + (form.watch('pct_buyers') || 0)}%`}
+                  onValueChange={(v) => {
+                    if (v != null && Number.isFinite(v)) {
+                      form.setValue('pct_sellers', 100 - v, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                  }}
                 />
                 <NumberField
                   control={form.control}
