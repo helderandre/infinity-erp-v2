@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { FEEDBACK_STATUS_MAP, FEEDBACK_TYPE_LABELS } from '@/types/feedback'
+import { FEEDBACK_STATUS_MAP, FEEDBACK_TYPE_LABELS, FEEDBACK_PAGE_LABELS } from '@/types/feedback'
 import { TASK_PRIORITY_MAP } from '@/types/task'
 import type { FeedbackWithRelations, FeedbackStatus } from '@/types/feedback'
 
@@ -217,6 +217,18 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
 
         {/* ─── Body ─── */}
         <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 pb-8 space-y-6">
+          {/* Page detected — clue para a equipa técnica saber onde ir. */}
+          {item.page && FEEDBACK_PAGE_LABELS[item.page as keyof typeof FEEDBACK_PAGE_LABELS] && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium uppercase tracking-wider text-muted-foreground/80">
+                Página
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-foreground font-medium">
+                {FEEDBACK_PAGE_LABELS[item.page as keyof typeof FEEDBACK_PAGE_LABELS]}
+              </span>
+            </div>
+          )}
+
           {/* Description */}
           {item.description && (
             <div className="rounded-2xl border border-border/40 bg-card/60 p-4">

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Bug, Lightbulb, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Bug, Lightbulb, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,18 +9,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { FeedbackCard } from '@/components/feedback/feedback-card'
 import { FeedbackDetailSheet } from '@/components/feedback/feedback-detail-sheet'
 import { cn } from '@/lib/utils'
 import {
-  FEEDBACK_STATUS_MAP, FEEDBACK_PIPELINE_COLUMNS, FEEDBACK_TYPE_LABELS,
+  FEEDBACK_STATUS_MAP,
+  FEEDBACK_PIPELINE_COLUMNS,
+  FEEDBACK_TYPE_LABELS,
+  FEEDBACK_PAGES,
+  FEEDBACK_PAGE_LABELS,
 } from '@/types/feedback'
-import type { FeedbackWithRelations, FeedbackStatus } from '@/types/feedback'
+import type { FeedbackWithRelations, FeedbackStatus, FeedbackPage } from '@/types/feedback'
 
 export default function TechPipelinePage() {
   const [items, setItems] = useState<FeedbackWithRelations[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<'all' | 'ticket' | 'ideia'>('all')
+  const [pageFilter, setPageFilter] = useState<FeedbackPage | 'all'>('all')
   const [selectedItem, setSelectedItem] = useState<FeedbackWithRelations | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
@@ -30,6 +42,7 @@ export default function TechPipelinePage() {
     try {
       const params = new URLSearchParams({ limit: '200' })
       if (typeFilter !== 'all') params.set('type', typeFilter)
+      if (pageFilter !== 'all') params.set('page', pageFilter)
 
       const res = await fetch(`/api/feedback?${params}`)
       if (!res.ok) throw new Error()
@@ -40,7 +53,25 @@ export default function TechPipelinePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [typeFilter])
+  }, [typeFilter, pageFilter])
+
+  // Contagem por página, calculada a partir do dataset actual (já filtrado
+  // por tipo). Mostra todas as páginas que aparecem no resultado, ordenadas
+  // pela ordem canónica de FEEDBACK_PAGES.
+  const countByPage = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const it of items) {
+      const key = it.page || '__none__'
+      counts[key] = (counts[key] || 0) + 1
+    }
+    return counts
+  }, [items])
+
+  // Páginas presentes nos dados — usadas como sugestão rápida no select
+  // quando o filtro está 'all' (todas aparecem; com label e contagem).
+  const pagesWithItems = useMemo(() => {
+    return FEEDBACK_PAGES.filter((p) => (countByPage[p.slug] || 0) > 0)
+  }, [countByPage])
 
   useEffect(() => {
     fetchItems()
@@ -90,31 +121,72 @@ export default function TechPipelinePage() {
         </p>
       </div>
 
-      {/* Type filter tabs */}
-      <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-        <TabsList>
-          <TabsTrigger value="all">
-            Todos
-            <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 px-1.5 text-[0.65rem]">
-              {items.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="ticket" className="gap-1.5">
-            <Bug className="h-3.5 w-3.5" />
-            Tickets
-            <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[0.65rem]">
-              {totalByType.ticket}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="ideia" className="gap-1.5">
-            <Lightbulb className="h-3.5 w-3.5" />
-            Ideias
-            <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[0.65rem]">
-              {totalByType.ideia}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Type filter tabs + page filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+          <TabsList>
+            <TabsTrigger value="all">
+              Todos
+              <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 px-1.5 text-[0.65rem]">
+                {items.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="ticket" className="gap-1.5">
+              <Bug className="h-3.5 w-3.5" />
+              Tickets
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[0.65rem]">
+                {totalByType.ticket}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="ideia" className="gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" />
+              Ideias
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[0.65rem]">
+                {totalByType.ideia}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Page filter — vê tudo de uma página específica de uma vez. */}
+        <div className="flex items-center gap-2">
+          <Select value={pageFilter} onValueChange={(v) => setPageFilter(v as any)}>
+            <SelectTrigger className="h-9 w-[200px] rounded-full text-xs">
+              <SelectValue placeholder="Filtrar por página" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as páginas</SelectItem>
+              {pagesWithItems.map((p) => (
+                <SelectItem key={p.slug} value={p.slug}>
+                  {p.label} · {countByPage[p.slug]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {pageFilter !== 'all' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs text-muted-foreground"
+              onClick={() => setPageFilter('all')}
+            >
+              <X className="h-3.5 w-3.5" />
+              Limpar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Active page filter banner */}
+      {pageFilter !== 'all' && (
+        <div className="rounded-lg bg-muted/40 border px-3 py-2 text-xs text-muted-foreground">
+          A mostrar apenas itens da página{' '}
+          <span className="font-medium text-foreground">
+            {FEEDBACK_PAGE_LABELS[pageFilter as FeedbackPage]}
+          </span>
+          .
+        </div>
+      )}
 
       {/* Kanban board */}
       {isLoading ? (

@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { ImagePlus, Loader2, Bug, Lightbulb, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -9,8 +10,20 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { VoiceRecorder } from './voice-recorder'
 import { useImageCompress } from '@/hooks/use-image-compress'
+import {
+  FEEDBACK_PAGES,
+  pathnameToFeedbackPage,
+  type FeedbackPage,
+} from '@/types/feedback'
 
 interface FeedbackDialogProps {
   type: 'ticket' | 'ideia'
@@ -45,14 +58,25 @@ const CONFIG = {
 const MAX_IMAGES = 5
 
 export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps) {
+  const pathname = usePathname()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [page, setPage] = useState<FeedbackPage | ''>('')
   const [images, setImages] = useState<ImagePreview[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { compressImage, isCompressing } = useImageCompress()
   const config = CONFIG[type]
   const Icon = config.icon
+
+  // Auto-pré-selecciona a página actual quando o diálogo abre — o utilizador
+  // pode substituir. Reseta entre aberturas para apanhar mudanças de rota.
+  useEffect(() => {
+    if (!open) return
+    if (page) return
+    const detected = pathnameToFeedbackPage(pathname)
+    if (detected) setPage(detected)
+  }, [open, pathname, page])
 
   const handleTranscription = (text: string) => {
     if (!title) {
@@ -121,6 +145,10 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       toast.error('Título é obrigatório')
       return
     }
+    if (!page) {
+      toast.error('Indica em que página detectaste isto')
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -138,6 +166,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
           title: title.trim(),
           description: description.trim() || null,
           images: imageUrls,
+          page,
         }),
       })
 
@@ -151,6 +180,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       images.forEach((img) => URL.revokeObjectURL(img.preview))
       setTitle('')
       setDescription('')
+      setPage('')
       setImages([])
       onOpenChange(false)
     } catch (err) {
@@ -189,6 +219,27 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
               onChange={(e) => setTitle(e.target.value)}
               placeholder={config.titlePlaceholder}
             />
+          </div>
+
+          {/* Page (auto-detect + manual override). Obrigatório, simplifica
+              triagem na tech pipeline. */}
+          <div className="space-y-2">
+            <Label htmlFor="feedback-page">
+              Em que página detectaste isto?
+              <span className="text-destructive ml-0.5">*</span>
+            </Label>
+            <Select value={page} onValueChange={(v) => setPage(v as FeedbackPage)}>
+              <SelectTrigger id="feedback-page">
+                <SelectValue placeholder="Escolhe a página…" />
+              </SelectTrigger>
+              <SelectContent>
+                {FEEDBACK_PAGES.map((p) => (
+                  <SelectItem key={p.slug} value={p.slug}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Description */}
@@ -261,7 +312,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || isCompressing || !title.trim()}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || isCompressing || !title.trim() || !page}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enviar
           </Button>

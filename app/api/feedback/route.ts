@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Parâmetros inválidos' }, { status: 400 })
     }
 
-    const { type, status, submitted_by, limit, offset } = params.data
+    const { type, status, submitted_by, page, limit, offset } = params.data
     const supabase = createAdminClient()
 
     let query = supabase
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     if (type) query = query.eq('type', type)
     if (status) query = query.eq('status', status)
     if (submitted_by) query = query.eq('submitted_by', submitted_by)
+    if (page) query = query.eq('page', page)
 
     const { data, error, count } = await query
 
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
         description: data.description || null,
         voice_url: data.voice_url || null,
         images: data.images || [],
+        page: data.page,
         submitted_by: auth.user.id,
       })
       .select('id')

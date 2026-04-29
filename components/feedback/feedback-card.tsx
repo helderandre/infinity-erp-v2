@@ -6,6 +6,7 @@ import { Bug, Lightbulb, User, GripVertical } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { TASK_PRIORITY_MAP } from '@/types/task'
+import { FEEDBACK_PAGE_LABELS } from '@/types/feedback'
 import type { FeedbackWithRelations } from '@/types/feedback'
 
 interface FeedbackCardProps {
@@ -39,6 +40,16 @@ export function FeedbackCard({ item, onClick }: FeedbackCardProps) {
         <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
           {item.description}
         </p>
+      )}
+
+      {/* Page badge — só aparece em entradas pós-feature (entradas antigas
+          ficam com page=null e o badge é silencioso). */}
+      {item.page && FEEDBACK_PAGE_LABELS[item.page as keyof typeof FEEDBACK_PAGE_LABELS] && (
+        <div className="mb-2">
+          <Badge variant="outline" className="text-[0.6rem] h-4 px-1.5 font-normal">
+            {FEEDBACK_PAGE_LABELS[item.page as keyof typeof FEEDBACK_PAGE_LABELS]}
+          </Badge>
+        </div>
       )}
 
       {/* Footer */}
