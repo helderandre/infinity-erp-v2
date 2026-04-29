@@ -541,35 +541,29 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Long-press 2.5s anywhere → abre o assistente.
+  // Gesto MOBILE-only para abrir o assistente: tocar no canto superior
+  // direito e arrastar para baixo até cerca de meio do ecrã.
   //
-  // Modelo simples: a janela de 2,5 s é maior do que qualquer gesto nativo
-  // de cópia (lupa ~500 ms + context-menu ~700 ms–1 s + tap em "Copiar").
-  // Se o utilizador copiar, solta o dedo dentro desse intervalo e o
-  // pointerup cancela. Se mantiver os 3 s todos, queremos abrir a voz —
-  // limpamos qualquer selecção que tenha sido feita, em vez de cancelar.
+  // No desktop (pointer: fine, rato) NÃO há gesto — o long-press anterior
+  // chocava com selecção de texto / drag de janelas. Quem usa rato tem
+  // o botão de voz no topbar.
   //
-  // IMPORTANTE: NÃO cancelamos em `pointercancel` porque o iOS Safari
-  // dispara esse evento quando o sistema mostra o context-menu nativo
-  // de selecção de texto (~1 s no press), o que matava o temporizador
-  // antes dos 2,5 s e fazia o long-press parecer "morto" em zonas de
-  // texto. Ficamos só com:
-  //   - pointerup — gesto terminou (dedo saiu).
-  //   - pointer move > 8 px — scroll ou drag de selection handle.
-  // O opt-out por elemento (input/textarea/etc + data-no-long-press)
-  // continua porque pressionar um botão/input nunca deve abrir a voz.
+  // Critérios:
+  //   • pointerdown na zona top-right (right > 70 % da largura, top
+  //     < 25 % da altura) e em elemento não-interactivo (skip em
+  //     button/input/link/contenteditable/data-no-long-press).
+  //   • pointermove com Δy ≥ 40 % da altura do viewport.
+  //   • Cancela se Δx dominar (swipe lateral) ou se o dedo subir > 10 px.
+  //   • pointerup/pointercancel antes do limiar → cancela.
   useEffect(() => {
     if (open) return
-    let timer: number | null = null
+    if (typeof window === 'undefined') return
+    const isCoarse = window.matchMedia?.('(pointer: coarse)').matches
+    if (!isCoarse) return
+
+    let armed = false
     let startX = 0
     let startY = 0
-
-    const cancel = () => {
-      if (timer != null) {
-        window.clearTimeout(timer)
-        timer = null
-      }
-    }
 
     const isOptOut = (target: EventTarget | null): boolean => {
       const el = target as HTMLElement | null
@@ -596,20 +590,34 @@ export function AiVoiceAssistant() {
     }
 
     const onPointerDown = (e: PointerEvent) => {
-      // Desktop/PC: skip the long-press trigger entirely. Mouse users have
-      // the explicit voice button in the dashboard topbar; holding a click
-      // for 2.5s every time you select text or scroll is annoying. Touch
-      // and pen pointers (mobile/tablet/Wacom) keep the gesture, which is
-      // where the long-press shortcut actually adds value.
       if (e.pointerType === 'mouse') return
       if (isOptOut(e.target)) return
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const inZone = e.clientX > w * 0.7 && e.clientY < h * 0.25
+      if (!inZone) return
+      armed = true
       startX = e.clientX
       startY = e.clientY
-      cancel()
-      timer = window.setTimeout(() => {
-        timer = null
-        // Se o utilizador chegou aos 2,5 s, é porque quer voz — limpa
-        // qualquer selecção residual antes de abrir o overlay.
+    }
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!armed) return
+      const dx = e.clientX - startX
+      const dy = e.clientY - startY
+      // Mais horizontal do que vertical → não é o nosso gesto.
+      if (Math.abs(dx) > Math.abs(dy) + 30) {
+        armed = false
+        return
+      }
+      // O dedo subiu — utilizador desistiu / corrigiu.
+      if (dy < -10) {
+        armed = false
+        return
+      }
+      const threshold = window.innerHeight * 0.4
+      if (dy >= threshold) {
+        armed = false
         try {
           window.getSelection?.()?.removeAllRanges()
         } catch {}
@@ -617,24 +625,23 @@ export function AiVoiceAssistant() {
           ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
         } catch {}
         window.dispatchEvent(new Event('open-voice-assistant'))
-      }, 2500)
+      }
     }
 
-    const onPointerMove = (e: PointerEvent) => {
-      if (timer == null) return
-      const dx = Math.abs(e.clientX - startX)
-      const dy = Math.abs(e.clientY - startY)
-      if (dx > 8 || dy > 8) cancel()
+    const cancel = () => {
+      armed = false
     }
 
     window.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('pointermove', onPointerMove, true)
     window.addEventListener('pointerup', cancel, true)
+    window.addEventListener('pointercancel', cancel, true)
     return () => {
       cancel()
       window.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('pointermove', onPointerMove, true)
       window.removeEventListener('pointerup', cancel, true)
+      window.removeEventListener('pointercancel', cancel, true)
     }
   }, [open])
 
