@@ -3,13 +3,33 @@
 import { cn } from '@/lib/utils'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { FunnelStageResult, FunnelStageStatus } from '@/types/funnel'
+import type { FunnelStageKey, FunnelStageResult, FunnelStageStatus } from '@/types/funnel'
 
 interface Props {
   stage: FunnelStageResult
   index: number
   isLast: boolean
   onRegisterManual?: () => void
+}
+
+// Singular form by stage key — used in copy like "para 1 proposta".
+// Existing labels are plural for activity stages (Visitas, Propostas) and
+// already singular for deal stages (CPCV, Escritura, Angariação...).
+const SINGULAR_LABEL: Record<FunnelStageKey, string> = {
+  contactos: 'contacto',
+  pesquisa: 'envio',
+  visita: 'visita',
+  proposta: 'proposta',
+  cpcv: 'CPCV',
+  escritura: 'escritura',
+  pre_angariacao: 'pré-angariação',
+  estudo_mercado: 'estudo',
+  angariacao: 'angariação',
+}
+
+function formatRatio(ratio: number): string {
+  // Whole numbers without decimal: "5 visitas", not "5.0 visitas"
+  return Number.isInteger(ratio) ? String(ratio) : ratio.toFixed(1)
 }
 
 const STATUS_BAR_COLOR: Record<FunnelStageStatus, string> = {
@@ -86,19 +106,60 @@ export function FunnelStageRow({ stage, index, isLast, onRegisterManual }: Props
           />
         </div>
 
-        {/* Footer */}
+        {/* Footer — primary line is the action ratio (when this stage has an
+            input). The % chip is demoted to a small right-side pill. */}
         <div className="flex items-center justify-between gap-2 mt-1.5">
-          <span className={cn('text-[11px] font-medium tabular-nums', STATUS_TEXT_COLOR[stage.status])}>
-            {stage.target > 0 ? `${Math.round(stage.percent)}% do objetivo` : '—'}
-          </span>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={cn('text-[11px] truncate', STATUS_TEXT_COLOR[stage.status])}>{stage.message}</span>
+          <div className="min-w-0 flex-1">
+            {stage.ratio_from_prev !== null && stage.prev_label ? (
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  <span className="font-semibold text-foreground">
+                    {formatRatio(stage.ratio_from_prev)} {stage.prev_label.toLowerCase()}
+                  </span>
+                  {' '}para 1 {SINGULAR_LABEL[stage.key]}
+                </span>
+                {stage.prev_inputs_needed_for_next_one !== null &&
+                  stage.prev_inputs_needed_for_next_one > 0 && (
+                    <span
+                      className={cn(
+                        'text-[11px] font-medium tabular-nums',
+                        STATUS_TEXT_COLOR[stage.status],
+                      )}
+                    >
+                      · faz +{stage.prev_inputs_needed_for_next_one} {stage.prev_label.toLowerCase()} para próxima
+                    </span>
+                  )}
+                {stage.prev_inputs_needed_for_next_one === 0 && (
+                  <span className="text-[11px] text-emerald-600 font-medium">
+                    · próxima já em pipeline
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className={cn('text-[11px] truncate', STATUS_TEXT_COLOR[stage.status])}>
+                {stage.message}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {stage.target > 0 && (
+              <span
+                title={`${stage.realized} de ${Math.round(stage.target)} no período`}
+                className={cn(
+                  'text-[10px] font-medium tabular-nums rounded-full px-1.5 py-0.5 leading-none',
+                  'bg-muted/60 border border-border/40',
+                  STATUS_TEXT_COLOR[stage.status],
+                )}
+              >
+                {Math.round(stage.percent)}%
+              </span>
+            )}
             {onRegisterManual && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onRegisterManual}
-                className="h-5 w-5 opacity-40 hover:opacity-100 group-hover:opacity-100 transition-opacity shrink-0"
+                className="h-5 w-5 opacity-40 hover:opacity-100 group-hover:opacity-100 transition-opacity"
                 title="Registar manualmente"
               >
                 <Plus className="h-3 w-3" />

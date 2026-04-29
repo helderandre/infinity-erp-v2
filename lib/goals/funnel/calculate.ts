@@ -88,6 +88,61 @@ export function computeStageTargets(args: ComputeStageTargetsArgs): Record<Funne
   return result as Record<FunnelStageKey, number>
 }
 
+/**
+ * Input ratio per stage = 1 / conversion_rate(prev → this).
+ *
+ * Frames the funnel as the consultor sees it day-to-day:
+ *   "Para 1 proposta: 5 visitas"   (ratio_from_prev=5 on stage 'proposta')
+ *   "Para 1 CPCV: 2.2 propostas"   (ratio_from_prev=2.22 on stage 'cpcv')
+ *
+ * The first stage has no input → null. Conversion overrides are applied
+ * to the PREVIOUS stage's rate (since cr lives on the source-side stage).
+ */
+export interface StageInputRatio {
+  ratio_from_prev: number | null
+  prev_label: string | null
+  prev_key: FunnelStageKey | null
+}
+
+export function computeInputRatios(
+  funnel: FunnelType,
+  conversionOverrides?: Partial<Record<FunnelStageKey, number>>,
+): Record<FunnelStageKey, StageInputRatio> {
+  const stages = getStagesFor(funnel)
+  const out: Partial<Record<FunnelStageKey, StageInputRatio>> = {}
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i]
+    if (i === 0) {
+      out[stage.key] = { ratio_from_prev: null, prev_label: null, prev_key: null }
+      continue
+    }
+    const prev = stages[i - 1]
+    const cr = conversionOverrides?.[prev.key] ?? prev.defaultConversionRate
+    const ratio = cr > 0 ? 1 / cr : null
+    out[stage.key] = {
+      ratio_from_prev: ratio !== null ? Math.round(ratio * 10) / 10 : null,
+      prev_label: prev.label,
+      prev_key: prev.key,
+    }
+  }
+  return out as Record<FunnelStageKey, StageInputRatio>
+}
+
+/**
+ * How many MORE inputs of the previous stage are needed right now so that
+ * the next event of `thisKey` can be produced. Returns 0 when the consultor
+ * already has enough "carry" to land the next one.
+ */
+export function inputsNeededForNextOne(args: {
+  ratio: number | null
+  realizedThis: number
+  realizedPrev: number
+}): number | null {
+  if (args.ratio === null || args.ratio <= 0) return null
+  const targetCarry = (args.realizedThis + 1) * args.ratio
+  return Math.max(0, Math.ceil(targetCarry - args.realizedPrev))
+}
+
 export function statusFromPercent(percent: number): FunnelStageStatus {
   if (percent >= 100) return 'completed'
   if (percent >= 90) return 'on_track'

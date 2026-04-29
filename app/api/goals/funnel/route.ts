@@ -10,6 +10,8 @@ import {
   buildStageMessage,
   aggregateFunnelStatus,
   computeTotalConversion,
+  computeInputRatios,
+  inputsNeededForNextOne,
 } from '@/lib/goals/funnel/calculate'
 import {
   REALIZED_DEAL_COLUMNS,
@@ -241,6 +243,27 @@ export async function GET(request: Request) {
       const stagesDefs = getStagesFor(funnel)
       const isBuyer = funnel === 'buyer'
 
+      // Input-ratio overrides:
+      //  - consultant scope with exactly 1 goal: use that consultor's per-stage rates
+      //  - team scope or no goals: use defaults (mixing per-consultor cr into a team
+      //    "1 proposta = 5 visitas" framing would mislead).
+      let ratioOverrides: Partial<Record<FunnelStageKey, number>> | undefined
+      if (scope === 'consultant' && (goals || []).length === 1) {
+        const crByFunnel = ((goals || [])[0].funnel_conversion_rates || {})[funnel] as
+          | Record<string, number>
+          | undefined
+        if (crByFunnel) {
+          ratioOverrides = {}
+          for (const s of stagesDefs) {
+            const v = crByFunnel[s.key]
+            if (typeof v === 'number' && v > 0 && v <= 1) {
+              ratioOverrides[s.key] = v
+            }
+          }
+        }
+      }
+      const inputRatios = computeInputRatios(funnel, ratioOverrides)
+
       // Sum targets across all goals
       const summedTargets: Record<string, number> = {}
       stagesDefs.forEach((s) => (summedTargets[s.key] = 0))
@@ -298,14 +321,21 @@ export async function GET(request: Request) {
         })
       })
 
-      // Aggregate realized counts
-      const stages: FunnelStageResult[] = stagesDefs.map((def) => {
+      // Aggregate realized counts — pass 1: realized + breakdown only, indexed
+      // by stage key so we can resolve `realized[prev.key]` in pass 2.
+      const realizedByKey: Record<string, { realized: number; system: number; manual: number }> = {}
+      stagesDefs.forEach((def) => {
         const matched = eventsRows.filter(
           (e) => e.funnel_type === funnel && e.stage_key === def.key,
         )
         const system = matched.filter((e) => e.source === 'system').length
         const manual = matched.filter((e) => e.source === 'manual').length
-        const realized = system + manual
+        realizedByKey[def.key] = { realized: system + manual, system, manual }
+      })
+
+      // Pass 2: assemble FunnelStageResult with ratios + still-needed maths.
+      const stages: FunnelStageResult[] = stagesDefs.map((def) => {
+        const { realized, system, manual } = realizedByKey[def.key]
         const target = Math.max(0, Math.round(summedTargets[def.key] * 100) / 100)
         const percent =
           target > 0 ? Math.min(999, Math.round((realized / target) * 1000) / 10) : realized > 0 ? 100 : 0
@@ -319,6 +349,14 @@ export async function GET(request: Request) {
           emptyHint: def.emptyHint,
         })
 
+        const ratioInfo = inputRatios[def.key]
+        const realizedPrev = ratioInfo.prev_key ? realizedByKey[ratioInfo.prev_key].realized : 0
+        const prevInputsNeeded = inputsNeededForNextOne({
+          ratio: ratioInfo.ratio_from_prev,
+          realizedThis: realized,
+          realizedPrev,
+        })
+
         return {
           key: def.key,
           label: def.label,
@@ -330,6 +368,11 @@ export async function GET(request: Request) {
           message,
           source_breakdown: { system, manual },
           is_terminal_completed: status === 'completed' && realized >= target && target > 0,
+          ratio_from_prev: ratioInfo.ratio_from_prev,
+          prev_label: ratioInfo.prev_label,
+          prev_key: ratioInfo.prev_key,
+          prev_inputs_needed_for_next_one: prevInputsNeeded,
+          still_needed_for_period_target: Math.max(0, Math.ceil(target - realized)),
         }
       })
 

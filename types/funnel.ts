@@ -52,6 +52,28 @@ export interface FunnelStageResult {
   message: string
   source_breakdown: { system: number; manual: number }
   is_terminal_completed: boolean
+  /**
+   * Activity ratio: how many events of the PREVIOUS stage are needed to produce
+   * one of THIS stage (= 1 / conversion_rate(prev → this)). Null on the first
+   * stage of the funnel (no input). Example: stage='proposta', ratio_from_prev=5
+   * means "1 proposta requer 5 visitas".
+   */
+  ratio_from_prev: number | null
+  /** Label of the previous stage (e.g. "Visitas") — convenience for UI copy. */
+  prev_label: string | null
+  prev_key: FunnelStageKey | null
+  /**
+   * How many MORE events of the previous stage are needed RIGHT NOW so that
+   * the next event of THIS stage can be produced, given the current realized
+   * counts on both stages. 0 means "you're already ahead — the next one is
+   * already in your pipeline based on past activity".
+   *
+   * Formula: max(0, ceil((realized_this + 1) * ratio_from_prev - realized_prev))
+   * Null on the first stage (no input).
+   */
+  prev_inputs_needed_for_next_one: number | null
+  /** Convenience: max(0, ceil(target - realized)) — same number used in `message`. */
+  still_needed_for_period_target: number
 }
 
 export interface FunnelSummary {
