@@ -302,8 +302,8 @@ function InstanciasContent() {
             Gerir instâncias WhatsApp conectadas ao sistema
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {isAdmin && (
             <Button variant="outline" onClick={handleSync} disabled={syncing}>
               {syncing ? (
                 <Spinner variant="infinite" size={16} className="mr-2" />
@@ -312,12 +312,12 @@ function InstanciasContent() {
               )}
               Actualizar
             </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova
-            </Button>
-          </div>
-        )}
+          )}
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -381,22 +381,18 @@ function InstanciasContent() {
             <p className="text-sm text-muted-foreground mt-1 mb-4">
               Crie uma nova instância ou sincronize com a Uazapi
             </p>
-            {isAdmin ? (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              {isAdmin && (
                 <Button variant="outline" onClick={handleSync}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Sincronizar
                 </Button>
-                <Button onClick={() => setCreateOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar instância
-                </Button>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Contacte um administrador para lhe atribuir uma instância.
-              </p>
-            )}
+              )}
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Criar instância
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -423,6 +419,7 @@ function InstanciasContent() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
+        isAdmin={isAdmin}
       />
 
       {/* Connection Sheet */}

@@ -30,12 +30,14 @@ interface CreateInstanceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (params: { name: string; user_id?: string }) => Promise<void>
+  isAdmin?: boolean
 }
 
 export function CreateInstanceDialog({
   open,
   onOpenChange,
   onSubmit,
+  isAdmin = false,
 }: CreateInstanceDialogProps) {
   const [name, setName] = useState("")
   const [userId, setUserId] = useState<string>("")
@@ -49,6 +51,8 @@ export function CreateInstanceDialog({
       setUserId("")
       return
     }
+
+    if (!isAdmin) return
 
     let cancelled = false
     async function loadUsers() {
@@ -79,7 +83,7 @@ export function CreateInstanceDialog({
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, isAdmin])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,24 +125,26 @@ export function CreateInstanceDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="instance-user">Utilizador responsável</Label>
-            <Select value={userId} onValueChange={setUserId}>
-              <SelectTrigger id="instance-user">
-                <SelectValue
-                  placeholder={loadingUsers ? "A carregar..." : "Nenhum (opcional)"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.commercial_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="instance-user">Utilizador responsável</Label>
+              <Select value={userId} onValueChange={setUserId}>
+                <SelectTrigger id="instance-user">
+                  <SelectValue
+                    placeholder={loadingUsers ? "A carregar..." : "Nenhum (opcional)"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.commercial_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
