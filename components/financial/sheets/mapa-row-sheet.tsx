@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -435,8 +436,8 @@ function GestaoEditor({
         </div>
         <Field label="Cliente" value={agencyInvRecipient} onChange={setAgencyInvRecipient} placeholder="Nome do cliente" />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Valor (líquido)" type="number" value={agencyInvNet} onChange={setAgencyInvNet} placeholder="0,00" />
-          <Field label="Valor (bruto)" type="number" value={agencyInvGross} onChange={setAgencyInvGross} placeholder="0,00" />
+          <Field label="Valor (líquido)" type="currency" value={agencyInvNet} onChange={setAgencyInvNet} />
+          <Field label="Valor (bruto)" type="currency" value={agencyInvGross} onChange={setAgencyInvGross} />
         </div>
       </Section>
 
@@ -539,13 +540,21 @@ function Field({
       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
         {label}
       </Label>
-      <Input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-9 rounded-xl text-sm"
-      />
+      {type === 'currency' ? (
+        <CurrencyInput
+          value={value ? Number(value) : null}
+          onChange={(v) => onChange(v != null ? String(v) : '')}
+          className="h-9 rounded-xl text-sm"
+        />
+      ) : (
+        <Input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="h-9 rounded-xl text-sm"
+        />
+      )}
     </div>
   )
 }

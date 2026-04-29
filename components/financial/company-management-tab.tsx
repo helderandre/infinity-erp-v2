@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -551,7 +552,7 @@ export function CompanyManagementTab() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-[11px] uppercase tracking-wider">Valor s/IVA</Label>
-                <Input type="number" step="0.01" value={form.amount_net} onChange={(e) => setForm({ ...form, amount_net: e.target.value })} className="h-8 text-sm mt-1" />
+                <CurrencyInput value={form.amount_net ? Number(form.amount_net) : null} onChange={(v) => setForm({ ...form, amount_net: v != null ? String(v) : '' })} className="h-8 text-sm mt-1" />
               </div>
               <div>
                 <Label className="text-[11px] uppercase tracking-wider">IVA %</Label>

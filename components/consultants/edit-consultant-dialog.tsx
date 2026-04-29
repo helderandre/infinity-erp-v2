@@ -11,6 +11,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -334,7 +335,7 @@ export function EditConsultantDialog({ open, onOpenChange, consultant, roles, on
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Salário Mensal</Label>
-                  <Input className="rounded-xl" type="number" step="0.01" min="0" placeholder="0.00" value={form.monthly_salary} onChange={e => update('monthly_salary', e.target.value)} />
+                  <CurrencyInput className="rounded-xl" value={form.monthly_salary ? Number(form.monthly_salary) : null} onChange={(v) => update('monthly_salary', v != null ? String(v) : '')} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Comissão (%)</Label>

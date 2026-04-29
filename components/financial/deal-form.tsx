@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
@@ -383,7 +384,7 @@ export function DealForm({ open, onOpenChange, onSuccess }: DealFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Valor da Transaccao *</Label>
-                <Input type="number" min={0} step="0.01" placeholder="0,00 EUR" value={dealValue} onChange={(e) => setDealValue(e.target.value)} />
+                <CurrencyInput value={dealValue ? Number(dealValue) : null} onChange={(v) => setDealValue(v != null ? String(v) : '')} />
               </div>
               <div className="space-y-2">
                 <Label>Data *</Label>

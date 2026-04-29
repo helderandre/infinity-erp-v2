@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -379,10 +380,9 @@ export function DealComplianceTab({ dealId, dealValue, dealDate }: DealComplianc
               {(data.payment_method === 'cash' || data.payment_method === 'mixed') && (
                 <div>
                   <Label className="mb-1 text-xs">Montante em numerário</Label>
-                  <Input
-                    type="number"
-                    value={data.cash_amount || ''}
-                    onChange={(e) => save('cash_amount', parseFloat(e.target.value) || 0)}
+                  <CurrencyInput
+                    value={data.cash_amount ?? null}
+                    onChange={(v) => save('cash_amount', v ?? 0)}
                   />
                 </div>
               )}

@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { Loader2 } from 'lucide-react'
 import { EURIBOR_REFERENCE_OPTIONS } from '@/lib/constants'
 import type { CreditProposal, CreditBank } from '@/types/credit'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -87,7 +88,7 @@ export function CreditProposalForm({
 }: CreditProposalFormProps) {
   const isEditing = !!initialData
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, control } = useForm<FormValues>({
     defaultValues: getDefaults(null),
   })
 
@@ -219,7 +220,17 @@ export function CreditProposalForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="montante_aprovado">Montante Aprovado</Label>
-                <Input id="montante_aprovado" type="number" step="0.01" {...register('montante_aprovado')} placeholder="0,00" />
+                <Controller
+                  name="montante_aprovado"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="prazo_aprovado_anos">Prazo (anos)</Label>
@@ -278,11 +289,31 @@ export function CreditProposalForm({
               </div>
               <div>
                 <Label htmlFor="prestacao_mensal">Prestacao Mensal</Label>
-                <Input id="prestacao_mensal" type="number" step="0.01" {...register('prestacao_mensal')} placeholder="0,00" />
+                <Controller
+                  name="prestacao_mensal"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="mtic">MTIC</Label>
-                <Input id="mtic" type="number" step="0.01" {...register('mtic')} placeholder="0,00" />
+                <Controller
+                  name="mtic"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="ltv_aprovado">LTV (%)</Label>
@@ -301,11 +332,31 @@ export function CreditProposalForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="seguro_vida_mensal">Seguro Vida Mensal</Label>
-                <Input id="seguro_vida_mensal" type="number" step="0.01" {...register('seguro_vida_mensal')} placeholder="0,00" />
+                <Controller
+                  name="seguro_vida_mensal"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="seguro_multirriscos_anual">Seguro Multirriscos Anual</Label>
-                <Input id="seguro_multirriscos_anual" type="number" step="0.01" {...register('seguro_multirriscos_anual')} placeholder="0,00" />
+                <Controller
+                  name="seguro_multirriscos_anual"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <Checkbox
@@ -324,15 +375,45 @@ export function CreditProposalForm({
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="comissao_avaliacao">Avaliacao</Label>
-                <Input id="comissao_avaliacao" type="number" step="0.01" {...register('comissao_avaliacao')} placeholder="0,00" />
+                <Controller
+                  name="comissao_avaliacao"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="comissao_dossier">Dossier</Label>
-                <Input id="comissao_dossier" type="number" step="0.01" {...register('comissao_dossier')} placeholder="0,00" />
+                <Controller
+                  name="comissao_dossier"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div>
                 <Label htmlFor="comissao_formalizacao">Formalizacao</Label>
-                <Input id="comissao_formalizacao" type="number" step="0.01" {...register('comissao_formalizacao')} placeholder="0,00" />
+                <Controller
+                  name="comissao_formalizacao"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value ? Number(field.value) : null}
+                      onChange={(v) => field.onChange(v != null ? String(v) : '')}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
             </div>
           </fieldset>
