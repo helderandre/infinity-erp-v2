@@ -67,13 +67,19 @@ function ObjetivosPageInner() {
       <Tabs value={tab} onValueChange={handleTabChange} className="gap-4">
         {/* Tabs row + secondary actions on the right */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList>
-            <TabsTrigger value="funil">
-              <GitBranch />
+          <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto">
+            <TabsTrigger
+              value="funil"
+              className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40"
+            >
+              <GitBranch className="h-3.5 w-3.5 shrink-0" />
               Funil
             </TabsTrigger>
-            <TabsTrigger value="dashboard">
-              <LayoutDashboard />
+            <TabsTrigger
+              value="dashboard"
+              className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
               Dashboard
             </TabsTrigger>
           </TabsList>
