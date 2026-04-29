@@ -99,7 +99,7 @@ export function FunnelStageRow({ stage, index, isLast, onRegisterManual }: Props
         </div>
 
         {/* Progress bar */}
-        <div className="relative h-2 rounded-full overflow-hidden bg-[repeating-linear-gradient(135deg,_transparent_0_4px,_rgba(0,0,0,0.05)_4px_8px)] ring-1 ring-border/40">
+        <div className="relative h-2 rounded-full overflow-hidden bg-muted/50 ring-1 ring-border/40">
           <div
             className={cn('h-full transition-all rounded-full', STATUS_BAR_COLOR[stage.status])}
             style={{ width: `${widthPct}%` }}
