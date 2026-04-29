@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import { z } from 'zod'
 
 /**
@@ -184,13 +186,30 @@ export async function POST(request: Request) {
 
     // Notify assigned agent if it's not the importer themselves
     if (agent_id && agent_id !== auth.user.id && insertedTotal > 0) {
+      const title = 'Importação em massa'
+      const body = `${insertedTotal} contacto${insertedTotal !== 1 ? 's' : ''} importado${insertedTotal !== 1 ? 's' : ''} e atribuído${insertedTotal !== 1 ? 's' : ''} a si.`
+      const link = '/dashboard/crm/contactos'
       adminDb.from('leads_notifications').insert({
         recipient_id: agent_id,
         type: 'new_lead',
-        title: 'Importação em massa',
-        body: `${insertedTotal} contacto${insertedTotal !== 1 ? 's' : ''} importado${insertedTotal !== 1 ? 's' : ''} e atribuído${insertedTotal !== 1 ? 's' : ''} a si.`,
-        link: '/dashboard/crm/contactos',
+        title,
+        body,
+        link,
       }).then(() => {}).catch(() => {})
+
+      // Push imediato — uma só notification para o batch inteiro
+      // (em vez de uma por lead, evita spam do device).
+      try {
+        const adminPush = createAdminClient()
+        await sendPushToUser(adminPush, agent_id, {
+          title,
+          body,
+          url: link,
+          tag: `bulk_import:${batchId}`,
+        })
+      } catch (err) {
+        console.error('[leads bulk] push:', err)
+      }
     }
 
     return NextResponse.json({

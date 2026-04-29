@@ -5,6 +5,8 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
 import { ADHOC_TASK_ROLES, PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
+import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import { z } from 'zod'
 
 const subtaskUpdateSchema = z
@@ -71,7 +73,7 @@ export async function PUT(
 
     // Verificar que a subtarefa existe e pertence à tarefa (admin — tabela não está nos types)
     const { data: subtask, error: subtaskError } = await adminDb.from('proc_subtasks')
-      .select('id, title, config, proc_task_id, owner_id, owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type)')
+      .select('id, title, config, proc_task_id, owner_id, assigned_to, proc_task:proc_tasks!proc_subtasks_proc_task_id_fkey(id, title, proc_instance:proc_instances!proc_tasks_proc_instance_id_fkey(id, external_ref)), owner:owners!proc_subtasks_owner_id_fkey(id, name, person_type)')
       .eq('id', subtaskId)
       .eq('proc_task_id', taskId)
       .single()
@@ -203,6 +205,50 @@ export async function PUT(
         { error: 'Erro ao actualizar subtarefa', details: updateError.message },
         { status: 500 }
       )
+    }
+
+    // Push + in-app notification quando subtarefa é atribuída a outro
+    // utilizador. Não há equivalente em assignment do `proc_task` aqui —
+    // o flow do template faz isso noutro endpoint (PUT proc_task com
+    // action=assign).
+    const previousAssignedTo = (subtask as any).assigned_to as string | null | undefined
+    if (
+      assigned_to !== undefined &&
+      assigned_to !== null &&
+      assigned_to !== auth.user.id &&
+      assigned_to !== previousAssignedTo
+    ) {
+      try {
+        const procRef = (subtask as any).proc_task?.proc_instance?.external_ref || ''
+        const taskTitle = (subtask as any).proc_task?.title || ''
+        const subtaskTitle = (subtask as any).title || 'Subtarefa'
+        const notifTitle = 'Subtarefa atribuída'
+        const notifBody = `"${subtaskTitle}" foi-lhe atribuída na tarefa "${taskTitle}"${procRef ? ` (${procRef})` : ''}`
+        const notifUrl = `/dashboard/processos/${id}?task=${taskId}&subtask=${subtaskId}`
+        await notificationService.create({
+          recipientId: assigned_to,
+          senderId: auth.user.id,
+          notificationType: 'subtask_assigned',
+          entityType: 'proc_subtask',
+          entityId: subtaskId,
+          title: notifTitle,
+          body: notifBody,
+          actionUrl: notifUrl,
+          metadata: { process_ref: procRef, task_title: taskTitle, subtask_title: subtaskTitle },
+        })
+        try {
+          await sendPushToUser(adminDb, assigned_to, {
+            title: notifTitle,
+            body: notifBody,
+            url: notifUrl,
+            tag: `subtask_assigned:${subtaskId}`,
+          })
+        } catch (pushErr) {
+          console.error('[subtask assign] push:', pushErr)
+        }
+      } catch (notifErr) {
+        console.error('[subtask assign] notif:', notifErr)
+      }
     }
 
     // Inserir log_emails quando email é enviado com sucesso (SMTP ou Resend)

@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { commentSchema } from '@/lib/validations/comment'
 import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 export async function GET(
@@ -110,22 +112,40 @@ export async function POST(
       const taskTitle = (task as any).title || ''
       const notifiedUserIds = new Set<string>()
 
+      // Cliente admin para web-push (RLS-bypass; Realtime+push não dependem
+      // da sessão do caller).
+      const pushDb = createAdminClient()
+      const pushUrl = `/dashboard/processos/${id}?task=${taskId}&tab=comments`
+
       // #7: Menções em comentário — notificar cada mencionado
       if (validation.data.mentions && validation.data.mentions.length > 0) {
         for (const mention of validation.data.mentions) {
           if (mention.user_id !== user.id) {
             notifiedUserIds.add(mention.user_id)
+            const mentionTitle = 'Mencionado num comentário'
+            const mentionBody = `${(comment as any).user?.commercial_name || 'Alguém'} mencionou-o na tarefa "${taskTitle}"`
             await notificationService.create({
               recipientId: mention.user_id,
               senderId: user.id,
               notificationType: 'comment_mention',
               entityType: 'proc_task_comment',
               entityId: comment.id,
-              title: 'Mencionado num comentário',
-              body: `${(comment as any).user?.commercial_name || 'Alguém'} mencionou-o na tarefa "${taskTitle}"`,
-              actionUrl: `/dashboard/processos/${id}?task=${taskId}&tab=comments`,
+              title: mentionTitle,
+              body: mentionBody,
+              actionUrl: pushUrl,
               metadata: { process_ref: procRef, task_title: taskTitle },
             })
+            // Push imediato (mention prioritário)
+            try {
+              await sendPushToUser(pushDb, mention.user_id, {
+                title: mentionTitle,
+                body: mentionBody,
+                url: pushUrl,
+                tag: `comment_mention:${comment.id}`,
+              })
+            } catch (err) {
+              console.error('[proc comments] push mention:', err)
+            }
           }
         }
       }
@@ -133,17 +153,30 @@ export async function POST(
       // #5: Novo comentário — notificar responsável da tarefa (se não é o autor e não foi já notificado por menção)
       const taskAssignedTo = (task as any).assigned_to
       if (taskAssignedTo && taskAssignedTo !== user.id && !notifiedUserIds.has(taskAssignedTo)) {
+        const commentTitle = 'Novo comentário na tarefa'
+        const commentBody = `Novo comentário na tarefa "${taskTitle}" do processo ${procRef}`
         await notificationService.create({
           recipientId: taskAssignedTo,
           senderId: user.id,
           notificationType: 'task_comment',
           entityType: 'proc_task_comment',
           entityId: comment.id,
-          title: 'Novo comentário na tarefa',
-          body: `Novo comentário na tarefa "${taskTitle}" do processo ${procRef}`,
-          actionUrl: `/dashboard/processos/${id}?task=${taskId}&tab=comments`,
+          title: commentTitle,
+          body: commentBody,
+          actionUrl: pushUrl,
           metadata: { process_ref: procRef, task_title: taskTitle },
         })
+        // Push imediato ao responsável da task
+        try {
+          await sendPushToUser(pushDb, taskAssignedTo, {
+            title: commentTitle,
+            body: commentBody,
+            url: pushUrl,
+            tag: `task_comment:${comment.id}`,
+          })
+        } catch (err) {
+          console.error('[proc comments] push assignee:', err)
+        }
       }
     } catch (notifError) {
       console.error('[Comments] Erro ao enviar notificações:', notifError)

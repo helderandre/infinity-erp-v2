@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { createTaskCommentSchema } from '@/lib/validations/task'
 import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
 
 export async function GET(
   request: Request,
@@ -96,6 +97,18 @@ export async function POST(
           body: task.title,
           actionUrl: `/dashboard/tarefas?task=${id}`,
         })
+        // Push imediato — sai além do bell + Realtime in-app.
+        // Falhas isoladas em try/catch; nunca bloqueiam o INSERT do comment.
+        try {
+          await sendPushToUser(supabase, recipientId, {
+            title: 'Novo comentário na tarefa',
+            body: task.title ?? '',
+            url: `/dashboard/tarefas?task=${id}`,
+            tag: `task_comment:${id}`,
+          })
+        } catch (err) {
+          console.error('[tasks/comments] push:', err)
+        }
       }
     }
 

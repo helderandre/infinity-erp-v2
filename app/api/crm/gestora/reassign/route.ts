@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
 import { createClient } from "@/lib/supabase/server"
+import { sendPushToUser } from "@/lib/crm/send-push"
 import { z } from "zod"
 
 const reassignSchema = z.object({
@@ -80,6 +82,22 @@ export async function POST(req: NextRequest) {
           contact_id: e.contact_id,
         }))
         await db.from("leads_notifications").insert(notifications)
+
+        // Push imediato — uma única notification consolidada para o
+        // recipient (em vez de uma por entry; o device fica menos ruidoso
+        // e o consultor abre o inbox para ver a lista completa).
+        try {
+          const adminPush = createAdminClient()
+          const n = entries.length
+          await sendPushToUser(adminPush, target_agent_id, {
+            title: 'Leads reatribuídas',
+            body: `${n} lead${n !== 1 ? 's' : ''} reatribuída${n !== 1 ? 's' : ''} pela gestora`,
+            url: '/dashboard/crm/contactos',
+            tag: `gestora_reassign:${target_agent_id}:${Date.now()}`,
+          })
+        } catch (err) {
+          console.error('[gestora reassign] push:', err)
+        }
       }
 
       return NextResponse.json({ reassigned: count ?? entry_ids.length })
@@ -131,6 +149,23 @@ export async function POST(req: NextRequest) {
         created_by: user.id,
       }))
       await db.from("leads_activities").insert(activities)
+
+      // Push consolidado ao recipient da overdue-pull (se não foi
+      // devolvida ao pool). Uma só notification por batch.
+      if (target_agent_id) {
+        try {
+          const adminPush = createAdminClient()
+          const n = overdueEntries.length
+          await sendPushToUser(adminPush, target_agent_id, {
+            title: 'Leads em atraso reatribuídas',
+            body: `${n} lead${n !== 1 ? 's' : ''} em atraso atribuída${n !== 1 ? 's' : ''} a si pela gestora`,
+            url: '/dashboard/crm/contactos',
+            tag: `gestora_overdue_pull:${target_agent_id}:${Date.now()}`,
+          })
+        } catch (err) {
+          console.error('[gestora overdue-pull] push:', err)
+        }
+      }
 
       return NextResponse.json({ reassigned: overdueEntries.length })
     }

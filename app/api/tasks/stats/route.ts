@@ -49,49 +49,59 @@ export async function GET(request: Request) {
         .not('due_date', 'is', null).order('due_date', { ascending: true }).limit(5),
 
       // ─── proc_tasks ───
+      // Visibilidade por stage corrente: `is_in_current_stage = TRUE`
+      // (denormalizado por trigger; ver migration
+      // 20260522_proc_tasks_is_in_current_stage). Sem este filtro, os
+      // contadores ficavam inflated em relação ao inbox real.
       supabase.from('proc_tasks').select('id, proc_instances!inner(current_status, deleted_at)', { count: 'exact', head: true })
-        .eq('assigned_to', userId).not('status', 'in', '("completed","skipped")')
+        .eq('assigned_to', userId).eq('is_in_current_stage', true).not('status', 'in', '("completed","skipped")')
         .is('proc_instances.deleted_at', null).in('proc_instances.current_status', ACTIVE_PROC),
       supabase.from('proc_tasks').select('id, proc_instances!inner(current_status, deleted_at)', { count: 'exact', head: true })
-        .eq('assigned_to', userId).not('status', 'in', '("completed","skipped")')
+        .eq('assigned_to', userId).eq('is_in_current_stage', true).not('status', 'in', '("completed","skipped")')
         .not('due_date', 'is', null).lt('due_date', now)
         .is('proc_instances.deleted_at', null).in('proc_instances.current_status', ACTIVE_PROC),
       supabase.from('proc_tasks').select('id, proc_instances!inner(current_status, deleted_at)', { count: 'exact', head: true })
-        .eq('assigned_to', userId).eq('status', 'completed').gte('completed_at', todayStart)
+        .eq('assigned_to', userId).eq('is_in_current_stage', true).eq('status', 'completed').gte('completed_at', todayStart)
         .is('proc_instances.deleted_at', null).in('proc_instances.current_status', ACTIVE_PROC),
       supabase.from('proc_tasks').select('id, proc_instances!inner(current_status, deleted_at)', { count: 'exact', head: true })
-        .eq('assigned_to', userId).eq('priority', 'urgent').not('status', 'in', '("completed","skipped")')
+        .eq('assigned_to', userId).eq('is_in_current_stage', true).eq('priority', 'urgent').not('status', 'in', '("completed","skipped")')
         .is('proc_instances.deleted_at', null).in('proc_instances.current_status', ACTIVE_PROC),
       supabase.from('proc_tasks').select(`
           id, title, priority, due_date, proc_instance_id,
           proc_instances!inner(id, external_ref, current_status, deleted_at),
           assignee:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
         `)
-        .eq('assigned_to', userId).not('status', 'in', '("completed","skipped")')
+        .eq('assigned_to', userId).eq('is_in_current_stage', true).not('status', 'in', '("completed","skipped")')
         .not('due_date', 'is', null)
         .is('proc_instances.deleted_at', null).in('proc_instances.current_status', ACTIVE_PROC)
         .order('due_date', { ascending: true }).limit(5),
 
       // ─── proc_subtasks ───
-      supabase.from('proc_subtasks').select('id, proc_tasks!inner(proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
+      // Mesma regra propagada via parent task: `proc_tasks.is_in_current_stage = TRUE`.
+      supabase.from('proc_subtasks').select('id, proc_tasks!inner(is_in_current_stage, proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
         .eq('assigned_to', userId).eq('is_completed', false)
+        .eq('proc_tasks.is_in_current_stage', true)
         .is('proc_tasks.proc_instances.deleted_at', null).in('proc_tasks.proc_instances.current_status', ACTIVE_PROC),
-      supabase.from('proc_subtasks').select('id, proc_tasks!inner(proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
+      supabase.from('proc_subtasks').select('id, proc_tasks!inner(is_in_current_stage, proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
         .eq('assigned_to', userId).eq('is_completed', false)
+        .eq('proc_tasks.is_in_current_stage', true)
         .not('due_date', 'is', null).lt('due_date', now)
         .is('proc_tasks.proc_instances.deleted_at', null).in('proc_tasks.proc_instances.current_status', ACTIVE_PROC),
-      supabase.from('proc_subtasks').select('id, proc_tasks!inner(proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
+      supabase.from('proc_subtasks').select('id, proc_tasks!inner(is_in_current_stage, proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
         .eq('assigned_to', userId).eq('is_completed', true).gte('completed_at', todayStart)
+        .eq('proc_tasks.is_in_current_stage', true)
         .is('proc_tasks.proc_instances.deleted_at', null).in('proc_tasks.proc_instances.current_status', ACTIVE_PROC),
-      supabase.from('proc_subtasks').select('id, proc_tasks!inner(proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
+      supabase.from('proc_subtasks').select('id, proc_tasks!inner(is_in_current_stage, proc_instances!inner(current_status, deleted_at))', { count: 'exact', head: true })
         .eq('assigned_to', userId).eq('priority', 'urgent').eq('is_completed', false)
+        .eq('proc_tasks.is_in_current_stage', true)
         .is('proc_tasks.proc_instances.deleted_at', null).in('proc_tasks.proc_instances.current_status', ACTIVE_PROC),
       supabase.from('proc_subtasks').select(`
           id, title, priority, due_date, proc_task_id,
-          proc_tasks!inner(id, proc_instance_id, proc_instances!inner(id, external_ref, current_status, deleted_at)),
+          proc_tasks!inner(id, proc_instance_id, is_in_current_stage, proc_instances!inner(id, external_ref, current_status, deleted_at)),
           assignee:dev_users!proc_subtasks_assigned_to_fkey(id, commercial_name)
         `)
         .eq('assigned_to', userId).eq('is_completed', false)
+        .eq('proc_tasks.is_in_current_stage', true)
         .not('due_date', 'is', null)
         .is('proc_tasks.proc_instances.deleted_at', null).in('proc_tasks.proc_instances.current_status', ACTIVE_PROC)
         .order('due_date', { ascending: true }).limit(5),

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { recalculateProgress } from '@/lib/process-engine'
 import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
 import { ADHOC_TASK_ROLES, APPROVER_NOTIFICATION_ROLES, PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
@@ -286,17 +287,32 @@ export async function PUT(
 
       if (action === 'assign' && assigned_to && assigned_to !== auth.user.id) {
         // #3: Tarefa atribuída
+        const assignTitle = 'Tarefa atribuída'
+        const assignBody = `A tarefa "${task.title}" foi-lhe atribuída no processo ${procRef}`
+        const assignUrl = `/dashboard/processos/${id}?task=${taskId}`
         await notificationService.create({
           recipientId: assigned_to,
           senderId: auth.user.id,
           notificationType: 'task_assigned',
           entityType: 'proc_task',
           entityId: taskId,
-          title: 'Tarefa atribuída',
-          body: `A tarefa "${task.title}" foi-lhe atribuída no processo ${procRef}`,
-          actionUrl: `/dashboard/processos/${id}?task=${taskId}`,
+          title: assignTitle,
+          body: assignBody,
+          actionUrl: assignUrl,
           metadata: { process_ref: procRef, task_title: task.title },
         })
+        // Push imediato — tarefa nova requer atenção do consultor
+        try {
+          const adminPush = createAdminClient()
+          await sendPushToUser(adminPush, assigned_to, {
+            title: assignTitle,
+            body: assignBody,
+            url: assignUrl,
+            tag: `task_assigned:${taskId}`,
+          })
+        } catch (err) {
+          console.error('[proc task assign] push:', err)
+        }
       }
 
       if (action === 'complete') {

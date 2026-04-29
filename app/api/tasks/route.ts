@@ -166,6 +166,12 @@ export async function GET(request: Request) {
       includeProcSourcesByFilter && (!entity_type || entity_type === 'process')
 
     // ─── 2. Process tasks query ───
+    // Visibilidade por stage corrente: filtra `is_in_current_stage = TRUE`,
+    // flag denormalizada mantida por trigger (ver migration
+    // 20260522_proc_tasks_is_in_current_stage). Tasks de stages futuras
+    // ficam invisíveis até a stage actual avançar; tasks ad-hoc (sem
+    // `stage_order_index`) e processos sem `current_stage_id` ficam
+    // sempre TRUE (defensivo, evita esconder por dado mal populado).
     let procTasksPromise: Promise<{ data: any[] | null }> = Promise.resolve({ data: [] })
     if (includeProcSources) {
       let q = supabase
@@ -178,6 +184,7 @@ export async function GET(request: Request) {
           ),
           assignee:dev_users!proc_tasks_assigned_to_fkey(id, commercial_name)
         `)
+        .eq('is_in_current_stage', true)
         .is('proc_instances.deleted_at', null)
         .in('proc_instances.current_status', ['active', 'on_hold'])
 
@@ -210,6 +217,9 @@ export async function GET(request: Request) {
     }
 
     // ─── 3. Process subtasks query ───
+    // Mesma regra de stage corrente, propagada pelo parent task —
+    // `proc_tasks.is_in_current_stage` filtra subtasks cujo task pai
+    // está em stage futura.
     let procSubtasksPromise: Promise<{ data: any[] | null }> = Promise.resolve({ data: [] })
     if (includeProcSources) {
       let q = supabase
@@ -217,7 +227,7 @@ export async function GET(request: Request) {
         .select(`
           id, title, due_date, is_completed, priority, assigned_to,
           completed_at, created_at, proc_task_id,
-          proc_tasks!inner(id, title, stage_name, stage_order_index, proc_instance_id,
+          proc_tasks!inner(id, title, stage_name, stage_order_index, proc_instance_id, is_in_current_stage,
             proc_instances!inner(id, external_ref, current_status, deleted_at, property_id, process_type, negocio_id,
               dev_properties(id, title)
             )
@@ -225,6 +235,7 @@ export async function GET(request: Request) {
           assignee:dev_users!proc_subtasks_assigned_to_fkey(id, commercial_name),
           owners(id, name)
         `)
+        .eq('proc_tasks.is_in_current_stage', true)
         .is('proc_tasks.proc_instances.deleted_at', null)
         .in('proc_tasks.proc_instances.current_status', ['active', 'on_hold'])
 
@@ -342,6 +353,9 @@ export async function GET(request: Request) {
         })
       : []
 
+    // Filtro de stage corrente já aconteceu no DB via
+    // `is_in_current_stage = TRUE`. Os mappers abaixo só convertem o
+    // shape da query para o formato unificado de tasks.
     const procTasks: any[] = (procTasksRes.data || []).map((pt: any) => {
       const proc = pt.proc_instances
       const property = proc?.dev_properties

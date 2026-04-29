@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { createLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import type { Database } from '@/types/database'
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert']
@@ -128,14 +130,31 @@ export async function POST(request: Request) {
     // Notify assigned agent if it's a different person
     if (data.agent_id && data.agent_id !== auth.user.id) {
       const db = createCrmAdminClient()
+      const link = `/dashboard/leads/${lead.id}`
+      const title = 'Nova lead atribuída'
+      const body = `${data.nome} foi-lhe atribuída.`
       db.from('leads_notifications').insert({
         recipient_id: data.agent_id,
         type: 'new_lead',
-        title: 'Nova lead atribuída',
-        body: `${data.nome} foi-lhe atribuída.`,
-        link: `/dashboard/leads/${lead.id}`,
+        title,
+        body,
+        link,
         contact_id: lead.id,
       }).then(() => {}).catch(() => {})
+
+      // Push imediato (cron de fallback só varre `notifications`,
+      // não `leads_notifications` — push tem de ser eager aqui).
+      try {
+        const adminPush = createAdminClient()
+        await sendPushToUser(adminPush, data.agent_id, {
+          title,
+          body,
+          url: link,
+          tag: `new_lead:${lead.id}`,
+        })
+      } catch (err) {
+        console.error('[leads POST] push:', err)
+      }
     }
 
     return NextResponse.json({ id: lead.id }, { status: 201 })

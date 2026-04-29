@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { chatMessageSchema } from '@/lib/validations/chat'
 import { notificationService } from '@/lib/notifications/service'
+import { sendPushToUser } from '@/lib/crm/send-push'
 
 export async function GET(
   request: Request,
@@ -140,22 +142,91 @@ export async function POST(
     // --- Notificações ---
     try {
       const procRef = (proc as any).external_ref || ''
+      const senderName = (message as any).sender?.commercial_name || 'Alguém'
+      const messageId = (message as any).id
+      const chatUrl = `/dashboard/processos/${processId}?tab=chat&message=${messageId}`
+
+      // Cliente admin para web-push (push correr fora da sessão).
+      const pushDb = createAdminClient()
+
+      // Set de quem já vai receber push para evitar dupla notificação de
+      // chat_mention + chat_message para a mesma pessoa.
+      const notifiedUserIds = new Set<string>()
 
       // #8: Menções no chat
       if (validation.data.mentions && validation.data.mentions.length > 0) {
         for (const mention of validation.data.mentions) {
           if (mention.user_id !== user.id) {
+            notifiedUserIds.add(mention.user_id)
+            const mentionTitle = 'Mencionado no chat'
+            const mentionBody = `${senderName} mencionou-o no chat do processo ${procRef}`
             await notificationService.create({
               recipientId: mention.user_id,
               senderId: user.id,
               notificationType: 'chat_mention',
               entityType: 'proc_chat_message',
-              entityId: (message as any).id,
-              title: 'Mencionado no chat',
-              body: `${(message as any).sender?.commercial_name || 'Alguém'} mencionou-o no chat do processo ${procRef}`,
-              actionUrl: `/dashboard/processos/${processId}?tab=chat&message=${(message as any).id}`,
+              entityId: messageId,
+              title: mentionTitle,
+              body: mentionBody,
+              actionUrl: chatUrl,
               metadata: { process_ref: procRef },
             })
+            try {
+              await sendPushToUser(pushDb, mention.user_id, {
+                title: mentionTitle,
+                body: mentionBody,
+                url: chatUrl,
+                tag: `chat_mention:${messageId}`,
+              })
+            } catch (err) {
+              console.error('[proc chat] push mention:', err)
+            }
+          }
+        }
+      }
+
+      // Mensagem nova → notificar participantes da thread (DISTINCT
+      // sender_ids de mensagens anteriores, excluindo self e quem já foi
+      // notificado por @mention). 1ª mensagem da thread → ninguém é
+      // notificado (esperado); próximas pingam quem já participou.
+      const { data: priorSenders } = await (pushDb.from('proc_chat_messages') as any)
+        .select('sender_id')
+        .eq('proc_instance_id', processId)
+        .neq('sender_id', user.id)
+        .neq('id', messageId)
+      const participantIds = new Set<string>()
+      for (const row of (priorSenders || []) as Array<{ sender_id: string }>) {
+        if (row.sender_id && !notifiedUserIds.has(row.sender_id)) {
+          participantIds.add(row.sender_id)
+        }
+      }
+
+      if (participantIds.size > 0) {
+        const msgTitle = `Nova mensagem no chat ${procRef}`.trim()
+        const preview = (validation.data.content || '').slice(0, 120)
+        const msgBody = `${senderName}: ${preview}`
+        for (const participantId of participantIds) {
+          notifiedUserIds.add(participantId)
+          await notificationService.create({
+            recipientId: participantId,
+            senderId: user.id,
+            notificationType: 'chat_message',
+            entityType: 'proc_chat_message',
+            entityId: messageId,
+            title: msgTitle,
+            body: msgBody,
+            actionUrl: chatUrl,
+            metadata: { process_ref: procRef },
+          })
+          try {
+            await sendPushToUser(pushDb, participantId, {
+              title: msgTitle,
+              body: msgBody,
+              url: chatUrl,
+              tag: `chat_message:${messageId}`,
+            })
+          } catch (err) {
+            console.error('[proc chat] push message:', err)
           }
         }
       }
