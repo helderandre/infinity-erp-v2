@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Settings2, GitBranch, LayoutDashboard, FileText } from 'lucide-react'
+import { GitBranch, LayoutDashboard, FileText, Pencil } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { useGoals } from '@/hooks/use-goals'
@@ -47,7 +47,7 @@ function ObjetivosPageInner() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-full rounded-full" />
+        <Skeleton className="h-10 w-full rounded-md" />
         <Skeleton className="h-28 w-full rounded-2xl" />
         <Skeleton className="h-[640px] w-full rounded-2xl" />
       </div>
@@ -64,46 +64,50 @@ function ObjetivosPageInner() {
 
   return (
     <div className="space-y-4">
-      <Tabs value={tab} onValueChange={handleTabChange} className="space-y-4">
+      <Tabs value={tab} onValueChange={handleTabChange} className="gap-4">
         {/* Tabs row + secondary actions on the right */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="rounded-full bg-muted/50 p-0.5 self-start">
-            <TabsTrigger
-              value="funil"
-              className="rounded-full text-xs sm:text-sm gap-1.5 data-[state=active]:shadow-sm"
-            >
-              <GitBranch className="h-3.5 w-3.5" />
+          <TabsList>
+            <TabsTrigger value="funil">
+              <GitBranch />
               Funil
             </TabsTrigger>
-            <TabsTrigger
-              value="dashboard"
-              className="rounded-full text-xs sm:text-sm gap-1.5 data-[state=active]:shadow-sm"
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
+            <TabsTrigger value="dashboard">
+              <LayoutDashboard />
               Dashboard
             </TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Link
-              href="/dashboard/objetivos/relatorio-semanal"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:bg-accent hover:text-foreground transition-all"
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
             >
-              <FileText className="h-3.5 w-3.5 text-blue-600" />
-              Relatório semanal
-            </Link>
+              <Link href="/dashboard/objetivos/relatorio-semanal">
+                <FileText className="h-3.5 w-3.5 text-blue-600" />
+                Relatório semanal
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfigOpen(true)}
+              className="h-8 text-xs gap-1.5"
+              title={myGoalId ? 'Editar objectivos anuais' : 'Configurar objectivos anuais'}
+            >
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              {myGoalId ? 'Editar' : 'Configurar'}
+            </Button>
           </div>
         </div>
 
-        <TabsContent value="funil" className="mt-0 space-y-4">
-          <FunnelObjetivosView
-            key={refreshTick}
-            onEditGoal={() => setConfigOpen(true)}
-            hasGoal={!!myGoalId}
-          />
+        <TabsContent value="funil" className="space-y-4">
+          <FunnelObjetivosView key={refreshTick} />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="mt-0 space-y-4">
+        <TabsContent value="dashboard" className="space-y-4">
           <TrajectoryHero
             key={`traj-${refreshTick}`}
             year={currentYear}
@@ -116,20 +120,6 @@ function ObjetivosPageInner() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Botão inferior só em desktop — em mobile o gesto vive no header
-          do funil (icon-button ao lado do Coach). */}
-      <div className="hidden sm:flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setConfigOpen(true)}
-          className="text-xs text-muted-foreground"
-        >
-          <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-          {myGoalId ? 'Editar objectivos anuais' : 'Configurar objectivos anuais'}
-        </Button>
-      </div>
 
       <GoalConfigSheet
         open={configOpen}

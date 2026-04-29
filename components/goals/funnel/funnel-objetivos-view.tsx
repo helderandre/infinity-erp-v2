@@ -8,7 +8,7 @@ import { useFunnel } from '@/hooks/use-funnel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
 import { Button } from '@/components/ui/button'
-import { Users, User, Sparkles, Settings2 } from 'lucide-react'
+import { Users, User, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FunnelCard } from './funnel-card'
 import { FunnelCoachSheet } from './funnel-coach-sheet'
@@ -45,16 +45,7 @@ function periodLabelEur(period: FunnelPeriod): string {
   }[period]
 }
 
-interface FunnelObjetivosViewProps {
-  /** Mobile-only: callback para abrir o GoalConfigSheet a partir do header.
-   *  Se omitido, o botão não é renderizado. */
-  onEditGoal?: () => void
-  /** Controla a label do botão: "Editar" quando há objetivo, "Configurar"
-   *  quando não há. */
-  hasGoal?: boolean
-}
-
-export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosViewProps = {}) {
+export function FunnelObjetivosView() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useUser()
@@ -115,122 +106,81 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
 
   return (
     <div className="space-y-4">
-      {/* Header card */}
-      <div className="overflow-hidden rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
-        <div className="px-5 py-5 sm:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/40">
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">
-              Objetivos · Funil
-            </p>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mt-0.5">Funil Comercial</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Evolução face aos objetivos
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 self-start sm:self-auto sm:flex-row sm:items-center">
-            <div className="inline-flex items-center rounded-full border border-border/40 bg-muted/40 p-0.5 text-xs font-medium backdrop-blur-sm self-start">
-              {PERIOD_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setPeriod(opt.value)}
-                  className={cn(
-                    'rounded-full px-3 py-1 transition-all',
-                    period === opt.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCoachOpen(true)}
-                disabled={!data}
-                className="rounded-full h-8 text-xs gap-1.5 border-border/40 bg-background/60 backdrop-blur-sm"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-orange-500" />
-                Coach
-              </Button>
-              {onEditGoal && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onEditGoal}
-                  className="sm:hidden rounded-full h-8 text-xs gap-1.5 border-border/40 bg-background/60 backdrop-blur-sm"
-                >
-                  <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  {hasGoal ? 'Editar' : 'Configurar'}
-                </Button>
+      {/* Toolbar — single compact row aligned with the rest of the app */}
+      <div className="rounded-2xl border bg-card/50 backdrop-blur-sm px-4 py-3 sm:px-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        {/* Scope toggle (managers only) */}
+        {isManager && (
+          <div className="inline-flex items-center rounded-md border bg-muted p-[3px] font-medium">
+            <button
+              type="button"
+              onClick={() => setScope('team')}
+              className={cn(
+                'rounded-sm px-2.5 py-1 inline-flex items-center gap-1.5 transition-all',
+                scope === 'team'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
-            </div>
+            >
+              <Users className="h-3 w-3" />
+              Equipa
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('consultant')}
+              className={cn(
+                'rounded-sm px-2.5 py-1 inline-flex items-center gap-1.5 transition-all',
+                scope === 'consultant'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <User className="h-3 w-3" />
+              Individual
+            </button>
           </div>
+        )}
+
+        {/* Period picker — moved here from the (now removed) title row */}
+        <div className="inline-flex items-center rounded-md border bg-muted p-[3px] font-medium">
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPeriod(opt.value)}
+              className={cn(
+                'rounded-sm px-2.5 py-1 transition-all',
+                period === opt.value
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
-        {/* Sub-header — scope toggle + period range + euro target */}
-        <div className="px-5 py-3 sm:px-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs bg-background/30">
-          {isManager && (
-            <div className="inline-flex items-center rounded-full border border-border/40 bg-muted/40 p-0.5 font-medium backdrop-blur-sm">
-              <button
-                type="button"
-                onClick={() => setScope('team')}
-                className={cn(
-                  'rounded-full px-3 py-1 inline-flex items-center gap-1.5 transition-all',
-                  scope === 'team'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Users className="h-3 w-3" />
-                Equipa
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope('consultant')}
-                className={cn(
-                  'rounded-full px-3 py-1 inline-flex items-center gap-1.5 transition-all',
-                  scope === 'consultant'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <User className="h-3 w-3" />
-                Individual
-              </button>
-            </div>
-          )}
-          {scope === 'team' && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium">
-                Vista
-              </span>
-              <span className="font-semibold">{consultantName}</span>
-            </div>
-          )}
-          {scope === 'consultant' && !isManager && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-medium">
-                Consultor
-              </span>
-              <span className="font-semibold">{consultantName}</span>
-            </div>
-          )}
-          {scope === 'consultant' && isManager && (
-            <span className="text-[11px] text-muted-foreground italic">
-              Selecione um consultor abaixo para ver o detalhe
-            </span>
-          )}
+        {/* Vista name (when relevant) */}
+        {scope === 'team' && (
+          <span className="font-semibold truncate max-w-[160px]">{consultantName}</span>
+        )}
+        {scope === 'consultant' && !isManager && (
+          <span className="font-semibold truncate max-w-[160px]">{consultantName}</span>
+        )}
+        {scope === 'consultant' && isManager && (
+          <span className="text-muted-foreground italic">
+            Selecione um consultor abaixo
+          </span>
+        )}
+
+        {/* Spacer pushes period range + target + Coach to the right */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           {data && (
             <>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-1 text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-muted-foreground">
                 <span className="text-[10px] tracking-wider uppercase font-medium">Período</span>
                 <span className="text-foreground tabular-nums">{formatPeriodRange(data.period_start, data.period_end)}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-1 text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-muted-foreground">
                 <span className="text-[10px] tracking-wider uppercase font-medium">
                   {periodLabelEur(period)}{scope === 'team' ? ' (somado)' : ''}
                 </span>
@@ -240,6 +190,16 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
               </span>
             </>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCoachOpen(true)}
+            disabled={!data}
+            className="h-8 text-xs gap-1.5"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-orange-500" />
+            Coach
+          </Button>
         </div>
       </div>
 
