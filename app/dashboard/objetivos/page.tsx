@@ -15,6 +15,7 @@ import { GoalConfigSheet } from '@/components/goals/goal-config-sheet'
 import { TrajectoryHero } from '@/components/goals/trajectory-hero'
 import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
 import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
+import { FunnelRadialChart } from '@/components/goals/funnel-radial-chart'
 
 type ObjetivosTab = 'funil' | 'dashboard'
 
@@ -109,7 +110,10 @@ function ObjetivosPageInner() {
             consultantId={user?.id ?? null}
           />
           <DiagnosticCards key={`diag-${refreshTick}`} consultantId={user?.id ?? null} />
-          <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <FunnelRadialChart key={`radial-${refreshTick}`} consultantId={user?.id ?? null} />
+            <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
+          </div>
         </TabsContent>
       </Tabs>
 
