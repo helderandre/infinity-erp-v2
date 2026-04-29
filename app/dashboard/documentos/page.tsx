@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -175,6 +176,10 @@ function BibliotecaPageContent() {
 
 function DocumentosTab() {
   const { getLabel, getCategory, activeCategories } = useCompanyCategories()
+  // Documentos da empresa, designs e recursos são editáveis apenas por
+  // utilizadores com permissão `marketing`. Consultores ficam em só-leitura.
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission('marketing')
   const [documents, setDocuments] = useState<CompanyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -342,10 +347,12 @@ function DocumentosTab() {
             setCategoryFormOpen(true)
           }}
         />
-        <Button className="rounded-full gap-2" onClick={() => setUploadOpen(true)}>
-          <Upload className="h-4 w-4" />
-          Carregar
-        </Button>
+        {canManage && (
+          <Button className="rounded-full gap-2" onClick={() => setUploadOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Carregar
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -366,12 +373,14 @@ function DocumentosTab() {
         <EmptyState
           icon={FolderOpen}
           title="Nenhum documento encontrado"
-          description={search ? 'Tente ajustar a pesquisa.' : 'Carregue documentos para começar.'}
-          action={
-            <Button variant="outline" className="rounded-full gap-2" onClick={() => setUploadOpen(true)}>
-              <Upload className="h-4 w-4" />Carregar
-            </Button>
+          description={
+            search
+              ? 'Tente ajustar a pesquisa.'
+              : canManage
+                ? 'Carregue documentos para começar.'
+                : 'Ainda não há documentos disponíveis.'
           }
+          action={canManage ? { label: 'Carregar', onClick: () => setUploadOpen(true) } : undefined}
         />
       ) : (
         <div className="space-y-6">
@@ -389,10 +398,15 @@ function DocumentosTab() {
                     setCategoryFormOpen(true)
                   }}
                   onDelete={(c) => setCategoryToDelete(c)}
-                  onAddDocument={(c) => {
-                    setUploadCategory(c.slug)
-                    setUploadOpen(true)
-                  }}
+                  // O "+" abre o upload — só mostrar a quem pode gerir.
+                  onAddDocument={
+                    canManage
+                      ? (c) => {
+                          setUploadCategory(c.slug)
+                          setUploadOpen(true)
+                        }
+                      : undefined
+                  }
                 />
               )}
               <div className="rounded-xl border overflow-hidden divide-y">
@@ -427,21 +441,23 @@ function DocumentosTab() {
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => handleDownload(doc)} title="Descarregar">
                           <Download className="h-3.5 w-3.5" />
                         </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setEditDoc(doc); setEditName(doc.name); setEditCategory(doc.category) }}>
-                              <Pencil className="h-3.5 w-3.5 mr-2" />Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDoc(doc)}>
-                              <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {canManage && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setEditDoc(doc); setEditName(doc.name); setEditCategory(doc.category) }}>
+                                <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDoc(doc)}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     </div>
@@ -756,6 +772,9 @@ const EMPTY_TEAM_DESIGN: TeamDesignFormState = {
 function TeamDesignsTab() {
   const { activeCategories, getLabel, getCategory } =
     useMarketingDesignCategoriesContext()
+  // Designs da equipa só editáveis com `marketing` — consultores ficam read-only.
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission('marketing')
   const [templates, setTemplates] = useState<DesignTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -928,13 +947,15 @@ function TeamDesignsTab() {
             setCategoryFormOpen(true)
           }}
         />
-        <Button
-          className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
-          onClick={openCreate}
-        >
-          <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Adicionar</span>
-        </Button>
+        {canManage && (
+          <Button
+            className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
+            onClick={openCreate}
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Adicionar</span>
+          </Button>
+        )}
       </div>
 
       {/* Content */}
@@ -955,8 +976,14 @@ function TeamDesignsTab() {
         <EmptyState
           icon={FileImage}
           title="Nenhum design encontrado"
-          description={search ? 'Tente ajustar a pesquisa.' : 'Adicione o primeiro design da equipa.'}
-          action={{ label: 'Adicionar', onClick: openCreate }}
+          description={
+            search
+              ? 'Tente ajustar a pesquisa.'
+              : canManage
+                ? 'Adicione o primeiro design da equipa.'
+                : 'Ainda não há designs disponíveis.'
+          }
+          action={canManage ? { label: 'Adicionar', onClick: openCreate } : undefined}
         />
       ) : (
         <div className="space-y-6">
@@ -973,10 +1000,14 @@ function TeamDesignsTab() {
                   setCategoryFormOpen(true)
                 }}
                 onDelete={(c) => setCategoryToDelete(c)}
-                onAddDesign={(c) => {
-                  setForm({ ...EMPTY_TEAM_DESIGN, category: c.slug })
-                  setFormOpen(true)
-                }}
+                onAddDesign={
+                  canManage
+                    ? (c) => {
+                        setForm({ ...EMPTY_TEAM_DESIGN, category: c.slug })
+                        setFormOpen(true)
+                      }
+                    : undefined
+                }
               />
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {items.map((t) => (
@@ -1008,6 +1039,7 @@ function TeamDesignsTab() {
                         <p className="text-xs font-medium truncate uppercase">{t.name}</p>
                       </div>
                     </div>
+                    {canManage && (
                     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white"
@@ -1024,6 +1056,7 @@ function TeamDesignsTab() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -50,6 +50,7 @@ import {
   X,
 } from 'lucide-react'
 import { useMarketingRecursos, type MarketingResource } from '@/hooks/use-marketing-recursos'
+import { usePermissions } from '@/hooks/use-permissions'
 
 function formatBytes(bytes: number | null): string {
   if (!bytes && bytes !== 0) return ''
@@ -71,6 +72,11 @@ export function RecursosBrowser() {
   const searchParams = useSearchParams()
   const folderParam = searchParams.get('folder')
   const parentId = folderParam || null
+
+  // Apenas quem tem permissão de marketing edita/cria/apaga recursos.
+  // Consultores e outros perfis sem essa permissão ficam em modo só-leitura.
+  const { hasPermission } = usePermissions()
+  const canManage = hasPermission('marketing')
 
   const {
     items,
@@ -101,10 +107,11 @@ export function RecursosBrowser() {
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+    if (!canManage) return
     if (!e.dataTransfer.types.includes('Files')) return
     dragCounter.current++
     setIsDragging(true)
-  }, [])
+  }, [canManage])
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     dragCounter.current--
@@ -121,11 +128,12 @@ export function RecursosBrowser() {
       e.preventDefault()
       dragCounter.current = 0
       setIsDragging(false)
+      if (!canManage) return
       const files = Array.from(e.dataTransfer.files || [])
       if (files.length === 0) return
       uploadFiles(files)
     },
-    [uploadFiles],
+    [canManage, uploadFiles],
   )
 
   const handleSubmitFolder = async () => {
@@ -201,37 +209,39 @@ export function RecursosBrowser() {
             Biblioteca partilhada de logos, marca e materiais oficiais.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 rounded-full"
-            onClick={() => setNewFolderOpen(true)}
-          >
-            <FolderPlus className="h-4 w-4" />
-            Nova pasta
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 rounded-full"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-4 w-4" />
-            Carregar
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || [])
-              if (files.length === 0) return
-              uploadFiles(files)
-              e.target.value = ''
-            }}
-          />
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full"
+              onClick={() => setNewFolderOpen(true)}
+            >
+              <FolderPlus className="h-4 w-4" />
+              Nova pasta
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              Carregar
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                if (files.length === 0) return
+                uploadFiles(files)
+                e.target.value = ''
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Breadcrumbs */}
@@ -272,7 +282,9 @@ export function RecursosBrowser() {
           <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
           <h3 className="text-base font-semibold">Pasta vazia</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Arrasta ficheiros para aqui ou usa os botões acima.
+            {canManage
+              ? 'Arrasta ficheiros para aqui ou usa os botões acima.'
+              : 'Sem ficheiros nesta pasta.'}
           </p>
         </div>
       )}
@@ -288,6 +300,7 @@ export function RecursosBrowser() {
               <FolderCard
                 key={folder.id}
                 folder={folder}
+                canManage={canManage}
                 onOpen={() => navigateToFolder(folder.id)}
                 onRename={() => {
                   setRenameTarget(folder)
@@ -311,6 +324,7 @@ export function RecursosBrowser() {
               <FileCard
                 key={file.id}
                 file={file}
+                canManage={canManage}
                 onOpen={() => setPreviewItem(file)}
                 onCopyUrl={() => copyUrl(file)}
                 onRename={() => {
@@ -414,11 +428,13 @@ export function RecursosBrowser() {
 
 function FolderCard({
   folder,
+  canManage,
   onOpen,
   onRename,
   onDelete,
 }: {
   folder: MarketingResource
+  canManage: boolean
   onOpen: () => void
   onRename: () => void
   onDelete: () => void
@@ -433,29 +449,31 @@ function FolderCard({
         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <Folder className="h-5 w-5 text-primary fill-primary/20" />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={onRename}>
-              <Pencil className="h-3.5 w-3.5 mr-2" />
-              Renomear
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {canManage && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={onRename}>
+                <Pencil className="h-3.5 w-3.5 mr-2" />
+                Renomear
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       <div className="font-medium text-sm truncate" title={folder.name}>
         {folder.name}
@@ -466,12 +484,14 @@ function FolderCard({
 
 function FileCard({
   file,
+  canManage,
   onOpen,
   onCopyUrl,
   onRename,
   onDelete,
 }: {
   file: MarketingResource
+  canManage: boolean
   onOpen: () => void
   onCopyUrl: () => void
   onRename: () => void
@@ -536,15 +556,19 @@ function FileCard({
                 </a>
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onRename}>
-              <Pencil className="h-3.5 w-3.5 mr-2" />
-              Renomear
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Eliminar
-            </DropdownMenuItem>
+            {canManage && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onRename}>
+                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                  Renomear
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Eliminar
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
