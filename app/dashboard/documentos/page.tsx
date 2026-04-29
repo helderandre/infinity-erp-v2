@@ -409,30 +409,30 @@ function DocumentosTab() {
                   }
                 />
               )}
-              <div className="rounded-xl border overflow-hidden divide-y">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {(docs as CompanyDocument[]).map((doc) => {
                   const Icon = FILE_ICONS[doc.file_extension || ''] || FileText
                   return (
                     <div
                       key={doc.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                      className="group relative flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md cursor-pointer"
                       onClick={() => {
                         if (isPdf(doc) || isImage(doc)) setPreviewDoc(doc)
                         else handleDownload(doc)
                       }}
                     >
-                      <div className="h-9 w-9 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-border/40 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
+                        <Icon className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{doc.name}</p>
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                          <span className="uppercase">{doc.file_extension}</span>
-                          {doc.file_size && <><span>·</span><span>{formatFileSize(doc.file_size)}</span></>}
-                          {doc.download_count > 0 && <><span>·</span><span>{doc.download_count} download{doc.download_count !== 1 ? 's' : ''}</span></>}
+                        <p className="text-sm font-semibold truncate">{doc.name}</p>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                          <span className="uppercase font-medium">{doc.file_extension}</span>
+                          {doc.file_size && <><span className="text-muted-foreground/40">·</span><span>{formatFileSize(doc.file_size)}</span></>}
+                          {doc.download_count > 0 && <><span className="text-muted-foreground/40">·</span><span>{doc.download_count} download{doc.download_count !== 1 ? 's' : ''}</span></>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                         {(isPdf(doc) || isImage(doc)) && (
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => setPreviewDoc(doc)} title="Pré-visualizar">
                             <Eye className="h-3.5 w-3.5" />
@@ -459,7 +459,6 @@ function DocumentosTab() {
                           </DropdownMenu>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     </div>
                   )
                 })}
@@ -1014,8 +1013,10 @@ function TeamDesignsTab() {
                   <div
                     key={t.id}
                     className={cn(
-                      'group relative rounded-xl border overflow-hidden hover:shadow-md transition-all',
-                      t.canva_url ? 'cursor-pointer' : 'cursor-default'
+                      'group relative rounded-2xl border border-border/60 bg-card overflow-hidden transition-all',
+                      t.canva_url
+                        ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-border'
+                        : 'cursor-default'
                     )}
                     onClick={() => {
                       if (t.canva_url) window.open(t.canva_url, '_blank', 'noopener,noreferrer')
@@ -1031,25 +1032,25 @@ function TeamDesignsTab() {
                           />
                         </div>
                       ) : (
-                        <div className="aspect-[4/3] bg-muted/40 flex items-center justify-center">
-                          <span className="text-3xl">📁</span>
+                        <div className="aspect-[4/3] bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center">
+                          <FileImage className="h-8 w-8 text-slate-400 dark:text-slate-600" strokeWidth={1.5} />
                         </div>
                       )}
-                      <div className="p-2.5">
-                        <p className="text-xs font-medium truncate uppercase">{t.name}</p>
+                      <div className="px-3 py-2.5">
+                        <p className="text-xs font-semibold truncate">{t.name}</p>
                       </div>
                     </div>
                     {canManage && (
-                    <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white"
+                        className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-white border border-black/5"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEdit(t) }}
                         title="Editar"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        className="h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white text-destructive"
+                        className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-white text-destructive border border-black/5"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteDesign(t) }}
                         title="Eliminar"
                       >
@@ -1514,9 +1515,9 @@ function KitConsultorTab() {
                       <div
                         key={`kit-${template.id}`}
                         className={cn(
-                          'rounded-lg border p-2 space-y-1.5 transition-all',
+                          'group rounded-2xl border p-2 space-y-1.5 transition-all',
                           hasPages
-                            ? 'bg-card/50 border-border cursor-pointer hover:shadow-sm'
+                            ? 'bg-card border-border/60 cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-border'
                             : 'bg-muted/10 border-dashed opacity-60'
                         )}
                         onClick={() => {
@@ -1527,11 +1528,11 @@ function KitConsultorTab() {
                         }}
                       >
                         {hasPages && cover ? (
-                          <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-muted">
+                          <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-muted">
                             <img
                               src={cover.thumbnail_url || cover.file_url || ''}
                               alt={template.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                             {pages.length > 1 && (
                               <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
@@ -1540,11 +1541,11 @@ function KitConsultorTab() {
                             )}
                           </div>
                         ) : (
-                          <div className="aspect-[4/3] rounded-md bg-muted/30 flex items-center justify-center">
-                            <FileImage className="h-6 w-6 text-muted-foreground/20" />
+                          <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center">
+                            <FileImage className="h-7 w-7 text-slate-400 dark:text-slate-600" strokeWidth={1.5} />
                           </div>
                         )}
-                        <p className="text-[10px] font-medium truncate">{template.name}</p>
+                        <p className="text-[10px] font-semibold truncate px-0.5">{template.name}</p>
                         {hasPages ? (
                           <Button
                             variant="outline"
