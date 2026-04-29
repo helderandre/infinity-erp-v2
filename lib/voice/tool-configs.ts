@@ -45,6 +45,13 @@ export interface FieldConfig {
    * group is filled. Use for "one-of" requirements (e.g. telemóvel OR email).
    */
   requiredGroup?: string
+  /**
+   * Conditional required: predicate over the current args. Use for fields
+   * that only become mandatory based on another field's value (e.g. orçamento
+   * só obrigatório se houver negocio_tipo). Avalia ANTES de `required` /
+   * `requiredGroup` — quando devolve `true` a regra fica activa.
+   */
+  requiredWhen?: (args: Record<string, any>) => boolean
   /** Custom display formatter; defaults to String(value). Used only when rendering in read-only mode. */
   format?: (value: unknown) => string
   /** Input type for inline editing. Defaults to 'text'. */
@@ -400,9 +407,31 @@ const createLead: ToolConfig = {
       ],
     },
     { key: 'tipo_imovel', label: 'Tipo imóvel' },
-    { key: 'localizacao', label: 'Localização' },
-    { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro },
-    { key: 'orcamento_max', label: 'Orçamento máx.', inputType: 'number', format: formatEuro },
+    // Localização e orçamento ficam obrigatórios assim que o utilizador
+    // escolhe um tipo de negócio (Compra/Venda/Arrendatário/Arrendador) —
+    // espelha a regra do CRM "Novo negócio" e do LeadForm.
+    {
+      key: 'localizacao',
+      label: 'Localização',
+      requiredWhen: (a) => Boolean(a.negocio_tipo),
+    },
+    {
+      key: 'orcamento',
+      label: 'Orçamento',
+      inputType: 'number',
+      format: formatEuro,
+      requiredWhen: (a) => Boolean(a.negocio_tipo),
+    },
+    // Orçamento máx. só faz sentido para tipos "range" (Compra). Para
+    // Venda/Arrendamento o canónico é um único valor — o submit mapeia
+    // `orcamento` para preco_venda/renda_pretendida/renda_max_mensal.
+    {
+      key: 'orcamento_max',
+      label: 'Orçamento máx.',
+      inputType: 'number',
+      format: formatEuro,
+      requiredWhen: (a) => a.negocio_tipo === 'Compra',
+    },
     { key: 'quartos_min', label: 'Quartos mín.', inputType: 'number' },
     // Imóvel / angariação específica (opcional). O <PropertyMatchHint> resolve
     // o termo livre contra /api/properties (incluindo external_ref / RE/MAX id).
@@ -411,6 +440,24 @@ const createLead: ToolConfig = {
     { key: 'origem', label: 'Origem', inputType: 'select', options: LEAD_SOURCE_OPTIONS },
     { key: 'assigned_consultant_id', label: 'Atribuir a', inputType: 'consultant-select' },
   ],
+  canSubmit: (args) => {
+    if (!args.nome) return false
+    // Telemóvel OR email
+    if (!args.telemovel && !args.email) return false
+    // Sem negócio inline → só precisa do contacto.
+    if (!args.negocio_tipo) return true
+    // Com negócio: localização + orçamento mínimo > 0 obrigatórios.
+    if (!args.localizacao || !String(args.localizacao).trim()) return false
+    const min = Number(args.orcamento)
+    if (!Number.isFinite(min) || min <= 0) return false
+    // Compra → também precisa de orcamento_max ≥ orcamento.
+    if (args.negocio_tipo === 'Compra') {
+      const max = Number(args.orcamento_max)
+      if (!Number.isFinite(max) || max <= 0) return false
+      if (max < min) return false
+    }
+    return true
+  },
   submit: async (args, { router }) => {
     // 1) Create lead
     const leadPayload: Record<string, unknown> = { nome: args.nome }
@@ -448,11 +495,23 @@ const createLead: ToolConfig = {
       if (resolvedPropertyId) negocioPayload.property_id = resolvedPropertyId
       if (args.tipo_imovel) negocioPayload.tipo_imovel = args.tipo_imovel
       if (args.localizacao) negocioPayload.localizacao = args.localizacao
+      // Mapeia o `orcamento` único do voice para a coluna canónica por tipo
+      // (preco_venda / renda_pretendida / renda_max_mensal). Só Compra usa
+      // orcamento + orcamento_max como range.
       if (args.orcamento !== undefined && args.orcamento !== '') {
-        negocioPayload.orcamento = Number(args.orcamento)
-      }
-      if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
-        negocioPayload.orcamento_max = Number(args.orcamento_max)
+        const v = Number(args.orcamento)
+        if (tipo === 'Compra') {
+          negocioPayload.orcamento = v
+          if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
+            negocioPayload.orcamento_max = Number(args.orcamento_max)
+          }
+        } else if (tipo === 'Venda') {
+          negocioPayload.preco_venda = v
+        } else if (tipo === 'Arrendatário') {
+          negocioPayload.renda_max_mensal = v
+        } else if (tipo === 'Arrendador') {
+          negocioPayload.renda_pretendida = v
+        }
       }
       if (args.quartos_min !== undefined && args.quartos_min !== '') {
         negocioPayload.quartos_min = Number(args.quartos_min)
@@ -2159,9 +2218,19 @@ const createNegocio: ToolConfig = {
       ],
     },
     { key: 'tipo_imovel', label: 'Tipo imóvel', placeholder: 'T2, Apartamento, Moradia…' },
-    { key: 'localizacao', label: 'Localização' },
-    { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro },
-    { key: 'orcamento_max', label: 'Orçamento máx.', inputType: 'number', format: formatEuro },
+    // Localização e orçamento são SEMPRE obrigatórios — espelha a regra
+    // do CRM "Novo negócio" (NewNegocioDialog) e do QualifyEntryDialog.
+    { key: 'localizacao', label: 'Localização', required: true },
+    { key: 'orcamento', label: 'Orçamento', inputType: 'number', format: formatEuro, required: true },
+    // Apenas para Compra (modo "range"). Venda/Arrendador/Arrendatário
+    // usam um único valor — o submit mapeia para preco_venda/renda_*.
+    {
+      key: 'orcamento_max',
+      label: 'Orçamento máx.',
+      inputType: 'number',
+      format: formatEuro,
+      requiredWhen: (a) => a.tipo === 'Compra',
+    },
     { key: 'quartos_min', label: 'Quartos mín.', inputType: 'number' },
     { key: 'property_query', label: 'Imóvel (angariação)', placeholder: 'Ex: 103 (sufixo) ou T2 Av. Liberdade' },
     { key: 'observacoes', label: 'Notas', inputType: 'textarea' },
@@ -2169,9 +2238,18 @@ const createNegocio: ToolConfig = {
   canSubmit: (args) => {
     if (!args.tipo) return false
     // Tem de haver pelo menos um caminho para resolver o contacto.
-    if (args.resolved_lead_id) return true
-    if (args.contact_name && String(args.contact_name).trim()) return true
-    return false
+    if (!args.resolved_lead_id && !(args.contact_name && String(args.contact_name).trim())) {
+      return false
+    }
+    if (!args.localizacao || !String(args.localizacao).trim()) return false
+    const min = Number(args.orcamento)
+    if (!Number.isFinite(min) || min <= 0) return false
+    if (args.tipo === 'Compra') {
+      const max = Number(args.orcamento_max)
+      if (!Number.isFinite(max) || max <= 0) return false
+      if (max < min) return false
+    }
+    return true
   },
   submit: async (args, { router, entity }) => {
     let leadId: string | null = args.resolved_lead_id ? String(args.resolved_lead_id) : null
@@ -2199,11 +2277,23 @@ const createNegocio: ToolConfig = {
     }
     if (args.tipo_imovel) payload.tipo_imovel = args.tipo_imovel
     if (args.localizacao) payload.localizacao = args.localizacao
+    // Mapeia o `orcamento` único do voice para a coluna canónica por tipo,
+    // tal como o NewNegocioDialog faz. Compra é "range" (orcamento + max).
     if (args.orcamento !== undefined && args.orcamento !== '') {
-      payload.orcamento = Number(args.orcamento)
-    }
-    if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
-      payload.orcamento_max = Number(args.orcamento_max)
+      const v = Number(args.orcamento)
+      const tipo = args.tipo
+      if (tipo === 'Compra') {
+        payload.orcamento = v
+        if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
+          payload.orcamento_max = Number(args.orcamento_max)
+        }
+      } else if (tipo === 'Venda') {
+        payload.preco_venda = v
+      } else if (tipo === 'Arrendatário') {
+        payload.renda_max_mensal = v
+      } else if (tipo === 'Arrendador') {
+        payload.renda_pretendida = v
+      }
     }
     if (args.quartos_min !== undefined && args.quartos_min !== '') {
       payload.quartos_min = Number(args.quartos_min)
@@ -2334,6 +2424,13 @@ export function isRequiredField(
   allFields: FieldConfig[],
   args: Record<string, any>
 ): boolean {
+  if (field.requiredWhen) {
+    try {
+      if (field.requiredWhen(args)) return true
+    } catch {
+      // If the predicate throws (e.g. missing field), fall through.
+    }
+  }
   if (field.required === true) return true
   if (field.requiredGroup) {
     const siblings = allFields.filter((f) => f.requiredGroup === field.requiredGroup)
