@@ -12,14 +12,11 @@ import { Users, User, Sparkles, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FunnelCard } from './funnel-card'
 import { FunnelLegend } from './funnel-legend'
-import { FunnelManualEventDialog } from './funnel-manual-event-dialog'
 import { FunnelCoachSheet } from './funnel-coach-sheet'
 import { TeamGridView } from './team-grid-view'
 import type {
-  FunnelType,
   FunnelPeriod,
   FunnelScope,
-  FunnelStageKey,
 } from '@/types/funnel'
 
 const PERIOD_OPTIONS: { value: FunnelPeriod; label: string }[] = [
@@ -71,9 +68,6 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
     isManager && initialView !== 'individual' ? 'team' : isManager ? 'consultant' : 'consultant',
   )
 
-  const [manualOpen, setManualOpen] = useState(false)
-  const [manualFunnel, setManualFunnel] = useState<FunnelType>('buyer')
-  const [manualStage, setManualStage] = useState<FunnelStageKey | null>(null)
   const [coachOpen, setCoachOpen] = useState(false)
 
   // Sync scope with role once permissions resolve, unless URL says otherwise
@@ -92,7 +86,7 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
   // team grid (no auto-self).
   const consultantId = !isManager ? user?.id ?? null : null
 
-  const { data, isLoading, error, refetch } = useFunnel({
+  const { data, isLoading, error } = useFunnel({
     consultantId,
     period,
     scope,
@@ -107,12 +101,6 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
     if (data?.consultant?.commercial_name) return data.consultant.commercial_name
     return user?.commercial_name ?? '—'
   }, [data, user, scope])
-
-  function handleRegisterManual(funnel: FunnelType, stage: FunnelStageKey) {
-    setManualFunnel(funnel)
-    setManualStage(stage)
-    setManualOpen(true)
-  }
 
   function handleSelectConsultant(id: string) {
     router.push(`/dashboard/objetivos/consultor/${id}`)
@@ -275,45 +263,17 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
       ) : data ? (
         <>
           <div className="hidden lg:grid grid-cols-2 gap-4 items-start">
-            <FunnelCard
-              data={data.buyer}
-              onRegisterManual={
-                scope === 'consultant' && !isManager
-                  ? (stage) => handleRegisterManual('buyer', stage)
-                  : undefined
-              }
-            />
-            <FunnelCard
-              data={data.seller}
-              onRegisterManual={
-                scope === 'consultant' && !isManager
-                  ? (stage) => handleRegisterManual('seller', stage)
-                  : undefined
-              }
-            />
+            <FunnelCard data={data.buyer} />
+            <FunnelCard data={data.seller} />
           </div>
           <div className="lg:hidden">
             <Carousel opts={{ align: 'start', loop: false }}>
               <CarouselContent>
                 <CarouselItem className="basis-[92%]">
-                  <FunnelCard
-                    data={data.buyer}
-                    onRegisterManual={
-                      scope === 'consultant' && !isManager
-                        ? (stage) => handleRegisterManual('buyer', stage)
-                        : undefined
-                    }
-                  />
+                  <FunnelCard data={data.buyer} />
                 </CarouselItem>
                 <CarouselItem className="basis-[92%]">
-                  <FunnelCard
-                    data={data.seller}
-                    onRegisterManual={
-                      scope === 'consultant' && !isManager
-                        ? (stage) => handleRegisterManual('seller', stage)
-                        : undefined
-                    }
-                  />
+                  <FunnelCard data={data.seller} />
                 </CarouselItem>
               </CarouselContent>
             </Carousel>
@@ -325,18 +285,6 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
           <FunnelLegend />
         </>
       ) : null}
-
-      {/* Manual event dialog — only when consultor is viewing themselves */}
-      {consultantId && !isManager && (
-        <FunnelManualEventDialog
-          open={manualOpen}
-          onOpenChange={setManualOpen}
-          consultantId={consultantId}
-          funnel={manualFunnel}
-          stageKey={manualStage}
-          onSuccess={refetch}
-        />
-      )}
 
       {/* AI Coach sheet */}
       <FunnelCoachSheet

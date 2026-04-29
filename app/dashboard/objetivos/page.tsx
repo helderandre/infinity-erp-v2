@@ -1,9 +1,12 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { Settings2 } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Settings2, GitBranch, LayoutDashboard, FileText } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { useGoals } from '@/hooks/use-goals'
@@ -13,24 +16,37 @@ import { TrajectoryHero } from '@/components/goals/trajectory-hero'
 import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
 import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
 
+type ObjetivosTab = 'funil' | 'dashboard'
+
+function isValidTab(v: string | null): v is ObjetivosTab {
+  return v === 'funil' || v === 'dashboard'
+}
+
 function ObjetivosPageInner() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { hasPermission, loading } = usePermissions()
   const { user } = useUser()
   const currentYear = new Date().getFullYear()
-  // Look up the user's goal for the current year so the sheet opens in edit
-  // mode (pre-filled) instead of always showing a blank "create" form when a
-  // goal already exists.
   const { goals, refetch } = useGoals({ year: currentYear, consultant_id: user?.id })
   const myGoalId = goals[0]?.id ?? null
   const [configOpen, setConfigOpen] = useState(false)
-  // Bumped após cada criação/edição de objetivo para forçar o
-  // <FunnelObjetivosView> (e seus hooks internos `useFunnel`) a re-montar e
-  // re-fazer fetch — refetch local não os atinge.
   const [refreshTick, setRefreshTick] = useState(0)
+
+  const initialTab = searchParams.get('tab')
+  const tab: ObjetivosTab = isValidTab(initialTab) ? initialTab : 'funil'
+
+  function handleTabChange(value: string) {
+    if (!isValidTab(value)) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', value)
+    router.replace(`/dashboard/objetivos?${params.toString()}`, { scroll: false })
+  }
 
   if (loading) {
     return (
       <div className="space-y-4">
+        <Skeleton className="h-10 w-full rounded-full" />
         <Skeleton className="h-28 w-full rounded-2xl" />
         <Skeleton className="h-[640px] w-full rounded-2xl" />
       </div>
@@ -47,14 +63,56 @@ function ObjetivosPageInner() {
 
   return (
     <div className="space-y-4">
-      <TrajectoryHero key={`traj-${refreshTick}`} year={currentYear} consultantId={user?.id ?? null} />
-      <DiagnosticCards key={`diag-${refreshTick}`} consultantId={user?.id ?? null} />
-      <FunnelObjetivosView
-        key={refreshTick}
-        onEditGoal={() => setConfigOpen(true)}
-        hasGoal={!!myGoalId}
-      />
-      <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
+      <Tabs value={tab} onValueChange={handleTabChange} className="space-y-4">
+        {/* Tabs row + secondary actions on the right */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="rounded-full bg-muted/50 p-0.5 self-start">
+            <TabsTrigger
+              value="funil"
+              className="rounded-full text-xs sm:text-sm gap-1.5 data-[state=active]:shadow-sm"
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              Funil
+            </TabsTrigger>
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-full text-xs sm:text-sm gap-1.5 data-[state=active]:shadow-sm"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Dashboard
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Link
+              href="/dashboard/objetivos/relatorio-semanal"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:bg-accent hover:text-foreground transition-all"
+            >
+              <FileText className="h-3.5 w-3.5 text-blue-600" />
+              Relatório semanal
+            </Link>
+          </div>
+        </div>
+
+        <TabsContent value="funil" className="mt-0 space-y-4">
+          <FunnelObjetivosView
+            key={refreshTick}
+            onEditGoal={() => setConfigOpen(true)}
+            hasGoal={!!myGoalId}
+          />
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="mt-0 space-y-4">
+          <TrajectoryHero
+            key={`traj-${refreshTick}`}
+            year={currentYear}
+            consultantId={user?.id ?? null}
+          />
+          <DiagnosticCards key={`diag-${refreshTick}`} consultantId={user?.id ?? null} />
+          <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
+        </TabsContent>
+      </Tabs>
+
       {/* Botão inferior só em desktop — em mobile o gesto vive no header
           do funil (icon-button ao lado do Coach). */}
       <div className="hidden sm:flex justify-end">
@@ -68,6 +126,7 @@ function ObjetivosPageInner() {
           {myGoalId ? 'Editar objectivos anuais' : 'Configurar objectivos anuais'}
         </Button>
       </div>
+
       <GoalConfigSheet
         open={configOpen}
         onOpenChange={setConfigOpen}

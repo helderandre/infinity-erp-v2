@@ -134,17 +134,17 @@ export function CadenceHeatmap({ consultantId, scope = 'consultant', weeks = 12 
 
         {/* Heatmap */}
         <div className="overflow-x-auto -mx-2 pb-1">
-          <div className="inline-flex gap-1 px-2">
+          <div className="inline-flex gap-1.5 px-2">
             {/* Day labels column */}
-            <div className="grid grid-rows-7 gap-1 mr-1 text-[9px] text-muted-foreground tracking-tight">
+            <div className="grid grid-rows-7 gap-1.5 mr-2 text-[11px] text-muted-foreground tracking-tight">
               {DAY_LABELS.map((d) => (
-                <div key={d} className="h-4 flex items-center">
+                <div key={d} className="h-7 sm:h-8 flex items-center">
                   {d}
                 </div>
               ))}
             </div>
             {grid.map((week, i) => (
-              <div key={i} className="grid grid-rows-7 gap-1">
+              <div key={i} className="grid grid-rows-7 gap-1.5">
                 {week.map((day) => {
                   const bucket = bucketFor(day.count, data.max_count)
                   const stageList = Object.entries(day.by_stage)
@@ -155,7 +155,7 @@ export function CadenceHeatmap({ consultantId, scope = 'consultant', weeks = 12 
                       key={day.date}
                       title={`${day.date} — ${day.count} acção(ões)${stageList ? ` (${stageList})` : ''}`}
                       className={cn(
-                        'h-4 w-4 rounded-sm transition-colors',
+                        'h-7 w-7 sm:h-8 sm:w-8 rounded-md transition-colors',
                         BUCKET_BG[bucket],
                         bucket === 0 && 'ring-1 ring-border/30',
                       )}
@@ -168,12 +168,12 @@ export function CadenceHeatmap({ consultantId, scope = 'consultant', weeks = 12 
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-2 mt-4 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-2 mt-5 text-[11px] text-muted-foreground">
           <span>Menos</span>
           {[0, 1, 2, 3, 4].map((b) => (
             <span
               key={b}
-              className={cn('h-3 w-3 rounded-sm', BUCKET_BG[b], b === 0 && 'ring-1 ring-border/30')}
+              className={cn('h-4 w-4 rounded-md', BUCKET_BG[b], b === 0 && 'ring-1 ring-border/30')}
             />
           ))}
           <span>Mais</span>
