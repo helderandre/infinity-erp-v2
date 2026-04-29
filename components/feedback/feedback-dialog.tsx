@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -146,7 +146,11 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       return
     }
     if (!page) {
-      toast.error('Indica em que página detectaste isto')
+      toast.error(
+        type === 'ticket'
+          ? 'Indica em que secção detetaste isto'
+          : 'Indica em que secção devemos implementar',
+      )
       return
     }
 
@@ -191,71 +195,82 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-[520px] p-0 sm:rounded-l-3xl bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0"
+      >
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40 shrink-0">
+          <SheetTitle className="flex items-center gap-2 text-base">
             <Icon className="h-5 w-5" />
             {config.title}
-          </DialogTitle>
-          <DialogDescription>{config.description}</DialogDescription>
-        </DialogHeader>
+          </SheetTitle>
+          <SheetDescription className="text-[12px]">
+            {config.description}
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4">
-          {/* Voice recorder */}
-          <div className="flex items-center justify-between rounded-lg border border-dashed p-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
+          {/* Card 1 — Voice recorder */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
               Gravar descrição por voz
             </span>
             <VoiceRecorder onTranscription={handleTranscription} />
           </div>
 
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="feedback-title">Título</Label>
-            <Input
-              id="feedback-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={config.titlePlaceholder}
-            />
+          {/* Card 2 — Título → Secção → Descrição */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="feedback-title">Título</Label>
+              <Input
+                id="feedback-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={config.titlePlaceholder}
+              />
+            </div>
+
+            {/* Page (auto-detect + manual override). Obrigatório, simplifica
+                triagem na tech pipeline. Copy difere por tipo: bug pergunta
+                onde foi detectado; ideia pergunta onde implementar. */}
+            <div className="space-y-2">
+              <Label htmlFor="feedback-page">
+                {type === 'ticket'
+                  ? 'Em que secção detetaste isto?'
+                  : 'Em que secção devemos implementar?'}
+                <span className="text-destructive ml-0.5">*</span>
+              </Label>
+              <Select value={page} onValueChange={(v) => setPage(v as FeedbackPage)}>
+                <SelectTrigger id="feedback-page">
+                  <SelectValue placeholder="Escolhe a secção…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FEEDBACK_PAGES.map((p) => (
+                    <SelectItem key={p.slug} value={p.slug}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="feedback-desc">Descrição</Label>
+              <Textarea
+                id="feedback-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={config.descriptionPlaceholder}
+                rows={4}
+              />
+            </div>
           </div>
 
-          {/* Page (auto-detect + manual override). Obrigatório, simplifica
-              triagem na tech pipeline. */}
-          <div className="space-y-2">
-            <Label htmlFor="feedback-page">
-              Em que página detectaste isto?
-              <span className="text-destructive ml-0.5">*</span>
-            </Label>
-            <Select value={page} onValueChange={(v) => setPage(v as FeedbackPage)}>
-              <SelectTrigger id="feedback-page">
-                <SelectValue placeholder="Escolhe a página…" />
-              </SelectTrigger>
-              <SelectContent>
-                {FEEDBACK_PAGES.map((p) => (
-                  <SelectItem key={p.slug} value={p.slug}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="feedback-desc">Descrição</Label>
-            <Textarea
-              id="feedback-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={config.descriptionPlaceholder}
-              rows={4}
-            />
-          </div>
-
-          {/* Images */}
-          <div className="space-y-2">
+          {/* Card 3 — Imagens */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
               <Label>Imagens ({images.length}/{MAX_IMAGES})</Label>
               {images.length < MAX_IMAGES && (
@@ -263,7 +278,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs gap-1.5"
+                  className="h-7 text-xs gap-1.5 rounded-full"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isCompressing}
                 >
@@ -308,16 +323,22 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* Footer translúcido — Cancelar + Enviar sempre visíveis */}
+        <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || isCompressing || !title.trim() || !page}>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={isSubmitting || isCompressing || !title.trim() || !page}
+            className="min-w-[100px]"
+          >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enviar
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
