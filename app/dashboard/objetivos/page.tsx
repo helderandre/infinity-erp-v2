@@ -9,6 +9,9 @@ import { useUser } from '@/hooks/use-user'
 import { useGoals } from '@/hooks/use-goals'
 import { FunnelObjetivosView } from '@/components/goals/funnel/funnel-objetivos-view'
 import { GoalConfigSheet } from '@/components/goals/goal-config-sheet'
+import { TrajectoryHero } from '@/components/goals/trajectory-hero'
+import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
+import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
 
 function ObjetivosPageInner() {
   const { hasPermission, loading } = usePermissions()
@@ -44,11 +47,14 @@ function ObjetivosPageInner() {
 
   return (
     <div className="space-y-4">
+      <TrajectoryHero key={`traj-${refreshTick}`} year={currentYear} consultantId={user?.id ?? null} />
+      <DiagnosticCards key={`diag-${refreshTick}`} consultantId={user?.id ?? null} />
       <FunnelObjetivosView
         key={refreshTick}
         onEditGoal={() => setConfigOpen(true)}
         hasGoal={!!myGoalId}
       />
+      <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
       {/* Botão inferior só em desktop — em mobile o gesto vive no header
           do funil (icon-button ao lado do Coach). */}
       <div className="hidden sm:flex justify-end">
