@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
-import { isLeadership, canSeeAllProcessTasks } from '@/lib/auth/roles'
+import { isLeadership } from '@/lib/auth/roles'
 import { isTaskListMember } from '@/lib/tasks/access'
 import { createTaskSchema, taskQuerySchema } from '@/lib/validations/task'
 import { notificationService } from '@/lib/notifications/service'
@@ -50,7 +50,6 @@ export async function GET(request: Request) {
 
     const selfId = auth.user.id
     const callerIsLeadership = isLeadership(auth.roles)
-    const callerCanSeeAllProcTasks = canSeeAllProcessTasks(auth.roles)
     // Drill-in: leadership a navegar para outro consultor passa
     // `?assigned_to=<id>`. Quando o id não é o próprio, ativa o modo
     // "view another user's tasks" — tarefas pessoais (`is_private=true`)
@@ -205,11 +204,13 @@ export async function GET(request: Request) {
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
 
-      // Process tasks: leadership + Gestor Processual veem TODOS os
-      // proc_tasks na agência (canSeeAllProcessTasks). Outros só os seus.
-      // Drill-in para outro consultor: o filtro `assigned_to` já restringe
-      // ao alvo; saltamos o self-scope.
-      if (!callerCanSeeAllProcTasks && !isDrillInToOther) {
+      // Inbox personal: sempre `assigned_to = self`, mesmo para leadership.
+      // A excepção `canSeeAllProcessTasks` foi removida — a vista
+      // "todas as tasks da agência" vive na página detalhe do processo
+      // (/dashboard/processos/[id]), não neste endpoint. Drill-in
+      // (`?assigned_to=<id>`) continua a permitir leadership ver inbox
+      // de outro consultor.
+      if (!isDrillInToOther) {
         q = q.eq('assigned_to', selfId)
       }
 
@@ -253,9 +254,9 @@ export async function GET(request: Request) {
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
 
-      // Process subtasks: mesmo gate que proc_tasks
-      // (leadership + Gestor Processual veem todas; outros só as suas).
-      if (!callerCanSeeAllProcTasks && !isDrillInToOther) {
+      // Inbox personal: mesmo princípio que proc_tasks — sempre self,
+      // a menos que seja drill-in explícito de leadership.
+      if (!isDrillInToOther) {
         q = q.eq('assigned_to', selfId)
       }
 
