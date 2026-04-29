@@ -541,35 +541,37 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Gesto MOBILE-only para abrir o assistente: tocar no canto superior
-  // direito e arrastar para baixo até cerca de 1/3 do ecrã.
+  // Gesto MOBILE-only para abrir o assistente: DOIS TOQUES rápidos em
+  // qualquer parte do ecrã (≤ 350 ms entre toques, < 30 px de distância
+  // entre os dois toques).
   //
-  // No desktop (pointer: fine, rato) NÃO há gesto — o long-press anterior
-  // chocava com selecção de texto / drag de janelas. Quem usa rato tem
-  // o botão de voz no topbar.
+  // Substitui o swipe anterior, que era cortado pelo iOS quando o gesto
+  // era interpretado como scroll. Double-tap é robusto a esse problema.
   //
-  // Critérios:
-  //   • pointerdown na zona top-right (right > 65 % da largura, top
-  //     < 30 % da altura) e em elemento não-interactivo (skip em
-  //     button/input/link/contenteditable/data-no-long-press).
-  //   • Usamos touch events em vez de pointer events — pointer events
-  //     são "swallowed" pelo iOS quando interpreta o gesto como scroll
-  //     (`pointercancel` dispara quando a página começa a deslocar-se,
-  //     e isso matava a leitura do nosso gesto). Touch events não têm
-  //     esse problema: vão sempre disparar `touchmove` para o nosso
-  //     listener, mesmo que o navegador faça scroll em paralelo.
-  //   • touchmove com Δy ≥ 30 % da altura do viewport.
-  //   • Cancela se Δx dominar (swipe lateral) ou se o dedo subir > 10 px.
-  //   • touchend antes do limiar → cancela.
+  // No desktop (pointer: fine, rato) NÃO há gesto — o botão de voz no
+  // topbar é a única forma de abrir.
+  //
+  // Conviv com gestos nativos:
+  //   • Long-press (cópia de texto): nativo do iOS/Android, intacto.
+  //     Não usamos pointer/touch listeners que interfiram.
+  //   • Double-tap em texto (selecção de palavra): se o sistema criou
+  //     uma selecção, abortamos antes de disparar (verificação 60 ms
+  //     depois para deixar o iOS processar a selecção primeiro).
+  //   • Double-tap-to-zoom: depende do viewport meta. Se acontecer,
+  //     o nosso listener mete-se "à frente" porque corre em capture
+  //     phase no `touchend`. Mesmo se zoom ocorrer, a voz também abre.
+  //   • Inputs/buttons/links/contenteditable: skip total (opt-out).
+  //   • Nodes com `data-no-long-press`: skip (mantemos o opt-out por
+  //     consistência com a regra anterior de long-press).
   useEffect(() => {
     if (open) return
     if (typeof window === 'undefined') return
     const isCoarse = window.matchMedia?.('(pointer: coarse)').matches
     if (!isCoarse) return
 
-    let armed = false
-    let startX = 0
-    let startY = 0
+    let lastTapTime = 0
+    let lastTapX = 0
+    let lastTapY = 0
 
     const isOptOut = (target: EventTarget | null): boolean => {
       const el = target as HTMLElement | null
@@ -595,65 +597,46 @@ export function AiVoiceAssistant() {
       return false
     }
 
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      const t = e.touches[0]
+    const onTouchEnd = (e: TouchEvent) => {
+      // Só nos interessa o caso de um dedo só (multi-touch é zoom etc.).
+      if (e.changedTouches.length !== 1) return
       if (isOptOut(e.target)) return
-      const w = window.innerWidth
-      const h = window.innerHeight
-      const inZone = t.clientX > w * 0.65 && t.clientY < h * 0.3
-      if (!inZone) return
-      armed = true
-      startX = t.clientX
-      startY = t.clientY
-    }
+      const t = e.changedTouches[0]
+      const now = Date.now()
+      const dt = now - lastTapTime
+      const dx = Math.abs(t.clientX - lastTapX)
+      const dy = Math.abs(t.clientY - lastTapY)
 
-    const onTouchMove = (e: TouchEvent) => {
-      if (!armed) return
-      if (e.touches.length !== 1) {
-        armed = false
-        return
-      }
-      const t = e.touches[0]
-      const dx = t.clientX - startX
-      const dy = t.clientY - startY
-      // Mais horizontal do que vertical → não é o nosso gesto.
-      if (Math.abs(dx) > Math.abs(dy) + 30) {
-        armed = false
-        return
-      }
-      // O dedo subiu — utilizador desistiu / corrigiu.
-      if (dy < -10) {
-        armed = false
-        return
-      }
-      const threshold = window.innerHeight * 0.3
-      if (dy >= threshold) {
-        armed = false
-        try {
-          window.getSelection?.()?.removeAllRanges()
-        } catch {}
-        try {
-          ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
-        } catch {}
-        window.dispatchEvent(new Event('open-voice-assistant'))
+      const isDoubleTap = dt < 350 && dx < 30 && dy < 30 && lastTapTime > 0
+
+      if (isDoubleTap) {
+        // Reset para evitar que um terceiro toque dispare de novo.
+        lastTapTime = 0
+        // Esperamos 60 ms antes de disparar para o iOS ter tempo de
+        // processar a possível selecção de palavra (double-tap em texto
+        // selecciona uma palavra natviamente). Se houver selecção activa
+        // depois desse tempo, abortamos — o utilizador queria copiar.
+        window.setTimeout(() => {
+          const sel = window.getSelection?.()
+          if (sel && !sel.isCollapsed) return
+          try {
+            ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
+          } catch {}
+          window.dispatchEvent(new Event('open-voice-assistant'))
+        }, 60)
+      } else {
+        // Primeiro toque (ou toques demasiado afastados no tempo/espaço).
+        lastTapTime = now
+        lastTapX = t.clientX
+        lastTapY = t.clientY
       }
     }
 
-    const cancel = () => {
-      armed = false
-    }
-
-    // `passive: true` — não chamamos preventDefault; queremos o scroll
-    // nativo a acontecer em paralelo com a leitura do gesto.
-    window.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
-    window.addEventListener('touchmove', onTouchMove, { passive: true, capture: true })
-    window.addEventListener('touchend', cancel, true)
+    // `passive: true` — não chamamos preventDefault; queremos preservar
+    // o comportamento nativo de tap (cliques, scroll, long-press, etc.).
+    window.addEventListener('touchend', onTouchEnd, { passive: true, capture: true })
     return () => {
-      cancel()
-      window.removeEventListener('touchstart', onTouchStart, true)
-      window.removeEventListener('touchmove', onTouchMove, true)
-      window.removeEventListener('touchend', cancel, true)
+      window.removeEventListener('touchend', onTouchEnd, true)
     }
   }, [open])
 
