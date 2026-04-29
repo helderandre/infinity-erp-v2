@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Users, User, Sparkles, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FunnelCard } from './funnel-card'
-import { FunnelLegend } from './funnel-legend'
 import { FunnelCoachSheet } from './funnel-coach-sheet'
 import { TeamGridView } from './team-grid-view'
 import type {
@@ -282,7 +281,6 @@ export function FunnelObjetivosView({ onEditGoal, hasGoal }: FunnelObjetivosView
               <span className="h-1.5 w-1.5 rounded-full bg-foreground/20" />
             </div>
           </div>
-          <FunnelLegend />
         </>
       ) : null}
 
