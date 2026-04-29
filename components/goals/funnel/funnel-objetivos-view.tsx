@@ -176,13 +176,13 @@ export function FunnelObjetivosView() {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {data && (
             <>
-              <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-muted-foreground">
-                <span className="text-[10px] tracking-wider uppercase font-medium">Período</span>
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-muted-foreground">
+                <span className="text-[11px] font-medium">Período</span>
                 <span className="text-foreground tabular-nums">{formatPeriodRange(data.period_start, data.period_end)}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-muted-foreground">
-                <span className="text-[10px] tracking-wider uppercase font-medium">
-                  {periodLabelEur(period)}{scope === 'team' ? ' (somado)' : ''}
+                <span className="text-[11px] font-medium">
+                  Objectivo{scope === 'team' ? ' (somado)' : ''}
                 </span>
                 <span className="text-foreground font-semibold tabular-nums">
                   {eurFormatter.format(data.period_target_eur)}
