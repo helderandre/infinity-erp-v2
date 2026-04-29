@@ -26,7 +26,7 @@ export function PersonalDesignCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border overflow-hidden hover:shadow-md transition-all cursor-pointer'
+        'group relative rounded-2xl border border-border/40 bg-card/70 supports-[backdrop-filter]:bg-card/55 backdrop-blur-xl shadow-sm overflow-hidden transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-border/70 hover:bg-card/85'
       )}
       onClick={() => onOpen?.(design)}
     >

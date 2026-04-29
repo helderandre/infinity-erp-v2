@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -59,6 +61,7 @@ const MAX_IMAGES = 5
 
 export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps) {
   const pathname = usePathname()
+  const isMobile = useIsMobile()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [page, setPage] = useState<FeedbackPage | ''>('')
@@ -197,10 +200,19 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
-        className="w-full sm:max-w-[520px] p-0 sm:rounded-l-3xl bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0"
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
+          isMobile
+            ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+            : 'w-full sm:max-w-[520px] sm:rounded-l-3xl',
+        )}
       >
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40 shrink-0">
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+        )}
+
+        <SheetHeader className={cn('px-6 pb-4 border-b border-border/40 shrink-0', isMobile ? 'pt-8' : 'pt-6')}>
           <SheetTitle className="flex items-center gap-2 text-base">
             <Icon className="h-5 w-5" />
             {config.title}

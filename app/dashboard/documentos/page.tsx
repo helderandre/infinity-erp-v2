@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -20,8 +21,9 @@ import { EmptyState } from '@/components/shared/empty-state'
 import {
   Search, Download, Eye, Upload, FileText, File, FileImage,
   FileSpreadsheet, Loader2, Trash2, MoreHorizontal, Pencil,
-  FolderOpen, Library, Blocks, Check, ChevronRight, ChevronLeft,
+  FolderOpen, Library, Blocks, Check, ChevronRight, ChevronLeft, X,
 } from 'lucide-react'
+import { DialogClose } from '@/components/ui/dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -131,7 +133,15 @@ function BibliotecaPageContent() {
   ]
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
+    <div className="relative flex flex-1 flex-col gap-6 p-4 pt-0">
+      {/* Glass background — tom cinzento translúcido com blur, espelha o
+          feel das sheets (calendar / edit negócio). Fica fixo atrás do
+          conteúdo, sem afectar o flex layout. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-muted/40 via-muted/20 to-background"
+      />
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
@@ -177,9 +187,11 @@ function BibliotecaPageContent() {
 function DocumentosTab() {
   const { getLabel, getCategory, activeCategories } = useCompanyCategories()
   // Documentos da empresa, designs e recursos são editáveis apenas por
-  // utilizadores com permissão `marketing`. Consultores ficam em só-leitura.
-  const { hasPermission } = usePermissions()
-  const canManage = hasPermission('marketing')
+  // utilizadores em MANAGEMENT_ROLES (admin / Broker/CEO / Gestor
+  // Processual / Office Manager / Team Leader). Consultores ficam em
+  // só-leitura — vêem e descarregam, mas não criam/editam/eliminam.
+  const { user } = useUser()
+  const canManage = isManagementRole(user?.role_names ?? [])
   const [documents, setDocuments] = useState<CompanyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -324,8 +336,8 @@ function DocumentosTab() {
   return (
     <>
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <div className="relative flex-1 min-w-[140px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar documento..."
@@ -338,7 +350,8 @@ function DocumentosTab() {
           value={category}
           onValueChange={setCategory}
           includeAllOption
-          triggerClassName="w-[200px]"
+          iconOnlyOnMobile
+          triggerClassName="w-9 h-9 p-0 sm:w-[200px] sm:h-auto sm:px-3"
         />
         <CompanyCategoryAddButton
           onClick={() => {
@@ -348,9 +361,14 @@ function DocumentosTab() {
           }}
         />
         {canManage && (
-          <Button className="rounded-full gap-2" onClick={() => setUploadOpen(true)}>
+          <Button
+            className="rounded-full gap-2 shrink-0 h-9 w-9 p-0 sm:w-auto sm:px-4"
+            onClick={() => setUploadOpen(true)}
+            aria-label="Carregar documento"
+            title="Carregar documento"
+          >
             <Upload className="h-4 w-4" />
-            Carregar
+            <span className="hidden sm:inline">Carregar</span>
           </Button>
         )}
       </div>
@@ -415,49 +433,64 @@ function DocumentosTab() {
                   return (
                     <div
                       key={doc.id}
-                      className="group relative flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md cursor-pointer"
+                      className="group relative flex items-center gap-2.5 sm:gap-3 rounded-2xl border border-border/40 bg-card/70 supports-[backdrop-filter]:bg-card/55 backdrop-blur-xl px-3 py-2.5 sm:px-4 sm:py-3 min-w-0 overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:border-border/70 hover:shadow-md hover:bg-card/85 cursor-pointer"
                       onClick={() => {
                         if (isPdf(doc) || isImage(doc)) setPreviewDoc(doc)
                         else handleDownload(doc)
                       }}
                     >
-                      <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-border/40 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
-                        <Icon className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                      <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-border/40 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-300" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{doc.name}</p>
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[13px] sm:text-sm font-semibold truncate">{doc.name}</p>
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">
                           <span className="uppercase font-medium">{doc.file_extension}</span>
                           {doc.file_size && <><span className="text-muted-foreground/40">·</span><span>{formatFileSize(doc.file_size)}</span></>}
-                          {doc.download_count > 0 && <><span className="text-muted-foreground/40">·</span><span>{doc.download_count} download{doc.download_count !== 1 ? 's' : ''}</span></>}
+                          {doc.download_count > 0 && <><span className="text-muted-foreground/40">·</span><span className="truncate">{doc.download_count} download{doc.download_count !== 1 ? 's' : ''}</span></>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                        {(isPdf(doc) || isImage(doc)) && (
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => setPreviewDoc(doc)} title="Pré-visualizar">
-                            <Eye className="h-3.5 w-3.5" />
+                      {/* Action buttons — em mobile colapsam para o ⋯ menu;
+                          em desktop ficam visíveis em hover. Evita o card
+                          ficar com 3 ícones que empurram o título off-screen. */}
+                      <div className="flex items-center gap-0.5 shrink-0 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <div className="hidden sm:flex items-center gap-0.5">
+                          {(isPdf(doc) || isImage(doc)) && (
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => setPreviewDoc(doc)} title="Pré-visualizar">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => handleDownload(doc)} title="Descarregar">
+                            <Download className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" onClick={() => handleDownload(doc)} title="Descarregar">
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                        {canManage && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setEditDoc(doc); setEditName(doc.name); setEditCategory(doc.category) }}>
-                                <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {(isPdf(doc) || isImage(doc)) && (
+                              <DropdownMenuItem className="sm:hidden" onClick={() => setPreviewDoc(doc)}>
+                                <Eye className="h-3.5 w-3.5 mr-2" />Pré-visualizar
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDoc(doc)}>
-                                <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                            )}
+                            <DropdownMenuItem className="sm:hidden" onClick={() => handleDownload(doc)}>
+                              <Download className="h-3.5 w-3.5 mr-2" />Descarregar
+                            </DropdownMenuItem>
+                            {canManage && (
+                              <>
+                                <DropdownMenuItem onClick={() => { setEditDoc(doc); setEditName(doc.name); setEditCategory(doc.category) }}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDoc(doc)}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   )
@@ -470,8 +503,19 @@ function DocumentosTab() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
-        <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden gap-0">
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-4xl rounded-2xl p-0 overflow-hidden gap-0"
+        >
           <DialogTitle className="sr-only">{previewDoc?.name || 'Pré-visualização'}</DialogTitle>
+          {/* Close X — branco com pill backdrop para garantir contraste
+              sobre o toolbar escuro do PDF iframe (ou imagem). */}
+          <DialogClose
+            className="absolute top-3 right-3 z-50 inline-flex items-center justify-center h-8 w-8 rounded-full bg-black/55 hover:bg-black/70 text-white shadow-md transition-colors backdrop-blur-sm"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4" />
+          </DialogClose>
           {previewDoc && (
             <>
               <div className="bg-muted/30">
@@ -771,9 +815,10 @@ const EMPTY_TEAM_DESIGN: TeamDesignFormState = {
 function TeamDesignsTab() {
   const { activeCategories, getLabel, getCategory } =
     useMarketingDesignCategoriesContext()
-  // Designs da equipa só editáveis com `marketing` — consultores ficam read-only.
-  const { hasPermission } = usePermissions()
-  const canManage = hasPermission('marketing')
+  // Designs da equipa só editáveis por gestão — consultores em só-leitura
+  // (vêem e descarregam apenas).
+  const { user } = useUser()
+  const canManage = isManagementRole(user?.role_names ?? [])
   const [templates, setTemplates] = useState<DesignTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -926,19 +971,13 @@ function TeamDesignsTab() {
             className="pl-9 rounded-full"
           />
         </div>
-        <div
-          className={cn(
-            'shrink-0',
-            '[&_button[data-slot=select-trigger]]:w-9 [&_button[data-slot=select-trigger]]:h-9 [&_button[data-slot=select-trigger]]:px-0 [&_button[data-slot=select-trigger]]:justify-center',
-            'sm:[&_button[data-slot=select-trigger]]:w-[200px] sm:[&_button[data-slot=select-trigger]]:h-auto sm:[&_button[data-slot=select-trigger]]:px-3 sm:[&_button[data-slot=select-trigger]]:justify-between'
-          )}
-        >
-          <MarketingDesignCategorySelect
-            value={category}
-            onValueChange={setCategory}
-            includeAllOption
-          />
-        </div>
+        <MarketingDesignCategorySelect
+          value={category}
+          onValueChange={setCategory}
+          includeAllOption
+          iconOnlyOnMobile
+          triggerClassName="w-9 h-9 p-0 sm:w-[200px] sm:h-auto sm:px-3 shrink-0"
+        />
         <MarketingDesignCategoryAddButton
           onClick={() => {
             setCategoryToEdit(null)
@@ -1013,9 +1052,9 @@ function TeamDesignsTab() {
                   <div
                     key={t.id}
                     className={cn(
-                      'group relative rounded-2xl border border-border/60 bg-card overflow-hidden transition-all',
+                      'group relative rounded-2xl border border-border/40 bg-card/70 supports-[backdrop-filter]:bg-card/55 backdrop-blur-xl shadow-sm overflow-hidden transition-all',
                       t.canva_url
-                        ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-border'
+                        ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-border/70 hover:bg-card/85'
                         : 'cursor-default'
                     )}
                     onClick={() => {
@@ -1253,6 +1292,10 @@ const KIT_CATEGORY_LABELS: Record<string, string> = {
 function KitConsultorTab() {
   const { user } = useUser()
   const userId = user?.id || null
+  // Adicionar designs pessoais (kit + uploads) reservado a gestão.
+  // Consultor vê e descarrega apenas. Mantém-se igual para o "+" do
+  // header de cada secção e para o botão grande no toolbar.
+  const canManage = isManagementRole(user?.role_names ?? [])
   const { activeCategories, getCategory } = useMarketingDesignCategoriesContext()
   const [items, setItems] = useState<AgentMaterial[]>([])
   const [loading, setLoading] = useState(true)
@@ -1417,7 +1460,7 @@ function KitConsultorTab() {
     <>
       {/* Progress — kit only */}
       {items.length > 0 && (
-        <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5">
+        <div className="rounded-2xl border border-border/40 bg-card/70 supports-[backdrop-filter]:bg-card/55 backdrop-blur-xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-semibold text-sm">O Meu Kit</h3>
@@ -1452,30 +1495,28 @@ function KitConsultorTab() {
             className="pl-9 rounded-full"
           />
         </div>
-        <div
-          className={cn(
-            'shrink-0',
-            '[&_button[data-slot=select-trigger]]:w-9 [&_button[data-slot=select-trigger]]:h-9 [&_button[data-slot=select-trigger]]:px-0 [&_button[data-slot=select-trigger]]:justify-center',
-            'sm:[&_button[data-slot=select-trigger]]:w-[200px] sm:[&_button[data-slot=select-trigger]]:h-auto sm:[&_button[data-slot=select-trigger]]:px-3 sm:[&_button[data-slot=select-trigger]]:justify-between'
-          )}
-        >
-          <MarketingDesignCategorySelect
-            value={categoryFilter}
-            onValueChange={setCategoryFilter}
-            includeAllOption
-          />
-        </div>
-        <MarketingDesignCategoryAddButton
-          onClick={() => setCategoryDialogOpenFromKit(true)}
+        <MarketingDesignCategorySelect
+          value={categoryFilter}
+          onValueChange={setCategoryFilter}
+          includeAllOption
+          iconOnlyOnMobile
+          triggerClassName="w-9 h-9 p-0 sm:w-[200px] sm:h-auto sm:px-3 shrink-0"
         />
-        <Button
-          className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
-          onClick={() => openPersonalCreate()}
-          title="Adicionar design"
-        >
-          <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Adicionar design</span>
-        </Button>
+        {canManage && (
+          <>
+            <MarketingDesignCategoryAddButton
+              onClick={() => setCategoryDialogOpenFromKit(true)}
+            />
+            <Button
+              className="rounded-full shrink-0 w-9 h-9 p-0 sm:w-auto sm:h-auto sm:px-4 sm:py-2 sm:gap-2"
+              onClick={() => openPersonalCreate()}
+              title="Adicionar design"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Adicionar design</span>
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Unified grouped view — kit + personal together */}
@@ -1483,8 +1524,12 @@ function KitConsultorTab() {
         <EmptyState
           icon={Blocks}
           title="Sem designs"
-          description="Adicione o teu primeiro design pessoal ou aguarde o kit da equipa."
-          action={{ label: 'Adicionar design', onClick: () => openPersonalCreate() }}
+          description={
+            canManage
+              ? 'Adicione o teu primeiro design pessoal ou aguarde o kit da equipa.'
+              : 'Ainda não há designs disponíveis. Aguarda o kit da equipa.'
+          }
+          action={canManage ? { label: 'Adicionar design', onClick: () => openPersonalCreate() } : undefined}
         />
       ) : !hasAnythingAfterFilter ? (
         <EmptyState
@@ -1504,7 +1549,7 @@ function KitConsultorTab() {
                   label={cat?.label ?? slug}
                   count={total}
                   category={cat}
-                  onAddDesign={(c) => openPersonalCreate(c.slug)}
+                  onAddDesign={canManage ? (c) => openPersonalCreate(c.slug) : undefined}
                 />
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                   {/* Kit items */}
@@ -1517,7 +1562,7 @@ function KitConsultorTab() {
                         className={cn(
                           'group rounded-2xl border p-2 space-y-1.5 transition-all',
                           hasPages
-                            ? 'bg-card border-border/60 cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-border'
+                            ? 'bg-card/70 supports-[backdrop-filter]:bg-card/55 backdrop-blur-xl border-border/40 shadow-sm cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-border/70 hover:bg-card/85'
                             : 'bg-muted/10 border-dashed opacity-60'
                         )}
                         onClick={() => {

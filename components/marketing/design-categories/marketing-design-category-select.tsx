@@ -1,5 +1,6 @@
 'use client'
 
+import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select,
@@ -19,6 +20,11 @@ interface MarketingDesignCategorySelectProps {
   placeholder?: string
   triggerClassName?: string
   disabled?: boolean
+  /**
+   * Em viewports < sm rende apenas um ícone de filtros (sem texto), poupando
+   * largura horizontal — útil em toolbars apertados (search + add + upload).
+   */
+  iconOnlyOnMobile?: boolean
 }
 
 export function MarketingDesignCategorySelect({
@@ -28,12 +34,26 @@ export function MarketingDesignCategorySelect({
   placeholder = 'Categoria',
   triggerClassName,
   disabled,
+  iconOnlyOnMobile = false,
 }: MarketingDesignCategorySelectProps) {
   const { activeCategories } = useMarketingDesignCategoriesContext()
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className={cn('rounded-full', triggerClassName)}>
+      <SelectTrigger
+        className={cn(
+          'rounded-full',
+          // Mobile icon-only: esconde o SelectValue (span) e o chevron
+          // (último svg) — só fica visível o SlidersHorizontal abaixo.
+          // Em sm+ volta ao layout normal (texto + chevron, ícone hidden).
+          iconOnlyOnMobile &&
+            'justify-center sm:justify-between [&_[data-slot=select-value]]:hidden sm:[&_[data-slot=select-value]]:flex [&>svg:last-child]:hidden sm:[&>svg:last-child]:inline-block',
+          triggerClassName,
+        )}
+      >
+        {iconOnlyOnMobile && (
+          <SlidersHorizontal className="h-4 w-4 sm:hidden" aria-hidden="true" />
+        )}
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
