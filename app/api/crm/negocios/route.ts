@@ -8,6 +8,7 @@ import {
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 export async function GET(request: Request) {
   try {
@@ -92,7 +93,21 @@ export async function GET(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ data, total: count ?? 0, page, per_page })
+    const rows = data || []
+    const redactedRows = canSeeAll
+      ? rows.map((row: Record<string, unknown>) =>
+          shouldRedactLead(
+            auth.roles,
+            row.assigned_consultant_id as string | null | undefined,
+            auth.user.id,
+            row.referrer_consultant_id as string | null | undefined,
+          )
+            ? redactNestedLead(row)
+            : row,
+        )
+      : rows
+
+    return NextResponse.json({ data: redactedRows, total: count ?? 0, page, per_page })
   } catch (err) {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

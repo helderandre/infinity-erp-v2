@@ -137,6 +137,16 @@ export async function GET(
     .maybeSingle()
   const consultantName: string = consultantUser?.commercial_name || 'Consultor'
 
+  // Consultor's role names — needed for visibility checks against
+  // `calendar_events.visibility_role_names` (mirrors the in-app calendar).
+  const { data: roleRows } = await supabase
+    .from('user_roles')
+    .select('role:roles(name)')
+    .eq('user_id', consultantId)
+  const consultantRoles: string[] = (roleRows ?? [])
+    .map((r: any) => r?.role?.name)
+    .filter((n: any): n is string => !!n)
+
   // Window: events overlapping [now-90d, now+365d]
   const now = new Date()
   const windowStart = new Date(now)
@@ -160,17 +170,27 @@ export async function GET(
     leadExpiryRes,
     contractExpiryRes,
   ] = await Promise.all([
-    // Manual events
+    // Manual events — fetch ownership matches PLUS any event with a non-null
+    // `visibility_mode`, so the JS pass below can apply the precise visibility
+    // rules (matches the in-app calendar). Returning a slightly broader set
+    // is fine because the JS filter trims it down before emission.
     supabase
       .from('calendar_events')
       .select(
-        'id, title, description, category, start_date, end_date, all_day, is_recurring, recurrence_rule, location, created_at, updated_at',
+        'id, title, description, category, start_date, end_date, all_day, is_recurring, recurrence_rule, location, created_at, updated_at, ' +
+          'user_id, created_by, owner_ids, visibility_mode, visibility_user_ids, visibility_role_names',
       )
       .or(
         [
           `user_id.eq.${consultantId}`,
           `created_by.eq.${consultantId}`,
           `owner_ids.cs.{${consultantId}}`,
+          // 'all' = company-wide, visible to every consultor.
+          `visibility_mode.eq.all`,
+          // 'include'/'exclude' need JS evaluation against the consultor's id
+          // and role list — fetch them and decide below.
+          `visibility_mode.eq.include`,
+          `visibility_mode.eq.exclude`,
         ].join(','),
       )
       .or(
@@ -248,7 +268,40 @@ export async function GET(
       .limit(500),
   ])
 
-  const rows: CalendarEventRow[] = (manualRes.data ?? []) as CalendarEventRow[]
+  // Apply precise visibility rules in JS (mirrors `app/api/calendar/events`).
+  //   - Owner/creator/tagged → always visible
+  //   - visibility_mode='all' → visible to every consultor
+  //   - 'include' → only if consultor id ∈ visibility_user_ids OR any role ∈ visibility_role_names
+  //   - 'exclude' → visible UNLESS consultor id ∈ visibility_user_ids OR any role ∈ visibility_role_names
+  type ManualRow = CalendarEventRow & {
+    user_id?: string | null
+    created_by?: string | null
+    owner_ids?: string[] | null
+    visibility_mode?: string | null
+    visibility_user_ids?: string[] | null
+    visibility_role_names?: string[] | null
+  }
+  const rolesLower = consultantRoles.map((r) => r.toLowerCase())
+  const rows: CalendarEventRow[] = ((manualRes.data ?? []) as unknown as ManualRow[]).filter((ev) => {
+    if (
+      ev.user_id === consultantId ||
+      ev.created_by === consultantId ||
+      (Array.isArray(ev.owner_ids) && ev.owner_ids.includes(consultantId))
+    ) {
+      return true
+    }
+    const vis = ev.visibility_mode ?? 'all'
+    if (vis === 'all') return true
+
+    const allowedUsers: string[] = ev.visibility_user_ids ?? []
+    const allowedRoles: string[] = ev.visibility_role_names ?? []
+    const userMatch = allowedUsers.includes(consultantId)
+    const roleMatch = allowedRoles.some((r) => rolesLower.includes(r.toLowerCase()))
+
+    if (vis === 'include') return userMatch || roleMatch
+    if (vis === 'exclude') return !userMatch && !roleMatch
+    return true
+  })
 
   // Build ICS body
   const lines: string[] = []

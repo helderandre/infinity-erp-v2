@@ -86,27 +86,9 @@ export async function GET(
       min_notice_hours: settings?.min_notice_hours ?? 24,
     }
 
-    // Check there are rules available — either property-specific or consultant-level
-    const { count: propertyRulesCount } = await supabase
-      .from('property_availability_rules')
-      .select('id', { count: 'exact', head: true })
-      .eq('property_id', property.id)
-      .eq('active', true)
-
-    if (!propertyRulesCount) {
-      const { count: consultantRulesCount } = await supabase
-        .from('consultant_availability_rules')
-        .select('id', { count: 'exact', head: true })
-        .eq('consultant_id', property.consultant_id)
-        .eq('active', true)
-
-      if (!consultantRulesCount) {
-        return NextResponse.json(
-          { error: 'Sem disponibilidade configurada para este imóvel' },
-          { status: 404 }
-        )
-      }
-    }
+    // Note: não bloqueamos quando o consultor ainda não configurou regras de
+    // disponibilidade. Nesse caso `slots` cai para a janela default
+    // (09:00–19:00, todos os dias) — ver lib/booking/default-rules.ts.
 
     const specs = Array.isArray(property.dev_property_specifications)
       ? property.dev_property_specifications[0]

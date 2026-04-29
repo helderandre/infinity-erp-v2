@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 
-export type EntityKind = 'property' | 'lead' | 'process' | 'owner' | 'negocio'
+export type EntityKind = 'property' | 'lead' | 'lead_entry' | 'process' | 'owner' | 'negocio'
 
 interface ParsedOption {
   id: string
@@ -51,7 +51,29 @@ const CONFIG: Record<EntityKind, Endpoints> = {
       primary: l.nome || 'Sem nome',
       secondary: [l.email, l.telemovel].filter(Boolean).join(' · ') || undefined,
     }),
-    emptyText: 'Sem leads encontrados.',
+    emptyText: 'Sem contactos encontrados.',
+    searchPlaceholder: 'Pesquisar contacto…',
+  },
+  lead_entry: {
+    // Entradas brutas do funil (form submissions, ad clicks). O endpoint
+    // não suporta `search` server-side — listamos os mais recentes; o
+    // shouldFilter está desligado mas o Command não filtra. Para já é
+    // aceitável: tipicamente o utilizador associa a uma entrada que
+    // acabou de chegar.
+    list: () => `/api/lead-entries?limit=25`,
+    byId: (id) => `/api/lead-entries/${id}`,
+    parse: (le: any) => {
+      const contact = le.contact ?? null
+      const primary = contact?.nome || le.source || 'Lead sem contacto'
+      const tail = [le.source, le.status].filter(Boolean).join(' · ')
+      return {
+        id: le.id,
+        primary,
+        secondary: tail || undefined,
+        meta: contact?.telemovel || contact?.email || undefined,
+      }
+    },
+    emptyText: 'Sem leads encontradas.',
     searchPlaceholder: 'Pesquisar lead…',
   },
   process: {

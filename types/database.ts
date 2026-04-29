@@ -923,6 +923,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          is_private: boolean
           is_recurring: boolean
           item_type: string
           lead_id: string | null
@@ -957,6 +958,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          is_private?: boolean
           is_recurring?: boolean
           item_type?: string
           lead_id?: string | null
@@ -991,6 +993,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          is_private?: boolean
           is_recurring?: boolean
           item_type?: string
           lead_id?: string | null
@@ -12129,6 +12132,7 @@ export type Database = {
           entity_type: string | null
           id: string
           is_completed: boolean
+          is_private: boolean
           is_recurring: boolean
           order_index: number
           parent_task_id: string | null
@@ -12151,6 +12155,7 @@ export type Database = {
           entity_type?: string | null
           id?: string
           is_completed?: boolean
+          is_private?: boolean
           is_recurring?: boolean
           order_index?: number
           parent_task_id?: string | null
@@ -12173,6 +12178,7 @@ export type Database = {
           entity_type?: string | null
           id?: string
           is_completed?: boolean
+          is_private?: boolean
           is_recurring?: boolean
           order_index?: number
           parent_task_id?: string | null

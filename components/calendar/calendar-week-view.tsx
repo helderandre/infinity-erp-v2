@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
 import type { TaskWithRelations } from '@/types/task'
-import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
+import { CALENDAR_CATEGORY_COLORS, getEventColors } from '@/types/calendar'
 import {
   startOfWeek,
   addDays,
@@ -190,7 +190,7 @@ export function CalendarWeekView({
             return (
               <div key={day.toISOString()} className="border-l px-0.5 py-1 space-y-0.5 min-h-[28px] overflow-hidden">
                 {dayAllDay.map((event) => {
-                  const colors = CALENDAR_CATEGORY_COLORS[event.category]
+                  const colors = getEventColors(event)
                   return (
                     <div
                       key={event.id}
@@ -207,7 +207,7 @@ export function CalendarWeekView({
                 })}
                 {dayTasks.map((event) => {
                   const isDone = event.status === 'completed'
-                  const colors = CALENDAR_CATEGORY_COLORS[event.category]
+                  const colors = getEventColors(event)
                   return (
                     <div
                       key={event.id}
@@ -335,7 +335,7 @@ export function CalendarWeekView({
                   }
 
                   return placed.map(({ event, top, height, col, totalCols }) => {
-                    const colors = CALENDAR_CATEGORY_COLORS[event.category]
+                    const colors = getEventColors(event)
                     const eventDate = parseISO(event.start_date)
                     const widthPct = 100 / totalCols
                     const leftPct = col * widthPct

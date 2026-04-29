@@ -50,6 +50,7 @@ import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
 import { isManagementRole } from '@/lib/auth/roles'
 import { Inbox, Plus, Send } from 'lucide-react'
 import Link from 'next/link'
@@ -1003,6 +1004,11 @@ export default function CRMPage() {
   // tab badges) ouvem este número como dependência para refrescar.
   const [kanbanRefreshKey, setKanbanRefreshKey] = useState(0)
   const bumpRefresh = useCallback(() => setKanbanRefreshKey((k) => k + 1), [])
+  // Mutações disparadas em qualquer parte da app (qualify de lead detail,
+  // referência num sheet, etc.) também bumpam a refreshKey aqui — garante
+  // que summary bar, contadores de pipeline e badge "Tens X leads"
+  // refrescam mesmo quando a mutação aconteceu fora desta page.
+  useCrmInvalidator(['kanban', 'lead-entries', 'negocios'], bumpRefresh)
   const [pipelineCounts, setPipelineCounts] = useState<Record<PipelineType, number | null>>({
     comprador: null,
     vendedor: null,

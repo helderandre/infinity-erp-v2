@@ -248,7 +248,7 @@ function AmenityGrid({
   const fields = Object.keys(AMENITY_EMOJIS)
 
   return (
-    <div className="col-span-full grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-1.5">
+    <div className="col-span-full grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
       {fields.map((baseField) => {
         const field = prefix ? `${baseField}${prefix}` : baseField
         const active = !!form[field]

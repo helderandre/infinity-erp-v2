@@ -34,7 +34,7 @@ import { useTasks, useTaskStats, useTaskMutations } from '@/hooks/use-tasks'
 import { useTaskList, useTaskListMutations, useTaskLists } from '@/hooks/use-task-lists'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { isManagementRole } from '@/lib/auth/roles'
+import { isLeadership } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { TASK_LIST_COLORS, type TaskListColor } from '@/types/task-list'
@@ -50,7 +50,11 @@ type Selection =
 
 function TarefasPageInner() {
   const { user } = useUser()
-  const isManagement = isManagementRole(user?.role_names ?? [])
+  // Leadership (admin, Broker/CEO, Office Manager, Team Leader) — únicos
+  // que podem atribuir tarefas a outros consultores. Mantemos o nome
+  // `isManagement` para minimizar churn; a fonte da verdade é o helper
+  // `isLeadership` em lib/auth/roles.ts.
+  const isManagement = isLeadership(user?.role_names ?? [])
   const selfCommercialName = user?.commercial_name ?? 'Eu'
   const isMobile = useIsMobile()
   const searchParams = useSearchParams()
@@ -561,6 +565,7 @@ function TarefasPageInner() {
         defaultValues={formDefaults}
         currentUserId={user?.id}
         requireAssignment={!isManagement && !(formDefaults?.task_list_id ?? listId)}
+        canAssignToOthers={isManagement}
       />
 
       {/* Mobile detail sheet — em desktop a detail aparece inline no split-view.

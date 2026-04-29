@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 /**
  * GET /api/negocios/[id]/related
@@ -109,6 +110,16 @@ export async function GET(
         .eq('deal_id', deal.id as string)
         .order('created_at', { ascending: false })
       moments = momRows ?? []
+    }
+
+    const redactPii = shouldRedactLead(
+      auth.roles,
+      negocio.assigned_consultant_id as string | null | undefined,
+      auth.user.id,
+      negocio.referrer_consultant_id as string | null | undefined,
+    )
+    if (redactPii && negocio.lead && typeof negocio.lead === 'object') {
+      negocio.lead = redactLead(negocio.lead as Record<string, unknown>)
     }
 
     return NextResponse.json({

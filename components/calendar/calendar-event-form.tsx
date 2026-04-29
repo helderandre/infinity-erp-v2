@@ -10,7 +10,6 @@ import {
   CALENDAR_VISIBILITY_OPTIONS,
   CALENDAR_VISIBILITY_MODE_OPTIONS,
   CALENDAR_ROLE_OPTIONS,
-  CALENDAR_ITEM_TYPE_OPTIONS,
 } from '@/lib/constants'
 import {
   Sheet,
@@ -66,6 +65,14 @@ interface CalendarEventFormProps {
   onSubmit: (data: CalendarEventFormData) => Promise<void>
   initialData?: Partial<CalendarEventFormData>
   users?: { id: string; name: string }[]
+  /**
+   * Apenas leadership (admin, Broker/CEO, Office Manager, Team Leader) pode
+   * (a) atribuir eventos a outros utilizadores, e (b) pedir confirmação de
+   * presença. Quando false, ambos os controlos ficam ocultos. Default true
+   * para preservar compatibilidade com callers existentes (ex.: ações de
+   * WhatsApp invocadas a partir de mensagens recebidas).
+   */
+  isLeadership?: boolean
 }
 
 const REMINDER_PRESETS = [
@@ -84,6 +91,7 @@ export function CalendarEventForm({
   onSubmit,
   initialData,
   users,
+  isLeadership = true,
 }: CalendarEventFormProps) {
   const isMobile = useIsMobile()
   const [showAdvancedVisibility, setShowAdvancedVisibility] = useState(false)
@@ -126,6 +134,7 @@ export function CalendarEventForm({
       location_lng: null,
       requires_rsvp: false,
       priority: 4,
+      is_private: false,
       ...initialData,
     },
   })
@@ -151,6 +160,7 @@ export function CalendarEventForm({
   const requiresRsvp = watch('requires_rsvp')
   const coverImageUrl = watch('cover_image_url')
   const description = watch('description')
+  const isPrivate = watch('is_private') ?? false
 
   useEffect(() => {
     if (open) {
@@ -166,6 +176,7 @@ export function CalendarEventForm({
         location_lat: null, location_lng: null,
         requires_rsvp: false,
         priority: 4,
+        is_private: false,
         ...initialData,
       })
     }
@@ -229,11 +240,12 @@ export function CalendarEventForm({
   // Without this, the user clicks "Guardar" on tab Conteúdo, validation fails on
   // a field in Opções, and the form just silently does nothing.
   const FIELD_TO_TAB: Partial<Record<keyof CalendarEventFormData, string>> = {
+    title: 'conteudo',
     description: 'conteudo',
     cover_image_url: 'conteudo',
-    location: 'conteudo',
     livestream_url: 'conteudo',
     registration_url: 'conteudo',
+    location: 'detalhes',
     reminders: 'opcoes',
     is_recurring: 'opcoes',
     recurrence_rule: 'opcoes',
@@ -550,33 +562,47 @@ export function CalendarEventForm({
           {/* Header */}
           <div className="shrink-0 px-6 pt-8 pb-4 sm:pt-10">
             <SheetHeader className="p-0 gap-0">
-              <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight pr-10">
-                {headingTitle}
-              </SheetTitle>
+              {/* Título do sheet + Pessoal/Profissional pill mini inline */}
+              <div className="flex items-center justify-between gap-3 pr-10">
+                <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight">
+                  {headingTitle}
+                </SheetTitle>
+                <div className="flex items-center rounded-full border border-border/40 bg-background/40 backdrop-blur-sm p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setValue('is_private', false)}
+                    className={cn(
+                      'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                      !isPrivate
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Profissional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue('is_private', true)}
+                    className={cn(
+                      'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                      isPrivate
+                        ? 'bg-yellow-200 text-yellow-900'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Pessoal
+                  </button>
+                </div>
+              </div>
               <SheetDescription className="sr-only">
                 Preencha os detalhes do {itemType === 'task' ? 'tarefa' : 'evento'}.
               </SheetDescription>
             </SheetHeader>
 
             <div className="mt-4 space-y-2.5">
-              {/* Item type segmented control */}
-              <div className="flex w-fit p-0.5 rounded-full bg-muted/60 border border-border/30">
-                {CALENDAR_ITEM_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={cn(
-                      'px-4 py-1 rounded-full text-xs font-medium transition-all',
-                      itemType === opt.value
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                    onClick={() => setValue('item_type', opt.value)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              {/* Item type segmented control removido — tarefas são criadas
+                  apenas em /dashboard/tarefas. O calendário só cria eventos.
+                  `item_type` default é 'event'. */}
 
               {/* AI Quick Fill */}
               <div className="flex items-end gap-0.5 rounded-3xl border border-border/40 bg-background/40 pl-3 pr-0.5 py-0.5 backdrop-blur-sm transition-[border-radius]">
@@ -655,25 +681,11 @@ export function CalendarEventForm({
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 pt-5 pb-20">
               {/* ================= DETALHES ================= */}
-              <TabsContent value="detalhes" className="m-0 space-y-5">
-                <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-xs font-medium text-muted-foreground">
-                    Título
-                  </Label>
-                  <Input
-                    id="title"
-                    placeholder={
-                      itemType === 'task'
-                        ? 'Ex: Enviar contrato'
-                        : 'Ex: Reunião de equipa'
-                    }
-                    className="rounded-xl"
-                    {...register('title')}
-                  />
-                  {errors.title && (
-                    <p className="text-xs text-destructive">{errors.title.message}</p>
-                  )}
-                </div>
+              <TabsContent value="detalhes" className="m-0 space-y-4">
+                {/* Card "Detalhes" — Categoria → Visibilidade → Todo o dia →
+                    Início → Fim → Recorrente. Concentra tudo o que define
+                    "quando" e "para quem" o evento existe. */}
+                <section className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-3">
 
                 {itemType === 'event' ? (
                   <div className="space-y-1.5">
@@ -718,6 +730,137 @@ export function CalendarEventForm({
                         )
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* Visibilidade — events only — colocada logo abaixo da categoria
+                    no mesmo card "Detalhes" para facilitar o fluxo de criação. */}
+                {itemType === 'event' && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        Visibilidade
+                      </Label>
+                      <button
+                        type="button"
+                        className="text-[11px] text-primary hover:underline"
+                        onClick={() => setShowAdvancedVisibility(!showAdvancedVisibility)}
+                      >
+                        {showAdvancedVisibility ? 'Simples' : 'Avançado'}
+                      </button>
+                    </div>
+
+                    {!showAdvancedVisibility ? (
+                      <Select
+                        value={watch('visibility')}
+                        onValueChange={(v) => {
+                          setValue('visibility', v as any)
+                          setValue('visibility_mode', 'all')
+                          setValue('visibility_user_ids', [])
+                          setValue('visibility_role_names', [])
+                        }}
+                      >
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CALENDAR_VISIBILITY_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="space-y-3 rounded-xl border border-border/40 bg-background/40 p-3 backdrop-blur-sm">
+                        <Select
+                          value={visibilityMode}
+                          onValueChange={(v) => setValue('visibility_mode', v as any)}
+                        >
+                          <SelectTrigger className="rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CALENDAR_VISIBILITY_MODE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {visibilityMode !== 'all' && (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground">Cargos</Label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {CALENDAR_ROLE_OPTIONS.map((role) => (
+                                  <button
+                                    key={role.value}
+                                    type="button"
+                                    className={cn(
+                                      'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                                      visibilityRoleNames.includes(role.value)
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background/50 text-muted-foreground border-border/40 hover:border-border/70',
+                                    )}
+                                    onClick={() => toggleVisibilityRole(role.value)}
+                                  >
+                                    {role.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground">
+                                Pessoas específicas
+                              </Label>
+                              {users && users.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto">
+                                  {users.map((user) => (
+                                    <button
+                                      key={user.id}
+                                      type="button"
+                                      className={cn(
+                                        'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                                        visibilityUserIds.includes(user.id)
+                                          ? 'bg-primary text-primary-foreground border-primary'
+                                          : 'bg-background/50 text-muted-foreground border-border/40 hover:border-border/70',
+                                      )}
+                                      onClick={() => toggleVisibilityUser(user.id)}
+                                    >
+                                      {user.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  A carregar pessoas...
+                                </p>
+                              )}
+                            </div>
+
+                            {(visibilityRoleNames.length > 0 ||
+                              visibilityUserIds.length > 0) && (
+                              <p className="text-[11px] text-muted-foreground">
+                                {visibilityMode === 'include'
+                                  ? 'Visível apenas para'
+                                  : 'Todos excepto'}
+                                {': '}
+                                {visibilityRoleNames.length > 0 &&
+                                  `${visibilityRoleNames.length} cargo(s)`}
+                                {visibilityRoleNames.length > 0 &&
+                                  visibilityUserIds.length > 0 &&
+                                  ', '}
+                                {visibilityUserIds.length > 0 &&
+                                  `${visibilityUserIds.length} pessoa(s)`}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -856,56 +999,28 @@ export function CalendarEventForm({
                   </div>
                 )}
 
-                {/* Location — events only (tasks table has no location field) */}
-                {itemType === 'event' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">
-                    <MapPin className="inline h-3.5 w-3.5 mr-1" />
-                    Localização <span className="text-muted-foreground/60 font-normal">(opcional)</span>
-                  </Label>
-                  <EventLocationPicker
-                    location={watch('location')}
-                    latitude={watch('location_lat')}
-                    longitude={watch('location_lng')}
-                    onChange={({ location, latitude, longitude }) => {
-                      setValue('location', location, { shouldDirty: true })
-                      setValue('location_lat', latitude, { shouldDirty: true })
-                      setValue('location_lng', longitude, { shouldDirty: true })
-                    }}
+                {/* Todo o dia — abaixo do Fim por pedido do utilizador */}
+                <div className="flex items-center justify-between rounded-xl border border-border/40 bg-background/30 px-3 py-2.5">
+                  <span className="text-sm">Todo o dia</span>
+                  <Checkbox
+                    checked={allDay}
+                    onCheckedChange={(v) => setValue('all_day', !!v)}
+                    disabled={category === 'birthday' || category === 'vacation'}
                   />
                 </div>
-                )}
 
-                {/* Toggles */}
-                <div className="rounded-2xl border border-border/40 bg-background/40 px-4 py-3 backdrop-blur-sm space-y-3">
-                  <label className="flex items-center justify-between gap-2 cursor-pointer">
-                    <span className="text-sm">Todo o dia</span>
-                    <Checkbox
-                      checked={allDay}
-                      onCheckedChange={(v) => setValue('all_day', !!v)}
-                      disabled={category === 'birthday' || category === 'vacation'}
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-2 cursor-pointer">
-                    <span className="text-sm">Recorrente</span>
-                    <Checkbox
-                      checked={isRecurring}
-                      onCheckedChange={(v) => {
-                        setValue('is_recurring', !!v)
-                        if (!v) setValue('recurrence_rule', null)
-                      }}
-                      disabled={category === 'birthday'}
-                    />
-                  </label>
-                  {isRsvpCategory && itemType === 'event' && (
-                    <label className="flex items-center justify-between gap-2 cursor-pointer">
-                      <span className="text-sm">Pedir confirmação de presença</span>
-                      <Checkbox
-                        checked={requiresRsvp}
-                        onCheckedChange={(v) => setValue('requires_rsvp', !!v)}
-                      />
-                    </label>
-                  )}
+                {/* Recorrente — imediatamente abaixo de "Todo o dia". A
+                    frequência aparece logo abaixo quando activado. */}
+                <div className="flex items-center justify-between rounded-xl border border-border/40 bg-background/30 px-3 py-2.5">
+                  <span className="text-sm">Recorrente</span>
+                  <Checkbox
+                    checked={isRecurring}
+                    onCheckedChange={(v) => {
+                      setValue('is_recurring', !!v)
+                      if (!v) setValue('recurrence_rule', null)
+                    }}
+                    disabled={category === 'birthday'}
+                  />
                 </div>
 
                 {isRecurring && (
@@ -931,10 +1046,32 @@ export function CalendarEventForm({
                     </Select>
                   </div>
                 )}
+                </section>
+                {/* ──── Fim do Card "Detalhes" ──── */}
 
-                {/* Atribuído a */}
-                {users && users.length > 0 && (
-                  <section className="space-y-2 pt-2">
+                {/* Card "Localização" — só para eventos */}
+                {itemType === 'event' && (
+                  <section className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      <MapPin className="inline h-3.5 w-3.5 mr-1" />
+                      Localização <span className="text-muted-foreground/60 font-normal">(opcional)</span>
+                    </Label>
+                    <EventLocationPicker
+                      location={watch('location')}
+                      latitude={watch('location_lat')}
+                      longitude={watch('location_lng')}
+                      onChange={({ location, latitude, longitude }) => {
+                        setValue('location', location, { shouldDirty: true })
+                        setValue('location_lat', latitude, { shouldDirty: true })
+                        setValue('location_lng', longitude, { shouldDirty: true })
+                      }}
+                    />
+                  </section>
+                )}
+
+                {/* Atribuído a — apenas leadership pode atribuir eventos a outros */}
+                {isLeadership && users && users.length > 0 && (
+                  <section className="space-y-2 px-1">
                     <p className="text-xs font-medium text-muted-foreground/80">
                       Atribuído a
                     </p>
@@ -967,139 +1104,48 @@ export function CalendarEventForm({
                   </section>
                 )}
 
-                {/* Visibilidade — events only */}
-                {itemType === 'event' && (
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground/80 inline-flex items-center gap-1">
-                      Visibilidade
-                    </p>
-                    <button
-                      type="button"
-                      className="text-[11px] text-primary hover:underline"
-                      onClick={() => setShowAdvancedVisibility(!showAdvancedVisibility)}
-                    >
-                      {showAdvancedVisibility ? 'Simples' : 'Avançado'}
-                    </button>
+                {/* Pedir confirmação de presença — apenas leadership +
+                    categorias de evento que suportam RSVP. */}
+                {isRsvpCategory && itemType === 'event' && isLeadership && (
+                  <div className="rounded-2xl border border-border/40 bg-background/40 px-4 py-3 backdrop-blur-sm">
+                    <label className="flex items-center justify-between gap-2 cursor-pointer">
+                      <span className="text-sm">Pedir confirmação de presença</span>
+                      <Checkbox
+                        checked={requiresRsvp}
+                        onCheckedChange={(v) => setValue('requires_rsvp', !!v)}
+                      />
+                    </label>
                   </div>
-
-                  {!showAdvancedVisibility ? (
-                    <Select
-                      value={watch('visibility')}
-                      onValueChange={(v) => {
-                        setValue('visibility', v as any)
-                        setValue('visibility_mode', 'all')
-                        setValue('visibility_user_ids', [])
-                        setValue('visibility_role_names', [])
-                      }}
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CALENDAR_VISIBILITY_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="space-y-3 rounded-2xl border border-border/40 bg-background/40 p-3 backdrop-blur-sm">
-                      <Select
-                        value={visibilityMode}
-                        onValueChange={(v) => setValue('visibility_mode', v as any)}
-                      >
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CALENDAR_VISIBILITY_MODE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {visibilityMode !== 'all' && (
-                        <>
-                          <div className="space-y-1.5">
-                            <Label className="text-[11px] text-muted-foreground">Cargos</Label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {CALENDAR_ROLE_OPTIONS.map((role) => (
-                                <button
-                                  key={role.value}
-                                  type="button"
-                                  className={cn(
-                                    'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
-                                    visibilityRoleNames.includes(role.value)
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'bg-background/50 text-muted-foreground border-border/40 hover:border-border/70',
-                                  )}
-                                  onClick={() => toggleVisibilityRole(role.value)}
-                                >
-                                  {role.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <Label className="text-[11px] text-muted-foreground">
-                              Pessoas específicas
-                            </Label>
-                            {users && users.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto">
-                                {users.map((user) => (
-                                  <button
-                                    key={user.id}
-                                    type="button"
-                                    className={cn(
-                                      'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
-                                      visibilityUserIds.includes(user.id)
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-background/50 text-muted-foreground border-border/40 hover:border-border/70',
-                                    )}
-                                    onClick={() => toggleVisibilityUser(user.id)}
-                                  >
-                                    {user.name}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                A carregar pessoas...
-                              </p>
-                            )}
-                          </div>
-
-                          {(visibilityRoleNames.length > 0 ||
-                            visibilityUserIds.length > 0) && (
-                            <p className="text-[11px] text-muted-foreground">
-                              {visibilityMode === 'include'
-                                ? 'Visível apenas para'
-                                : 'Todos excepto'}
-                              {': '}
-                              {visibilityRoleNames.length > 0 &&
-                                `${visibilityRoleNames.length} cargo(s)`}
-                              {visibilityRoleNames.length > 0 &&
-                                visibilityUserIds.length > 0 &&
-                                ', '}
-                              {visibilityUserIds.length > 0 &&
-                                `${visibilityUserIds.length} pessoa(s)`}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </section>
                 )}
               </TabsContent>
 
               {/* ================= CONTEÚDO ================= */}
-              <TabsContent value="conteudo" className="m-0 space-y-5">
+              <TabsContent value="conteudo" className="m-0">
+                {/* Card único — agrupa Título, Imagem de capa e Descrição
+                    como o conteúdo "narrativo" do evento. */}
+                <section className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-5">
+                {/* Título — movido de "Detalhes" para esta tab. É o primeiro
+                    campo "narrativo" do evento, ao lado da imagem de capa,
+                    descrição e links. */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="title" className="text-xs font-medium text-muted-foreground">
+                    Título
+                  </Label>
+                  <Input
+                    id="title"
+                    placeholder={
+                      itemType === 'task'
+                        ? 'Ex: Enviar contrato'
+                        : 'Ex: Reunião de equipa'
+                    }
+                    className="rounded-xl"
+                    {...register('title')}
+                  />
+                  {errors.title && (
+                    <p className="text-xs text-destructive">{errors.title.message}</p>
+                  )}
+                </div>
+
                 {/* Cover image — events only */}
                 {itemType === 'event' && (
                 <div className="space-y-2">
@@ -1249,10 +1295,15 @@ export function CalendarEventForm({
                     )}
                   </div>
                 </div>
+                </section>
+                {/* ──── Fim do card único do "Conteúdo" ──── */}
               </TabsContent>
 
               {/* ================= OPÇÕES ================= */}
-              <TabsContent value="opcoes" className="m-0 space-y-7">
+              <TabsContent value="opcoes" className="m-0">
+                {/* Card único — todos os extras (lembretes, links, anexos
+                    auxiliares) num só agrupamento visual. */}
+                <section className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 space-y-7">
                 {/* Links — events only */}
                 {itemType === 'event' && (
                 <section className="space-y-3">
@@ -1486,6 +1537,8 @@ export function CalendarEventForm({
                   })()}
                 </section>
 
+                </section>
+                {/* ──── Fim do card único de "Extras" ──── */}
               </TabsContent>
             </div>
           </Tabs>

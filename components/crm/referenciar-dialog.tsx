@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useUser } from '@/hooks/use-user'
+import { invalidateAfterReferral } from '@/lib/crm/invalidator'
 
 const DEFAULT_PCT = 25
 
@@ -145,6 +146,10 @@ export function ReferenciarDialog({
       }
 
       toast.success('Referência enviada')
+      // Invalida listas afectadas: o entry/negócio sai da pipeline do
+      // referrer e entra na do recipient + aparece em Referências do
+      // referrer. Ver lib/crm/invalidator.ts.
+      invalidateAfterReferral()
       onSuccess?.()
       onOpenChange(false)
     } catch (err) {

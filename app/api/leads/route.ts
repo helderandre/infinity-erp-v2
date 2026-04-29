@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import type { Database } from '@/types/database'
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert']
@@ -60,7 +61,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data: data || [], total: count || 0 })
+    const rows = data || []
+    const redactedRows = canSeeAll
+      ? rows.map((row: Record<string, unknown>) =>
+          shouldRedactLead(auth.roles, row.agent_id as string | null | undefined, auth.user.id)
+            ? redactLead(row)
+            : row,
+        )
+      : rows
+
+    return NextResponse.json({ data: redactedRows, total: count || 0 })
   } catch (error) {
     console.error('Erro ao listar leads:', error)
     return NextResponse.json(

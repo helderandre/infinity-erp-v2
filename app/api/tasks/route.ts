@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
-import { isManagementRole } from '@/lib/auth/roles'
+import { isLeadership, canSeeAllProcessTasks } from '@/lib/auth/roles'
 import { isTaskListMember } from '@/lib/tasks/access'
 import { createTaskSchema, taskQuerySchema } from '@/lib/validations/task'
 import { notificationService } from '@/lib/notifications/service'
@@ -48,18 +48,22 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Visibility gate: gestão vê tudo; consultor só vê tarefas onde
-    // está envolvido (assigned_to || created_by para tasks gerais;
-    // assigned_to para proc_tasks/proc_subtasks). visit_proposals já
-    // ficam scoped a `seller_consultant_id = self` mais abaixo.
-    const callerIsManagement = isManagementRole(auth.roles)
     const selfId = auth.user.id
+    const callerIsLeadership = isLeadership(auth.roles)
+    const callerCanSeeAllProcTasks = canSeeAllProcessTasks(auth.roles)
+    // Drill-in: leadership a navegar para outro consultor passa
+    // `?assigned_to=<id>`. Quando o id não é o próprio, ativa o modo
+    // "view another user's tasks" — tarefas pessoais (`is_private=true`)
+    // são redacted ("Tarefa pessoal" sem título/descrição).
+    const isDrillInToOther =
+      callerIsLeadership && !!assigned_to && assigned_to !== selfId
 
     // ─── Sub-task drill-down: only general tasks table (proc subtasks not nested) ───
     if (parent_task_id) {
       // Gate: consultor só pode listar sub-tarefas se tem acesso à pai
-      // (assignee, criador, ou membro da lista da pai).
-      if (!callerIsManagement) {
+      // (assignee, criador, ou membro da lista da pai). Leadership passa
+      // sempre o gate (drill-in para outro consultor).
+      if (!callerIsLeadership) {
         const { data: parent } = await supabase
           .from('tasks')
           .select('id, assigned_to, created_by, task_list_id')
@@ -137,10 +141,16 @@ export async function GET(request: Request) {
     if (due_from) tasksQuery = tasksQuery.gte('due_date', due_from)
     if (due_to) tasksQuery = tasksQuery.lte('due_date', due_to)
 
-    // Consultor só vê tarefas onde é assignee OU criador, EXCEPTO quando
-    // está dentro duma lista partilhada de que é membro — nesse caso vê
-    // todas as tarefas da lista.
-    if (!callerIsManagement) {
+    // Visibilidade de general tasks:
+    // - Por defeito, TODOS (incluindo leadership) ficam scoped a si próprios:
+    //   assignee OU criador. Leadership só vê outros via drill-in explícito
+    //   `?assigned_to=<id>` na URL.
+    // - Listas partilhadas continuam a dispensar este gate (membros vêem
+    //   tudo da lista).
+    // - Drill-in (leadership a entrar noutro consultor): scope total a esse
+    //   user via `assigned_to=<id>` (já aplicado acima); pessoal será
+    //   redacted no merge step.
+    if (!isDrillInToOther) {
       let dispenseGate = false
       if (task_list_id) {
         dispenseGate = await isTaskListMember(supabase, task_list_id, selfId)
@@ -188,8 +198,11 @@ export async function GET(request: Request) {
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
 
-      // Consultor só vê proc_tasks onde é o assignee.
-      if (!callerIsManagement) {
+      // Process tasks: leadership + Gestor Processual veem TODOS os
+      // proc_tasks na agência (canSeeAllProcessTasks). Outros só os seus.
+      // Drill-in para outro consultor: o filtro `assigned_to` já restringe
+      // ao alvo; saltamos o self-scope.
+      if (!callerCanSeeAllProcTasks && !isDrillInToOther) {
         q = q.eq('assigned_to', selfId)
       }
 
@@ -229,8 +242,9 @@ export async function GET(request: Request) {
       if (due_from) q = q.gte('due_date', due_from)
       if (due_to) q = q.lte('due_date', due_to)
 
-      // Consultor só vê proc_subtasks onde é o assignee.
-      if (!callerIsManagement) {
+      // Process subtasks: mesmo gate que proc_tasks
+      // (leadership + Gestor Processual veem todas; outros só as suas).
+      if (!callerCanSeeAllProcTasks && !isDrillInToOther) {
         q = q.eq('assigned_to', selfId)
       }
 
@@ -288,8 +302,44 @@ export async function GET(request: Request) {
     }
 
     // ─── Normalize ───
+    // Redacção de tarefas pessoais quando leadership entra na página
+    // doutro consultor: o registo continua visível (mesma posição na
+    // ordenação) mas título/descrição/recurrence/sub_tasks ficam
+    // ocultos — só passa a estrutura mínima para mostrar "Tarefa pessoal"
+    // como linha cinzenta esbatida no fim da lista.
     const tasks: any[] = includeGeneralTasks
-      ? (tasksRes.data || []).map((t: any) => ({ ...t, source: 'task' }))
+      ? (tasksRes.data || []).map((t: any) => {
+          if (isDrillInToOther && t.is_private) {
+            return {
+              id: t.id,
+              parent_task_id: null,
+              assigned_to: t.assigned_to,
+              created_by: t.created_by,
+              priority: 4,
+              due_date: t.due_date,
+              is_recurring: false,
+              recurrence_rule: null,
+              is_completed: !!t.is_completed,
+              completed_at: t.completed_at ?? null,
+              completed_by: null,
+              entity_type: null,
+              entity_id: null,
+              order_index: t.order_index ?? 0,
+              created_at: t.created_at,
+              updated_at: t.updated_at,
+              assignee: t.assignee ?? null,
+              creator: null,
+              sub_tasks: [],
+              source: 'task',
+              is_private: true,
+              is_redacted: true,
+              title: 'Tarefa pessoal',
+              description: null,
+              reminders: [],
+            }
+          }
+          return { ...t, source: 'task' }
+        })
       : []
 
     const procTasks: any[] = (procTasksRes.data || []).map((pt: any) => {
@@ -442,6 +492,14 @@ export async function GET(request: Request) {
       return aDue - bDue
     })
 
+    // Tarefas redacted (pessoal vista por leadership) vão sempre para o
+    // fim, abaixo das concluídas — espelhando a UI ("muito baixa opacidade
+    // ao fundo").
+    merged.sort((a, b) => {
+      if (!!a.is_redacted !== !!b.is_redacted) return a.is_redacted ? 1 : -1
+      return 0
+    })
+
     const total = merged.length
     const paginated = merged.slice(offset, offset + limit)
 
@@ -468,13 +526,16 @@ export async function POST(request: Request) {
 
     const data = validation.data
     const supabase = createAdminClient()
-    const callerIsMgmt = isManagementRole(auth.roles)
+    // Apenas leadership pode atribuir tarefas a outros utilizadores
+    // (admin, Broker/CEO, Office Manager, Team Leader). Consultor só
+    // tem controlo sobre as suas próprias.
+    const callerCanAssignToOthers = isLeadership(auth.roles)
 
     // Gate: consultor fora duma lista partilhada não pode criar tarefa
     // sem assignee — é obrigatório atribuir a si próprio. Dentro duma
     // lista, "Sem atribuição" continua válido (ficheiro partilhado entre
     // membros).
-    if (!callerIsMgmt && !data.task_list_id && !data.assigned_to) {
+    if (!callerCanAssignToOthers && !data.task_list_id && !data.assigned_to) {
       return NextResponse.json(
         { error: 'Tarefa precisa de ser atribuída a um utilizador.' },
         { status: 400 },
@@ -484,7 +545,7 @@ export async function POST(request: Request) {
     // Gate: consultor só pode atribuir a si próprio, EXCEPTO dentro duma
     // lista partilhada onde tanto ele como o destinatário são membros.
     if (
-      !callerIsMgmt &&
+      !callerCanAssignToOthers &&
       data.assigned_to &&
       data.assigned_to !== auth.user.id
     ) {
@@ -521,8 +582,9 @@ export async function POST(request: Request) {
         entity_id: data.entity_id || null,
         task_list_id: data.task_list_id || null,
         section: data.section || null,
+        is_private: data.is_private,
       })
-      .select('id, title, assigned_to')
+      .select('id, title, assigned_to, is_private')
       .single()
 
     if (error) {

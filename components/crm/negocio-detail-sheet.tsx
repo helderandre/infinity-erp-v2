@@ -28,6 +28,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  Maximize2,
   Phone,
   Plus,
   Ruler,
@@ -383,18 +384,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   </Link>
                 </Button>
               )}
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="rounded-full h-8 text-xs gap-1.5"
-                title="Abrir página completa do negócio"
-              >
-                <Link href={`/dashboard/negocios/${negocio.id}`} onClick={() => onOpenChange(false)}>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Página completa
-                </Link>
-              </Button>
               {!readOnly && (
                 <>
                   <Button
@@ -507,6 +496,10 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   onTemperaturaChange={handleTemperaturaChange}
                   onSaveObservations={handleSaveObservations}
                   onOpenAiFill={() => setAiFillOpen(true)}
+                  onOpenFullEdit={() => {
+                    setEditInitialForm({ ...form })
+                    setEditOpen(true)
+                  }}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -593,22 +586,34 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               }
 
               return (
-                <Dialog open={editOpen} onOpenChange={attemptClose}>
-                  <DialogContent className="max-w-3xl w-[95vw] sm:w-full p-0 max-h-[90vh] overflow-hidden flex flex-col gap-0">
-                    <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+                <Sheet open={editOpen} onOpenChange={attemptClose}>
+                  <SheetContent
+                    side={isMobile ? 'bottom' : 'right'}
+                    className={cn(
+                      'p-0 flex flex-col gap-0 overflow-hidden border-border/40 shadow-2xl',
+                      'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+                      isMobile
+                        ? 'data-[side=bottom]:h-[85dvh] rounded-t-3xl'
+                        : 'w-full data-[side=right]:sm:max-w-[540px] sm:rounded-l-3xl',
+                    )}
+                  >
+                    {isMobile && (
+                      <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+                    )}
+                    <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <DialogTitle className="flex items-center gap-2">
+                          <SheetTitle className="flex items-center gap-2 text-base">
                             Editar negócio
                             {isDirty && (
                               <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
                                 Alterações não guardadas
                               </span>
                             )}
-                          </DialogTitle>
-                          <DialogDescription className="sr-only">
+                          </SheetTitle>
+                          <SheetDescription className="sr-only">
                             Editar dados do negócio.
-                          </DialogDescription>
+                          </SheetDescription>
                         </div>
                         <Button
                           type="button"
@@ -622,7 +627,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                           Preencher com IA
                         </Button>
                       </div>
-                    </DialogHeader>
+                    </SheetHeader>
                     <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
                       <NegocioDataCard
                         tipo={tipo}
@@ -664,8 +669,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                         </Button>
                       </div>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  </SheetContent>
+                </Sheet>
               )
             })()}
 
@@ -834,6 +839,7 @@ function DetalhesTab({
   onTemperaturaChange,
   onSaveObservations,
   onOpenAiFill,
+  onOpenFullEdit,
 }: {
   negocio: any
   form: Record<string, unknown>
@@ -843,6 +849,8 @@ function DetalhesTab({
   onTemperaturaChange: (t: Temperatura) => void
   onSaveObservations: (next: string | null) => Promise<void>
   onOpenAiFill: () => void
+  /** "Ver tudo" abre o mesmo Sheet de edição que o botão Pencil do header. */
+  onOpenFullEdit?: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -953,6 +961,7 @@ function DetalhesTab({
 
   const sectionLabel = isArrendador || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
 
+
   return (
     <div className="space-y-3">
       {/* MAIN CARD — un único cartão para tudo o que descreve o negócio */}
@@ -989,33 +998,30 @@ function DetalhesTab({
 
         {/* Inner content */}
         <div className="p-5 space-y-5">
-          {/* Preço + Cliente — blocos inset (sem border) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {price ? (
-              <InsetBlock icon={Euro} label={priceLabel}>
-                <p className="text-xl font-bold tabular-nums leading-tight mt-0.5">{price}</p>
-              </InsetBlock>
-            ) : (
-              <InsetBlock icon={Euro} label={priceLabel}>
-                <p className="text-sm text-muted-foreground italic mt-0.5">—</p>
-              </InsetBlock>
-            )}
-            {lead && (
-              <InsetBlock icon={UserIcon} label="Cliente">
-                <p className="text-sm font-semibold truncate mt-0.5">{clientName}</p>
-                {lead.empresa && (
-                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                    {lead.empresa}
-                    {lead.nipc ? ` · ${lead.nipc}` : ''}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {/* HERO — Cliente em destaque (nome grande + chips de contacto) */}
+          {lead && (
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                <UserIcon className="h-3 w-3" />
+                Cliente
+              </div>
+              <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate">
+                {clientName}
+              </h2>
+              {lead.empresa && (
+                <p className="text-[12px] text-muted-foreground truncate mt-0.5">
+                  {lead.empresa}
+                  {lead.nipc ? ` · ${lead.nipc}` : ''}
+                </p>
+              )}
+              {(phone || email) && (
+                <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
                   {phone && (
                     <a
                       href={`tel:${phone}`}
                       onClick={(e) => e.stopPropagation()}
                       title={phone}
-                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-background border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors max-w-full"
+                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors max-w-full"
                     >
                       <Phone className="h-3 w-3" />
                       <span className="truncate">{phone}</span>
@@ -1025,7 +1031,7 @@ function DetalhesTab({
                     <button
                       type="button"
                       onClick={() => void copyToClipboard(email)}
-                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-background border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors truncate max-w-full"
+                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors truncate max-w-full"
                       title="Copiar email"
                     >
                       <Mail className="h-3 w-3 shrink-0" />
@@ -1033,11 +1039,25 @@ function DetalhesTab({
                     </button>
                   )}
                 </div>
-              </InsetBlock>
+              )}
+            </div>
+          )}
+
+          {/* Orçamento — número grande, sem caixa */}
+          <CardDivider />
+          <div>
+            <SectionLabel icon={Euro}>{priceLabel}</SectionLabel>
+            {price ? (
+              <p className="text-2xl sm:text-[26px] font-bold tabular-nums leading-tight">
+                {price}
+              </p>
+            ) : (
+              <p className="text-base text-muted-foreground italic font-medium">—</p>
             )}
           </div>
 
-          {/* Imóvel / O que procura */}
+          {/* O que procura — só specs principais; "Ver tudo" abre Dialog
+              com zonas + specs + contexto + características completos. */}
           {hasImovelSection && (
             <>
               <CardDivider />
@@ -1045,7 +1065,7 @@ function DetalhesTab({
                 <SectionLabel icon={Home}>{sectionLabel}</SectionLabel>
                 {hasZones && (
                   <div className="flex flex-wrap gap-1 mb-3">
-                    {zones.map((z) => (
+                    {zones.slice(0, 4).map((z) => (
                       <span
                         key={z}
                         className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[11px] text-foreground/80"
@@ -1054,54 +1074,33 @@ function DetalhesTab({
                         {z}
                       </span>
                     ))}
+                    {zones.length > 4 && (
+                      <span className="inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                        +{zones.length - 4}
+                      </span>
+                    )}
                   </div>
                 )}
                 {hasProcura && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
-                    {procuraItems.map((it) => (
+                    {procuraItems.slice(0, 4).map((it) => (
                       <SpecItem key={it.label} label={it.label} value={it.value} />
                     ))}
                   </div>
                 )}
-                {hasContexto && (
-                  <>
-                    <div className="my-3 h-px bg-border/30" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
-                      {contextoItems.map((it) => (
-                        <SpecItem key={it.label} label={it.label} value={it.value} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </section>
-            </>
-          )}
-
-          {/* Características */}
-          {hasFeatures && (
-            <>
-              <CardDivider />
-              <section>
-                {enabledAmenities.length > 0 && (
-                  <>
-                    <SectionLabel>Características</SectionLabel>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {enabledAmenities.map((a) => (
-                        <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
-                      ))}
-                    </div>
-                  </>
-                )}
-                {enabledAmenitiesVenda.length > 0 && (
-                  <>
-                    {enabledAmenities.length > 0 && <div className="my-3 h-px bg-border/30" />}
-                    <SectionLabel>Características (venda)</SectionLabel>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {enabledAmenitiesVenda.map((a) => (
-                        <AmenityChip key={a.field} emoji={a.emoji} label={a.label} />
-                      ))}
-                    </div>
-                  </>
+                {onOpenFullEdit && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={onOpenFullEdit}
+                    >
+                      Ver tudo
+                      <Maximize2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 )}
               </section>
             </>

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchConsultantOverride } from '@/lib/properties/consultant-override'
 import { FichaView } from '@/components/apresentacao/ficha-view'
 import type { Metadata } from 'next'
 
@@ -44,6 +45,7 @@ interface PageProps {
     sections?: string
     print?: string
     summary?: string
+    c?: string
   }>
 }
 
@@ -94,6 +96,13 @@ export default async function FichaPage({ params, searchParams }: PageProps) {
   // so the A4 ficha fits on one page regardless of original length.
   const descriptionOverride = sp.summary ? decodeURIComponent(sp.summary) : null
   if (descriptionOverride) property.description = descriptionOverride
+
+  // Per-viewer consultant attribution — see /apresentacao/[slug]/page.tsx
+  // for the rationale. Same `?c=<id>` semantics applied here.
+  if (sp.c) {
+    const override = await fetchConsultantOverride(sp.c)
+    if (override) property.consultant = override
+  }
 
   return <FichaView property={property} sections={sections} isPrint={isPrint} />
 }

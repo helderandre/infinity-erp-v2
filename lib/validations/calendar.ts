@@ -43,6 +43,12 @@ export const calendarEventSchema = z.object({
   })).default([]),
   // Task-only: priority 1=Urgente … 4=Normal. Default 4.
   priority: z.number().int().min(1).max(4).default(4),
+  /**
+   * Pessoal vs Profissional (UI: "Pessoal"/"Profissional"). Quando true,
+   * leadership a entrar no calendário do dono vê apenas "Ocupado" sem
+   * detalhes. Default false (= profissional, visível normalmente).
+   */
+  is_private: z.boolean().default(false),
 })
 
 export type CalendarEventFormData = z.infer<typeof calendarEventSchema>

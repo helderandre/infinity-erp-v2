@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
 import type { TaskWithRelations } from '@/types/task'
-import { CALENDAR_CATEGORY_COLORS, CALENDAR_CATEGORY_LABELS } from '@/types/calendar'
+import { CALENDAR_CATEGORY_COLORS, CALENDAR_CATEGORY_LABELS, getEventColors } from '@/types/calendar'
 import { CalendarTaskRow } from './calendar-task-row'
 import {
   format,
@@ -487,7 +487,8 @@ export function AgendaEventCard({
   event: CalendarEvent
   onClick: () => void
 }) {
-  const colors = CALENDAR_CATEGORY_COLORS[event.category]
+  const colors = getEventColors(event)
+  void CALENDAR_CATEGORY_COLORS
   const categoryLabel = CALENDAR_CATEGORY_LABELS[event.category] ?? event.category
   const eventDate = parseISO(event.start_date)
   const isTask = event.item_type === 'task' || TASK_CATEGORIES.includes(event.category)

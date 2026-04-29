@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchConsultantOverride } from '@/lib/properties/consultant-override'
 import { PresentationView } from '@/components/apresentacao/presentation-view'
 import type { Metadata } from 'next'
 
@@ -48,6 +49,7 @@ interface PageProps {
   searchParams: Promise<{
     sections?: string
     print?: string
+    c?: string
   }>
 }
 
@@ -89,6 +91,14 @@ export default async function ApresentacaoPage({ params, searchParams }: PagePro
 
   const property = await fetchPropertyBySlugOrId(slug)
   if (!property) notFound()
+
+  // Per-viewer consultant attribution: `?c=<id>` overrides the property's
+  // assigned consultant, so a colleague who shares this listing has *their*
+  // photo + contact rendered on the public page (not the angariador's).
+  if (sp.c) {
+    const override = await fetchConsultantOverride(sp.c)
+    if (override) property.consultant = override
+  }
 
   const sections = sp.sections
     ? sp.sections.split(',').map((s) => s.trim()).filter(Boolean)

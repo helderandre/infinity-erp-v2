@@ -2,6 +2,7 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead } from '@/lib/auth/redact-lead'
 
 const VALID_PIPELINE_TYPES = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as const
 type PipelineType = (typeof VALID_PIPELINE_TYPES)[number]
@@ -82,7 +83,7 @@ export async function GET(
          stage_entered_at, won_date, lost_date, orcamento, orcamento_max, tipo_imovel,
          preco_venda, renda_pretendida, renda_max_mensal,
          quartos_min, localizacao, has_referral, referral_pct, referral_type, referral_side,
-         referrer_consultant_id,
+         referrer_consultant_id, assigned_consultant_id,
          temperatura, observacoes, origem,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
          dev_users!assigned_consultant_id(id, commercial_name),
@@ -154,13 +155,22 @@ export async function GET(
       return true
     })
 
+    // Para managers, mascara `leads` (nome/email/telemovel/tags) por
+    // card excepto onde o próprio é o `assigned_consultant_id` OU o
+    // `referrer_consultant_id` (referrer mantém visibilidade plena
+    // — originou a lead). O filtro `assigned_consultant_id` (slice
+    // por consultor) NÃO eleva privilégio — PII fica redacted.
     const enrichedNegocios = filteredNegocios.map((n: any) => {
       const stage = stageMap.get(n.pipeline_stage_id)
       const enteredAt = n.stage_entered_at ? new Date(n.stage_entered_at) : now
       const days_in_stage = Math.floor((now.getTime() - enteredAt.getTime()) / (1000 * 60 * 60 * 24))
       const sla_days = stage?.sla_days ?? null
       const sla_overdue = sla_days !== null ? days_in_stage > sla_days : false
-      return { ...n, days_in_stage, sla_overdue, _type: 'negocio' as const }
+      const isOwner = n.assigned_consultant_id === auth.user.id
+      const isReferrer = n.referrer_consultant_id === auth.user.id
+      const shouldRedact = canSeeAll && !isOwner && !isReferrer
+      const leads = shouldRedact && n.leads ? redactLead(n.leads as Record<string, unknown>) : n.leads
+      return { ...n, leads, days_in_stage, sla_overdue, _type: 'negocio' as const }
     })
 
     // ── 4. Build columns (negocios only) ─────────────────────────────────

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createLeadEntrySchema } from '@/lib/validations/lead-entry'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -79,7 +80,21 @@ export async function GET(request: Request) {
     const { data, error, count } = await query
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ data: data || [], total: count || 0 })
+
+    const rows = data || []
+    // Redact raw_*/notes/form_data/referral_external_* na entry + a lead
+    // aninhada em `.contact` quando o caller é gestão e não é o próprio
+    // dono da entry.
+    const redactedRows = canSeeAll
+      ? rows.map((row: Record<string, unknown>) => {
+          const ownerId = row.assigned_consultant_id as string | null | undefined
+          if (!shouldRedactLead(auth.roles, ownerId, auth.user.id)) return row
+          const redactedEntry = redactLead(row)
+          return redactNestedLead(redactedEntry, ['contact'])
+        })
+      : rows
+
+    return NextResponse.json({ data: redactedRows, total: count || 0 })
   } catch (error) {
     console.error('Erro ao listar lead entries:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

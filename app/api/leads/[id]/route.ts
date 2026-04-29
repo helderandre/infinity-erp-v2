@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { updateLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import type { Database } from '@/types/database'
 
 type LeadUpdate = Database['public']['Tables']['leads']['Update']
@@ -61,7 +62,16 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    const row = data as Record<string, unknown>
+    const payload = shouldRedactLead(
+      auth.roles,
+      row.agent_id as string | null | undefined,
+      auth.user.id,
+    )
+      ? redactLead(row)
+      : row
+
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('Erro ao obter lead:', error)
     return NextResponse.json(

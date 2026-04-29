@@ -8,6 +8,7 @@ import {
   type DateOverride,
   type ExistingVisit,
 } from '@/lib/booking/slot-generator'
+import { getDefaultAvailabilityRules } from '@/lib/booking/default-rules'
 
 // Public endpoint — returns available slot start-times per date.
 // Query params: from=YYYY-MM-DD, to=YYYY-MM-DD (max 60 days range)
@@ -85,8 +86,9 @@ export async function GET(
       rules = consultantRules ?? []
     }
 
+    // Sem regras configuradas → assume janela default (09:00–19:00, 7 dias)
     if (rules.length === 0) {
-      return NextResponse.json({ slots: {} })
+      rules = getDefaultAvailabilityRules()
     }
 
     // Existing visits for the consultant in the requested window

@@ -221,6 +221,8 @@ export async function GET(request: Request) {
           user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
           property_id: ev.property_id ?? undefined,
           lead_id: ev.lead_id ?? undefined,
+          is_private: ev.is_private ?? false,
+          created_by: ev.created_by ?? undefined,
         }
 
         if (ev.is_recurring && ev.recurrence_rule === 'yearly') {
@@ -302,6 +304,8 @@ export async function GET(request: Request) {
             user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
             property_id: ev.property_id ?? undefined,
             lead_id: ev.lead_id ?? undefined,
+            is_private: ev.is_private ?? false,
+            created_by: ev.created_by ?? undefined,
             // Campos de processo (para process_event)
             ...(isProcessEvent && proc ? {
               process_id: proc.id,
@@ -571,6 +575,40 @@ export async function GET(request: Request) {
     // Marcamos `MANAGEMENT_ROLES` como usado para evitar warning (helper
     // re-exportado para legibilidade do comentário acima).
     void MANAGEMENT_ROLES
+
+    // ------ Privacy: redact pessoal events the caller doesn't own ------
+    // Eventos `is_private=true` rendem sempre em amarelo pastel
+    // ('yellow-200'). Quando o caller não é o dono nem o criador,
+    // retiramos também título, descrição, localização, anexos e
+    // attendees — fica só "Ocupado" + janela de tempo.
+    if (currentUserId) {
+      filtered = filtered.map((ev) => {
+        if (!ev.is_private) return ev
+        const isOwner =
+          ev.user_id === currentUserId || ev.created_by === currentUserId
+        if (!isOwner) {
+          return {
+            ...ev,
+            title: 'Ocupado',
+            description: undefined,
+            location: undefined,
+            location_lat: null,
+            location_lng: null,
+            links: [],
+            reminders: [],
+            requires_rsvp: false,
+            cover_image_url: undefined,
+            livestream_url: undefined,
+            registration_url: undefined,
+            attendees: [],
+            is_redacted: true,
+            color: 'yellow-200',
+          } as CalendarEvent
+        }
+        // Próprio evento pessoal — pastel mas conteúdo intacto.
+        return { ...ev, color: 'yellow-200' } as CalendarEvent
+      })
+    }
 
     // ------ Sort by start_date ------
     filtered.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())

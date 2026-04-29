@@ -24,7 +24,7 @@ export interface Task {
   updated_at: string
 }
 
-export type TaskEntityType = 'property' | 'lead' | 'process' | 'owner' | 'negocio'
+export type TaskEntityType = 'property' | 'lead' | 'lead_entry' | 'process' | 'owner' | 'negocio'
 
 export type TaskPriority = 1 | 2 | 3 | 4
 
@@ -91,7 +91,14 @@ export const TASK_PRIORITY_MAP = {
 
 export const TASK_ENTITY_LABELS: Record<TaskEntityType, string> = {
   property: 'Imóvel',
-  lead: 'Lead',
+  // 'lead' refere-se ao **contacto** já qualificado (`leads` table — pessoa).
+  // O label histórico era "Lead" mas era confuso porque a entrada no funil
+  // (form submission, ad click) tem o seu próprio registo em `leads_entries`.
+  lead: 'Contacto',
+  // 'lead_entry' = entrada bruta no funil (`leads_entries`), antes de ser
+  // qualificada num contacto. Este é o que o utilizador hoje espera quando
+  // fala em "associar a um lead".
+  lead_entry: 'Lead',
   process: 'Processo',
   owner: 'Proprietário',
   negocio: 'Negócio',

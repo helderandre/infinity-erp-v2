@@ -27,6 +27,7 @@ import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
 import type { LeadEntry } from '@/types/lead-entry'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
+import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
 
 // A referral row is "active" (still in effect) when it hasn't been
 // cancelled / rejected / closed-out. The lead-entries inbox surfaces
@@ -132,6 +133,14 @@ export function MyLeadsSheet({ open, onOpenChange, onNegocioCreated }: MyLeadsSh
       fetchEntries()
     }
   }, [open, fetchEntries])
+
+  // Re-fetch silencioso quando outra parte da app fizer uma mutação que
+  // afecte lead_entries (qualify, referência). Mantém-se subscrito mesmo
+  // com o sheet fechado — o refetch é cheap e a próxima abertura mostra
+  // estado fresco. Ver lib/crm/invalidator.ts.
+  useCrmInvalidator('lead-entries', useCallback(() => {
+    fetchEntries()
+  }, [fetchEntries]))
 
   // Bounce-back — recipient returns the referral to the sender. Calls the
   // DELETE handler which reverses the leads_entries assignment + cleans

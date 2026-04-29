@@ -48,8 +48,7 @@ export function CalendarToolbar({
   isManager,
   hasLiveEvent,
 }: CalendarToolbarProps) {
-  const displayView: 'month' | 'week' | 'day' =
-    view === 'agenda' ? 'day' : view
+  const displayView: ToolbarView = view
 
   const handlePrev = () => {
     if (view === 'day') onDateChange(subDays(currentDate, 1))
@@ -130,7 +129,7 @@ export function CalendarToolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 lg:hidden relative"
+            className="h-8 w-8 sm:h-9 sm:w-9 relative"
             onClick={onToggleFilters}
             aria-label="Filtros"
           >
@@ -144,12 +143,12 @@ export function CalendarToolbar({
         <div className="flex items-center gap-1.5 sm:gap-3">
           <Tabs
             value={displayView}
-            onValueChange={(v) => onViewChange(v as 'month' | 'week' | 'day')}
+            onValueChange={(v) => onViewChange(v as ToolbarView)}
           >
             <TabsList className="h-7 sm:h-9">
               <TabsTrigger value="month" className="text-xs px-2 sm:text-sm sm:px-3 h-5 sm:h-7">Mês</TabsTrigger>
               <TabsTrigger value="week" className="text-xs px-2 sm:text-sm sm:px-3 h-5 sm:h-7">Semana</TabsTrigger>
-              <TabsTrigger value="day" className="text-xs px-2 sm:text-sm sm:px-3 h-5 sm:h-7">Dia</TabsTrigger>
+              <TabsTrigger value="agenda" className="text-xs px-2 sm:text-sm sm:px-3 h-5 sm:h-7">Agenda</TabsTrigger>
             </TabsList>
           </Tabs>
 

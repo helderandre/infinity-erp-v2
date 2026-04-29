@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createContactSchema } from '@/lib/validations/leads-crm'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 export async function GET(request: Request) {
   try {
@@ -60,8 +61,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const rows = data || []
+    const redactedRows = canSeeAll
+      ? rows.map((row: Record<string, unknown>) =>
+          shouldRedactLead(auth.roles, row.agent_id as string | null | undefined, auth.user.id)
+            ? redactLead(row)
+            : row,
+        )
+      : rows
+
     return NextResponse.json({
-      data: data || [],
+      data: redactedRows,
       total: count || 0,
       page,
       per_page: perPage,

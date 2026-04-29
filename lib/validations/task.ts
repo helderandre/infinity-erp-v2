@@ -15,10 +15,16 @@ export const createTaskSchema = z.object({
   is_recurring: z.boolean().default(false),
   recurrence_rule: z.string().optional().nullable(),
   reminders: remindersSchema,
-  entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
+  entity_type: z.enum(['property', 'lead', 'lead_entry', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   task_list_id: z.string().uuid().optional().nullable(),
   section: z.string().trim().max(80).optional().nullable(),
+  /**
+   * Tarefa marcada como "Pessoal" (vs "Profissional"). Quando true, é
+   * redacted ("Tarefa pessoal" sem título/descrição) para leadership que
+   * entrem na página doutro consultor.
+   */
+  is_private: z.boolean().default(false),
 })
 
 // ─── Update Task ─────────────────────────────────────────────
@@ -32,11 +38,12 @@ export const updateTaskSchema = z.object({
   recurrence_rule: z.string().optional().nullable(),
   is_completed: z.boolean().optional(),
   reminders: z.array(z.object({ minutes_before: z.number().int().min(0) })).optional(),
-  entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional().nullable(),
+  entity_type: z.enum(['property', 'lead', 'lead_entry', 'process', 'owner', 'negocio']).optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   order_index: z.number().int().optional(),
   task_list_id: z.string().uuid().optional().nullable(),
   section: z.string().trim().max(80).optional().nullable(),
+  is_private: z.boolean().optional(),
 })
 
 // ─── Create Comment ──────────────────────────────────────────
@@ -51,7 +58,7 @@ export const taskQuerySchema = z.object({
   priority: z.coerce.number().int().min(1).max(4).optional(),
   is_completed: z.enum(['true', 'false']).optional(),
   overdue: z.enum(['true', 'false']).optional(),
-  entity_type: z.enum(['property', 'lead', 'process', 'owner', 'negocio']).optional(),
+  entity_type: z.enum(['property', 'lead', 'lead_entry', 'process', 'owner', 'negocio']).optional(),
   entity_id: z.string().uuid().optional(),
   parent_task_id: z.string().uuid().optional(),
   search: z.string().optional(),

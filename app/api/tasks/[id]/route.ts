@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
-import { isManagementRole } from '@/lib/auth/roles'
+import { isLeadership } from '@/lib/auth/roles'
 import { isTaskListMember } from '@/lib/tasks/access'
 import { updateTaskSchema } from '@/lib/validations/task'
 import { getNextOccurrence } from '@/lib/tasks/recurrence'
@@ -42,18 +42,46 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Gate: consultor só pode ver tarefas onde é assignee, criador, ou
-    // membro da lista a que a tarefa pertence.
-    if (!isManagementRole(auth.roles)) {
-      const isOwner =
-        task.assigned_to === auth.user.id || task.created_by === auth.user.id
-      let allowed = isOwner
+    // Gate: utilizadores não-leadership só podem ver tarefas onde são
+    // assignee, criador, ou membro da lista a que a tarefa pertence.
+    // Leadership passa o gate (drill-in para outro consultor) — mas se a
+    // tarefa for `is_private` e o caller não é o dono, devolvemos uma
+    // versão redacted ("Tarefa pessoal") sem título/descrição.
+    const callerIsLeadership = isLeadership(auth.roles)
+    const callerIsOwner =
+      task.assigned_to === auth.user.id || task.created_by === auth.user.id
+
+    if (!callerIsLeadership) {
+      let allowed = callerIsOwner
       if (!allowed && task.task_list_id) {
         allowed = await isTaskListMember(supabase, task.task_list_id, auth.user.id)
       }
       if (!allowed) {
         return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
       }
+    }
+
+    if (callerIsLeadership && !callerIsOwner && task.is_private) {
+      return NextResponse.json({
+        id: task.id,
+        title: 'Tarefa pessoal',
+        description: null,
+        assigned_to: task.assigned_to,
+        created_by: task.created_by,
+        priority: 4,
+        due_date: task.due_date,
+        is_recurring: false,
+        recurrence_rule: null,
+        is_completed: !!task.is_completed,
+        completed_at: task.completed_at ?? null,
+        completed_by: null,
+        entity_type: null,
+        entity_id: null,
+        is_private: true,
+        is_redacted: true,
+        sub_tasks: [],
+        reminders: [],
+      })
     }
 
     return NextResponse.json(task)
@@ -95,10 +123,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Tarefa não encontrada' }, { status: 404 })
     }
 
-    // Gate: consultor só pode reatribuir para si próprio, EXCEPTO dentro
-    // duma lista partilhada onde tanto ele como o destinatário são membros.
+    // Gate: apenas leadership pode reatribuir tarefas a outros utilizadores;
+    // consultor só pode reatribuir para si próprio, EXCEPTO dentro duma
+    // lista partilhada onde tanto ele como o destinatário são membros.
     if (
-      !isManagementRole(auth.roles) &&
+      !isLeadership(auth.roles) &&
       data.assigned_to !== undefined &&
       data.assigned_to !== null &&
       data.assigned_to !== auth.user.id

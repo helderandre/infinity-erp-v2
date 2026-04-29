@@ -6,6 +6,7 @@ export const createVisitSchema = z.object({
   property_id: z.string().regex(UUID_REGEX, 'Imóvel é obrigatório'),
   consultant_id: z.string().regex(UUID_REGEX, 'Consultor é obrigatório'),
   lead_id: z.string().regex(UUID_REGEX).optional().nullable(),
+  negocio_id: z.string().regex(UUID_REGEX).optional().nullable(),
   visit_date: z.string().min(1, 'Data é obrigatória'),
   visit_time: z.string().min(1, 'Hora é obrigatória'),
   duration_minutes: z.number().int().min(15).max(480).default(30),
@@ -14,8 +15,8 @@ export const createVisitSchema = z.object({
   client_email: z.string().email('Email inválido').optional().nullable().or(z.literal('')),
   notes: z.string().max(2000).optional().nullable(),
 }).refine(
-  (data) => data.lead_id || data.client_name,
-  { message: 'É necessário seleccionar um lead ou preencher o nome do cliente', path: ['lead_id'] }
+  (data) => data.lead_id || data.client_name || data.negocio_id,
+  { message: 'É necessário seleccionar um lead, negócio ou preencher o nome do cliente', path: ['lead_id'] }
 )
 
 export const updateVisitSchema = z.object({

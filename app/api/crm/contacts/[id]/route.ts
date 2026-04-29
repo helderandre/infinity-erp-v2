@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { updateContactSchema } from '@/lib/validations/leads-crm'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 // Devolve 404 para inexistente, 403 quando o caller não é gestão e não
 // é o `agent_id` do contacto. Mantém o sheet/edit silenciosamente
@@ -61,7 +62,16 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    const row = data as Record<string, unknown>
+    const payload = shouldRedactLead(
+      auth.roles,
+      row.agent_id as string | null | undefined,
+      auth.user.id,
+    )
+      ? redactLead(row)
+      : row
+
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('Erro ao obter contacto:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

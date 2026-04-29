@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { updateNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import type { Database } from '@/types/database'
 
@@ -40,7 +41,17 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(data)
+    const row = data as Record<string, unknown>
+    const payload = shouldRedactLead(
+      auth.roles,
+      row.assigned_consultant_id as string | null | undefined,
+      auth.user.id,
+      row.referrer_consultant_id as string | null | undefined,
+    )
+      ? redactNestedLead(row)
+      : row
+
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('Erro ao obter negócio:', error)
     return NextResponse.json(

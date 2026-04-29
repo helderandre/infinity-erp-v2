@@ -16,7 +16,7 @@ import {
   parseISO,
 } from 'date-fns'
 import { CalendarEventCard, CALENDAR_EVENT_BORDER_L } from './calendar-event-card'
-import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
+import { CALENDAR_CATEGORY_COLORS, getEventColors } from '@/types/calendar'
 import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -188,7 +188,8 @@ export function CalendarMonthGrid({
                   {/* Mobile: tinted pills with solid colored left strip */}
                   <div className="sm:hidden space-y-0.5">
                     {dayEvents.slice(0, MAX_MOBILE_EVENTS).map((event) => {
-                      const colors = CALENDAR_CATEGORY_COLORS[event.category]
+                      const colors = getEventColors(event)
+                      void CALENDAR_CATEGORY_COLORS
                       return (
                         <div
                           key={event.id}

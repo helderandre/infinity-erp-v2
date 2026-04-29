@@ -50,6 +50,12 @@ interface CalendarFilterChipsProps {
   onToggleShowTasks?: () => void
   taskCount?: number
   className?: string
+  /**
+   * Quando false (consultor), oculta o selector de pessoa (não é permitido
+   * ver o calendário doutro consultor). Default true para preservar
+   * compatibilidade com callers existentes.
+   */
+  canSelectOthers?: boolean
 }
 
 export function CalendarFilterChips({
@@ -65,6 +71,7 @@ export function CalendarFilterChips({
   onToggleShowTasks,
   taskCount,
   className,
+  canSelectOthers = true,
 }: CalendarFilterChipsProps) {
   const activeIn = (group: CalendarCategory[]) =>
     group.filter((c) => categories.includes(c)).length
@@ -122,18 +129,24 @@ export function CalendarFilterChips({
         />
       )}
 
-      <div className="h-5 w-px bg-border mx-1 shrink-0" aria-hidden />
+      {canSelectOthers && (
+        <>
+          <div className="h-5 w-px bg-border mx-1 shrink-0" aria-hidden />
 
-      <ToggleChip active={filterSelf} onClick={onToggleFilterSelf} icon={<User className="h-3.5 w-3.5" />}>
-        Apenas os meus
-      </ToggleChip>
+          <ToggleChip active={filterSelf} onClick={onToggleFilterSelf} icon={<User className="h-3.5 w-3.5" />}>
+            Apenas os meus
+          </ToggleChip>
+        </>
+      )}
 
-      <PersonSelectChip
-        users={users}
-        selectedUser={selectedUser}
-        onChange={onUserChange}
-        disabled={filterSelf}
-      />
+      {canSelectOthers && (
+        <PersonSelectChip
+          users={users}
+          selectedUser={selectedUser}
+          onChange={onUserChange}
+          disabled={filterSelf}
+        />
+      )}
 
       {anyActive && onSetCategories && (
         <>

@@ -35,6 +35,7 @@ export function PropertyApresentacaoActions({ property, canShareAsOwner }: Props
           propertyId={property.id}
           propertySlug={property.slug ?? null}
           propertyTitle={property.title ?? ''}
+          propertyConsultantId={property.consultant_id ?? null}
           showStaging={(property as any).presentation_show_staging !== false}
           showAiPlantas={(property as any).presentation_show_ai_plantas !== false}
           canEditFlags={canShareAsOwner}

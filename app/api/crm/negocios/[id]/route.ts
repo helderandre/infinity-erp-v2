@@ -3,12 +3,17 @@ import { updateNegocioSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
 import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
+import { requireAuth } from '@/lib/auth/permissions'
+import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createCrmAdminClient()
     const { id } = await params
 
@@ -27,7 +32,17 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    const row = data as Record<string, unknown>
+    const payload = shouldRedactLead(
+      auth.roles,
+      row.assigned_consultant_id as string | null | undefined,
+      auth.user.id,
+      row.referrer_consultant_id as string | null | undefined,
+    )
+      ? redactNestedLead(row)
+      : row
+
+    return NextResponse.json(payload)
   } catch (err) {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

@@ -134,19 +134,24 @@ async function callWhatsappEdge(payload: Record<string, unknown>): Promise<void>
   }
 }
 
-function buildPublicUrl(request: Request, slugOrId: string): string {
+function buildPublicUrl(
+  request: Request,
+  slugOrId: string,
+  attributionConsultantId?: string | null,
+): string {
   const isInternal = (h: string | null | undefined) =>
     !h || h.startsWith('0.0.0.0') || h.startsWith('127.0.0.1') || h.startsWith('localhost')
+  const suffix = attributionConsultantId ? `?c=${attributionConsultantId}` : ''
   if (process.env.NEXT_PUBLIC_APP_URL)
-    return `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/apresentacao/${slugOrId}`
+    return `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/apresentacao/${slugOrId}${suffix}`
   const h = request.headers
   const proto = h.get('x-forwarded-proto') || 'https'
   const fwd = h.get('x-forwarded-host')
-  if (!isInternal(fwd)) return `${proto}://${fwd}/apresentacao/${slugOrId}`
+  if (!isInternal(fwd)) return `${proto}://${fwd}/apresentacao/${slugOrId}${suffix}`
   const host = h.get('host')
-  if (!isInternal(host)) return `${proto}://${host}/apresentacao/${slugOrId}`
+  if (!isInternal(host)) return `${proto}://${host}/apresentacao/${slugOrId}${suffix}`
   const url = new URL(request.url)
-  return `${url.protocol}//${url.host}/apresentacao/${slugOrId}`
+  return `${url.protocol}//${url.host}/apresentacao/${slugOrId}${suffix}`
 }
 
 function buildWhatsAppText(opts: {
@@ -207,7 +212,7 @@ export async function POST(
     const { data: property, error: propErr } = await admin
       .from('dev_properties')
       .select(
-        `id, slug, title, external_ref, city, zone, listing_price,
+        `id, slug, title, external_ref, city, zone, listing_price, consultant_id,
          dev_property_specifications(bedrooms, area_util, typology),
          dev_property_media(url, is_cover, order_index)`,
       )
@@ -219,7 +224,12 @@ export async function POST(
     }
 
     const slugOrId = property.slug || property.id
-    const publicUrl = buildPublicUrl(request, slugOrId)
+    // Atribuir a página pública ao sharer quando ele não é o angariador.
+    const attributionConsultantId =
+      auth.user.id && property.consultant_id && auth.user.id !== property.consultant_id
+        ? auth.user.id
+        : null
+    const publicUrl = buildPublicUrl(request, slugOrId, attributionConsultantId)
     const cover =
       (property.dev_property_media || [])
         .slice()

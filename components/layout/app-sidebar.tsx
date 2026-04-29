@@ -75,8 +75,14 @@ export const bottomItems = [
 export const crmItems = [
   { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline' },
-  { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads' },
+  // Gestão de Leads: triagem do inbox + métricas de SLA — só faz sentido para
+  // gestão (Office Manager / Broker / etc.), apesar do `pipeline` ser dado ao
+  // Consultor. `managementOnly: true` é o gate efectivo.
+  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline', managementOnly: true },
+  // Automatismos: configuração de eventos custom + cascatas de templates;
+  // operacional para gestão, ruído para o consultor (que ainda assim consome
+  // os automatismos via leads próprias).
+  { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads', managementOnly: true },
 ]
 
 export const negocioItems = [
@@ -662,7 +668,7 @@ export function AppSidebar() {
         <CollapsibleGroup
           label="CRM"
           icon={ContactRound}
-          items={crmItems}
+          items={filterMgmt(crmItems)}
           pathname={pathname}
           hasPermission={hasPermission}
           pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/acompanhamentos']}
@@ -713,8 +719,11 @@ export function AppSidebar() {
           />
         )}
 
-        {/* 12. Marketing (unified: Analytics + Campanhas + antigo "Digital") */}
-        {hasPermission('marketing' as any) && (
+        {/* 12. Marketing (unified: Analytics + Campanhas + antigo "Digital")
+              Escondido para o consultor — gate isManagement combinado com
+              `marketing` perm. "For now" porque vamos rever o conteúdo
+              destas páginas antes de as expor a consultores. */}
+        {isManagement && hasPermission('marketing' as any) && (
           <CollapsibleGroup
             label="Marketing"
             icon={Megaphone}

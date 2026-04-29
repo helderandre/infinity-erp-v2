@@ -74,6 +74,15 @@ export interface CalendarEvent {
   wpp_message_id?: string
   wpp_chat_id?: string
 
+  // Privacidade — quando true e o utilizador autenticado não é o dono nem
+  // o criador do evento, a API redacta a row para `{ id, start, end,
+  // all_day, user_id, is_private:true, is_redacted:true, title:'Ocupado' }`
+  // (sem descrição, localização, anexos ou attendees). UI rende-a em
+  // amarelo pastel com a palavra "Ocupado".
+  is_private?: boolean
+  is_redacted?: boolean
+  created_by?: string
+
   // Visitas (eventos derivados da tabela `visits`)
   // Uma visita = um evento; ambos os consultores (comprador + vendedor) são
   // listados como participantes. O filtro "Os meus eventos" passa quando o
@@ -135,6 +144,29 @@ export const CALENDAR_CATEGORY_LABELS: Record<CalendarCategory, string> = {
   visit: 'Visitas',
   reminder: 'Lembretes',
   custom: 'Outros',
+}
+
+/**
+ * Cor única usada para QUALQUER evento marcado `is_private=true`. Sobrepõe-se
+ * ao mapa de categorias para fornecer um sinal visual claro: amarelo pastel
+ * em fundo + dot amarelo claro. Aplica-se quer o evento seja "completo"
+ * (próprio dono) quer redacted ("Ocupado" para gestão a entrar).
+ */
+export const PERSONAL_EVENT_COLORS = {
+  bg: 'bg-yellow-100',
+  text: 'text-yellow-900',
+  dot: 'bg-yellow-300',
+} as const
+
+/**
+ * Resolve o triplete de cores para um evento. Eventos pessoais sobrepõem
+ * sempre o mapa por categoria.
+ */
+export function getEventColors(
+  event: Pick<CalendarEvent, 'category'> & { is_private?: boolean }
+) {
+  if (event.is_private) return PERSONAL_EVENT_COLORS
+  return CALENDAR_CATEGORY_COLORS[event.category]
 }
 
 // Mature palette — muted, earthy, sophisticated.

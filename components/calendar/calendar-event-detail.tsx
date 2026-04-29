@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { VisitActionsSection } from './visit-actions-section'
 
 interface RsvpEntry {
@@ -53,7 +54,8 @@ interface RsvpEntry {
   user?: { id: string; commercial_name: string }
 }
 
-const MANAGER_ROLES = ['Broker/CEO', 'admin', 'Office Manager', 'Gestora Processual']
+// Gate "manager" agora é a fonte canónica em lib/auth/roles.ts
+// (admin, Broker/CEO, Gestor Processual, Office Manager, Team Leader).
 
 interface CalendarEventDetailProps {
   event: CalendarEvent | null
@@ -169,9 +171,7 @@ export function CalendarEventDetail({
   const [confirmType, setConfirmType] = useState<'going' | 'not_going' | null>(null)
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false)
 
-  const isManager = currentUser?.role?.name
-    ? MANAGER_ROLES.some((r) => r.toLowerCase() === currentUser.role!.name!.toLowerCase())
-    : false
+  const isManager = isManagementRole(currentUser?.role_names ?? [])
 
   useEffect(() => {
     if (!open || !event || !event.requires_rsvp) {
@@ -526,7 +526,10 @@ export function CalendarEventDetail({
                   </Button>
                 </div>
 
-                {(goingList.length > 0 || notGoingList.length > 0) && (
+                {/* Listas e contadores de presença — apenas management.
+                    Consultor confirma a sua presença (botões acima) mas
+                    não vê quem mais respondeu. */}
+                {isManager && (goingList.length > 0 || notGoingList.length > 0) && (
                   <div className="space-y-2">
                     {goingList.length > 0 && (
                       <div className="flex items-start gap-2">
@@ -556,7 +559,7 @@ export function CalendarEventDetail({
                               <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px]">
                                 {r.user?.commercial_name ?? 'Utilizador'}
                               </span>
-                              {isManager && r.reason && (
+                              {r.reason && (
                                 <span className="text-[10.5px] text-muted-foreground italic truncate max-w-[140px]">
                                   — {r.reason}
                                 </span>
@@ -569,7 +572,7 @@ export function CalendarEventDetail({
                   </div>
                 )}
 
-                {event.rsvp_counts &&
+                {isManager && event.rsvp_counts &&
                   goingList.length === 0 &&
                   notGoingList.length === 0 && (
                     <div className="flex gap-3 text-xs text-muted-foreground">

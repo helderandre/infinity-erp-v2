@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { CheckSquare, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KanbanCard } from '@/components/crm/kanban-card'
+import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { BulkActionsMenu, type BulkAction } from '@/components/crm/bulk-actions-menu'
 import {
@@ -368,6 +369,13 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
   useEffect(() => {
     fetchBoard()
   }, [fetchBoard])
+
+  // Refresh silencioso quando outra parte da app fizer uma mutação que
+  // afecte negócios/kanban (qualify, referência, edição) — ver
+  // lib/crm/invalidator.ts.
+  useCrmInvalidator('kanban', useCallback(() => {
+    fetchBoard({ silent: true })
+  }, [fetchBoard]))
 
   // ── Multi-select handlers ─────────────────────────────────────────────────
 

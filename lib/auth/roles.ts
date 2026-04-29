@@ -32,6 +32,49 @@ export function isManagementRole(roles: ReadonlyArray<string | null | undefined>
   return MANAGEMENT_ROLES.some((m) => lc.includes(m.toLowerCase()))
 }
 
+/**
+ * Roles "leadership" — versão estreita de gestão usada para visibilidade de
+ * tarefas ad-hoc e calendário entre consultores. Estes papéis veem apenas as
+ * suas próprias tarefas/eventos no home, mas podem entrar na página de outro
+ * consultor (à semelhança do calendário) para ver as tarefas/eventos dele —
+ * tarefas/eventos marcados como "Pessoal" são redacted ("Tarefa pessoal" /
+ * "Ocupado") sem revelar título, descrição ou outros detalhes.
+ *
+ * Diferente de MANAGEMENT_ROLES (que ainda gate visibility em CRM/leads/etc.):
+ * - MANAGEMENT_ROLES (5): admin, Broker/CEO, Gestor Processual, Office Manager, Team Leader
+ * - LEADERSHIP_ROLES   (4): admin, Broker/CEO, Office Manager, Team Leader
+ *
+ * Gestor Processual ficou de fora desta lista porque o seu see-all relevante
+ * está nos PROCESSOS (canSeeAllProcessTasks), não nas tarefas ad-hoc.
+ */
+export const LEADERSHIP_ROLES = [
+  'admin',
+  'Broker/CEO',
+  'Office Manager',
+  'Team Leader',
+] as const
+
+/** Helper case-insensitive para detectar se o utilizador é leadership. */
+export function isLeadership(roles: ReadonlyArray<string | null | undefined>): boolean {
+  const lc = roles.filter((r): r is string => !!r).map((r) => r.toLowerCase())
+  return LEADERSHIP_ROLES.some((m) => lc.includes(m.toLowerCase()))
+}
+
+/**
+ * Quem pode ver TODAS as proc_tasks/proc_subtasks (tarefas derivadas de
+ * processos) na agência: leadership + Gestor Processual. Usado para o feed
+ * agregado de tarefas de processo.
+ */
+export const PROCESS_TASKS_SEE_ALL_ROLES = [
+  ...LEADERSHIP_ROLES,
+  'Gestor Processual',
+] as const
+
+export function canSeeAllProcessTasks(roles: ReadonlyArray<string | null | undefined>): boolean {
+  const lc = roles.filter((r): r is string => !!r).map((r) => r.toLowerCase())
+  return PROCESS_TASKS_SEE_ALL_ROLES.some((m) => lc.includes(m.toLowerCase()))
+}
+
 /** Roles que podem criar/remover tarefas ad-hoc e reverter tarefas concluídas */
 export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
 

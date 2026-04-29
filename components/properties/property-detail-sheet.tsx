@@ -29,6 +29,7 @@ import { PropertyApresentacaoTab } from '@/components/properties/property-aprese
 import { PropertyApresentacaoActions } from '@/components/properties/property-apresentacao-actions'
 import { PropertyInteressadosTab } from '@/components/properties/property-interessados-tab'
 import { VisitForm } from '@/components/visits/visit-form'
+import { RequestVisitDialog } from '@/components/visits/request-visit-dialog'
 import type { PropertyDetail } from '@/types/property'
 
 interface PropertyDetailSheetProps {
@@ -232,41 +233,54 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
         }}
       />
 
-      <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{isOwner ? 'Agendar visita' : 'Solicitar visita'}</DialogTitle>
-          </DialogHeader>
-          {property?.id && user?.id && visitDialogOpen && (
-            <VisitForm
-              lockedProperty={{
-                id: property.id,
-                title: property.title || 'Imóvel',
-                external_ref: property.external_ref,
-                city: property.city,
-              }}
-              defaultConsultantId={user.id}
-              hideConsultant
-              submitLabel={isOwner ? 'Agendar visita' : 'Solicitar visita'}
-              onSubmit={async (data) => {
-                const res = await fetch('/api/visits', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(data),
-                })
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({}))
-                  throw new Error(err.error || 'Erro ao agendar visita')
-                }
-                toast.success(isOwner ? 'Visita agendada' : 'Pedido de visita enviado')
-                setVisitDialogOpen(false)
-                return res.json()
-              }}
-              onCancel={() => setVisitDialogOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {isOwner ? (
+        <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Agendar visita</DialogTitle>
+            </DialogHeader>
+            {property?.id && user?.id && visitDialogOpen && (
+              <VisitForm
+                lockedProperty={{
+                  id: property.id,
+                  title: property.title || 'Imóvel',
+                  external_ref: property.external_ref,
+                  city: property.city,
+                }}
+                defaultConsultantId={user.id}
+                hideConsultant
+                submitLabel="Agendar visita"
+                onSubmit={async (data) => {
+                  const res = await fetch('/api/visits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                  })
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}))
+                    throw new Error(err.error || 'Erro ao agendar visita')
+                  }
+                  toast.success('Visita agendada')
+                  setVisitDialogOpen(false)
+                  return res.json()
+                }}
+                onCancel={() => setVisitDialogOpen(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      ) : (
+        property?.id && property?.slug && user?.id && (
+          <RequestVisitDialog
+            open={visitDialogOpen}
+            onOpenChange={setVisitDialogOpen}
+            propertyId={property.id}
+            propertySlug={property.slug}
+            consultantId={user.id}
+            propertyTitle={property.title}
+          />
+        )
+      )}
     </Sheet>
   )
 }

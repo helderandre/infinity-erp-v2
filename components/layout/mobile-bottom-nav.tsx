@@ -19,6 +19,8 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 
 // ─── Section definitions (mirrors sidebar groups) ───────────────────────────
 
@@ -26,6 +28,7 @@ interface SectionItem {
   title: string
   icon: any
   href: string
+  managementOnly?: boolean
   alternates?: Array<{ title: string; icon: any; href: string }>
 }
 
@@ -35,6 +38,8 @@ interface Section {
   icon: LucideIcon
   items: SectionItem[]
   prefixes: string[]
+  /** Quando true, a secção inteira só aparece para roles em MANAGEMENT_ROLES. */
+  managementOnly?: boolean
 }
 
 const SECTIONS: Section[] = [
@@ -47,7 +52,7 @@ const SECTIONS: Section[] = [
   { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: [] },
   { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: [] },
   { key: 'loja', label: 'Loja', icon: Store, items: lojaItems, prefixes: [] },
-  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: [] },
+  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: [], managementOnly: true },
   { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: [] },
 ]
 
@@ -70,6 +75,21 @@ export function MobileBottomNav() {
   const rootRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
+  const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
+
+  // Filtra secções e items por `managementOnly`. Espelha o gate do sidebar
+  // desktop (filterMgmt + isManagement && hasPermission('marketing')).
+  // Secções cujo `items` fica vazio após o filtro também desaparecem.
+  const sections = useMemo(() => {
+    return SECTIONS
+      .filter((s) => isManagement || !s.managementOnly)
+      .map((s) => ({
+        ...s,
+        items: isManagement ? s.items : s.items.filter((i) => !i.managementOnly),
+      }))
+      .filter((s) => s.items.length > 0)
+  }, [isManagement])
 
   // Publish the rendered nav height as a CSS variable so full-bleed pages
   // (like /dashboard/whatsapp) can reserve the exact space.
@@ -94,7 +114,7 @@ export function MobileBottomNav() {
   const currentSectionKey = useMemo(() => {
     if (!pathname) return 'meu_espaco'
     let best: { key: string; len: number } | null = null
-    for (const section of SECTIONS) {
+    for (const section of sections) {
       let sectionBest = 0
       for (const it of section.items) {
         const l = pathMatchLen(it.href, pathname)
@@ -114,7 +134,7 @@ export function MobileBottomNav() {
   const [selectedSectionKey, setSelectedSectionKey] = useState(currentSectionKey)
   useEffect(() => { setSelectedSectionKey(currentSectionKey) }, [currentSectionKey])
 
-  const currentSection = SECTIONS.find(s => s.key === selectedSectionKey) || SECTIONS[0]
+  const currentSection = sections.find(s => s.key === selectedSectionKey) || sections[0]
   const SectionIcon = currentSection.icon
 
   const activeItemIndex = useMemo(() => {
@@ -180,7 +200,7 @@ export function MobileBottomNav() {
                 className="w-[240px] flex items-center gap-1 overflow-x-auto snap-x snap-mandatory [padding-inline:100px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0,black_14px,black_calc(100%-14px),transparent_100%)]"
                 style={{ scrollbarWidth: 'none' }}
               >
-                {SECTIONS.map(s => {
+                {sections.map(s => {
                   const Icon = s.icon
                   const isSelected = s.key === selectedSectionKey
                   const handleTap = () => {

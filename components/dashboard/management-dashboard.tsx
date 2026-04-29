@@ -40,6 +40,10 @@ import {
   DrillDownSheet, type DrillDownConfig,
 } from '@/components/dashboard/shared/drill-down-sheet'
 import { ConsultantAlertsTab } from '@/components/dashboard/consultant-alerts-tab'
+import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
+import {
+  ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig,
+} from '@/components/ui/chart'
 
 // ─── Formatters ─────────────────────────────────────────────────────────────
 
@@ -56,6 +60,10 @@ function startOfMonth() {
 
 const shortMonth = (m: string) =>
   m.replace(/\s*\d{4}$/, '').replace(/\s*'\d{2}$/, '')
+
+const revenueChartConfig = {
+  revenue: { label: 'Facturação', color: 'var(--chart-1)' },
+} satisfies ChartConfig
 
 // ─── Skeleton ───────────────────────────────────────────────────────────────
 
@@ -146,7 +154,6 @@ export function ManagementDashboard() {
             return c.month.includes(y) || c.month.includes(y.slice(-2))
           })
         : chart
-  const chartMax = Math.max(...filteredChart.map((c) => c.revenue), 1)
   const currentRankings = rankingTab === 'revenue' ? rankings : rankingsAcq
 
   return (
@@ -315,34 +322,43 @@ export function ManagementDashboard() {
                     })()}
                   </div>
                 )}
-                <div className="flex items-stretch gap-[3px] h-40">
-                  {filteredChart.map((c, i) => {
-                    const h = Math.max((c.revenue / chartMax) * 100, 4)
-                    const isLast = i === filteredChart.length - 1
-                    return (
-                      <div key={i} className="flex-1 flex flex-col h-full group">
-                        {/* Bar area */}
-                        <div className="flex-1 relative w-full min-h-0">
-                          <div
-                            className={cn(
-                              'w-full rounded-lg transition-all duration-300 group-hover:opacity-90 absolute bottom-0',
-                              isLast ? 'bg-emerald-500/80' : 'bg-emerald-500/30 dark:bg-emerald-400/30',
-                            )}
-                            style={{ height: `${h}%` }}
-                          />
-                          <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-neutral-900 text-white rounded-xl px-3 py-2 text-[11px] shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
-                            <p className="font-semibold">{c.month}</p>
-                            <p className="text-neutral-300 tabular-nums">{fmtFull.format(c.revenue)}</p>
-                          </div>
-                        </div>
-                        {/* Month label — own row, always below the bar */}
-                        <span className="text-[9px] text-muted-foreground mt-2 truncate text-center font-medium shrink-0">
-                          {shortMonth(c.month)}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+                <ChartContainer config={revenueChartConfig} className="aspect-auto h-44 w-full">
+                  <AreaChart data={filteredChart} margin={{ left: 4, right: 8, top: 4 }}>
+                    <defs>
+                      <linearGradient id="fillRevenueMgmt" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} className="stroke-muted/40" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={20}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value: string) => shortMonth(value)}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          indicator="dot"
+                          labelFormatter={(value) => value}
+                          formatter={(value) => fmtFull.format(Number(value))}
+                        />
+                      }
+                    />
+                    <Area
+                      dataKey="revenue"
+                      type="natural"
+                      fill="url(#fillRevenueMgmt)"
+                      stroke="var(--color-revenue)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
               </div>
             </SectionCard>
 

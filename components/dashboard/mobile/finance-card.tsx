@@ -16,6 +16,18 @@ import type { DrilldownKind } from '@/app/api/financial/dashboard/drilldown/rout
 import { DashboardKpiDrilldownSheet } from '@/components/financial/sheets/dashboard-kpi-drilldown-sheet'
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/shared/animated-number'
+import {
+  Area, CartesianGrid, ComposedChart, Line, XAxis,
+} from 'recharts'
+import {
+  ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig,
+} from '@/components/ui/chart'
+
+const evolutionChartConfig = {
+  revenue: { label: 'Report', color: '#3b82f6' },
+  margin: { label: 'Margem', color: '#10b981' },
+  target: { label: 'Meta', color: '#f59e0b' },
+} satisfies ChartConfig
 
 const fmt = new Intl.NumberFormat('pt-PT', {
   style: 'currency',
@@ -49,7 +61,6 @@ export function FinanceCard({
   fillViewport,
 }: FinanceCardProps) {
   const [sheet, setSheet] = useState<SheetState | null>(null)
-  const [hoveredMonth, setHoveredMonth] = useState<number | null>(null)
 
   const cardClass = cn(
     'rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)] p-5 gap-5 overflow-y-auto',
@@ -60,14 +71,6 @@ export function FinanceCard({
   const evolution = useMemo(
     () => data?.financial.monthly_evolution ?? [],
     [data],
-  )
-  const barMax = useMemo(
-    () =>
-      Math.max(
-        ...evolution.map((m) => Math.max(m.revenue, m.target, m.margin)),
-        1,
-      ),
-    [evolution],
   )
 
   const now = new Date()
@@ -292,75 +295,97 @@ export function FinanceCard({
           </div>
         </div>
 
-        {hoveredMonth !== null && evolution[hoveredMonth] && (
-          <div className="bg-neutral-900 text-white rounded-lg px-3 py-2 text-[11px] shadow-md mb-2 self-start">
-            <p className="font-semibold">{evolution[hoveredMonth].month}</p>
-            <p className="text-neutral-300">
-              Report: {fmtFull.format(evolution[hoveredMonth].revenue)}
-            </p>
-            <p className="text-emerald-300">
-              Margem: {fmtFull.format(evolution[hoveredMonth].margin)}
-            </p>
-            <p className="text-neutral-400">
-              Meta: {fmtFull.format(evolution[hoveredMonth].target)}
-            </p>
-          </div>
-        )}
-
         <div
           className={cn(
-            'flex items-stretch gap-1.5',
+            'w-full',
             fillViewport ? 'flex-1 min-h-0' : 'h-36',
           )}
         >
-          {evolution.map((m, i) => {
-            const revH = Math.max((m.revenue / barMax) * 100, 3)
-            const marH = Math.max((m.margin / barMax) * 100, 0)
-            const tH = Math.max((m.target / barMax) * 100, 0)
-            const filter = monthFilters[i]
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() =>
-                  open(
-                    'revenue',
-                    'month',
-                    `Report — ${filter.monthName}`,
-                    filter.month,
-                    filter.year,
-                  )
+          <ChartContainer
+            config={evolutionChartConfig}
+            className="aspect-auto h-full w-full"
+          >
+            <ComposedChart
+              data={evolution}
+              margin={{ left: 4, right: 8, top: 4, bottom: 0 }}
+              onClick={(state: any) => {
+                if (!interactive) return
+                const idx = state?.activeTooltipIndex
+                if (typeof idx !== 'number') return
+                const filter = monthFilters[idx]
+                if (!filter) return
+                open(
+                  'revenue',
+                  'month',
+                  `Report — ${filter.monthName}`,
+                  filter.month,
+                  filter.year,
+                )
+              }}
+            >
+              <defs>
+                <linearGradient id="fillRevenueAgent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillMarginAgent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-margin)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-margin)" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} className="stroke-muted/40" />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={6}
+                minTickGap={20}
+                tick={{ fontSize: 9 }}
+                tickFormatter={(value: string) =>
+                  value.replace(/\s*\d{4}$/, '').replace(/\s*'\d{2}$/, '')
                 }
-                onMouseEnter={() => setHoveredMonth(i)}
-                onMouseLeave={() => setHoveredMonth(null)}
-                onTouchStart={() => setHoveredMonth(i)}
-                className="flex-1 flex flex-col h-full group"
-                aria-label={`${m.month}: ${fmtFull.format(m.revenue)}`}
-              >
-                {/* Bar area — absolute bars anchored to its own bottom */}
-                <div className="flex-1 relative w-full min-h-0">
-                  {m.target > 0 && (
-                    <div
-                      className="absolute w-full border-t-2 border-dashed border-amber-400/50 z-10"
-                      style={{ bottom: `${tH}%` }}
-                    />
-                  )}
-                  <div
-                    className="w-full rounded-t-sm bg-gradient-to-t from-blue-500 to-blue-400 opacity-85 absolute bottom-0 transition-[height] duration-700 ease-out"
-                    style={{ height: `${revH}%` }}
+              />
+              <ChartTooltip
+                cursor={{ stroke: 'var(--color-revenue)', strokeOpacity: 0.2 }}
+                content={
+                  <ChartTooltipContent
+                    indicator="dot"
+                    labelFormatter={(value) => value}
+                    formatter={(value, name) => [
+                      fmtFull.format(Number(value)),
+                      String(name),
+                    ]}
                   />
-                  <div
-                    className="w-[55%] rounded-t-sm bg-emerald-500/80 absolute bottom-0 left-1/2 -translate-x-1/2 transition-[height] duration-700 ease-out"
-                    style={{ height: `${marH}%` }}
-                  />
-                </div>
-                {/* Month label — its own row, always below the bars */}
-                <span className="text-[9px] text-muted-foreground mt-1.5 tabular-nums text-center shrink-0">
-                  {filter.month}
-                </span>
-              </button>
-            )
-          })}
+                }
+              />
+              <Area
+                dataKey="revenue"
+                name="Report"
+                type="natural"
+                fill="url(#fillRevenueAgent)"
+                stroke="var(--color-revenue)"
+                strokeWidth={2}
+              />
+              <Area
+                dataKey="margin"
+                name="Margem"
+                type="natural"
+                fill="url(#fillMarginAgent)"
+                stroke="var(--color-margin)"
+                strokeWidth={1.5}
+              />
+              <Line
+                dataKey="target"
+                name="Meta"
+                type="natural"
+                stroke="var(--color-target)"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+              />
+            </ComposedChart>
+          </ChartContainer>
         </div>
       </div>
 

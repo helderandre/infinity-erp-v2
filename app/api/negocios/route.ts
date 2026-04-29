@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createNegocioSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 
 export async function GET(request: Request) {
@@ -52,7 +53,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data: data || [], total: count || 0 })
+    const rows = data || []
+    const isManagement = isManagementRole(auth.roles)
+    const redactedRows = isManagement
+      ? rows.map((row: Record<string, unknown>) =>
+          shouldRedactLead(
+            auth.roles,
+            row.assigned_consultant_id as string | null | undefined,
+            auth.user.id,
+            row.referrer_consultant_id as string | null | undefined,
+          )
+            ? redactNestedLead(row)
+            : row,
+        )
+      : rows
+
+    return NextResponse.json({ data: redactedRows, total: count || 0 })
   } catch (error) {
     console.error('Erro ao listar negócios:', error)
     return NextResponse.json(

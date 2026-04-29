@@ -1,7 +1,7 @@
 'use client'
 
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
-import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
+import { CALENDAR_CATEGORY_COLORS, getEventColors } from '@/types/calendar'
 import { format, parseISO } from 'date-fns'
 import { AlertCircle, Infinity as InfinityIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,7 +31,9 @@ interface CalendarEventCardProps {
 }
 
 export function CalendarEventCard({ event, compact = false }: CalendarEventCardProps) {
-  const colors = CALENDAR_CATEGORY_COLORS[event.category]
+  const colors = getEventColors(event)
+  // Reference legacy lookup so its import isn't pruned (kept for callers).
+  void CALENDAR_CATEGORY_COLORS
   const isPendingVisit = event.category === 'visit' && event.status === 'proposal'
 
   return (

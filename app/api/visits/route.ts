@@ -135,8 +135,29 @@ export async function POST(request: Request) {
     const isSameAgent = sellerConsultantId && sellerConsultantId === parsed.data.consultant_id
     const initialStatus: 'proposal' | 'scheduled' = isSameAgent ? 'scheduled' : 'proposal'
 
+    // Quando o caller passa um negócio mas não passa lead_id, derivamos o
+    // lead a partir do negócio (negocios.lead_id) — evita exigir o passo
+    // explícito no diálogo de pedido de visita.
+    let derivedLeadId = parsed.data.lead_id ?? null
+    if (parsed.data.negocio_id && !derivedLeadId) {
+      const { data: negocio } = await admin
+        .from('negocios')
+        .select('lead_id, assigned_consultant_id')
+        .eq('id', parsed.data.negocio_id)
+        .maybeSingle()
+      // Defesa: o negócio tem de pertencer ao consultor que está a marcar.
+      if (!negocio || negocio.assigned_consultant_id !== parsed.data.consultant_id) {
+        return NextResponse.json(
+          { error: 'Negócio inválido para este consultor.' },
+          { status: 400 }
+        )
+      }
+      derivedLeadId = negocio.lead_id ?? null
+    }
+
     const visitData = {
       ...parsed.data,
+      lead_id: derivedLeadId,
       status: initialStatus,
       client_email: parsed.data.client_email || null,
       created_by: user.id,

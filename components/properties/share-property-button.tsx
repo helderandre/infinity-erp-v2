@@ -16,6 +16,7 @@ import {
   Sofa,
   Box,
 } from 'lucide-react'
+import { useUser } from '@/hooks/use-user'
 import { SharePropertyChannelDialog } from './share-channel-dialog'
 import { SharePropertyQrDialog } from './share-qr-dialog'
 
@@ -23,13 +24,19 @@ interface Props {
   propertyId: string
   propertySlug: string | null
   propertyTitle: string
+  /**
+   * Consultor da angariação. Quando o utilizador autenticado for diferente,
+   * todas as URLs partilhadas recebem `?c=<self>` para que a página pública
+   * `/apresentacao/[slug]` mostre as suas fotos e contactos em vez dos do
+   * angariador.
+   */
+  propertyConsultantId?: string | null
   showStaging?: boolean
   showAiPlantas?: boolean
   /**
-   * Quando `false`, os toggles "Decoração virtual (IA)" e "Plantas 3D (IA)"
-   * aparecem mas em modo só-leitura — o consultor que não é dono da
-   * angariação vê o que o dono configurou para a apresentação mas não pode
-   * alterar. Default: true.
+   * Quando `false`, esconde por completo os toggles "Decoração virtual (IA)"
+   * e "Plantas 3D (IA)" — o consultor que não é dono da angariação não vê
+   * as opções de apresentação. Default: true.
    */
   canEditFlags?: boolean
 }
@@ -38,10 +45,12 @@ export function SharePropertyButton({
   propertyId,
   propertySlug,
   propertyTitle,
+  propertyConsultantId,
   showStaging: showStagingProp,
   showAiPlantas: showAiPlantasProp,
   canEditFlags = true,
 }: Props) {
+  const { user } = useUser()
   const [open, setOpen] = useState(false)
   const [channelDialog, setChannelDialog] = useState<'email' | 'whatsapp' | null>(
     null,
@@ -83,8 +92,15 @@ export function SharePropertyButton({
   const publicUrl = useMemo(() => {
     if (typeof window === 'undefined') return ''
     const origin = window.location.origin
-    return `${origin}/apresentacao/${propertySlug || propertyId}`
-  }, [propertyId, propertySlug])
+    const base = `${origin}/apresentacao/${propertySlug || propertyId}`
+    // Quando o consultor a partilhar não é o angariador, atribuímos a
+    // página pública a si próprio via `?c=`. Caso contrário cai-se no
+    // default do server (consultor da angariação).
+    if (user?.id && propertyConsultantId && user.id !== propertyConsultantId) {
+      return `${base}?c=${user.id}`
+    }
+    return base
+  }, [propertyId, propertySlug, user?.id, propertyConsultantId])
 
   const copyLink = async () => {
     try {
@@ -121,30 +137,34 @@ export function SharePropertyButton({
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 p-1.5">
-          <div className="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-            Mostrar na apresentação
-          </div>
-          <ToggleRow
-            icon={Sofa}
-            label="Decoração virtual (IA)"
-            checked={showStaging}
-            disabled={!canEditFlags || savingFlag === 'presentation_show_staging'}
-            onCheckedChange={(v) => {
-              setShowStaging(v)
-              persistFlag('presentation_show_staging', v)
-            }}
-          />
-          <ToggleRow
-            icon={Box}
-            label="Plantas 3D (IA)"
-            checked={showAiPlantas}
-            disabled={!canEditFlags || savingFlag === 'presentation_show_ai_plantas'}
-            onCheckedChange={(v) => {
-              setShowAiPlantas(v)
-              persistFlag('presentation_show_ai_plantas', v)
-            }}
-          />
-          <div className="h-px bg-border my-1" />
+          {canEditFlags && (
+            <>
+              <div className="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                Mostrar na apresentação
+              </div>
+              <ToggleRow
+                icon={Sofa}
+                label="Decoração virtual (IA)"
+                checked={showStaging}
+                disabled={savingFlag === 'presentation_show_staging'}
+                onCheckedChange={(v) => {
+                  setShowStaging(v)
+                  persistFlag('presentation_show_staging', v)
+                }}
+              />
+              <ToggleRow
+                icon={Box}
+                label="Plantas 3D (IA)"
+                checked={showAiPlantas}
+                disabled={savingFlag === 'presentation_show_ai_plantas'}
+                onCheckedChange={(v) => {
+                  setShowAiPlantas(v)
+                  persistFlag('presentation_show_ai_plantas', v)
+                }}
+              />
+              <div className="h-px bg-border my-1" />
+            </>
+          )}
           <ActionRow icon={LinkIcon} label="Copiar link" onClick={copyLink} />
           <ActionRow
             icon={Mail}

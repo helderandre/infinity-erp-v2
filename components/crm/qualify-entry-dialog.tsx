@@ -23,6 +23,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
+import { invalidateAfterQualify } from '@/lib/crm/invalidator'
 
 interface QualifyEntryDialogProps {
   open: boolean
@@ -302,6 +303,10 @@ export function QualifyEntryDialog({
       }).catch(() => {})
 
       toast.success('Lead qualificado — negócio criado no pipeline')
+      // Invalida listas (kanban, lead-entries inbox, contactos, négocios)
+      // — qualquer vista subscrita ao invalidator vai re-fetch silenciosa.
+      // Ver lib/crm/invalidator.ts.
+      invalidateAfterQualify()
       onOpenChange(false)
       onQualified?.()
     } catch (err: any) {

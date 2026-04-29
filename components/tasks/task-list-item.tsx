@@ -1,17 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import {
-  Check, X, Loader2, RotateCcw, MoreHorizontal, MapPin,
+  RotateCcw, MoreHorizontal, MapPin, ArrowUpRight,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import {
   PriorityCheck, PriorityFlag, DueDateText, buildDueShort,
@@ -36,7 +28,12 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
   const dueDate = task.due_date ? new Date(task.due_date) : null
   const isProcessTask = task.source === 'proc_task' || task.source === 'proc_subtask'
   const isVisitProposalRecord = task.source === 'visit_proposal'
-  const isReadOnly = isProcessTask || isVisitProposalRecord
+  // Pessoal task vista por leadership a entrar noutro consultor: a API
+  // devolve título "Tarefa pessoal" e o flag `is_redacted`. Renderizamos
+  // muito esbatida e cinzenta — o utilizador não pode interagir nem
+  // navegar para o detalhe (clique é no-op).
+  const isRedacted = (task as any).is_redacted === true
+  const isReadOnly = isProcessTask || isVisitProposalRecord || isRedacted
 
   return (
     <div
@@ -46,8 +43,9 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
         'hover:bg-muted/40',
         isSelected && 'bg-primary/5 hover:bg-primary/5',
         task.is_completed && 'opacity-55',
+        isRedacted && 'opacity-40 pointer-events-none italic text-muted-foreground',
       )}
-      onClick={() => onSelect(task)}
+      onClick={() => isRedacted ? undefined : onSelect(task)}
     >
       <div className="mt-[3px]">
         <PriorityCheck
@@ -133,48 +131,25 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
 function VisitProposalRow({
   task,
   onSelect,
-  onRefresh,
   isSelected = false,
 }: {
   task: TaskWithRelations
   onSelect: (task: TaskWithRelations) => void
+  /** Refresh é chamado pelo detalhe da proposta após Confirmar/Rejeitar.
+   *  A linha em si não tem mais botões de acção, então não precisa do
+   *  callback aqui — mantemos a prop opcional para evitar churn no caller. */
   onRefresh?: () => void
   isSelected?: boolean
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [rejectOpen, setRejectOpen] = useState(false)
-  const [rejectReason, setRejectReason] = useState('')
-
-  const visitId = task.visit_id
   const propertyTitle = task.property_title || 'Imóvel'
   const clientName = task.visit_client_name || 'Cliente'
   const buyerAgent = task.visit_buyer_agent_name
   const dueDate = task.due_date ? new Date(task.due_date) : null
-  const subtitle = buyerAgent ? `${clientName} · por ${buyerAgent}` : clientName
-
-  const respond = async (decision: 'confirm' | 'reject', reason?: string) => {
-    if (!visitId) return
-    setIsSubmitting(true)
-    try {
-      const res = await fetch(`/api/visits/${visitId}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(decision === 'confirm' ? { decision } : { decision, reason }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Erro ao responder à proposta')
-      }
-      toast.success(decision === 'confirm' ? 'Visita confirmada' : 'Proposta rejeitada')
-      setRejectOpen(false)
-      setRejectReason('')
-      onRefresh?.()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  // Quando há colega a propôr (visita inter-agência), só mostramos o nome
+  // do colega — o contacto do comprador é dele, não nosso. Mantemos o
+  // nome do cliente apenas em visitas próprias (raras nesta fila, já que
+  // visit_proposal só aparece quando há buyer agent diferente do seller).
+  const subtitle = buyerAgent ? `Pedido por ${buyerAgent}` : clientName
 
   return (
     <>
@@ -216,65 +191,13 @@ function VisitProposalRow({
           </div>
         </div>
 
-        {/* Inline actions (right) */}
-        <div
-          className="flex items-center gap-1 shrink-0 self-start mt-[1px]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            size="sm"
-            className="h-6 px-2 gap-1 text-[11px] rounded-full bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => respond('confirm')}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-            <span className="hidden sm:inline">Confirmar</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 gap-1 text-[11px] rounded-full border-red-500/30 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
-            onClick={() => setRejectOpen(true)}
-            disabled={isSubmitting}
-          >
-            <X className="h-2.5 w-2.5" />
-            <span className="hidden sm:inline">Rejeitar</span>
-          </Button>
-        </div>
+        {/* Indicador de "ver mais" — toda a linha é clicável e abre o
+            detalhe da proposta com toda a informação (consultor que pediu,
+            cliente, imóvel, horário) e os botões Confirmar/Rejeitar. As
+            antigas acções inline foram removidas para forçar o consultor
+            a ler o pedido antes de decidir. */}
+        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 mt-1 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
       </div>
-
-      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Rejeitar proposta de visita</AlertDialogTitle>
-            <AlertDialogDescription>
-              Indica o motivo pelo qual estás a rejeitar esta proposta. O consultor do
-              comprador vai receber esta mensagem.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Textarea
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Ex: Imóvel com visita já marcada nesse horário"
-            rows={3}
-            autoFocus
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!rejectReason.trim() || isSubmitting}
-              onClick={(e) => {
-                e.preventDefault()
-                respond('reject', rejectReason.trim())
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isSubmitting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-              Rejeitar proposta
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

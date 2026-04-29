@@ -11,6 +11,7 @@ import {
   type DateOverride,
   type ExistingVisit,
 } from '@/lib/booking/slot-generator'
+import { getDefaultAvailabilityRules } from '@/lib/booking/default-rules'
 
 const bookingRequestSchema = z.object({
   name: z.string().trim().min(2, 'Nome obrigatório').max(120),
@@ -134,11 +135,9 @@ export async function POST(
       rules = consultantRules ?? []
     }
 
+    // Sem regras configuradas → assume janela default (09:00–19:00, 7 dias)
     if (rules.length === 0) {
-      return NextResponse.json(
-        { error: 'Sem disponibilidade configurada' },
-        { status: 400 }
-      )
+      rules = getDefaultAvailabilityRules()
     }
 
     // Fetch existing visits for the consultant on the target date

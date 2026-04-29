@@ -19,8 +19,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { CALENDAR_CATEGORY_COLORS, CALENDAR_CATEGORY_LABELS } from '@/types/calendar'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useCalendarReminders } from '@/hooks/use-calendar-reminders'
-import { Infinity as InfinityIcon, MapPin, BarChart3, Video } from 'lucide-react'
+import { Infinity as InfinityIcon, MapPin, BarChart3, Video, X } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
+import { isLeadership, isManagementRole } from '@/lib/auth/roles'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -47,10 +48,9 @@ function CalendarioPageInner() {
   const searchParams = useSearchParams()
   const deepLinkHandled = useRef(false)
 
-  const MANAGER_ROLES = ['Broker/CEO', 'admin', 'Office Manager', 'Gestora Processual']
-  const isManager = currentUser?.role?.name
-    ? MANAGER_ROLES.some((r) => r.toLowerCase() === currentUser.role!.name!.toLowerCase())
-    : false
+  // Gate canónico para "ver outros calendários" + atalho de assiduidade.
+  // Inclui admin, Broker/CEO, Gestor Processual, Office Manager, Team Leader.
+  const isManager = isManagementRole(currentUser?.role_names ?? [])
   const [editingEvent, setEditingEvent] = useState<Partial<CalendarEventFormData> | undefined>()
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [users, setUsers] = useState<{ id: string; name: string }[]>([])
@@ -337,43 +337,62 @@ function CalendarioPageInner() {
         hasActiveFilters={!!filterUserId || filterSelf}
       />
 
-      {/* Horizontal filter chip row — desktop/tablet only; mobile uses
-          the sheet that opens from the toolbar filter icon. */}
-      <div className="hidden md:block">
-        <CalendarFilterChips
-          categories={categories}
-          onToggleCategory={toggleCategory}
-          onSetCategories={setCategories}
-          users={users}
-          selectedUserId={filterUserId}
-          onUserChange={setFilterUserId}
-          filterSelf={filterSelf}
-          onToggleFilterSelf={toggleFilterSelf}
-          showTasks={showTasks}
-          onToggleShowTasks={() => setShowTasks((v) => !v)}
-          taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
-        />
-      </div>
+      {/* Calendar + collapsible filters aside (md+).
+          Estilo igual à página de Imóveis: clicar em "Filtros" no toolbar
+          abre o painel à direita e comprime o calendário. Em mobile o
+          mesmo botão abre a Sheet de baixo (renderizada mais abaixo). */}
+      <div className="flex flex-1 min-h-0 gap-4 items-stretch">
+        <main className="flex-1 min-w-0 overflow-auto rounded-2xl bg-card/40 ring-1 ring-border/60">
+          <CalendarView
+            events={events}
+            tasks={showTasks ? tasks : []}
+            isLoading={isLoading}
+            currentDate={currentDate}
+            view={view}
+            onDateChange={handleDateChange}
+            onViewChange={handleViewChange}
+            onEventClick={handleEventClick}
+            onDayClick={handleDayClick}
+            onCreateAtTime={handleCreateAtTime}
+            onDayNumberClick={handleDayNumberClick}
+            onDayBack={handleDayBack}
+            dayBackLabel={previousView === 'week' ? 'Semana' : 'Mês'}
+            onTaskSelect={handleTaskSelect}
+            onTaskToggleComplete={toggleTaskComplete}
+          />
+        </main>
 
-      {/* Main calendar area — full width, no sidebar */}
-      <div className="flex-1 overflow-auto rounded-2xl bg-card/40 ring-1 ring-border/60">
-        <CalendarView
-          events={events}
-          tasks={showTasks ? tasks : []}
-          isLoading={isLoading}
-          currentDate={currentDate}
-          view={view}
-          onDateChange={handleDateChange}
-          onViewChange={handleViewChange}
-          onEventClick={handleEventClick}
-          onDayClick={handleDayClick}
-          onCreateAtTime={handleCreateAtTime}
-          onDayNumberClick={handleDayNumberClick}
-          onDayBack={handleDayBack}
-          dayBackLabel={previousView === 'week' ? 'Semana' : 'Mês'}
-          onTaskSelect={handleTaskSelect}
-          onTaskToggleComplete={toggleTaskComplete}
-        />
+        {filtersOpen && (
+          <aside className="hidden md:flex shrink-0 w-[360px] lg:w-[380px] flex-col gap-3 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 animate-in fade-in slide-in-from-right-4 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold tracking-tight">Filtros</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 -mr-1"
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Fechar filtros"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <CalendarFilterChips
+              categories={categories}
+              onToggleCategory={toggleCategory}
+              onSetCategories={setCategories}
+              users={users}
+              selectedUserId={filterUserId}
+              onUserChange={setFilterUserId}
+              filterSelf={filterSelf}
+              onToggleFilterSelf={toggleFilterSelf}
+              showTasks={showTasks}
+              onToggleShowTasks={() => setShowTasks((v) => !v)}
+              taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
+              canSelectOthers={isManager}
+              className="flex-wrap overflow-visible"
+            />
+          </aside>
+        )}
       </div>
 
       {/* Event detail sheet */}
@@ -415,30 +434,40 @@ function CalendarioPageInner() {
         onSubmit={handleFormSubmit}
         initialData={editingEvent}
         users={users}
+        isLeadership={isLeadership(currentUser?.role_names ?? [])}
       />
 
-      {/* Mobile filters sheet — same chip UI, just in a wrap-friendly layout */}
-      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-80 p-4">
-          <SheetHeader className="pb-4">
-            <SheetTitle>Filtros</SheetTitle>
-          </SheetHeader>
-          <CalendarFilterChips
-            categories={categories}
-            onToggleCategory={toggleCategory}
-            onSetCategories={setCategories}
-            users={users}
-            selectedUserId={filterUserId}
-            onUserChange={setFilterUserId}
-            filterSelf={filterSelf}
-            onToggleFilterSelf={toggleFilterSelf}
-            showTasks={showTasks}
-            onToggleShowTasks={() => setShowTasks((v) => !v)}
-            taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
-            className="flex-wrap overflow-visible"
-          />
-        </SheetContent>
-      </Sheet>
+      {/* Mobile filters sheet — espelha o pattern dos imóveis (bottom sheet
+          rounded-t-3xl, ~85dvh). No desktop os filtros vivem no aside lateral
+          (acima); este Sheet apenas abre quando o utilizador toca no botão
+          em ecrãs pequenos. */}
+      {isMobile && (
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent
+            side="bottom"
+            className="h-[85dvh] rounded-t-3xl p-4 overflow-y-auto"
+          >
+            <SheetHeader className="pb-3">
+              <SheetTitle>Filtros</SheetTitle>
+            </SheetHeader>
+            <CalendarFilterChips
+              categories={categories}
+              onToggleCategory={toggleCategory}
+              onSetCategories={setCategories}
+              users={users}
+              selectedUserId={filterUserId}
+              onUserChange={setFilterUserId}
+              filterSelf={filterSelf}
+              onToggleFilterSelf={toggleFilterSelf}
+              showTasks={showTasks}
+              onToggleShowTasks={() => setShowTasks((v) => !v)}
+              taskCount={tasks?.filter((t) => !t.is_completed).length ?? 0}
+              className="flex-wrap overflow-visible"
+              canSelectOthers={isManager}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Day events bottom sheet (mobile) */}
       <Sheet open={daySheetOpen} onOpenChange={setDaySheetOpen}>

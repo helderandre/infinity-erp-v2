@@ -20,11 +20,17 @@ type ResolvedEntity = {
   label: string
   subtitle?: string
   href: string
-  icon: 'lead' | 'negocio' | 'property' | 'owner' | 'process'
-  /** Phone / email — only populated for lead or negocio's linked contact. */
+  icon: 'lead' | 'negocio' | 'property' | 'owner' | 'process' | 'lead_entry'
+  /** Phone / email — populated when there's a contactable lead behind the
+   *  entity (lead, owner, negocio's linked contact, lead_entry's matched
+   *  contact, etc.). */
   phone?: string
   email?: string
   contactHref?: string
+  /** Optional secondary link — used by the process card to expose the
+   *  property tied to it as a separate clickable row. */
+  secondaryHref?: string
+  secondaryLabel?: string
 }
 
 async function fetchEntity(
@@ -78,8 +84,12 @@ async function fetchEntity(
       return {
         label,
         subtitle: [n.localizacao, n.estado].filter(Boolean).join(' · ') || undefined,
+        // Abre a página do contacto com o sheet do negócio aberto. A página
+        // /dashboard/leads/[id] consome `?negocio=<id>` e abre o
+        // <NegocioDetailSheet> automaticamente. Para negócios sem contacto
+        // associado (raros), cai no detalhe full-screen do negócio.
         href: n.lead_id
-          ? `/dashboard/leads/${n.lead_id}/negocios/${n.id}`
+          ? `/dashboard/leads/${n.lead_id}?negocio=${n.id}`
           : `/dashboard/negocios/${n.id}`,
         icon: 'negocio',
         phone,
@@ -98,6 +108,68 @@ async function fetchEntity(
         subtitle: [p.city, p.external_ref].filter(Boolean).join(' · ') || undefined,
         href: `/dashboard/imoveis/${p.id}`,
         icon: 'property',
+      }
+    }
+    if (entityType === 'lead_entry') {
+      // Lead = entrada bruta no funil (`leads_entries`). Quando há contacto
+      // associado, expomos os botões de Ligar/WhatsApp/Email como em qualquer
+      // contacto. O click principal abre a página do contacto se já existir,
+      // senão a listagem de leads-entries (ainda sem detalhe dedicado).
+      const res = await fetch(`/api/lead-entries/${entityId}`)
+      if (!res.ok) return null
+      const le: any = await res.json()
+      if (!le?.id) return null
+      const contact = le.contact ?? null
+      const label = contact?.nome || le.source || 'Lead sem contacto'
+      const subtitle = [le.source, le.status].filter(Boolean).join(' · ') || undefined
+      return {
+        label,
+        subtitle,
+        href: contact?.id ? `/dashboard/leads/${contact.id}` : `/dashboard/crm/lead-entries`,
+        icon: 'lead_entry',
+        phone: contact?.telemovel ? String(contact.telemovel) : undefined,
+        email: contact?.email ? String(contact.email) : undefined,
+        contactHref: contact?.id ? `/dashboard/leads/${contact.id}` : undefined,
+      }
+    }
+    if (entityType === 'process') {
+      // Processo: dependendo do tipo, o "container" canónico é diferente.
+      //   - process_type='angariacao' → página do imóvel (tab Processo).
+      //   - process_type='negocio'    → detalhe do negócio (tab Processo).
+      // Mantemos o link à propriedade como acção secundária quando existe.
+      const res = await fetch(`/api/processes/${entityId}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      const p: any = data?.data ?? data
+      if (!p?.id) return null
+      const isNeg = p.process_type === 'negocio'
+      const propertyId = p.property?.id ?? p.property_id ?? null
+      const propertyTitle = p.property?.title ?? null
+      const negocioId = p.negocio_id ?? null
+      const leadId = p.negocio?.lead_id ?? null
+      // Click principal:
+      let href = `/dashboard/processos/${p.id}`
+      if (isNeg && negocioId) {
+        href = leadId
+          ? `/dashboard/leads/${leadId}/negocios/${negocioId}?tab=processo`
+          : `/dashboard/negocios/${negocioId}?tab=processo`
+      } else if (!isNeg && propertyId) {
+        href = `/dashboard/imoveis/${propertyId}?tab=processo`
+      }
+      const label = p.external_ref || (isNeg ? 'Processo de negócio' : 'Processo de angariação')
+      const subtitleParts = [
+        isNeg ? 'Negócio' : 'Angariação',
+        propertyTitle,
+      ].filter(Boolean) as string[]
+      return {
+        label,
+        subtitle: subtitleParts.join(' · ') || undefined,
+        href,
+        icon: 'process',
+        // Link secundário para o imóvel (quando existe) — útil para abrir a
+        // página do imóvel directamente sem passar pela tab.
+        secondaryHref: propertyId ? `/dashboard/imoveis/${propertyId}` : undefined,
+        secondaryLabel: propertyTitle ?? undefined,
       }
     }
     if (entityType === 'owner') {
@@ -125,6 +197,7 @@ async function fetchEntity(
 
 const ICON_MAP = {
   lead: User,
+  lead_entry: User,
   negocio: Handshake,
   property: Building2,
   owner: UserCheck,
@@ -249,6 +322,25 @@ export function TaskEntityCard({ entityType, entityId }: Props) {
               </Link>
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Secondary link — usado pelo cartão de Processo para mostrar o
+          imóvel associado como atalho extra. */}
+      {entity.secondaryHref && entity.secondaryLabel && (
+        <div className="pt-1 border-t border-border/50">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-7 text-[11px] gap-1 rounded-full px-2"
+          >
+            <Link href={entity.secondaryHref}>
+              <Building2 className="h-3 w-3" />
+              <span className="truncate max-w-[180px]">{entity.secondaryLabel}</span>
+              <ArrowUpRight className="h-3 w-3 ml-0.5 opacity-60" />
+            </Link>
+          </Button>
         </div>
       )}
     </div>
