@@ -541,37 +541,37 @@ export function AiVoiceAssistant() {
     return () => window.removeEventListener('open-voice-assistant', handler)
   }, [open])
 
-  // Gesto MOBILE-only para abrir o assistente: DOIS TOQUES rápidos em
-  // qualquer parte do ecrã (≤ 350 ms entre toques, < 30 px de distância
-  // entre os dois toques).
+  // Gesto MOBILE-only para abrir o assistente: TRÊS TOQUES rápidos em
+  // qualquer parte do ecrã (≤ 350 ms entre toques consecutivos, < 30 px
+  // entre os dois toques mais distantes).
   //
-  // Substitui o swipe anterior, que era cortado pelo iOS quando o gesto
-  // era interpretado como scroll. Double-tap é robusto a esse problema.
+  // Triple-tap em vez de double-tap: praticamente impossível de disparar
+  // acidentalmente, e em texto a selecção nativa do iOS/Android passa por
+  // word (2.º tap) → paragraph (3.º tap) — abortamos sempre que houver
+  // selecção activa depois do 3.º tap (mesma mitigação do double-tap).
   //
   // No desktop (pointer: fine, rato) NÃO há gesto — o botão de voz no
   // topbar é a única forma de abrir.
   //
-  // Conviv com gestos nativos:
+  // Convivência com gestos nativos:
   //   • Long-press (cópia de texto): nativo do iOS/Android, intacto.
-  //     Não usamos pointer/touch listeners que interfiram.
-  //   • Double-tap em texto (selecção de palavra): se o sistema criou
-  //     uma selecção, abortamos antes de disparar (verificação 60 ms
-  //     depois para deixar o iOS processar a selecção primeiro).
-  //   • Double-tap-to-zoom: depende do viewport meta. Se acontecer,
-  //     o nosso listener mete-se "à frente" porque corre em capture
-  //     phase no `touchend`. Mesmo se zoom ocorrer, a voz também abre.
+  //   • Triple-tap em texto (selecção de parágrafo): abortamos se há
+  //     selecção activa 60 ms após o 3.º tap.
+  //   • Android Magnification accessibility (triple-tap to zoom): clash
+  //     real só se o utilizador tiver activado em Settings → Accessibility
+  //     → Magnification. Default OFF; opt-in raríssimo.
   //   • Inputs/buttons/links/contenteditable: skip total (opt-out).
-  //   • Nodes com `data-no-long-press`: skip (mantemos o opt-out por
-  //     consistência com a regra anterior de long-press).
+  //   • Nodes com `data-no-long-press`: skip.
   useEffect(() => {
     if (open) return
     if (typeof window === 'undefined') return
     const isCoarse = window.matchMedia?.('(pointer: coarse)').matches
     if (!isCoarse) return
 
-    let lastTapTime = 0
-    let lastTapX = 0
-    let lastTapY = 0
+    // Buffer rolling dos últimos 2 toques (tempo + posição). Quando entra
+    // o 3.º consecutivo dentro da janela e da proximidade, dispara.
+    type Tap = { time: number; x: number; y: number }
+    let taps: Tap[] = []
 
     const isOptOut = (target: EventTarget | null): boolean => {
       const el = target as HTMLElement | null
@@ -598,38 +598,43 @@ export function AiVoiceAssistant() {
     }
 
     const onTouchEnd = (e: TouchEvent) => {
-      // Só nos interessa o caso de um dedo só (multi-touch é zoom etc.).
-      if (e.changedTouches.length !== 1) return
-      if (isOptOut(e.target)) return
-      const t = e.changedTouches[0]
-      const now = Date.now()
-      const dt = now - lastTapTime
-      const dx = Math.abs(t.clientX - lastTapX)
-      const dy = Math.abs(t.clientY - lastTapY)
-
-      const isDoubleTap = dt < 350 && dx < 30 && dy < 30 && lastTapTime > 0
-
-      if (isDoubleTap) {
-        // Reset para evitar que um terceiro toque dispare de novo.
-        lastTapTime = 0
-        // Esperamos 60 ms antes de disparar para o iOS ter tempo de
-        // processar a possível selecção de palavra (double-tap em texto
-        // selecciona uma palavra natviamente). Se houver selecção activa
-        // depois desse tempo, abortamos — o utilizador queria copiar.
-        window.setTimeout(() => {
-          const sel = window.getSelection?.()
-          if (sel && !sel.isCollapsed) return
-          try {
-            ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
-          } catch {}
-          window.dispatchEvent(new Event('open-voice-assistant'))
-        }, 60)
-      } else {
-        // Primeiro toque (ou toques demasiado afastados no tempo/espaço).
-        lastTapTime = now
-        lastTapX = t.clientX
-        lastTapY = t.clientY
+      if (e.changedTouches.length !== 1) {
+        taps = []
+        return
       }
+      if (isOptOut(e.target)) {
+        taps = []
+        return
+      }
+      const t = e.changedTouches[0]
+      const tap: Tap = { time: Date.now(), x: t.clientX, y: t.clientY }
+
+      // Mantém só taps que estão a ≤ 350 ms do mais recente que vamos
+      // empilhar, e que partilham proximidade < 30 px com este. Qualquer
+      // toque que não cumpra rebaixa a sequência a um único.
+      const fits = taps.every(
+        (prev) =>
+          tap.time - prev.time <= 350 &&
+          Math.abs(tap.x - prev.x) < 30 &&
+          Math.abs(tap.y - prev.y) < 30,
+      )
+      taps = fits ? [...taps, tap] : [tap]
+
+      if (taps.length < 3) return
+
+      // 3.º toque a contar — limpa para o próximo gesto não disparar de
+      // novo com um 4.º toque acidental.
+      taps = []
+      // Esperamos 60 ms antes de disparar — em texto, o iOS/Android
+      // selecciona o parágrafo no 3.º tap e queremos respeitar isso.
+      window.setTimeout(() => {
+        const sel = window.getSelection?.()
+        if (sel && !sel.isCollapsed) return
+        try {
+          ;(navigator as Navigator & { vibrate?: (v: number) => void }).vibrate?.(15)
+        } catch {}
+        window.dispatchEvent(new Event('open-voice-assistant'))
+      }, 60)
     }
 
     // `passive: true` — não chamamos preventDefault; queremos preservar
