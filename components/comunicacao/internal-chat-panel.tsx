@@ -90,6 +90,11 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   const [mentionUsers, setMentionUsers] = useState<{ id: string; display: string }[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Ref ao textarea interno do MentionsInput para conseguir refocus
+  // após enviar mensagem — o `disabled={isSubmitting}` durante o submit
+  // tira o foco e por defeito não volta. Devolver o foco mantém o
+  // utilizador a escrever sem ter de clicar de novo.
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -296,6 +301,12 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem')
     } finally {
       setIsSubmitting(false)
+      // Devolve o foco ao textarea após o disabled sair (próximo tick).
+      // Sem isto, o utilizador precisa de clicar de novo para continuar
+      // a escrever — péssima UX para conversa fluida.
+      requestAnimationFrame(() => {
+        messageInputRef.current?.focus()
+      })
     }
   }, [value, isSubmitting, sendMessage, setTyping, replyTo, attachments, uploadAttachments])
 
@@ -511,6 +522,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
                 <MentionsInput
+                  inputRef={messageInputRef}
                   value={value}
                   onChange={(_e, newValue) => handleValueChange(newValue)}
                   placeholder={INTERNAL_CHAT_LABELS.placeholder}

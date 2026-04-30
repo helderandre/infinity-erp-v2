@@ -463,9 +463,8 @@ main:has([data-acessos-page]) {
 }
 
 /* Esconde o highlight visual da selecção de texto (caixa azul por
- * defeito do ::selection). A cópia continua a funcionar — o iOS mostra
- * a lupa e o context-menu nativos, e o utilizador percebe o que está a
- * copiar pela lupa; o highlight permanente sai por opção de design.
+ * defeito do ::selection) na maioria do site. A cópia continua a
+ * funcionar — o iOS mostra a lupa e o context-menu nativos.
  * `color: inherit` evita que o texto mude de cor durante a selecção. */
 ::selection {
   background: transparent;
@@ -474,4 +473,26 @@ main:has([data-acessos-page]) {
 ::-moz-selection {
   background: transparent;
   color: inherit;
+}
+
+/* Excepção: campos de input interactivos (inputs, textareas e
+ * contenteditable) recuperam o highlight em azul translúcido. São
+ * superfícies onde o utilizador está activamente a escrever/editar
+ * e precisa de feedback visual claro do que está seleccionado para
+ * substituir, copiar ou apagar.
+ * Mensagens do chat (bubbles) recebem o mesmo tratamento via Tailwind
+ * variant `selection:` em chat-message.tsx — ver lá. */
+input::selection,
+textarea::selection,
+[contenteditable]::selection,
+[contenteditable] *::selection {
+  background-color: rgb(59 130 246 / 0.5); /* blue-500 / 50% */
+  color: white;
+}
+input::-moz-selection,
+textarea::-moz-selection,
+[contenteditable]::-moz-selection,
+[contenteditable] *::-moz-selection {
+  background-color: rgb(59 130 246 / 0.5);
+  color: white;
 }

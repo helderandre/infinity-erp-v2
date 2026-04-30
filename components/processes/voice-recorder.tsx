@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Mic, Square, Play, Pause, Trash2, Send, X } from 'lucide-react'
@@ -417,6 +417,32 @@ interface VoiceMessagePlayerProps {
   variant?: 'own' | 'other'
 }
 
+/**
+ * Gera alturas determinísticas para as barras do waveform a partir do
+ * `src`. Decode real do áudio é caro (precisa Web Audio API + fetch +
+ * AudioContext.decodeAudioData) — para o nosso caso, um waveform
+ * "natural-looking" estável serve. WhatsApp Web faz decode real;
+ * aqui geramos pseudo-amplitudes a partir de um hash do src.
+ */
+function getWaveformBars(src: string, count = 36): number[] {
+  let hash = 0
+  for (let i = 0; i < src.length; i++) {
+    hash = ((hash << 5) - hash) + src.charCodeAt(i)
+    hash |= 0
+  }
+  const bars: number[] = []
+  for (let i = 0; i < count; i++) {
+    // Mistura linear congruential com sin/cos para evitar barras lineares.
+    const seed = Math.abs((hash + i * 2654435761) | 0)
+    const r = (seed % 1000) / 1000
+    const wave = (Math.sin(i * 0.5) + 1) / 2
+    const mix = (r * 0.65 + wave * 0.35) // 0..1
+    // Floor 0.2 para barras curtas continuarem visíveis.
+    bars.push(0.2 + mix * 0.8)
+  }
+  return bars
+}
+
 export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMessagePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -427,50 +453,116 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
   const animRef = useRef<number | null>(null)
   const playStartRef = useRef<number>(0)
   const elapsedBeforePauseRef = useRef<number>(0)
+  // Ref síncrono para o update loop ler a duração sempre actualizada,
+  // sem depender do closure do togglePlay (que pode ficar stale).
+  const totalDurationRef = useRef(totalDuration)
+  useEffect(() => { totalDurationRef.current = totalDuration }, [totalDuration])
 
+  // Pré-carrega o áudio (metadata + handlers) no mount. Permite mostrar
+  // a duração total antes de play (estilo WhatsApp) e centraliza toda
+  // a configuração — togglePlay limita-se a play/pause sem ter de
+  // re-criar o elemento.
+  //
+  // ⚠️ webm-Infinity-fix: ficheiros webm gravados pelo MediaRecorder
+  // (todas as voice messages no nosso chat) reportam
+  // `audio.duration === Infinity` mesmo depois do metadata carregar. O
+  // truque clássico para obter a duração real: seek para o fim
+  // (`currentTime = 1e10`), esperar pelo `timeupdate`, ler o
+  // `currentTime` (que agora é a duração real), e reset para 0. Sem
+  // este fix nem o label da direita nem a barra de progresso funcionam.
   useEffect(() => {
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current)
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    audio.src = src
+
+    const resolveDuration = (realDuration: number) => {
+      if (isFinite(realDuration) && realDuration > 0) {
+        setTotalDuration(realDuration)
+        setResolvedDuration(true)
       }
     }
-  }, [])
+
+    audio.onloadedmetadata = () => {
+      // Caso normal: duration finita imediatamente.
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        resolveDuration(audio.duration)
+        return
+      }
+      // webm Infinity: aplica seek-trick em background para resolver
+      // duration ANTES do primeiro play — assim o label da direita já
+      // mostra a duração total na carga inicial. Caso o user clique
+      // play antes disto terminar, togglePlay tem o seu próprio guard.
+      const onTimeUpdate = () => {
+        const real = audio.currentTime
+        audio.removeEventListener('timeupdate', onTimeUpdate)
+        audio.currentTime = 0
+        resolveDuration(real)
+      }
+      audio.addEventListener('timeupdate', onTimeUpdate)
+      audio.currentTime = 1e10
+    }
+    audio.onerror = () => {
+      toast.error('Erro ao reproduzir áudio')
+      setIsPlaying(false)
+    }
+    audio.onended = () => {
+      setIsPlaying(false)
+      setProgress(1)
+      const elapsed = elapsedBeforePauseRef.current + (Date.now() - playStartRef.current) / 1000
+      if (audioRef.current && (!isFinite(audioRef.current.duration) || audioRef.current.duration <= 0)) {
+        // Fallback final caso o seek-trick também tenha falhado.
+        resolveDuration(elapsed)
+        setCurrentTime(elapsed)
+      } else if (audioRef.current) {
+        setCurrentTime(audioRef.current.duration)
+      }
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+    }
+    audioRef.current = audio
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+      audio.pause()
+      audioRef.current = null
+    }
+  }, [src])
 
   // Helper: check if we have a finite duration (from metadata or from ended event)
   const hasDuration = totalDuration > 0 && resolvedDuration
 
   const togglePlay = useCallback(async () => {
-    if (!audioRef.current) {
-      const audio = new Audio()
-      audio.preload = 'auto'
-      audio.src = src
+    if (!audioRef.current) return // useEffect ainda não criou (não devia acontecer)
+    const audio = audioRef.current
 
-      audio.onloadedmetadata = () => {
-        if (isFinite(audio.duration) && audio.duration > 0) {
-          setTotalDuration(audio.duration)
-          setResolvedDuration(true)
+    // webm-Infinity-fix: resolve a duração antes do primeiro play. O
+    // MediaRecorder do browser produz webm com `duration === Infinity`
+    // e a única forma de obter o valor real é seek-to-end + ler
+    // currentTime no `timeupdate`. Fazemos isto antes de play para
+    // evitar UX ruidoso (currentTime saltar durante a reprodução).
+    if (!resolvedDuration && (!isFinite(audio.duration) || audio.duration <= 0)) {
+      await new Promise<void>((resolve) => {
+        const cleanup = () => {
+          audio.removeEventListener('timeupdate', onUpdate)
+          audio.removeEventListener('seeked', onSeeked)
+          if (timeoutId) clearTimeout(timeoutId)
         }
-      }
-      audio.onerror = () => {
-        toast.error('Erro ao reproduzir áudio')
-        setIsPlaying(false)
-      }
-      audio.onended = () => {
-        setIsPlaying(false)
-        setProgress(1)
-        // Capture real duration from elapsed time if metadata was Infinity
-        const elapsed = elapsedBeforePauseRef.current + (Date.now() - playStartRef.current) / 1000
-        if (!resolvedDuration || totalDuration <= 0) {
-          setTotalDuration(elapsed)
-          setResolvedDuration(true)
+        const finish = (real: number) => {
+          cleanup()
+          audio.currentTime = 0
+          if (isFinite(real) && real > 0) {
+            setTotalDuration(real)
+            setResolvedDuration(true)
+          }
+          resolve()
         }
-        setCurrentTime(totalDuration > 0 ? totalDuration : elapsed)
-        if (animRef.current) cancelAnimationFrame(animRef.current)
-      }
-
-      audioRef.current = audio
+        const onUpdate = () => finish(audio.currentTime)
+        const onSeeked = () => finish(audio.currentTime)
+        // Safety net se nem `timeupdate` nem `seeked` dispararem
+        // (ex.: browser sem suporte) — não bloqueia o user.
+        const timeoutId = setTimeout(() => { cleanup(); resolve() }, 1500)
+        audio.addEventListener('timeupdate', onUpdate)
+        audio.addEventListener('seeked', onSeeked)
+        audio.currentTime = 1e10
+      })
     }
 
     if (isPlaying) {
@@ -497,21 +589,24 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
         if (audioRef.current && !audioRef.current.paused) {
           const dur = audioRef.current.duration
           const elapsed = elapsedBeforePauseRef.current + (Date.now() - playStartRef.current) / 1000
+          // Lê via ref para apanhar updates posteriores ao closure
+          // (ex: seek-trick que resolveu totalDuration entretanto).
+          const tdur = totalDurationRef.current
 
           if (dur && isFinite(dur) && dur > 0) {
-            // Normal case: browser knows the duration
+            // Caso normal: browser conhece a duração.
             setProgress(audioRef.current.currentTime / dur)
             setCurrentTime(audioRef.current.currentTime)
             if (!resolvedDuration) {
               setTotalDuration(dur)
               setResolvedDuration(true)
             }
-          } else if (totalDuration > 0) {
-            // We know duration from a previous play or prop — estimate progress
-            setProgress(Math.min(elapsed / totalDuration, 0.99))
+          } else if (tdur > 0) {
+            // webm Infinity mas com duration resolvida via seek-trick.
+            setProgress(Math.min(elapsed / tdur, 0.99))
             setCurrentTime(elapsed)
           } else {
-            // Unknown duration — just count up, no progress bar advancement
+            // Sem duração ainda — só conta tempo. Progress não avança.
             setCurrentTime(elapsed)
           }
           animRef.current = requestAnimationFrame(update)
@@ -539,11 +634,25 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
     }
   }, [totalDuration])
 
-  // Time display: "current / total" or just elapsed if total unknown
+  // Time display: durante reprodução mostra current; em pausa/início
+  // mostra total (estilo WhatsApp). Se não houver duration resolvida,
+  // fallback ao currentTime.
   const currentDisplay = formatDuration(currentTime * 1000)
   const totalDisplay = hasDuration ? formatDuration(totalDuration * 1000) : null
+  const timeLabel = isPlaying && totalDisplay ? currentDisplay : (totalDisplay ?? currentDisplay)
 
   const isOther = variant === 'other'
+
+  // Bars determinísticas por src — mesma mensagem rende sempre o
+  // mesmo waveform.
+  const bars = useMemo(() => getWaveformBars(src), [src])
+
+  // Click-to-seek: mapeia X do click para 0..1 e seeka.
+  const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    handleSeek([ratio * 100])
+  }, [handleSeek])
 
   return (
     <div className="flex items-center gap-2.5 w-[280px]">
@@ -564,38 +673,69 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
         )}
       </button>
 
-      {/* Slider */}
-      <div className="flex-1 min-w-0">
-        <Slider
-          value={[progress * 100]}
-          min={0}
-          max={100}
-          step={0.5}
-          onValueChange={handleSeek}
-          className={cn(
-            '[&_[data-slot=slider-track]]:h-1',
-            '[&_[data-slot=slider-thumb]]:size-2.5',
-            isOther
-              ? [
-                  '[&_[data-slot=slider-track]]:!bg-foreground/15',
-                  '[&_[data-slot=slider-range]]:!bg-foreground/50',
-                  '[&_[data-slot=slider-thumb]]:!border-foreground [&_[data-slot=slider-thumb]]:!bg-foreground',
-                ]
-              : [
-                  '[&_[data-slot=slider-track]]:!bg-primary-foreground/25',
-                  '[&_[data-slot=slider-range]]:!bg-primary-foreground/70',
-                  '[&_[data-slot=slider-thumb]]:!border-primary-foreground [&_[data-slot=slider-thumb]]:!bg-primary-foreground',
-                ]
-          )}
-        />
+      {/* Waveform (estilo WhatsApp) — barras com altura determinística
+          a partir do src; renderizado em duplo layer para que a
+          progressão seja pixel-perfect (não salta barra-a-barra).
+          Camada 1: barras translúcidas, full width.
+          Camada 2: cópia em cor sólida, clipped por `width: progress%`
+          via overflow:hidden no wrapper. À medida que `progress` muda,
+          a camada 2 estende-se para a direita revelando barras "tocadas"
+          com transição suave. Click seeka. */}
+      <div
+        onClick={handleWaveformClick}
+        className="relative flex-1 min-w-0 h-6 cursor-pointer"
+        role="slider"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+      >
+        {/* Layer 1 — barras unfilled (background) */}
+        <div className="absolute inset-0 flex items-center gap-[2px]">
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex-1 rounded-full',
+                isOther ? 'bg-foreground/30' : 'bg-primary-foreground/35',
+              )}
+              style={{ height: `${Math.round(h * 100)}%` }}
+            />
+          ))}
+        </div>
+        {/* Layer 2 — barras filled (clipped por width). Usa
+            top/bottom/left (não `inset-0`!) para que `width` em pixels
+            funcione — `inset-0` forçaria `right: 0` e `width:100%`,
+            impedindo a animação. */}
+        <div
+          className="absolute top-0 bottom-0 left-0 overflow-hidden"
+          style={{ width: `${progress * 100}%` }}
+          aria-hidden="true"
+        >
+          <div
+            className="h-full flex items-center gap-[2px]"
+            style={{ width: `${(100 / Math.max(progress, 0.0001))}%` }}
+          >
+            {bars.map((h, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'flex-1 rounded-full',
+                  isOther ? 'bg-foreground' : 'bg-primary-foreground',
+                )}
+                style={{ height: `${Math.round(h * 100)}%` }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Time */}
+      {/* Total time à direita (estilo WhatsApp — mostra duração total
+          em pausa/início, currentTime durante reprodução). */}
       <span className={cn(
         'text-[10px] font-mono tabular-nums shrink-0',
         isOther ? 'text-muted-foreground' : 'text-primary-foreground/70'
       )}>
-        {totalDisplay ? `${currentDisplay} / ${totalDisplay}` : currentDisplay}
+        {timeLabel}
       </span>
     </div>
   )
